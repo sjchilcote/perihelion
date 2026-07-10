@@ -237,7 +237,9 @@ Narrative function:
   species that cannot pass its tests), plus **autonomous weapons of war built to fight
   the invaders**, ancient, damaged, and no longer reliably able to distinguish friend
   from foe. The player must defeat, subvert, and reverse-engineer these — and will later
-  need every one of them.
+  need every one of them. (Director's ruling 2026-07-10: these ARE Testators — the
+  lowest caste, sub-sentient machines of the same handcrafted lineage; see §4.5 fact 6
+  and TESTATOR_DESIGN_LANGUAGE.md.)
 
 ### 4.3 Stratum Three: The Breach — the far side
 
@@ -304,6 +306,14 @@ player can discover them:
    It has been *waiting* for someone from Earth. This reveal — the station knows us, has
    watched our star, retrieved our seed-bank, and prepared its lessons partly *for us* —
    is the emotional climax of Act 2.
+6. **They never left.** (Director's ruling 2026-07-10.) The Testators had no industrial
+   society — everything they made was a handcraft, *including themselves* — and they were
+   a society of castes down to sub-sentient working machines. The corrupted turrets and
+   defenders the player fights, and the equipment the player scavenges and wields, *are
+   Testators*: the lowest caste, still at their posts. "Where did they go" dissolves —
+   the player has been walking among them, killing them, and arming himself with them
+   since the early game. The reveal reframes every fight and every pickup that preceded
+   it.
 
 The parallel is left for the player to feel rather than stated: the Testators are what
 the loyalists might become. The Commando walks through the endgame of his own faction's

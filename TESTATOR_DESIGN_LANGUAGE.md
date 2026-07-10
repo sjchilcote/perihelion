@@ -47,9 +47,21 @@ for judging fidelity only.
    Testator signature is the opposite: perfect execution, zero repetition,
    and a faint individual "hand" — two artifacts doing the same job solve
    it differently, the way two master smiths would. Consequence for the
-   station's autonomous defenses (enemy class 2): they are handcrafted
-   individuals, not a production run — each unit visually one-of-a-kind
-   within its role, a person-shaped absence when destroyed.
+   station's autonomous defenses (enemy class 2), elevated to canon by
+   the director: the corrupted turrets and defenders ARE TESTATORS — the
+   lowest caste, sub-sentient machines of the same handcrafted lineage.
+   This answers the mystery table's "where did they go": they've been
+   here all along; the scavenged equipment and the enemies you fight are
+   Testators. Each unit is a handcrafted individual, not a production
+   run — one-of-a-kind within its role, a person-shaped absence when
+   destroyed. Visual rule: class-2 enemies and scavenged Testator
+   equipment carry the full Testator language (one-off precision,
+   phyllotactic ornament, bone/verdigris palette) UNDER their corruption
+   — corruption is a defacement of the elegy, never a replacement of it;
+   they must not read as invader chaos or MIRIAD product. The weapons
+   the player scavenges are the same caste: wielding one is wielding a
+   member of the tomb's people — material for the docents and the faith
+   axis.
    Two Testator rings are never the same two radii; the spacing is never
    uniform; and nothing about it reads as damage or noise — it reads as
    a decision made freshly every time. (The invaders, by contrast, have no
