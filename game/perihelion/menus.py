@@ -60,8 +60,10 @@ def _load_bg(name: str) -> "pygame.Surface | None":
     if name in _BG_CACHE:
         return _BG_CACHE[name]
     img = None
+    stem, dot, ext = name.rpartition(".")
+    hi = _ART_DIR / f"{stem}@4x.{ext}" if dot else _ART_DIR / name
     try:
-        img = pygame.image.load(str(_ART_DIR / name))
+        img = pygame.image.load(str(hi if hi.exists() else _ART_DIR / name))
         try:
             img = img.convert()
         except pygame.error:
@@ -74,7 +76,7 @@ def _load_bg(name: str) -> "pygame.Surface | None":
 
 def _blit_bg(surf: "pygame.Surface", bg: "pygame.Surface", size: tuple[int, int]) -> None:
     if bg.get_size() != size:
-        bg = pygame.transform.scale(bg, size)
+        bg = pygame.transform.smoothscale(bg, size)
     surf.blit(bg, (0, 0))
 
 
