@@ -1,5 +1,5 @@
 {
-  "total_cost": 1.6854894999999992,
+  "total_cost": 1.7385294999999994,
   "calls": [
     {
       "tool": "generate",
@@ -3077,6 +3077,78 @@
         "film": 2,
         "control": 4
       }
+    },
+    {
+      "tool": "scene8_whole",
+      "candidate": 0,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.7,
+      "top_p": 0.9,
+      "cost": 0.008547,
+      "prompt_tokens": 6117,
+      "completion_tokens": 810,
+      "valid": true,
+      "ts": 1783674544.6332273
+    },
+    {
+      "tool": "scene8_whole",
+      "candidate": 1,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.8,
+      "top_p": 0.92,
+      "cost": 0.008418,
+      "prompt_tokens": 6117,
+      "completion_tokens": 767,
+      "valid": true,
+      "ts": 1783674562.4718044
+    },
+    {
+      "tool": "scene8_whole",
+      "candidate": 2,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.9,
+      "top_p": 0.94,
+      "cost": 0.008796,
+      "prompt_tokens": 6117,
+      "completion_tokens": 893,
+      "valid": true,
+      "ts": 1783674582.3010705
+    },
+    {
+      "tool": "scene8_whole",
+      "candidate": 3,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.95,
+      "top_p": 0.95,
+      "cost": 0.009297,
+      "prompt_tokens": 6117,
+      "completion_tokens": 1060,
+      "valid": true,
+      "ts": 1783674609.2543135
+    },
+    {
+      "tool": "scene8_whole",
+      "candidate": 4,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 1.0,
+      "top_p": 0.97,
+      "cost": 0.008589,
+      "prompt_tokens": 6117,
+      "completion_tokens": 824,
+      "valid": true,
+      "ts": 1783674627.9659297
+    },
+    {
+      "tool": "scene8_whole",
+      "candidate": 5,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 1.1,
+      "top_p": 0.98,
+      "cost": 0.009393,
+      "prompt_tokens": 6117,
+      "completion_tokens": 1092,
+      "valid": true,
+      "ts": 1783674653.6219847
     }
   ]
 }
