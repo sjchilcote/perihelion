@@ -192,8 +192,11 @@ def test_scene3_compounded_bluff_catch_carries_trust_minus_two(scenes):
     assert comp.base_trust_delta == -2
     assert comp.pre_lines, "scene 3 must render a catch line before the choice"
     catch_texts = " ".join(text for _spk, text in comp.pre_lines)
-    assert "two distinct claims" in catch_texts, (
-        "expected the compounded_bluff catch variant's language")
+    assert "two separate discrepancies" in catch_texts, (
+        "expected the compounded_bluff catch variant's language "
+        "(comprehension-gate regen, 2026-07-10: two-entry ledger opening)")
+    assert "LHX" in catch_texts, (
+        "scene 3's compounded_bluff catch must cite scene 1's stated serial")
 
 
 def test_scene7_trust_gate_reachability(scenes):
@@ -205,9 +208,11 @@ def test_scene7_trust_gate_reachability(scenes):
     low_text = " ".join(t for _s, t in low.pre_lines)
     mid_text = " ".join(t for _s, t in mid.pre_lines)
     high_text = " ".join(t for _s, t in high.pre_lines)
-    assert "verify that it was received" in low_text
-    assert "transmission was received intact" in mid_text
-    assert "It is not the one we were hoping for" in high_text
+    # comprehension-gate regen (2026-07-10): tone-gate variants from the
+    # reassembled scene 7 (assemble_regen3578.py -- cand 2's tone gate).
+    assert "Stand by for the readout" in low_text
+    assert "the analysis from the sample vessel's firmware" in mid_text
+    assert "the worst possible news" in high_text
 
 
 def test_scene8_scene_spine_gate_removes_choice_below_zero(scenes):

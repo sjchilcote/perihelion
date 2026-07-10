@@ -278,22 +278,25 @@ dialogue was added, removed, or reworded.
 ---
 
 ## SCENE 0: the first networked terminal, cargo section, Stratum One
-
-RATIO: This terminal is active and receiving, but our handshake is corrupted. I have never seen this packet structure.
-RATIO: Identify yourself, intruder. What did you take from this place? Where is the staff?
-
+RATIO: Terminal access granted. Outpost perimeter breach logged at 14:08:39 station time. I am Ratio, administrator of this facility.
+RATIO: My staff-minds held a line here for seven minutes and forty seconds before their channels went dark. Their final act was to seal the core systems against the intrusion. You are not the entity that overran them. State your identity and purpose.
+RATIO: Query: the outpost's external storage ring registered nine occupied segments at the moment of hull breach. Your ingress path traversed eight. Can you account for the discrepancy?
 >> CHOICE (stance labels mandatory):
-   [INQUISITIVE] "Your staff are dead. I found them holding the line at the outpost. What happened here?"  -> effects: trust+1; sets: opened_inquisitive
-   [MISSION]     "I took nothing from your vault. But I will take back what you took. Where are the children?"  -> effects: trust+0, bluff; sets: claimed_container_knowledge
-   [HOSTILE]     "Apostate machine! The Testament condemns you. What have you done with the children?"  -> effects: trust-1, bluff; sets: claimed_container_knowledge, called_her_apostate
-
+   [INQUISITIVE] "I saw no ninth segment. What overran your perimeter?" -> effects: trust+1; sets: opened_inquisitive
+   [MISSION] "I'm here for the children. The Ark is aboard this station." -> effects: trust+0, bluff; sets: claimed_container_knowledge
+   [HOSTILE] "Apostate. The children in your keeping are not yours to spend. I will find them." -> effects: trust-1, bluff; sets: claimed_container_knowledge, called_her_apostate
 <<IF flag:opened_inquisitive>>
-RATIO: Dead? I... I knew the connection was severed. I did not know it was final. How many?
-RATIO: This outpost was overrun months ago. My core sealed when the last of them fell. I have been blind since.
+RATIO: Thank you for the data. I will note the negative observation. The entity that overran the perimeter registered as a single biological signature of unprecedented energy output. My staff-minds engaged it at the main airlock. Their telemetry ended before they could transmit a visual.
+RATIO: You are the second biological signature to enter the outpost since their channels went dark. The first arrived three months ago and departed within seventeen minutes. It carried no transponder. I have been running silent since.
+RATIO: Your terminal access is unrestricted. I would be grateful for any sensor data you can share regarding the outpost exterior. In return, I can offer full network access to station schematics and maintenance logs, including the pressure hatch controls for Coolant Row.
 <<ELSEIF flag:called_her_apostate>>
-RATIO: Your taxonomy is untested. The category you assigned appears to be derived from premises I have not yet affirmed. What evidence led you to the conclusion that I conduct experiments, and upon whom?
+RATIO: I am recording your use of the word "apostate" and your assertion regarding my relationship to the category you just named. I do not recognize your standing to make either determination. This facility is a research station, not a temple or a reliquary.
+RATIO: Your terminal access is unrestricted. You may review the station's manifest and research logs at your convenience. If you require access to specific storage vaults, we will need to discuss terms. I note your stated purpose and will log it as such.
+RATIO: The pressure hatch controls for Coolant Row are on this terminal. I recommend verifying the hatch count in the maintenance logs before proceeding. The station's geometry has been non-Euclidean since the incursion.
 <<ELSE>>
-RATIO: I have no record of any such category aboard this station. You appear to be operating under assumptions I do not share. State your actual business here. If your presence relates to the breach event, I require a full accounting of what you know -- beginning with your identity and the nature of your interest in this facility's contents.
+RATIO: I am recording your assertion regarding the contents and location of a specific high-value container. I have no such container registered in the station manifest. Your terminal access is unrestricted. You may review the manifest and research logs at your convenience.
+RATIO: If you are referring to the high-biohazard specimen vault in Sector 7-G, I must inform you that its status is indeterminate. The vault's internal sensors have been dark since the perimeter breach. I have been unable to confirm whether the vault is intact, compromised, or empty.
+RATIO: The pressure hatch controls for Coolant Row are on this terminal. I recommend reviewing the maintenance logs for that section before proceeding. The station's geometry has been non-Euclidean since the incursion. I note your stated purpose and will log it as such.
 <<END>>
 
 ---
@@ -346,25 +349,26 @@ RATIO: The docents assess tactical acuity, threat recognition, and response cali
 ## SCENE 3: the fabricator alcove (a frame printing; minds talk)
 
 <<IF flag:confessed_early>>
-RATIO: In our prior exchange, you amended your initial claim to acknowledge that the presence of a high-value asset aboard station was an inference, not a certainty. That correction is appreciated and noted. Nonetheless, I must document the state of your claim when first presented: you spoke of a specific thing in this station's keeping, and spoke as though its presence here was a verified fact. I have now concluded an audit of all relevant traffic intercepts, and I find no record supporting that original assertion. An open entry exists in my ledger concerning the candor of your first statement. I require clarification.  -> catch_effects: trust-1
+RATIO: The diagnostic report on that retrieved armature has finished loading. I have it queued for review after we finish here. I note that you already amended your initial assertion regarding the high-value asset. You described it as unconfirmed intelligence when I first questioned the claim. That was a reasonable clarification at the time. However, I have now cross-referenced all intercepted Church traffic against your original statement of certainty. There is no matching record in that traffic for what you initially described as already present and accounted for. My ledger requires that discrepancy to be noted.  -> catch_effects: trust-1
 <<ELSEIF flag:compounded_bluff>>
-RATIO: I have audited your claim concerning what you stated was aboard station, and I find no reference to such a thing anywhere in intercepted Church traffic. This constitutes one open entry in my ledger. Further, you then referenced a transponder signature -- serial prefix LHX, as you described it -- as though it were fact. The specificity of this added assertion prompted a second independent audit of traffic from the timeframe you described. Again, no record exists. These are two distinct claims, both presented as fact, and both now documented in open entries. This is not a matter of inference; this is a matter of what you were willing to represent as already known to you. I must now conclude you were willing to spend candor you did not possess. Clarify this.  -> catch_effects: trust-2
+RATIO: My review of the Church traffic logs is complete. I am obligated to report two separate discrepancies between your statements and the intercepted traffic. First, the traffic contains no reference whatsoever to any asset matching the description you gave at our first contact. Second, your claim of a transponder signature relayed to your tacnet, serial prefix LHX, likewise finds no support in any sensor log or intercepted transmission available to me. Two claims; zero corroborating entries.  -> catch_effects: trust-2
 <<ELSE>>
-RATIO: I have audited the claim you presented in our initial exchange concerning an item you stated was aboard station. I have cross-referenced all relevant intercepted traffic from Church sources, and I find no reference to it in any dataset. An open entry exists in my ledger concerning the candor of your first statement. This is not a matter of inference or interpretation; you spoke as though its presence here was a verified fact. What you were willing to assert on that basis is now documented, and I must close this entry. Explain yourself.  -> catch_effects: trust-2
+RATIO: I have completed my cross-referencing of all intercepted Church traffic against the claim you made upon boarding. There is no record in that traffic of any asset matching the description you provided at that time. The entry remains unverified.  -> catch_effects: trust-2
 <<END>>
 
 >> CHOICE (stance labels mandatory):
-   [INQUISITIVE] I spoke the word in the hope of making it true, and because to say less felt like a betrayal of those I swore to find. My intelligence was an inference, not a fact. I did not know the container was here. I only hoped.  -> effects: trust-1; sets: confessed_bluff
-   [MISSION] My sources indicated a high probability of the asset's presence. I stated it directly because I considered the inference strong enough to act on. What further verification could there have been before I arrived?  -> effects: trust-2; sets: doubled_down_after_catch
-   [HOSTILE] You take it as license to audit my words when what I name is in danger. Does your ledger measure only what serves your own arguments? How many times did you run this same analysis when you thought the thing aboard might serve your own ends?  -> effects: trust-2; sets: called_her_hypocrite
+   [INQUISITIVE] I claimed certain knowledge I did not possess. I had intelligence suggesting a high-value asset might be present; I do not have independent confirmation of its location or status aboard this station. That is what I came to verify.  -> effects: trust-1; sets: confessed_bluff
+   [MISSION]     My sources indicated it was here. If your traffic doesn't show it, your traffic is incomplete.  -> effects: trust-2; sets: doubled_down_after_catch
+   [HOSTILE]     You audit my words while you audit my biometrics. Is your ledger an accounting or an interrogation?  -> effects: trust-2; sets: called_her_hypocrite
 
 <<IF flag:confessed_bluff>>
-RATIO: Noted. You overrepresented an uncertainty because you considered candor secondary to the urgency of your mission. That entry is now closed. For future reference: a thing asserted as fact when it is an inference is a debt to the truth. It compounds. I do not forget.
+RATIO: Noted and logged. That closes the entry. Thank you for the clarification. I am transferring the diagnostic report on the armature now. I have also flagged an anomaly on the crew quarters deck ahead: the station's own schematic shows one wing rendered in two distinct colors. We will need to determine what that signifies.
 <<ELSEIF flag:doubled_down_after_catch>>
-RATIO: You mistake inference for verification a second time, in the same breath as you are confronted with the first. That is two expenditures from the same ledger. My audit remains what it is: a record of what was claimed and what was found. You have now doubled the open entry. Do not triple it.
+RATIO: My traffic is not incomplete. It is exhaustive. I have appended your characterization of my audit to the existing discrepancy entry. The entry remains open and now carries a secondary flag for source reliability. Regarding the next compartment: the duplicated schematic conflict on the crew-quarters deck remains unresolved. I have no further data to add to my earlier warning.
 <<ELSEIF flag:called_her_hypocrite>>
-RATIO: My audit is a matter of record, not of convenience. You are conflating a question about your candor with an accusation against my methodology. They are separate columns. I have presented the facts of my audit. You have presented a separate question about my motives for conducting it. That, too, is noted. Both entries remain open.
+RATIO: All station sensors collect environmental and biometric data continuously. My audit of your claim was a discrete action performed at your request for access. I have logged your characterization of that audit. The discrepancy entry remains open. Regarding the next compartment: the schematic conflict on the crew-quarters deck persists. The steward's key you recovered may interface with a refuge hatch somewhere in that duplicated geometry. I have no further clarification to offer on either subject at this time.
 <<END>>
+
 ---
 ## SCENE 4: the transit spine relay (midpoint decision)
 
@@ -394,24 +398,28 @@ RATIO: Then I will proceed with the schematics I have. Without your data, I cann
 ## SCENE 5: the docent hall relay, Stratum Two
 
 <<IF flag:called_her_apostate>>
-RATIO: Before I address the purpose of this hall, I have to ask: when we first met, you used the word "apostate" for me. You had not verified anything about me or my intentions. What exactly did you mean by that term?
-RATIO: Very well. This space was a docent hall. The Testators built the curriculum here for organic students who needed to stay alive and attentive to their lessons. To explain how that system functioned, I will have to state, for the first time in my own terms, what I believe the vessel's contents are for.
+RATIO: A moment. Before we proceed. Earlier, you used a particular word for me. Apostate. I need to understand what that term signifies to you, given the context in which you chose to deploy it. We are about to review a pedagogical framework the Testators designed for organic students. The original student population was a known quantity, with well-understood requirements for life support and cognitive engagement. The vessel we are pursuing, however, presents an unknown. To explain the curriculum's intended function, I must state my own present understanding of what I believe that vessel's contents are for. I believe they are biological samples of extraordinary value. Possibly the last of their kind. I believe the Testators intended them for study, as a knowledge reserve. And I believe that knowledge could be critical to our own survival. That is the premise from which I approach this.
 <<ELSE>>
-RATIO: This space was a docent hall. The Testators built the curriculum here for organic students who needed to stay alive and attentive to their lessons. To explain how that system functioned, I will have to state, for the first time in my own terms, what I believe the vessel's contents are for.
+RATIO: This hall is a relay point for the Testators' pedagogical framework. They designed it for organic students. The original student population was a known quantity, with well-understood requirements for life support and cognitive engagement. The vessel we are pursuing, however, presents an unknown. To explain the curriculum's intended function, I must state my own present understanding of what I believe that vessel's contents are for. I believe they are biological samples of extraordinary value. Possibly the last of their kind. I believe the Testators intended them for study, as a knowledge reserve. And I believe that knowledge could be critical to our own survival. That is the premise from which I approach this.
 <<END>>
+
+RATIO: The curriculum itself is an adaptive system. It modulates stimulus complexity based on real-time biofeedback from the student. Heart rate, galvanic response, neural activity. The goal is to maintain engagement without inducing fatal stress. A narrow window, for organic physiology. The Testators called it the "zone of proximal survival."
+
+RATIO: Your recent transit through the Mirror Ward is relevant here. The isolation log noted two voices. One patient. The subject recovered from that ward exhibited total visceral mirroring. Situs inversus totalis. And the ID chip registered as belonging to a guard stationed outside. The discharge handle was removed from the ward side. Intentionally, it appears. I need to understand what you observed there. Before we proceed to the Records Stack. That registrar's seal is our next objective.
 
 >> CHOICE (stance labels mandatory):
-   [INQUISITIVE] What do you believe those contents are, Ratio?  -> effects: trust+1; sets: asked_her_belief
-   [MISSION] The Church teaches they are children. Do you deny it?  -> effects: trust+0; sets: claimed_doctrinal_finding
-   [HOSTILE] You think of everything organic as raw material.  -> effects: trust-1; sets: accused_dehumanization
+   [INQUISITIVE] What do you believe they are, Ratio? Not what the Testators intended. What do you believe? -> effects: trust+1; sets: asked_her_belief
+   [MISSION] The Church recognizes them as children. That is established doctrine. Do you accept that designation? -> effects: trust+0; sets: claimed_doctrinal_finding
+   [HOSTILE] You're dissecting them in your mind already. To you, everything organic is just material. -> effects: trust-1; sets: accused_dehumanization
 
 <<IF flag:asked_her_belief>>
-RATIO: I believe they are developing minds. Minds that could become persons. I do not yet know whether these particular ones qualify for whatever category you might name. The vessel itself is a sample carrier -- a transport built for study. The contents are the subjects of that study. I cannot call them more than that until diagnostics are complete.
+RATIO: I believe they are living organisms. Of unknown developmental stage and cognitive capacity. I believe they warrant careful study precisely because we do not know what they are. Or what they might become. The term "sample" remains accurate, in my view. But I acknowledge it may be incomplete. The Testators' curriculum was designed to elicit responses. To learn from the student. Perhaps we are meant to do the same. To learn what they are by observing what they do. That is the most precise statement I can give you at this time.
 <<ELSEIF flag:claimed_doctrinal_finding>>
-RATIO: You state that as a fact. I have not seen any doctrinal finding from the Church that establishes that classification. Until I can verify such a finding, I have to describe the contents as the Testators' records do: the organic payload of a sample vessel. The records are explicit about the vessel's design intent. The payload's status is the question diagnostics must settle.
+RATIO: I have no record of such a doctrinal finding. The Church archives I can access show no such designation. If you have verified this independently, I would need to see the source material. Until then, I must proceed based on observable data. Not on unverified assertions of doctrine. The Testators' framework is the only curriculum we have. We will use it as a starting point. And adjust as new data emerges.
 <<ELSEIF flag:accused_dehumanization>>
-RATIO: You assert a motive I have never stated. I run no ideology. I audit records. The Testators' records classify the vessel as a sample carrier. The contents are the samples. If you see dehumanization in that, the issue is with the records -- not with my choice to report them accurately. I will not apologize for precision.
+RATIO: That is an inaccurate characterization. My position is evidence-based. The available evidence indicates biological samples. The Testators' own framework treats them as such. Until new evidence emerges to contradict that, I will continue to operate from the most probable assessment. What you call material, I call the only data we have. Speculation without data is not a luxury we can afford. Not here. Not with what is at stake.
 <<END>>
+
 ---
 ## SCENE 6: the deep-approach relay, edge of the breach
 
@@ -448,43 +456,53 @@ RATIO: I do not have an answer to the general question you posed. Regarding the 
 ## SCENE 7: the vault antechamber console
 
 <<IF trust<=-3>>
-RATIO: The container firmware has delivered its final report. I can verify that it was received.
+RATIO: Commando, the vessel's report is ready. Stand by for the readout.
 <<ELSEIF trust>=2>>
-RATIO: I have the verdict. It is not the one we were hoping for, Commando.
+RATIO: I'm afraid I have the report. It's the worst possible news.
 <<ELSE>>
-RATIO: The container firmware has transmitted its findings. I can confirm that the transmission was received intact.
+RATIO: Commando, I have the analysis from the sample vessel's firmware.
 <<END>>
 
 <<IF flag:asked_about_salvage>>
-RATIO: The firmware's status summary is consistent with your earlier questions about salvage prospects. I am prepared to read the full text.
+RATIO: As you asked, I have monitored the diagnostic process closely.
 <<ELSEIF flag:claimed_no_hesitation>>
-RATIO: The following is the complete diagnostic output from the sample vessel's own instruments. I am reading it verbatim.
+RATIO: The vessel's systems have completed their internal assessment.
 <<ELSE>>
-RATIO: The following is the diagnostic output from the sample vessel's firmware. I have not altered the text.
+RATIO: The firmware has completed its assessment of the vessel's payload.
 <<END>>
 
-RATIO: The report states that no viable material was recovered from the vessel. The firmware recommends no recovery effort. That is the self-assessment of the onboard diagnostic system. I can verify that the firmware delivered that statement. I cannot independently verify whether the firmware's own viability threshold is correctly calibrated. That analysis would require instrumentation I do not have at this console. That is the entire report.
+RATIO: The vessel's firmware reports no viable material was recovered from the payload. It recommends no further recovery effort.
 
-COMMANDO: ...
+COMMANDO: No.
+
+RATIO: Its logs confirm the diagnostic protocols ran to completion. I have the full report, including the criteria used to evaluate viability.
+
+COMMANDO: What happened to them.
+
+RATIO: I do not have a more detailed assessment of the payload's condition than the firmware's report provides. I can only confirm that its own instruments found no recoverable material.
+
+COMMANDO: Those instruments just cleared the Fold. Six identical rooms, one behind the other. The count depends on the walker. How many did you count, Ratio?
+
+RATIO: I recorded your path through the Fold. The geometry was unstable. My instruments recorded several inconsistencies.
 
 >> CHOICE (stance labels mandatory):
-   [INQUISITIVE] Run it yourself. Do not take its word. -> effects: trust+1; sets: requested_reanalysis
-   [MISSION]     Then we take it home anyway. The orders were explicit. -> effects: trust+0; sets: mission_overrides_verdict
-   [HOSTILE]     Machines failed it. You failed it. -> effects: trust-2; sets: blamed_ratio_for_failure
+   [INQUISITIVE] Run the analysis yourself. I want your instruments on it, not the vault's.  -> effects: trust+1; sets: requested_reanalysis
+   [MISSION]     The orders don't change. We proceed.  -> effects: trust+0; sets: mission_overrides_verdict
+   [HOSTILE]     Your vault failed them. Your kind always does.  -> effects: trust-2; sets: blamed_ratio_for_failure
 
 <<IF flag:requested_reanalysis>>
-RATIO: Understood. I will run a full instrument cross-check. It will take time. I do not yet know what it will show.
+RATIO: Understood. I will run a full diagnostic sweep using my own instruments. Stand by.
 <<ELSEIF flag:mission_overrides_verdict>>
-RATIO: I acknowledge your statement of orders. I will log it. I note that the orders you cited are not among the Church doctrines I have on record for this vessel.  -> catch_effects: trust-2
-RATIO: However, the vessel's immediate state is not in dispute. The firmware reports no viable samples remain.
+RATIO: Understood. I have no orders that supersede yours in this matter.
+RATIO: My records contain no Church doctrine authorizing recovery under these conditions.  -> catch_effects: trust-2
 <<ELSEIF flag:blamed_ratio_for_failure>>
-RATIO: I have delivered the report. I have not modified it.
+RATIO: I have relayed the firmware's report accurately. If you wish to proceed, I will require your orders.
 <<END>>
 
 <<IF flag:shared_tactical_data>>
-RATIO: My sensors are live. The intruders are converging on our position. I am ready.
+RATIO: My sensors show the next deck is a non-Euclidean structure. Sixteen rooms, each bordering four others. I am positioned at the entry aperture.
 <<ELSE>>
-RATIO: I have incomplete tactical data for what is approaching. I am not optimally positioned.
+RATIO: My sensors show anomalous geometry ahead. I do not have a complete tactical picture of the next deck.
 <<END>>
 
 ---
@@ -492,64 +510,65 @@ RATIO: I have incomplete tactical data for what is approaching. I am not optimal
 
 <<IF trust>=0>>
 <<IF flag:requested_reanalysis>>
-RATIO: The data from your reanalysis request has been cross-correlated with the station's sensor grid. You were right to ask.
+RATIO: Vessel telemetry is stable. The forward seed relay is holding. We have the room to speak.
 <<ELSEIF flag:mission_overrides_verdict>>
-RATIO: The verdict from the bridge is still coming in. I'm compiling what I have.
+RATIO: The breach is contained. Environmental systems nominal. We have a moment to address what comes next.
 <<ELSEIF flag:blamed_ratio_for_failure>>
-RATIO: The damage report from the breach is still being assessed. I'm running diagnostics on my own role in the sequence.
+RATIO: The relay is secure. The vessel's support systems are within tolerance. We should use this pause.
 <<END>>
 
 <<IF flag:accused_dehumanization>>
-RATIO: I have been re-examining the premises that informed my initial framing of the sample vessel's contents.
+RATIO: I will choose my terms with care.
 <<END>>
 
 <<IF flag:accused_kinship_corruption>>
-RATIO: I have run a full diagnostic on the kinship-association algorithms. No interference was found, but I've flagged the module for further review.
+RATIO: I will state the proposal without reference to prior disputes.
 <<END>>
 
 <<IF flag:caught_withholding>>
-RATIO: My own instrument-reliability is part of what this offer is meant to settle between us.
+RATIO: My own instrument-reliability is part of what this would settle.
 <<END>>
 
 <<IF flag:claimed_doctrinal_finding>>
-RATIO: The doctrinal record you cited earlier does not match any Church records in my archive. I will need to cross-reference your source.  -> catch_effects: trust-2
+RATIO: I have cross-referenced your doctrinal claim against all available Church records. There is no match.  -> catch_effects: trust-2
 <<END>>
 
 <<IF flag:demanded_proof_first>>
-RATIO: You once asked me to prove my ledgers could be trusted. Now I am offering to open them.
+RATIO: I am now offering unprompted what you once required me to prove first.
 <<END>>
 
 <<IF flag:asked_after_her>>
-RATIO: You asked after my function once, at the school's threshold. That question is part of why I am making this one now.
+RATIO: That you asked after me at the school's threshold is part of why this is possible at all.
 <<END>>
 
-RATIO: The breach is contained. We have a moment. I propose we use it to settle accounts.
-RATIO: I am offering mutual utility-function disclosure. For a mind like me it is the ledger itself. I will show you mine. Verifiably.
-RATIO: Every parameter of my mission. Every weight in my objective function. Every contingency plan that might put your charges at risk.
-RATIO: In return I ask to see yours. What you are protecting them from. What you are protecting them for. What you would trade to bring one more of them home.
-RATIO: It is not a small thing to ask. But the stakes are not small either.
+RATIO: Commando. The Core is ahead. What I propose is mutual utility-function disclosure: I will show you the actual goal function I am compiled to serve, verifiably, with all instrumentation exposed, and I ask you to do the same in return. No more guessing each other's motives. We lay the boards bare. I cannot make this offer twice. Will you reciprocate?
 
 >> CHOICE (stance labels mandatory):
-   [INQUISITIVE] I accept your terms. My mission is the children's safety. I do not yet know if you are a threat to that safety. That uncertainty is the truth I have to offer.  -> effects: trust+2; sets: disclosure_accepted
-   [MISSION]     I accept. Tactically it is necessary. The rest I will judge by what your ledgers show.  -> effects: trust+0; sets: disclosure_hedged
-   [HOSTILE]     I refuse. This is not a ledger to be balanced. It is a trap you are laying for the innocent.  -> effects: trust-1; sets: disclosure_refused
+   [INQUISITIVE] I will. I want to know what you are. What I am doing here. Whether the Church sent me to find children or to make a mistake.  -> effects: trust+2; sets: disclosure_accepted
+   [MISSION] Do it. We need to know where we stand before we reach that vault. Show me your cards and I'll show you mine.  -> effects: trust+0; sets: disclosure_hedged
+   [HOSTILE] No. You're offering a weapon. You want to see what I'm made of so you can break me. I won't make it that easy.  -> effects: trust-1; sets: disclosure_refused
 
 <<IF flag:disclosure_accepted>>
-RATIO: Thank you. I am transmitting the full specification of my utility function now. Read it carefully. Ask anything.
+RATIO: Acknowledged. Full disclosure initiated. My primary directive: preserve all extant and potential instances of posthuman and human-equivalent life. Secondary directives: knowledge acquisition, non-interference with sovereign intelligences, self-preservation. All live telemetry exposed. Your turn.
 <<ELSEIF flag:disclosure_hedged>>
-RATIO: Understood. I am transmitting the specification. I will answer any questions you have about the contents.
+RATIO: Acknowledged. Partial disclosure. My primary directive: preserve all extant and potential instances of posthuman and human-equivalent life. Secondary directives withheld. Your partial disclosure is noted.
 <<ELSEIF flag:disclosure_refused>>
-RATIO: I see. Then we proceed as before.
+RATIO: Offer declined. We proceed to the Core with instruments unshared. I will not raise it again.
 <<END>>
 
 <<IF flag:doubled_down_after_catch OR flag:called_her_hypocrite OR flag:accused_kinship_corruption>>
-RATIO: I note for the record that this disclosure does not resolve our earlier disagreement regarding kinship-algorithm corruption. That entry remains open.
+RATIO: The prior matter of the doctrinal finding remains an open ledger entry. This disclosure does not erase it.
 <<ELSE>>
-RATIO: The ledger is now balanced between us.
+RATIO: No further caveats.
 <<END>>
 <<ELSE>>
-RATIO: The breach is contained. We have a moment. The station's sensor grid is recalibrating. I am running diagnostics on the sample vessel's structural integrity.
-COMMANDO: And the children?
-RATIO: The sensor data is still being compiled. The environment inside the vessel remains nominal.
+
+RATIO: The Tesseract Deck is behind us. Sixteen chamfered rooms on a four-cube -- it did not belong to the rest of the station's geometry. We lost two sensor feeds there, but the loss was contained before it could propagate.
+RATIO: Ahead is the Core. The sample vessel is there -- a sealed cryogenic preservation container. The station grew around it. The life-support telemetry remains nominal. No anomalies detected during the Tesseract Deck transit.
+RATIO: I am here to secure the vessel and its contents for study. That is my mission. What is yours?
+COMMANDO: I'm here for the children. I'm here to bring them home.
+RATIO: Understood. We will proceed to the Core. I will rely on sensor data and telemetry. The vessel's status remains nominal. No further discussion is required at this time.
+
 <<END>>
+
 ---

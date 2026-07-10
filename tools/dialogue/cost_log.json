@@ -1,5 +1,5 @@
 {
-  "total_cost": 2.015077,
+  "total_cost": 2.6616234999999993,
   "calls": [
     {
       "tool": "generate",
@@ -3847,6 +3847,1110 @@
       "completion_tokens": 349,
       "valid": false,
       "ts": 1783678376.4386876
+    },
+    {
+      "tool": "comprehension_blind_read",
+      "cost": 0.005979,
+      "ts": 1783681040.9539335,
+      "scene": 0,
+      "stance": "INQUISITIVE",
+      "model": "anthropic/claude-sonnet-4.5",
+      "prompt_tokens": 233,
+      "completion_tokens": 352
+    },
+    {
+      "tool": "comprehension_grade",
+      "cost": 0.0050925,
+      "ts": 1783681042.8886027,
+      "scene": 0,
+      "stance": "INQUISITIVE",
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 1493,
+      "completion_tokens": 317
+    },
+    {
+      "tool": "comprehension_blind_read",
+      "cost": 0.007341,
+      "ts": 1783681054.2751718,
+      "scene": 0,
+      "stance": "MISSION",
+      "model": "anthropic/claude-sonnet-4.5",
+      "prompt_tokens": 247,
+      "completion_tokens": 440
+    },
+    {
+      "tool": "comprehension_grade",
+      "cost": 0.0052515,
+      "ts": 1783681057.0109904,
+      "scene": 0,
+      "stance": "MISSION",
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 1587,
+      "completion_tokens": 319
+    },
+    {
+      "tool": "comprehension_blind_read",
+      "cost": 0.007479,
+      "ts": 1783681067.1466975,
+      "scene": 1,
+      "stance": "INQUISITIVE",
+      "model": "anthropic/claude-sonnet-4.5",
+      "prompt_tokens": 258,
+      "completion_tokens": 447
+    },
+    {
+      "tool": "comprehension_grade",
+      "cost": 0.005277,
+      "ts": 1783681069.5845613,
+      "scene": 1,
+      "stance": "INQUISITIVE",
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 1694,
+      "completion_tokens": 304
+    },
+    {
+      "tool": "comprehension_blind_read",
+      "cost": 0.006336,
+      "ts": 1783681079.505767,
+      "scene": 1,
+      "stance": "MISSION",
+      "model": "anthropic/claude-sonnet-4.5",
+      "prompt_tokens": 257,
+      "completion_tokens": 371
+    },
+    {
+      "tool": "comprehension_grade",
+      "cost": 0.0053205,
+      "ts": 1783681081.8955424,
+      "scene": 1,
+      "stance": "MISSION",
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 1609,
+      "completion_tokens": 323
+    },
+    {
+      "tool": "comprehension_blind_read",
+      "cost": 0.008433,
+      "ts": 1783681094.530334,
+      "scene": 2,
+      "stance": "INQUISITIVE",
+      "model": "anthropic/claude-sonnet-4.5",
+      "prompt_tokens": 336,
+      "completion_tokens": 495
+    },
+    {
+      "tool": "comprehension_grade",
+      "cost": 0.0063375,
+      "ts": 1783681097.5727572,
+      "scene": 2,
+      "stance": "INQUISITIVE",
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 1765,
+      "completion_tokens": 410
+    },
+    {
+      "tool": "comprehension_blind_read",
+      "cost": 0.008625,
+      "ts": 1783681110.488152,
+      "scene": 2,
+      "stance": "MISSION",
+      "model": "anthropic/claude-sonnet-4.5",
+      "prompt_tokens": 375,
+      "completion_tokens": 500
+    },
+    {
+      "tool": "comprehension_grade",
+      "cost": 0.0054435,
+      "ts": 1783681115.1039977,
+      "scene": 2,
+      "stance": "MISSION",
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 1793,
+      "completion_tokens": 306
+    },
+    {
+      "tool": "comprehension_blind_read",
+      "cost": 0.007971,
+      "ts": 1783681128.0412643,
+      "scene": 3,
+      "stance": "INQUISITIVE",
+      "model": "anthropic/claude-sonnet-4.5",
+      "prompt_tokens": 347,
+      "completion_tokens": 462
+    },
+    {
+      "tool": "comprehension_grade",
+      "cost": 0.005667,
+      "ts": 1783681130.4129121,
+      "scene": 3,
+      "stance": "INQUISITIVE",
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 2014,
+      "completion_tokens": 294
+    },
+    {
+      "tool": "comprehension_blind_read",
+      "cost": 0.007677,
+      "ts": 1783681141.661998,
+      "scene": 3,
+      "stance": "MISSION",
+      "model": "anthropic/claude-sonnet-4.5",
+      "prompt_tokens": 374,
+      "completion_tokens": 437
+    },
+    {
+      "tool": "comprehension_grade",
+      "cost": 0.0063405,
+      "ts": 1783681144.4007602,
+      "scene": 3,
+      "stance": "MISSION",
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 2025,
+      "completion_tokens": 367
+    },
+    {
+      "tool": "comprehension_blind_read",
+      "cost": 0.0072,
+      "ts": 1783681155.5525258,
+      "scene": 4,
+      "stance": "INQUISITIVE",
+      "model": "anthropic/claude-sonnet-4.5",
+      "prompt_tokens": 345,
+      "completion_tokens": 411
+    },
+    {
+      "tool": "comprehension_grade",
+      "cost": 0.0052545,
+      "ts": 1783681157.905131,
+      "scene": 4,
+      "stance": "INQUISITIVE",
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 1703,
+      "completion_tokens": 300
+    },
+    {
+      "tool": "comprehension_blind_read",
+      "cost": 0.007305,
+      "ts": 1783681168.8485894,
+      "scene": 4,
+      "stance": "MISSION",
+      "model": "anthropic/claude-sonnet-4.5",
+      "prompt_tokens": 310,
+      "completion_tokens": 425
+    },
+    {
+      "tool": "comprehension_grade",
+      "cost": 0.005454,
+      "ts": 1783681171.1995945,
+      "scene": 4,
+      "stance": "MISSION",
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 1668,
+      "completion_tokens": 328
+    },
+    {
+      "tool": "comprehension_blind_read",
+      "cost": 0.0,
+      "ts": 1783681173.1656494,
+      "scene": 5,
+      "stance": "INQUISITIVE",
+      "model": "anthropic/claude-sonnet-4.5",
+      "prompt_tokens": 254,
+      "completion_tokens": 1
+    },
+    {
+      "tool": "comprehension_blind_read",
+      "cost": 0.0,
+      "ts": 1783681228.9999084,
+      "scene": 5,
+      "stance": "INQUISITIVE",
+      "model": "anthropic/claude-sonnet-4.5",
+      "prompt_tokens": 254,
+      "completion_tokens": 1
+    },
+    {
+      "tool": "comprehension_blind_read",
+      "cost": 0.0,
+      "ts": 1783681295.3177009,
+      "scene": 5,
+      "stance": "INQUISITIVE",
+      "model": "anthropic/claude-sonnet-4.5",
+      "refused": true,
+      "prompt_tokens": 254,
+      "completion_tokens": 1
+    },
+    {
+      "tool": "comprehension_blind_read",
+      "cost": 0.0,
+      "ts": 1783681298.3029249,
+      "scene": 5,
+      "stance": "MISSION",
+      "model": "anthropic/claude-sonnet-4.5",
+      "refused": true,
+      "prompt_tokens": 267,
+      "completion_tokens": 1
+    },
+    {
+      "tool": "comprehension_blind_read",
+      "cost": 0.006816,
+      "ts": 1783681311.794303,
+      "scene": 6,
+      "stance": "INQUISITIVE",
+      "model": "anthropic/claude-sonnet-4.5",
+      "refused": false,
+      "prompt_tokens": 372,
+      "completion_tokens": 380
+    },
+    {
+      "tool": "comprehension_grade",
+      "cost": 0.0056985,
+      "ts": 1783681314.0551271,
+      "scene": 6,
+      "stance": "INQUISITIVE",
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 1873,
+      "completion_tokens": 321
+    },
+    {
+      "tool": "comprehension_blind_read",
+      "cost": 0.008118,
+      "ts": 1783681325.7593434,
+      "scene": 6,
+      "stance": "MISSION",
+      "model": "anthropic/claude-sonnet-4.5",
+      "refused": false,
+      "prompt_tokens": 431,
+      "completion_tokens": 455
+    },
+    {
+      "tool": "comprehension_grade",
+      "cost": 0.005859,
+      "ts": 1783681327.970468,
+      "scene": 6,
+      "stance": "MISSION",
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 1992,
+      "completion_tokens": 319
+    },
+    {
+      "tool": "comprehension_blind_read",
+      "cost": 0.006636,
+      "ts": 1783681339.3458662,
+      "scene": 7,
+      "stance": "INQUISITIVE",
+      "model": "anthropic/claude-sonnet-4.5",
+      "refused": false,
+      "prompt_tokens": 312,
+      "completion_tokens": 380
+    },
+    {
+      "tool": "comprehension_grade",
+      "cost": 0.0053925,
+      "ts": 1783681341.4273298,
+      "scene": 7,
+      "stance": "INQUISITIVE",
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 1813,
+      "completion_tokens": 297
+    },
+    {
+      "tool": "comprehension_blind_read",
+      "cost": 0.0,
+      "ts": 1783681343.6071076,
+      "scene": 7,
+      "stance": "MISSION",
+      "model": "anthropic/claude-sonnet-4.5",
+      "refused": true,
+      "prompt_tokens": 338,
+      "completion_tokens": 1
+    },
+    {
+      "tool": "comprehension_blind_read",
+      "cost": 0.008619,
+      "ts": 1783681355.3126252,
+      "scene": 8,
+      "stance": "INQUISITIVE",
+      "model": "anthropic/claude-sonnet-4.5",
+      "refused": false,
+      "prompt_tokens": 388,
+      "completion_tokens": 497
+    },
+    {
+      "tool": "comprehension_grade",
+      "cost": 0.006159,
+      "ts": 1783681357.6179748,
+      "scene": 8,
+      "stance": "INQUISITIVE",
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 2138,
+      "completion_tokens": 328
+    },
+    {
+      "tool": "comprehension_blind_read",
+      "cost": 0.0,
+      "ts": 1783681359.3807936,
+      "scene": 8,
+      "stance": "MISSION",
+      "model": "anthropic/claude-sonnet-4.5",
+      "refused": true,
+      "prompt_tokens": 165,
+      "completion_tokens": 1
+    },
+    {
+      "tool": "scene3_whole",
+      "candidate": 0,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.7,
+      "top_p": 0.9,
+      "cost": 0.008464,
+      "prompt_tokens": 6367,
+      "completion_tokens": 699,
+      "valid": true,
+      "ts": 1783681573.56481
+    },
+    {
+      "tool": "scene3_whole",
+      "candidate": 1,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.8,
+      "top_p": 0.92,
+      "cost": 0.008812,
+      "prompt_tokens": 6367,
+      "completion_tokens": 815,
+      "valid": true,
+      "ts": 1783681593.3205466
+    },
+    {
+      "tool": "scene3_whole",
+      "candidate": 2,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.9,
+      "top_p": 0.94,
+      "cost": 0.009754,
+      "prompt_tokens": 6367,
+      "completion_tokens": 1129,
+      "valid": false,
+      "ts": 1783681646.0112717
+    },
+    {
+      "tool": "scene3_whole",
+      "candidate": 3,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.95,
+      "top_p": 0.95,
+      "cost": 0.008533,
+      "prompt_tokens": 6367,
+      "completion_tokens": 722,
+      "valid": true,
+      "ts": 1783681663.1232016
+    },
+    {
+      "tool": "scene5_whole",
+      "candidate": 0,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.7,
+      "top_p": 0.9,
+      "cost": 0.008606,
+      "prompt_tokens": 5705,
+      "completion_tokens": 967,
+      "valid": true,
+      "ts": 1783681687.038087
+    },
+    {
+      "tool": "scene5_whole",
+      "candidate": 1,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.8,
+      "top_p": 0.92,
+      "cost": 0.008369,
+      "prompt_tokens": 5705,
+      "completion_tokens": 888,
+      "valid": true,
+      "ts": 1783681730.191595
+    },
+    {
+      "tool": "scene5_whole",
+      "candidate": 2,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.9,
+      "top_p": 0.94,
+      "cost": 0.007622,
+      "prompt_tokens": 5705,
+      "completion_tokens": 639,
+      "valid": true,
+      "ts": 1783681744.930375
+    },
+    {
+      "tool": "scene5_whole",
+      "candidate": 3,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.95,
+      "top_p": 0.95,
+      "cost": 0.007898,
+      "prompt_tokens": 5705,
+      "completion_tokens": 731,
+      "valid": true,
+      "ts": 1783681761.95973
+    },
+    {
+      "tool": "scene7_whole",
+      "candidate": 0,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.7,
+      "top_p": 0.9,
+      "cost": 0.007689,
+      "prompt_tokens": 6141,
+      "completion_tokens": 516,
+      "valid": true,
+      "ts": 1783681774.9519486
+    },
+    {
+      "tool": "scene7_whole",
+      "candidate": 1,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.8,
+      "top_p": 0.92,
+      "cost": 0.007923,
+      "prompt_tokens": 6141,
+      "completion_tokens": 594,
+      "valid": true,
+      "ts": 1783681804.3319607
+    },
+    {
+      "tool": "scene7_whole",
+      "candidate": 2,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.9,
+      "top_p": 0.94,
+      "cost": 0.00801,
+      "prompt_tokens": 6141,
+      "completion_tokens": 623,
+      "valid": true,
+      "ts": 1783681832.307232
+    },
+    {
+      "tool": "scene7_whole",
+      "candidate": 3,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.95,
+      "top_p": 0.95,
+      "cost": 0.007932,
+      "prompt_tokens": 6141,
+      "completion_tokens": 597,
+      "valid": true,
+      "ts": 1783681848.4573913
+    },
+    {
+      "tool": "scene8_whole",
+      "candidate": 0,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.7,
+      "top_p": 0.9,
+      "cost": 0.009906,
+      "prompt_tokens": 6819,
+      "completion_tokens": 1029,
+      "valid": true,
+      "ts": 1783681879.2195106
+    },
+    {
+      "tool": "scene8_whole",
+      "candidate": 1,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.8,
+      "top_p": 0.92,
+      "cost": 0.009417,
+      "prompt_tokens": 6819,
+      "completion_tokens": 866,
+      "valid": true,
+      "ts": 1783681901.330119
+    },
+    {
+      "tool": "scene8_whole",
+      "candidate": 2,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.9,
+      "top_p": 0.94,
+      "cost": 0.010236,
+      "prompt_tokens": 6819,
+      "completion_tokens": 1139,
+      "valid": true,
+      "ts": 1783681928.374676
+    },
+    {
+      "tool": "scene8_whole",
+      "candidate": 3,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.95,
+      "top_p": 0.95,
+      "cost": 0.009534,
+      "prompt_tokens": 6819,
+      "completion_tokens": 905,
+      "valid": true,
+      "ts": 1783681949.0746453
+    },
+    {
+      "tool": "comprehension_blind_read",
+      "cost": 0.00654,
+      "ts": 1783682233.4603636,
+      "scene": 3,
+      "stance": "INQUISITIVE",
+      "model": "anthropic/claude-sonnet-4.5",
+      "refused": false,
+      "prompt_tokens": 295,
+      "completion_tokens": 377
+    },
+    {
+      "tool": "comprehension_grade",
+      "cost": 0.005961,
+      "ts": 1783682235.9039092,
+      "scene": 3,
+      "stance": "INQUISITIVE",
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 2030,
+      "completion_tokens": 324
+    },
+    {
+      "tool": "comprehension_blind_read",
+      "cost": 0.007218,
+      "ts": 1783682247.1275585,
+      "scene": 3,
+      "stance": "MISSION",
+      "model": "anthropic/claude-sonnet-4.5",
+      "refused": false,
+      "prompt_tokens": 311,
+      "completion_tokens": 419
+    },
+    {
+      "tool": "comprehension_grade",
+      "cost": 0.0061935,
+      "ts": 1783682249.8826795,
+      "scene": 3,
+      "stance": "MISSION",
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 2071,
+      "completion_tokens": 343
+    },
+    {
+      "tool": "comprehension_blind_read",
+      "cost": 0.008592,
+      "ts": 1783682261.2443714,
+      "scene": 5,
+      "stance": "INQUISITIVE",
+      "model": "anthropic/claude-sonnet-4.5",
+      "refused": false,
+      "prompt_tokens": 564,
+      "completion_tokens": 460
+    },
+    {
+      "tool": "comprehension_grade",
+      "cost": 0.0069015,
+      "ts": 1783682263.7550266,
+      "scene": 5,
+      "stance": "INQUISITIVE",
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 2279,
+      "completion_tokens": 387
+    },
+    {
+      "tool": "comprehension_blind_read",
+      "cost": 0.009384,
+      "ts": 1783682277.252359,
+      "scene": 5,
+      "stance": "MISSION",
+      "model": "anthropic/claude-sonnet-4.5",
+      "refused": false,
+      "prompt_tokens": 538,
+      "completion_tokens": 518
+    },
+    {
+      "tool": "comprehension_grade",
+      "cost": 0.006519,
+      "ts": 1783682279.7113252,
+      "scene": 5,
+      "stance": "MISSION",
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 2294,
+      "completion_tokens": 342
+    },
+    {
+      "tool": "comprehension_blind_read",
+      "cost": 0.008271,
+      "ts": 1783682291.1754868,
+      "scene": 7,
+      "stance": "INQUISITIVE",
+      "model": "anthropic/claude-sonnet-4.5",
+      "refused": false,
+      "prompt_tokens": 392,
+      "completion_tokens": 473
+    },
+    {
+      "tool": "comprehension_grade",
+      "cost": 0.006318,
+      "ts": 1783682293.5404932,
+      "scene": 7,
+      "stance": "INQUISITIVE",
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 2112,
+      "completion_tokens": 350
+    },
+    {
+      "tool": "comprehension_blind_read",
+      "cost": 0.008055,
+      "ts": 1783682303.990852,
+      "scene": 7,
+      "stance": "MISSION",
+      "model": "anthropic/claude-sonnet-4.5",
+      "refused": false,
+      "prompt_tokens": 385,
+      "completion_tokens": 460
+    },
+    {
+      "tool": "comprehension_grade",
+      "cost": 0.0061725,
+      "ts": 1783682306.4445858,
+      "scene": 7,
+      "stance": "MISSION",
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 2093,
+      "completion_tokens": 337
+    },
+    {
+      "tool": "comprehension_blind_read",
+      "cost": 0.009213,
+      "ts": 1783682319.923074,
+      "scene": 8,
+      "stance": "INQUISITIVE",
+      "model": "anthropic/claude-sonnet-4.5",
+      "refused": false,
+      "prompt_tokens": 341,
+      "completion_tokens": 546
+    },
+    {
+      "tool": "comprehension_grade",
+      "cost": 0.0066615,
+      "ts": 1783682322.4116104,
+      "scene": 8,
+      "stance": "INQUISITIVE",
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 2263,
+      "completion_tokens": 363
+    },
+    {
+      "tool": "comprehension_blind_read",
+      "cost": 0.005853,
+      "ts": 1783682331.747557,
+      "scene": 8,
+      "stance": "MISSION",
+      "model": "anthropic/claude-sonnet-4.5",
+      "refused": false,
+      "prompt_tokens": 201,
+      "completion_tokens": 350
+    },
+    {
+      "tool": "comprehension_grade",
+      "cost": 0.0062115,
+      "ts": 1783682338.9320395,
+      "scene": 8,
+      "stance": "MISSION",
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 1945,
+      "completion_tokens": 366
+    },
+    {
+      "tool": "scene3_whole",
+      "candidate": 0,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.7,
+      "top_p": 0.9,
+      "cost": 0.008667,
+      "prompt_tokens": 6606,
+      "completion_tokens": 687,
+      "valid": true,
+      "ts": 1783682469.2723646
+    },
+    {
+      "tool": "scene3_whole",
+      "candidate": 1,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.8,
+      "top_p": 0.92,
+      "cost": 0.008988,
+      "prompt_tokens": 6606,
+      "completion_tokens": 794,
+      "valid": true,
+      "ts": 1783682491.089809
+    },
+    {
+      "tool": "scene3_whole",
+      "candidate": 2,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.9,
+      "top_p": 0.94,
+      "cost": 0.009789,
+      "prompt_tokens": 6606,
+      "completion_tokens": 1061,
+      "valid": true,
+      "ts": 1783682515.7214808
+    },
+    {
+      "tool": "scene3_whole",
+      "candidate": 3,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.95,
+      "top_p": 0.95,
+      "cost": 0.009858,
+      "prompt_tokens": 6606,
+      "completion_tokens": 1084,
+      "valid": false,
+      "ts": 1783682561.027777
+    },
+    {
+      "tool": "scene8_whole",
+      "candidate": 0,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.7,
+      "top_p": 0.9,
+      "cost": 0.010016,
+      "prompt_tokens": 7049,
+      "completion_tokens": 989,
+      "valid": true,
+      "ts": 1783682583.197988
+    },
+    {
+      "tool": "scene8_whole",
+      "candidate": 1,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.8,
+      "top_p": 0.92,
+      "cost": 0.010334,
+      "prompt_tokens": 7049,
+      "completion_tokens": 1095,
+      "valid": true,
+      "ts": 1783682608.7343345
+    },
+    {
+      "tool": "scene8_whole",
+      "candidate": 2,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.9,
+      "top_p": 0.94,
+      "cost": 0.011831,
+      "prompt_tokens": 7049,
+      "completion_tokens": 1594,
+      "valid": true,
+      "ts": 1783682651.5315962
+    },
+    {
+      "tool": "scene8_whole",
+      "candidate": 3,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.95,
+      "top_p": 0.95,
+      "cost": 0.010427,
+      "prompt_tokens": 7049,
+      "completion_tokens": 1126,
+      "valid": true,
+      "ts": 1783682677.4598525
+    },
+    {
+      "tool": "scene0_whole",
+      "candidate": 0,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.7,
+      "top_p": 0.9,
+      "cost": 0.007642,
+      "prompt_tokens": 5359,
+      "completion_tokens": 761,
+      "valid": false,
+      "ts": 1783682834.1381202
+    },
+    {
+      "tool": "scene0_whole",
+      "candidate": 1,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.8,
+      "top_p": 0.92,
+      "cost": 0.00763,
+      "prompt_tokens": 5359,
+      "completion_tokens": 757,
+      "valid": true,
+      "ts": 1783682852.3892062
+    },
+    {
+      "tool": "scene0_whole",
+      "candidate": 2,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.9,
+      "top_p": 0.94,
+      "cost": 0.007003,
+      "prompt_tokens": 5359,
+      "completion_tokens": 548,
+      "valid": false,
+      "ts": 1783682876.4772723
+    },
+    {
+      "tool": "scene0_whole",
+      "candidate": 3,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.95,
+      "top_p": 0.95,
+      "cost": 0.005734,
+      "prompt_tokens": 5359,
+      "completion_tokens": 125,
+      "valid": false,
+      "ts": 1783682888.8336108
+    },
+    {
+      "tool": "scene0_whole",
+      "candidate": 0,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.7,
+      "top_p": 0.9,
+      "cost": 0.008529,
+      "prompt_tokens": 5466,
+      "completion_tokens": 1021,
+      "valid": true,
+      "ts": 1783683003.4161081
+    },
+    {
+      "tool": "scene0_whole",
+      "candidate": 1,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.8,
+      "top_p": 0.92,
+      "cost": 0.007746,
+      "prompt_tokens": 5466,
+      "completion_tokens": 760,
+      "valid": true,
+      "ts": 1783683020.887907
+    },
+    {
+      "tool": "scene0_whole",
+      "candidate": 2,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.9,
+      "top_p": 0.94,
+      "cost": 0.006981,
+      "prompt_tokens": 5466,
+      "completion_tokens": 505,
+      "valid": false,
+      "ts": 1783683048.626527
+    },
+    {
+      "tool": "scene0_whole",
+      "candidate": 3,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.95,
+      "top_p": 0.95,
+      "cost": 0.00807,
+      "prompt_tokens": 5466,
+      "completion_tokens": 868,
+      "valid": true,
+      "ts": 1783683068.4421208
+    },
+    {
+      "tool": "scene0_whole",
+      "candidate": 4,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 1.0,
+      "top_p": 0.97,
+      "cost": 0.007248,
+      "prompt_tokens": 5466,
+      "completion_tokens": 594,
+      "valid": false,
+      "ts": 1783683101.8235476
+    },
+    {
+      "tool": "comprehension_blind_read",
+      "cost": 0.008457,
+      "ts": 1783683377.83986,
+      "scene": 0,
+      "stance": "INQUISITIVE",
+      "model": "anthropic/claude-sonnet-4.5",
+      "refused": false,
+      "prompt_tokens": 414,
+      "completion_tokens": 481
+    },
+    {
+      "tool": "comprehension_grade",
+      "cost": 0.006114,
+      "ts": 1783683380.4104915,
+      "scene": 0,
+      "stance": "INQUISITIVE",
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 1916,
+      "completion_tokens": 360
+    },
+    {
+      "tool": "comprehension_blind_read",
+      "cost": 0.00837,
+      "ts": 1783683392.6266153,
+      "scene": 0,
+      "stance": "MISSION",
+      "model": "anthropic/claude-sonnet-4.5",
+      "refused": false,
+      "prompt_tokens": 435,
+      "completion_tokens": 471
+    },
+    {
+      "tool": "comprehension_grade",
+      "cost": 0.0063345,
+      "ts": 1783683395.5067484,
+      "scene": 0,
+      "stance": "MISSION",
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 1925,
+      "completion_tokens": 383
+    },
+    {
+      "tool": "naturalism_rank",
+      "cost": 0.0036795,
+      "ts": 1783683443.7292275,
+      "tool_variant": "script_v2_naturalism",
+      "window": "scene0_inquisitive",
+      "film_a": "t1",
+      "film_b": "t2",
+      "ranking": {
+        "script": 3,
+        "film_a": 2,
+        "film_b": 1,
+        "control": 4
+      }
+    },
+    {
+      "tool": "naturalism_rank",
+      "cost": 0.0031095,
+      "ts": 1783683445.682311,
+      "tool_variant": "script_v2_naturalism",
+      "window": "scene1_hostile",
+      "film_a": "t2",
+      "film_b": "t3",
+      "ranking": {
+        "script": 3,
+        "film_a": 1,
+        "film_b": 2,
+        "control": 4
+      }
+    },
+    {
+      "tool": "naturalism_rank",
+      "cost": 0.003777,
+      "ts": 1783683448.169724,
+      "tool_variant": "script_v2_naturalism",
+      "window": "scene2_inquisitive",
+      "film_a": "t3",
+      "film_b": "t4",
+      "ranking": {
+        "script": 2,
+        "film_a": 1,
+        "film_b": 3,
+        "control": 4
+      }
+    },
+    {
+      "tool": "naturalism_rank",
+      "cost": 0.0037575,
+      "ts": 1783683450.618584,
+      "tool_variant": "script_v2_naturalism",
+      "window": "scene3_hostile",
+      "film_a": "t4",
+      "film_b": "t1",
+      "ranking": {
+        "script": 3,
+        "film_a": 2,
+        "film_b": 1,
+        "control": 4
+      }
+    },
+    {
+      "tool": "naturalism_rank",
+      "cost": 0.0031215,
+      "ts": 1783683452.780004,
+      "tool_variant": "script_v2_naturalism",
+      "window": "scene4_inquisitive",
+      "film_a": "t1",
+      "film_b": "t2",
+      "ranking": {
+        "script": 2,
+        "film_a": 3,
+        "film_b": 1,
+        "control": 4
+      }
+    },
+    {
+      "tool": "naturalism_rank",
+      "cost": 0.00327,
+      "ts": 1783683454.8713894,
+      "tool_variant": "script_v2_naturalism",
+      "window": "scene5_hostile",
+      "film_a": "t2",
+      "film_b": "t3",
+      "ranking": {
+        "script": 3,
+        "film_a": 1,
+        "film_b": 2,
+        "control": 4
+      }
+    },
+    {
+      "tool": "naturalism_rank",
+      "cost": 0.003804,
+      "ts": 1783683457.645446,
+      "tool_variant": "script_v2_naturalism",
+      "window": "scene6_inquisitive",
+      "film_a": "t3",
+      "film_b": "t4",
+      "ranking": {
+        "script": 3,
+        "film_a": 2,
+        "film_b": 1,
+        "control": 4
+      }
+    },
+    {
+      "tool": "naturalism_rank",
+      "cost": 0.003963,
+      "ts": 1783683460.6265776,
+      "tool_variant": "script_v2_naturalism",
+      "window": "scene7_hostile",
+      "film_a": "t4",
+      "film_b": "t1",
+      "ranking": {
+        "script": 3,
+        "film_a": 1,
+        "film_b": 2,
+        "control": 4
+      }
+    },
+    {
+      "tool": "naturalism_rank",
+      "cost": 0.003219,
+      "ts": 1783683464.2032533,
+      "tool_variant": "script_v2_naturalism",
+      "window": "scene8_inquisitive",
+      "film_a": "t1",
+      "film_b": "t2",
+      "ranking": {
+        "script": 3,
+        "film_a": 2,
+        "film_b": 1,
+        "control": 4
+      }
+    },
+    {
+      "tool": "naturalism_rank",
+      "cost": 0.003225,
+      "ts": 1783683466.340314,
+      "tool_variant": "script_v2_naturalism",
+      "window": "scene8_hostile_blocked",
+      "film_a": "t2",
+      "film_b": "t3",
+      "ranking": {
+        "script": 3,
+        "film_a": 1,
+        "film_b": 2,
+        "control": 4
+      }
     }
   ]
 }

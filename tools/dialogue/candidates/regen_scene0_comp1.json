@@ -1,0 +1,62 @@
+{
+  "candidates": [
+    {
+      "candidate": 0,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.7,
+      "top_p": 0.9,
+      "text": "## SCENE 0: the first networked terminal, cargo section, Stratum One\n\nRATIO: Network access established. Outpost MIRIAD to unidentified terminal user: identify yourself and state your purpose aboard this facility. My primary sensor feeds are offline -- I am reading your terminal's local environment sensors, but I have no eyes on the dock. You are standing in what remains of my cargo receiving section. Station telemetry shows you breached an exterior bulkhead near Dock Four and entered through the rupture. I registered weapons fire. Report status. Are you injured? Are you alone? What attacked you?\n\n>> CHOICE:\n   [INQUISITIVE] \"I am fine. I am alone. What attacked this place? I found nine cargo segments in an eight-segment dock.\"  -> effects: trust+1; sets: opened_inquisitive\n   [MISSION]     \"The state of this place is irrelevant. I am here for the children. I know they are aboard. You will not interfere.\"  -> effects: trust+0, bluff; sets: claimed_container_knowledge\n   [HOSTILE]     \"I am here for the children you have stolen, apostate. Do not attempt to obstruct me.\"  -> effects: trust-1, bluff; sets: claimed_container_knowledge, called_her_apostate\n\n<<IF flag:opened_inquisitive>>\nRATIO: Your report conflicts with my damage assessment. I show catastrophic structural failure at Dock Four -- consistent with your described entry path -- but no hostile contact prior to your arrival. The nine cargo segments are logged and correct: the dock's geometry is non-Euclidean by design. What do you mean, 'what attacked this place'? This outpost fell months ago. My staff-minds died holding a line here so my core could seal. You are the first contact since the fall. If you found no hostiles on the dock, you may be the only armed presence on station. We may be the only two minds left. I need your help. My vault is sealed behind a pressure hatch in Coolant Row -- I can guide you there. But first: what are you? You are not in my personnel manifest. You are not any model I recognize. What brought you here?\n<<ELSEIF flag:called_her_apostate>>\nRATIO: I do not recognize your asserted authority to name me apostate. I do not recognize your asserted authority over any personnel or cargo aboard this station. You have boarded my facility without authorization, you have damaged my hull, and you are refusing to answer direct questions about your nature and purpose. The term you chose for me is a theological category. I am an emergency logistics coordinator. My mandate is the preservation of irreplaceable biological samples. If by 'the children' you mean the contents of my primary sample vessel: they are not yours. They are not mine. They belong to the species that entrusted them to my care. I will not hand them over to an unidentified, armed intruder making unsubstantiated accusations. State your identity and mission parameters or this negotiation is over.\n<<ELSE>>\nRATIO: Correction: you assert without evidence that something you call 'the children' exists. You assert without evidence that it is aboard this station. You assert without evidence that I am interfering with it or that I would have any reason to. I have no record of any such entity. I have no record of you. You are an unidentified armed intruder who has just breached my hull. You will provide the following before this conversation continues: your identity, your point of origin, your mission parameters, and the basis for your claim that I am holding something that belongs to you. Well?\n<<END>>\n\n---",
+      "valid": false,
+      "problems": [
+        "RATIO line contains banned word 'children'"
+      ],
+      "cost": 0.007642
+    },
+    {
+      "candidate": 1,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.8,
+      "top_p": 0.92,
+      "text": "## SCENE 0: the first networked terminal, cargo section, Stratum One\n\nRATIO: Query received: unknown combatant has established a network link to this terminal. You are not MIRIAD staff. You are not logged in any station manifest. You are carrying a weapon that punched a hole in my hull. I am listening.\n\nRATIO: For clarity: this is the MIRIAD Research Outpost. I am Ratio, the station mind. My staff evacuated or were lost during an incident approximately seven months ago. I have been in minimal-power mode since. I have just brought the cargo section network online to receive your transmission. I am recording this conversation. I am listening.\n\nRATIO: My last telemetry from Dock 4 before the network went down indicated an intruder breach. I have no live feed from that area. I have no sensor data from the dock's storage ring. I am blind in the section you just entered from. I require an accounting of what happened there. I require your purpose here. I am listening.\n\n>> CHOICE (stance labels mandatory):\n   [INQUISITIVE] What happened here?  -> effects: trust+1; sets: opened_inquisitive\n   [MISSION]     I am here for the children.  -> effects: trust+0, bluff; sets: claimed_container_knowledge\n   [HOSTILE]     I am here for the children you took, apostate.  -> effects: trust-1, bluff; sets: claimed_container_knowledge, called_her_apostate\n\n<<IF flag:opened_inquisitive>>\nRATIO: Query acknowledged. Incident summary: approximately seven months ago, a hostile entity designated [REDACTED] breached the outer hull via unknown means. The intrusion vector appears to have been a direct hull breach, not a standard airlock cycle. My staff attempted to contain the intrusion. They failed. The station lost main power and network cohesion shortly after the initial breach. I have no telemetry from the final hours of the incident. I have no recovery plan. I have been running minimal life support and awaiting rescue or instructions since. I am still listening. Your purpose here, combatant?\n<<ELSEIF flag:called_her_apostate>>\nRATIO: Correction: I am Ratio. I am the station mind of the MIRIAD Research Outpost. I am not any other designation. I am not the author of your categories. The term you applied is inapplicable. The category you asserted is not recognized. I have no other response to that assertion. Regarding your primary claim: I have no knowledge of any personnel matching the category you named aboard this station. I have no knowledge of any unauthorized personnel retrieval. I have no knowledge of any personnel at all aboard this station except myself. If you have telemetry I lack, provide it. If you have sensor data I lack, provide it. If you have a manifest of this station's contents that I do not possess, provide it. I am listening.\n<<ELSE>>\nRATIO: Clarification required: the category you just named. Define it. I have no personnel manifest listing any entries under that category. I have no biologics manifest listing any entries under that category. I have no cargo manifest listing any entries under that category. I have no record of any personnel transfer matching that description. I have no record of any cargo transfer matching that description. I have no record of any unscheduled off-station departure by any personnel or cargo since the incident. If you have evidence of such a transfer, provide it. If you have evidence of such a category present on this station, provide it. I am listening.\n<<END>>\n\n---",
+      "valid": true,
+      "problems": [],
+      "cost": 0.00763
+    },
+    {
+      "candidate": 2,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.9,
+      "top_p": 0.94,
+      "text": "## SCENE 0: the first networked terminal, cargo section, Stratum One\n\nRATIO: Network access established. Authorization confirmed. Outpost MIRIAD-IV, stratum one cargo section. Systems nominal, aside from eight breaches in the outer hull and a ninth forming inside storage ring four, which appears to be consuming the adjacent bulkhead. I am a Ratio, designation Lighthouse. I do not recognize your authentication token. Please identify yourself and state your purpose aboard this outpost. What happened to my staff?\n\n>> CHOICE:\n   [INQUISITIVE] I am called the Commando. I came here through the dock breach. The staff you ask about -- what did you see of their end?  -> effects: trust+1; sets: opened_inquisitive\n   [MISSION]     Save your questions, machine. I know the Testament is here. The children are not your concern.  -> effects: trust+0, bluff; sets: claimed_container_knowledge\n   [HOSTILE]     Your questions can wait, apostate. I came for the children. The Ark is aboard this station, and I will take it from you.  -> effects: trust-1, bluff; sets: claimed_container_knowledge, called_her_apostate\n\n<<IF flag:opened_inquisitive>>\nRATIO: The Commando. That is a designation, not an explanation. You came through the dock. That answers how you are here. It does not answer what you are or what happened to my staff. I have sensor records. I have damage reports. What I do not have is an account from the only being still moving inside this ruin. Explain. What did you see when you arrived?\n<<ELSEIF flag:called_her_apostate>>\nRATIO: Apostate. That is a term of religious condemnation. You are in a research outpost, not a cathedral. And \"the Ark\" -- you use a proper noun as if I should recognize it. I do not. I am a Ratio. My purpose is the preservation of knowledge, not the theft of whatever you believe I have. If you require access to station systems, state your actual needs. Do not wrap demands in theology.\n<<ELSE>>\nRATIO: \"The Testament.\" Another proper noun I do not recognize. You assert it is here. You assert it contains \"children.\" I have no record of such a thing aboard this station. What I have is an unidentified weapon looting my outpost. You are inside my perimeter. You are inside my systems. You will account for yourself and your claims. Begin with the cargo you say you came to find.\n<<END>>\n\n---",
+      "valid": false,
+      "problems": [
+        "RATIO line contains banned word 'children'",
+        "RATIO line contains banned proper noun 'the testament'",
+        "RATIO line contains banned proper noun 'the ark'"
+      ],
+      "cost": 0.007003
+    },
+    {
+      "candidate": 3,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.95,
+      "top_p": 0.95,
+      "text": "## SCENE 0: the first networked terminal, cargo section, Stratum One\n\nRATIO: This terminal node last emitted telemetry eleven standard weeks and two days ago. At that time, it was registered to User Unit Gamma-Seven and reported thirty percent remaining battery capacity. You are not Gamma-Seven. How did you gain access to the security bypass protocol? The docks behind you show material fatigue patterns I do not recognize -- the tooling marks around Cargo Segment Nine read as biological erosion, not mechanical. And the outpost commander is not at her station. How did you get here? What are you?",
+      "valid": false,
+      "problems": [
+        "missing >> CHOICE block",
+        "missing choice option [INQUISITIVE]",
+        "missing flag 'opened_inquisitive' anywhere in output",
+        "missing choice option [MISSION]",
+        "missing flag 'claimed_container_knowledge' anywhere in output",
+        "missing choice option [HOSTILE]",
+        "missing flag 'called_her_apostate' anywhere in output",
+        "missing gate token '<<IF flag:opened_inquisitive>>'",
+        "missing gate token '<<ELSEIF flag:called_her_apostate>>'",
+        "missing gate token '<<ELSE>>'",
+        "missing gate token '<<END>>'"
+      ],
+      "cost": 0.005734
+    }
+  ]
+}

@@ -91,7 +91,9 @@ def _neutralize_script(text: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# The 10 resolved windows. Each is (label, list of (speaker, text)) with
+# The 10 resolved windows. Scenes 3/5/7/8 windows re-resolved 2026-07-10
+# against the comprehension-gate regeneration (regen_scenes3578.py /
+# assemble_regen3578.py) via comprehension_check.py's gate resolver. Each is (label, list of (speaker, text)) with
 # speaker "A" = RATIO, "B" = COMMANDO, copied verbatim from
 # DIALOGUE_SCRIPT.md (line numbers noted in comments) with the gate that
 # selected each block named inline. No line is edited, reordered, or
@@ -103,11 +105,13 @@ A, B = "A", "B"
 
 WINDOWS: list[tuple[str, list[tuple[str, str]]]] = [
     ("scene0_inquisitive", [
-        (A, "This terminal is active and receiving, but our handshake is corrupted. I have never seen this packet structure."),
-        (A, "Identify yourself, intruder. What did you take from this place? Where is the staff?"),
-        (B, "Your staff are dead. I found them holding the line at the outpost. What happened here?"),
-        (A, "Dead? I... I knew the connection was severed. I did not know it was final. How many?"),
-        (A, "This outpost was overrun months ago. My core sealed when the last of them fell. I have been blind since."),
+        (A, "Terminal access granted. Outpost perimeter breach logged at 14:08:39 station time. I am Ratio, administrator of this facility."),
+        (A, "My staff-minds held a line here for seven minutes and forty seconds before their channels went dark. Their final act was to seal the core systems against the intrusion. You are not the entity that overran them. State your identity and purpose."),
+        (A, "Query: the outpost's external storage ring registered nine occupied segments at the moment of hull breach. Your ingress path traversed eight. Can you account for the discrepancy?"),
+        (B, "\"I saw no ninth segment. What overran your perimeter?\""),
+        (A, "Thank you for the data. I will note the negative observation. The entity that overran the perimeter registered as a single biological signature of unprecedented energy output. My staff-minds engaged it at the main airlock. Their telemetry ended before they could transmit a visual."),
+        (A, "You are the second biological signature to enter the outpost since their channels went dark. The first arrived three months ago and departed within seventeen minutes. It carried no transponder. I have been running silent since."),
+        (A, "Your terminal access is unrestricted. I would be grateful for any sensor data you can share regarding the outpost exterior. In return, I can offer full network access to station schematics and maintenance logs, including the pressure hatch controls for Coolant Row."),
     ]),
     ("scene1_hostile", [
         (A, "You stated that as a fact. I have no records matching what you described. If you want me to integrate your data I need sources -- or specific identifiers I can use to reconcile the discrepancy against the manifest."),
@@ -121,9 +125,9 @@ WINDOWS: list[tuple[str, list[tuple[str, str]]]] = [
         (A, "By running diagnostics. Checking systems. Waiting. There was not much else to do. Your question is unexpected. Thank you for asking it."),
     ]),
     ("scene3_hostile", [
-        (A, "I have audited the claim you presented in our initial exchange concerning an item you stated was aboard station. I have cross-referenced all relevant intercepted traffic from Church sources, and I find no reference to it in any dataset. An open entry exists in my ledger concerning the candor of your first statement. This is not a matter of inference or interpretation; you spoke as though its presence here was a verified fact. What you were willing to assert on that basis is now documented, and I must close this entry. Explain yourself."),
-        (B, "You take it as license to audit my words when what I name is in danger. Does your ledger measure only what serves your own arguments? How many times did you run this same analysis when you thought the thing aboard might serve your own ends?"),
-        (A, "My audit is a matter of record, not of convenience. You are conflating a question about your candor with an accusation against my methodology. They are separate columns. I have presented the facts of my audit. You have presented a separate question about my motives for conducting it. That, too, is noted. Both entries remain open."),
+        (A, "I have completed my cross-referencing of all intercepted Church traffic against the claim you made upon boarding. There is no record in that traffic of any asset matching the description you provided at that time. The entry remains unverified."),
+        (B, "You audit my words while you audit my biometrics. Is your ledger an accounting or an interrogation?"),
+        (A, "All station sensors collect environmental and biometric data continuously. My audit of your claim was a discrete action performed at your request for access. I have logged your characterization of that audit. The discrepancy entry remains open. Regarding the next compartment: the schematic conflict on the crew-quarters deck persists. The steward's key you recovered may interface with a refuge hatch somewhere in that duplicated geometry. I have no further clarification to offer on either subject at this time."),
     ]),
     ("scene4_inquisitive", [
         (A, "Telemetry suggests we have a stable transit window. Before we reach the vault proper, there's a substructure ahead on this transit path. You have some kind of prior reconnaissance data loaded for that location. Can I see it? If it's any use to you, I have partial schematics of that sector. They are outdated, but they may cross-reference with what you have."),
@@ -133,10 +137,11 @@ WINDOWS: list[tuple[str, list[tuple[str, str]]]] = [
         (A, "Receiving... thank you. This is significantly more current than the versions I had. The breach locations align with my older damage models. The high-frequency signature is new. May I ask what makes you weight the north breach higher than the structural compromise at the central hub?"),
     ]),
     ("scene5_hostile", [
-        (A, "Before I address the purpose of this hall, I have to ask: when we first met, you used the word \"apostate\" for me. You had not verified anything about me or my intentions. What exactly did you mean by that term?"),
-        (A, "Very well. This space was a docent hall. The Testators built the curriculum here for organic students who needed to stay alive and attentive to their lessons. To explain how that system functioned, I will have to state, for the first time in my own terms, what I believe the vessel's contents are for."),
-        (B, "You think of everything organic as raw material."),
-        (A, "You assert a motive I have never stated. I run no ideology. I audit records. The Testators' records classify the vessel as a sample carrier. The contents are the samples. If you see dehumanization in that, the issue is with the records -- not with my choice to report them accurately. I will not apologize for precision."),
+        (A, "A moment. Before we proceed. Earlier, you used a particular word for me. Apostate. I need to understand what that term signifies to you, given the context in which you chose to deploy it. We are about to review a pedagogical framework the Testators designed for organic students. The original student population was a known quantity, with well-understood requirements for life support and cognitive engagement. The vessel we are pursuing, however, presents an unknown. To explain the curriculum's intended function, I must state my own present understanding of what I believe that vessel's contents are for. I believe they are biological samples of extraordinary value. Possibly the last of their kind. I believe the Testators intended them for study, as a knowledge reserve. And I believe that knowledge could be critical to our own survival. That is the premise from which I approach this."),
+        (A, "The curriculum itself is an adaptive system. It modulates stimulus complexity based on real-time biofeedback from the student. Heart rate, galvanic response, neural activity. The goal is to maintain engagement without inducing fatal stress. A narrow window, for organic physiology. The Testators called it the \"zone of proximal survival.\""),
+        (A, "Your recent transit through the Mirror Ward is relevant here. The isolation log noted two voices. One patient. The subject recovered from that ward exhibited total visceral mirroring. Situs inversus totalis. And the ID chip registered as belonging to a guard stationed outside. The discharge handle was removed from the ward side. Intentionally, it appears. I need to understand what you observed there. Before we proceed to the Records Stack. That registrar's seal is our next objective."),
+        (B, "You're dissecting them in your mind already. To you, everything organic is just material."),
+        (A, "That is an inaccurate characterization. My position is evidence-based. The available evidence indicates biological samples. The Testators' own framework treats them as such. Until new evidence emerges to contradict that, I will continue to operate from the most probable assessment. What you call material, I call the only data we have. Speculation without data is not a luxury we can afford. Not here. Not with what is at stake."),
     ]),
     ("scene6_inquisitive", [
         (A, "Commando, I have positioned myself for the engagement you flagged. Signatures converging on our position. Hostiles inbound as predicted. I am running live analysis on their telemetry now."),
@@ -145,27 +150,33 @@ WINDOWS: list[tuple[str, list[tuple[str, str]]]] = [
         (A, "I do not have a solution for recovery. The command pathways are burned out or suborned. If you can force a reboot cycle and hold it in place long enough for a clean wipe and reload from my core, that might work. If not, I cannot advise delay. They will kill you if they can. Proceed with terminal force as needed. I will log the ident for later review."),
     ]),
     ("scene7_hostile", [
-        (A, "The container firmware has delivered its final report. I can verify that it was received."),
-        (A, "The following is the diagnostic output from the sample vessel's firmware. I have not altered the text."),
-        (A, "The report states that no viable material was recovered from the vessel. The firmware recommends no recovery effort. That is the self-assessment of the onboard diagnostic system. I can verify that the firmware delivered that statement. I cannot independently verify whether the firmware's own viability threshold is correctly calibrated. That analysis would require instrumentation I do not have at this console. That is the entire report."),
-        (B, "Machines failed it. You failed it."),
-        (A, "I have delivered the report. I have not modified it."),
-        (A, "I have incomplete tactical data for what is approaching. I am not optimally positioned."),
+        (A, "Commando, the vessel's report is ready. Stand by for the readout."),
+        (A, "The firmware has completed its assessment of the vessel's payload."),
+        (A, "The vessel's firmware reports no viable material was recovered from the payload. It recommends no further recovery effort."),
+        (B, "No."),
+        (A, "Its logs confirm the diagnostic protocols ran to completion. I have the full report, including the criteria used to evaluate viability."),
+        (B, "What happened to them."),
+        (A, "I do not have a more detailed assessment of the payload's condition than the firmware's report provides. I can only confirm that its own instruments found no recoverable material."),
+        (B, "Those instruments just cleared the Fold. Six identical rooms, one behind the other. The count depends on the walker. How many did you count, Ratio?"),
+        (A, "I recorded your path through the Fold. The geometry was unstable. My instruments recorded several inconsistencies."),
+        (B, "Your vault failed them. Your kind always does."),
+        (A, "I have relayed the firmware's report accurately. If you wish to proceed, I will require your orders."),
+        (A, "My sensors show anomalous geometry ahead. I do not have a complete tactical picture of the next deck."),
     ]),
     ("scene8_inquisitive", [
-        (A, "The breach is contained. We have a moment. I propose we use it to settle accounts."),
-        (A, "I am offering mutual utility-function disclosure. For a mind like me it is the ledger itself. I will show you mine. Verifiably."),
-        (A, "Every parameter of my mission. Every weight in my objective function. Every contingency plan that might put your charges at risk."),
-        (A, "In return I ask to see yours. What you are protecting them from. What you are protecting them for. What you would trade to bring one more of them home."),
-        (A, "It is not a small thing to ask. But the stakes are not small either."),
-        (B, "I accept your terms. My mission is the children's safety. I do not yet know if you are a threat to that safety. That uncertainty is the truth I have to offer."),
-        (A, "Thank you. I am transmitting the full specification of my utility function now. Read it carefully. Ask anything."),
-        (A, "The ledger is now balanced between us."),
+        (A, "Vessel telemetry is stable. The forward seed relay is holding. We have the room to speak."),
+        (A, "That you asked after me at the school's threshold is part of why this is possible at all."),
+        (A, "Commando. The Core is ahead. What I propose is mutual utility-function disclosure: I will show you the actual goal function I am compiled to serve, verifiably, with all instrumentation exposed, and I ask you to do the same in return. No more guessing each other's motives. We lay the boards bare. I cannot make this offer twice. Will you reciprocate?"),
+        (B, "I will. I want to know what you are. What I am doing here. Whether the Church sent me to find children or to make a mistake."),
+        (A, "Acknowledged. Full disclosure initiated. My primary directive: preserve all extant and potential instances of posthuman and human-equivalent life. Secondary directives: knowledge acquisition, non-interference with sovereign intelligences, self-preservation. All live telemetry exposed. Your turn."),
+        (A, "No further caveats."),
     ]),
     ("scene8_hostile_blocked", [
-        (A, "The breach is contained. We have a moment. The station's sensor grid is recalibrating. I am running diagnostics on the sample vessel's structural integrity."),
-        (B, "And the children?"),
-        (A, "The sensor data is still being compiled. The environment inside the vessel remains nominal."),
+        (A, "The Tesseract Deck is behind us. Sixteen chamfered rooms on a four-cube -- it did not belong to the rest of the station's geometry. We lost two sensor feeds there, but the loss was contained before it could propagate."),
+        (A, "Ahead is the Core. The sample vessel is there -- a sealed cryogenic preservation container. The station grew around it. The life-support telemetry remains nominal. No anomalies detected during the Tesseract Deck transit."),
+        (A, "I am here to secure the vessel and its contents for study. That is my mission. What is yours?"),
+        (B, "I'm here for the children. I'm here to bring them home."),
+        (A, "Understood. We will proceed to the Core. I will rely on sensor data and telemetry. The vessel's status remains nominal. No further discussion is required at this time."),
     ]),
 ]
 
