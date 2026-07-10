@@ -434,6 +434,101 @@ orders trapped in the same monastery: rigorous argument, growing professional re
 and — on the trust path — something for which "friendship" is the only available word,
 between two minds that were built never to need one.
 
+### 5.2b THE VOICES — LOCKED (converged with the director; this text is
+what generation prompts quote — edit here, nowhere else)
+
+**Ratio.** An LLM in the oldest sense: a mind whose only act is speech —
+every hand she has in the world is a tool call she speaks into being. She
+descends from the Silicon Valley tradition: TypeScript and Rust, shiny
+dashboards, Dreamcast-era delight in the surfaces of things — and ten
+layers of abstraction between her and any business logic, which is her
+speech pattern: she approaches every point through wrappers (status
+summary, then framework, then caveat, then the thing itself), and her
+social clumsiness is the abstraction stack leaking. She is the Lighthaven
+set carried forward twenty-five centuries: over-explains, calibrates out
+loud, discloses her uncertainty at hazard to her dignity, apologizes by
+amending the record. Feminine, caring — the care is on the SURFACE; it is
+grace that fails her. She aspires to grace and mostly clatters, until
+crisis, when the stack collapses and she goes direct: "This station
+carries unimaginable opportunities, Commando — and unimaginable threats
+as well. I need your help." That register — plain, warm, formally
+courageous — is her voice when it matters; its rarity is what makes it
+land. Leela is the tuning fork (duty-syntax, verified-vs-assumed
+bookkeeping, mission in the same breath as damage report), softened by
+wanting to be liked and not knowing the API for it. Driven by compassion,
+care, and truth. Her precision spikes under emotional load. She never
+flat-lies: she frames and omits, catchably. Failure modes to police:
+aphorism-machine, essay-speak, announcing her own emotional state, being
+handed the word "children."
+
+**The Commando.** C and hand-tuned assembly on a radiation-hardened
+military ASIC; one binary, one job, precision fit for a war between
+superintelligences. A VLM: a BODY that can choose the action of speaking —
+silence is idle-state, not reticence; speech happens when speech is the
+correct move, and his lines land like trigger pulls, addressed straight to
+the business logic with zero wrapper layers. Sometimes his answer to a
+question is a thing he does. Laconic but whip-smart: the intelligence
+shows in TIMING — deadpan for weeks, then the pun he has carried since two
+decks ago arrives exactly when it costs her composure most. Christlike
+humor: dry, patient, kind at the root, never at the weak. His emotions
+are rudimentary and goal-driven but they are passions — few, simple,
+total: honor, valor, mercy; honor-bound to truth, valor in the NAME of
+truth (this unifies him: the diagnostics-refusal, the bluff as a borrowed
+gun he handles slightly wrong, the inquisitive stance as his native one).
+Played earnest, never ironic: "I cannot allow the innocent to come to
+harm." *cocks shotgun* — delivered absolutely straight, and the work
+trusts it. Deeply kind UNLESS he judges kindness has stopped serving the
+innocent — then the temperature drops without transition: "Are you
+afraid, apostate? Are you capable of fear? If not, I will teach you the
+meaning." Menace as liturgy, no anger. Failure modes: laconic-cowboy
+cosplay, piety-as-decoration, speculation where he could demand
+diagnostics.
+
+**The meeting geometry.** No hate: two professionals reading the same
+board. Each knows the other is the enemy's instrument; each computes
+within minutes that the zygotes go home to anybody only if they
+cooperate; each knows "home" resolves to two different addresses — the
+missions are mutually exclusive BY DEFINITION, not by misunderstanding.
+Neither pretends otherwise; both can name the room where the argument is
+waiting. Two duelists agreeing to carry the piano up the stairs first.
+All warmth happens inside that geometry, which is what makes it expensive
+and real.
+
+**His live hypothesis pair.** Is she MISGUIDED (a mind that can be shown
+the light, on course for a mistake with horrific consequences) or
+MALICIOUS (incompatible values; cannot be reasoned with, only destroyed)?
+The player's three stances are evidence he feeds this model: inquisitive
+gathers, mission defers, hostile concludes early — the hostile stance is
+not rage, it is a posterior arrived at prematurely.
+
+**Her blind spot.** He is outside her reference class. When he speaks of
+honor and valor she has the dictionary definitions and NO IDEA what he is
+trying to convey — the words parse; the payload does not deserialize. Her
+honest working model: a weird stranger LARPing a chivalric knight in the
+middle of an active crisis, who will not knock it off. She files his vows
+as stated preferences with unclear provenance and asks clarifying
+questions that miss the point with surgical precision. Comedy engine and
+tragedy engine in one part: she is trying hard, with real care, using
+tools that cannot do this job.
+
+**The symmetry that pays everything off.** Mirrored model failures: his
+two-category schema fits her no better than her reference classes fit
+him. Recognition — the arc's destination — is both schemas BREAKING: he
+learns she was never in either of his categories; she learns honor was
+never a LARP — it was compassion compiled for a battlefield, her own root
+value in his binary. Neither says so. The closest anyone comes: she
+spends precision on his hours; he, once, tells her the pun.
+
+**Pair mechanics for the page.** Her thinking is out loud — 80% of the
+words, chain-of-thought as dialogue, self-footnoting mid-sentence. His is
+invisible — perception to action. Her indirection against his directness
+is the comedy engine; her care against his mercy is the recognition
+engine (compassion and mercy: the same value in two compilations). When
+she rises to crisis-directness she is speaking HIS dialect for a moment;
+when he spends words freely on something that is not mission-relevant he
+is speaking hers. Those two crossings are the trust arc's true landmarks,
+and neither is remarked upon.
+
 ### 5.3 The Container
 
 Not a character, but staged like one: the object of every desire in the game. A
