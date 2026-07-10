@@ -1,5 +1,5 @@
 {
-  "total_cost": 1.0202589999999996,
+  "total_cost": 1.0571679999999994,
   "calls": [
     {
       "tool": "generate",
@@ -1697,6 +1697,78 @@
       "completion_tokens": 452,
       "valid": true,
       "ts": 1783649877.9744236
+    },
+    {
+      "tool": "gen_gap8_r2b",
+      "gap": 8,
+      "candidate": 0,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.75,
+      "top_p": 0.91,
+      "cost": 0.006278,
+      "prompt_tokens": 3332,
+      "completion_tokens": 982,
+      "ts": 1783650043.3672268
+    },
+    {
+      "tool": "gen_gap8_r2b",
+      "gap": 8,
+      "candidate": 1,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.81,
+      "top_p": 0.92,
+      "cost": 0.005777,
+      "prompt_tokens": 3332,
+      "completion_tokens": 815,
+      "ts": 1783650066.1597147
+    },
+    {
+      "tool": "gen_gap8_r2b",
+      "gap": 8,
+      "candidate": 2,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.87,
+      "top_p": 0.93,
+      "cost": 0.006689,
+      "prompt_tokens": 3332,
+      "completion_tokens": 1119,
+      "ts": 1783650117.8104253
+    },
+    {
+      "tool": "gen_gap8_r2b",
+      "gap": 8,
+      "candidate": 3,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.93,
+      "top_p": 0.95,
+      "cost": 0.005621,
+      "prompt_tokens": 3332,
+      "completion_tokens": 763,
+      "ts": 1783650137.4812877
+    },
+    {
+      "tool": "gen_gap8_r2b",
+      "gap": 8,
+      "candidate": 4,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.99,
+      "top_p": 0.96,
+      "cost": 0.005348,
+      "prompt_tokens": 3332,
+      "completion_tokens": 672,
+      "ts": 1783650156.0842826
+    },
+    {
+      "tool": "gen_gap8_r2b",
+      "gap": 8,
+      "candidate": 5,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 1.05,
+      "top_p": 0.97,
+      "cost": 0.007196,
+      "prompt_tokens": 3332,
+      "completion_tokens": 1288,
+      "ts": 1783650187.4388788
     }
   ]
 }
