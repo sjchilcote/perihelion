@@ -27,6 +27,7 @@ from .sim import DT
 INTERNAL_W, INTERNAL_H = 640, 360
 
 FLOOR_BASE = (26, 26, 33)          # ~0x1a1a21 dark grey-blue — reads clearly against the void
+SHADOW_FLOOR = (11, 11, 15)        # known geometry outside line of sight: present, unlit
 WALL_COLOR = (184, 196, 204)       # 0xb8c4cc
 WALL_MIN = (74, 80, 88)            # 0x4a5058 — walls never dim below this (readability skeleton)
 DOOR_COLOR = (208, 128, 24)        # 0xd08018
@@ -862,8 +863,8 @@ class Renderer:
                 self._hurt_ticks = 2
             elif tag == "playerdie":
                 self._dying = True
-            # "sound" / "radio" / "terminal" / "weapon" are consumed by
-            # audio.py / menus.py, not the renderer.
+            # "sound" / "objective" / "terminal" are consumed by
+            # audio.py / app.py, not the renderer.
 
         if self._dying:
             self._death_fade = min(40, self._death_fade + 1)
@@ -879,6 +880,20 @@ class Renderer:
         self._deferred_bolts = []
         self._deferred_screen_glows = []
         instances = session.visible(self.max_depth, self.max_instances)
+        # Pass 0 — known-geometry shadow base: every visible room's full
+        # footprint in deep shadow, before any lit content. Line-of-sight
+        # occlusion then reads as LIGHT (the visible wedge) falling on dark
+        # floor instead of geometry ending in void; a body half-out of the
+        # wedge reads as standing in shadow, not sliced by a bug. This is
+        # what makes the frustum edges sweeping with camera motion read as
+        # moving light rather than strobing world.
+        level = self.session.level
+        for room, xform, depth, clip_screen, walls, entry_edge, ents in instances:
+            if room >= len(level.room_verts) or len(clip_screen) < 3:
+                continue
+            pts = [necore.mat_apply(xform, vx, vy)
+                   for vx, vy in level.room_verts[room]]
+            pygame.draw.polygon(surf, SHADOW_FLOOR, _pts(pts))
         for room, xform, depth, clip_screen, walls, entry_edge, ents in instances:
             if len(clip_screen) < 3:
                 continue

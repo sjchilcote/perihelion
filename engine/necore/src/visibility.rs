@@ -84,6 +84,14 @@ pub struct RoomInstance {
 struct Node {
     room: RoomId,
     xform: Mat3,
+    /// Portal-chain product WITHOUT the camera (identity at the root).
+    /// Dedup keys on this: keying on the composed screen transform made
+    /// instance identity camera-dependent, so two distinct portal paths to
+    /// the same room aliased on some frames and not others as the camera
+    /// moved — whole view wedges strobed in and out (the late-game
+    /// flicker), and entities at the vanished wedge's boundary rendered
+    /// sliced against black.
+    rel: Mat3,
     frustum: Option<Frustum>,
     depth: usize,
 }
@@ -92,8 +100,17 @@ fn quant(x: f64, s: f64) -> i64 {
     (x * s).round() as i64
 }
 
-fn dedup_key(room: RoomId, xf: &Mat3, fr: &Option<Frustum>) -> (usize, [i64; 6], [i64; 4]) {
-    let m = &xf.m;
+/// Camera-independent instance identity: room, quantized portal-chain
+/// transform (room-local units), entry edge, and the portal segment in the
+/// child room's OWN frame. Stable across frames; a genuine traversal loop
+/// (A->B->A composing to identity) still collides with the root and
+/// terminates, exactly as before.
+fn dedup_key(
+    room: RoomId,
+    rel: &Mat3,
+    fr: &Option<Frustum>,
+) -> (usize, usize, [i64; 6], [i64; 4]) {
+    let m = &rel.m;
     let mk = [
         quant(m[0], 1000.0),
         quant(m[1], 1000.0),
@@ -102,15 +119,19 @@ fn dedup_key(room: RoomId, xf: &Mat3, fr: &Option<Frustum>) -> (usize, [i64; 6],
         quant(m[4], 1000.0),
         quant(m[5], 4.0),
     ];
-    let sk = match fr {
-        None => [i64::MIN, i64::MIN, i64::MIN, i64::MIN],
-        Some(f) => {
-            let a = xf.apply(f.a);
-            let b = xf.apply(f.b);
-            [quant(a.x, 4.0), quant(a.y, 4.0), quant(b.x, 4.0), quant(b.y, 4.0)]
-        }
+    let (edge, sk) = match fr {
+        None => (usize::MAX, [i64::MIN, i64::MIN, i64::MIN, i64::MIN]),
+        Some(f) => (
+            f.entry_edge,
+            [
+                quant(f.a.x, 4.0),
+                quant(f.a.y, 4.0),
+                quant(f.b.x, 4.0),
+                quant(f.b.y, 4.0),
+            ],
+        ),
     };
-    (room, mk, sk)
+    (room, edge, mk, sk)
 }
 
 /// Recursive portal traversal. `cam` maps `camera_room` local coordinates to
@@ -127,10 +148,11 @@ pub fn visible_set(
     max_instances: usize,
 ) -> Vec<RoomInstance> {
     let mut out: Vec<RoomInstance> = Vec::new();
-    let mut seen: HashSet<(usize, [i64; 6], [i64; 4])> = HashSet::new();
+    let mut seen: HashSet<(usize, usize, [i64; 6], [i64; 4])> = HashSet::new();
     let mut stack: Vec<Node> = vec![Node {
         room: camera_room,
         xform: cam,
+        rel: Mat3::IDENTITY,
         frustum: None,
         depth: 0,
     }];
@@ -145,7 +167,7 @@ pub fn visible_set(
             None => continue,
         };
 
-        let key = dedup_key(node.room, &node.xform, &node.frustum);
+        let key = dedup_key(node.room, &node.rel, &node.frustum);
         if !seen.insert(key) {
             continue;
         }
@@ -267,6 +289,7 @@ pub fn visible_set(
                 stack.push(Node {
                     room: portal.target_room,
                     xform: child_xform,
+                    rel: node.rel.mul(portal.xform),
                     frustum: Some(Frustum {
                         apex: inv.apply(apex),
                         a: inv.apply(sa),
