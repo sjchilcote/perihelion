@@ -55,14 +55,18 @@ def pygame_ready():
     pygame.quit()
 
 
-def test_render_headless_smoke(pygame_ready):
+@pytest.mark.parametrize("backend", ["rust", "pygame"])
+def test_render_headless_smoke(pygame_ready, backend):
+    import necore
+    if backend == "rust" and not hasattr(necore, "Raster"):
+        pytest.skip("necore build has no Raster")
     level = build_debug_level()
     # screen must match render.INTERNAL_W/H: GameSession bakes the camera
     # matrix and visible-set frustum from `screen` at construction time, so
     # a mismatched default here would off-center the world and clip it to
     # the old resolution regardless of the surface size draw() targets.
     session = GameSession(level, seed=1234, screen=(INTERNAL_W, INTERNAL_H))
-    renderer = Renderer(session)
+    renderer = Renderer(session, backend=backend)
 
     frames: list[tuple[int, "pygame.Surface"]] = []
     draw_times: list[float] = []

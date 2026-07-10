@@ -3,12 +3,15 @@
 //! row-major 9-tuples of floats; all angles are radians; errors become
 //! ValueError with a useful message.
 
+use pyo3::buffer::PyBuffer;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
+use pyo3::types::PyBytes;
 
 use necore_core::{
     geom, raycast as core_raycast, rooms_within as core_rooms_within,
-    visible_set as core_visible_set, v, Mat3, RayHit, Room, Router, Sim as CoreSim, Vec2, World,
+    visible_set as core_visible_set, v, Mat3, RayHit, Raster as CoreRaster, Room, Router,
+    Sim as CoreSim, Vec2, World,
 };
 
 /// Row-major 3x3 homogeneous transform as it crosses the Python boundary.
@@ -469,6 +472,176 @@ impl Sim {
     }
 }
 
+// --- Software rasterizer ---------------------------------------------------
+
+fn raster_err(e: necore_core::RasterError) -> PyErr {
+    PyValueError::new_err(e.to_string())
+}
+
+/// Copy a typed buffer (array('I')/array('f')/numpy) into a Vec.
+/// Zero-length buffers short-circuit to an empty Vec BEFORE the typed
+/// extraction: CPython's `array` exposes a dummy, unaligned base pointer for
+/// empty arrays, which would otherwise fail pyo3's alignment check — and an
+/// empty stream (nothing dynamic this frame) is a legitimate no-op.
+fn typed_buffer<T: pyo3::buffer::Element + Copy>(
+    py: Python<'_>,
+    obj: &Bound<'_, PyAny>,
+) -> PyResult<Vec<T>> {
+    if obj.len().map(|l| l == 0).unwrap_or(false) {
+        return Ok(Vec::new());
+    }
+    PyBuffer::<T>::get(obj)?.to_vec(py)
+}
+
+/// Reinterpret a native-endian byte blob (`array(..).tobytes()` /
+/// `numpy .tobytes()`) as 4-byte words. Copies, so alignment never matters.
+fn blob_words<T>(name: &str, bytes: &[u8], from: impl Fn([u8; 4]) -> T) -> PyResult<Vec<T>> {
+    if bytes.len() % 4 != 0 {
+        return Err(PyValueError::new_err(format!(
+            "{name}: byte length {} is not a multiple of 4",
+            bytes.len()
+        )));
+    }
+    Ok(bytes
+        .chunks_exact(4)
+        .map(|c| from([c[0], c[1], c[2], c[3]]))
+        .collect())
+}
+
+/// Display-list software rasterizer with pygame-ce pixel parity (world +
+/// entity + coverage-fold + darkness + overlay glows). See
+/// necore/src/raster.rs for the wire format and the compositing pipeline.
+#[pyclass]
+struct Raster {
+    r: CoreRaster,
+}
+
+#[pymethods]
+impl Raster {
+    #[new]
+    fn new(w: usize, h: usize) -> PyResult<Self> {
+        if w == 0 || h == 0 || w > 16384 || h > 16384 {
+            return Err(PyValueError::new_err(format!(
+                "raster size {w}x{h} out of range (1..=16384 per side)"
+            )));
+        }
+        Ok(Raster {
+            r: CoreRaster::new(w, h),
+        })
+    }
+
+    #[getter]
+    fn width(&self) -> usize {
+        self.r.width()
+    }
+
+    #[getter]
+    fn height(&self) -> usize {
+        self.r.height()
+    }
+
+    /// Start a frame: clear world to `bg_rgba`, entity/coverage to empty,
+    /// and reset the clip/xform tables and overlay queue.
+    #[pyo3(signature = (bg_rgba = 0x0000_00FF))]
+    fn begin(&mut self, bg_rgba: u32) {
+        self.r.begin(bg_rgba);
+    }
+
+    /// Darkness multiply on/off (off = debug full-bright).
+    fn set_darkness(&mut self, on: bool) {
+        self.r.set_darkness(on);
+    }
+
+    /// Register an instance's convex screen-space clip polygon — either a
+    /// [(x, y), ...] pair list (what `visible()` hands the renderer; no
+    /// Python-side flattening) or a flat [x0, y0, x1, y1, ...] sequence.
+    /// Returns its clip-table index. With `coverage`, also union-fill it
+    /// into the entity coverage mask (the no-seams invariant's mask).
+    #[pyo3(signature = (pts, coverage = true))]
+    fn add_clip(&mut self, pts: &Bound<'_, PyAny>, coverage: bool) -> PyResult<u32> {
+        let flat: Vec<f64> = if let Ok(pairs) = pts.extract::<Vec<(f64, f64)>>() {
+            let mut flat = Vec::with_capacity(pairs.len() * 2);
+            for (x, y) in pairs {
+                flat.push(x);
+                flat.push(y);
+            }
+            flat
+        } else {
+            pts.extract::<Vec<f64>>().map_err(|_| {
+                PyValueError::new_err(
+                    "add_clip: pts must be [(x, y), ...] or a flat [x0, y0, ...] float list",
+                )
+            })?
+        };
+        self.r.add_clip(&flat, coverage).map_err(raster_err)
+    }
+
+    /// Register a row-major Mat3 (the instance xform from visible());
+    /// returns its xform-table index.
+    fn add_xform(&mut self, m9: M9) -> u32 {
+        self.r.add_xform(mat_from_tuple(m9).m)
+    }
+
+    /// Execute a command stream: `cmds` is a u32 buffer (array('I') or numpy
+    /// uint32) of 6-word headers, `coords` an f32 buffer (array('f') or
+    /// numpy float32) of payload points. Rasterization runs without the GIL.
+    fn draw(
+        &mut self,
+        py: Python<'_>,
+        cmds: &Bound<'_, PyAny>,
+        coords: &Bound<'_, PyAny>,
+    ) -> PyResult<()> {
+        let c: Vec<u32> = typed_buffer(py, cmds)?;
+        let f: Vec<f32> = typed_buffer(py, coords)?;
+        py.allow_threads(|| self.r.draw(&c, &f)).map_err(raster_err)
+    }
+
+    /// Replay a static blob (same wire format as `draw`, as bytes), with
+    /// every command's CLIP and XFORM header fields overridden — the
+    /// per-room detail cache path.
+    fn draw_blob(
+        &mut self,
+        py: Python<'_>,
+        cmds: PyBuffer<u8>,
+        coords: PyBuffer<u8>,
+        xform_idx: u32,
+        clip_idx: u32,
+    ) -> PyResult<()> {
+        let c = blob_words("draw_blob cmds", &cmds.to_vec(py)?, u32::from_ne_bytes)?;
+        let f = blob_words("draw_blob coords", &coords.to_vec(py)?, f32::from_ne_bytes)?;
+        py.allow_threads(|| self.r.draw_with_overrides(&c, &f, xform_idx, clip_idx))
+            .map_err(raster_err)
+    }
+
+    /// Composite (entity fold -> darkness -> overlay) and return the frame
+    /// as straight RGBA8 bytes, len == w*h*4. Idempotent until `begin`.
+    fn finish<'py>(&mut self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        py.allow_threads(|| {
+            self.r.compose_frame();
+        });
+        PyBytes::new(py, self.r.compose_frame())
+    }
+
+    /// `finish`, but written into a caller-owned writable buffer (persistent
+    /// bytearray wrapped once with pygame.image.frombuffer -> zero churn).
+    fn finish_into(&mut self, py: Python<'_>, out: PyBuffer<u8>) -> PyResult<()> {
+        if out.readonly() {
+            return Err(PyValueError::new_err("finish_into: buffer is read-only"));
+        }
+        let want = self.r.width() * self.r.height() * 4;
+        if out.item_count() != want {
+            return Err(PyValueError::new_err(format!(
+                "finish_into: buffer is {} bytes, need {want} (w*h*4)",
+                out.item_count()
+            )));
+        }
+        py.allow_threads(|| {
+            self.r.compose_frame();
+        });
+        out.copy_from_slice(py, self.r.compose_frame())
+    }
+}
+
 // --- Module-level math helpers --------------------------------------------
 
 #[pyfunction]
@@ -545,6 +718,7 @@ fn clip_polyline(pts: Vec<(f64, f64)>, clip: Vec<(f64, f64)>) -> Vec<Vec<(f64, f
 #[pymodule]
 fn necore(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Sim>()?;
+    m.add_class::<Raster>()?;
     m.add_function(wrap_pyfunction!(mat_mul, m)?)?;
     m.add_function(wrap_pyfunction!(mat_inv, m)?)?;
     m.add_function(wrap_pyfunction!(mat_apply, m)?)?;

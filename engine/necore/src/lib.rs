@@ -10,13 +10,15 @@
 pub mod geom;
 pub mod math;
 pub mod physics;
-pub mod soft;
 pub mod query;
+pub mod raster;
+pub mod soft;
 pub mod visibility;
 pub mod world;
 
 pub use math::{v, Mat3, Vec2};
 pub use physics::{Entity, Event, Sim};
 pub use query::{raycast, rooms_within, RayHit, Router};
+pub use raster::{Raster, RasterError};
 pub use visibility::{visible_set, Frustum, RoomInstance};
 pub use world::{Portal, Room, RoomId, World, WorldError};

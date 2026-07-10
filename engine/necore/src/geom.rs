@@ -182,8 +182,11 @@ pub fn clip_segment(a: Vec2, b: Vec2, hps: &[HalfPlane]) -> Option<(Vec2, Vec2)>
     Some((a.lerp(b, t0), a.lerp(b, t1)))
 }
 
-/// Clip a polyline to a convex polygon; returns the visible sub-polylines.
-pub fn clip_polyline_convex(pts: &[Vec2], clip: &[Vec2]) -> Vec<Vec<Vec2>> {
+/// Inward-normal half-planes of a convex polygon's edges, in edge order —
+/// exactly the planes `clip_polygon_convex` / `clip_polyline_convex` build
+/// internally. Exposed so callers (the rasterizer) can build them once per
+/// clip polygon and reuse them across many prims.
+pub fn polygon_halfplanes(clip: &[Vec2]) -> Vec<HalfPlane> {
     let n = clip.len();
     let mut hps = Vec::with_capacity(n);
     for i in 0..n {
@@ -194,10 +197,20 @@ pub fn clip_polyline_convex(pts: &[Vec2], clip: &[Vec2]) -> Vec<Vec<Vec2>> {
             normal: inward_normal(a, b),
         });
     }
+    hps
+}
+
+/// Clip a polyline to a convex polygon; returns the visible sub-polylines.
+pub fn clip_polyline_convex(pts: &[Vec2], clip: &[Vec2]) -> Vec<Vec<Vec2>> {
+    clip_polyline_halfplanes(pts, &polygon_halfplanes(clip))
+}
+
+/// `clip_polyline_convex` with the clip polygon's half-planes precomputed.
+pub fn clip_polyline_halfplanes(pts: &[Vec2], hps: &[HalfPlane]) -> Vec<Vec<Vec2>> {
     let mut out: Vec<Vec<Vec2>> = Vec::new();
     let mut cur: Vec<Vec2> = Vec::new();
     for w in pts.windows(2) {
-        match clip_segment(w[0], w[1], &hps) {
+        match clip_segment(w[0], w[1], hps) {
             Some((p, q)) => {
                 if let Some(last) = cur.last() {
                     if last.dist(p) > 1e-9 {

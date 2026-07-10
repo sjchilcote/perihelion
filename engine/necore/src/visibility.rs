@@ -46,8 +46,16 @@ impl Frustum {
         // bound anything; the portal half-plane alone is the exact answer.
         if cr.abs() > 1e-9 && ra.len2() > 1e-12 && rb.len2() > 1e-12 {
             // Keep the side of ray apex->a that contains b, and vice versa.
-            let na = if cr > 0.0 { ra.perp_left() } else { ra.perp_right() };
-            let nb = if cr > 0.0 { rb.perp_right() } else { rb.perp_left() };
+            let na = if cr > 0.0 {
+                ra.perp_left()
+            } else {
+                ra.perp_right()
+            };
+            let nb = if cr > 0.0 {
+                rb.perp_right()
+            } else {
+                rb.perp_left()
+            };
             hps.push(HalfPlane {
                 point: self.apex,
                 normal: na.normalized(),
@@ -105,11 +113,7 @@ fn quant(x: f64, s: f64) -> i64 {
 /// child room's OWN frame. Stable across frames; a genuine traversal loop
 /// (A->B->A composing to identity) still collides with the root and
 /// terminates, exactly as before.
-fn dedup_key(
-    room: RoomId,
-    rel: &Mat3,
-    fr: &Option<Frustum>,
-) -> (usize, usize, [i64; 6], [i64; 4]) {
+fn dedup_key(room: RoomId, rel: &Mat3, fr: &Option<Frustum>) -> (usize, usize, [i64; 6], [i64; 4]) {
     let m = &rel.m;
     let mk = [
         quant(m[0], 1000.0),
@@ -341,7 +345,16 @@ mod tests {
     fn single_room_renders_fully() {
         let mut w = World::new();
         let a = w.add_room(&square(0.0, 0.0, 50.0)).unwrap();
-        let vis = visible_set(&w, a, cam_center(800.0, 600.0), Vec2::ZERO, 800.0, 600.0, 8, 64);
+        let vis = visible_set(
+            &w,
+            a,
+            cam_center(800.0, 600.0),
+            Vec2::ZERO,
+            800.0,
+            600.0,
+            8,
+            64,
+        );
         assert_eq!(vis.len(), 1);
         assert_eq!(vis[0].clip_local.len(), 4);
         assert!((geom::signed_area(&vis[0].clip_local).abs() - 10000.0).abs() < 1e-6);
@@ -357,9 +370,21 @@ mod tests {
         // 2 right, 3 top -- verts (-,-),(-,+),(+,+),(+,-).
         w.connect(a, 2, b, 0).unwrap();
         w.connect(b, 2, c, 0).unwrap();
-        let vis = visible_set(&w, a, cam_center(800.0, 600.0), Vec2::ZERO, 800.0, 600.0, 8, 64);
+        let vis = visible_set(
+            &w,
+            a,
+            cam_center(800.0, 600.0),
+            Vec2::ZERO,
+            800.0,
+            600.0,
+            8,
+            64,
+        );
         let rooms: Vec<RoomId> = vis.iter().map(|i| i.room).collect();
-        assert!(rooms.contains(&a) && rooms.contains(&b) && rooms.contains(&c), "{rooms:?}");
+        assert!(
+            rooms.contains(&a) && rooms.contains(&b) && rooms.contains(&c),
+            "{rooms:?}"
+        );
         // Painter's order: c (depth 2) must come before a (depth 0).
         let pos_a = vis.iter().position(|i| i.room == a).unwrap();
         let pos_c = vis.iter().position(|i| i.room == c).unwrap();
@@ -377,7 +402,16 @@ mod tests {
         let mut w = World::new();
         let a = w.add_room(&square(0.0, 0.0, 50.0)).unwrap();
         w.connect(a, 2, a, 2).unwrap();
-        let vis = visible_set(&w, a, cam_center(800.0, 600.0), v(10.0, 0.0), 800.0, 600.0, 32, 512);
+        let vis = visible_set(
+            &w,
+            a,
+            cam_center(800.0, 600.0),
+            v(10.0, 0.0),
+            800.0,
+            600.0,
+            32,
+            512,
+        );
         assert!(vis.len() >= 2, "mirror should show reflected copies");
         assert!(vis.len() <= 512);
     }
@@ -388,10 +422,23 @@ mod tests {
         let a = w.add_room(&square(0.0, 0.0, 50.0)).unwrap();
         // Loop right edge to own left edge: an endless corridor of copies.
         w.connect(a, 2, a, 0).unwrap();
-        let vis = visible_set(&w, a, cam_center(800.0, 600.0), Vec2::ZERO, 800.0, 600.0, 64, 512);
+        let vis = visible_set(
+            &w,
+            a,
+            cam_center(800.0, 600.0),
+            Vec2::ZERO,
+            800.0,
+            600.0,
+            64,
+            512,
+        );
         // 800px wide screen / 100px rooms => roughly 9 copies, not 512.
         assert!(vis.len() >= 5, "expected several copies, got {}", vis.len());
-        assert!(vis.len() <= 16, "should cull off-screen copies, got {}", vis.len());
+        assert!(
+            vis.len() <= 16,
+            "should cull off-screen copies, got {}",
+            vis.len()
+        );
     }
 
     #[test]
@@ -401,7 +448,16 @@ mod tests {
         let b = w.add_room(&square(0.0, 0.0, 50.0)).unwrap();
         w.connect(a, 2, b, 0).unwrap();
         // Apex exactly on the shared edge line (x = 50).
-        let vis = visible_set(&w, a, cam_center(800.0, 600.0), v(50.0, 0.0), 800.0, 600.0, 8, 64);
+        let vis = visible_set(
+            &w,
+            a,
+            cam_center(800.0, 600.0),
+            v(50.0, 0.0),
+            800.0,
+            600.0,
+            8,
+            64,
+        );
         let ib = vis.iter().find(|i| i.room == b).expect("b visible");
         // 180-degree view: whole neighbor visible.
         assert!((geom::signed_area(&ib.clip_local).abs() - 10000.0).abs() < 1.0);

@@ -5,3 +5,4 @@ __pycache__/
 *.pyc
 target/
 .openrouter_key
+parity_out/

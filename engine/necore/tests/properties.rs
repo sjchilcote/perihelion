@@ -12,7 +12,11 @@ use proptest::prelude::*;
 /// whatever falls out of the input order; `World::add_room` canonicalizes
 /// winding itself, so callers don't need to care.
 fn convex_hull(mut pts: Vec<Vec2>) -> Vec<Vec2> {
-    pts.sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap().then(a.y.partial_cmp(&b.y).unwrap()));
+    pts.sort_by(|a, b| {
+        a.x.partial_cmp(&b.x)
+            .unwrap()
+            .then(a.y.partial_cmp(&b.y).unwrap())
+    });
     pts.dedup_by(|a, b| (a.x - b.x).abs() < 1e-9 && (a.y - b.y).abs() < 1e-9);
     if pts.len() < 3 {
         return pts;
@@ -20,18 +24,14 @@ fn convex_hull(mut pts: Vec<Vec2>) -> Vec<Vec2> {
     let cross = |o: Vec2, a: Vec2, b: Vec2| (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
     let mut lower: Vec<Vec2> = Vec::new();
     for &p in &pts {
-        while lower.len() >= 2
-            && cross(lower[lower.len() - 2], lower[lower.len() - 1], p) <= 0.0
-        {
+        while lower.len() >= 2 && cross(lower[lower.len() - 2], lower[lower.len() - 1], p) <= 0.0 {
             lower.pop();
         }
         lower.push(p);
     }
     let mut upper: Vec<Vec2> = Vec::new();
     for &p in pts.iter().rev() {
-        while upper.len() >= 2
-            && cross(upper[upper.len() - 2], upper[upper.len() - 1], p) <= 0.0
-        {
+        while upper.len() >= 2 && cross(upper[upper.len() - 2], upper[upper.len() - 1], p) <= 0.0 {
             upper.pop();
         }
         upper.push(p);
@@ -254,7 +254,12 @@ proptest! {
 
 fn square100(cx: f64, cy: f64) -> Vec<Vec2> {
     let h = 50.0;
-    vec![v(cx - h, cy - h), v(cx - h, cy + h), v(cx + h, cy + h), v(cx + h, cy - h)]
+    vec![
+        v(cx - h, cy - h),
+        v(cx - h, cy + h),
+        v(cx + h, cy + h),
+        v(cx + h, cy - h),
+    ]
 }
 
 /// Steps `sim`'s entity `id` toward the portal line (edge_point, inward
@@ -384,9 +389,12 @@ fn build_translation_grid() -> (World, Vec<Vec<usize>>) {
         for p in room.portals.iter().flatten() {
             let m = &p.xform.m;
             assert!(
-                (m[0] - 1.0).abs() < 1e-12 && m[1].abs() < 1e-12
-                    && m[3].abs() < 1e-12 && (m[4] - 1.0).abs() < 1e-12,
-                "grid portal xform is not a pure translation: {:?}", p.xform
+                (m[0] - 1.0).abs() < 1e-12
+                    && m[1].abs() < 1e-12
+                    && m[3].abs() < 1e-12
+                    && (m[4] - 1.0).abs() < 1e-12,
+                "grid portal xform is not a pure translation: {:?}",
+                p.xform
             );
         }
     }
@@ -511,17 +519,29 @@ impl FlatOracle {
 
             if self.vel.x > 1e-15 {
                 let t = (hix - self.pos.x) / self.vel.x;
-                if t > 1e-12 && t < best_t { best_t = t; best = Some(FlatEvent::Bounce(v(-1.0, 0.0))); }
+                if t > 1e-12 && t < best_t {
+                    best_t = t;
+                    best = Some(FlatEvent::Bounce(v(-1.0, 0.0)));
+                }
             } else if self.vel.x < -1e-15 {
                 let t = (lo - self.pos.x) / self.vel.x;
-                if t > 1e-12 && t < best_t { best_t = t; best = Some(FlatEvent::Bounce(v(1.0, 0.0))); }
+                if t > 1e-12 && t < best_t {
+                    best_t = t;
+                    best = Some(FlatEvent::Bounce(v(1.0, 0.0)));
+                }
             }
             if self.vel.y > 1e-15 {
                 let t = (hiy - self.pos.y) / self.vel.y;
-                if t > 1e-12 && t < best_t { best_t = t; best = Some(FlatEvent::Bounce(v(0.0, -1.0))); }
+                if t > 1e-12 && t < best_t {
+                    best_t = t;
+                    best = Some(FlatEvent::Bounce(v(0.0, -1.0)));
+                }
             } else if self.vel.y < -1e-15 {
                 let t = (lo - self.pos.y) / self.vel.y;
-                if t > 1e-12 && t < best_t { best_t = t; best = Some(FlatEvent::Bounce(v(0.0, 1.0))); }
+                if t > 1e-12 && t < best_t {
+                    best_t = t;
+                    best = Some(FlatEvent::Bounce(v(0.0, 1.0)));
+                }
             }
             if self.vel.x.abs() > 1e-15 {
                 for &gx in &[100.0, 200.0] {
