@@ -71,6 +71,19 @@ pub fn inward_normal(a: Vec2, b: Vec2) -> Vec2 {
     (b - a).perp_right().normalized()
 }
 
+/// Edges shorter than this are treated as nonexistent by every edge-loop
+/// half-plane builder below. A zero-length edge has no direction: its
+/// "normal" out of `normalized()`'s fallback is the arbitrary (1,0), which
+/// fabricates a phantom vertical half-plane anchored at the duplicate
+/// vertex. One duplicated clip vertex then annihilates (or spares — pure
+/// luck of position) everything clipped against that polygon. This was THE
+/// room-decor flicker: `visible_set` wedge clips can carry an adjacent
+/// duplicate vertex whose position shifts per tick, so prims/entities of a
+/// whole room blinked at up to 30Hz while floor and walls (scanline fill /
+/// engine wall spans, no edge normals) stayed. A degenerate edge is not a
+/// constraint; skip it.
+pub const DEGENERATE_EDGE: f64 = 1e-9;
+
 /// A half-plane {p : dot(p - point, normal) >= 0}. `normal` points INTO the
 /// kept region.
 #[derive(Debug, Clone, Copy)]
@@ -140,6 +153,9 @@ pub fn clip_polygon_convex(subject: &[Vec2], clip: &[Vec2]) -> Vec<Vec2> {
         }
         let a = clip[i];
         let b = clip[(i + 1) % n];
+        if a.dist(b) < DEGENERATE_EDGE {
+            continue;
+        }
         let hp = HalfPlane {
             point: a,
             normal: inward_normal(a, b),
@@ -192,6 +208,9 @@ pub fn polygon_halfplanes(clip: &[Vec2]) -> Vec<HalfPlane> {
     for i in 0..n {
         let a = clip[i];
         let b = clip[(i + 1) % n];
+        if a.dist(b) < DEGENERATE_EDGE {
+            continue;
+        }
         hps.push(HalfPlane {
             point: a,
             normal: inward_normal(a, b),
@@ -240,6 +259,9 @@ pub fn point_in_polygon(p: Vec2, pts: &[Vec2], eps: f64) -> bool {
     for i in 0..n {
         let a = pts[i];
         let b = pts[(i + 1) % n];
+        if a.dist(b) < DEGENERATE_EDGE {
+            continue;
+        }
         if (p - a).dot(inward_normal(a, b)) < -eps {
             return false;
         }
@@ -255,6 +277,9 @@ pub fn depth_in_polygon(p: Vec2, pts: &[Vec2]) -> f64 {
     for i in 0..n {
         let a = pts[i];
         let b = pts[(i + 1) % n];
+        if a.dist(b) < DEGENERATE_EDGE {
+            continue;
+        }
         d = d.min((p - a).dot(inward_normal(a, b)));
     }
     d
@@ -331,5 +356,44 @@ mod tests {
         assert!(r.0.dist(v(1.0, 0.0)) < 1e-9);
         assert!(r.1.dist(v(2.0, 0.0)) < 1e-9);
         assert!(clip_segment(v(0.0, 0.0), v(0.5, 0.0), &hps).is_none());
+    }
+
+    /// THE FLICKER REGRESSION: a clip polygon carrying an adjacent
+    /// duplicate vertex (any position, including the first/last wrap
+    /// pair) must clip exactly like the clean polygon. Before the
+    /// degenerate-edge guards, the duplicate's zero-length edge got the
+    /// arbitrary (1,0) fallback normal — a phantom vertical half-plane
+    /// that annihilated the result whenever the duplicate sat on the
+    /// right-hand boundary. Room decor blinked at up to 30Hz.
+    #[test]
+    fn duplicate_clip_vertex_is_inert() {
+        let sq = vec![v(0.0, 0.0), v(0.0, 2.0), v(2.0, 2.0), v(2.0, 0.0)];
+        let subject = vec![v(0.2, 0.2), v(0.2, 1.8), v(1.8, 1.8), v(1.8, 0.2)];
+        let clean = clip_polygon_convex(&subject, &sq);
+        assert_eq!(clean.len(), 4);
+        for dup_at in 0..4 {
+            let mut dirty = sq.clone();
+            dirty.insert(dup_at, sq[dup_at]);
+            let got = clip_polygon_convex(&subject, &dirty);
+            assert_eq!(got.len(), clean.len(),
+                "duplicate at {dup_at} changed the clip result");
+            // wrap-pair variant: rotate so the duplicate spans the seam
+            let mut wrapped = dirty.clone();
+            wrapped.rotate_left(dup_at + 1);
+            let got_w = clip_polygon_convex(&subject, &wrapped);
+            assert_eq!(got_w.len(), clean.len(),
+                "wrap duplicate rotated from {dup_at} changed the clip result");
+        }
+        // point/depth tests must also ignore the degenerate edge
+        let mut wrap_dup = sq.clone();
+        wrap_dup.push(sq[0]);
+        assert!(point_in_polygon(v(1.0, 1.0), &wrap_dup, 1e-9));
+        assert!(!point_in_polygon(v(3.0, 1.0), &wrap_dup, 1e-9));
+        assert!(depth_in_polygon(v(1.0, 1.0), &wrap_dup) > 0.9);
+        // polyline clipping through a wrap-duplicated clip polygon
+        let segs = clip_polyline_convex(&[v(-1.0, 1.0), v(3.0, 1.0)], &wrap_dup);
+        assert_eq!(segs.len(), 1);
+        assert!(segs[0][0].dist(v(0.0, 1.0)) < 1e-9);
+        assert!(segs[0].last().unwrap().dist(v(2.0, 1.0)) < 1e-9);
     }
 }

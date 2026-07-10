@@ -129,6 +129,17 @@ fn visibility_coverage_is_continuous_across_doorway_sweeps() {
             if n < 3 {
                 continue;
             }
+            // Canonical-polygon contract: no consecutive duplicate
+            // vertices, wrap pair included. A duplicate's zero-length
+            // edge poisons every edge-normal consumer (the decor
+            // flicker; see geom::DEGENERATE_EDGE).
+            for i in 0..n {
+                assert!(
+                    p[i].dist(p[(i + 1) % n]) > 1e-9,
+                    "apex t={t:.2}: room {} clip has duplicate vertex at {i}",
+                    inst.room
+                );
+            }
             let a: f64 = (0..n).map(|i| p[i].cross(p[(i + 1) % n])).sum();
             *areas.entry(inst.room).or_insert(0.0) += a.abs() / 2.0;
         }

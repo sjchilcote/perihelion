@@ -183,11 +183,23 @@ pub fn visible_set(
             None => Vec::new(),
             Some(f) => f.half_planes(world, node.room),
         };
-        let clip_local = if hps.is_empty() {
+        let mut clip_local = if hps.is_empty() {
             room.verts.clone()
         } else {
             geom::clip_polygon(&room.verts, &hps)
         };
+        // Canonical output contract: no consecutive duplicate vertices
+        // (including the first/last wrap pair). Wedge clipping can emit
+        // them at frustum/edge intersections, and a zero-length edge in a
+        // clip polygon poisons every consumer that builds edge normals
+        // (see geom::DEGENERATE_EDGE — this was the decor flicker).
+        clip_local.dedup_by(|a, b| a.dist(*b) < geom::DEGENERATE_EDGE);
+        while clip_local.len() >= 2
+            && clip_local[0].dist(clip_local[clip_local.len() - 1])
+                < geom::DEGENERATE_EDGE
+        {
+            clip_local.pop();
+        }
         if clip_local.len() < 3 {
             continue;
         }

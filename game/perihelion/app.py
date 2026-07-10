@@ -383,6 +383,27 @@ class App:
         if rec["frames"] % rec["every"] == 0:
             pygame.image.save(
                 self.internal, str(rec["dir"] / f"frame_{rec['saved']:06d}.png"))
+            # PERIHELION_VIS_DUMP: debug instrumentation for the flicker
+            # investigation -- dump the visible instance set (room, depth,
+            # clip bbox) alongside every saved frame so a frame-pair diff
+            # can be traced to the exact instance-set change.
+            if os.environ.get("PERIHELION_VIS_DUMP") and self.game is not None:
+                sess = self.game.session
+                rows = []
+                for room, xform, depth, clip_screen, walls, entry_edge, ents \
+                        in sess.visible():
+                    xs = [p[0] for p in clip_screen]
+                    ys = [p[1] for p in clip_screen]
+                    rows.append({
+                        "room": room, "depth": depth, "entry": entry_edge,
+                        "bbox": [round(min(xs)), round(min(ys)),
+                                 round(max(xs)), round(max(ys))],
+                        "x6": [round(v, 2) for v in xform[:6]],
+                    })
+                with open(rec["dir"] / "visdump.jsonl", "a") as fh:
+                    fh.write(json.dumps({"frame": rec["saved"],
+                                         "tick": sess.tick_count,
+                                         "n": len(rows), "inst": rows}) + "\n")
             rec["saved"] += 1
         rec["frames"] += 1
         if rec["frames"] >= rec["max_frames"]:
