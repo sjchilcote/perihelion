@@ -75,11 +75,11 @@
     "sim_kind": "shrieker",
     "world_radius_units": 7.0,
     "sprite_px_size": [
-      1408,
-      768
+      1390,
+      757
     ],
-    "sprite_px_radius": 703.5,
-    "px_per_world_unit": 100.5,
+    "sprite_px_radius": 680.0,
+    "px_per_world_unit": 97.14,
     "rotation": "continuous",
     "anchor": "center"
   },
@@ -131,11 +131,11 @@
     "sim_kind": "corpse_husk",
     "world_radius_units": 8.0,
     "sprite_px_size": [
-      1245,
-      768
+      793,
+      642
     ],
-    "sprite_px_radius": 550.5,
-    "px_per_world_unit": 68.81,
+    "sprite_px_radius": 390.0,
+    "px_per_world_unit": 48.75,
     "rotation": "baked",
     "anchor": "center"
   },

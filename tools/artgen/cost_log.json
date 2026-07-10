@@ -1,5 +1,5 @@
 {
-  "total_cost": 2.1343535000000005,
+  "total_cost": 2.2071795,
   "calls": [
     {
       "model": "google/gemini-3.1-flash-image",
@@ -384,6 +384,22 @@
       "prompt_tokens": 1642,
       "completion_tokens": 923,
       "ts": 1783671235.5360126
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/artgen_raw/prop_corpse_husk_v2.png",
+      "cost": 0.068497,
+      "prompt_tokens": 578,
+      "completion_tokens": 1456,
+      "ts": 1783671457.600281
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "verify:prop_corpse_husk_composite_v2.png",
+      "cost": 0.004329,
+      "prompt_tokens": 1644,
+      "completion_tokens": 207,
+      "ts": 1783671562.0234458
     }
   ]
 }

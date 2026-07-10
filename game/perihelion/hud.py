@@ -70,6 +70,9 @@ class HUD:
             text += f"  {chas} chassis"
         if kits:
             text += f"  {kits} kit"
+        # Void node: the count that will not stop being counted
+        if "loss_ledger_display" in getattr(session, "mind_unlocks", ()):
+            text += f"  {session.metrics.get('deaths', 0)} lost"
         y = 38 if getattr(session.level, "vigil", False) else 24
         img = _font(11).render(text, True, (170, 200, 180))
         pygame.draw.rect(surf, (12, 12, 16),

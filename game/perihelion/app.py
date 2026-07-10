@@ -758,6 +758,11 @@ class App:
             elif ev[0] == "pickup_text":
                 import necore
                 sx, sy = necore.mat_apply(game.session.cam, *ev[2])
+                # simultaneous pickups smear into one blob at the same
+                # spot: stack later floats upward so each stays readable
+                while any(abs(ft[0] - sx) < 46 and abs(ft[1] - sy) < 11
+                          for ft in game.float_texts):
+                    sy -= 11
                 game.float_texts.append([sx, sy, ev[3], 66])
             elif ev[0] == "shop":
                 if not any(isinstance(sc, menus.ShopScene)

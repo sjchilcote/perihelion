@@ -654,9 +654,14 @@ class MindMapScene(Scene):
                     s.components >= price(n["id"])
                 locked = not owned and not available(s.mind, n["id"])
                 mark = "#" if owned else ("-" if locked else " ")
-                label = f"{mark} {n['label']}"
+                # hard column budget: four columns at 640 internal px --
+                # long concept names truncate rather than bleed
+                name = n["label"]
+                if len(name) > 17:
+                    name = name[:16] + "…"
+                label = f"{mark} {name}"
                 if not owned:
-                    label += f"  {price(n['id'])}c"
+                    label += f" {price(n['id'])}c"
                 sel = ci == self.col and ri == self.rows[region]
                 if sel:
                     col = (240, 240, 245)

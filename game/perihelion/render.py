@@ -45,6 +45,7 @@ import pygame
 import necore
 
 from .sim import DT
+from .sim import ENEMIES as SIM_ENEMIES
 
 INTERNAL_W, INTERNAL_H = 640, 360
 
@@ -2091,15 +2092,22 @@ class Renderer:
             if not _point_in_poly(sx, sy, clip_screen):
                 continue
             ix, iy = _pt((sx, sy))
-            # the seed: a squat pedestal with a slow revival-ring pulse
-            body = [(ix - 5, iy + 4), (ix + 5, iy + 4),
-                    (ix + 3, iy - 6), (ix - 3, iy - 6)]
+            # the seed: an obelisk pedestal on a base plate, revival-ring
+            # pulse wide enough to read as a fixture and not an icon
+            plate = [(ix - 9, iy + 7), (ix + 9, iy + 7),
+                     (ix + 7, iy + 3), (ix - 7, iy + 3)]
+            canvas.polygon((26, 38, 34), plate)
+            body = [(ix - 6, iy + 4), (ix + 6, iy + 4),
+                    (ix + 4, iy - 9), (ix - 4, iy - 9)]
             canvas.polygon((36, 52, 46), body)
             canvas.polygon((120, 230, 170), body, 1)
-            canvas.circle((190, 250, 210), (ix, iy - 2), 1)
+            canvas.line((190, 250, 210), (ix - 3, iy - 3), (ix + 3, iy - 3), 1)
+            canvas.line((190, 250, 210), (ix - 3, iy), (ix + 3, iy), 1)
             phase = (session.tick_count % 120) / 120.0
-            rr = 9 + 3 * math.sin(phase * 2 * math.pi)
+            rr = 13 + 4 * math.sin(phase * 2 * math.pi)
             canvas.circle((120, 230, 170), (ix, iy), max(2, int(rr)), 1)
+            canvas.circle((70, 130, 100), (ix, iy),
+                          max(2, int(rr * 0.6)), 1)
 
     def _nearest_wall_point(self, room: int, pos):
         """Nearest point on a room's wall to `pos` (room-local), for
@@ -2271,10 +2279,32 @@ class Renderer:
                 canvas.polygon((255, 255, 255), _pts(pts), 1)
             elif role == "enemy":
                 self._draw_enemy(canvas, eid, kind, sx, sy, ang, srad, clip_screen, fully_inside)
+                self._draw_scan_pips(canvas, eid, sx, sy, srad, clip_screen)
             elif role == "bullet":
                 self._draw_bullet(canvas, kind, sx, sy, dirx, diry, clip_screen)
             elif role == "pickup":
                 self._draw_pickup(canvas, eid, kind, sx, sy, srad, clip_screen)
+
+    def _draw_scan_pips(self, canvas, eid, sx, sy, srad, clip_screen):
+        """Mind map: a deep-scan node renders wounded enemies' integrity as
+        a thin pip bar (the surveyors' instruments, running in his head)."""
+        u = getattr(self.session, "mind_unlocks", ())
+        if "deep_scan_1" not in u and "deep_scan_2" not in u:
+            return
+        e = self.session.enemies.get(eid)
+        if e is None:
+            return
+        full = SIM_ENEMIES[e["kind"]]["hp"] * self.session._hp_mul
+        frac = max(0.0, min(1.0, e["hp"] / full))
+        if frac >= 1.0:
+            return
+        if clip_screen is not None and not _point_in_poly(sx, sy, clip_screen):
+            return
+        wbar = max(6, int(srad * 1.6))
+        x0, y0 = int(sx - wbar // 2), int(sy - srad - 5)
+        canvas.rect((22, 26, 30), pygame.Rect(x0, y0, wbar, 2))
+        canvas.rect((120, 220, 235),
+                    pygame.Rect(x0, y0, max(1, int(wbar * frac)), 2))
 
     def _draw_enemy(self, canvas, eid, kind, sx, sy, ang, srad, clip_screen, fully_inside):
         flashed = self._hitflash.get(eid, 0) > 0

@@ -284,6 +284,7 @@ class GameSession:
 
         # --- output channels ---
         self.fx: list[tuple] = []  # drained by app each tick
+        self._oob_fx: list[tuple] = []  # menu-time events; join next tick
         self.decals: dict[int, list] = {}  # room -> [(kind,x,y,size,angle)]
         self._objective_fired: set[str] = set()  # once-gates for objective fx
         self.metrics = dict(ticks=0, shots=0, hits=0, kills=0, dmg_dealt=0.0,
@@ -407,7 +408,12 @@ class GameSession:
     # ------------------------------------------------------------------
 
     def tick(self, inp: InputFrame) -> None:
-        self.fx = []
+        # fx contract: cleared here every tick (headless harnesses never
+        # drain); events emitted OUTSIDE the tick (fabricator buys, chassis
+        # reprint, kit planting -- all menu-time calls) are parked in
+        # _oob_fx and delivered with the next tick instead of being wiped
+        self.fx = self._oob_fx
+        self._oob_fx = []
         self.tick_count += 1
         self.metrics["ticks"] = self.tick_count
         if self.tick_count % 60 == 0:
@@ -449,6 +455,12 @@ class GameSession:
         self.sweep_bullets()
 
         self._turret_tick()
+        if self.dead:
+            # death landed mid-tick (contact/spit during the event sweep):
+            # a dead frame reads no terminals, opens no shops, exits no
+            # levels, and -- critically -- does not scoop its own corpse
+            # in the tick that dropped it
+            return
         self._pickup_scan(proom)
         self._terminal_scan(proom, inp)
         self._station_scan(proom, inp)
@@ -1552,15 +1564,23 @@ class GameSession:
                 return st
         return None
 
+    def _park_oob(self, mark: int) -> None:
+        """Menu-time calls emit fx between ticks; park those events so the
+        next tick delivers them instead of the tick-start clear eating them."""
+        self._oob_fx.extend(self.fx[mark:])
+        del self.fx[mark:]
+
     def place_station(self) -> bool:
         if self.station_kits <= 0:
             return False
+        mark = len(self.fx)
         proom = self.player_room()
         px, py = self.player_pos()
         self.station_kits -= 1
         self.add_station(proom, (px, py))
         self._snd("terminal_open", proom, (px, py))
         self._objective("SEED PLANTED - REVIVAL ANCHORED HERE")
+        self._park_oob(mark)
         return True
 
     def buy(self, item: str) -> bool:
@@ -1580,10 +1600,12 @@ class GameSession:
         elif "ammo" in d:
             t, n = d["ammo"]
             self.ammo[t] = self.ammo.get(t, 0) + n
+        mark = len(self.fx)
         proom = self.player_room()
         self._snd("pickup_key", proom, self.player_pos())
         self.fx.append(("pickup_text", proom, self.player_pos(),
                         f"-{cost} COMPONENTS"))
+        self._park_oob(mark)
         return True
 
     def shop_price(self, item: str) -> int:
@@ -1604,10 +1626,12 @@ class GameSession:
         self.components -= cost
         self.mind.add(node_id)
         self._recompute_mind()
+        mark = len(self.fx)
         proom = self.player_room()
         self._snd("pickup_key", proom, self.player_pos())
         label = mindmap.nodes()[node_id]["label"]
         self._objective(f"INTEGRATED: {label.upper()}")
+        self._park_oob(mark)
         return True
 
     @property
@@ -1698,7 +1722,10 @@ class GameSession:
                 necore.mat_translate(self.screen_w / 2, self.screen_h / 2),
                 necore.mat_scale(self.zoom, self.zoom)),
             necore.mat_translate(-px, -py))
+        mark = len(self.fx)
         self._objective(f"REPRINTED - {self.chassis} CHASSIS RACKED")
+        self._snd("terminal_open", room, (px, py))
+        self._park_oob(mark)
         return True
 
     def _station_scan(self, proom: int, inp: InputFrame):
