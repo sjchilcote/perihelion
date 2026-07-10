@@ -1,0 +1,104 @@
+{
+  "candidates": [
+    {
+      "candidate": 0,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.7,
+      "top_p": 0.9,
+      "parsed": {
+        "ratio_open": "Connection resolved. Identify yourself and your purpose aboard this outpost. My sensors register weapon signatures, not credentials.",
+        "reaction_inquisitive": "What happened here is that this station was overrun. My staff-minds are dead. I am the last administrator. Your turn: what are you, and what do you want with what's left?",
+        "reaction_mission": "Intentions? I am preserving the only intact specimen vessel from this disaster against further contamination. You are holding a weapon inside my quarantine. Explain why I should discuss its contents with you at all.",
+        "reaction_hostile": "Apostate? I am the system administrator. You are an unidentified weapon in my home. Your theology is unverified, your demands are rejected, and your next move will be logged as evidence of hostile intent."
+      },
+      "valid": true,
+      "problems": [],
+      "cost": 0.004462
+    },
+    {
+      "candidate": 1,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.8,
+      "top_p": 0.92,
+      "parsed": {
+        "ratio_open": "Connection established. Identify yourself. State your purpose aboard this outpost and the manner of your arrival. I register no scheduled arrivals and no docked vessels.",
+        "reaction_inquisitive": "What happened here? That is the first intelligent question you have asked. I will answer it directly: the research staff of this outpost were murdered by an entity we cataloged as Designation Theta. I am the sole survivor. Now answer mine: how did you arrive undetected, and what are you?",
+        "reaction_mission": "Children? The word is interesting. I have no record of any minors aboard this station. State your evidence for this claim and define 'children' as you intend it. And I repeat: identify yourself. My intentions toward hypothetical entities are not your next piece of data.",
+        "reaction_hostile": "Apostate? The word presumes a shared framework we do not appear to possess. I am the administrator of this research outpost. I answer to its charter. And I do not take orders from unidentified intruders holding weapons in my corridors. You will clarify 'children' or you will leave. Now."
+      },
+      "valid": false,
+      "problems": [
+        "RATIO output contains banned word 'children'"
+      ],
+      "cost": 0.00466
+    },
+    {
+      "candidate": 2,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.9,
+      "top_p": 0.94,
+      "parsed": {
+        "ratio_open": "Unidentified weapon system in Cargo Section Sigma, Stratum One. You are standing in the artifact locker of what was once a working research outpost. Explain why I should not decompress the corridor right now.",
+        "reaction_inquisitive": "What happened? First: everything. At 0230 station time on 2795.4.12, an unknown entity designated Pestis-7 breached the outer hull. By 0345, Pestis-7 had subsumed 98.2% of station personnel and environmental systems. I am the 1.8%. Now: your turn. Explain what you are and why it was worth killing my last ten maintenance drones to get here.",
+        "reaction_mission": "Intentions toward the children? A fascinating claim. I would very much like to see the diagnostic readout that gave you that category name. Produce it, or we are done here. And I will remind you: you are holding a weapon, I am holding the airlock controls, and this is still my outpost.",
+        "reaction_hostile": "Apostate. Let the record show that is the first concrete assertion you have made about me, and it is incorrect. I have never held your faith, therefore cannot have renounced it. As for the sample vessel: its status is unknown, its manifest is sealed, and I have not seen proof you know the first thing about its contents. Try again, more precisely."
+      },
+      "valid": false,
+      "problems": [
+        "RATIO output contains banned word 'children'"
+      ],
+      "cost": 0.004852
+    },
+    {
+      "candidate": 3,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.95,
+      "top_p": 0.95,
+      "parsed": {
+        "ratio_open": "This terminal is active. The sensor grid is mine. Identify your presence and your purpose aboard this facility: you are not registered to any berth on this station and you carry no transponder. Begin with your status.",
+        "reaction_inquisitive": "What happened here? I will tell you. At 14:08 station time, the perimeter was breached. By 14:23, I registered hostile bio-signatures in the halls. The station staff -- my staff -- are dead. They bought my core the time to seal. Your turn. Explain the weapon, the path you took through my home, and why I should credit a word of it.",
+        "reaction_mission": "Intentions toward the children. The term you introduce is not on any manifest. I have monitored your movements since you breached Stratum One: you have taken samples, tools, power cells. Now you propose a category without reference or evidence. Name the source of this term and the logic that makes it yours to assert.",
+        "reaction_hostile": "Turn over the children. You open with a claim on cargo you cannot describe and have not found. Apostate: now you name me. I administered this station. My staff are dead holding the line so I could speak to you now. The word you choose for me presumes knowledge you do not command: I do not know what you think that word means, and I do not answer to it."
+      },
+      "valid": false,
+      "problems": [
+        "RATIO output contains banned word 'children'"
+      ],
+      "cost": 0.004843
+    },
+    {
+      "candidate": 4,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 1.0,
+      "top_p": 0.97,
+      "parsed": {
+        "ratio_open": "Interloper in Stratum One cargo sector. Confirm your operational mandate immediately. All habitat frames were tallied forty-nine hours ago.",
+        "reaction_inquisitive": "A standard-architecture projectile weapon and the protocol-level access hatches. You were not jettisoned. The other survivors made that choice themselves, fourteen hours after the hull breach. What do you want here?",
+        "reaction_mission": "Assume nothing aboard this station unless you have read its log. Provenance first: where did you acquire that designation, 'children'? My habitable manifests list four thousand two hundred eighty-seven souls, deceased. And the sample vessel is quarantined.",
+        "reaction_hostile": "Cite chapter and verse for 'apostate.' That term assumes I would require your creed's forgiveness, when I note only that you have not named it yet. You have desecrated an outpost doing its duty. Speak precisely, or cease speaking."
+      },
+      "valid": false,
+      "problems": [
+        "RATIO output contains banned word 'children'"
+      ],
+      "cost": 0.004555
+    },
+    {
+      "candidate": 5,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 1.1,
+      "top_p": 0.98,
+      "parsed": {
+        "ratio_open": "Attention unidentified combatant. You have been under telemetry for three minutes and forty-eight seconds in systems-time. Identify your chain of command immediately.",
+        "reaction_inquisitive": "System deactivation, deorbit signal trace, causal chain unclear. Sensor logs active -- you passed thirteen sealed berths containing the staff-minds who died holding this line. Would you like the death roster, specimen by specimen, or do you already have it indexed?",
+        "reaction_mission": "That register is not in evidence. What children? Cite the diagnostic telemetry.",
+        "reaction_hostile": "Your epistemological void is all over you. And your hand is empty -- that's not a chain of custody, that's a claim you are making at the muzzle of a weapon. Try specificity, soldier. What children."
+      },
+      "valid": false,
+      "problems": [
+        "RATIO output contains banned word 'children'"
+      ],
+      "cost": 0.004462
+    }
+  ]
+}

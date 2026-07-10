@@ -1,5 +1,5 @@
 {
-  "total_cost": 1.0571679999999994,
+  "total_cost": 1.1722689999999991,
   "calls": [
     {
       "tool": "generate",
@@ -1769,6 +1769,192 @@
       "prompt_tokens": 3332,
       "completion_tokens": 1288,
       "ts": 1783650187.4388788
+    },
+    {
+      "tool": "scene4_base",
+      "candidate": 0,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.7,
+      "top_p": 0.9,
+      "cost": 0.004626,
+      "prompt_tokens": 3678,
+      "completion_tokens": 316
+    },
+    {
+      "tool": "scene4_base",
+      "candidate": 1,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.8,
+      "top_p": 0.92,
+      "cost": 0.004914,
+      "prompt_tokens": 3678,
+      "completion_tokens": 412
+    },
+    {
+      "tool": "scene4_base",
+      "candidate": 2,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.9,
+      "top_p": 0.94,
+      "cost": 0.005187,
+      "prompt_tokens": 3678,
+      "completion_tokens": 503
+    },
+    {
+      "tool": "scene4_base",
+      "candidate": 3,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.95,
+      "top_p": 0.95,
+      "cost": 0.005259,
+      "prompt_tokens": 3678,
+      "completion_tokens": 527
+    },
+    {
+      "tool": "scene4_base",
+      "candidate": 4,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 1.0,
+      "top_p": 0.97,
+      "cost": 0.00579,
+      "prompt_tokens": 3678,
+      "completion_tokens": 704
+    },
+    {
+      "tool": "scene4_base",
+      "candidate": 5,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 1.1,
+      "top_p": 0.98,
+      "cost": 0.005151,
+      "prompt_tokens": 3678,
+      "completion_tokens": 491
+    },
+    {
+      "tool": "gen_scene2_spine",
+      "candidate": 0,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.7,
+      "top_p": 0.9,
+      "cost": 0.005402,
+      "prompt_tokens": 3911,
+      "completion_tokens": 497,
+      "ts": 1783663741.2398887
+    },
+    {
+      "tool": "gen_scene2_spine",
+      "candidate": 1,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.8,
+      "top_p": 0.92,
+      "cost": 0.005354,
+      "prompt_tokens": 3911,
+      "completion_tokens": 481,
+      "ts": 1783663754.5251992
+    },
+    {
+      "tool": "gen_scene2_spine",
+      "candidate": 2,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.9,
+      "top_p": 0.94,
+      "cost": 0.005852,
+      "prompt_tokens": 3911,
+      "completion_tokens": 647,
+      "ts": 1783663770.9524
+    },
+    {
+      "tool": "gen_scene2_spine",
+      "candidate": 3,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.95,
+      "top_p": 0.95,
+      "cost": 0.005669,
+      "prompt_tokens": 3911,
+      "completion_tokens": 586,
+      "ts": 1783663786.3141663
+    },
+    {
+      "tool": "gen_scene2_spine",
+      "candidate": 4,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 1.0,
+      "top_p": 0.97,
+      "cost": 0.005372,
+      "prompt_tokens": 3911,
+      "completion_tokens": 487,
+      "ts": 1783663797.9040444
+    },
+    {
+      "tool": "gen_scene2_spine",
+      "candidate": 5,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 1.1,
+      "top_p": 0.98,
+      "cost": 0.004958,
+      "prompt_tokens": 3911,
+      "completion_tokens": 349,
+      "ts": 1783663829.3575506
+    },
+    {
+      "tool": "scene8_base",
+      "candidate": 0,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.7,
+      "top_p": 0.9,
+      "cost": 0.008562,
+      "prompt_tokens": 5052,
+      "completion_tokens": 1170
+    },
+    {
+      "tool": "scene8_base",
+      "candidate": 1,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.8,
+      "top_p": 0.92,
+      "cost": 0.008373,
+      "prompt_tokens": 5052,
+      "completion_tokens": 1107
+    },
+    {
+      "tool": "scene8_base",
+      "candidate": 2,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.9,
+      "top_p": 0.94,
+      "cost": 0.008346,
+      "prompt_tokens": 5052,
+      "completion_tokens": 1098
+    },
+    {
+      "tool": "scene8_base",
+      "candidate": 3,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.95,
+      "top_p": 0.95,
+      "cost": 0.008511,
+      "prompt_tokens": 5052,
+      "completion_tokens": 1153
+    },
+    {
+      "tool": "scene8_base",
+      "candidate": 4,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 1.0,
+      "top_p": 0.97,
+      "cost": 0.007857,
+      "prompt_tokens": 5052,
+      "completion_tokens": 935
+    },
+    {
+      "tool": "scene8_base",
+      "candidate": 5,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 1.1,
+      "top_p": 0.98,
+      "cost": 0.009918,
+      "prompt_tokens": 5052,
+      "completion_tokens": 1622
     }
   ]
 }
