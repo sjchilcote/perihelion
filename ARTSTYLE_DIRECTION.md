@@ -48,3 +48,24 @@ fidelity.
 4. Lighting.
 
 Entities/HUD stay in the sensor-trace language throughout.
+
+## Full cost projection (measured 2026-07-10)
+
+Census: 1,815 rooms; buckets 462x256^2 / 1,266x512^2 / 87x1024^2 at
+native res (3 px/world-unit).
+
+Download (bespoke texture per room):
+  1x density: ~585 MB PNG / ~152 MB WebP  <- recommended start
+  2x density: ~1.9 GB PNG / ~475 MB WebP
+RAM: all-resident decoded ~1.8 GB -> textures stream per chunk
+  (~170 MB resident, ~350 MB peak with neighbor warm). Plumbing item.
+
+Generation (anchor: measured $0.044/call blended, this repo's pipeline):
+  Lean   (1 cand, spot verify)        ~$0.04/room  ~$75  total
+  Standard (2 cand + verify + rework) ~$0.10/room  ~$185 total
+  Empirical worst (3.8 calls/asset)   ~$0.17/room  ~$305 total
+Wall-clock at standard: ~8,000 calls, 1-2 h at 8-way parallel.
+
+Pilot: 2 sections x 13 room styles ~= 75 rooms ~= $8.
+Constraint ranking: art direction quality > native-res render path >>
+dollars or megabytes (both trivial at any tier).
