@@ -1,5 +1,5 @@
 {
-  "total_cost": 0.9974589999999998,
+  "total_cost": 1.0202589999999996,
   "calls": [
     {
       "tool": "generate",
@@ -1619,6 +1619,84 @@
       "prompt_tokens": 2587,
       "completion_tokens": 1313,
       "ts": 1783648367.7526536
+    },
+    {
+      "tool": "gen_gap6_r2",
+      "gap": 6,
+      "candidate": 0,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.75,
+      "top_p": 0.9,
+      "cost": 0.003676,
+      "prompt_tokens": 2572,
+      "completion_tokens": 368,
+      "valid": true,
+      "ts": 1783649741.517544
+    },
+    {
+      "tool": "gen_gap6_r2",
+      "gap": 6,
+      "candidate": 1,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.81,
+      "top_p": 0.92,
+      "cost": 0.00379,
+      "prompt_tokens": 2572,
+      "completion_tokens": 406,
+      "valid": true,
+      "ts": 1783649765.9995208
+    },
+    {
+      "tool": "gen_gap6_r2",
+      "gap": 6,
+      "candidate": 2,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.87,
+      "top_p": 0.94,
+      "cost": 0.003589,
+      "prompt_tokens": 2572,
+      "completion_tokens": 339,
+      "valid": false,
+      "ts": 1783649785.6869948
+    },
+    {
+      "tool": "gen_gap6_r2",
+      "gap": 6,
+      "candidate": 3,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.93,
+      "top_p": 0.95,
+      "cost": 0.003886,
+      "prompt_tokens": 2572,
+      "completion_tokens": 438,
+      "valid": true,
+      "ts": 1783649797.222833
+    },
+    {
+      "tool": "gen_gap6_r2",
+      "gap": 6,
+      "candidate": 4,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.99,
+      "top_p": 0.97,
+      "cost": 0.003931,
+      "prompt_tokens": 2572,
+      "completion_tokens": 453,
+      "valid": true,
+      "ts": 1783649848.9405465
+    },
+    {
+      "tool": "gen_gap6_r2",
+      "gap": 6,
+      "candidate": 5,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 1.05,
+      "top_p": 0.98,
+      "cost": 0.003928,
+      "prompt_tokens": 2572,
+      "completion_tokens": 452,
+      "valid": true,
+      "ts": 1783649877.9744236
     }
   ]
 }
