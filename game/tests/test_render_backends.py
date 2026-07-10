@@ -107,12 +107,14 @@ def test_backends_identical_through_otherworld(pygame_ready):
 
 
 def test_backends_identical_with_hp_sprites(pygame_ready, monkeypatch):
-    """PERIHELION_HP_SPRITES=1 must not break backend parity: the sprite
-    queue/flush is one shared code path (Renderer._hp_flush, called once
-    from Renderer.draw after both backends have finished compositing and
-    darkening `surf`), so turning the flag on should still produce
-    byte-identical frames across backends -- same fight, same manifest,
-    same fully_inside gating, regardless of which backend built `surf`."""
+    """PERIHELION_HP_SPRITES=1 must not break backend parity. HP sprites
+    are no longer blitted onto `surf` at all (they're queued in
+    Renderer._hp_queue and composited by the caller at full window
+    resolution via Renderer.draw_hp_overlay, which this test never calls),
+    so `surf` itself stays exactly as sprite-free as the HP-sprites-off
+    case in both backends -- parity is trivially preserved. This test still
+    exercises the queue-population/gating code path (fully_inside, manifest
+    lookups) with the flag on, just doesn't render the overlay."""
     monkeypatch.setenv("PERIHELION_HP_SPRITES", "1")
 
     def inp(tick):

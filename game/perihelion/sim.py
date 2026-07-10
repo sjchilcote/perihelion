@@ -275,10 +275,10 @@ class GameSession:
 
         # --- camera: player-room local -> internal screen ---
         px, py = level.player_pos
-        self.cam = necore.mat_mul(
+        self._set_cam(necore.mat_mul(
             necore.mat_mul(necore.mat_translate(self.screen_w / 2, self.screen_h / 2),
                            necore.mat_scale(zoom, zoom)),
-            necore.mat_translate(-px, -py))
+            necore.mat_translate(-px, -py)))
 
         # --- scripted/world objects ---
         self.enemies: dict[int, dict] = {}
@@ -396,6 +396,20 @@ class GameSession:
         self._objective(
             f"ACQUIRED: {self.ACQUIRE_LABELS.get(item, item.upper())}")
 
+    def _set_cam(self, m) -> None:
+        """All camera writes come through here: `_cam_smooth` keeps the
+        exact float matrix (the follow integrates on it), while the
+        rendered `cam` snaps its translation to whole internal pixels.
+        Unsnapped, sub-pixel camera dither (the exponential follow
+        oscillating against collision push-out) flips every 1-px prop
+        outline between pixel rows frame to frame -- world-wide decor
+        flicker, the campaign-video finding."""
+        self._cam_smooth = m
+        mm = list(m)
+        mm[2] = float(round(mm[2]))
+        mm[5] = float(round(mm[5]))
+        self.cam = tuple(mm)
+
     def player_pos(self):
         _, px, py, *_ = self.sim.get(self.pid)
         return px, py
@@ -492,14 +506,16 @@ class GameSession:
             self.hurt_cd -= 1
         self.lightning_charge = min(LIGHTNING_RECHARGE_TICKS, self.lightning_charge + 1)
 
-        # camera follow (after physics; transfers already re-based the matrix)
+        # camera follow (after physics; transfers already re-based the
+        # matrix). Integrates on the SMOOTH matrix; the rendered cam is
+        # the pixel-snapped copy (_set_cam).
         px2, py2 = self.player_pos()
-        spx, spy = necore.mat_apply(self.cam, px2, py2)
+        spx, spy = necore.mat_apply(self._cam_smooth, px2, py2)
         k = min(1.0, 7.0 * DT)
-        self.cam = necore.mat_mul(
+        self._set_cam(necore.mat_mul(
             necore.mat_translate((self.screen_w / 2 - spx) * k,
                                  (self.screen_h / 2 - spy) * k),
-            self.cam)
+            self._cam_smooth))
 
     # ------------------------------------------------------------------
 
@@ -1297,7 +1313,8 @@ class GameSession:
                     if self.cloister and to_room == self.cloister["sanctum"]:
                         self._rotate_cloister()
                     # camera re-base: zero visible change by construction
-                    self.cam = necore.mat_mul(self.cam, necore.mat_inv(m9))
+                    self._set_cam(necore.mat_mul(
+                        self._cam_smooth, necore.mat_inv(m9)))
                     self.metrics["transfers"] += 1
                     self.metrics["rooms_visited"].add(to_room)
             elif tag == "wall":
@@ -1706,11 +1723,11 @@ class GameSession:
         else:
             self.sim.set_pos(self.pid, tx, ty)
         self.sim.set_vel(self.pid, 0.0, 0.0)
-        self.cam = necore.mat_mul(
+        self._set_cam(necore.mat_mul(
             necore.mat_mul(
                 necore.mat_translate(self.screen_w / 2, self.screen_h / 2),
                 necore.mat_scale(self.zoom, self.zoom)),
-            necore.mat_translate(-tx, -ty))
+            necore.mat_translate(-tx, -ty)))
         self._snd("reprint", room, (tx, ty))
         self._objective("RECALLED TO THE SEED")
 
@@ -1819,11 +1836,11 @@ class GameSession:
         self.freeze = 0
         self.tau_charge = 0
         self.hole_mark = None
-        self.cam = necore.mat_mul(
+        self._set_cam(necore.mat_mul(
             necore.mat_mul(
                 necore.mat_translate(self.screen_w / 2, self.screen_h / 2),
                 necore.mat_scale(self.zoom, self.zoom)),
-            necore.mat_translate(-px, -py))
+            necore.mat_translate(-px, -py)))
         mark = len(self.fx)
         self._objective(f"REPRINTED - {self.chassis} CHASSIS RACKED")
         self._snd("reprint", room, (px, py))
@@ -1909,10 +1926,44 @@ class GameSession:
     # queries for renderer / bots / tests
     # ------------------------------------------------------------------
 
+    # Apex clamp margin: must exceed the engine's EDGE_BAND (0.5) so the
+    # "apex behind the portal line" hard cull can never fire from transfer
+    # overshoot (see visible()).
+    _APEX_EPS = 0.75
+
+    def _clamp_apex(self, room: int, px: float, py: float):
+        """Pull the visibility apex just inside `room`'s polygon. For 1-3
+        ticks after a portal transfer the entity is registered in the new
+        room while its position still sits marginally OUTSIDE it (collision
+        overshoot; physics reclaims it). An exterior apex makes the
+        traversal's sight-line cull discard the entry portal -- the room
+        you just left, and everything behind it, blinks out for those
+        ticks. At every doorway, constantly: the campaign-video flicker."""
+        verts = self.sim.room_verts(room)
+        n = len(verts)
+        for i in range(n):
+            x1, y1 = verts[i]
+            x2, y2 = verts[(i + 1) % n]
+            ex, ey = x2 - x1, y2 - y1
+            ln = math.hypot(ex, ey)
+            if ln < 1e-9:
+                continue
+            # inward normal for this vertex winding (verified empirically
+            # in test_economy's clamp tests: interior points are fixpoints)
+            nx_, ny_ = ey / ln, -ex / ln
+            d = (px - x1) * nx_ + (py - y1) * ny_
+            if d < self._APEX_EPS:
+                push = self._APEX_EPS - d
+                px += nx_ * push
+                py += ny_ * push
+        return px, py
+
     def visible(self, max_depth: int = 14, max_instances: int = 96):
         proom = self.player_room()
         px, py = self.player_pos()
-        # the camera apex is the player (strict LOS from the character)
+        # the camera apex is the player (strict LOS from the character),
+        # clamped into the room so mid-transfer overshoot can't blind it
+        px, py = self._clamp_apex(proom, px, py)
         return self.sim.visible_set(proom, self.cam, px, py,
                                     float(self.screen_w), float(self.screen_h),
                                     max_depth, max_instances)

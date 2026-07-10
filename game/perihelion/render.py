@@ -51,7 +51,12 @@ from .sim import ENEMIES as SIM_ENEMIES
 INTERNAL_W, INTERNAL_H = 640, 360
 
 # -- HP (high-pixel) sprite integration -------------------------------------
-# Opt-in via PERIHELION_HP_SPRITES=1 (see Renderer._hp_ensure_loaded). Maps
+# On by default; set PERIHELION_HP_SPRITES=0 to force the vector look (see
+# Renderer._hp_ensure_loaded). Sprites are queued during the normal draw
+# pass and composited at full WINDOW resolution by Renderer.draw_hp_overlay,
+# called by App after the internal surface is upscaled to the window (see
+# App._draw_hp_overlay_pass) -- never blitted onto the 640x360 internal
+# surface, which would lose their detail on the way to the window. Maps
 # sim pickup `kind` -> the manifest asset key that draws it; kinds absent
 # from this dict (turret, implant_lightning, key_*, portable_hole,
 # components, corpse_frame, organ_gland) have no HP art yet and keep their
@@ -1373,8 +1378,8 @@ class Renderer:
 
         self._font = None
 
-        # -- HP sprite state (opt-in, see _hp_ensure_loaded) ----------------
-        self._hp_enabled = os.environ.get("PERIHELION_HP_SPRITES") == "1"
+        # -- HP sprite state (on by default, see _hp_ensure_loaded) --------
+        self._hp_enabled = os.environ.get("PERIHELION_HP_SPRITES", "1") != "0"
         self._hp_load_attempted = False
         self._hp_manifest: dict = {}
         self._hp_sprites: dict = {}         # asset key -> raw pygame.Surface
@@ -1571,15 +1576,24 @@ class Renderer:
         self._hp_variant_cache[cache_key] = scaled
         return scaled
 
-    def _hp_flush(self, surf) -> None:
-        """Blit every sprite queued this frame onto the already-composited
-        `surf`, then clear the queue. Sprites draw WHOLE (never
-        pre-clipped) -- callers only queue instances the no-seams
-        entity-layer fold would have shown whole anyway (fully_inside, or
-        a center-point-in-clip check matching the vector fallback's own
-        visibility test), so this needs no mask of its own."""
+    def draw_hp_overlay(self, target_surface, scale: float,
+                        offset: tuple = (0.0, 0.0)) -> None:
+        """Blit every sprite queued this frame onto `target_surface` at
+        FULL resolution -- internal (640x360) screen coords are mapped
+        through `scale`/`offset` (the app's window transform, see
+        App._recompute_layout/_blit_scaled) so sprites render at native
+        window pixel density instead of the blurry, downsampled internal
+        surface. Does NOT clear the queue (Renderer.draw resets it at the
+        top of the next frame) so a caller may composite the same queued
+        frame onto more than one target (e.g. the window AND a 2x record
+        buffer) without losing sprites between calls. Nearest-neighbor
+        scaling (pygame.transform.scale, no smoothing) preserves the
+        generated art's pixels; the (key, scale, angle-bucket, hitflash)
+        cache in `_hp_variant` keys on this overlay-space scale, so a
+        stable window size stays cache-hot across frames."""
         if not self._hp_queue:
             return
+        ox, oy = offset
         for key, sx, sy, srad, ang, eid in self._hp_queue:
             entry = self._hp_manifest.get(key)
             if entry is None:
@@ -1587,8 +1601,8 @@ class Renderer:
             px_radius = entry.get("sprite_px_radius") or 0.0
             if px_radius <= 0.0:
                 continue
-            scale = srad / px_radius
-            if scale <= 0.0:
+            draw_scale = srad * scale / px_radius
+            if draw_scale <= 0.0:
                 continue
             rot_mode = entry.get("rotation", "none")
             if rot_mode == "none":
@@ -1601,12 +1615,14 @@ class Renderer:
                 raw = -math.degrees(ang)
                 deg = (round(raw / _HP_ANGLE_BUCKET_DEG) * _HP_ANGLE_BUCKET_DEG) % 360.0
             flashed = eid is not None and self._hitflash.get(eid, 0) > 0
-            img = self._hp_variant(key, scale, deg, flashed)
+            img = self._hp_variant(key, draw_scale, deg, flashed)
             if img is None:
                 continue
             iw, ih = img.get_size()
-            surf.blit(img, (int(round(sx - iw / 2.0)), int(round(sy - ih / 2.0))))
-        self._hp_queue.clear()
+            tx = sx * scale + ox
+            ty = sy * scale + oy
+            target_surface.blit(img, (int(round(tx - iw / 2.0)),
+                                      int(round(ty - ih / 2.0))))
 
     # ------------------------------------------------------------------
     # fx ingestion (call once per sim tick, after session.tick())
@@ -1709,6 +1725,10 @@ class Renderer:
         self._deferred_glows = []
         self._deferred_bolts = []
         self._deferred_screen_glows = []
+        # queued fresh each frame; the previous frame's overlay consumer(s)
+        # (App.draw_hp_overlay callers) read it after draw() returns, before
+        # this reset runs again on the next call
+        self._hp_queue = []
         if self._hp_enabled and not self._hp_load_attempted:
             self._hp_ensure_loaded()
         instances = session.visible(self.max_depth, self.max_instances)
@@ -1724,19 +1744,16 @@ class Renderer:
             surf.fill((0, 0, 0))
             ow_polys = self._draw_world_pygame(surf, instances)
             self._apply_darkness(surf, ow_polys)
-        # HP sprites blit onto the now-fully-composited, fully-darkened
-        # `surf` -- ONE call site shared by both backends (the rust raster
-        # applies its darkness LUT internally before `surf` ever sees
-        # pixels; the pygame path applies it in Python just above), so a
-        # divergence in HOW each backend darkens can never show up as a
-        # sprite-position divergence. This is the "simplest, recommended
-        # first cut" from INTEGRATION_HP_ART.md, chosen over darkening
-        # sprites in place specifically to keep this single shared call
-        # site instead of two backend-specific ones with different
-        # darkness timing (rust darkens before `surf` exists; pygame
-        # darkens after) that would risk exactly the kind of one-backend
-        # divergence the parity test below exists to catch.
-        self._hp_flush(surf)
+        # HP sprites are NOT blitted onto `surf` here. `surf` is the
+        # 640x360 internal surface, which loses all of a generated sprite's
+        # detail on the way to the window; instead `_hp_queue` (populated
+        # above, during world/entity draw) is left for the caller to
+        # composite at full window resolution via draw_hp_overlay(), after
+        # the internal frame has been upscaled to the window (see
+        # App._draw_hp_overlay_pass). This keeps `surf` itself sprite-free
+        # in both backends identically (same queue, same gating), which is
+        # also why the backend-parity test stays byte-identical with HP
+        # sprites on: neither backend ever draws a sprite pixel into `surf`.
         # light sources punch through the dark: muzzle glows and bolts
         for sx, sy, radius, clip_screen in self._deferred_glows:
             self._blit_glow(surf, sx, sy, radius, clip_screen)
@@ -2482,7 +2499,7 @@ class Renderer:
         # entity layer, see _draw_world_pygame/_draw_world_rust) is what
         # actually cuts them at the visible-world boundary, not anything in
         # this function. HP sprites are composited in a later pass that is
-        # NOT covered by that mask (see Renderer.draw / _hp_flush), so they
+        # NOT covered by that mask (see Renderer.draw_hp_overlay), so they
         # only get queued when `fully_inside` -- an instance the mask was
         # never going to cut anyway -- to preserve the no-seams invariant;
         # anything straddling a portal/doorway keeps its vector draw, which

@@ -359,11 +359,11 @@ class WorldStreamer:
         s.freeze = 0
         s.metrics["deaths"] += 1
         import necore
-        s.cam = necore.mat_mul(
+        s._set_cam(necore.mat_mul(
             necore.mat_mul(
                 necore.mat_translate(s.screen_w / 2, s.screen_h / 2),
                 necore.mat_scale(s.zoom, s.zoom)),
-            necore.mat_translate(-px, -py))
+            necore.mat_translate(-px, -py)))
         s.fx.append(("locname", lvl.name))
 
     def _reseat_player(self, room: int, pos) -> None:
