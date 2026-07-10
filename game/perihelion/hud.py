@@ -101,7 +101,11 @@ class HUD:
             surf.blit(label, (w - 16 - label.get_width() - 16, h - 34))
         else:
             ammo_t = AMMO_LABEL.get(name)
-            if name == "hole":
+            if name == "scrap":
+                count = f"{getattr(session, 'components', 0)}c"
+            elif name == "gland":
+                count = "1 INTEGRITY/SHOT"
+            elif name == "hole":
                 count = str(getattr(session, "holes", 0))
                 if session.hole_mark is not None:
                     count += "*"  # one wall marked

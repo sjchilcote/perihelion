@@ -218,8 +218,10 @@ class GameScene(menus.Scene):
                 app.take_screenshot()
             elif event.key == pygame.K_b:
                 self.session.place_station()
-            elif pygame.K_1 <= event.key <= pygame.K_8:
+            elif pygame.K_1 <= event.key <= pygame.K_9:
                 app.pending_weapon_select = event.key - pygame.K_1 + 1
+            elif event.key == pygame.K_0:
+                app.pending_weapon_select = 10
         elif event.type == pygame.MOUSEWHEEL:
             self._cycle_weapon(app, -1 if event.y > 0 else 1)
 

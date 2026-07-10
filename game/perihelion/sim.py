@@ -48,9 +48,18 @@ WEAPONS: dict[str, dict] = {
     "tau": dict(dmg=9, cd=7, speed=1900.0, spread=math.radians(2.0), pellets=1,
                 ammo="cell", per=1, sound="tau_fire", kick=2.6, bounces=2),
     "hole": dict(cd=18, sound="terminal_open"),
+    # weaponize what's at hand: the scrap driver fires your salvage as
+    # shot (ammo IS the currency), printed at any fabricator
+    "scrap": dict(dmg=13, cd=46, speed=980.0, spread=math.radians(8.5),
+                  pellets=3, ammo="components", per=2,
+                  sound="shotgun_fire", kick=5.5),
+    # a harvested spitter gland, grafted (Void path): fat slow caustic
+    # glob; each discharge costs 1 integrity -- flesh feeds on the frame
+    "gland": dict(dmg=16, cd=36, speed=560.0, spread=math.radians(2.5),
+                  pellets=1, hp_cost=1, sound="spitter_shoot", kick=3.0),
 }
 WEAPON_ORDER = ["knife", "pistol", "smg", "shotgun", "rail", "lightning",
-                "tau", "hole"]
+                "tau", "hole", "scrap", "gland"]
 TAU_CHARGE_FULL = 80        # ticks of held charge for max damage
 TAU_OVERCHARGE = 160        # holding past this hurts
 HOLE_WIDTH = 15.0           # player diameter 13 + clearance; brutes (27) excluded
@@ -102,6 +111,7 @@ PICKUPS: dict[str, dict] = {
     "key_gold": dict(radius=5.5), "key_void": dict(radius=5.5),
     "components": dict(radius=5.0),
     "corpse_frame": dict(radius=8.0),
+    "organ_gland": dict(radius=6.0),
 }
 
 # The fabricator's price sheet. Components are salvaged mass — every enemy
@@ -111,6 +121,7 @@ SHOP: dict[str, dict] = {
     "chassis": dict(cost=8, label="SPARE CHASSIS"),
     "station_kit": dict(cost=12, label="SEED STATION KIT"),
     "hp_up": dict(cost=10, label="HULL PLATING +15", growth=6),
+    "scrap_driver": dict(cost=15, label="SCRAP DRIVER"),
     "ammo_9mm": dict(cost=3, label="9MM x30", ammo=("9mm", 30)),
     "ammo_shell": dict(cost=3, label="SHELLS x7", ammo=("shell", 7)),
     "ammo_cell": dict(cost=4, label="CELLS x8", ammo=("cell", 8)),
@@ -370,7 +381,8 @@ class GameSession:
     # system prompt.
 
     ACQUIRE_LABELS = {"cloister": "THE CLOISTER", "hole": "PORTABLE HOLE",
-                      "lightning": "LIGHTNING IMPLANT", "tau": "TAU CANNON"}
+                      "lightning": "LIGHTNING IMPLANT", "tau": "TAU CANNON",
+                      "scrap": "SCRAP DRIVER", "gland": "GRAFTED GLAND"}
 
     def _objective(self, text: str):
         self.fx.append(("objective", text))
@@ -581,12 +593,26 @@ class GameSession:
                 self._shake(1.5)
             return
         ammo_t = w.get("ammo")
-        if ammo_t and self.ammo.get(ammo_t, 0) < w.get("per", 1):
+        if ammo_t == "components":
+            # the scrap driver eats the currency itself
+            if self.components < w.get("per", 1):
+                self.cooldown = 18
+                self._snd("dry_click", proom, (px, py))
+                return
+            self.components -= w.get("per", 1)
+        elif ammo_t and self.ammo.get(ammo_t, 0) < w.get("per", 1):
             self.cooldown = 18
             self._snd("dry_click", proom, (px, py))
             return
-        if ammo_t:
+        elif ammo_t:
             self.ammo[ammo_t] -= w.get("per", 1)
+        hp_cost = w.get("hp_cost", 0)
+        if hp_cost:
+            if self.hp <= hp_cost:
+                self.cooldown = 18
+                self._snd("dry_click", proom, (px, py))
+                return
+            self.hp -= hp_cost  # the gland drinks from the frame
         self.cooldown = w["cd"]
         self.metrics["shots"] += 1
         self._snd(w["sound"], proom, (px, py))
@@ -601,7 +627,8 @@ class GameSession:
                 ang = math.atan2(ady, adx) + self.rng.uniform(
                     -w["spread"], w["spread"]) * self._spread_mul
                 spd = w["speed"] * self.rng.uniform(0.95, 1.05)
-                bid = self.sim.spawn(proom, mx_, my_, 1.6, 0.002, GROUP_PBULLET)
+                brad = 3.0 if self.weapon == "gland" else 1.6
+                bid = self.sim.spawn(proom, mx_, my_, brad, 0.002, GROUP_PBULLET)
                 self.sim.set_props(bid, rest_wall=0.0, rest_ent=0.0, max_substep=3.2)
                 self.sim.set_vel(bid, math.cos(ang) * spd + pvx * 0.4,
                                  math.sin(ang) * spd + pvy * 0.4)
@@ -611,6 +638,11 @@ class GameSession:
                     self.bullets[bid].update(kind="tau", ttl=140,
                                              bounces=w.get("bounces", 0))
                     self.sim.set_props(bid, rest_wall=1.0)
+                elif self.weapon == "scrap":
+                    # shards of salvage: hard-hitting, short-lived
+                    self.bullets[bid].update(kind="scrap", ttl=34)
+                elif self.weapon == "gland":
+                    self.bullets[bid].update(kind="gland", ttl=170)
         # gunfire is loud: it travels the graph
         self.alert_enemies(proom, self.level.alert_hops)
 
@@ -1021,6 +1053,13 @@ class GameSession:
                 self.spawn_pickup(room, (pos[0] + self.rng.uniform(-6, 6),
                                          pos[1] + self.rng.uniform(-6, 6)), kind_)
                 break
+        # Void path: with the harvesting protocol integrated, a spitter's
+        # intact gland is a weapon waiting for a socket
+        if kind == "spitter" and "gland" not in self.weapons and \
+                "adversary_organ_slot_1" in self.mind_unlocks and \
+                not any(p["kind"] == "organ_gland"
+                        for p in self.pickups.values()):
+            self.spawn_pickup(room, (pos[0], pos[1] + 8), "organ_gland")
         # salvage: every kill yields its score in components (9.1 -- wrecks
         # are materials; score already priced each enemy's difficulty)
         self.spawn_pickup(room, (pos[0] + self.rng.uniform(-5, 5),
@@ -1489,6 +1528,12 @@ class GameSession:
                     self.weapons.append("lightning")
                 self._snd("pickup_key", proom, (x, y))
                 self._acquired("lightning")
+            elif kind == "organ_gland":
+                if "gland" not in self.weapons:
+                    self.weapons.append("gland")
+                    self.weapon = "gland"
+                self._snd("pickup_key", proom, (x, y))
+                self._acquired("gland")
             elif kind == "components":
                 n = p.get("amount", 1)
                 self.components += n
@@ -1588,6 +1633,8 @@ class GameSession:
         cost = d["cost"] + d.get("growth", 0) * (self.hp_ups if item == "hp_up" else 0)
         if self.components < cost:
             return False
+        if item == "scrap_driver" and "scrap" in self.weapons:
+            return False  # one is plenty; the pattern doesn't wear out
         self.components -= cost
         if item == "chassis":
             self.chassis += 1
@@ -1597,6 +1644,9 @@ class GameSession:
             self.hp_ups += 1
             self.max_hp += 15
             self.hp = min(self.max_hp, self.hp + 15)
+        elif item == "scrap_driver":
+            self.weapons.append("scrap")
+            self.weapon = "scrap"
         elif "ammo" in d:
             t, n = d["ammo"]
             self.ammo[t] = self.ammo.get(t, 0) + n
