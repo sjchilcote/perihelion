@@ -1724,6 +1724,19 @@ class Renderer:
             surf.fill((0, 0, 0))
             ow_polys = self._draw_world_pygame(surf, instances)
             self._apply_darkness(surf, ow_polys)
+        # HP sprites blit onto the now-fully-composited, fully-darkened
+        # `surf` -- ONE call site shared by both backends (the rust raster
+        # applies its darkness LUT internally before `surf` ever sees
+        # pixels; the pygame path applies it in Python just above), so a
+        # divergence in HOW each backend darkens can never show up as a
+        # sprite-position divergence. This is the "simplest, recommended
+        # first cut" from INTEGRATION_HP_ART.md, chosen over darkening
+        # sprites in place specifically to keep this single shared call
+        # site instead of two backend-specific ones with different
+        # darkness timing (rust darkens before `surf` exists; pygame
+        # darkens after) that would risk exactly the kind of one-backend
+        # divergence the parity test below exists to catch.
+        self._hp_flush(surf)
         # light sources punch through the dark: muzzle glows and bolts
         for sx, sy, radius, clip_screen in self._deferred_glows:
             self._blit_glow(surf, sx, sy, radius, clip_screen)
@@ -2203,6 +2216,16 @@ class Renderer:
                 continue
             dx, dy = necore.mat_apply_dir(xform, math.cos(angle), math.sin(angle))
             sang = math.atan2(dy, dx) if (dx or dy) else 0.0
+            # only corpse_husk has HP art today; angle is baked at decal
+            # spawn time (corpses don't move), so this just re-derives the
+            # already-known screen-space angle every frame -- cheap, and a
+            # cache hit in _hp_variant since the bucket rarely changes.
+            hp_key = self._hp_prop_key("prop_corpse_husk") if kind == "corpse_husk" else None
+            if hp_key:
+                world_r = self._hp_manifest.get("prop_corpse_husk", {}) \
+                    .get("world_radius_units", 8.0)
+                self._hp_queue_sprite(hp_key, sx, sy, world_r * scale, sang, None)
+                continue
             self._draw_decal(canvas, kind, sx, sy, size, sang, scale)
 
     def _draw_decal(self, canvas, kind, sx, sy, size, angle, scale):
@@ -2331,9 +2354,27 @@ class Renderer:
         cx, cy, nx, ny = wall["cx"], wall["cy"], wall["nx"], wall["ny"]
         ang = math.atan2(wall["ty"], wall["tx"])
         slab_w, slab_d = 13.0, 6.0
-        slab_pts = _rect_local(cx + nx * slab_d * 0.5, cy + ny * slab_d * 0.5,
-                                slab_w, slab_d, ang)
+        slab_cx, slab_cy = cx + nx * slab_d * 0.5, cy + ny * slab_d * 0.5
+        slab_pts = _rect_local(slab_cx, slab_cy, slab_w, slab_d, ang)
         spoly = [necore.mat_apply(xform, x, y) for x, y in slab_pts]
+        hp_key = self._hp_prop_key("prop_terminal")
+        if hp_key and all(_point_in_poly(px, py, clip_screen) for px, py in spoly):
+            # fully inside this room's slab footprint -> safe to bypass the
+            # per-instance clip the vector slab below uses (same
+            # fully_inside reasoning as _draw_entities: never cut by the
+            # coverage mask, so the sprite can't peek past it either)
+            ssx, ssy = necore.mat_apply(xform, slab_cx, slab_cy)
+            dxs, dys = necore.mat_apply_dir(xform, wall["tx"], wall["ty"])
+            sprite_ang = math.atan2(dys, dxs)
+            xscale = _xform_scale(xform)
+            world_r = self._hp_manifest.get("prop_terminal", {}) \
+                .get("world_radius_units", 6.5)
+            self._hp_queue_sprite(hp_key, ssx, ssy, world_r * xscale,
+                                  sprite_ang, None)
+            if bright:
+                self._deferred_screen_glows.append(
+                    (ssx, ssy, 6.0 * xscale, clip_screen))
+            return
         clipped = necore.clip_polygon(spoly, clip_screen)
         if len(clipped) < 3:
             return
@@ -2433,12 +2474,26 @@ class Renderer:
         return None, None
 
     def _draw_entities(self, canvas, ents, clip_screen):
+        # NOTE: every call site passes clip_screen=None -- entities always
+        # draw WHOLE here; the union coverage mask (BLEND_RGBA_MIN on the
+        # entity layer, see _draw_world_pygame/_draw_world_rust) is what
+        # actually cuts them at the visible-world boundary, not anything in
+        # this function. HP sprites are composited in a later pass that is
+        # NOT covered by that mask (see Renderer.draw / _hp_flush), so they
+        # only get queued when `fully_inside` -- an instance the mask was
+        # never going to cut anyway -- to preserve the no-seams invariant;
+        # anything straddling a portal/doorway keeps its vector draw, which
+        # the mask still cuts correctly.
         for eid, sx, sy, dirx, diry, srad, fully_inside in ents:
             role, kind = self._role_kind(eid)
             if role is None:
                 continue
             ang = math.atan2(diry, dirx) if (dirx or diry) else 0.0
             if role == "player":
+                hp_key = self._hp_key_for("player", None) if fully_inside else None
+                if hp_key:
+                    self._hp_queue_sprite(hp_key, sx, sy, srad, ang, eid)
+                    continue
                 pts = _xform_pts(PLAYER_SHAPE, sx, sy, max(srad, 2.0), ang)
                 if clip_screen is not None and not fully_inside:
                     pts = necore.clip_polygon(pts, clip_screen)
@@ -2447,12 +2502,20 @@ class Renderer:
                 canvas.polygon(PLAYER_COLOR, _pts(pts))
                 canvas.polygon((255, 255, 255), _pts(pts), 1)
             elif role == "enemy":
-                self._draw_enemy(canvas, eid, kind, sx, sy, ang, srad, clip_screen, fully_inside)
+                hp_key = self._hp_key_for("enemy", kind) if fully_inside else None
+                if hp_key:
+                    self._hp_queue_sprite(hp_key, sx, sy, srad, ang, eid)
+                else:
+                    self._draw_enemy(canvas, eid, kind, sx, sy, ang, srad, clip_screen, fully_inside)
                 self._draw_scan_pips(canvas, eid, sx, sy, srad, clip_screen)
             elif role == "bullet":
                 self._draw_bullet(canvas, kind, sx, sy, dirx, diry, clip_screen)
             elif role == "pickup":
-                self._draw_pickup(canvas, eid, kind, sx, sy, srad, clip_screen)
+                hp_key = self._hp_key_for("pickup", kind) if fully_inside else None
+                if hp_key:
+                    self._hp_queue_sprite(hp_key, sx, sy, srad, 0.0, eid)
+                else:
+                    self._draw_pickup(canvas, eid, kind, sx, sy, srad, clip_screen)
 
     def _draw_scan_pips(self, canvas, eid, sx, sy, srad, clip_screen):
         """Mind map: a deep-scan node renders wounded enemies' integrity as
