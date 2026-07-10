@@ -47,6 +47,19 @@ class RadioLine:
 
 
 @dataclass
+class KeyMeta:
+    """The diegetic identity of one key id within one level. The id ("red",
+    "gold", "void"...) stays a mechanic; the fiction is per level: what
+    station object the pickup is, what mechanism it operates, and the
+    system-voice lines for both. All-caps, terse — these feed the one-line
+    objective prompt and the pickup float text."""
+    item_name: str       # what you pick up: "VALVE WHEEL"
+    gate_name: str       # what it opens: "PRESSURE HATCH"
+    gate_prompt: str     # blocked line: "PRESSURE HATCH SEALED - VALVE WHEEL REQUIRED"
+    acquire_prompt: str  # pickup line: "ACQUIRED: VALVE WHEEL"
+
+
+@dataclass
 class Level:
     name: str
     tier: int
@@ -70,6 +83,17 @@ class Level:
     radio: list[RadioLine]
     terminals: list[TerminalSpec]
     ambience: str
+    # Per-room descent scalar 0..1 (how deep into the station this room
+    # sits). In streamed campaigns WorldStreamer owns this list: chunk k of
+    # N gets k/(N-1) and transit-spine rooms get the midpoint of the chunks
+    # they join, so the gradient crosses inside the spine rather than
+    # stepping at a doorway. A level loaded on its own (editor, --level,
+    # vigil) derives one value for all rooms from its tier below.
+    room_descent: list[float] = field(default_factory=list)
+    # key id -> its diegetic identity in THIS level ("blue" is a scrubber
+    # cartridge in hydroponics and a surgeon's cardkey one deck later).
+    # Levels without an entry fall back to generic "<ID> SEAL" text.
+    key_meta: dict[str, KeyMeta] = field(default_factory=dict)
 
 
 def _shoelace(verts) -> float:
@@ -146,7 +170,11 @@ def level_from_dict(data: dict) -> Level:
 
     player = data["player"]
     exit_ = data.get("exit")
+    tier = int(data.get("tier", 1))
+    # tiers run 1..4; map onto the same 0..1 descent axis the streamer uses
+    descent = min(1.0, max(0.0, (tier - 1) / 3.0))
     doors = [DoorSpec(**d) for d in data.get("doors", [])]
+    key_meta = {k: KeyMeta(**v) for k, v in (data.get("keys") or {}).items()}
     lore = data.get("lore", {})
     radio = [RadioLine(**r) for r in lore.get("radio", [])]
     terminals = [
@@ -155,7 +183,8 @@ def level_from_dict(data: dict) -> Level:
     ]
     return Level(
         name=data.get("name", "?"),
-        tier=int(data.get("tier", 1)),
+        tier=tier,
+        room_descent=[descent] * len(room_verts),
         room_verts=room_verts,
         room_centroids=room_centroids,
         room_seeds=room_seeds,
@@ -172,6 +201,7 @@ def level_from_dict(data: dict) -> Level:
         exit_pos=local(exit_["room"], exit_["pos"]) if exit_ else (0.0, 0.0),
         exit_key=(exit_ or {}).get("key", ""),
         exit_gate_kind=(exit_ or {}).get("gate_kind", ""),
+        key_meta=key_meta,
         alert_hops=int(data.get("alert_hops", 2)),
         vigil=bool(data.get("vigil", False)),
         intro=lore.get("intro", ""),
@@ -257,6 +287,15 @@ class LevelBuilder:
     def door_pts(self, ra: int, pa, rb: int, pb, key: str):
         self.data.setdefault("doors_pts", []).append(
             dict(a=ra, pa=list(pa), b=rb, pb=list(pb), key=key))
+
+    def key_meta(self, key: str, item_name: str, gate_name: str,
+                 gate_prompt: str, acquire_prompt: str):
+        """Give key id `key` its diegetic identity in this level (see
+        KeyMeta). Applies to every door with this key AND the exit if it
+        requires this key."""
+        self.data.setdefault("keys", {})[key] = dict(
+            item_name=item_name, gate_name=gate_name,
+            gate_prompt=gate_prompt, acquire_prompt=acquire_prompt)
 
     def no_connect(self, ra: int, rb: int):
         """Forbid the splitter/autoconnect from opening a doorway between

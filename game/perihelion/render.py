@@ -80,8 +80,8 @@ _WALL_MIN_RAMP = ((74, 80, 88), (80, 75, 73), (90, 66, 62))
 _PROP_WARM = (18, -6, -16)         # additive full-descent prop temperature shift
 
 GROWTH_FILL = (44, 14, 16)         # the seed's spread: organic patches
-GROWTH_RIM = (70, 24, 22)
-TENDRIL_COLOR = (58, 20, 20)
+GROWTH_RIM = (92, 34, 28)          # must read against the deepest floor (54,22,26)
+TENDRIL_COLOR = (84, 30, 24)       # dimmer than any prop rim, brighter than floor
 _GRIME_COLD = (33, 27, 28)
 _GRIME_DEEP = (44, 16, 16)
 _MARK_COLD = (70, 74, 84)          # Congregation crosses, scratched near walls

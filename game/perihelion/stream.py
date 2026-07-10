@@ -43,6 +43,11 @@ class WorldStreamer:
                    entry_room=first.player_room, entry_pos=first.player_pos,
                    spine_rooms=None, loaded_next=False)
         self.chunks.append(rec)
+        # The descent axis: chunk k of N sits at k/(N-1). The campaign's
+        # loaded-alone tier-derived values are replaced with the streamed
+        # gradient so ten chunks read as ten distinct depths of one station.
+        first.room_descent = ([self._chunk_descent(0)]
+                              * len(first.room_verts))
         self.entry_states[0] = self._snapshot_state()
         session.exit_enabled = self._is_final(0)
         if self._is_final(0):
@@ -55,6 +60,24 @@ class WorldStreamer:
 
     def _is_final(self, chunk_idx: int) -> bool:
         return self.start_chunk + chunk_idx >= len(self.paths) - 1
+
+    def _chunk_descent(self, chunk_idx: int) -> float:
+        """Descent scalar for chunk `chunk_idx` (local index): global chunk
+        k of N maps to k/(N-1), 0.0 at the dock, 1.0 at the core."""
+        den = max(1, len(self.paths) - 1)
+        return min(1.0, (self.start_chunk + chunk_idx) / den)
+
+    def _extend_descent(self, first_room: int, values: list[float]) -> None:
+        """Append per-room descent values for rooms starting at engine index
+        `first_room`. Rooms the sim added on its own since the last stream
+        event (portable-hole corridors, the cloister) never extend this
+        list, so pad any gap with the last known value — those rooms are
+        always carved near where the player already is."""
+        rd = self.session.level.room_descent
+        fill = rd[-1] if rd else values[0]
+        while len(rd) < first_room:
+            rd.append(fill)
+        rd.extend(values)
 
     def _retarget(self) -> None:
         """Keep the (disabled) exit marker pointing at the way forward so
@@ -80,6 +103,10 @@ class WorldStreamer:
         s.exit_pos = lvl.exit_pos
         s.level.exit_key = lvl.exit_key
         s.level.exit_gate_kind = lvl.exit_gate_kind
+        # blocked-exit prompt comes from THIS chunk's key fiction, not
+        # chunk 0's (s.level is chunk 0's Level object)
+        meta = lvl.key_meta.get(lvl.exit_key) if lvl.exit_key else None
+        s.exit_gate_prompt = meta.gate_prompt if meta else ""
         # the gate only counts guardians of THIS chunk; stragglers from
         # earlier decks hold no doors here
         s.exit_gate_rooms = (c["offset"], c["offset"] + c["n_rooms"])
@@ -173,6 +200,12 @@ class WorldStreamer:
         c["spine_rooms"] = (spine_a, spine_b)
         s.level.room_seeds.extend([spine_a * 7919 + 13, spine_b * 7919 + 13])
         s.level.room_kinds.extend(["transit", "transit"])
+        # the spine joins chunk k and k+1: give it the midpoint descent so
+        # the palette gradient crosses INSIDE the transit corridor (two
+        # half-steps) instead of a full step at either doorway
+        mid_d = (self._chunk_descent(chunk_idx)
+                 + self._chunk_descent(chunk_idx + 1)) / 2.0
+        self._extend_descent(spine_a, [mid_d, mid_d])
         s.level.room_verts.extend([[(-130.0, -35.0), (-130.0, 35.0),
                                     (130.0, 35.0), (130.0, -35.0)]] * 2)
         s.level.room_centroids.extend([(0.0, 0.0), (0.0, 0.0)])
@@ -191,6 +224,8 @@ class WorldStreamer:
         path = self.paths[self.start_chunk + chunk_idx + 1]
         nxt = load_level(path)
         offset = s.append_chunk(nxt)
+        self._extend_descent(offset, [self._chunk_descent(chunk_idx + 1)]
+                             * len(nxt.room_verts))
         rec = dict(offset=offset, n_rooms=len(nxt.room_verts), level=nxt,
                    entry_room=nxt.player_room, entry_pos=nxt.player_pos,
                    spine_rooms=None, loaded_next=False)
@@ -265,7 +300,8 @@ class WorldStreamer:
             s.pickups.pop(eid, None)
         lvl: Level = c["level"]
         for room, spec in lvl.entities:
-            s._spawn_from_spec(room + c["offset"], spec)
+            s._spawn_from_spec(room + c["offset"], spec,
+                               key_meta=lvl.key_meta)
         # doors of this chunk re-lock only if their key is re-collectable;
         # simpler and kinder: opened doors stay open.
         self._restore_state(self.entry_states[self.current])
