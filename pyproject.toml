@@ -13,6 +13,7 @@ dev = [
     "pytest",
     "maturin",
     "pillow>=12.3.0",
+    "hypothesis>=6.156.6",
 ]
 
 [tool.setuptools]
