@@ -106,29 +106,6 @@ def test_backends_identical_through_otherworld(pygame_ready):
     assert not mism, f"backends diverged in/near otherworld at ticks {mism}"
 
 
-def test_backends_identical_with_hp_sprites(pygame_ready, monkeypatch):
-    """PERIHELION_HP_SPRITES=1 must not break backend parity. HP sprites
-    are no longer blitted onto `surf` at all (they're queued in
-    Renderer._hp_queue and composited by the caller at full window
-    resolution via Renderer.draw_hp_overlay, which this test never calls),
-    so `surf` itself stays exactly as sprite-free as the HP-sprites-off
-    case in both backends -- parity is trivially preserved. This test still
-    exercises the queue-population/gating code path (fully_inside, manifest
-    lookups) with the flag on, just doesn't render the overlay."""
-    monkeypatch.setenv("PERIHELION_HP_SPRITES", "1")
-
-    def inp(tick):
-        return InputFrame(
-            mx=1.0, my=0.15 * ((tick // 40) % 2 * 2 - 1),
-            ax=INTERNAL_W * 0.62, ay=INTERNAL_H * 0.5,
-            fire=(tick % 20) < 8, alt=False,
-            interact=(tick % 97 == 0), weapon=0,
-        )
-
-    mism = _frames_equal_over_run(build_debug_level(), 180, inp, 15)
-    assert not mism, f"backends diverged with HP sprites on at ticks {mism}"
-
-
 def test_backend_selection(pygame_ready):
     level = build_debug_level()
     session = GameSession(level, seed=7, screen=(INTERNAL_W, INTERNAL_H))

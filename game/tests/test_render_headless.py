@@ -71,14 +71,6 @@ def test_render_headless_smoke(pygame_ready, backend):
     frames: list[tuple[int, "pygame.Surface"]] = []
     draw_times: list[float] = []
 
-    # Warm the HP sprite cache (on by default: manifest + ~13 PNGs load from
-    # disk on the first draw() call) before timing -- that one-time load is
-    # real work but not part of draw()'s steady-state per-frame budget,
-    # which is what DRAW_TIME_BUDGET_S is meant to police.
-    warm = pygame.Surface((INTERNAL_W, INTERNAL_H))
-    renderer.draw(warm, debug=False)
-    renderer.draw_hp_overlay(warm, 1.0, (0.0, 0.0))
-
     for tick in range(1, TOTAL_TICKS + 1):
         session.tick(_scripted_input(tick))
         renderer.consume_fx(session.fx)
@@ -88,15 +80,6 @@ def test_render_headless_smoke(pygame_ready, backend):
             t0 = time.perf_counter()
             renderer.draw(surf, debug=False)
             draw_times.append(time.perf_counter() - t0)
-            # HP sprites (on by default) are queued by draw() but never
-            # blitted onto the internal surface -- App composites them onto
-            # the upscaled window frame instead, outside draw()'s own perf
-            # budget (see render.py's draw_hp_overlay docstring). This is
-            # the raw-Surface equivalent of that compositing pass at 1:1
-            # scale, timed separately below so it exercises (and verifies)
-            # the player/enemy silhouette without counting against draw()'s
-            # own budget.
-            renderer.draw_hp_overlay(surf, 1.0, (0.0, 0.0))
             frames.append((tick, surf))
 
     assert len(frames) == TOTAL_TICKS // DRAW_EVERY

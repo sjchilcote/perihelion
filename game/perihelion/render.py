@@ -50,30 +50,6 @@ from .sim import ENEMIES as SIM_ENEMIES
 
 INTERNAL_W, INTERNAL_H = 640, 360
 
-# -- HP (high-pixel) sprite integration -------------------------------------
-# On by default; set PERIHELION_HP_SPRITES=0 to force the vector look (see
-# Renderer._hp_ensure_loaded). Sprites are queued during the normal draw
-# pass and composited at full WINDOW resolution by Renderer.draw_hp_overlay,
-# called by App after the internal surface is upscaled to the window (see
-# App._draw_hp_overlay_pass) -- never blitted onto the 640x360 internal
-# surface, which would lose their detail on the way to the window. Maps
-# sim pickup `kind` -> the manifest asset key that draws it; kinds absent
-# from this dict (turret, implant_lightning, key_*, portable_hole,
-# components, corpse_frame, organ_gland) have no HP art yet and keep their
-# vector draw unconditionally.
-_HP_PICKUP_ASSET = {
-    "ammo_9mm": "pickup_ammo",
-    "ammo_shell": "pickup_ammo",
-    "ammo_cell": "pickup_ammo",
-    "medkit": "pickup_medkit",
-    "weapon_smg": "pickup_weapon",
-    "weapon_shotgun": "pickup_weapon",
-    "weapon_rail": "pickup_weapon",
-    "weapon_tau": "pickup_weapon",
-    "safe_room_core": "prop_seed_station",
-}
-_HP_ANGLE_BUCKET_DEG = 22.5  # 360 / 16
-
 FLOOR_BASE = (26, 26, 33)          # ~0x1a1a21 dark grey-blue — reads clearly against the void
 SHADOW_FLOOR = (11, 11, 15)        # known geometry outside line of sight: present, unlit
 OW_FLOOR = (52, 64, 58)            # otherworld: the floor itself luminesces, cold
@@ -1378,15 +1354,6 @@ class Renderer:
 
         self._font = None
 
-        # -- HP sprite state (on by default, see _hp_ensure_loaded) --------
-        self._hp_enabled = os.environ.get("PERIHELION_HP_SPRITES", "1") != "0"
-        self._hp_load_attempted = False
-        self._hp_manifest: dict = {}
-        self._hp_sprites: dict = {}         # asset key -> raw pygame.Surface
-        self._hp_white_sprites: dict = {}   # asset key -> white-tinted raw Surface
-        self._hp_variant_cache: dict = {}   # (key, scale, deg, flashed) -> Surface
-        self._hp_queue: list = []           # per-frame sprite blit jobs
-
         self._bake_glows()
         self._bake_vignette()
         self._darkness: "pygame.Surface | None" = None
@@ -1474,155 +1441,6 @@ class Renderer:
         death = pygame.Surface((w, h), pygame.SRCALPHA)
         death.fill((0, 0, 0, 255))
         self._death_overlay = death
-
-    # ------------------------------------------------------------------
-    # HP (high-pixel) sprite loading + scale/rotation cache. Everything
-    # here is a no-op when PERIHELION_HP_SPRITES is unset (the vector look
-    # stays the shipped default) and is best-effort when it IS set: a
-    # missing manifest, a missing/corrupt individual PNG, or a missing
-    # assets-hp dir entirely all fall back to the vector draw for whatever
-    # they touch, never raise, never draw a placeholder.
-    # ------------------------------------------------------------------
-
-    def _hp_ensure_loaded(self) -> None:
-        if self._hp_load_attempted or not self._hp_enabled:
-            return
-        self._hp_load_attempted = True
-        asset_dir = os.path.join(os.path.dirname(__file__), "assets-hp")
-        manifest_path = os.path.join(asset_dir, "manifest.json")
-        try:
-            with open(manifest_path, "r") as f:
-                manifest = json.load(f)
-        except (OSError, ValueError):
-            return  # no manifest -> HP sprites stay off, vector draws everything
-        sprites: dict = {}
-        white: dict = {}
-        for key, entry in manifest.items():
-            rel = entry.get("file")
-            if not rel:
-                continue
-            path = os.path.join(os.path.dirname(__file__), rel)
-            try:
-                img = pygame.image.load(path)
-                if img.get_bytesize() != 4:
-                    continue  # not RGBA -- no usable alpha silhouette
-                tint = img.copy()
-                arr = pygame.surfarray.pixels3d(tint)
-                arr[:, :, :] = 255
-                del arr
-            except (pygame.error, OSError):
-                continue  # this one asset missing/corrupt -> skip it only
-            sprites[key] = img
-            white[key] = tint
-        self._hp_manifest = manifest
-        self._hp_sprites = sprites
-        self._hp_white_sprites = white
-
-    def _hp_key_for(self, role: str, kind) -> "str | None":
-        """Manifest asset key for a player/enemy/pickup instance, or None
-        if HP sprites are off, unloaded, or this kind has no HP art yet."""
-        if not self._hp_enabled:
-            return None
-        if not self._hp_load_attempted:
-            self._hp_ensure_loaded()
-        if role == "player":
-            key = "player"
-        elif role == "enemy":
-            key = f"enemy_{kind}"
-        elif role == "pickup":
-            key = _HP_PICKUP_ASSET.get(kind)
-        else:
-            return None
-        return key if key in self._hp_sprites else None
-
-    def _hp_prop_key(self, key: str) -> "str | None":
-        """Manifest asset key for a non-entity prop (terminal, corpse
-        decal) -- same load-gate as _hp_key_for, just no role/kind mapping
-        since the caller already knows the exact manifest key."""
-        if not self._hp_enabled:
-            return None
-        if not self._hp_load_attempted:
-            self._hp_ensure_loaded()
-        return key if key in self._hp_sprites else None
-
-    def _hp_queue_sprite(self, key: str, sx: float, sy: float,
-                          srad: float, ang: float, eid) -> None:
-        """Queue one HP sprite for the end-of-world-pass flush. `ang` is a
-        math-convention screen-space angle (atan2 in y-down space); `eid`
-        is used only to look up hitflash state at flush time (None for
-        props that never flash, e.g. corpses/terminals)."""
-        if srad <= 0.0:
-            return
-        self._hp_queue.append((key, sx, sy, srad, ang, eid))
-
-    def _hp_variant(self, key: str, scale: float, deg: float, flashed: bool):
-        cache_key = (key, round(scale, 2), deg, flashed)
-        img = self._hp_variant_cache.get(cache_key)
-        if img is not None:
-            return img
-        src = (self._hp_white_sprites if flashed else self._hp_sprites).get(key)
-        if src is None:
-            return None
-        w = max(1, int(round(src.get_width() * cache_key[1])))
-        h = max(1, int(round(src.get_height() * cache_key[1])))
-        try:
-            scaled = pygame.transform.scale(src, (w, h))
-            if deg:
-                scaled = pygame.transform.rotate(scaled, deg)
-        except (pygame.error, ValueError, OverflowError):
-            return None
-        if len(self._hp_variant_cache) > 4000:
-            self._hp_variant_cache.clear()
-        self._hp_variant_cache[cache_key] = scaled
-        return scaled
-
-    def draw_hp_overlay(self, target_surface, scale: float,
-                        offset: tuple = (0.0, 0.0)) -> None:
-        """Blit every sprite queued this frame onto `target_surface` at
-        FULL resolution -- internal (640x360) screen coords are mapped
-        through `scale`/`offset` (the app's window transform, see
-        App._recompute_layout/_blit_scaled) so sprites render at native
-        window pixel density instead of the blurry, downsampled internal
-        surface. Does NOT clear the queue (Renderer.draw resets it at the
-        top of the next frame) so a caller may composite the same queued
-        frame onto more than one target (e.g. the window AND a 2x record
-        buffer) without losing sprites between calls. Nearest-neighbor
-        scaling (pygame.transform.scale, no smoothing) preserves the
-        generated art's pixels; the (key, scale, angle-bucket, hitflash)
-        cache in `_hp_variant` keys on this overlay-space scale, so a
-        stable window size stays cache-hot across frames."""
-        if not self._hp_queue:
-            return
-        ox, oy = offset
-        for key, sx, sy, srad, ang, eid in self._hp_queue:
-            entry = self._hp_manifest.get(key)
-            if entry is None:
-                continue
-            px_radius = entry.get("sprite_px_radius") or 0.0
-            if px_radius <= 0.0:
-                continue
-            draw_scale = srad * scale / px_radius
-            if draw_scale <= 0.0:
-                continue
-            rot_mode = entry.get("rotation", "none")
-            if rot_mode == "none":
-                deg = 0.0
-            else:
-                # pygame rotates CCW for +degrees in a y-down surface;
-                # `ang` is atan2(dy, dx) in the same y-down math convention
-                # _xform_pts uses, so the sign flips here (see
-                # INTEGRATION_HP_ART.md "Rotation").
-                raw = -math.degrees(ang)
-                deg = (round(raw / _HP_ANGLE_BUCKET_DEG) * _HP_ANGLE_BUCKET_DEG) % 360.0
-            flashed = eid is not None and self._hitflash.get(eid, 0) > 0
-            img = self._hp_variant(key, draw_scale, deg, flashed)
-            if img is None:
-                continue
-            iw, ih = img.get_size()
-            tx = sx * scale + ox
-            ty = sy * scale + oy
-            target_surface.blit(img, (int(round(tx - iw / 2.0)),
-                                      int(round(ty - ih / 2.0))))
 
     # ------------------------------------------------------------------
     # fx ingestion (call once per sim tick, after session.tick())
@@ -1725,12 +1543,6 @@ class Renderer:
         self._deferred_glows = []
         self._deferred_bolts = []
         self._deferred_screen_glows = []
-        # queued fresh each frame; the previous frame's overlay consumer(s)
-        # (App.draw_hp_overlay callers) read it after draw() returns, before
-        # this reset runs again on the next call
-        self._hp_queue = []
-        if self._hp_enabled and not self._hp_load_attempted:
-            self._hp_ensure_loaded()
         instances = session.visible(self.max_depth, self.max_instances)
         if self.backend == "rust":
             # no surf.fill: the composed frame blit covers every pixel
@@ -1744,16 +1556,6 @@ class Renderer:
             surf.fill((0, 0, 0))
             ow_polys = self._draw_world_pygame(surf, instances)
             self._apply_darkness(surf, ow_polys)
-        # HP sprites are NOT blitted onto `surf` here. `surf` is the
-        # 640x360 internal surface, which loses all of a generated sprite's
-        # detail on the way to the window; instead `_hp_queue` (populated
-        # above, during world/entity draw) is left for the caller to
-        # composite at full window resolution via draw_hp_overlay(), after
-        # the internal frame has been upscaled to the window (see
-        # App._draw_hp_overlay_pass). This keeps `surf` itself sprite-free
-        # in both backends identically (same queue, same gating), which is
-        # also why the backend-parity test stays byte-identical with HP
-        # sprites on: neither backend ever draws a sprite pixel into `surf`.
         # light sources punch through the dark: muzzle glows and bolts
         for sx, sy, radius, clip_screen in self._deferred_glows:
             self._blit_glow(surf, sx, sy, radius, clip_screen)
@@ -2233,16 +2035,6 @@ class Renderer:
                 continue
             dx, dy = necore.mat_apply_dir(xform, math.cos(angle), math.sin(angle))
             sang = math.atan2(dy, dx) if (dx or dy) else 0.0
-            # only corpse_husk has HP art today; angle is baked at decal
-            # spawn time (corpses don't move), so this just re-derives the
-            # already-known screen-space angle every frame -- cheap, and a
-            # cache hit in _hp_variant since the bucket rarely changes.
-            hp_key = self._hp_prop_key("prop_corpse_husk") if kind == "corpse_husk" else None
-            if hp_key:
-                world_r = self._hp_manifest.get("prop_corpse_husk", {}) \
-                    .get("world_radius_units", 8.0)
-                self._hp_queue_sprite(hp_key, sx, sy, world_r * scale, sang, None)
-                continue
             self._draw_decal(canvas, kind, sx, sy, size, sang, scale)
 
     def _draw_decal(self, canvas, kind, sx, sy, size, angle, scale):
@@ -2374,27 +2166,9 @@ class Renderer:
         cx, cy, nx, ny = wall["cx"], wall["cy"], wall["nx"], wall["ny"]
         ang = math.atan2(wall["ty"], wall["tx"])
         slab_w, slab_d = 13.0, 6.0
-        slab_cx, slab_cy = cx + nx * slab_d * 0.5, cy + ny * slab_d * 0.5
-        slab_pts = _rect_local(slab_cx, slab_cy, slab_w, slab_d, ang)
+        slab_pts = _rect_local(cx + nx * slab_d * 0.5, cy + ny * slab_d * 0.5,
+                                slab_w, slab_d, ang)
         spoly = [necore.mat_apply(xform, x, y) for x, y in slab_pts]
-        hp_key = self._hp_prop_key("prop_terminal")
-        if hp_key and all(_point_in_poly(px, py, clip_screen) for px, py in spoly):
-            # fully inside this room's slab footprint -> safe to bypass the
-            # per-instance clip the vector slab below uses (same
-            # fully_inside reasoning as _draw_entities: never cut by the
-            # coverage mask, so the sprite can't peek past it either)
-            ssx, ssy = necore.mat_apply(xform, slab_cx, slab_cy)
-            dxs, dys = necore.mat_apply_dir(xform, wall["tx"], wall["ty"])
-            sprite_ang = math.atan2(dys, dxs)
-            xscale = _xform_scale(xform)
-            world_r = self._hp_manifest.get("prop_terminal", {}) \
-                .get("world_radius_units", 6.5)
-            self._hp_queue_sprite(hp_key, ssx, ssy, world_r * xscale,
-                                  sprite_ang, None)
-            if bright:
-                self._deferred_screen_glows.append(
-                    (ssx, ssy, 6.0 * xscale, clip_screen))
-            return
         clipped = necore.clip_polygon(spoly, clip_screen)
         if len(clipped) < 3:
             return
@@ -2498,22 +2272,13 @@ class Renderer:
         # draw WHOLE here; the union coverage mask (BLEND_RGBA_MIN on the
         # entity layer, see _draw_world_pygame/_draw_world_rust) is what
         # actually cuts them at the visible-world boundary, not anything in
-        # this function. HP sprites are composited in a later pass that is
-        # NOT covered by that mask (see Renderer.draw_hp_overlay), so they
-        # only get queued when `fully_inside` -- an instance the mask was
-        # never going to cut anyway -- to preserve the no-seams invariant;
-        # anything straddling a portal/doorway keeps its vector draw, which
-        # the mask still cuts correctly.
+        # this function.
         for eid, sx, sy, dirx, diry, srad, fully_inside in ents:
             role, kind = self._role_kind(eid)
             if role is None:
                 continue
             ang = math.atan2(diry, dirx) if (dirx or diry) else 0.0
             if role == "player":
-                hp_key = self._hp_key_for("player", None) if fully_inside else None
-                if hp_key:
-                    self._hp_queue_sprite(hp_key, sx, sy, srad, ang, eid)
-                    continue
                 pts = _xform_pts(PLAYER_SHAPE, sx, sy, max(srad, 2.0), ang)
                 if clip_screen is not None and not fully_inside:
                     pts = necore.clip_polygon(pts, clip_screen)
@@ -2528,20 +2293,12 @@ class Renderer:
                     canvas.circle((160, 240, 200), _pt((sx, sy)),
                                   max(3, int(9 + 26 * frac)), 1)
             elif role == "enemy":
-                hp_key = self._hp_key_for("enemy", kind) if fully_inside else None
-                if hp_key:
-                    self._hp_queue_sprite(hp_key, sx, sy, srad, ang, eid)
-                else:
-                    self._draw_enemy(canvas, eid, kind, sx, sy, ang, srad, clip_screen, fully_inside)
+                self._draw_enemy(canvas, eid, kind, sx, sy, ang, srad, clip_screen, fully_inside)
                 self._draw_scan_pips(canvas, eid, sx, sy, srad, clip_screen)
             elif role == "bullet":
                 self._draw_bullet(canvas, kind, sx, sy, dirx, diry, clip_screen)
             elif role == "pickup":
-                hp_key = self._hp_key_for("pickup", kind) if fully_inside else None
-                if hp_key:
-                    self._hp_queue_sprite(hp_key, sx, sy, srad, 0.0, eid)
-                else:
-                    self._draw_pickup(canvas, eid, kind, sx, sy, srad, clip_screen)
+                self._draw_pickup(canvas, eid, kind, sx, sy, srad, clip_screen)
 
     def _draw_scan_pips(self, canvas, eid, sx, sy, srad, clip_screen):
         """Mind map: a deep-scan node renders wounded enemies' integrity as

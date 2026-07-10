@@ -342,8 +342,6 @@ class App:
         self._blit_offset = (0, 0)
         self._scaled_surface = pygame.Surface((INTERNAL_W, INTERNAL_H))
         self._recompute_layout()
-        self._rec_frame = None  # 2x HP-overlay composite for the current
-                                 # recorded frame, when recording+HP sprites
 
         self.bot = None
         if getattr(args, "bot", None):
@@ -377,16 +375,8 @@ class App:
     def _record_frame(self) -> None:
         rec = self._rec
         if rec["frames"] % rec["every"] == 0:
-            # self._rec_frame, when set, is the 2x-upscaled internal frame
-            # with the HP sprite overlay already composited onto it (built
-            # in _draw_hp_overlay_pass, before self.internal itself, which
-            # is sprite-free once HP sprites are on, gets recorded raw).
-            # Whether it's set is constant for the whole run (HP sprites are
-            # either on or off for the run's duration), so recorded frame
-            # dimensions never change mid-capture.
-            frame = self._rec_frame if self._rec_frame is not None else self.internal
             pygame.image.save(
-                frame, str(rec["dir"] / f"frame_{rec['saved']:06d}.png"))
+                self.internal, str(rec["dir"] / f"frame_{rec['saved']:06d}.png"))
             rec["saved"] += 1
         rec["frames"] += 1
         if rec["frames"] >= rec["max_frames"]:
@@ -869,7 +859,6 @@ class App:
         if self.debug:
             self._draw_fps_overlay()
         self._blit_scaled()
-        self._draw_hp_overlay_pass()
         pygame.display.flip()
 
     def _draw_fps_overlay(self) -> None:
@@ -886,33 +875,6 @@ class App:
             sx, sy = self._shake_offset(self.game)
         self._blit_offset = (ox + sx, oy + sy)
         self.screen.blit(self._scaled_surface, self._blit_offset)
-
-    def _draw_hp_overlay_pass(self) -> None:
-        """HP sprites render at full resolution here, after the upscaled
-        internal frame is already on `self.screen` (see INTERNAL_H comment
-        in render.py / Renderer.draw_hp_overlay): the internal 640x360
-        surface never carries sprite pixels, so the window's native scale
-        (self._scale, computed in _recompute_layout) is where the generated
-        art's detail actually survives. A no-op whenever there's no active
-        GameScene or HP sprites are off (Renderer._hp_queue is then empty
-        or nonexistent, and draw_hp_overlay no-ops on an empty queue)."""
-        self._rec_frame = None
-        game = self.game
-        if game is None:
-            return
-        renderer = game.renderer
-        if not renderer._hp_enabled:
-            return
-        if self._rec is not None:
-            # Recording: composite onto a 2x-upscaled copy of the internal
-            # frame (recorded at 1280x720 for the whole run) so the video
-            # carries the same crisp sprites the live window shows, instead
-            # of _record_frame saving the now sprite-free self.internal.
-            rec_frame = pygame.transform.scale(
-                self.internal, (INTERNAL_W * 2, INTERNAL_H * 2))
-            renderer.draw_hp_overlay(rec_frame, 2.0, (0.0, 0.0))
-            self._rec_frame = rec_frame
-        renderer.draw_hp_overlay(self.screen, float(self._scale), self._blit_offset)
 
     def _shake_offset(self, game: GameScene) -> tuple[float, float]:
         dx = dy = 0.0
