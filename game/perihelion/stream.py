@@ -274,7 +274,12 @@ class WorldStreamer:
                 self.entry_states[self.current] = self._snapshot_state()
                 s.add_station(nxt["entry_room"] + nxt["offset"],
                               nxt["entry_pos"])
-                s.keys = set()  # a new security zone honors no old badges
+                # a new security zone honors no old badges -- and says so
+                # the one time it actually voids something (audit: silent
+                # rule enforcement is a diegesis leak)
+                if s.keys:
+                    s._objective("ZONE BOUNDARY - PRIOR CLEARANCES VOID")
+                s.keys = set()
                 s.exit_enabled = self._is_final(self.current)
                 if s.exit_enabled:
                     self._point_exit_at(self.current)
