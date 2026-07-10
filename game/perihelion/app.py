@@ -850,7 +850,10 @@ class App:
                            max_hp=game.session.max_hp,
                            hp_ups=game.session.hp_ups,
                            recalls=game.session.recalls,
-                           mind=sorted(game.session.mind))
+                           mind=sorted(game.session.mind),
+                           think_focus=game.session.think_focus,
+                           think_progress=dict(game.session.think_progress),
+                           think_done=list(game.session.think_done))
             if game.streamer is not None:
                 self.save_data["ng_plus"] = self.save_data.get("ng_plus", 0) + 1
                 self.save_data["ng_state"] = carried

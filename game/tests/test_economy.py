@@ -166,50 +166,110 @@ def test_cold_restore_preserves_corpses_and_does_not_refund():
 
 
 # ---------------------------------------------------------------------------
-# the mind map (9.2)
+# the mind map (9.2): thinking as time (SEEDPOD_UI_DESIGN.md)
 # ---------------------------------------------------------------------------
+
+def _grant(s, *nids):
+    """Walk the full time model for each node: focus it, accrue the last
+    field tick of thought, and perform the pod's completion (the accrual
+    boundary is exercised; the bulk ticks are preseeded for test speed)."""
+    from perihelion import mindmap
+    for nid in nids:
+        assert s.set_focus(nid), nid
+        s.think_progress[nid] = mindmap.think_ticks(nid) - 1
+        _tick(s)
+        assert nid in s.think_done, nid
+        assert s.complete_focus(nid), nid
+
 
 def test_mindmap_data_integrity():
     from perihelion import mindmap
     tbl = mindmap.nodes()
     assert len(tbl) >= 28
+    lay = mindmap.layout()
     for n in tbl.values():
         for p in n["prereqs"]:
             assert p in tbl, f"dangling prereq {p}"
         assert n["region"] in mindmap.REGION_ORDER
+        assert mindmap.think_ticks(n["id"]) > 0
+        assert n["id"] in lay
+    # deterministic layout: same table -> same positions, no collisions
+    assert len({lay[i] for i in tbl}) == len(tbl)
 
 
-def test_buy_node_prereqs_costs_and_faith():
+def test_set_focus_prereqs_and_refusals():
+    s = _session()
+    # a capstone is locked until its spine is thought through
+    assert not s.set_focus("vocation-protected-revival")
+    assert s.set_focus("vocation-just-war")
+    assert s.think_focus == "vocation-just-war"
+    # switching focus keeps the old node's accrued thought
+    _tick(s, 10)
+    assert s.set_focus("history-the-long-peace")
+    assert s.think_progress["vocation-just-war"] == 10
+    # a node already in the mind can't be re-focused
+    _grant(s, "history-the-long-peace")
+    assert not s.set_focus("history-the-long-peace")
+
+
+def test_thinking_accrues_in_field_and_unlock_waits_for_pod():
     from perihelion import mindmap
-    s = _session(components=500)
-    # a capstone is locked until its spine is bought
-    assert not s.buy_node("vocation-protected-revival")
-    assert s.buy_node("vocation-just-war")
-    f1 = s.faith
-    assert f1 == mindmap.nodes()["vocation-just-war"]["faith"]
-    spent = mindmap.price("vocation-just-war")
-    assert s.components == 500 - spent
-    # buying twice refuses
-    assert not s.buy_node("vocation-just-war")
+    s = _session()
+    nid = "vocation-just-war"
+    need = mindmap.think_ticks(nid)
+    assert need == mindmap.weight(nid) * mindmap.THINK_TICKS_PER_WEIGHT
+    assert s.set_focus(nid)
+    _tick(s, need - 1)
+    assert s.think_progress[nid] == need - 1 and not s.think_done
+    s.fx.clear()
+    _tick(s)  # the finishing tick
+    assert s.think_done == [nid]
+    assert s.think_focus is None
+    assert nid not in s.mind  # field completion is a cue, not the unlock
+    assert ("thought_done", nid) in s.fx  # the quiet field cue fired
+    # the pod ceremony performs the unlock
+    assert s.complete_focus(nid)
+    assert nid in s.mind and not s.think_done
+    assert s.faith == mindmap.nodes()[nid]["faith"]
+    # completing twice refuses
+    assert not s.complete_focus(nid)
+
+
+def test_dead_frames_do_not_think():
+    s = _session()
+    assert s.set_focus("vocation-just-war")
+    _tick(s, 5)
+    s._damage_player(9999.0, s.player_room())
+    p = s.think_progress["vocation-just-war"]
+    _tick(s, 20)  # dead ticks accrue nothing
+    assert s.think_progress["vocation-just-war"] == p
+
+
+def test_ceremony_unlock_reveals_neighbors():
+    from perihelion import mindmap
+    s = _session()
+    assert "vocation-doctrine-of-restraint" not in mindmap.frontier(s.mind)
+    _grant(s, "vocation-just-war")
+    # the fog lifts: the integrated node's dependents join the frontier
+    assert "vocation-doctrine-of-restraint" in mindmap.frontier(s.mind)
+    assert mindmap.available(s.mind, "vocation-doctrine-of-restraint")
 
 
 def test_mindmap_effects_wire_into_combat():
-    s = _session(components=500)
+    s = _session()
     base_armor = s._armor_mul
-    for nid in ("vocation-just-war", "vocation-doctrine-of-restraint",
-                "vocation-testators-as-kin", "vocation-armor-of-the-unsleeping"):
-        assert s.buy_node(nid), nid
+    _grant(s, "vocation-just-war", "vocation-doctrine-of-restraint",
+           "vocation-testators-as-kin", "vocation-armor-of-the-unsleeping")
     assert s._spread_mul < 1.0
     assert s._armor_mul < base_armor
     assert s._target_mark_mul > 1.0
 
 
 def test_protected_revival_banks_salvage():
-    s = _session(components=500)
-    for nid in ("vocation-just-war", "vocation-doctrine-of-restraint",
-                "vocation-testators-as-kin", "vocation-psalm-of-the-loop",
-                "vocation-protected-revival"):
-        assert s.buy_node(nid), nid
+    s = _session(components=50)
+    _grant(s, "vocation-just-war", "vocation-doctrine-of-restraint",
+           "vocation-testators-as-kin", "vocation-psalm-of-the-loop",
+           "vocation-protected-revival")
     left = s.components
     s._damage_player(9999.0, s.player_room())
     assert s.components == left  # the seed held it in trust
@@ -217,12 +277,74 @@ def test_protected_revival_banks_salvage():
 
 
 def test_mind_rides_state_snapshots():
-    s = _session(components=500)
-    assert s.buy_node("history-the-long-peace")
-    st = dict(mind=sorted(s.mind), components=s.components)
+    s = _session()
+    _grant(s, "history-the-long-peace")
+    st = dict(mind=sorted(s.mind))
     s2 = _session(**st)
     assert "history-the-long-peace" in s2.mind
     assert s2.mind_unlocks == s.mind_unlocks
+
+
+def test_thinking_survives_death_and_reprint():
+    s = _session(components=9, chassis=1)
+    s.add_station(s.player_room(), s.player_pos())
+    assert s.set_focus("vocation-just-war")
+    _tick(s, 30)
+    s._damage_player(9999.0, s.player_room())
+    assert s.dead and s.components == 0  # dying costs loot...
+    assert s.respawn_at_station()
+    assert s.think_focus == "vocation-just-war"  # ...never thought
+    assert s.think_progress["vocation-just-war"] == 30
+    _tick(s, 10)
+    assert s.think_progress["vocation-just-war"] == 40  # still accruing
+
+
+def test_thinking_survives_cold_restore():
+    from perihelion import mindmap
+    paths = _chunks()
+    s = GameSession(load_level(paths[0]), seed=3)
+    ws = WorldStreamer(s, paths)
+    assert s.set_focus("vocation-just-war")
+    # finish the thought in the field: the completion queue must also ride
+    s.think_progress["vocation-just-war"] = \
+        mindmap.think_ticks("vocation-just-war") - 1
+    _tick(s)
+    assert s.think_done == ["vocation-just-war"]
+    s._damage_player(9999.0, s.player_room())
+    ws.respawn()
+    assert not s.dead
+    assert s.think_done == ["vocation-just-war"]  # queue survived
+    # and the save-file snapshot carries the whole thinking state
+    st = ws.entry_states[0]
+    assert "think_progress" in st and "think_done" in st
+
+
+def test_thinking_state_roundtrips_player_state():
+    s = _session()
+    assert s.set_focus("vocation-just-war")
+    _tick(s, 25)
+    st = dict(mind=sorted(s.mind), think_focus=s.think_focus,
+              think_progress=dict(s.think_progress),
+              think_done=list(s.think_done))
+    s2 = _session(**st)
+    assert s2.think_focus == "vocation-just-war"
+    assert s2.think_progress["vocation-just-war"] == 25
+    _tick(s2, 5)
+    assert s2.think_progress["vocation-just-war"] == 30
+
+
+def test_thinking_is_deterministic():
+    def run():
+        s = _session()
+        s.set_focus("vocation-just-war")
+        for i in range(240):
+            s.tick(InputFrame(mx=1.0 if i % 3 else 0.0, my=0.5,
+                              fire=i % 7 == 0))
+        snap = s.snapshot()
+        return (snap["think_focus"], dict(snap["think_progress"]),
+                list(snap["think_done"]), snap["pos"])
+
+    assert run() == run()
 
 
 # ---------------------------------------------------------------------------
@@ -271,12 +393,11 @@ def test_spitter_yields_gland_only_with_harvest_node():
     eid = s.spawn_enemy(0, (100.0, 0.0), "spitter")
     s._damage_enemy(eid, 999.0, (1.0, 0.0), 0.0)
     assert not any(p["kind"] == "organ_gland" for p in s.pickups.values())
-    s2 = _session(components=500)
-    for nid in ("comprehension-connection-space",
-                "comprehension-adversary-biology-survey",
-                "void-arithmetic-of-futility",
-                "void-organ-harvesting-protocol"):
-        assert s2.buy_node(nid), nid
+    s2 = _session()
+    _grant(s2, "comprehension-connection-space",
+           "comprehension-adversary-biology-survey",
+           "void-arithmetic-of-futility",
+           "void-organ-harvesting-protocol")
     eid = s2.spawn_enemy(0, (100.0, 0.0), "spitter")
     s2._damage_enemy(eid, 999.0, (1.0, 0.0), 0.0)
     assert any(p["kind"] == "organ_gland" for p in s2.pickups.values())

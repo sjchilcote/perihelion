@@ -139,7 +139,14 @@ class WorldStreamer:
                     components=s.components, chassis=s.chassis,
                     station_kits=s.station_kits, max_hp=s.max_hp,
                     hp_ups=s.hp_ups, recalls=s.recalls,
-                    mind=sorted(s.mind))
+                    mind=sorted(s.mind),
+                    # thinking rides the snapshot for save-file persistence
+                    # only; _restore_state never touches it (the live
+                    # session already holds it -- the mind survives the
+                    # body, so a cold restore must not rewind a thought)
+                    think_focus=s.think_focus,
+                    think_progress=dict(s.think_progress),
+                    think_done=list(s.think_done))
 
     def _restore_state(self, st: dict) -> None:
         s = self.session

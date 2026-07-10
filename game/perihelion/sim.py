@@ -237,9 +237,19 @@ class GameSession:
         self.chassis = int(st.get("chassis", 0))
         self.station_kits = int(st.get("station_kits", 0))
         self.hp_ups = int(st.get("hp_ups", 0))
-        # the mind map (9.2): purchased concept-node ids; faith is computed
+        # the mind map (9.2): integrated concept-node ids; faith is computed
         # from the investment pattern, never displayed as a meter
         self.mind: set[str] = set(st.get("mind", []))
+        # thinking-as-time (SEEDPOD_UI_DESIGN.md): the ONE focus node the
+        # Commando ruminates on in the field; per-node accrued ticks
+        # (switching focus never loses thought); and the queue of finished
+        # thoughts awaiting their unfolding ceremony at the pod. All three
+        # survive death, chassis reprint, and cold restore -- the mind
+        # survives the body by construction. Dying costs loot, never thought.
+        self.think_focus: str | None = st.get("think_focus")
+        self.think_progress: dict[str, int] = {
+            k: int(v) for k, v in dict(st.get("think_progress", {})).items()}
+        self.think_done: list[str] = list(st.get("think_done", []))
         self._recompute_mind()
         # recall beacons: emergency teleport home -- a 90-tick channel that
         # any hit severs (an escape you must earn a quiet moment for)
@@ -474,6 +484,7 @@ class GameSession:
             if self.hp < cap:
                 self.hp = min(cap, self.hp + self._regen_rate)
 
+        self._think_tick(proom)
         self._player_control(inp, proom)
         self._enemy_ai(proom)
 
@@ -1732,17 +1743,54 @@ class GameSession:
         self._objective("RECALLED TO THE SEED")
 
     # ------------------------------------------------------------------
-    # the mind map: purchase and effect wiring (9.2)
+    # the mind map: thinking-as-time and effect wiring (9.2 + seed-pod UI)
     # ------------------------------------------------------------------
 
-    def buy_node(self, node_id: str) -> bool:
+    def set_focus(self, node_id: str) -> bool:
+        """Choose what the Commando thinks about in the field (pod call,
+        menu-time). Frontier nodes only; no component cost. Switching
+        focus parks the old node's progress -- thought is never lost."""
         from . import mindmap
+        if node_id in self.think_done:
+            return False  # already finished; awaits its ceremony
         if not mindmap.available(self.mind, node_id):
             return False
-        cost = mindmap.price(node_id)
-        if self.components < cost:
+        if self.think_focus == node_id:
+            return True
+        self.think_focus = node_id
+        mark = len(self.fx)
+        self._snd("terminal_type", self.player_room(), self.player_pos(), 0.6)
+        self._park_oob(mark)
+        return True
+
+    def _think_tick(self, proom: int) -> None:
+        """One field tick of background rumination on the focus node.
+        Runs ONLY from tick() (menus don't tick -- thinking happens out
+        there, under fire, diegetically). Completion emits a quiet field
+        cue; the unlock itself waits for the pod ceremony."""
+        if self.think_focus is None:
+            return
+        from . import mindmap
+        nid = self.think_focus
+        p = self.think_progress.get(nid, 0) + 1
+        self.think_progress[nid] = p
+        if p >= mindmap.think_ticks(nid):
+            self.think_focus = None
+            self.think_done.append(nid)
+            # quiet: a thought has finished (sfx placeholder; pipeline)
+            self._snd("think_complete", proom, self.player_pos(), 0.6)
+            self.fx.append(("thought_done", nid))
+
+    def complete_focus(self, node_id: str) -> bool:
+        """The pod ceremony calls this at the rite's ignition: fold a
+        finished thought into the mind and wire its effects. This -- not
+        field completion -- is the moment of unlock (the reveal is the
+        reward)."""
+        from . import mindmap
+        if node_id not in self.think_done:
             return False
-        self.components -= cost
+        self.think_done.remove(node_id)
+        self.think_progress.pop(node_id, None)
         self.mind.add(node_id)
         self._recompute_mind()
         mark = len(self.fx)
@@ -1750,6 +1798,18 @@ class GameSession:
         self._snd("pickup_key", proom, self.player_pos())
         label = mindmap.nodes()[node_id]["label"]
         self._objective(f"INTEGRATED: {label.upper()}")
+        self._park_oob(mark)
+        return True
+
+    def pod_heal(self) -> bool:
+        """Entering the seed pod heals the frame (SEEDPOD_UI_DESIGN.md:
+        the pod is where the Commando heals, upgrades, and thinks)."""
+        if self.dead or self.hp >= self.max_hp:
+            return False
+        self.hp = self.max_hp
+        mark = len(self.fx)
+        self._snd("pickup_medkit", self.player_room(), self.player_pos(), 0.8)
+        self._objective("FRAME INTEGRITY RESTORED")
         self._park_oob(mark)
         return True
 
@@ -2011,6 +2071,9 @@ class GameSession:
             station_kits=self.station_kits, max_hp=self.max_hp,
             recalls=self.recalls, recall_t=self.recall_t,
             mind=set(self.mind), faith=self.faith,
+            think_focus=self.think_focus,
+            think_progress=dict(self.think_progress),
+            think_done=list(self.think_done),
             stations=[dict(room=st["room"], pos=st["pos"])
                       for st in self.stations],
             cloister=(dict(links=len(self.cloister["links"]),
