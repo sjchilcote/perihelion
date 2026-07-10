@@ -2284,22 +2284,25 @@ class Renderer:
             if not _point_in_poly(sx, sy, clip_screen):
                 continue
             ix, iy = _pt((sx, sy))
-            # the seed: an obelisk pedestal on a base plate, revival-ring
-            # pulse wide enough to read as a fixture and not an icon
-            plate = [(ix - 9, iy + 7), (ix + 9, iy + 7),
-                     (ix + 7, iy + 3), (ix - 7, iy + 3)]
+            # the seed: an obelisk pedestal on a base plate. Sized like the
+            # fixture it is (interact radius 30u): two framechecks in a row
+            # read the smaller versions as "a tiny icon"
+            plate = [(ix - 14, iy + 11), (ix + 14, iy + 11),
+                     (ix + 11, iy + 5), (ix - 11, iy + 5)]
             canvas.polygon((26, 38, 34), plate)
-            body = [(ix - 6, iy + 4), (ix + 6, iy + 4),
-                    (ix + 4, iy - 9), (ix - 4, iy - 9)]
+            canvas.polygon((80, 140, 110), plate, 1)
+            body = [(ix - 9, iy + 6), (ix + 9, iy + 6),
+                    (ix + 6, iy - 14), (ix - 6, iy - 14)]
             canvas.polygon((36, 52, 46), body)
-            canvas.polygon((120, 230, 170), body, 1)
-            canvas.line((190, 250, 210), (ix - 3, iy - 3), (ix + 3, iy - 3), 1)
-            canvas.line((190, 250, 210), (ix - 3, iy), (ix + 3, iy), 1)
+            canvas.polygon((150, 240, 185), body, 1)
+            for dy in (-9, -4, 1):
+                canvas.line((190, 250, 210), (ix - 4, iy + dy),
+                            (ix + 4, iy + dy), 1)
             phase = (session.tick_count % 120) / 120.0
-            rr = 13 + 4 * math.sin(phase * 2 * math.pi)
-            canvas.circle((120, 230, 170), (ix, iy), max(2, int(rr)), 1)
-            canvas.circle((70, 130, 100), (ix, iy),
-                          max(2, int(rr * 0.6)), 1)
+            rr = 19 + 6 * math.sin(phase * 2 * math.pi)
+            canvas.circle((140, 240, 185), (ix, iy), max(2, int(rr)), 1)
+            canvas.circle((90, 165, 130), (ix, iy),
+                          max(2, int(rr * 0.62)), 1)
 
     def _nearest_wall_point(self, room: int, pos):
         """Nearest point on a room's wall to `pos` (room-local), for
