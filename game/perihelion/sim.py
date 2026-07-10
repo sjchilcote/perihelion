@@ -200,6 +200,12 @@ class GameSession:
         # glyphs); intersect with self.keys — the streamer clears keys on
         # zone crossings without touching this
         self.held_key_meta: dict = {}
+        # Otherworld: rooms whose walls are soft (mass-spring vertices).
+        self.soft_rooms: set[int] = set()
+        for i, k in enumerate(level.room_kinds):
+            if k == "otherworld":
+                self.sim.soften_room(i)
+                self.soft_rooms.add(i)
         self.weapon = st.get("weapon", "pistol")
         if self.weapon not in self.weapons:
             self.weapon = self.weapons[-1]
@@ -375,6 +381,11 @@ class GameSession:
         proom = self.player_room()
         s.set_active_within(proom, ACTIVE_HOPS)
 
+        if self.soft_rooms:
+            rv = self.level.room_verts
+            for r_ in self.soft_rooms:
+                if r_ < len(rv):
+                    rv[r_] = self.sim.room_verts(r_)
         if self.tick_count % 30 == 0:
             self._containment_sweep(proom)
 
@@ -726,6 +737,10 @@ class GameSession:
         for room, spec in level.entities:
             self._spawn_from_spec(room + offset, spec, key_meta=level.key_meta)
         self.level.room_seeds.extend(level.room_seeds)
+        for i, k in enumerate(level.room_kinds):
+            if k == "otherworld":
+                self.sim.soften_room(offset + i)
+                self.soft_rooms.add(offset + i)
         self.level.room_kinds.extend(level.room_kinds)
         self.level.room_verts.extend(level.room_verts)
         self.level.room_centroids.extend(level.room_centroids)
@@ -1145,6 +1160,23 @@ class GameSession:
                 _, ent, room, edge, px_, py_, nx, ny, speed = ev
                 if ent == self.pid:
                     self._door_bump(room, edge)
+                if room in self.soft_rooms:
+                    b_ = self.bullets.get(ent)
+                    if b_ is not None:
+                        mag = 10.0 + 5.5 * float(b_.get("dmg", 0))
+                    else:
+                        e_ = self.enemies.get(ent)
+                        mass = ENEMIES[e_["kind"]]["mass"] if e_ else 1.2
+                        mag = min(90.0, 0.06 * mass * speed)
+                    if mag > 1.0:
+                        verts = self.sim.room_verts(room)
+                        a_ = verts[edge]
+                        b2_ = verts[(edge + 1) % len(verts)]
+                        ex_, ey_ = b2_[0] - a_[0], b2_[1] - a_[1]
+                        el2 = ex_ * ex_ + ey_ * ey_ or 1.0
+                        t_ = ((px_ - a_[0]) * ex_ + (py_ - a_[1]) * ey_) / el2
+                        self.sim.soft_wall_impulse(room, edge,
+                                                   max(0.0, min(1.0, t_)), mag)
                 b = self.bullets.get(ent)
                 if b is not None and b["kind"] != "spit" \
                         and self.door_edges.get((room, edge)) == "shoot":

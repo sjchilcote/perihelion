@@ -34,6 +34,21 @@ impl Room {
         (self.verts[i], self.verts[(i + 1) % n])
     }
 
+    /// Recompute normals, edge lengths and bounding radius from current
+    /// vertices (soft rooms deform every step).
+    pub fn refresh_geometry(&mut self) {
+        let n = self.verts.len();
+        self.normals.clear();
+        self.edge_len.clear();
+        for i in 0..n {
+            let a = self.verts[i];
+            let b = self.verts[(i + 1) % n];
+            self.normals.push(geom::inward_normal(a, b));
+            self.edge_len.push(a.dist(b));
+        }
+        self.radius = self.verts.iter().map(|p| p.len()).fold(0.0, f64::max);
+    }
+
     pub fn num_edges(&self) -> usize {
         self.verts.len()
     }
@@ -120,7 +135,13 @@ impl World {
     /// motion that lays b's edge flush against a's edge, rooms on opposite
     /// sides. Stores mutually inverse transforms on both edges. Handles
     /// self-connection (a == b) and the mirror case (same edge to itself).
-    pub fn connect(&mut self, a: RoomId, ea: usize, b: RoomId, eb: usize) -> Result<(), WorldError> {
+    pub fn connect(
+        &mut self,
+        a: RoomId,
+        ea: usize,
+        b: RoomId,
+        eb: usize,
+    ) -> Result<(), WorldError> {
         self.check_edge(a, ea)?;
         self.check_edge(b, eb)?;
         if self.rooms[a].portals[ea].is_some() {
@@ -163,6 +184,74 @@ impl World {
     /// Connect with an arbitrary invertible transform mapping b-room coords
     /// into a-room coords. The caller is responsible for geometric sanity
     /// (edges coinciding); the engine only requires invertibility.
+    /// Rebuild the portal transform pair (a,ea)<->(b,eb) from the CURRENT
+    /// edge endpoints, preserving the existing map's handedness. Soft rooms
+    /// stretch their doorways; the map must stay exact.
+    pub fn rebuild_portal_pair(
+        &mut self,
+        a: RoomId,
+        ea: usize,
+        b: RoomId,
+        eb: usize,
+    ) -> Result<(), WorldError> {
+        self.check_edge(a, ea)?;
+        self.check_edge(b, eb)?;
+        let old = match self.rooms[a].portals[ea] {
+            Some(p) => p,
+            None => return Ok(()),
+        };
+        let det = old.xform.m[0] * old.xform.m[4] - old.xform.m[1] * old.xform.m[3];
+        let (pa0, pa1) = self.rooms[a].edge(ea);
+        let (pb0, pb1) = self.rooms[b].edge(eb);
+        // complex-plane similarity mapping B1 -> A0 and B0 -> A1.
+        let (ax0, ay0, ax1, ay1) = (pa0.x, pa0.y, pa1.x, pa1.y);
+        let (bx0, by0, bx1, by1) = (pb0.x, pb0.y, pb1.x, pb1.y);
+        let m = if det >= 0.0 {
+            // z -> alpha*z + beta; alpha = (A1-A0)/(B0-B1)
+            let (nx, ny) = (ax1 - ax0, ay1 - ay0);
+            let (dx, dy) = (bx0 - bx1, by0 - by1);
+            let dd = dx * dx + dy * dy;
+            if dd < 1e-18 {
+                return Ok(());
+            }
+            let ar = (nx * dx + ny * dy) / dd;
+            let ai = (ny * dx - nx * dy) / dd;
+            let btx = ax0 - (ar * bx1 - ai * by1);
+            let bty = ay0 - (ai * bx1 + ar * by1);
+            Mat3 {
+                m: [ar, -ai, btx, ai, ar, bty, 0.0, 0.0, 1.0],
+            }
+        } else {
+            // z -> alpha*conj(z) + beta; alpha = (A1-A0)/conj(B0-B1)
+            let (nx, ny) = (ax1 - ax0, ay1 - ay0);
+            let (dx, dy) = (bx0 - bx1, -(by0 - by1));
+            let dd = dx * dx + dy * dy;
+            if dd < 1e-18 {
+                return Ok(());
+            }
+            let ar = (nx * dx + ny * dy) / dd;
+            let ai = (ny * dx - nx * dy) / dd;
+            // maps (x,y) -> alpha*(x,-y) + beta
+            let btx = ax0 - (ar * bx1 + ai * by1);
+            let bty = ay0 - (ai * bx1 - ar * by1);
+            Mat3 {
+                m: [ar, ai, btx, ai, -ar, bty, 0.0, 0.0, 1.0],
+            }
+        };
+        let inv = m.inverse();
+        if let Some(p) = self.rooms[a].portals[ea].as_mut() {
+            p.xform = m;
+            p.inv = inv;
+        }
+        if !(a == b && ea == eb) {
+            if let Some(p) = self.rooms[b].portals[eb].as_mut() {
+                p.xform = inv;
+                p.inv = m;
+            }
+        }
+        Ok(())
+    }
+
     pub fn connect_with_xform(
         &mut self,
         a: RoomId,

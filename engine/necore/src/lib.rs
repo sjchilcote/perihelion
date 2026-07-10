@@ -10,6 +10,7 @@
 pub mod geom;
 pub mod math;
 pub mod physics;
+pub mod soft;
 pub mod query;
 pub mod visibility;
 pub mod world;

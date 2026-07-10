@@ -196,6 +196,16 @@ impl Sim {
         Ok(())
     }
 
+    /// Mark a room's walls soft (Otherworld).
+    fn soften_room(&mut self, room: usize) {
+        self.sim.soften_room(room);
+    }
+
+    /// Impulse a soft wall: t in [0,1] along the edge, positive = outward.
+    fn soft_wall_impulse(&mut self, room: usize, edge: usize, t: f64, magnitude: f64) {
+        self.sim.soft_wall_impulse(room, edge, t, magnitude);
+    }
+
     fn set_pos(&mut self, id: u64, x: f64, y: f64) -> PyResult<()> {
         let e = self.sim.entities.get_mut(&id).ok_or_else(|| no_ent(id))?;
         e.pos = v(x, y);

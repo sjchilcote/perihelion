@@ -71,6 +71,8 @@ pub struct Sim {
     pub collision_mask: [u16; 16],
     pub active_rooms: Vec<bool>,
     pub all_active: bool,
+    /// Otherworld soft-wall system (empty = zero cost).
+    pub soft: crate::soft::SoftSystem,
 }
 
 impl Sim {
@@ -83,7 +85,22 @@ impl Sim {
             collision_mask: [0xffff; 16],
             active_rooms: vec![true; n],
             all_active: true,
+            soft: crate::soft::SoftSystem::default(),
         }
+    }
+
+    /// Mark a room's walls soft (Otherworld). Idempotent.
+    pub fn soften_room(&mut self, room: RoomId) {
+        if room < self.world.rooms.len() && !self.soft.is_soft(room) {
+            self.soft.soften(&self.world, room);
+        }
+    }
+
+    /// Impulse a soft room's wall (t in [0,1] along the edge; positive
+    /// pushes outward). No-op on rigid rooms.
+    pub fn soft_wall_impulse(&mut self, room: RoomId, edge: usize, t: f64, magnitude: f64) {
+        self.soft
+            .wall_impulse(&self.world, room, edge, t, magnitude);
     }
 
     pub fn set_collision_pair(&mut self, g: u8, h: u8, collide: bool) {
@@ -194,6 +211,13 @@ impl Sim {
     }
 
     pub fn step(&mut self, dt: f64) -> Vec<Event> {
+        {
+            // Otherworld soft walls integrate first so entity collision this
+            // step sees the fresh geometry.
+            let mut soft = std::mem::take(&mut self.soft);
+            soft.step(&mut self.world, dt);
+            self.soft = soft;
+        }
         let mut events = Vec::new();
         let mut contacts_seen: HashSet<(u64, u64)> = HashSet::new();
         let ids: Vec<u64> = self.entities.keys().copied().collect();
@@ -490,7 +514,11 @@ impl Sim {
         for i in 0..n {
             let (a, _b) = room.edge(i);
             let nn = room.normals[i];
-            let rad = if room.portals[i].is_some() { 0.0 } else { e.radius };
+            let rad = if room.portals[i].is_some() {
+                0.0
+            } else {
+                e.radius
+            };
             let d = (pos - a).dot(nn);
             if d < rad - 1e-9 && rad > 0.0 {
                 pos = pos + nn * (rad - d);
@@ -542,7 +570,11 @@ mod tests {
         }
         // rest_wall = 0: velocity into the wall is absorbed, tangential kept.
         let e = &sim.entities[&id];
-        assert!(e.vel.x.abs() < 1e-6, "normal component not absorbed: {:?}", e.vel);
+        assert!(
+            e.vel.x.abs() < 1e-6,
+            "normal component not absorbed: {:?}",
+            e.vel
+        );
     }
 
     #[test]
