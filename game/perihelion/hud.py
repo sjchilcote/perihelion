@@ -37,8 +37,7 @@ class HUD:
             self._draw_crosshair(surf, session, mouse_pos)
 
     def _draw_hp(self, surf, session, h):
-        # top-left: the RadioBar owns the bottom 40px whenever dialogue is
-        # up, which is most of the campaign — health must never sit under it
+        # top-left, clear of the bottom-right weapon/ammo cluster
         bar_w, bar_h = 70, 5
         x, y = 6, 12
         low = session.hp < 35 and not session.dead

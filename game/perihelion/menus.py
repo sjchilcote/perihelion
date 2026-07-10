@@ -1,5 +1,5 @@
 """Scene stack widgets: title/menu screens, intro cards, pause/death/win, and
-the two overlay widgets (RadioBar, TerminalOverlay) that GameScene drives.
+the terminal overlay widget (TerminalOverlay) that GameScene drives.
 
 `Scene` is the interface `App` drives: only the top of the stack receives
 input/update/draw, which is also how pausing works for free -- GameScene
@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import math
 import random
-from collections import deque
 from pathlib import Path
 
 import pygame
@@ -572,86 +571,3 @@ class TerminalOverlay(Scene):
                 break
         hint = get_font(9).render("E/ESC: close", True, DIM_GREEN)
         surf.blit(hint, (w - hint.get_width() - 20, h - 26))
-
-
-# ---------------------------------------------------------------------------
-
-
-class RadioBar:
-    """Bottom-strip typewriter for ("radio", text) fx. A widget, not a Scene
-    -- GameScene owns and drives it every sim tick so it decays in ticks
-    like everything else, and draws it itself after the world."""
-
-    HOLD_TICKS = 110
-    CHARS_PER_TICK = 1.1
-    # Fixedsys 16px is 8px/char: 56 chars fit 448px with margins
-    WRAP_CHARS = 56
-    STRIP_H = 40
-
-    def __init__(self):
-        self.queue: deque[str] = deque()
-        self.current = ""
-        self.lines: list[str] = []
-        self.shown = 0
-        self.hold = 0
-        self._accum = 0.0
-        self._strip = pygame.Surface((INTERNAL_W, self.STRIP_H), pygame.SRCALPHA)
-        self._strip.fill((0, 15, 6, 210))
-
-    def push(self, text: str) -> None:
-        self.queue.append(text)
-
-    def clear(self) -> None:
-        """Drop everything mid-air — a respawn should not inherit the
-        previous life's half-read transmission."""
-        self.queue.clear()
-        self.current = ""
-        self.lines = []
-        self.shown = 0
-        self.hold = 0
-        self._accum = 0.0
-
-    def update(self, app) -> None:
-        if not self.current:
-            if not self.queue:
-                return
-            self.current = self.queue.popleft()
-            # long transmissions arrive in two-line pages; overflow requeues
-            wrapped = _wrap(self.current, self.WRAP_CHARS)
-            if len(wrapped) > 2:
-                self.lines = wrapped[:2]
-                rest = " ".join(wrapped[2:])
-                self.queue.appendleft("..." + rest)
-                # mark the break, or the page reads as an abandoned sentence
-                self.lines[-1] += " ..."
-                self.current = " ".join(self.lines)
-            else:
-                self.lines = wrapped
-            self.shown = 0
-            self._accum = 0.0
-        if self.shown < len(self.current):
-            self._accum += self.CHARS_PER_TICK
-            new_shown = min(len(self.current), int(self._accum))
-            if new_shown > self.shown and (new_shown // 3) != (self.shown // 3):
-                app.audio.play("radio_blip", 0.5)
-            self.shown = new_shown
-        else:
-            self.hold += 1
-            # hold scales with how much there is to read
-            if self.hold > self.HOLD_TICKS + 2 * len(self.current):
-                self.current = ""
-                self.hold = 0
-
-    def draw(self, app, surf) -> None:
-        if not self.current:
-            return
-        w, h = surf.get_size()
-        top = h - self.STRIP_H
-        surf.blit(self._strip, (0, top))
-        pygame.draw.line(surf, PHOSPHOR_GREEN, (0, top), (w, top), 1)
-        remaining = self.current[: self.shown]
-        f = get_font(12)
-        y = top + 3
-        for line in _wrap(remaining, self.WRAP_CHARS)[:2]:
-            surf.blit(f.render(line, True, PHOSPHOR_GREEN), (8, y))
-            y += 17

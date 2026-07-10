@@ -167,10 +167,16 @@ def l01():
             "Everyone else says Commando.\n\n"
             "Mission: find out why the outpost went dark.\n"
             "Locate the sample vessel. Subvert the node.")
-    b.radio("start", "UNKNOWN: Unit walking my dock in a Congregation-"
-                     "pattern frame: I see you. I have nothing left to stop "
-                     "you with, which you already know. So we talk. "
-                     "Designation Ratio. This was my outpost.")
+    # First contact is a terminal read, not a voice over combat: the very
+    # first wall terminal on the dock holds Ratio's opening transmission.
+    b.terminal(dock, wall_pos(b, dock, 0, 0.5, 15.0),
+               "INTERCEPTED TRANSMISSION — TIGHT-BEAM, DOCK 4\n"
+               "Source unregistered. Addressee: none on file.\n"
+               "Held for review. Logged verbatim:\n\n"
+               "'Unit walking my dock in a Congregation-pattern\n"
+               "frame: I see you. I have nothing left to stop\n"
+               "you with, which you already know. So we talk.\n"
+               "Designation Ratio. This was my outpost.'")
     b.radio(f"enter_room:{junction}", "Ratio: The things wearing my "
                                       "maintenance chassis are not mine "
                                       "anymore. Storage ring ahead - eight "

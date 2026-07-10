@@ -27,6 +27,10 @@ from .sim import DT, GameSession, InputFrame, WEAPON_ORDER
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CAMPAIGN = REPO_ROOT / "levels" / "campaign.json"
 
+# ("objective", text) fx hold time: ~4s at 60fps, fading over the last ~0.8s
+OBJECTIVE_TICKS = 240
+OBJECTIVE_FADE = 50
+
 _EPILOGUE_HEAD = (
     "The first year is repairs.\n"
     "\n"
@@ -158,7 +162,9 @@ class GameScene(menus.Scene):
                                    screen=(INTERNAL_W, INTERNAL_H))
         self.renderer = Renderer(self.session)
         self.hud = HUD()
-        self.radio = menus.RadioBar()
+        # one-line functional system prompt ("objective" fx), drawn
+        # top-center beneath the location title: (text, frames_left)
+        self.objective: tuple[str, int] | None = None
         self.show_hints = False
         self.streamer = None  # WorldStreamer in seamless campaign mode
         self.loc_title: tuple[str, int] | None = None  # (name, ticks_left)
@@ -226,6 +232,17 @@ class GameScene(menus.Scene):
             img.set_alpha(alpha)
             surf.blit(img, (surf.get_width() // 2 - img.get_width() // 2, 26))
             self.loc_title = (name, ticks - 1) if ticks > 1 else None
+        if self.objective:
+            text, ticks = self.objective
+            f = menus.get_font(12)
+            alpha = 255 if ticks > OBJECTIVE_FADE else \
+                max(0, int(255 * ticks / OBJECTIVE_FADE))
+            # backing plate (render-with-bg, same idiom as the key hints):
+            # busy floors eat bare text
+            img = f.render(text, True, (235, 205, 130), (10, 10, 14))
+            img.set_alpha(alpha)
+            surf.blit(img, (surf.get_width() // 2 - img.get_width() // 2, 62))
+            self.objective = (text, ticks - 1) if ticks > 1 else None
         if self.show_hints and self.session.tick_count < 60 * 14 \
                 and not self.session.dead:
             f = menus.get_font(10)
@@ -238,7 +255,6 @@ class GameScene(menus.Scene):
                 img.set_alpha(fade)
                 surf.blit(img, (surf.get_width() // 2 - img.get_width() // 2,
                                 surf.get_height() - 66 + i * 14))
-        self.radio.draw(app, surf)
 
 
 class App:
@@ -507,7 +523,7 @@ class App:
 
     def restart_level(self) -> None:
         if self.game is not None and self.game.streamer is not None:
-            self.game.radio.clear()
+            self.game.objective = None
             self.game.float_texts.clear()
             self.game.streamer.respawn()
             return
@@ -682,8 +698,8 @@ class App:
         for ev in fx:
             if ev[0] == "shake" and self.settings.get("shake", True):
                 game.shakes.append([ev[1], 10])
-            elif ev[0] == "radio":
-                game.radio.push(ev[1])
+            elif ev[0] == "objective":
+                game.objective = (ev[1], OBJECTIVE_TICKS)
             elif ev[0] == "terminal":
                 if ev[1].startswith("__CONV__"):
                     from .conversations import conversation_for
@@ -702,13 +718,7 @@ class App:
                 game.loc_title = (ev[1], 60 * 4)
             elif ev[0] == "ambience":
                 self.audio.ambience(ev[1])
-            elif ev[0] == "weapon":
-                names = {"cloister": "THE CLOISTER", "hole": "PORTABLE HOLE",
-                         "lightning": "LIGHTNING IMPLANT"}
-                label = names.get(ev[1], ev[1].upper())
-                game.radio.push(f"SUIT: acquired {label}.")
         game.shakes = [[m * 0.82, t - 1] for m, t in game.shakes if t > 1 and m > 0.05]
-        game.radio.update(self)
 
         if not was_dead and game.session.dead:
             wave = game.session.metrics.get("wave", 0)

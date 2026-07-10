@@ -230,8 +230,7 @@ class GameSession:
         # --- output channels ---
         self.fx: list[tuple] = []  # drained by app each tick
         self.decals: dict[int, list] = {}  # room -> [(kind,x,y,size,angle)]
-        self.radio_queue: list[str] = []
-        self._radio_fired: set[str] = set()
+        self._objective_fired: set[str] = set()  # once-gates for objective fx
         self.metrics = dict(ticks=0, shots=0, hits=0, kills=0, dmg_dealt=0.0,
                             wave=0,
                             dmg_taken=0.0, pickups=0, transfers=0, deaths=0,
@@ -293,12 +292,22 @@ class GameSession:
         if len(lst) > 250:
             del lst[0: len(lst) - 250]
 
-    def _maybe_radio(self, trigger: str):
-        for line in self.level.radio:
-            if line.trigger == trigger and trigger + "|" + line.text not in self._radio_fired:
-                self._radio_fired.add(trigger + "|" + line.text)
-                self.radio_queue.append(line.text)
-                self.fx.append(("radio", line.text))
+    # Spoken narrative lives ONLY where the player is safe and reading:
+    # relay conversations (convscene) and wall terminals. Authored
+    # level.radio triggers remain valid data (the authoring/editor API is
+    # intact) but the game consumes them as nothing. The one in-combat text
+    # channel is the ("objective", text) fx: a one-line ALL-CAPS functional
+    # system prompt.
+
+    ACQUIRE_LABELS = {"cloister": "THE CLOISTER", "hole": "PORTABLE HOLE",
+                      "lightning": "LIGHTNING IMPLANT", "tau": "TAU CANNON"}
+
+    def _objective(self, text: str):
+        self.fx.append(("objective", text))
+
+    def _acquired(self, item: str):
+        self._objective(
+            f"ACQUIRED: {self.ACQUIRE_LABELS.get(item, item.upper())}")
 
     def player_pos(self):
         _, px, py, *_ = self.sim.get(self.pid)
@@ -332,10 +341,6 @@ class GameSession:
         self.fx = []
         self.tick_count += 1
         self.metrics["ticks"] = self.tick_count
-        if self.tick_count == 1:
-            # fired here, not in __init__: fx is cleared per tick, so an
-            # init-time line would vanish before any consumer sees it
-            self._maybe_radio("start")
         if self.tick_count % 60 == 0:
             self.metrics["hp_series"].append(self.hp)
         if self.dead or self.complete:
@@ -676,8 +681,8 @@ class GameSession:
 
     def append_chunk(self, level) -> int:
         """Stream another level's rooms into this live world. Returns the
-        room-index offset where the chunk begins. Radio triggers, doors,
-        terminals, and entities all arrive re-indexed."""
+        room-index offset where the chunk begins. Doors, terminals, and
+        entities all arrive re-indexed."""
         offset = self.sim.num_rooms()
         for verts in level.room_verts:
             self.sim.add_room(verts)
@@ -696,15 +701,6 @@ class GameSession:
                                        text=t.text, read=False))
         for room, spec in level.entities:
             self._spawn_from_spec(room + offset, spec)
-        for line in level.radio:
-            trig = line.trigger
-            if trig.startswith("enter_room:"):
-                trig = f"enter_room:{int(trig.split(':')[1]) + offset}"
-            elif trig in ("start", "exit") or trig.startswith("kills:"):
-                # chunk-relative triggers get a namespace so chunk N's
-                # 'start' doesn't collide with chunk 0's
-                trig = f"chunk{offset}:{trig}"
-            self.level.radio.append(type(line)(trig, line.text))
         self.level.room_seeds.extend(level.room_seeds)
         self.level.room_kinds.extend(level.room_kinds)
         self.level.room_verts.extend(level.room_verts)
@@ -734,13 +730,6 @@ class GameSession:
 
     # no shriekers: a thing that flees forever stalls a holdout
     VIGIL_COSTS = (("mite", 1), ("husk", 2), ("spitter", 4), ("brute", 7))
-    VIGIL_LINES = (
-        "Ratio: Contacts. Petal breach, multiple.",
-        "Ratio: Another push. The count holds.",
-        "Ratio: They are learning the doors. So are you.",
-        "Ratio: Wave logged. The heart is still yours.",
-        "Ratio: More of them. I have stopped counting individuals.",
-    )
 
     def _vigil_tick(self, proom: int):
         if self.wave_timer > 0:
@@ -775,11 +764,8 @@ class GameSession:
             budget -= cost
             spawned += 1
         self.wave_timer = 60 * 8
+        # wave feedback is the stinger + the HUD wave counter; no dialogue
         self._snd("stinger_wrongness", proom, self.player_pos(), 0.5)
-        if self.wave % 3 == 1:
-            line = self.VIGIL_LINES[(self.wave // 3) % len(self.VIGIL_LINES)]
-            self.radio_queue.append(line)
-            self.fx.append(("radio", line))
         # the seed keeps the pantry stocked between pushes
         if self.wave % 2 == 0:
             kind = "medkit" if self.wave % 4 == 0 else                 ("ammo_shell" if self.wave % 3 == 0 else "ammo_9mm")
@@ -932,7 +918,6 @@ class GameSession:
                 break
         # nearby enemies hear the death
         self.alert_enemies(room, 1)
-        self._maybe_radio(f"kills:{self.metrics['kills']}")
 
     def _damage_player(self, dmg: float, room: int):
         if self.hurt_cd > 0 or self.dead:
@@ -1132,7 +1117,6 @@ class GameSession:
                     self.cam = necore.mat_mul(self.cam, necore.mat_inv(m9))
                     self.metrics["transfers"] += 1
                     self.metrics["rooms_visited"].add(to_room)
-                    self._maybe_radio(f"enter_room:{to_room}")
             elif tag == "wall":
                 _, ent, room, edge, px_, py_, nx, ny, speed = ev
                 b = self.bullets.get(ent)
@@ -1309,19 +1293,14 @@ class GameSession:
                     self.weapon = w
                 self.ammo_bonus_for(w)
                 self._snd("pickup_ammo", proom, (x, y))
-                self.fx.append(("weapon", w))
+                self._acquired(w)
             elif kind == "safe_room_core":
                 self._build_cloister()
                 if "hole" not in self.weapons:
                     self.weapons.append("hole")
                 self.holes += 2
                 self._snd("pickup_key", proom, (x, y))
-                self.fx.append(("weapon", "cloister"))
-                text = ("Ratio: Testator work. A detached subgraph — a room "
-                        "with no address. Your seed has already shaken hands "
-                        "with it. You have a cloister now. It follows you.")
-                self.radio_queue.append(text)
-                self.fx.append(("radio", text))
+                self._acquired("cloister")
             elif kind == "turret":
                 continue  # not a pickup; the guardians are furniture
             elif kind == "portable_hole":
@@ -1329,19 +1308,18 @@ class GameSession:
                 if "hole" not in self.weapons:
                     self.weapons.append("hole")
                 self._snd("pickup_key", proom, (x, y))
-                self.fx.append(("weapon", "hole"))
+                self._acquired("hole")
             elif kind == "implant_lightning":
                 if "lightning" not in self.weapons:
                     self.weapons.append("lightning")
                 self._snd("pickup_key", proom, (x, y))
-                self.fx.append(("weapon", "lightning"))
+                self._acquired("lightning")
             elif kind.startswith("key_"):
                 key = kind[4:]
                 self.keys.add(key)
                 self._snd("pickup_key", proom, (x, y))
                 self.fx.append(("pickup_text", proom, (x, y),
                                 f"{key.upper()} SEAL"))
-                self._maybe_radio(f"pickup:{key}")
                 self._unlock_doors(key)
             self.metrics["pickups"] += 1
             self.sim.remove(eid)
@@ -1379,19 +1357,23 @@ class GameSession:
     def _exit_scan(self, proom: int):
         if not getattr(self, "exit_enabled", True):
             return
-        if self.exit_room < 0 or proom != self.exit_room:
+        if self.exit_room < 0:
             return
         px, py = self.player_pos()
-        if math.hypot(self.exit_pos[0] - px, self.exit_pos[1] - py) >= 18.0:
+        near = (proom == self.exit_room and
+                math.hypot(self.exit_pos[0] - px, self.exit_pos[1] - py) < 18.0)
+        if not near:
+            # prompts are transient (~4s): stepping away and coming back to
+            # a still-sealed exit re-explains it
+            self._objective_fired.discard("exit_locked")
+            self._objective_fired.discard("exit_gated")
             return
         lvl = self.level
         if lvl.exit_key and lvl.exit_key not in self.keys:
-            if "exit_locked" not in self._radio_fired:
-                self._radio_fired.add("exit_locked")
-                text = ("Ratio: The way out doesn't answer. It wants the "
-                        f"{lvl.exit_key} seal.")
-                self.radio_queue.append(text)
-                self.fx.append(("radio", text))
+            if "exit_locked" not in self._objective_fired:
+                self._objective_fired.add("exit_locked")
+                self._objective(
+                    f"EXIT SEALED - {lvl.exit_key.upper()} SEAL REQUIRED")
             return
         gate_rooms = getattr(self, "exit_gate_rooms", None)
 
@@ -1405,16 +1387,13 @@ class GameSession:
 
         if lvl.exit_gate_kind and any(
                 _gates(eid, e) for eid, e in self.enemies.items()):
-            if "exit_gated" not in self._radio_fired:
-                self._radio_fired.add("exit_gated")
-                text = ("Ratio: The way out doesn't answer. Something in "
-                        "here is holding it shut. Something big.")
-                self.radio_queue.append(text)
-                self.fx.append(("radio", text))
+            if "exit_gated" not in self._objective_fired:
+                self._objective_fired.add("exit_gated")
+                self._objective(f"EXIT SEALED - THE "
+                                f"{lvl.exit_gate_kind.upper()} HOLDS THE DOOR")
             return
         self.complete = True
         self.metrics["completed"] = True
-        self._maybe_radio("exit")
 
     # ------------------------------------------------------------------
     # bullets ttl (called from tick loop indirectly, cheap sweep)

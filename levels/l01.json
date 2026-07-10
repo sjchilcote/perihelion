@@ -472,10 +472,6 @@
   "intro": "The seed struck the outpost's hull at 0341,\nate a bulkhead, and printed this body.\n\nThe outpost is MIRIAD's. It went silent months ago.\nHis church names him by a GUID, 128 bits, blessed.\nEveryone else says Commando.\n\nMission: find out why the outpost went dark.\nLocate the sample vessel. Subvert the node.",
   "radio": [
    {
-    "trigger": "start",
-    "text": "UNKNOWN: Unit walking my dock in a Congregation-pattern frame: I see you. I have nothing left to stop you with, which you already know. So we talk. Designation Ratio. This was my outpost."
-   },
-   {
     "trigger": "enter_room:2",
     "text": "Ratio: The things wearing my maintenance chassis are not mine anymore. Storage ring ahead - eight segments. Clear it and I'll consider us introduced."
    },
@@ -493,6 +489,14 @@
    }
   ],
   "terminals": [
+   {
+    "room": 0,
+    "pos": [
+     15.0,
+     90.0
+    ],
+    "text": "INTERCEPTED TRANSMISSION \u2014 TIGHT-BEAM, DOCK 4\nSource unregistered. Addressee: none on file.\nHeld for review. Logged verbatim:\n\n'Unit walking my dock in a Congregation-pattern\nframe: I see you. I have nothing left to stop\nyou with, which you already know. So we talk.\nDesignation Ratio. This was my outpost.'"
+   },
    {
     "room": 2,
     "pos": [
