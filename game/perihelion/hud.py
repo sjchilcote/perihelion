@@ -63,13 +63,16 @@ class HUD:
         comp = getattr(session, "components", 0)
         chas = getattr(session, "chassis", 0)
         kits = getattr(session, "station_kits", 0)
-        if not (comp or chas or kits):
+        if not (comp or chas or kits or getattr(session, "recalls", 0)):
             return
         text = f"{comp}c"
         if chas:
             text += f"  {chas} chassis"
         if kits:
             text += f"  {kits} kit"
+        rec = getattr(session, "recalls", 0)
+        if rec:
+            text += f"  {rec} recall"
         # Void node: the count that will not stop being counted
         if "loss_ledger_display" in getattr(session, "mind_unlocks", ()):
             text += f"  {session.metrics.get('deaths', 0)} lost"

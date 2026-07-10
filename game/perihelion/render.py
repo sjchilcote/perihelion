@@ -2504,6 +2504,12 @@ class Renderer:
                         continue
                 canvas.polygon(PLAYER_COLOR, _pts(pts))
                 canvas.polygon((255, 255, 255), _pts(pts), 1)
+                rt = getattr(self.session, "recall_t", 0)
+                if rt > 0:
+                    # recall channel: a ring closing on the frame
+                    frac = rt / 90.0
+                    canvas.circle((160, 240, 200), _pt((sx, sy)),
+                                  max(3, int(9 + 26 * frac)), 1)
             elif role == "enemy":
                 hp_key = self._hp_key_for("enemy", kind) if fully_inside else None
                 if hp_key:

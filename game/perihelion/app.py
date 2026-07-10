@@ -218,6 +218,8 @@ class GameScene(menus.Scene):
                 app.take_screenshot()
             elif event.key == pygame.K_b:
                 self.session.place_station()
+            elif event.key == pygame.K_t:
+                self.session.use_recall()
             elif pygame.K_1 <= event.key <= pygame.K_9:
                 app.pending_weapon_select = event.key - pygame.K_1 + 1
             elif event.key == pygame.K_0:
@@ -814,6 +816,7 @@ class App:
                            station_kits=game.session.station_kits,
                            max_hp=game.session.max_hp,
                            hp_ups=game.session.hp_ups,
+                           recalls=game.session.recalls,
                            mind=sorted(game.session.mind))
             if game.streamer is not None:
                 self.save_data["ng_plus"] = self.save_data.get("ng_plus", 0) + 1

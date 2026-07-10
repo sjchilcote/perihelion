@@ -138,7 +138,8 @@ class WorldStreamer:
                     # restoring entry values would duplicate it)
                     components=s.components, chassis=s.chassis,
                     station_kits=s.station_kits, max_hp=s.max_hp,
-                    hp_ups=s.hp_ups, mind=sorted(s.mind))
+                    hp_ups=s.hp_ups, recalls=s.recalls,
+                    mind=sorted(s.mind))
 
     def _restore_state(self, st: dict) -> None:
         s = self.session

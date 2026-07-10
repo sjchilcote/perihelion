@@ -122,6 +122,7 @@ SHOP: dict[str, dict] = {
     "station_kit": dict(cost=12, label="SEED STATION KIT"),
     "hp_up": dict(cost=10, label="HULL PLATING +15", growth=6),
     "scrap_driver": dict(cost=15, label="SCRAP DRIVER"),
+    "recall": dict(cost=6, label="RECALL BEACON"),
     "ammo_9mm": dict(cost=3, label="9MM x30", ammo=("9mm", 30)),
     "ammo_shell": dict(cost=3, label="SHELLS x7", ammo=("shell", 7)),
     "ammo_cell": dict(cost=4, label="CELLS x8", ammo=("cell", 8)),
@@ -240,6 +241,10 @@ class GameSession:
         # from the investment pattern, never displayed as a meter
         self.mind: set[str] = set(st.get("mind", []))
         self._recompute_mind()
+        # recall beacons: emergency teleport home -- a 90-tick channel that
+        # any hit severs (an escape you must earn a quiet moment for)
+        self.recalls = int(st.get("recalls", 0))
+        self.recall_t = 0
         self.stations: list[dict] = []  # {room, pos}: planted + chunk seeds
         # the seed you just printed from is a station by definition (the
         # streamer's chunk-entry add_station dedupes against this one)
@@ -447,6 +452,7 @@ class GameSession:
                     rv[r_] = self.sim.room_verts(r_)
         if self.tick_count % 30 == 0:
             self._containment_sweep(proom)
+        self._recall_tick(proom)
         if self._regen_rate and self.tick_count % 60 == 0:
             # grafted Adversary organs knit the hull -- up to a fraction of
             # max only; flesh does not respect fabrication tolerances
@@ -1074,6 +1080,9 @@ class GameSession:
         if self.hurt_cd > 0 or self.dead:
             return
         self.hurt_cd = 30
+        if self.recall_t > 0:
+            self.recall_t = 0
+            self._objective("RECALL SEVERED")
         dmg *= self._dmg_mul * self._armor_mul
         self.hp -= dmg
         self.metrics["dmg_taken"] += dmg
@@ -1647,6 +1656,8 @@ class GameSession:
         elif item == "scrap_driver":
             self.weapons.append("scrap")
             self.weapon = "scrap"
+        elif item == "recall":
+            self.recalls += 1
         elif "ammo" in d:
             t, n = d["ammo"]
             self.ammo[t] = self.ammo.get(t, 0) + n
@@ -1661,6 +1672,47 @@ class GameSession:
     def shop_price(self, item: str) -> int:
         d = SHOP[item]
         return d["cost"] + d.get("growth", 0) * (self.hp_ups if item == "hp_up" else 0)
+
+    def use_recall(self) -> bool:
+        """Open the recall channel (app keybind). 90 ticks of standing
+        still enough not to get hit, then the nearest seed takes you."""
+        if self.recalls <= 0 or self.recall_t > 0 or self.dead \
+                or not self.stations:
+            return False
+        mark = len(self.fx)
+        self.recall_t = 90
+        self._objective("RECALL CHANNEL OPEN - ANY HIT SEVERS IT")
+        self._snd("terminal_open", self.player_room(), self.player_pos())
+        self._park_oob(mark)
+        return True
+
+    def _recall_tick(self, proom: int) -> None:
+        if self.recall_t <= 0:
+            return
+        self.recall_t -= 1
+        if self.recall_t > 0:
+            return
+        # channel held: the beacon spends itself and the seed takes you
+        self.recalls -= 1
+        px, py = self.player_pos()
+        best = min(self.stations,
+                   key=lambda st: (self.sim.hop_distance(st["room"], proom)
+                                   if self.sim.hop_distance(st["room"], proom) >= 0
+                                   else 1 << 20))
+        room, (tx, ty) = best["room"], best["pos"]
+        self.fx.append(("flash", proom, px, py, 30.0))
+        if proom != room:
+            self.reseat_player(room, (tx, ty))
+        else:
+            self.sim.set_pos(self.pid, tx, ty)
+        self.sim.set_vel(self.pid, 0.0, 0.0)
+        self.cam = necore.mat_mul(
+            necore.mat_mul(
+                necore.mat_translate(self.screen_w / 2, self.screen_h / 2),
+                necore.mat_scale(self.zoom, self.zoom)),
+            necore.mat_translate(-tx, -ty))
+        self._snd("reprint", room, (tx, ty))
+        self._objective("RECALLED TO THE SEED")
 
     # ------------------------------------------------------------------
     # the mind map: purchase and effect wiring (9.2)
@@ -1906,6 +1958,7 @@ class GameSession:
             holes=self.holes, tau_charge=self.tau_charge,
             components=self.components, chassis=self.chassis,
             station_kits=self.station_kits, max_hp=self.max_hp,
+            recalls=self.recalls, recall_t=self.recall_t,
             mind=set(self.mind), faith=self.faith,
             stations=[dict(room=st["room"], pos=st["pos"])
                       for st in self.stations],

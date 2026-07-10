@@ -280,3 +280,36 @@ def test_spitter_yields_gland_only_with_harvest_node():
     eid = s2.spawn_enemy(0, (100.0, 0.0), "spitter")
     s2._damage_enemy(eid, 999.0, (1.0, 0.0), 0.0)
     assert any(p["kind"] == "organ_gland" for p in s2.pickups.values())
+
+
+# ---------------------------------------------------------------------------
+# recall beacons: emergency teleport home
+# ---------------------------------------------------------------------------
+
+def test_recall_channel_completes_at_the_seed():
+    s = _session(components=10)
+    assert s.buy("recall") and s.recalls == 1
+    home = s.stations[0]
+    s.sim.set_pos(s.pid, home["pos"][0] + 80, home["pos"][1])
+    assert s.use_recall()
+    assert not s.use_recall()  # channel already open
+    _tick(s, 95)
+    assert s.recalls == 0 and s.recall_t == 0
+    px, py = s.player_pos()
+    assert abs(px - home["pos"][0]) < 2 and abs(py - home["pos"][1]) < 2
+
+
+def test_recall_severed_by_damage():
+    s = _session(recalls=1)
+    assert s.use_recall()
+    _tick(s, 10)
+    s._damage_player(5.0, s.player_room())
+    assert s.recall_t == 0
+    assert s.recalls == 1  # the beacon is not spent on a severed channel
+    _tick(s, 100)
+    assert s.recalls == 1  # and the channel did not complete
+
+
+def test_recall_refuses_without_beacon():
+    s = _session()
+    assert not s.use_recall()

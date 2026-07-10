@@ -506,7 +506,7 @@ class ShopScene(Scene):
     """The fabricator at a seed station. Buys mutate the live session
     directly (menu interaction, same class as conversation trust)."""
 
-    ORDER = ["chassis", "station_kit", "hp_up", "scrap_driver",
+    ORDER = ["chassis", "station_kit", "hp_up", "scrap_driver", "recall",
              "ammo_9mm", "ammo_shell", "ammo_cell"]
 
     def __init__(self, session):
