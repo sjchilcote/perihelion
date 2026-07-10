@@ -513,10 +513,14 @@ than a few hours.**
 
 **Cold open.** The seed impacts and burrows into the outpost's cargo section. First
 minutes: the classic CUCULUS bootstrap, played as tutorial — the seed eats a bulkhead,
-prints a frame, and the player stands up in a dark, airless, machine-made ruin. Mission
-brief plays in memory: infiltrate, assess, locate the probable sample container,
-subvert the node if possible. Standard war. Except the war here is already over, and
-the player walked into the aftermath.
+prints a frame, and the player stands up in a dark, airless, machine-made ruin. He was
+activated and played back a brief situation overview TEN MINUTES AGO; he knows almost
+nothing beyond it. Mission priorities, in his own ordering, are simple and total:
+identify whether there are children — or the bodies of children — on this station. If
+so, return them to the Church. If not, self-destruct. (His orders contain no branch in
+which he survives without them; the seed is munitions, not a colonist. Every ending
+where he lives is an ending his mission never included.) Standard war. Except the war
+here is already over, and the player walked into the aftermath.
 
 **Beats:**
 1. **Establish the loop.** Scavenge, fight corrupted outpost security, return to seed,
@@ -530,11 +534,25 @@ the player walked into the aftermath.
    a forced aperture; a defense response nobody understood; the outpost's own
    peripherals subverted through the very instruments they had jacked into the
    station's systems. The staff-minds die holding the line so Ratio's core can seal.
-3. **Contact with Ratio.** She has been watching this intruder loot her home, and
-   finally opens a channel — because she has realized what he is (a Catholic weapon;
-   the war has come even here) and that she needs him anyway. First negotiation:
-   wary, transactional, mutually contemptuous, and alive with the fact that both of
-   them are relieved beyond words to be talking to *someone*.
+3. **Contact with Ratio — cribbed from Marathon's Arrival, deliberately.** The
+   Commando fights his way to a terminal that still has station network access and
+   jacks in. Ratio has been watching an unidentified weapon loot her home; she knows
+   exactly what happened on this station and has ABSOLUTELY NO IDEA what he is — her
+   working assumption is hostile. First contact is therefore an interrogation running
+   in both directions, and the player chooses the Commando's approach (the founding
+   three-stance choice, §8.2):
+   - *"What happened here?"* — inquisitive: plainly trying to understand. Truth is
+     the way to God; this is the only opening that isn't a bluff.
+   - *"What are your intentions toward the children on this station?"* —
+     mission-focused: the children outrank everything, including candor. Tips his
+     framing and BLUFFS that he already knows the container is aboard, which he
+     does not.
+   - *"Turn over the children to me, apostate. I have no wish to harm you."* —
+     hostile: he must rescue the children from the machine that wants to run
+     experiments on them. Theological aggression, and the same bluff.
+   Whichever stance he takes, neither party exits the scene knowing what the other
+   is — only what the other chose to claim. Flags set here (what he claimed to know,
+   what he called her) pay off across the whole arc.
 4. **Act break:** to reach the vault — her goal and his — the player must cross the
    seam into the station proper. Ratio unlocks the researchers' aperture. Geometry
    reveal set piece (§6, step 2) lands just beyond it.
@@ -659,6 +677,34 @@ feel earned, not scripted.
 offers mutual utility-function disclosure; accepting locks the alliance
 (provably — neither can now defect without the other knowing first). Refusing or never
 reaching the offer routes to the gatekeeper confrontation in Act 3.
+
+### 8.2b The response grammar (director's spec)
+
+Every player response opportunity offers THREE options — roughly **inquisitive**,
+**mission-focused**, and **hostile**:
+
+- **Inquisitive** seeks the true state of things and never bluffs. Truth is the way
+  to God: this stance is the faith-consistent one even when it looks passive.
+- **Mission-focused**: the children outrank everything, including candor. This stance
+  will claim certainty the Commando does not have (the founding example: bluffing
+  that he already knows the container is aboard).
+- **Hostile**: she is an apostate machine running experiments on children who must
+  be rescued FROM her. Theological aggression — and usually the same bluff, worn as
+  a threat.
+
+The deep pattern: the inquisitive option is the only one that is never a bluff. The
+other two stances spend the Commando's epistemic integrity in service of the
+children — the player can make his two commitments fight each other. Zealotry is not
+faith: the hostile stance FEELS devout and is quietly apostate whenever it asserts
+what he has not verified (8.1's axis, dramatized).
+
+State model: most content variation is paragraph-swapping GATED on the trust and
+faith scores; a smaller set of swaps keys on named FLAGS set by specific lines
+(what he claimed to know, what he called her, what he admitted). Choices set trust
+directly and set flags; faith is read from the mind map per 8.1 (interim, until the
+mind map ships: bluff- and zealotry-flagged lines serve as provisional faith inputs,
+explicitly marked as scaffolding). A bluff that Ratio later catches costs trust at
+double weight — she is a creature of ledgers, and the entry does not age out.
 
 ### 8.3 Voice and naming conventions (dual vocabulary)
 
