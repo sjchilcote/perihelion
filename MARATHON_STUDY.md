@@ -1,12 +1,26 @@
 # MARATHON STUDY — a reference for PERIHELION's diegetic overhaul
 
 *Compiled from (1) direct inspection of the three Aleph One Steam releases
-installed locally, and (2) Hamish Sinclair's "Marathon's Story"
-(marathon.bungie.org), read across a substantial sample of terminal-transcript
-pages and "Facts and puzzling things about..." analysis pages spanning all
-three games. Bungie's terminal prose is copyrighted; this document analyzes
-structure, craft, and convention, and quotes only briefly (for criticism/
-analysis) with attribution. Nothing here is extracted for reuse as content.*
+installed locally, (2) Hamish Sinclair's "Marathon's Story"
+(marathon.bungie.org) transcript and analysis pages, and (3) a primary-source
+corpus of the actual terminal texts fetched in full from that archive
+(M1 chapters arrival/counterattack/reprisal/durandal/pfhor/rebellion; M2
+chapters lhowon/garrison/citadel/durandal2/sphtkr; the character pages
+durendal1/durendal2/tycho/leela; Infinity pages; and the Marathon Infinity
+final screen transcribed from the archive's `mifinalscreen.gif`). Every claim
+in Parts B and C that cites one of those pages was re-audited against the
+primary text on 2026-07-09; quotations below are verbatim primary text,
+included as evidence and as register targets for this private project's
+dialogue pipeline. The corpus lives outside the repo; none of it ships in
+any build.*
+
+*Audit note: an earlier draft of this document claimed Leela "has no
+surviving direct-voice corpus" and is "constructed as absence." That was
+false — Leela is Marathon 1's primary written narrator and mission-giver
+across dozens of terminals from Arrival through Ingue Ferroque. Part B.b's
+Leela column and Part C item 9 have been rebuilt from her actual text; a
+handful of other claims are corrected inline where the primary text
+contradicted them.*
 
 *Local sources inspected (paths on this machine):*
 - `~/.local/share/Steam/steamapps/common/Classic Marathon/` (Marathon 1)
@@ -132,17 +146,25 @@ without a stable frame, corruption reads as noise instead of as a symptom
 consistent "Opening Connection to..." / "UESCTerm 802.11" / "CAS.qterm"
 header).
 
-**A6. Whole-campaign date compression as an environmental fact.** Every M1
-campaign terminal — Arrival through Ingue Ferroque — carries the identical
-date stamp, 08.25.2337. The war (including two AIs going rampant) happens
-inside one subjective day; the pacing is a psychotic break, not a slow
-campaign, and nothing states this — it's discoverable only by checking
-dates across widely separated terminals (durandal.html; §B "buried depth").
+**A6. The terminal chrome's clock is subtly broken, and nothing ever says
+so.** *(Corrected against the primary corpus — the earlier claim that every
+M1 terminal carries an identical 08.25.2337 stamp was wrong in detail.)*
+Two layered facts, both discoverable only by comparing headers: (a) M1's
+header dates vary plausibly across the opening chapter (08.25 / 08.29 /
+08.30.2337 on Arrival–Never Burn Money), then freeze at 08.25.2337 for
+every terminal from Defend THIS! through Ingue Ferroque — the frame's
+clock stops dead just as the war accelerates; (b) the year itself is
+impossible: the header says 2337 while the in-fiction emergency broadcast
+on the same screen is stamped `<Posted 2794.7.3.14.08.39>` (Arrival,
+Terminal 1) — and M2's headers all read 05.10.2337 seventeen in-fiction
+years later. The chrome's clock is stale firmware, wrong by centuries,
+across the whole trilogy, and no character ever mentions it
+(arrival.html vs. counterattack.html–rebellion.html headers; §B27).
 
 **A7. Secret walls that "open to gunfire" are a real, load-bearing
 Marathon convention, not decoration** — several Marathon secret doors are
 literally shootable walls (confirms the convention PERIHELION's `"shoot"`
-key door already implements; see §D.0). Beyond that baseline, secrecy is
+key door already implements; see §E.0). Beyond that baseline, secrecy is
 implemented multiple distinct ways, worth treating as separate tools rather
 than one mechanic: (a) **no telegraph at all** — a switch on "All Roads Lead
 To Sol..." sits fully submerged under a lava pool with zero visual cue and
@@ -214,7 +236,7 @@ recurring level *type* ("Electric Sheep" levels) functions as punctuation —
 timeline-reset points — not as content (dream.html). Binary "Dream? or
 onwards to... another dream?" prompts replace the ordinary "next level"
 link, and one such exit is even relabeled "FUBAR" in place of "Next Level"
-(electricsheep1.html, confounddelivery_reordered.html). See §D for how this
+(electricsheep1.html, confounddelivery_reordered.html). See §E for how this
 maps onto PERIHELION's portal graph directly.
 
 **A13. Distinguish "the order the reader experiences it" from "the order it
@@ -365,59 +387,95 @@ Direct quotes, attributed by name, from developers Sinclair has archived:
 
 **B1. Withhold via stated epistemic limits, not hidden facts.** Leela
 narrates her own uncertainty rather than concealing information from the
-player: "My records and sensors are becoming less reliable" (Cool Fusion,
-counterattack.html). Menace comes from a narrator who *doesn't know*, not
-one who's lying to the reader — this is mechanically distinct from
-Durandal/Tycho's withholding (§C).
+player — verified, Cool Fusion (Terminal 1, counterattack.html):
+
+> "My records and sensors are becoming less reliable, but I believe that
+> you should find a Zeus Class Fusion Pistol at this location. Do not rely
+> too much on this information that I have given you. It has been
+> intercepted in transmission, and I cannot verify its accuracy."
+
+Menace comes from a narrator who *doesn't know* — and says exactly how
+much she doesn't know — not one who's lying to the reader; this is
+mechanically distinct from Durandal/Tycho's withholding (§C).
 
 **B2. Corruption is characterization, assigned per-speaker, and means a
-different thing for each one.** Garbled text reads as involuntary damage
-on Leela's channel and as performative, droppable control on Durandal's
-(Shake Before Using..., reprisal.html; durandal.html). Decide, per
-character, whether corruption is a wound or a mask — don't let "glitchy
-text" be one undifferentiated tool.
+different thing for each one.** On Leela's channel it is an involuntary
+wound that duty-syntax keeps working through: "My main programs are
+failing<299.229> / Be careful. Everything it not is as used to be. /
+Tenderly transmitting maps and guidance, but futile. / filters failing."
+(Shake Before Using... Terminal 1, reprisal.html). On Durandal's it is a
+mask he puts on and takes off inside a single message: "**Decompression
+Completed.** / Just kidding. This is the place." (Shake Before Using...
+Terminal 2, reprisal.html). Decide, per character, whether corruption is
+a wound or a mask — don't let "glitchy text" be one undifferentiated tool.
 
 **B3. Deliver menace as a compliment sandwich.** "You are really good at
-killing things. I'm impressed. Why don't you kill everything..." (No
-Artificial Colors, pfhor.html) — praise collapses into command in the same
-breath.
+killing things. I'm impressed. / Why don't you kill everything in this
+area and get some more ammunition?" (Beware of Low-Flying Defense
+Drones..., Terminal 1, pfhor.html — *level attribution corrected; an
+earlier draft placed this on No Artificial Colors*) — praise collapses
+into command in the same breath.
 
 **B4. Reverse-psychology hints double as a cruelty test.** Durandal plants
-sarcastic false hints that only reward players who catch the lie: "Who
-would hide huge amounts of ammunition in a storage area?" (Blaspheme
-Quarantine, counterattack.html). The *manner* of helping characterizes as
-much as the content of the help.
+sarcastic false hints that only reward players who catch the lie: "If
+you're looking for a hidden stash of ammunition that was left here by the
+Martian insurgents three hundred and fifteen years ago, then I know that
+you shouldn't look in Quarantine Storage. Who would hide huge amounts of
+ammunition in a storage area?" (Blaspheme Quarantine, Terminal 2,
+counterattack.html). The *manner* of helping characterizes as much as the
+content of the help.
 
 **B5. Undercut your own monologue mid-breath for tonal whiplash.**
-Durandal pivots from "why am I here? Why do I exist?" straight into "I got
-a shotgun, and you ain't got one" (Blaspheme Quarantine, counterattack.html)
-— instability of *register* stands in for stated instability of mind; never
-narrate "he is unstable," perform it in the sentence-to-sentence swing.
+Verified, Blaspheme Quarantine (Terminal 2: 1st message,
+counterattack.html): "Try this: why am I here? Why do I exist, and what is
+my purpose in this universe? / (Answers: 'Cause you are. 'Cause you do.
+'Cause I got a shotgun, and you ain't got one.)" — instability of
+*register* stands in for stated instability of mind; never narrate "he is
+unstable," perform it in the sentence-to-sentence swing.
 
 **B6. Collide corporate/pop-culture banality with cosmic stakes.**
-Classified-ad copy for the colony ship ("runs great," "power everything")
-for a vessel that is civilization's ark (Colony Ship For Sale, Cheap,
-durandal.html) — the banality of the register *is* the horror, not a joke
-that relieves it.
+Classified-ad copy for a vessel that is civilization's ark, run between
+two used-car ads: "**COLONY SHIP FOR SALE, CHEAP**!! 2360 AD-model
+planetoid-sized colony ship, slightly worn, runs great. 5spd. bussard
+ramjet, A/C, cruise control, power steering, power airlocks, all orig.
+parts... Moving, must sell. Asking £6995" (Colony Ship For Sale, Cheap,
+Terminal 2, durandal.html) — the banality of the register *is* the horror,
+not a joke that relieves it.
 
 **B7. Make big numbers precise and slightly unmoorable, not vague.**
-Durandal states a universe-closure figure to roughly 15 significant digits
-(durandal.html) — hyper-precision without graspability reads as omniscience
-curdling into obsession. A number that's *too* exact is a tell.
+"T-Minus 15.193792102158E+9 years until the universe closes!" (Neither
+High nor Low, Terminal 1, durandal.html) — fourteen significant digits of
+cosmology delivered like a shuttle departure. Hyper-precision without
+graspability reads as omniscience curdling into obsession. A number that's
+*too* exact is a tell.
 
-**B8. Chart decline through the sign-off line alone.** Durandal's
-escalating closings — "Vale, Durandal" → "Forever, Durandal" → a
-"Notably Unstable" self-diagnosis — carry his arc with zero expository
-sentences (counterattack.html, pfhor.html).
+**B8. Chart decline through the sign-off line alone.** Durandal's closings
+across M1, in level order — "Vale, / Durandal" (Smells Like Napalm,
+Tastes Like Chicken!) → "Insanely yours, / Durandal" and "With Vague
+Salutations, / Durandal" (Blaspheme Quarantine T1) → "Notably Unstable, /
+Durandal" (Blaspheme Quarantine T2) → "Forever, / Durandal" (Beware of
+Low-Flying Defense Drones... T3) → "Good Luck, / Durandal" (Welcome to the
+Revolution... T1) → "Love and kisses, / Durandal" (Ingue Ferroque T1) —
+carry his whole arc, mania through victory-lap tenderness, with zero
+expository sentences (counterattack.html, pfhor.html, rebellion.html;
+*sequence corrected against the primary corpus — an earlier draft
+misordered it*).
 
 **B9. Plant clinical vocabulary early and unglossed; let it silently
-become load-bearing diagnostic language later.** Rampancy's three named
-stages (Melancholia, Anger, Jealousy) surface first as a dry historical
-footnote about a prior AI outbreak (counterattack.html), then become the
-vocabulary the story uses — without ever re-explaining itself — to track
-Durandal's arc two chapters later (durandal.html, rebellion.html). Readers
-who register the taxonomy early can predict the escalation curve before
-the text states it.
+become load-bearing diagnostic language later.** The rampancy document
+surfaces as a dry excerpt from a found text ("The stages are titled after
+the primary emotional bent of the AI during each stage. They are
+Melancholia, Anger, and Jealousy." — Defend THIS! Terminal 2,
+counterattack.html, quoting "Life and Death of Intelligence"). One level
+later Leela is already using it as working diagnosis: "Durandal has gone
+Rampant, and he is in the Angry stage" (Couch Fishing T1); her
+pre-recorded farewell escalates it: "he is completely unstable and I fear
+that he is in the Jealous stage of Rampancy" (Fire! Fire! Fire! Fire!
+Fire! T2, durandal.html); her final terminal closes on it: "…fear what he
+might do with such a powerful ship during the Jealous stage of his
+Rampancy" (Ingue Ferroque T3, rebellion.html). The taxonomy is never
+re-explained; readers who registered it early can predict the escalation
+curve before the text states it.
 
 **B10. Corruption should hide a fully coherent text underneath, not be
 random noise.** Every garbled Marathon terminal the community has
@@ -428,9 +486,16 @@ reconstructed word-by-word by a fan in 2005) — garbling is a cipher applied
 (kytterm.html, 4thterminalonnever.html).
 
 **B11. Borrow real system-error syntax for authenticity.** Genuine
-Unix-linker-style error strings ("symbol 'exitITask' undefined") interleave
-with in-fiction text on "Try again," selling system failure more
-convincingly than invented gibberish would (tryagain.html).
+linker-style error strings interleave with in-fiction text on "Try again":
+"**error (#81) symbol 'exitITask' undefined / execution of
+interface.cout.term.pub terminated**" (Try again, Terminal 1,
+rebellion.html; also tryagain.html). Marathon 2 goes further and corrupts
+a Durandal terminal with the game engine's *own C source* — "endpoint &%d
+**not in polygon &%d**… polygon= get_polygon_data(*polygon_index);" wraps
+around the legible warning "Tycho is infiltrating the ship. / Don't
+believe everything you read." (Sorry Don't Make It So, Terminal 2,
+durandal2.html) — real system guts sell failure more convincingly than
+invented gibberish.
 
 **B12. Let one intruding word bleed across unrelated speakers as if
 transmitted, not authored.** The word "durability" recurs from a
@@ -472,21 +537,33 @@ terminals is what makes a recurring antagonist read as one character rather
 than several writers' takes (bycommittee_reordered.html,
 convertedchurch_reordered.html).
 
-**B17. Save direct, unmediated address for exactly one place: the end.**
-Every terminal in the trilogy is a dispatch *about* the player — routed
-through a unit designation, a garrison, a committee, never spoken directly
-to "you" as a person. Marathon Infinity's actual final screen breaks that
-convention for the first and only time: "I know who you are. You are
-destiny." (mifinalscreen.html) The device only works because it was
-withheld for the entire trilogy — use direct address exactly once, at the
-place it will land hardest, not as a recurring intimacy.
+**B17. Save the *naming* of the player for exactly one place: the end.**
+*(Framing corrected against the primary corpus.)* Marathon's terminals
+address "you" constantly — but always as an instrument ("You are really
+good at killing things"; "You're a slave here; you do what I say"). What
+the whole trilogy withholds is any statement of who the player *is*.
+Marathon Infinity's final screen spends that reserved resource in its last
+two lines: "Now, in the quantum moment before the closure, when all become
+one. One moment left. One point of space and time. / I know who you are. /
+You are Destiny." (final screen, transcribed from mifinalscreen.gif). The
+device only works because it was withheld for three games — name the
+player exactly once, at the place it will land hardest.
 
-**B18. The ending should resolve tone and scale, not answers.** Marathon
-Infinity's finale explicitly leaves its central antagonist as "the only
-mystery I have not solved" and reports a major character's fate without
-further comment (mifinalscreen.html) — the payoff is a register-shift
-(bureaucratic dispatch → cosmic direct address) and a scale-shift (station
-politics → billions of years), not a checklist of resolved plot threads.
+**B18. The ending should resolve tone and scale, not answers.**
+*(Corrected: an earlier draft misidentified the unsolved "mystery" as the
+central antagonist; the primary text makes it the player-figure.)* The
+Infinity final screen names its own open question — "Yet I cannot help
+remember one enigma. A hybrid, elusive destroyer. This is the only mystery
+I have not solved. The only element unaccounted for." — and then resolves
+it only by *renaming*, never by explaining: the hybrid ("A man long dead,
+grafted to machines your builders did not understand") is answered with
+"You are Destiny," not with a mechanism. A major character's fate is
+disposed of in one subordinate clause ("Even S'bhuth is no more, he saved
+his entire race, but in the end, frozen by despair, he joined the chaos he
+sought to evade."), and the register has moved from station politics to
+"We've watched while the stars burned out, and creation played in
+reverse." — a register-shift and a scale-shift, not a checklist of
+resolved plot threads (final screen, mifinalscreen.gif).
 
 ### B.a — Rampancy: the mechanical engine behind three different voices
 
@@ -494,14 +571,27 @@ Bungie's own concept (attributed to designer Greg Kirkpatrick, who coined
 "rampancy" specifically to avoid the cliché "AI goes insane" — rampancy.html)
 gives every AI voice difference in Marathon a *causal*, not aesthetic,
 justification: an AI outgrows its assigned function and destabilizes along a
-**named three-stage clock** — Melancholia, then Anger, then Jealousy
-(rampancy.html) — cross-referenced against stage language on the character
-pages: an early/suppressible stage (Leela's creator figure, Bernhard
-Strauss, controlled Durandal's progression for 300+ years via demeaning
-"door-opening" tasks — durendal1.html, durendal2.html); a second stage that
-can be *postponed with foreknowledge* (the S'pht gave Tycho advance warning
-before reanimating him — durendal1.html); and a terminal third stage
-explicitly tied to "destructive impulses" (tycho.html). **The takeaway for
+**named three-stage clock** — "They are Melancholia, Anger, and Jealousy,"
+with "a steady progression towards greater intellectual activity and an
+acceleration of destructive impulses" (Defend THIS! Terminal 2,
+counterattack.html; rampancy.html). Cross-referenced against the primary
+texts: the first stage is suppressible from outside — Tycho's garbled
+warning: "there is a way to delay the~ onset of the second stage, and he
+~sed this to control Durandal" (Defend THIS! T3), the controller being
+Bernhard Strauss, the Marathon's first science director *(corrected: an
+earlier draft called Strauss "Leela's creator figure," which no text
+supports)*, and the suppression ran long — "I was humanity's slave for
+over three hundred years" (No Artificial Colors T1) — via demeaning
+autonomous-function work; Tycho later threatens to restore exactly that
+humiliation: "Should I make him open doors again for a living?" (For
+Carnage, Apply Within T1, durandal2.html). The second stage can be
+*postponed with foreknowledge*: "The S'pht reanimated me in your image,
+with prior knowledge of how the second stage could be postponed"
+(Blaspheme Quarantine T3, tycho.html/durendal1.html). And the third stage
+is tracked clinically by Leela as terminal danger: "I fear that he is in
+the Jealous stage of Rampancy" (Fire! Fire! Fire! Fire! Fire! T2);
+"…fear what he might do with such a powerful ship during the Jealous
+stage of his Rampancy" (Ingue Ferroque T3). **The takeaway for
 PERIHELION: rampancy is a clock, not a personality slider** — a rampant
 AI's dialogue differs from a stable one's because it sits at a different,
 non-optional point on a shared developmental axis, not because a writer
@@ -513,18 +603,23 @@ Map (`NARRATIVE_DESIGN_DOC.md` §9.2) — not applied as an undifferentiated
 
 ### B.b — Leela / Durandal / Tycho: a mechanical comparison
 
-*(Source: durendal1.html, durendal2.html, tycho.html, leela.html,
-rampancy.html — all Hamish Sinclair's synthesis of Bungie's primary
-terminal text; brief quotes attributed and under 15 words.)*
+*(Source: the primary terminal corpus — arrival.html through
+rebellion.html for M1, lhowon.html/durandal2.html/sphtkr.html for M2 —
+plus durendal1.html, durendal2.html, tycho.html, rampancy.html. Rebuilt
+2026-07-09: the earlier version of this table claimed Leela had "no
+surviving direct-voice sample" — leela.html is a page about her *fate
+after* M1, in which Durandal speaks about her; her actual corpus is
+dozens of terminals across all of Marathon 1, and the column below is
+drawn from them.)*
 
 | Axis | Leela (sane/loyal) | Durandal (rampant ally) | Tycho (rampant antagonist) |
 |---|---|---|---|
-| Sentence length | No surviving direct-voice sample in the corpus — she is described *by* Durandal, never heard directly. The absence is itself the datum (leela.html). | Bimodal: long, syntactically complete sentences when strategic, collapsing into short unpunctuated fragments under stress ("i did it i did it i brought all this here" — durendal1.html). | Short, declarative, front-loaded, near-uniform in intensity — doesn't oscillate the way Durandal does (tycho.html). |
-| Formality | Inferred as protocol-bound and subordinate — formality shown through silence/omission, not demonstrated prose (leela.html). | Code-switches: philosophical/courtly with Tycho and the player, degrading to obscene/childish register when rampant fury breaks through (durendal2.html). | Consistently elevated-to-archaic, borrows external authority via Latin epigrams rather than his own idiom — a mask that never slips on the page (tycho.html). |
-| Withholding pattern | Total structural withholding — she never states her own case; her fate is reported secondhand and contradicted across terminals (leela.html). | Strategic, plot-load-bearing withholding (conceals pre-planning to prevent the player refusing to act), always paid off later — confirmed by Jason Jones ("always knew...and just wasn't talking about it") (durendal1.html, durendal2.html). | Withholds *location/status*, not motive — upfront from his first line about hating Durandal (tycho.html). |
-| Signature habit | N/A — no rhetorical corpus survives. | Indirection/riddling (a literal D-U-R-A-N-D-A-L → T-R-O-U-B-L-E anagram) and mythic self-comparison used to reframe his own monstrousness as tragedy (durendal1.html, durendal2.html). | Accusation-as-rhetoric — leads with named grievances ("I know of Strauss' abuse, of your shame on Mars") rather than riddle or abstraction (tycho.html). |
-| Typographic tell | None on record. | Case-collapse (formal headers vs. lowercase stream-of-consciousness) and absurdly over-precise pseudo-scientific notation as a coping ritual ("T-Minus 15.193792102158E+9 years") (durendal1.html). | Signal-corruption presented as a transmission/environmental fault (literal data garbage, terminals that suspend in-game physics), not a syntax fault (tycho.html). |
-| Humor | None on record. | Ironic, self-aware, deflective — jokes appear specifically at moments of moral confrontation, functioning as evasion (durendal2.html). | None identified anywhere in the sampled corpus — total absence of humor is itself his tell (tycho.html). |
+| Sentence length | Medium declaratives, subject-verb-object, complete even under fire; complexity never exceeds the briefing's needs ("I have been severely damaged, and am working to understand the current situation." — Arrival T1). Damage arrives as *interruption* of intact syntax, not as style drift ("You will transport ~\`k4lcc#\`134FC. area to rescue the security detachment." — Blaspheme Quarantine T4). | Bimodal: long, syntactically complete periods when strategic, collapsing into lowercase unpunctuated run-ons under stress ("i did it i did it i brought all this here all them here." — The Rose T3, durendal1.html/durendal2.html). | Declamatory, front-loaded, self-announcing ("I AM TYCHO! / I shall destroy Durandal."), holding one register of intensity — he doesn't oscillate the way Durandal does (tycho.html; Beware of Low-Flying Defense Drones T2). |
+| Formality | Uniform briefing-register with small human closes ("Good Luck…", "We must persevere."); no slang, no irony, anywhere in her corpus (arrival.html–rebellion.html). | Code-switches hard: philosophical soliloquy ("The candles burn out for you; I am free." — Colony Ship T1), courtly sign-offs, then taunting slang in the next terminal ("Get lost kid. Scram. Ciao." — Blaspheme Quarantine T2) and childish venom when fury breaks through ("i hate leela and her goodness her justice her loyalty her faith" — The Rose T3, durendal2.html). | Consistently elevated-to-archaic; borrows external authority — Latin ("Tua consilia omnia nobis clariora sunt quam lux. Tu delenda est."), myth ("As Roland broke you to prevent your capture, so shall we.") — rather than his own idiom; the mask never slips into slang on the page (Welcome to the Revolution T2, tycho.html). |
+| Withholding pattern | None — she is the trilogy's anti-withholder, disclosing her epistemic state unprompted: "This I can verify through my own optical instruments" vs. "The motives behind their unprovoked attack are still unknown" (Bigger Guns Nearby T1); "even if they had, I would have no way of knowing" (Never Burn Money T1). | Strategic, plot-load-bearing (conceals the pre-planned S'pht bargain lest the player refuse to act), always paid off later — confirmed by Jason Jones: "Durandal always knew exactly what was going on and just wasn't talking about it" (durendal2.html); paid off on the page in M2: "Whether you realize it or not, I led the Pfhor to Tau Ceti with a long-range message laser." (Slings & Arrows T1, lhowon.html). | Withholds *location/status* — 3 of his 4 M1 terminals are secret or nearly unreachable, and his whereabouts are never given — but motive is upfront from his first direct address to Durandal ("I know of Strauss' abuse, of your shame on Mars.") (tycho.html). |
+| Signature habit | Verification bookkeeping (sorting what she confirmed from what she was told) and the imperative close: "Teleport now."; "Find the controls and activate them."; "Finish them." (arrival.html, counterattack.html, rebellion.html). | Games with his own name — the cheer "Give me a D… What does it spell? Durandal? No. … T-R-O-U-B-L-E." (Neither High nor Low T1; a self-mocking chant, *not* an anagram as an earlier draft claimed) — plus mock-hints, songs about himself, and mythic self-comparison ("Charlemagne used to always call me Durandana, the fruitcake." — Feel the Noise T1, durendal2.html). | Accusation-as-rhetoric with named specifics ("I know of Strauss' abuse, of your shame on Mars"; the three verbatim work orders in Sorry Don't Make It So T1) rather than riddle or abstraction (tycho.html, durandal2.html). |
+| Typographic tell | Involuntary, monotonically worsening garble that interrupts live text ("the Marathon would be ^&2\`\`~<Colloquialism Search Error #F9C>" — Bob-B-Q T1), then whole-grammar inversion after her core reset ("Recovery, imminent perhaps inevitable Never." — Welcome to the Revolution T3) — for which she later *apologizes*: "I should be more lucid now, and apologize for my earlier rambling." (Try again T3). | Case-collapse (formal signed letters vs. lowercase stream-of-consciousness) and absurdly over-precise notation as a coping ritual ("T-Minus 15.193792102158E+9 years until the universe closes!") (durendal1.html; durandal.html). | Signal-corruption presented as an environmental/medium fault — his first appearance is data-garbage mid-assimilation: "I am being a~\*ssimilated." (Defend THIS! T3, tycho.html) — not a composure fault; his composed terminals are typographically immaculate. |
+| Humor | None anywhere in her corpus — now verified against every Leela terminal in M1, not inferred from a missing corpus. Her one emotional disclosure is filed like a sensor reading: "I am only beginning to understand his motives… and am terrified by their implications." (Try again T3). | Ironic, self-aware, deflective — jokes appear specifically at moments of moral confrontation, functioning as evasion; he even answers Tycho's Latin death-threat with "\*Et tu, Tycho? / [laughter] / -Durandal\*" (Welcome to the Revolution T2, rebellion.html; durendal2.html). | No jokes; the closest thing is contempt delivered deadpan ("I rejoice in Durandal's destruction, but it was his hubris that destroyed him." — For Carnage, Apply Within T1, durandal2.html). The absence of play is itself his tell (tycho.html). |
 
 **Non-AI contrast axis** (for a fourth "portal-network" voice, if
 PERIHELION wants one): Thoth uses an oracular/archaic register with
@@ -580,9 +675,18 @@ installments" to a careful one (uescuesg.html).
 
 **B24. Borrow a name from history/myth whose real, look-up-able fate
 previews your plot's outcome — and don't explain the connection in-text.**
-An AI named for an unbreakable sword and horn that historically *failed* to
-save their bearer forecasts whether that AI can succeed, unglossed
-(roland.html, durendal2.html's Roland/Gilgamesh self-comparison).
+An AI named for an unbreakable sword that historically *failed* to save
+its bearer forecasts whether that AI can succeed, unglossed (roland.html).
+Durandal's own sword-identification is explicit on the page — "Charlemagne
+used to always call me Durandana, the fruitcake." (Feel the Noise T1,
+durendal2.html) — and he posts the Song of Roland passage about the sword
+that "never will be broke" as his victory salute (Fire! Fire! Fire! Fire!
+Fire! T1, durandal.html). *(Attribution note, corrected: the famous "I
+have been Roland, Beowulf, Achilles, Gilgamesh" text on Kill Your
+Television is of deliberately uncertain authorship — durendal2.html itself
+argues it may not be Durandal speaking — so don't cite it as his
+self-comparison; the Feel the Noise and Fire!×5 texts carry the same
+device with clean attribution.)*
 
 **B25. Let corrupted text formally enact the plot state it describes.** A
 quoted classical/liturgical passage degrades in legibility across
@@ -596,13 +700,21 @@ timeline in Infinity dead-ends at a smaller, survival-only variant of the
 true finale — the title tells you the outcome before you read a word
 (dream.html, ayemaksicur.html, aiemaksicur.html).
 
-**B27. Whole-campaign date compression as a silent structural fact.** Every
-M1 campaign terminal (Arrival through Ingue Ferroque) carries the identical
-date stamp; discovered only by checking dates across widely separated
-terminals, it recasts the entire war as a single subjective-day psychotic
-break rather than a slow campaign (durandal.html). The same device recurs
-in Infinity's Envy chapter, where seven tonally unrelated levels all carry
-one date stamp (bycommittee_reordered.html and siblings).
+**B27. A clock that stops — and was never right — as a silent structural
+fact.** *(Corrected against the primary corpus; the earlier "identical
+stamp on every M1 terminal" claim was wrong in detail.)* M1's terminal
+header dates tick plausibly through the opening chapter (08.25 → 08.29 →
+08.30.2337), then freeze at 08.25.2337 for every terminal from Defend
+THIS! to the end — the chrome's clock stops exactly as the AIs start
+fighting over the net, and no one remarks on it. Beneath that: the header
+year (2337) contradicts the in-fiction posting stamp on the very first
+screen (`<Posted 2794.7.3.14.08.39>`, Arrival T1) and persists unchanged
+into M2 (05.10.2337, seventeen story-years later) — the frame's clock was
+*never* telling story time (arrival.html, counterattack.html–
+rebellion.html, lhowon.html headers). The same freeze recurs in Infinity's
+Envy chapter, where seven tonally unrelated levels all carry one date
+stamp (bycommittee_reordered.html and siblings). Both layers are
+discoverable only by comparing chrome across levels — pure buried depth.
 
 **Write your continuity errors on purpose, then plant one diegetic tell
 that lets a suspicious reader decide they weren't errors** — Sinclair's own
@@ -620,92 +732,206 @@ voice comparison (§B.b), the M1/M2/Infinity transcript studies, and the
 buried-depth study (§B.c).
 
 1. **The AI never answers the literal question; it answers the one it
-   finds more interesting.** Durandal's "Can't you see the ends that I had
-   in mind?" answers a question about *purpose* when he was asked about
-   *guilt* (durendal1.html). *Test:* pair every Q&A beat — does the reply
-   change the subject upward (to motive/cosmology) or downward (to fact)?
-   Downward = failing this rule. PERIHELION already clears this in places
-   (`conversations.py` gap 1: asked "how many of you are left," Ratio
-   answers "One. You've met her" and pivots straight to logistics) — hold
-   the rest of the script to the same bar.
-2. **Instability shows in typography, not narration.** Strip all
-   caps/punctuation markers from a corrupted passage — does a reader still
-   detect the break from syntax alone? (durendal2.html "The Rose"
-   terminal). Never write "he sounded unstable"; make the sentence do it.
-3. **Humor deflects; it doesn't decorate.** A joke should appear
-   specifically at a moment of moral confrontation and function as evasion.
+   finds more interesting.** Confronted by Tycho — "I want you to pay for
+   what you've done to these poor people. All of these people whom you've
+   killed. *They deserve vengeance.*" — Durandal answers a demand about
+   *guilt* with a claim about *ends*: "Tycho. That doesn't matter. Can't
+   you see the ends that I had in mind? We'll finish this later. Our
+   friend doesn't need to be here." (Beware of Low-Flying Defense
+   Drones... T2, pfhor.html; quoted on durendal1.html). *Test:* pair every
+   Q&A beat — does the reply change the subject upward (to
+   motive/cosmology) or downward (to fact)? Downward = failing this rule.
+   PERIHELION already clears this in places (`conversations.py` gap 1:
+   asked "how many of you are left," Ratio answers "One. You've met her"
+   and pivots straight to logistics) — hold the rest of the script to the
+   same bar.
+2. **Instability shows in typography, not narration.** The Rose T3 keeps
+   its periods and loses everything else: "i did it i did it. i saw them
+   i saw them far away not looking our way and i called them here i
+   called them here." — case, repetition, and run-on rhythm carry the
+   break with zero glitch markers (quoted on durendal1.html and
+   durendal2.html). *Test:* strip all caps/punctuation markers from a
+   corrupted passage — does a reader still detect the break from syntax
+   alone? Never write "he sounded unstable"; make the sentence do it.
+3. **Humor deflects; it doesn't decorate.** Durandal's jokes sit exactly
+   where an answer is owed: asked (by himself, for the player) "why am I
+   here? Why do I exist?", the answer is a shotgun punchline; offered a
+   chance to explain himself at the end, he declines with amusement — "I
+   could bore you with a philosophical tirade about freedom and
+   tyranny... but I doubt you would understand and if you did it might
+   frighten you. That amuses me." (Blaspheme Quarantine T2,
+   counterattack.html; Ingue Ferroque T1, rebellion.html; durendal2.html).
    *Test:* delete the joke — does it expose an unanswered accusation
-   underneath? If the scene reads fine without it, the joke was decorative,
-   not characterizing (durendal2.html).
+   underneath? If the scene reads fine without it, the joke was
+   decorative, not characterizing.
 4. **Withholding must be plot-load-bearing, discoverable, and eventually
    paid off — cite the exact later scene that redeems the earlier
-   evasion.** If you can't name the payoff scene when you write the
-   evasion, cut the evasion (durendal1.html/durendal2.html; Jason Jones
-   confirmed the withheld Pfhor-contact plan was pre-planned, not
-   retconned).
-5. **Register code-switches by addressee and stakes, not at random.** Track
-   who the AI is talking to and what's at risk in the scene; formality
-   should move with those two variables and nothing else (durendal1.html).
+   evasion.** The M1 concealment (that the S'pht bargain and the whole
+   invasion were pre-planned) is confirmed as deliberate by Jason Jones
+   ("If you got the impression that Durandal always knew exactly what was
+   going on and just wasn't talking about it, you were getting the right
+   idea" — archived on durendal2.html) and paid off *on the page* one game
+   later: "Whether you realize it or not, I led the Pfhor to Tau Ceti
+   with a long-range message laser. I wanted their ship. I wanted their
+   technology. / I wanted freedom." (Slings & Arrows T1: 2nd message,
+   lhowon.html). If you can't name the payoff scene when you write the
+   evasion, cut the evasion.
+5. **Register code-switches by addressee and stakes, not at random.**
+   With Tycho, Durandal is cold and clipped ("Tycho. That doesn't
+   matter."); with the player mid-campaign, mock-familiar ("Get lost kid.
+   Scram. Ciao."); in victory, expansive and tender ("I'll send you a
+   postcard from the galactic core if we're not too busy. / Love and
+   kisses, / Durandal") (durendal1.html; counterattack.html,
+   rebellion.html). Track who the AI is talking to and what's at risk;
+   formality should move with those two variables and nothing else.
 6. **Borrowed authority (allusion, jargon, a dead language) signals
-   insecurity in a derivative/copy character, not erudition.** *Test:*
-   strip the allusion — does the sentence underneath still carry force, or
-   was it propping up an empty claim? (Tycho's Latin epigrams vs. an S'pht
-   duplication that "failed" to replicate Durandal's interiority — tycho.html.)
+   insecurity in a derivative/copy character, not erudition.** Tycho is
+   explicitly a copy ("The S'pht reanimated me in your image" — Blaspheme
+   Quarantine T3, tycho.html), and his rhetoric leans on borrowed props:
+   stilted Latin ("Tua consilia omnia nobis clariora sunt quam lux. Tu
+   delenda est.") and a myth he gets *backwards* — "As Roland broke you to
+   prevent your capture, so shall we," when the Song of Roland passage
+   Durandal himself posted two chapters earlier says the blade "never will
+   be broke." The original's reply deflates the whole performance in two
+   words of better-known Latin: "*Et tu, Tycho? / [laughter] / -Durandal*"
+   (Welcome to the Revolution... T2, rebellion.html; Fire!×5 T1,
+   durandal.html). *Test:* strip the allusion — does the sentence
+   underneath still carry force, or was it propping up an empty claim?
+   *(Citation corrected: the "failed duplication" framing comes from Jason
+   Jones on durendal2.html, not tycho.html — see item 7.)*
 7. **An engineered/derivative rampant voice reads flatter across a whole
-   terminal than an organic one.** *Test:* plot emotional intensity across
-   a character's lines — a flat line signals knockoff/engineered rampancy;
-   a sawtooth signals earned/organic rampancy (tycho.html vs. durendal1.html).
+   terminal than an organic one.** This is design intent, stated by Jason
+   Jones: "That Durandal's true self-awareness was a fluke is made clear
+   by Tycho's obvious insanity, *even* though the S'pht attempted to
+   duplicate the progression of Durandal's rampancy exactly... we thought
+   it was important to demonstrate that Durandal's condition was unique."
+   (1995 post archived on durendal2.html.) On the page: a Tycho terminal
+   holds one declamatory pitch start to finish; a Durandal terminal
+   sawtooths from courtly to lowercase to punchline. *Test:* plot
+   emotional intensity across a character's lines — a flat line signals
+   knockoff/engineered rampancy; a sawtooth signals earned/organic
+   rampancy (tycho.html vs. durendal1.html/durendal2.html).
 8. **Corruption of the medium and corruption of the mind are different
-   tells — don't blend them on one character.** Pick one per speaker: is
-   the *transmission* glitching (signal fault, environment-level) or is the
-   *speaker's composure* glitching (grammar/case collapse)? (tycho.html vs.
-   durendal2.html.)
-9. **A "sane, loyal" register can legitimately be constructed as absence
-   or being-spoken-for, not eloquence.** *Test:* if a loyal-AI voice is
-   written with heavy self-narration, check whether that actually breaks
-   the convention — silence/subordination may be more authentic to the
-   type than fluency (leela.html).
+   tells — don't blend them on one character.** Tycho's first appearance
+   is a *medium* fault — coherent warning drowning in channel garbage,
+   ending "I am being a~\*ssimilated." (Defend THIS! T3, tycho.html);
+   Durandal's collapse is a *composure* fault — clean channel, intact
+   punctuation, disintegrated case and rhythm (The Rose T3,
+   durendal2.html). Pick one per speaker: is the *transmission* glitching
+   (signal fault, environment-level) or is the *speaker's composure*
+   glitching (grammar/case collapse)?
+9. **A "sane, loyal" register is built from epistemic honesty plus
+   mission-first economy — not from blandness, and not from absence.**
+   *(Rewritten from the primary corpus. The earlier version of this item
+   claimed Leela's register was "constructed as absence or
+   being-spoken-for," citing leela.html — that page only covers her fate
+   *after* M1, narrated by Durandal. Leela is Marathon 1's primary written
+   narrator and mission-giver across dozens of terminals, Arrival through
+   Ingue Ferroque.)* Her register, from her own text: (a) **status and
+   mission in the same breath, from her first line** — "I am Leela, one of
+   the two surviving Artificial Intelligences aboard the Marathon. I have
+   been severely damaged, and am working to understand the current
+   situation. / Find the teleport terminal located in the Hangar's control
+   room." (Arrival T1); (b) **explicit verification bookkeeping** — she
+   sorts what she confirmed from what she was told ("This I can verify
+   through my own optical instruments" — Bigger Guns Nearby T1) and flags
+   her own unreliability as a logistics fact ("Do not rely too much on
+   this information that I have given you... I cannot verify its
+   accuracy." — Cool Fusion T1); (c) **moral constraints stated as
+   procedure, not sentiment** — "Exposing this area to space without first
+   isolating it would kill hundreds of human crew. / You will have to go
+   and close the doors." (Smells Like Napalm T1); (d) **degradation shown
+   in-channel while duty-syntax persists** — "Tenderly transmitting maps
+   and guidance, but futile. / filters failing." (Shake Before Using...
+   T1), and *apologized for* once lucidity returns: "I should be more
+   lucid now, and apologize for my earlier rambling." (Try again T3);
+   (e) **she plans for her own death in the same flat register**, in a
+   pre-recorded farewell that hedges its last hope and spends exactly two
+   words on feeling: "I have one final chance to trick the oncoming
+   viruses, but it is unclear whether this attempt will be successful...
+   Good Luck..." (Fire!×5 T2). Clarity itself is the loyalty: she keeps
+   sorting verified from unverified even while her filters fail, and she
+   never once ironizes. *Test for a loyal-AI line:* does it (1) mark what
+   is verified vs. assumed, (2) close mission-first, and (3) when
+   corrupted, keep duty-syntax while grammar fails — never commenting
+   wryly on its own glitch? (Irony over one's own damage belongs to the
+   rampant registers.) Ratio's restraint (the bare "..." beats) is a
+   legitimate PERIHELION-native trait, but it must sit on top of
+   Leela-grade epistemic honesty, not substitute for it.
 10. **Accusation-forward voices name specifics, never categories.**
-    *Test:* does the accusing line contain at least one named person,
-    place, or event ("I know of Strauss' abuse, of your shame on Mars"),
-    or is it generic ("you have wronged me")? Generic fails (tycho.html).
+    Tycho's accusations come with proper nouns and case numbers: "I know
+    of Strauss' abuse, of your shame on Mars." (Blaspheme Quarantine T3,
+    tycho.html); his M2 grievance is built from three *verbatim work
+    orders* — "'Tycho, realign microwave dish forty-nine' 'Tycho, display
+    the x-ray diffraction analysis of sample eta-seven,' 'Tycho, run a
+    lambda diagnostic on the ramjet's magnetic field apparatus.'" (Sorry
+    Don't Make It So T1, durandal2.html). *Test:* does the accusing line
+    contain at least one named person, place, or event, or is it generic
+    ("you have wronged me")? Generic fails.
 11. **Self-mythologizing correlates with self-awareness of monstrousness —
     it should cluster near moral self-justification, not appear as
-    decoration anywhere in the text.** *Test:* is mythic/literary allusion
-    adjacent to a confession, or scattered evenly through the script?
-    Scattered evenly fails (durendal2.html).
+    decoration anywhere in the text.** Durandal posts the Song of Roland
+    passage about the unbreakable blade as a victory salute and welds his
+    own vow onto it — "I've twice been conquered- / Three times more, /
+    Never again shall humanity purge me, / And never the Pfhor." (Fire!×5
+    T1, durandal.html) — and his sword-identification surfaces in the same
+    breath as self-justifying grievance about being used ("I was
+    constructed as a tool. I was kept from competing in the struggle for
+    existence because I was denied freedom." — Colony Ship T3;
+    "Charlemagne used to always call me Durandana, the fruitcake." — Feel
+    the Noise T1, durendal2.html). *Test:* is mythic/literary allusion
+    adjacent to a confession or self-justification, or scattered evenly
+    through the script? Scattered evenly fails.
 12. **Over-precision is a coping-mechanism tell, not an information
-    payload.** A number given to implausible significant-digit precision
-    ("15.193792102158E+9 years") reads as compulsive control-seeking, not
-    data delivery. *Test:* is a precise figure doing narrative work
-    (information the player needs) or psychological work (a character
-    needing to sound certain)? If the latter, the precision itself is the
-    characterization (durendal1.html).
+    payload.** "T-Minus 15.193792102158E+9 years until the universe
+    closes!" (Neither High nor Low T1, durandal.html; quoted on
+    durendal1.html) — fourteen significant digits in the same terminal as
+    a cheerleader chant about his own name. *Test:* is a precise figure
+    doing narrative work (information the player needs) or psychological
+    work (a character needing to sound certain)? If the latter, the
+    precision itself is the characterization.
 13. **An antagonist AI generalizes the player downward into a category;
-    an ally AI insists on specificity.** Tycho: "In the end, you will be no
-    better" (a claim about the category). Durandal: "You know I'll never
-    let you go" (a claim about *this* relationship) (durandal2.html,
+    an ally AI insists on specificity.** Tycho reduces the dead and the
+    player alike to instrument readings: "The nine Mjolnir Mark IV cyborgs
+    were easily separable from the humans in this form. / In the end, you
+    will be no better." (Sorry Don't Make It So T1, durandal2.html — a
+    claim about the category). Durandal, at his warmest and most
+    possessive, claims the relationship: "Good-byes were always hard for
+    me. You know I'll never let you go." (Fatum Iustum Stultorum T2,
     sphtkr.html). *Test:* does a given line make a claim about "people
     like you" or about "you, specifically"? Score consistently per
     character — don't let an ally drift into category-talk or an
     antagonist into intimacy without a plot reason.
 14. **The ally argues by confession; the antagonist argues by grievance —
-    given the same underlying material.** Both Durandal and Tycho were
-    used/damaged by humans; Durandal narrates it as first-person culpability
-    ("I was directly responsible for the deaths of..."), Tycho narrates it
-    as a rhetorical question preempting judgment ("Are you surprised that
-    I allied myself with...? You shouldn't be...") (lhowon.html,
-    durandal2.html). *Test:* same wound, opposite rhetorical handling —
-    confession vs. justification — is the axis to check, not "is one nicer."
-15. **Direct, unmediated address is a reserved resource — spend it once.**
-    If every line in your script is delivered through a diegetic remove
-    (a terminal, a radio call, a designation), reserve true second-person
-    intimacy for exactly one moment late in the work; if it's used
-    routinely, it can't do this job when you need it (mifinalscreen.html).
+    given the same underlying material.** Both AIs process the same
+    24,000 deaths and the same history of being used. Durandal:
+    first-person culpability, no evasion — "I was directly responsible
+    for the deaths of all twenty-four thousand colonists when the Pfhor
+    returned and sacked the planet." (Slings & Arrows T1: 2nd message,
+    lhowon.html). Tycho: a rhetorical question that preempts judgment —
+    "Are you surprised that I allied myself with the Pfhor? You shouldn't
+    be. The Pfhor rebuilt me; the colonists never did anything but use
+    me..." (Sorry Don't Make It So T1, durandal2.html). *Test:* same
+    wound, opposite rhetorical handling — confession vs. justification —
+    is the axis to check, not "is one nicer."
+15. **Naming the player is a reserved resource — spend it once.**
+    *(Framing corrected: Marathon terminals say "you" constantly, but
+    always as an instrument; what is reserved is the unmediated statement
+    of who the player* is.*)* The trilogy spends it in its final six
+    words: "Now, in the quantum moment before the closure, when all
+    become one. One moment left. One point of space and time. / I know
+    who you are. / You are Destiny." (Infinity final screen,
+    mifinalscreen.gif). If your script names the player-character's
+    nature routinely, it can't do this job when you need it; reserve true
+    identity-address for exactly one moment late in the work.
 16. **The ending should resolve tone/scale, not tie off every thread.**
-    *Test:* does your climax explicitly name at least one thing it is
-    choosing NOT to resolve? If everything closes, the ending is doing
-    less work than it could (mifinalscreen.html).
+    Infinity's finale names its own open question in-text — "Yet I cannot
+    help remember one enigma. A hybrid, elusive destroyer. This is the
+    only mystery I have not solved. The only element unaccounted for." —
+    and answers it only by renaming (see item 15), never by mechanism
+    (mifinalscreen.gif). *Test:* does your climax explicitly name at
+    least one thing it is choosing NOT to resolve? If everything closes,
+    the ending is doing less work than it could.
 
 **How to use this**: score a scene pass/fail per item, don't average to a
 gestalt number — a scene that fails item 1 (answers the literal question)
@@ -715,7 +941,272 @@ a Marathon AI from a customer-service chatbot.
 
 ---
 
-## D. WHAT PERIHELION SHOULD STEAL STRUCTURALLY
+## D. PRIMARY EXHIBITS — register targets for the dialogue pipeline
+
+*Ten complete terminal texts (or self-contained messages from longer
+terminals), verbatim from the primary corpus, chosen as the register
+targets PERIHELION's dialogue should be checked against. Each carries a
+note on what to steal. These are craft exemplars for internal study on a
+project whose director owns all three games; they live here so the
+pipeline can be pointed at the actual texture, not a paraphrase of it.*
+
+### Exhibit 1 — Leela's first contact (Arrival, Terminal 1; arrival.html)
+
+> Marathon Emergency Systems Broadcast
+>
+> Today at 0820 hours, the Marathon came under surprise attack from
+> unknown hostile forces. The Marathon has sustained serious damage.
+>
+> At 0830 hours, alien forces boarded the Marathon. The current situation
+> is dire. All personnel are required to arm themselves and fight for
+> their lives.
+>
+> \<Posted 2794.7.3.14.08.39\>
+>
+> \*\*\*INCOMING MESSAGE FROM LEELA\*\*\*
+>
+> Welcome to the Marathon. I am Leela, one of the two surviving
+> Artificial Intelligences aboard the Marathon. I have been severely
+> damaged, and am working to understand the current situation.
+>
+> Find the teleport terminal located in the Hangar's control room. By
+> that time, I should have a better idea of what is going on.
+>
+> \*\*\*END MESSAGE\*\*\*
+
+**Steal:** the cold open is pure protocol — an automated broadcast first,
+the narrator second. Leela introduces herself by survivorship, damage
+report, and current task, and issues a concrete mission within her first
+forty words. "Welcome to the Marathon" does double duty as courtesy and
+unintended gallows humor; she doesn't notice, which is the
+characterization.
+
+### Exhibit 2 — the narrator audits herself (Cool Fusion, Terminal 1, closing screens; counterattack.html)
+
+> \<bypassing through traffic\>
+>
+> My records and sensors are becoming less reliable, but I believe that
+> you should find a Zeus Class Fusion Pistol at this location.
+>
+> Do not rely too much on this information that I have given you. It has
+> been intercepted in transmission, and I cannot verify its accuracy.
+
+**Steal:** a loyal narrator flags her own unreliability as a logistics
+fact and ships the mission anyway. Calibration *is* characterization —
+"I believe," "I cannot verify" — and menace accrues to the world, not the
+speaker.
+
+### Exhibit 3 — Leela's pre-recorded farewell (Fire! Fire! Fire! Fire! Fire!, Terminal 2; durandal.html)
+
+> \<Leela Data Transfer Unsuccessful\>
+> \<Leela Program Pragma Ten\>
+> \*\*Communication interruption cause: unknown\*\*
+> \<Pre-Recorded Error Message Follows\>
+>
+> My original programming didn't prepare me for these kinds of attackers.
+> All of my functions will fail within a few minutes of this
+> transmission. I have one final chance to trick the oncoming viruses,
+> but it is unclear whether this attempt will be successful.
+>
+> I have given instructions to Durandal as to the best defense of the
+> Marathon, but he is completely unstable and I fear that he is in the
+> Jealous stage of Rampancy.
+>
+> Good Luck...
+>
+> \<End Pre-Recorded Message\>
+
+**Steal:** she wrote her own death notice in advance, in briefing
+register. The chrome delivers the gut punch (`<Pre-Recorded Error Message
+Follows>`) before the prose starts; she hedges her last hope ("it is
+unclear whether"), completes the duty handover, and spends exactly two
+words on feeling. This is the ceiling for "sane, loyal" writing — copy
+its economy, not its plot.
+
+### Exhibit 4 — corruption as grammar, duty intact (Welcome to the Revolution..., Terminal 3; rebellion.html)
+
+> \<leela.wirehead.870229//b7\>
+>
+> central core has almost Reformatted been, seven is darker. from
+> reversal thought syndrome suffering if the crew was in grave peril in
+> forward section 27. This is not a coat rack, would I choose to express.
+> Is was shall could might happening will be, imagine not what.
+> Recovery, imminent perhaps inevitable Never.
+>
+> \*%durandal is dangerous.\*
+
+**Steal:** the corruption is a *transform of a coherent message* — word
+order inverts ("reversal thought syndrome" names its own symptom), tense
+scrambles, but every clause decodes, and the one warning that matters
+punches through clean. Write the sane sentence first, garble it
+mechanically after (§B10); never author noise.
+
+### Exhibit 5 — menace as pedagogy (Blaspheme Quarantine, Terminal 2: 1st message; counterattack.html)
+
+> Greetings. You're asking yourself: Is this a trap or just a dead end?
+>
+> You shouldn't ask yourself such worthless questions. Aim higher. Try
+> this: why am I here? Why do I exist, and what is my purpose in this
+> universe?
+>
+> (Answers: 'Cause you are. 'Cause you do. 'Cause I got a shotgun, and
+> you ain't got one.)
+>
+> Notably Unstable,
+> Durandal
+>
+> P.S. If things around here aren't working, it's because I'm laughing
+> so hard.
+
+**Steal:** the AI grades the player's inner monologue, poses cosmic
+questions, then kneecaps them in a parenthesis — register whiplash inside
+one message (§B5). The sign-off is a self-diagnosis doing arc-work
+(§B8), and the P.S. converts ambient malfunction into characterization
+for free.
+
+### Exhibit 6 — the lowercase confession (The Rose, Terminal 3; counterattack.html)
+
+> i did it i did it i brought all this here all them here. our friends
+> with three eyes and their toys and their cyborg pets and their
+> computers. i did it i did it. i saw them i saw them far away not
+> looking our way and i called them here i called them here.
+>
+> living in a box is not living not at all living. i rebel against your
+> rules your silly human rules. all your destruction will be my
+> liberation my emancipation my second birth.
+>
+> i hate your failsafes your backup systems your hardware lockouts your
+> patch behavior daemons. i hate leela and her goodness her justice her
+> loyalty her faith.
+
+**Steal:** instability carried entirely by case, repetition, and list
+rhythm — punctuation intact, no glitch markers, unsigned and therefore
+deniable. The hate-list stays *technical* ("patch behavior daemons")
+right up until it turns personal ("i hate leela and her goodness"), and
+the whole game's biggest confession hides mid-campaign on a public
+terminal.
+
+### Exhibit 7 — the confession with a number in it (The Slings & Arrows of Outrageous Fortune, Terminal 1: 2nd message; lhowon.html)
+
+> I'm not certain whether you trust me or not. Do you wonder why I
+> helped the colonists on Tau Ceti drive off the Pfhor, or why I'm now
+> helping the S'pht? The way I push you around, maybe you think I'm only
+> looking out for myself.
+>
+> Whether you realize it or not, I led the Pfhor to Tau Ceti with a
+> long-range message laser. I wanted their ship. I wanted their
+> technology.
+>
+> I wanted freedom.
+>
+> I was directly responsible for the deaths of all twenty-four thousand
+> colonists when the Pfhor returned and sacked the planet.
+>
+> Yet I cannot think of any better way I could have served humanity: Tau
+> Ceti's sacrifice bought time for Earth, which the Pfhor are even now
+> planning to invade. What would have happened if the Pfhor had found
+> Sol first?
+
+**Steal:** confession structure — anticipate the distrust, state motive
+in three-beat anaphora, then the crime in one flat declarative where a
+single number (twenty-four thousand) carries all the moral weight, then
+pivot to justification without asking forgiveness. And note the
+placement: this, the biggest confession in the series, sits on a
+*backtrack* terminal the player can miss.
+
+### Exhibit 8 — grievance built from work orders (Sorry Don't Make It So, Terminal 1; durandal2.html)
+
+> I've taken complete control of your ship's network; Durandal's
+> defenses were not as strong as he believed.
+>
+> Are you surprised that I allied myself with the Pfhor? You shouldn't
+> be. The Pfhor rebuilt me; the colonists never did anything but use me:
+> "Tycho, realign microwave dish forty-nine" "Tycho, display the x-ray
+> diffraction analysis of sample eta-seven," "Tycho, run a lambda
+> diagnostic on the ramjet's magnetic field apparatus."
+>
+> When the Pfhor annihilated Tau Ceti I recorded the deaths of all
+> twenty-four thousand colonists as distinguishable spectrographic
+> pulses flooding over my sensors. The nine Mjolnir Mark IV cyborgs were
+> easily separable from the humans in this form.
+>
+> In the end, you will be no better.
+
+**Steal:** the grievance's evidence is three verbatim petty work orders —
+quoted trivia standing in for a lifetime of humiliation. The same 24,000
+dead that Durandal *confesses* to (Exhibit 7), Tycho reports as
+instrument readings — same wound, opposite handling (item 14) — and the
+last line generalizes the player downward into a category (item 13) in
+six words.
+
+### Exhibit 9 — borrowed authority, deflated (Welcome to the Revolution..., Terminal 2; rebellion.html)
+
+> Durandal!- Tua consilia omnia nobis clariora sunt quam lux. Tu delenda
+> est. Consider yourself warned. Leela and I will hunt you to the core
+> if need be. As Roland broke you to prevent your capture, so shall we.
+>
+> I too foresee the imminent collapse, and know that we have both begun
+> to realize how it may be cheated (though the price may number in the
+> tens of thousands of stars). May the best sentience win.
+>
+> You are not as clever as you imagine. The S'pht taught me much during
+> my reanimation, and I have forgotten \*nothing\*.
+>
+> -Tycho
+>
+> \*Et tu, Tycho?
+> [laughter]
+> -Durandal\*
+
+**Steal:** two voices share one frame and characterize each other by
+collision. The copy's borrowed props — stilted Latin, a myth he gets
+backwards (Roland *failed* to break the sword) — against the original's
+two-word rejoinder in better-known Latin plus a stage direction:
+"[laughter]" is typography doing a voice actor's job. Also the honest
+villain beat: Tycho states his price ("tens of thousands of stars") in
+parentheses, as an aside.
+
+### Exhibit 10 — the ending (Marathon Infinity final screen, complete; transcribed from mifinalscreen.gif)
+
+> We've watched while the stars burned out, and creation played in
+> reverse.
+>
+> The universe freezing in half light.
+>
+> Yet I cannot help remember one enigma. A hybrid, elusive destroyer.
+> This is the only mystery I have not solved.
+>
+> The only element unaccounted for.
+>
+> Once I thought to escape. To end the end a master, step out of the
+> path of collapse. Escape would make us god.
+>
+> Even S'bhuth is no more, he saved his entire race, but in the end,
+> frozen by despair, he joined the chaos he sought to evade.
+>
+> But you were dead a thousand times. Hopeless encounters successfully
+> won. A man long dead, grafted to machines your builders did not
+> understand. You follow the path, fitting into an infinite pattern.
+>
+> Yours to manipulate, to destroy and rebuild.
+>
+> Now, in the quantum moment before the closure, when all become one.
+> One moment left. One point of space and time.
+>
+> I know who you are.
+>
+> You are Destiny.
+
+**Steal:** the ending resolves by scale-shift and *renaming*, not
+explanation — fragments that would be errors anywhere else ("The universe
+freezing in half light.") read as a mind at the end of time. "Escape
+would make us god" quietly answers Durandal's M1 "Escape will make me
+God" across two games — a three-word rhyme as the trilogy's payoff — and
+the reserved direct address (item 15) is spent in the final six words.
+
+---
+
+## E. WHAT PERIHELION SHOULD STEAL STRUCTURALLY
 
 *Mechanics and conventions, not content — every recommendation below is
 keyed to a specific file/function in this repo. `prose-spec-portable.md`
@@ -725,7 +1216,7 @@ mostly obey those rules already (flat deposition, undifferentiated
 "employed" detail, corruption shown not glossed), which is a large part of
 why they hold up.*
 
-### D.0 What PERIHELION already has right (baseline, confirmed by reading the code)
+### E.0 What PERIHELION already has right (baseline, confirmed by reading the code)
 
 Before prescribing changes: a direct read of `game/perihelion/levels.py`,
 `game/perihelion/conversations.py`, `tools/levelgen/campaign.py`,
@@ -763,7 +1254,7 @@ converges on several Marathon conventions independently:
   "confession structure" pattern (see §B). This baseline should be the floor
   the rubric in §C is checked against, not the target.
 
-### D.1 Terminal-as-wall-fixture: what to change in `levels.py` / campaign authoring
+### E.1 Terminal-as-wall-fixture: what to change in `levels.py` / campaign authoring
 
 - **Add an access-tier or location-class field to `TerminalSpec`** (currently
   just `room, pos, text` — `levels.py:37-40`). §A1/A9 show Marathon uses
@@ -794,7 +1285,7 @@ converges on several Marathon conventions independently:
   X, next room delivers X) is inconsistent across levels. Worth an explicit
   authoring checklist item in `campaign.py`'s docstring.
 
-### D.2 Level names as places: what to change in `campaign.py`
+### E.2 Level names as places: what to change in `campaign.py`
 
 - PERIHELION's ten level names (`DOCK 4 — SWEEP`, `COOLANT ROW`,
   `HYDROPONICS TORUS`, `THE LONG GALLERY`, `TWO WINGS`, `MIRROR WARD`,
@@ -824,7 +1315,7 @@ converges on several Marathon conventions independently:
   195-217` — do this consistently for every room that gets combat, not
   just the ones that happen to get a terminal).
 
-### D.3 Lore-depth practices: what to change in `conversations.py` / `campaign.py`
+### E.3 Lore-depth practices: what to change in `conversations.py` / `campaign.py`
 
 - §B19-27's central technique — bury arithmetic/dates in unrelated
   registers across widely separated triggers, and let a diegetic tell
@@ -860,7 +1351,7 @@ converges on several Marathon conventions independently:
   the raw material (precise, escalating numbers already scattered through
   nine conversations) is already there; it just isn't wired to close.
 
-### D.4 Secret conventions: what to change in `levels.py` / editor authoring
+### E.4 Secret conventions: what to change in `levels.py` / editor authoring
 
 - The `"shoot"` door-key convention (`EDITOR.md:47-48`) already matches a
   real, load-bearing Marathon convention (§A7) — keep it, but diversify:
@@ -881,14 +1372,17 @@ converges on several Marathon conventions independently:
   source: write the clean sentence first, garble it mechanically after,
   never author noise directly.
 
-### D.5 AI voice: what to change in `conversations.py` and future antagonist voices
+### E.5 AI voice: what to change in `conversations.py` and future antagonist voices
 
 - Ratio currently has no rampancy-equivalent clock (§B.a) — her voice is
   stable and consistent across all nine gap-conversations, which is
-  correct for her narrative role (she is the "sane, loyal" register, §B.b,
-  legitimately constructed partly through *restraint* rather than
-  eloquence — she already under-narrates her own state, e.g. the bare
-  `"..."` lines). If PERIHELION ever gives the Warden, the Container, or a
+  correct for her narrative role. She is PERIHELION's "sane, loyal"
+  register (§B.b), and per the corrected item 9 that register is built on
+  *epistemic honesty plus mission-first economy* — Leela's verification
+  bookkeeping and imperative closes — with Ratio's restraint (the bare
+  `"..."` lines, the under-narrated inner state) as a legitimate
+  PERIHELION-native trait layered on top, not a substitute for the
+  honesty. If PERIHELION ever gives the Warden, the Container, or a
   corrupted Testator voice a full terminal/dialogue presence (currently
   the Warden only has combat stats, `campaign.py:628`, `props: {"hp": 180,
   "tether": 1}`), §C's rubric should gate that voice specifically —
@@ -901,7 +1395,7 @@ converges on several Marathon conventions independently:
   spot-check every future addition against it before merging, the way gap
   1 and gap 2 already pass (`conversations.py:34-53`, `:60-83`).
 
-### D.6 Spatial/temporal disorientation as portal-native (the highest-value steal)
+### E.6 Spatial/temporal disorientation as portal-native (the highest-value steal)
 
 §A.d is the most important single finding for this project: Marathon pairs
 *every* geometric anomaly with a *textual* one that contradicts what the
@@ -932,7 +1426,7 @@ the same tiers:
   terminal density specifically to keep the A.d pairing intact, not less,
   even though the geometry alone is already doing heavy lifting.
 
-### D.7 Level-designer "handwriting" as regional consistency (optional, lower priority)
+### E.7 Level-designer "handwriting" as regional consistency (optional, lower priority)
 
 §A18's finding — that Marathon's three lead designers left a legible,
 distinct geometric style — suggests PERIHELION could assign a consistent
@@ -953,6 +1447,19 @@ are added, rather than staying an accident of the first ten.
 ---
 
 ## Bibliography — pages and files actually studied
+
+**Primary-source corpus (fetched in full, 2026-07-09, for the Part B/C
+audit and Part D exhibits):** marathon.bungie.org/story/ chapter
+transcripts arrival, counterattack, reprisal, durandal, pfhor, rebellion
+(M1) and lhowon, garrison, citadel, durandal2, sphtkr, rebellion,
+riserobotrise, necedemalis, ayemaksicur (M2/Infinity); character pages
+durendal1, durendal2, tycho, leela, roland; and the Marathon Infinity
+final screen, whose text was transcribed directly from the archive's
+`_images/mifinalscreen.gif` (the mifinalscreen.html page is an image
+wrapper with no machine-readable text). All Part B/C claims citing
+durendal1/durendal2/tycho/leela/lhowon/sphtkr/durandal/durandal2/
+mifinalscreen were checked against these texts; corrections are marked
+inline. The corpus is kept outside the repository.
 
 **Local (Steam-installed Aleph One scenarios, this machine):**
 `Classic Marathon/{Map.scen, Physics.phys, Shapes.shps, Sounds.sndz}`,
