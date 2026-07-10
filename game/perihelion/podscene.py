@@ -96,6 +96,47 @@ def _node_rng(node_id: str, salt: str = "") -> Random:
     return Random(zlib.crc32((node_id + salt).encode()))
 
 
+# ---------------------------------------------------------------------------
+# the settle: the exact relaxation trajectory (mindmap.layout_steps), cached
+# once per process, and label anchors as unit-space offsets from their node
+# (so labels glide/zoom with their node under the rite's camera exactly like
+# the node does -- both go through the same _to_screen call).
+# ---------------------------------------------------------------------------
+
+_SETTLE_TAIL_FRAMES = 14
+_SETTLE_DUR = 0.7  # seconds
+
+_traj_cache: list[dict[str, tuple[float, float]]] | None = None
+
+
+def _settle_trajectory() -> list[dict[str, tuple[float, float]]]:
+    global _traj_cache
+    if _traj_cache is None:
+        _traj_cache = mindmap.layout_steps(record_every=4)
+    return _traj_cache
+
+
+def _label_unit_offsets(layout: dict[str, tuple[float, float]],
+                        labels: dict[str, dict],
+                        ) -> dict[str, tuple[float, float]]:
+    """node id -> (dx, dy) in unit space from the node to its label
+    rectangle's CENTER, so the label can be positioned with the same
+    self._to_screen(surf, node_x + dx, node_y + dy) call used for the
+    node -- it inherits the rite's zoom/glide for free and never drifts
+    out of sync with the node it names."""
+    out: dict[str, tuple[float, float]] = {}
+    sxw = mindmap.CANVAS_W * mindmap.SX_FRAC
+    syh = mindmap.CANVAS_H * mindmap.SY_FRAC
+    for nid, info in labels.items():
+        if nid not in layout:
+            continue
+        l, t, r, b = info["box"]
+        bcx, bcy = (l + r) / 2, (t + b) / 2
+        npx, npy = mindmap._to_px(layout[nid])
+        out[nid] = ((bcx - npx) / sxw, (bcy - npy) / syh)
+    return out
+
+
 class PodScene(Scene):
     """The unified seed-pod UI. Owns no sim state: focus/progress/queue
     live in GameSession (deterministic, persisted); this scene is the
@@ -114,19 +155,55 @@ class PodScene(Scene):
         self._hero_cache: dict[str, "pygame.Surface | None"] = {}
         # mind
         self.layout = mindmap.layout()
+        self._labels = mindmap.label_layout(self.layout)
+        self._label_offset = _label_unit_offsets(self.layout, self._labels)
         self.sel: str | None = None
         self.rite: dict | None = None
         self._overlay: "pygame.Surface | None" = None
         self._ducked = False
+        self._settle: dict | None = None
 
     # ------------------------------------------------------------------
 
     def on_enter(self, app) -> None:
         self.session.pod_heal()  # entering the pod heals (design brief)
         self._ensure_selection()
+        if self.page == "mind":
+            self._start_settle()
         if self.session.think_done and self.rite is None:
             self.page = "mind"
             self._start_rite(app)
+
+    # ------------------------------------------------------------------
+    # the settle: node positions visibly relax into place using the REAL
+    # relaxation trajectory (mindmap.layout_steps), not a fake tween --
+    # played on opening MIND and again, scoped to the affected
+    # neighborhood, right after a rite reveals new nodes.
+    # ------------------------------------------------------------------
+
+    def _start_settle(self, subset: set[str] | None = None) -> None:
+        traj = _settle_trajectory()
+        if len(traj) < 2:
+            return
+        tail = traj[-_SETTLE_TAIL_FRAMES:] if len(traj) > _SETTLE_TAIL_FRAMES else traj
+        self._settle = dict(frames=tail, t0=self.t, dur=_SETTLE_DUR, subset=subset)
+
+    def _node_pos(self, nid: str) -> tuple[float, float]:
+        s = self._settle
+        if s is not None and (s["subset"] is None or nid in s["subset"]):
+            frames = s["frames"]
+            u = (self.t - s["t0"]) / s["dur"]
+            if u < 1.0:
+                fu = max(0.0, u) * (len(frames) - 1)
+                i0 = int(fu)
+                i1 = min(i0 + 1, len(frames) - 1)
+                frac = fu - i0
+                f0, f1 = frames[i0], frames[i1]
+                if nid in f0 and nid in f1:
+                    x0, y0 = f0[nid]
+                    x1, y1 = f1[nid]
+                    return (x0 + (x1 - x0) * frac, y0 + (y1 - y0) * frac)
+        return self.layout.get(nid, (0.0, 0.0))
 
     def on_exit(self, app) -> None:
         if self._ducked:
@@ -208,6 +285,8 @@ class PodScene(Scene):
                 self._ensure_selection()
                 if self.session.think_done:
                     self._start_rite(app)
+                else:
+                    self._start_settle()
         elif self.page == "fabricator":
             self._fab_event(app, event)
         else:
@@ -305,6 +384,11 @@ class PodScene(Scene):
             self._start_rite(app)
         else:
             self._ensure_selection()
+            # the newly revealed neighborhood relaxes live to make room:
+            # the same real relaxation trajectory, scoped to just the new
+            # nodes and the node they unfolded from, so the rest of the
+            # graph holds still while that corner visibly settles
+            self._start_settle(subset=set(r["new"]) | {r["node"]})
 
     def _rite_cue(self, app, key: str, sound: str, vol: float = 0.9) -> None:
         r = self.rite
@@ -318,6 +402,8 @@ class PodScene(Scene):
             self.flash = max(0.0, self.flash - dt)
         elif self.flash < 0:
             self.flash = min(0.0, self.flash + dt)
+        if self._settle is not None and self.t - self._settle["t0"] >= self._settle["dur"]:
+            self._settle = None
         r = self.rite
         if r is None:
             return
@@ -625,8 +711,8 @@ class PodScene(Scene):
 
         # edges
         for a, b in self._edges(vis):
-            ax, ay = self._to_screen(surf, *self.layout[a])
-            bx, by = self._to_screen(surf, *self.layout[b])
+            ax, ay = self._to_screen(surf, *self._node_pos(a))
+            bx, by = self._to_screen(surf, *self._node_pos(b))
             both = a in s.mind and b in s.mind
             col = (70, 86, 78) if both else (44, 52, 50)
             pygame.draw.line(surf, col, (ax, ay), (bx, by), max(1, ui(1)))
@@ -650,7 +736,8 @@ class PodScene(Scene):
     def _draw_node(self, surf, nid: str) -> None:
         s = self.session
         n = mindmap.nodes()[nid]
-        x, y = self._to_screen(surf, *self.layout[nid])
+        nx, ny = self._node_pos(nid)
+        x, y = self._to_screen(surf, nx, ny)
         rad = ui(6) + (ui(2) if not n["prereqs"] else 0)
         rcol = REGION_COLOR[n["region"]]
         owned = nid in s.mind
@@ -688,14 +775,46 @@ class PodScene(Scene):
             for k in range(3):
                 a = a0 + k * 2 * math.pi / 3
                 pygame.draw.arc(surf, col, rect, a, a + 1.1, max(1, ui(1)))
-        # label only where it can't collide: the selected node (the detail
-        # band names it too) and finished thoughts -- 33 labels in a 16px
-        # bitmap font would shingle the whole graph
-        if (nid == self.sel and self.rite is None) or queued:
-            f = get_font(9)
-            col = BONE if nid == self.sel else GOLD
-            img = f.render(n["label"], True, col)
-            surf.blit(img, (x - img.get_width() // 2, y + rad + ui(6)))
+        # every visible node gets its label now: mindmap.label_layout()
+        # already proved (PBT, test_mindmap_layout.py) that no two labels
+        # and no label/node pair ever collide at rest. During the rite,
+        # non-focus labels dim to near-invisible during the glide/ignite
+        # (the known "label sits on the animation" collision class is
+        # gone by construction -- there's nothing legible there to sit on
+        # top of the ceremony art) and the rite's own node draws no
+        # ordinary label at all (the ceremony IS its name-card).
+        r = self.rite
+        if r is not None and nid == r["node"]:
+            return
+        alpha = 255
+        if r is not None:
+            if r["t"] < RITE_UNFURL:
+                alpha = 26
+            else:
+                alpha = int(255 * min(1.0, (r["t"] - RITE_UNFURL) / 0.6))
+            if alpha <= 0:
+                return
+        off = self._label_offset.get(nid)
+        if off is None:
+            return
+        lx, ly = self._to_screen(surf, nx + off[0], ny + off[1])
+        info = self._labels.get(nid, {})
+        font_px = info.get("font_px", 16)
+        col = BONE if nid == self.sel else (GOLD if queued else (
+            132, 140, 136) if not owned else tuple(min(255, c + 40) for c in rcol))
+        img = get_font(9).render(n["label"], True, col)
+        if font_px < 16:
+            k = font_px / 16.0
+            img = pygame.transform.smoothscale(
+                img, (max(1, int(img.get_width() * k)), max(1, int(img.get_height() * k))))
+        if alpha < 255:
+            img = img.copy()
+            img.set_alpha(alpha)
+        if info.get("leader") and r is None:
+            # an escalated label (leader-line placement, per the layout's
+            # own escalation ladder): a thin tick names which node it is
+            pygame.draw.line(surf, (74, 80, 76), (x, y + rad), (lx, ly), 1)
+        surf.blit(img, (lx - img.get_width() // 2, ly - img.get_height() // 2))
 
     def _draw_detail(self, surf) -> None:
         w, h = surf.get_size()

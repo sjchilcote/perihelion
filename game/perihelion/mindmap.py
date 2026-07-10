@@ -468,7 +468,15 @@ def label_layout(positions: dict[str, tuple[float, float]],
            for nid in positions}
     placed: list[tuple[float, float, float, float]] = []
     out: dict[str, dict] = {}
-    canvas_rect = (0.0, 0.0, CANVAS_W, CANVAS_H)
+    # a few px of safety margin: the canonical box math assumes an exact
+    # 8px/glyph advance, but the actual renderer (podscene) draws at
+    # get_font(9)'s native cell and smoothscales non-16px labels down,
+    # which can round a pixel or two wider than the canonical box. Margin
+    # here keeps that rounding from ever pushing real pixels past the
+    # screen edge.
+    _EDGE_MARGIN = 4.0
+    canvas_rect = (_EDGE_MARGIN, _EDGE_MARGIN,
+                  CANVAS_W - _EDGE_MARGIN, CANVAS_H - _EDGE_MARGIN)
 
     def overlaps_any(rect) -> bool:
         l, t, r, b = rect
