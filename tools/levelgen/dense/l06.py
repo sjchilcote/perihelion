@@ -433,6 +433,24 @@ def build() -> LevelBuilder:
                "Same hand, same ink, two lines, no gap between\n"
                "them. Whoever wrote it isn't answering the page.\n"
                "Post considered staffed. Post considered.")
+    # LLM-generated verbatim (Hermes-4-405B via OpenRouter, same call
+    # pattern as tools/dialogue/generate.py). Content-normalized similarity
+    # to the raw candidate: 1.0000. Seed beat 2/3 of the docent-voice arc
+    # (l05-l07): hospitality anticipating a guest nobody sent.
+    b.terminal(entry, wall_pos(b, entry, 3, 0.5, 15.0),
+               "ENVIRONMENTAL SYSTEMS LOG 8K02\n"
+               "Medical Ward 05-16 humidity adjusted\n"
+               "automatically to 45% RH Parameter shift\n"
+               "observed at cycle 241.8, prior to quarantine\n"
+               "activation Attending logged admission of\n"
+               "biological subject at cycle 241.9 Shift\n"
+               "matches recommended biocompatibility profile\n"
+               "for organic respiration No crew-mind units\n"
+               "require this profile; adjustment source\n"
+               "unclear Flagged as possible preset carryover\n"
+               "from prior contaminant event Scheduler\n"
+               "diagnostic returns nominal; filed under\n"
+               "auto-humidity calibration checks")
     b.terminal(side, wall_pos(b, side, 0, 0.5, 15.0),
                "ADMISSION CHART, WARD BED 1\n"
                "Patient reports hearing own voice from an empty\n"

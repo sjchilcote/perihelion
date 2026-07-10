@@ -6108,6 +6108,14 @@
     "text": "GUARD LOG, WARD ENTRANCE\n0600 \u2014 on post.\n0600 \u2014 on post.\nSame hand, same ink, two lines, no gap between\nthem. Whoever wrote it isn't answering the page.\nPost considered staffed. Post considered."
    },
    {
+    "room": 0,
+    "pos": [
+     70.0,
+     15.0
+    ],
+    "text": "ENVIRONMENTAL SYSTEMS LOG 8K02\nMedical Ward 05-16 humidity adjusted\nautomatically to 45% RH Parameter shift\nobserved at cycle 241.8, prior to quarantine\nactivation Attending logged admission of\nbiological subject at cycle 241.9 Shift\nmatches recommended biocompatibility profile\nfor organic respiration No crew-mind units\nrequire this profile; adjustment source\nunclear Flagged as possible preset carryover\nfrom prior contaminant event Scheduler\ndiagnostic returns nominal; filed under\nauto-humidity calibration checks"
+   },
+   {
     "room": 171,
     "pos": [
      575.0,

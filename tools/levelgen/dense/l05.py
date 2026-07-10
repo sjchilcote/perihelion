@@ -327,6 +327,20 @@ def l05() -> LevelBuilder:
                "corrected, read twice again. Facilities notified.\n"
                "Facilities printed a second copy, identical, and\n"
                "hung it under the first.")
+    # LLM-generated verbatim (Hermes-4-405B via OpenRouter; see
+    # tools/dialogue/generate.py for the call pattern this one-off script
+    # copied) -- content-normalized similarity to the raw candidate: 1.0000.
+    # Seed beat 1/3 of the docent-voice arc (l05-l07): a scheduling
+    # coincidence nobody escalates.
+    b.terminal(lobby, wall_pos(b, lobby, 1, 0.85, 15.0),
+               "FACILITIES LOG AUDIT\n"
+               "Cross-referenced reconfiguration events with\n"
+               "duty rosters. No maintenance shifts or\n"
+               "staffing changes correspond. Events occur at\n"
+               "fixed intervals, 14 hours apart. No\n"
+               "equipment cycles or procedures match this\n"
+               "interval. Filed as scheduling irregularity.\n"
+               "No further action required.")
     b.terminal(e3, wall_pos(b, e3, 3, 0.5, 15.0),
                "FACILITIES WORK ORDER, BUNK REASSIGNMENT\n"
                "Complaint: resident of 12-E reports resident of\n"

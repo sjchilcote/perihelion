@@ -260,7 +260,8 @@ def l03() -> LevelBuilder:
                "Behind me. I had checked behind me.")
     b.terminal(ring[1], tuple(arc_mid(0, 0, 195, math.radians(-45))),
                "DIRECTIVE 0007 — MIRIAD PRIME\n"
-               "RE: survey of gravitational anomaly, Site One\n"
+               "RE: survey of gravitational anomaly,\n"
+               "Track Quanta-118093\n"
                "\n"
                "RETRIEVAL SUPERSEDES SURVEY.\n"
                "\n"
@@ -278,9 +279,9 @@ def l03() -> LevelBuilder:
     b.terminal(entry, wall_pos(b, entry, 3, 0.5, 15.0),
                "SURVEY LOG — WEEK SIXTEEN\n"
                "Nutrient uptake within tolerance. Torus rotation\n"
-               "nominal. Site One's gravitational signature\n"
-               "remains the whole of this posting's interest, and\n"
-               "it has not changed in sixteen weeks.\n"
+               "nominal. Track Quanta-118093's gravitational\n"
+               "signature remains the whole of this posting's\n"
+               "interest, and it has not changed in sixteen weeks.\n"
                "Request denied: additional survey time. Reason\n"
                "given: 'the anomaly does not need more looking\n"
                "at. It needs a name.' We have not been told what\n"

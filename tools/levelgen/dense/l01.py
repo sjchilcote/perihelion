@@ -330,8 +330,9 @@ def l01() -> LevelBuilder:
                "Re-timed twice. Logged as clock drift.")
     b.terminal(d_w, wall_pos(b, d_w, 0, 0.25, 15.0),
                "CARGO LOG, DOCK 4\n"
-               "In: 6x coolant drums, 1x crate PERSONAL (Osei),\n"
-               "40x ration packs, 2x replacement grid sensors.\n"
+               "In: 6x coolant drums, 1x crate PERSONAL\n"
+               "(SURVEYOR S-6), 40x ration packs, 2x\n"
+               "replacement grid sensors.\n"
                "Out: nothing scheduled until perihelion.\n"
                "Note: someone keeps moving the mop.")
     b.terminal(ring_sw, wall_pos(b, ring_sw, 0, 0.5, 15.0),
@@ -340,12 +341,14 @@ def l01() -> LevelBuilder:
                "Filed a ticket. Ticket auto-closed: unit is\n"
                "not on the parts registry for this ring.\n"
                "It dispenses fine. Leaving it alone.")
-    # Osei's transfer paperwork now reads in the crew quarters — the crate
-    # marked PERSONAL (Osei) still lands on the dock in the cargo log above.
+    # SURVEYOR S-6's transfer paperwork now reads in the crew quarters — the
+    # crate marked PERSONAL (SURVEYOR S-6) still lands on the dock in the
+    # cargo log above.
     b.terminal(q21, wall_pos(b, q21, 1, 0.5, 15.0),
                "TRANSFER REQUEST — THIRD SUBMISSION\n"
-               "Requesting party: OSEI. Posting: MIRIAD outpost,\n"
-               "Site One survey. Cycles passed over: two. Grounds\n"
+               "Requesting party: SURVEYOR S-6. Posting: MIRIAD\n"
+               "outpost, Track Quanta-118093 survey. Cycles passed\n"
+               "over: two. Grounds\n"
                "cited, verbatim: 'a once-in-a-civilization anomaly,\n"
                "and colleagues worth the transit.'\n"
                "Approved, forwarded for transit scheduling.\n\n"
@@ -353,7 +356,7 @@ def l01() -> LevelBuilder:
                "Bring the good boots. Don't bring the mandolin, no\n"
                "room in the crate for both, checked twice.")
     b.terminal(junction, wall_pos(b, junction, 2, 0.5, 15.0),
-               "WATCH LOG, JUNCTION — THIBAULT\n"
+               "WATCH LOG, JUNCTION — WATCH J-4\n"
                "Hatch north: sealed, pressure nominal on my side.\n"
                "Hatch west: sealed, pressure reads high on my\n"
                "side, higher on the other. That number should not\n"
@@ -362,7 +365,7 @@ def l01() -> LevelBuilder:
                "Absent. Relief in six hours. Tell relief to bring\n"
                "a second gauge.")
     b.terminal(ring_w, wall_pos(b, ring_w, 0, 0.5, 15.0),
-               "SURVEY LOG, RING SEGMENT WEST — VESALIUS\n"
+               "SURVEY LOG, RING SEGMENT WEST — SURVEYOR W-2\n"
                "Ring walk, standard loop, timed against spec: 33s\n"
                "target, 41s measured, three crews, three\n"
                "stopwatches. Recalibration did not change the\n"

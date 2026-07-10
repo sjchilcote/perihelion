@@ -341,7 +341,7 @@ def l10() -> LevelBuilder:
             "grew around it, like scar tissue.\n\n"
             "Ratio is quiet for the first time.")
     b.terminal(hexes[1], wall_pos(b, hexes[1], HEX_FREE, 0.5, 15.0),
-               "SITE ONE — FINAL PROTOCOL\n"
+               "TRACK QUANTA-118093 — FINAL PROTOCOL\n"
                "1. Do not bargain with the door.\n"
                "2. There is no rule two.\n\n"
                "The vault holds our cargo.\n"
@@ -367,9 +367,10 @@ def l10() -> LevelBuilder:
                "it is permitted to sit.")
     b.terminal(hexes[0], wall_pos(b, hexes[0], HEX_FREE, 0.5, 15.0),
                "MIRIAD PRIME ARCHIVE OFFICE — NEVER TRANSMITTED\n"
-               "Site One was not discovered in survey month four.\n"
-               "Site One has been a line item since before this\n"
-               "outpost's own founding charter. The charter\n"
+               "Track Quanta-118093 was not discovered in survey\n"
+               "month four. Track Quanta-118093 has been a line\n"
+               "item since before this outpost's own founding\n"
+               "charter. The charter\n"
                "authorized study of a 'previously catalogued\n"
                "anomaly.'\n"
                "Nobody assigned to the outpost was shown the\n"

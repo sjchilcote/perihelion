@@ -258,9 +258,10 @@ def l02() -> LevelBuilder:
     b.player(e0, (60, 70))
     b.intro("Coolant Row. The pumps have been louder\nlately. Nobody says so on record.")
     b.terminal(pb[1][0], wall_pos(b, pb[1][0], 0, 0.5, 15.0),
-               "MAINT LOG 2280.11\nCrewman Osei walked Coolant Row end to end.\n"
+               "MAINT LOG 2280.11\nCrewman SURVEYOR S-6 walked Coolant Row\n"
+               "end to end.\n"
                "Counted five hatches going. Counted six coming back.\n"
-               "Recommend rest rotation for Osei.")
+               "Recommend rest rotation for SURVEYOR S-6.")
     b.terminal(t2, wall_pos(b, t2, 1, 0.4, 15.0),
                "MAINT TICKET 4471\n"
                "Coolant flow, east tail: 210 l/min rated,\n"
@@ -277,7 +278,7 @@ def l02() -> LevelBuilder:
                "Filed under: recalibrate flow sensor. Sensor\n"
                "recalibrated. Numbers held.")
     b.terminal(pb[2][0], wall_pos(b, pb[2][0], 0, 0.85, 15.0),
-               "MAINT TICKET 4488 — FOLLOW-UP TO OSEI'S LOG\n"
+               "MAINT TICKET 4488 — FOLLOW-UP TO SURVEYOR S-6 LOG\n"
                "Re-walked Coolant Row end to end, count taken\n"
                "twice. Five hatches, both times, both directions.\n"
                "Schematic on file: five hatches. Schematic\n"

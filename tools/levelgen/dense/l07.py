@@ -292,6 +292,23 @@ def l07() -> LevelBuilder:
     # ---- spawn / lore: all text verbatim from campaign.py's l07() --------
     b.player(entry, (80, 70))
     b.intro("Records. Aisle 9 is missing.\nAisle 9 is where the missing things go.")
+    # LLM-generated verbatim (Hermes-4-405B via OpenRouter, same call
+    # pattern as tools/dialogue/generate.py). Content-normalized similarity
+    # to the raw candidate: 1.0000. Seed beat 3/3 of the docent-voice arc
+    # (l05-l07): a recovered fragment nobody can classify.
+    b.terminal(entry, wall_pos(b, entry, 1, 0.5, 15.0),
+               "ARTIFACT RECOVERY LOG AR-2287\n"
+               "Item recovered from stack gamma. Physical\n"
+               "medium: unknown composite. Extensive damage\n"
+               "to substrate and surface. Partial text\n"
+               "recovered via multispectral imaging. Textual\n"
+               "content does not conform to known archival\n"
+               "formats. No hazard markers or technical\n"
+               "specifications present. Sequential structure\n"
+               "suggests instructional or procedural nature.\n"
+               "Unable to assign category. Submitted to\n"
+               "central review for analysis. Item placed in\n"
+               "secure holding pending evaluation.")
     b.terminal(stack, (410, 105),
                "SHELF TAG, AISLE 9\nEverything filed here is filed here.\n"
                "Everything filed here is filed here.\n"
@@ -301,16 +318,17 @@ def l07() -> LevelBuilder:
                "INCIDENT FILE 0001\nFirst contact was not a signal.\n"
                "It was an inventory discrepancy.\n"
                "We had one more room than we built.\n"
-               "We sent Osei to measure it.\nIt measured back.")
+               "We sent SURVEYOR S-6 to measure it.\nIt measured back.")
     b.terminal(closet, wall_pos(b, closet, 3, 0.4, 15.0),
                "CORE RECOVERY MANIFEST\n"
                "Staff-mind cores, recovered from Records:\n"
-               "  VESALIUS - damaged, held the west ring\n"
-               "  THIBAULT - damaged, held the junction\n"
-               "  OSEI - [NO CORE RECOVERED]\n"
+               "  SURVEYOR W-2 - damaged, held the west ring\n"
+               "  WATCH J-4 - damaged, held the junction\n"
+               "  SURVEYOR S-6 - [NO CORE RECOVERED]\n"
                "They held the subverted peripherals out of the\n"
                "core ring so the administrator could seal.\n"
-               "Osei walked into Aisle 9 to buy them the time.\n"
+               "SURVEYOR S-6 walked into Aisle 9 to buy them the\n"
+               "time.\n"
                "Effects racked below the cores: one records\n"
                "stamp, registrar's issue. The deep-stack gate\n"
                "releases on the stamp. Sign it back in after.")
@@ -323,7 +341,7 @@ def l07() -> LevelBuilder:
                "approved, for 'one additional room'.")
     cache(b, annex, "ammo_cell ammo_cell medkit")
     b.terminal(entry, wall_pos(b, entry, 3, 0.5, 15.0),
-               "VOICE LOG, TRANSCRIBED — OSEI\n"
+               "VOICE LOG, TRANSCRIBED — SURVEYOR S-6\n"
                "Going in with the tape measure this time, not\n"
                "the laser. If the laser's reading wrong the tape\n"
                "will tell me different, and if the tape agrees\n"
@@ -340,9 +358,10 @@ def l07() -> LevelBuilder:
                "characters resolve, the rest is scanner noise.\n"
                "The three that resolve are not initials MIRIAD\n"
                "uses for anyone on this posting.\n"
-               "Cost center charged: Site One, pre-existing\n"
-               "allocation. Site One had no pre-existing\n"
-               "allocation. The charge went through anyway.")
+               "Cost center charged: Track Quanta-118093,\n"
+               "pre-existing allocation. Track Quanta-118093 had\n"
+               "no pre-existing allocation. The charge went\n"
+               "through anyway.")
 
     # ---- combat / supplies: legacy roster verbatim, grown modestly ------
     squad(b, stack, "mite mite mite mite mite mite")

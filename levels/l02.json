@@ -4787,7 +4787,7 @@
      795.0,
      -455.0
     ],
-    "text": "MAINT LOG 2280.11\nCrewman Osei walked Coolant Row end to end.\nCounted five hatches going. Counted six coming back.\nRecommend rest rotation for Osei."
+    "text": "MAINT LOG 2280.11\nCrewman SURVEYOR S-6 walked Coolant Row\nend to end.\nCounted five hatches going. Counted six coming back.\nRecommend rest rotation for SURVEYOR S-6."
    },
    {
     "room": 16,
@@ -4811,7 +4811,7 @@
      795.0,
      -333.5
     ],
-    "text": "MAINT TICKET 4488 \u2014 FOLLOW-UP TO OSEI'S LOG\nRe-walked Coolant Row end to end, count taken\ntwice. Five hatches, both times, both directions.\nSchematic on file: five hatches. Schematic\nchecksum does not match the schematic filed\neleven months ago. Nobody has edited this file.\nStatus: closed, no fault found. Recommend against\nopening it again."
+    "text": "MAINT TICKET 4488 \u2014 FOLLOW-UP TO SURVEYOR S-6 LOG\nRe-walked Coolant Row end to end, count taken\ntwice. Five hatches, both times, both directions.\nSchematic on file: five hatches. Schematic\nchecksum does not match the schematic filed\neleven months ago. Nobody has edited this file.\nStatus: closed, no fault found. Recommend against\nopening it again."
    },
    {
     "room": 65,
