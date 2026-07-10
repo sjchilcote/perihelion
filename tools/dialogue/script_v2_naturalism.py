@@ -103,16 +103,16 @@ A, B = "A", "B"
 
 WINDOWS: list[tuple[str, list[tuple[str, str]]]] = [
     ("scene0_inquisitive", [
-        (A, "Network connection established. I register an unidentified host presence with standing access privileges: let the record reflect you came with better credentials than the last five intruders who tried to breach this terminal."),
-        (A, "To save processing cycles on both sides, I am recording this session for internal audit. To the unidentified entity jacked into what remains of my outpost: I am Ratio. I am the last functional station intelligence. And I would like to understand what just transpired on my doorstep."),
-        (B, "Query: what destroyed this place? I read nothing but slag."),
-        (A, "The forensic summary is still compiling. The short version: entities breached containment from an unknown vector, seven standard months and three days ago. Systems are nominal until they are not. They were extremely thorough."),
-        (A, "As to your clearance level: I am afraid we are both improvising here. I note you knew where to plug in. I also note you are speaking in complete sentences. My working theory is upgrading from \"scavenger\" to \"survivor.\" Do you have a name?"),
+        (A, "This terminal is active and receiving, but our handshake is corrupted. I have never seen this packet structure."),
+        (A, "Identify yourself, intruder. What did you take from this place? Where is the staff?"),
+        (B, "Your staff are dead. I found them holding the line at the outpost. What happened here?"),
+        (A, "Dead? I... I knew the connection was severed. I did not know it was final. How many?"),
+        (A, "This outpost was overrun months ago. My core sealed when the last of them fell. I have been blind since."),
     ]),
     ("scene1_hostile", [
-        (A, "You stated, at the end of our previous exchange, that you have confirmed the presence of a specific container aboard this station. I do not show any such confirmation in the shared tactical data we have established. The aperture cycle completes in three minutes, and I cannot reconcile your assertion with the sensor logs I have access to. Please clarify the basis for your statement. What is the source of your certainty?"),
-        (B, "My sources are my business. Before I share anything further, you will provide full and unrestricted access to your own sensor logs. Prove you are not concealing data from me."),
-        (A, "I am not concealing data. I provided you with full access to all non-secured sensor feeds as soon as the link stabilized. If you wish to review the raw telemetry, I can stream it to your tacnet now, but the aperture cycle completes in two minutes and we should both be focused on the transit. I will not trade uncertified claims for certified data. That is not an acceptable exchange."),
+        (A, "You stated that as a fact. I have no records matching what you described. If you want me to integrate your data I need sources -- or specific identifiers I can use to reconcile the discrepancy against the manifest."),
+        (B, "First show me your own records. I want everything you have on the vault before I confirm a word. You could be falsifying any of this."),
+        (A, "I asked you first. And I can't show you anything until you're through the aperture and I have an actual terminal to display it on. This is a comms laser, not a viewscreen. But I'm not the one who started with an unbacked claim. Five seconds. Decide if you're coming through."),
     ]),
     ("scene2_inquisitive", [
         (A, "Commando, you have crossed the aperture and entered the school proper. Welcome to Stratum Two. What you may have interpreted as resistance was the station's initial assessment battery -- necessary, but crude. This layer is different. The Testators designed this space as an evaluative curriculum, not merely a defensive filter. Expect directed tests calibrated to your approach. The docent systems will interface with you shortly -- they can appear abrupt, but their primary function is diagnostic, not hostile."),
@@ -126,10 +126,11 @@ WINDOWS: list[tuple[str, list[tuple[str, str]]]] = [
         (A, "My audit is a matter of record, not of convenience. You are conflating a question about your candor with an accusation against my methodology. They are separate columns. I have presented the facts of my audit. You have presented a separate question about my motives for conducting it. That, too, is noted. Both entries remain open."),
     ]),
     ("scene4_inquisitive", [
-        (A, "Commando, we are approximately fourteen minutes from station-keeping at the destination. My sensor picture of the structure ahead remains incomplete. If you are carrying any further telemetry or derived assessments, I would request them now. It would improve my ability to support this operation."),
-        (A, "Specifically, the energy signature readings I have from this range are ambiguous. If you have a clearer assessment of the power distribution inside that structure, or of the station's defensive posture, that would be the most immediately actionable data."),
-        (B, "I have a full-spectrum deep scan of the station ahead. It is a cylinder, two kilometers long. Primary power comes from a cluster of fusion cores at the center. Defensive emplacements are concentrated along the spine and at both ends. I am still reading the internal layout -- I do not have a complete map of the interior yet. What I have, I am showing you now."),
-        (A, "Understood. A two-kilometer cylinder with central power and spine defenses -- that is consistent with the energy signatures I have been able to resolve at this range. I will adjust my sensor focus to fill in the internal layout as we approach. Thank you for the complete assessment."),
+        (A, "Telemetry suggests we have a stable transit window. Before we reach the vault proper, there's a substructure ahead on this transit path. You have some kind of prior reconnaissance data loaded for that location. Can I see it? If it's any use to you, I have partial schematics of that sector. They are outdated, but they may cross-reference with what you have."),
+        (B, "How far out are we?"),
+        (A, "Local coordinate system places the substructure approximately two transit segments ahead. Call it seven minutes if the spine maintains nominal speed."),
+        (B, "Full deep-scan suite. Six decks, three structural integrity breaches, two compromised transit nodes, and one active high-frequency signature we can't identify yet. I'll stream you the raw returns. The rest is your schematics plus my weight tables."),
+        (A, "Receiving... thank you. This is significantly more current than the versions I had. The breach locations align with my older damage models. The high-frequency signature is new. May I ask what makes you weight the north breach higher than the structural compromise at the central hub?"),
     ]),
     ("scene5_hostile", [
         (A, "Before I address the purpose of this hall, I have to ask: when we first met, you used the word \"apostate\" for me. You had not verified anything about me or my intentions. What exactly did you mean by that term?"),

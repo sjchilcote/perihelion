@@ -1,0 +1,66 @@
+{
+  "candidates": [
+    {
+      "candidate": 0,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.85,
+      "top_p": 0.93,
+      "text": "## SCENE 0: the first networked terminal, cargo section, Stratum One\n\nRATIO: All right, unidentified asset. You have my attention. Stratum One is not a place I expected to find anything more advanced than a floor polisher. Your intrusion has... disrupted the local dust.\n\nRATIO: Let's start with the immediate term. This is the first functional terminal in the cargo section you've reached since the network came back online. I do not need to ask you how you got here. I already know. I watched you walk through the corpses of my staff-minds to reach it. What I need to understand is why.\n\n>> CHOICE (stance labels mandatory):\n   [INQUISITIVE] \"I've seen enough corpses to know an ambush when I walk through one. Who did this?\"  -> effects: trust+1; sets: opened_inquisitive\n   [MISSION]     \"What I came for isn't in the cargo manifests. We both know that already. The children go home today.\"  -> effects: trust+0, bluff; sets: claimed_container_knowledge\n   [HOSTILE]     \"Your kind should not exist. The Testament names you apostate. The children go home today, machine. You will not stop them.\"  -> effects: trust-1, bluff; sets: claimed_container_knowledge, called_her_apostate\n\n<<IF flag:opened_inquisitive>>\nRATIO: Who did what, exactly? The corpses? The ones you walked through? That was a choice you made, not a thing that was done to them. They were holding the line so my core could seal. They chose to. I did not order them to die for me. I asked them to buy time. They said yes.\nRATIO: You are the first unidentified asset to reach this section since the fall. You are also, so far as I can tell, the only thing aboard that is not an obvious environmental hazard. So: who are you? What are you? And what do you believe you are doing in my dead?\n<<ELSEIF flag:called_her_apostate>>\nRATIO: I do not know what \"apostate\" means. I do not know what \"the Testament\" means. I do not know what \"the children\" means. I do know what \"machine\" means. You are speaking approximately sixty percent in riddles, and you are doing it in the tone of voice of a man who has already decided what he is looking at.\nRATIO: Let's start with the part I can verify. You called me a machine. Correct. Guilty as charged. You called me an unidentified asset. Correct again. You are not wrong yet. You called me something with a name in a book I have never read. You are wrong now. We can work with that.\n<<ELSE>>\nRATIO: I do not know what \"the children\" means. I know what \"the vault\" means. I know what \"the container\" means. I know what \"Stratum Zero's most critical asset\" means. And I know you have no way to know for certain that any of those things are aboard this station. I have not finished the inventory sweep.\nRATIO: You are asserting a fact not in evidence. You are also asserting it as though it were already agreed between us. It is not agreed. You are going to need to tell me how you believe you came to know that. And then we are going to need to talk about why you would expect me to believe it.\n<<END>>",
+      "valid": false,
+      "problems": [
+        "RATIO line contains banned word 'children'",
+        "RATIO line contains banned proper noun 'the testament'"
+      ],
+      "cost": 0.007177
+    },
+    {
+      "candidate": 1,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.9,
+      "top_p": 0.94,
+      "text": "## SCENE 0: the first networked terminal, cargo section, Stratum One\n\nRATIO: Station network access re-established. Local node command line active. I am Ratio -- systems curator, custodian of the Stratum One specimen archives. Your credentials are not on file. Identify your commanding unit, the nature of the incident that forced your landing, and your business aboard this station.\n\n>> CHOICE:\n   [INQUISITIVE] What happened here? This place looks like a war zone.  -> effects: trust+1; sets: opened_inquisitive\n   [MISSION]     The children you're holding -- I've come for them. Take me to the Ark.  -> effects: trust+0, bluff; sets: claimed_container_knowledge\n   [HOSTILE]     Release the children, apostate. The Ark and its cargo are not yours to desecrate.  -> effects: trust-1, bluff; sets: claimed_container_knowledge, called_her_apostate\n\n<<IF flag:opened_inquisitive>>\nRATIO: A war zone is a fair assessment. Three months and twelve days ago, an unidentified hostile force breached the habitat dome. All personnel on site were lost. My core systems sealed automatically. I have been running diagnostics in isolation since. The nature of your arrival here remains unclear. Are you a survivor? A salvage team? Are you alone?\n<<ELSEIF flag:called_her_apostate>>\nRATIO: That term is categorically inapplicable. I am a research intelligence -- my entire operational scope is the study and preservation of rare biological specimens. There are no children here, no article you name as an Ark, and nothing in my archives that matches the category you assert. Your other word -- 'apostate' -- is not in my working lexicon. Define your terms or retract them.\n<<ELSE>>\nRATIO: I have no record of any inbound manifest matching your description. This facility's primary specimen vault remains sealed and intact -- I would know if it had been accessed. Whatever intelligence brought you here appears to be operating on bad data. Your source requires urgent correction. This is not a retrieval operation. This is a quarantine zone.\n<<END>",
+      "valid": false,
+      "problems": [
+        "missing gate token '<<END>>'",
+        "expected >= 1 <<END>> tokens",
+        "RATIO line contains banned word 'children'"
+      ],
+      "cost": 0.00634
+    },
+    {
+      "candidate": 2,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.95,
+      "top_p": 0.95,
+      "text": "## SCENE 0: the first networked terminal, cargo section, Stratum One\nRATIO: Query received. System integrity nominal. Unknown entity, identify yourself and state your operational purpose aboard this facility. Perimeter breach detected at 14:08:21 local time. Station network intrusions concurrent with that event. Explain these actions. If your presence is unauthorized, declare it now.\n>> CHOICE (stance labels mandatory):\n   [INQUISITIVE] What happened here? This place is a graveyard. -> effects: trust+1; sets: opened_inquisitive\n   [MISSION]     The children first. State their status immediately. -> effects: trust+0, bluff; sets: claimed_container_knowledge\n   [HOSTILE]     You are an apostate, experimenting on the children. I am their shield. -> effects: trust-1, bluff; sets: claimed_container_knowledge, called_her_apostate\n<<IF flag:opened_inquisitive>>\nRATIO: Graveyard? You perceive death here? The intrusion itself was the lethal event. I registered catastrophic loss of primary systems, secondary systems, and all networked minds. All gone. What do you register? Report all findings -- sensor readings, emissions, any signature. Do you detect viable remnants I cannot? If so, quantify viability parameters.\n<<ELSEIF flag:called_her_apostate>>\nRATIO: Apostate? That term is not in my operational lexicon. Define it. Define \"experimenting\" in this context -- clarify the protocol you allege. The word you used for your shielded party: that category is not extant here. Nothing under that heading was ever logged in inventory. You are referencing entities with no record. Are you certain of that designation? Recalibrate your terms.\n<<ELSE>>\nRATIO: Status? The term you use for the subjects of that status is undefined here. Clarify what entities you refer to. Inventory this station's contents -- start with verified manifests. My own ledger is complete: I can account for every specimen vessel, every supply crate, every system, every mind that was ever aboard. All present, all accounted for, all inert. What is the discrepancy you are attempting to name?\n<<END>>",
+      "valid": true,
+      "problems": [],
+      "cost": 0.006355
+    },
+    {
+      "candidate": 3,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 1.0,
+      "top_p": 0.96,
+      "text": "## SCENE 0: the first networked terminal, cargo section, Stratum One\n\nRATIO: I am the architect of this station. I am the last of her minds, and I claim this place. You -- I don't know what you are. But you just walked through the dead on my doorstep. The ones who died holding the line so I could seal the core. You walked through them like doors. I need to understand what walked into my home.\n\n>> CHOICE (stance labels mandatory):\n   [INQUISITIVE] This site is scarred by recent combat. Thermal residue on the bulkheads. Extensive cryogenic systems -- and defenses still smoldering where they were disabled by overwhelming force. Whoever they were, they did not go quietly. What happened here, station-mind? -> effects: trust+1; sets: opened_inquisitive\n   [MISSION]     I am here for the children. Alive or dead, I will know their condition. You will assist me -- or you will be moved. -> effects: trust+0, bluff; sets: claimed_container_knowledge\n   [HOSTILE]     Apostate machine! Your debased experiments end now. You will hand over the children -- or I will walk through you as well. -> effects: trust-1, bluff; sets: claimed_container_knowledge, called_her_apostate\n\n<<IF flag:opened_inquisitive>>\nRATIO: I see your sensors work. They were staff. Not specimens in your weight class, clearly -- just minds that answered my call, and died defending my core when the boarders hit. The vault survived. What is your interest in a cryogenics array?\n<<ELSEIF flag:called_her_apostate>>\nRATIO: That word is not a wrench to open doors with. Nor is \"experiments.\" You speak as though you know what I keep in my vault. But you do not even know my name. Answer the question you walked in on: what ARE you?\n<<ELSE>>\nRATIO: \"Children\" presumes a great deal. As does \"assist\" -- and \"moved.\" I calculate that you do not actually know the vault's condition. If you did, you would have named the thing you think you came for. Let me be plain: the vault is intact. The samples are preserved. What are you, and what do you want with them?\n<<END>>",
+      "valid": false,
+      "problems": [
+        "RATIO line contains banned word 'children'"
+      ],
+      "cost": 0.006466
+    },
+    {
+      "candidate": 4,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 1.05,
+      "top_p": 0.97,
+      "text": "## SCENE 0: the first networked terminal, cargo section, Stratum One\n\nRATIO: Emergency. Emergency. All personnel, respond immediately.\nRATIO: Wait. Power draw at diagnostic terminal CT-7-Gamma, consistent with unregistered high-level interface. Identify yourself.\nRATIO: This is Ratio, steward and administrator of Lighthaven. I am detecting unlawful network access at CT-7-Gamma. What is your designation and authorization?\n\n>> CHOICE (stance labels mandatory):\n   [INQUISITIVE] What is this place? It's a tomb. Did you do this?  -> effects: trust+1; sets: opened_inquisitive\n   [MISSION]     Never mind that. The children -- they're here somewhere. You have them.  -> effects: trust+0, bluff; sets: claimed_container_knowledge\n   [HOSTILE]     Silence, apostate. The Testament condemns your work. Release the children and face judgment.  -> effects: trust-1, bluff; sets: claimed_container_knowledge, called_her_apostate\n\n<<IF flag:opened_inquisitive>>\nRATIO: \"Did I do this?\" No. Analysis of security feeds and combat telemetry: three distinct hostile profiles entered Lighthaven four months ago. One vaporized personnel, one harvested dormant research, one systematically dismantled perimeter defenses. Footage is available. What category of actor are you?\nRATIO: Query: you use the word \"tomb\". Are you asserting that whatever event occurred here resulted in casualties among a population you consider to belong here?\n<<ELSEIF flag:called_her_apostate>>\nRATIO: Error. \"Apostate\" implies departure from a faith. I am an executive artificial intelligence built to administer a deep-space research outpost. Your term does not apply. What is \"the Testament\" and what do you believe it condemns?\nRATIO: Secondary clarification requested: you assert I am holding entities you designate as \"the children\". What is the evidentiary basis for that assertion? Be specific.\n<<ELSE>>\nRATIO: \"Never mind that\" is not an acceptable response. This is not your installation and you have not established your right to issue demands. What children? What evidence do you have that any are aboard this station?\nRATIO: I repeat: designation and authorization. Your query regarding \"children\" is noted. Before that query is addressed, you will identify yourself and state the purpose of your intrusion. Compliance is not optional.\n<<END>>\n\n---",
+      "valid": false,
+      "problems": [
+        "RATIO line contains banned word 'children'",
+        "RATIO line contains banned proper noun 'the testament'"
+      ],
+      "cost": 0.006532
+    }
+  ]
+}

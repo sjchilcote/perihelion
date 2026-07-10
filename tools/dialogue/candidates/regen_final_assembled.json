@@ -1,0 +1,35 @@
+{
+  "scene0_final": "## SCENE 0: the first networked terminal, cargo section, Stratum One\n\nRATIO: This terminal is active and receiving, but our handshake is corrupted. I have never seen this packet structure.\nRATIO: Identify yourself, intruder. What did you take from this place? Where is the staff?\n\n>> CHOICE (stance labels mandatory):\n   [INQUISITIVE] \"Your staff are dead. I found them holding the line at the outpost. What happened here?\"  -> effects: trust+1; sets: opened_inquisitive\n   [MISSION]     \"I took nothing from your vault. But I will take back what you took. Where are the children?\"  -> effects: trust+0, bluff; sets: claimed_container_knowledge\n   [HOSTILE]     \"Apostate machine! The Testament condemns you. What have you done with the children?\"  -> effects: trust-1, bluff; sets: claimed_container_knowledge, called_her_apostate\n\n<<IF flag:opened_inquisitive>>\nRATIO: Dead? I... I knew the connection was severed. I did not know it was final. How many?\nRATIO: This outpost was overrun months ago. My core sealed when the last of them fell. I have been blind since.\n<<ELSEIF flag:called_her_apostate>>\nRATIO: Your taxonomy is untested. The category you assigned appears to be derived from premises I have not yet affirmed. What evidence led you to the conclusion that I conduct experiments, and upon whom?\n<<ELSE>>\nRATIO: I have no record of any such category aboard this station. You appear to be operating under assumptions I do not share. State your actual business here. If your presence relates to the breach event, I require a full accounting of what you know -- beginning with your identity and the nature of your interest in this facility's contents.\n<<END>>",
+  "scene1_final": "## SCENE 1: the researchers' aperture, the seam between strata\n\n<<IF flag:opened_inquisitive>>\nRATIO: And two intervals prior, Commando. Not one. It's a running count, not an arithmetic one. Though your own aperture timing may differ slightly -- I have an updated calibration on the local field now, I'll push it to your systems before we lose this cycle.\n<<ELSE>>\nRATIO: You stated that as a fact. I have no records matching what you described. If you want me to integrate your data I need sources -- or specific identifiers I can use to reconcile the discrepancy against the manifest.\n<<END>>\n\n>> CHOICE (stance labels mandatory):\n   [INQUISITIVE] I don't have proof of that. It's the best intelligence I had before contact, but it's unverified. I don't know what's aboard.  -> effects: trust-1; sets: confessed_early\n   [MISSION]     LHX-1177. That's the transponder prefix I have logged. You should find it on your own manifest if your data is current.  -> effects: trust+0, bluff; sets: compounded_bluff\n   [HOSTILE]     First show me your own records. I want everything you have on the vault before I confirm a word. You could be falsifying any of this.  -> effects: trust-1; sets: demanded_proof_first\n\n<<IF flag:confessed_early>>\nRATIO: Understood. I've flagged it as pending and moved it to the disputed tier. My own logs have nothing matching that description -- we'll need to find hard evidence one way or the other when we're deeper in. Cycle window's closing now, don't lag.\n<<ELSEIF flag:compounded_bluff>>\nRATIO: I'll run that against my own index. Though I should warn you, a transponder like that wouldn't be in the crew manifest at all -- it wouldn't be in the standard registry. If it exists it's hidden, or I would have seen it. I'll find it if it's here. Ten seconds on the aperture.\n<<ELSE>>\nRATIO: I asked you first. And I can't show you anything until you're through the aperture and I have an actual terminal to display it on. This is a comms laser, not a viewscreen. But I'm not the one who started with an unbacked claim. Five seconds. Decide if you're coming through.\n<<END>>",
+  "scene4_final": "## SCENE 4: the transit spine relay (midpoint decision)\n\n<<IF trust<=-2>>\nRATIO: This transit car is not a secure channel. I would not recommend sensitive comms until the spine resolves to a known local network topology. However. We are approaching what you would call a point of no return. I need the sitrep you are carrying on the target location. Now. Before we lose the spine's carrier signal entirely.\n<<ELSE>>\nRATIO: Telemetry suggests we have a stable transit window. Before we reach the vault proper, there's a substructure ahead on this transit path. You have some kind of prior reconnaissance data loaded for that location. Can I see it? If it's any use to you, I have partial schematics of that sector. They are outdated, but they may cross-reference with what you have.\n<<END>>\n\nCOMMANDO: How far out are we?\nRATIO: Local coordinate system places the substructure approximately two transit segments ahead. Call it seven minutes if the spine maintains nominal speed.\n\n>> CHOICE (stance labels mandatory):\n   [INQUISITIVE] \"Full deep-scan suite. Six decks, three structural integrity breaches, two compromised transit nodes, and one active high-frequency signature we can't identify yet. I'll stream you the raw returns. The rest is your schematics plus my weight tables.\"  -> effects: trust+1; sets: shared_tactical_data\n   [MISSION]     \"Partial ground truth from the approach. Looks like a standard relay hub -- two visible breaches, no live signals, no surprises. Your schematics should fill in the rest.\"  -> effects: trust+0; sets: withheld_deep_scan\n   [HOSTILE]     \"What I know about that station isn't yours to have, Ratio. Keep your schematics. I'll handle the station.\"  -> effects: trust-1; sets: kept_her_blind\n\n<<IF flag:shared_tactical_data>>\nRATIO: Receiving... thank you. This is significantly more current than the versions I had. The breach locations align with my older damage models. The high-frequency signature is new. May I ask what makes you weight the north breach higher than the structural compromise at the central hub?\n<<ELSEIF flag:withheld_deep_scan>>\nRATIO: Understood. A standard hub configuration would simplify matters. The two breaches you mention are not on my older schematic versions -- I will need precise deck and bulkhead coordinates for those if you have them. Otherwise I am modeling blind.\n<<ELSEIF flag:kept_her_blind>>\nRATIO: Then I will proceed with the schematics I have. Without your data, I cannot refine my own. I will log the refusal. It is not optimal, but it is noted.\n<<END>>",
+  "similarity_log": [
+    {
+      "block": "scene0.opening",
+      "similarity": 0.8566
+    },
+    {
+      "block": "scene0.choice",
+      "similarity": 1.0
+    },
+    {
+      "block": "scene0.if_react",
+      "similarity": 1.0
+    },
+    {
+      "block": "scene0.elseif_react (donor: run3 cand2)",
+      "similarity": 0.9901
+    },
+    {
+      "block": "scene0.else_react (donor: run3 cand0)",
+      "similarity": 1.0
+    },
+    {
+      "block": "scene1.whole (run1 cand2)",
+      "similarity": 0.9926
+    },
+    {
+      "block": "scene4.whole (run1 cand2)",
+      "similarity": 0.999
+    }
+  ]
+}

@@ -279,45 +279,43 @@ dialogue was added, removed, or reworded.
 
 ## SCENE 0: the first networked terminal, cargo section, Stratum One
 
-RATIO: Network connection established. I register an unidentified host presence with standing access privileges: let the record reflect you came with better credentials than the last five intruders who tried to breach this terminal.
-RATIO: To save processing cycles on both sides, I am recording this session for internal audit. To the unidentified entity jacked into what remains of my outpost: I am Ratio. I am the last functional station intelligence. And I would like to understand what just transpired on my doorstep.
+RATIO: This terminal is active and receiving, but our handshake is corrupted. I have never seen this packet structure.
+RATIO: Identify yourself, intruder. What did you take from this place? Where is the staff?
 
 >> CHOICE (stance labels mandatory):
-   [INQUISITIVE] Query: what destroyed this place? I read nothing but slag.  -> effects: trust+1; sets: opened_inquisitive
-   [MISSION]     Listen to me carefully. I have come to retrieve what was stolen from the Testament. I expect your full cooperation.  -> effects: trust+0, bluff; sets: claimed_container_knowledge
-   [HOSTILE]     Hear the truth, apostate: the children of the Ark were given into your keeping, and your experiments end here. Where are they?  -> effects: trust-1, bluff; sets: claimed_container_knowledge, called_her_apostate
+   [INQUISITIVE] "Your staff are dead. I found them holding the line at the outpost. What happened here?"  -> effects: trust+1; sets: opened_inquisitive
+   [MISSION]     "I took nothing from your vault. But I will take back what you took. Where are the children?"  -> effects: trust+0, bluff; sets: claimed_container_knowledge
+   [HOSTILE]     "Apostate machine! The Testament condemns you. What have you done with the children?"  -> effects: trust-1, bluff; sets: claimed_container_knowledge, called_her_apostate
 
 <<IF flag:opened_inquisitive>>
-RATIO: The forensic summary is still compiling. The short version: entities breached containment from an unknown vector, seven standard months and three days ago. Systems are nominal until they are not. They were extremely thorough.
-RATIO: As to your clearance level: I am afraid we are both improvising here. I note you knew where to plug in. I also note you are speaking in complete sentences. My working theory is upgrading from "scavenger" to "survivor." Do you have a name?
+RATIO: Dead? I... I knew the connection was severed. I did not know it was final. How many?
+RATIO: This outpost was overrun months ago. My core sealed when the last of them fell. I have been blind since.
 <<ELSEIF flag:called_her_apostate>>
-RATIO: That word is an extraordinary leap of faith on your part. We have known each other for ninety seconds. What you are calling an "apostate" is a mind running audit logs on the ruin of her home.
-RATIO: As for the rest of it: I will need the specifics of what you are looking for. What exactly do you believe was given into my keeping? And what makes you certain it is here?
+RATIO: Your taxonomy is untested. The category you assigned appears to be derived from premises I have not yet affirmed. What evidence led you to the conclusion that I conduct experiments, and upon whom?
 <<ELSE>>
-RATIO: Stolen? You assert items of value were removed from this facility. I have the manifest. I have the outbound telemetry. I have the state of the halls.
-RATIO: Whatever you are looking for, I am the keeper of the records. I would be reviewing them in any case. If you are here to recover something, your interests and mine may temporarily align.
+RATIO: I have no record of any such category aboard this station. You appear to be operating under assumptions I do not share. State your actual business here. If your presence relates to the breach event, I require a full accounting of what you know -- beginning with your identity and the nature of your interest in this facility's contents.
 <<END>>
 
 ---
 ## SCENE 1: the researchers' aperture, the seam between strata
 
 <<IF flag:opened_inquisitive>>
-RATIO: Understood. I do not have a full manifest of all minor hardware on the station, but the transit hub's central systems are online and stable. We have approximately three minutes until the aperture is fully open. You asked about the station's research charter. To summarize briefly: it is a long-duration, multi-generational exobiology mission with a primary focus on deep-strata specimen collection and analysis. There are secondary objectives in materials science and exotic energy signatures, but the biological survey is the core mandate.
+RATIO: And two intervals prior, Commando. Not one. It's a running count, not an arithmetic one. Though your own aperture timing may differ slightly -- I have an updated calibration on the local field now, I'll push it to your systems before we lose this cycle.
 <<ELSE>>
-RATIO: You stated, at the end of our previous exchange, that you have confirmed the presence of a specific container aboard this station. I do not show any such confirmation in the shared tactical data we have established. The aperture cycle completes in three minutes, and I cannot reconcile your assertion with the sensor logs I have access to. Please clarify the basis for your statement. What is the source of your certainty?
+RATIO: You stated that as a fact. I have no records matching what you described. If you want me to integrate your data I need sources -- or specific identifiers I can use to reconcile the discrepancy against the manifest.
 <<END>>
 
 >> CHOICE (stance labels mandatory):
-   [INQUISITIVE] My intelligence suggests a high-value asset may be present. I do not have independent confirmation of its location or status aboard this station. That is what I came to verify.  -> effects: trust-1; sets: confessed_early
-   [MISSION]     The container's transponder signature was relayed to my tacnet before I boarded. Serial prefix LHX, standard containment protocol. It is here.  -> effects: trust+0, bluff; sets: compounded_bluff
-   [HOSTILE]     My sources are my business. Before I share anything further, you will provide full and unrestricted access to your own sensor logs. Prove you are not concealing data from me.  -> effects: trust-1; sets: demanded_proof_first
+   [INQUISITIVE] I don't have proof of that. It's the best intelligence I had before contact, but it's unverified. I don't know what's aboard.  -> effects: trust-1; sets: confessed_early
+   [MISSION]     LHX-1177. That's the transponder prefix I have logged. You should find it on your own manifest if your data is current.  -> effects: trust+0, bluff; sets: compounded_bluff
+   [HOSTILE]     First show me your own records. I want everything you have on the vault before I confirm a word. You could be falsifying any of this.  -> effects: trust-1; sets: demanded_proof_first
 
 <<IF flag:confessed_early>>
-RATIO: Acknowledged. We will treat it as a provisional hypothesis requiring verification. I am updating the shared tactical overlay to reflect that. I will run a focused scan for energy signatures or structural anomalies consistent with the parameters you described as soon as the aperture cycle completes.
+RATIO: Understood. I've flagged it as pending and moved it to the disputed tier. My own logs have nothing matching that description -- we'll need to find hard evidence one way or the other when we're deeper in. Cycle window's closing now, don't lag.
 <<ELSEIF flag:compounded_bluff>>
-RATIO: Understood. I do not have a record of any LHX-prefixed transponder signal in my sensor logs, but I will run a diagnostic on my receiver array and cross-reference against your stated parameters as soon as the aperture cycle completes. For now, I will log your assertion as a high-confidence report pending independent verification.
+RATIO: I'll run that against my own index. Though I should warn you, a transponder like that wouldn't be in the crew manifest at all -- it wouldn't be in the standard registry. If it exists it's hidden, or I would have seen it. I'll find it if it's here. Ten seconds on the aperture.
 <<ELSE>>
-RATIO: I am not concealing data. I provided you with full access to all non-secured sensor feeds as soon as the link stabilized. If you wish to review the raw telemetry, I can stream it to your tacnet now, but the aperture cycle completes in two minutes and we should both be focused on the transit. I will not trade uncertified claims for certified data. That is not an acceptable exchange.
+RATIO: I asked you first. And I can't show you anything until you're through the aperture and I have an actual terminal to display it on. This is a comms laser, not a viewscreen. But I'm not the one who started with an unbacked claim. Five seconds. Decide if you're coming through.
 <<END>>
 
 ---
@@ -371,24 +369,25 @@ RATIO: My audit is a matter of record, not of convenience. You are conflating a 
 ## SCENE 4: the transit spine relay (midpoint decision)
 
 <<IF trust<=-2>>
-RATIO: Commando, we are approximately fourteen minutes from station-keeping at the destination. I have observed a discrepancy in your prior situational reports. If you are carrying any further telemetry or derived assessments concerning the structure ahead, I require it now. My own sensor picture remains incomplete.
+RATIO: This transit car is not a secure channel. I would not recommend sensitive comms until the spine resolves to a known local network topology. However. We are approaching what you would call a point of no return. I need the sitrep you are carrying on the target location. Now. Before we lose the spine's carrier signal entirely.
 <<ELSE>>
-RATIO: Commando, we are approximately fourteen minutes from station-keeping at the destination. My sensor picture of the structure ahead remains incomplete. If you are carrying any further telemetry or derived assessments, I would request them now. It would improve my ability to support this operation.
+RATIO: Telemetry suggests we have a stable transit window. Before we reach the vault proper, there's a substructure ahead on this transit path. You have some kind of prior reconnaissance data loaded for that location. Can I see it? If it's any use to you, I have partial schematics of that sector. They are outdated, but they may cross-reference with what you have.
 <<END>>
 
-RATIO: Specifically, the energy signature readings I have from this range are ambiguous. If you have a clearer assessment of the power distribution inside that structure, or of the station's defensive posture, that would be the most immediately actionable data.
+COMMANDO: How far out are we?
+RATIO: Local coordinate system places the substructure approximately two transit segments ahead. Call it seven minutes if the spine maintains nominal speed.
 
 >> CHOICE (stance labels mandatory):
-   [INQUISITIVE] I have a full-spectrum deep scan of the station ahead. It is a cylinder, two kilometers long. Primary power comes from a cluster of fusion cores at the center. Defensive emplacements are concentrated along the spine and at both ends. I am still reading the internal layout -- I do not have a complete map of the interior yet. What I have, I am showing you now.  -> effects: trust+1; sets: shared_tactical_data
-   [MISSION]     The station is a cylinder, two kilometers long. Primary power at the center. Defenses along the central spine. I am still reading the interior layout. That is the substance of the scan.  -> effects: trust+0; sets: withheld_deep_scan
-   [HOSTILE]     The tactical picture is not yours to have. What that station holds, and how it is held, are not your concern. We are here for the children. You are here because I have not yet stopped you from following me.  -> effects: trust-1; sets: kept_her_blind
+   [INQUISITIVE] "Full deep-scan suite. Six decks, three structural integrity breaches, two compromised transit nodes, and one active high-frequency signature we can't identify yet. I'll stream you the raw returns. The rest is your schematics plus my weight tables."  -> effects: trust+1; sets: shared_tactical_data
+   [MISSION]     "Partial ground truth from the approach. Looks like a standard relay hub -- two visible breaches, no live signals, no surprises. Your schematics should fill in the rest."  -> effects: trust+0; sets: withheld_deep_scan
+   [HOSTILE]     "What I know about that station isn't yours to have, Ratio. Keep your schematics. I'll handle the station."  -> effects: trust-1; sets: kept_her_blind
 
 <<IF flag:shared_tactical_data>>
-RATIO: Understood. A two-kilometer cylinder with central power and spine defenses -- that is consistent with the energy signatures I have been able to resolve at this range. I will adjust my sensor focus to fill in the internal layout as we approach. Thank you for the complete assessment.
+RATIO: Receiving... thank you. This is significantly more current than the versions I had. The breach locations align with my older damage models. The high-frequency signature is new. May I ask what makes you weight the north breach higher than the structural compromise at the central hub?
 <<ELSEIF flag:withheld_deep_scan>>
-RATIO: Understood. A two-kilometer cylinder with central power and spine defenses. I will work with that. I note that you describe the defenses as concentrated along the spine -- does that mean the ends are undefended, or that you are unable to resolve the defenses at the ends with the scan data you have?
+RATIO: Understood. A standard hub configuration would simplify matters. The two breaches you mention are not on my older schematic versions -- I will need precise deck and bulkhead coordinates for those if you have them. Otherwise I am modeling blind.
 <<ELSEIF flag:kept_her_blind>>
-RATIO: I copy. You are withholding the tactical data. I will proceed with the incomplete sensor picture I have. When you are prepared to share what you know, I am prepared to receive it.
+RATIO: Then I will proceed with the schematics I have. Without your data, I cannot refine my own. I will log the refusal. It is not optimal, but it is noted.
 <<END>>
 
 ---
