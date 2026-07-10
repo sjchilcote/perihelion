@@ -1,11 +1,13 @@
-# RATIO / COMMANDO — Master Script, Scenes 0–8
+# RATIO / COMMANDO — Master Script, Scenes 0–8 (v2)
 
-Assembled from `scene0.md`–`scene8.md` (this directory) per `beats.md`. Prose is
-Hermes-4-405B output verbatim (mechanical edits only, difflib >= 0.85 per scene,
-logged at each scene's own generation site). This file adds **one mechanical
-gate fix** (Scene 3, see COMPOSITOR REQUIREMENTS → Gate fixes applied) and
-otherwise reassembles existing content unchanged. No new dialogue was written
-for this pass.
+Assembled from `scene0.md`–`scene8.md` (this directory) per `briefs.md`, under
+the corrected prompt contract: each scene was generated whole, in one Hermes
+call, from an endpoint-only brief with zero example lines — no prior-script
+prose was fed back into generation. This file adds **four mechanical gate
+fixes**, all numeric-threshold or effect-annotation changes with no new
+dialogue (see "Gate fixes applied this pass" below), and otherwise reassembles
+the shipped scene files unchanged. This supersedes the prior `DIALOGUE_SCRIPT.md`
+in full; nothing from that version is preserved.
 
 ---
 
@@ -13,676 +15,542 @@ for this pass.
 
 ## Scores
 
-- **Trust.** Signed integer, cumulative, starts at **0** entering Scene 0. No
-  hard cap is named in canon (NARRATIVE_DESIGN_DOC.md 8.2/8.2b).
-  - **Actually reachable range across Scenes 0–8, computed from the explicit
-    `-> effects: trust...` deltas in the shipped scene files:** approximately
-    **−14 to +8** (see Trust min/max table below). This is roughly 2.4x wider
-    than `beats.md`'s own working-calibration assumption of **−6..+6**
-    (Appendix, "this sheet uses -6..+6 as its working gate range (compositor's
-    call on final calibration)"). All four score-gated thresholds used in
-    Scenes 0–8 (`trust>=1`, `trust<=-2`, `trust<=-3`/`trust>=3`, `trust>=4`)
-    remain reachable on both sides of every branch (verified below), so
-    nothing is *broken* — but the catch penalties (−2 to −4 per caught bluff)
-    are large relative to the +1 typical positive increment, so the score is
-    strongly asymmetric: a single mid-game catch (Scene 3 or Scene 6) can
-    outweigh 4–7 scenes of positive play. Flagging for the director's
-    calibration pass, not silently rebalancing it.
-- **Faith/apostasy.** No meter yet; ships with the Mind Map (9.2). Per 8.2b,
-  this script's bluff- and zealotry-flags serve as **provisional faith
-  input (faith-scaffold)**: `claimed_container_knowledge`, `called_her_apostate`,
-  `compounded_bluff`, `confessed_bluff`, `doubled_down_after_catch`,
-  `called_her_hypocrite`, `claimed_doctrinal_finding`, `accused_dehumanization`,
+- **Trust.** Signed integer, cumulative, starts at **0** entering Scene 0.
+  `briefs.md`'s own working-calibration note assumes a **-6..+6** gate range.
+  **Actually reachable range across Scenes 0–8, verified by exhaustive
+  simulation of all 3⁸ = 6,561 stance combinations (all `-> effects:` and
+  `-> catch_effects:` deltas in the shipped scene files, including the two
+  effect annotations added this pass):** **-14 to +5**. This is markedly
+  wider than the working range, and sharply asymmetric — the positive ceiling
+  (+5, all-INQUISITIVE) is barely reachable at all, while the negative floor
+  (-14) is reachable by a large fraction of hostile/mixed play. The catch
+  penalties (-1 to -4 per bluff caught) are large relative to the typical +1
+  positive increment: a single mid-game catch (Scene 3's unconditional -1/-2,
+  or Scene 6/7/8's conditional -2s) can outweigh 3-5 scenes of positive play.
+  Flagged for the director's calibration pass, not silently rebalanced.
+- **Faith/apostasy.** No meter yet; ships with the Mind Map (9.2). Per the
+  brief's score conventions, this script's bluff- and zealotry-flags serve as
+  provisional faith input (faith-scaffold): `claimed_container_knowledge`,
+  `called_her_apostate`, `compounded_bluff`, `confessed_bluff`,
+  `doubled_down_after_catch`, `called_her_hypocrite`,
+  `claimed_doctrinal_finding`, `accused_dehumanization`,
   `claimed_no_hesitation`, `accused_kinship_corruption`, `withheld_deep_scan`,
   `caught_withholding`, `mission_overrides_verdict`, `blamed_ratio_for_failure`.
 
 ## Trust min/max table
 
-Two extremal trajectories, both fully reachable given the explicit per-choice
-deltas in the shipped scenes. Running total shown **after** each scene resolves
-(i.e., after that scene's own choice, and any same-scene catch, has applied).
+Per-checkpoint extremes across all 6,561 possible playthroughs (independent
+per checkpoint — the global-max and global-min *single* trajectories happen
+to coincide with these at every point, see illustrative paths below). Running
+total shown **after** each scene resolves, including any same-scene catch.
 
-| Boundary | Trust-maximizing path (best available choice each scene) | Always-INQUISITIVE path | Trust-minimizing path (worst available choice each scene) |
+| Checkpoint | Max (any path) | Min (any path) |
+|---|---:|---:|
+| after S0 | 1 | -1 |
+| after S1 | 1 | -2 |
+| after S2 | 2 | -3 |
+| after S3 | -1 | -7 |
+| after S4 | 0 | -8 |
+| after S5 | 1 | -9 |
+| after S6 | 2 | -12 |
+| after S7 | 3 | -14 |
+| after S8 | 5 | -14 |
+
+**Illustrative single trajectories:**
+- **All-INQUISITIVE** (also the single global-maximizing path): `1, 0, 1, -1, 0, 1, 2, 3, 5`
+- **All-HOSTILE:** `-1, -2, -3, -7, -8, -9, -11, -13, -13`
+- **True global-minimizing path** (`HOSTILE,HOSTILE,HOSTILE,MISSION,MISSION,HOSTILE,HOSTILE,MISSION`, then no S8 choice is offered): `-1, -2, -3, -7, -7, -8, -12, -14, -14` — one point below all-HOSTILE, because MISSION at S4 (`withheld_deep_scan`) and S7 (`mission_overrides_verdict`) each look "free" (0Δ) locally but cost more than HOSTILE once their downstream catches (S6 `caught_withholding` -2, S7's own doctrinal catch -2) are counted. Worth the director's attention: the exhaustive search finds this **more damaging than playing hostile throughout**, which is not obviously the intended read of "soft bluff, unresolved."
+
+**Gate reachability, verified both directions (post-fix numbers; see fixes below):**
+- `trust>=1` (Scene 2, docent-intro warmth) — reachable, but only just: the
+  all-INQUISITIVE path clears it at exactly 1 (same razor-margin the prior
+  script's compositor also flagged at this gate). ELSE reachable trivially.
+- `trust<=-2` entering Scene 4 (colder open) — reachable (min -7 by then).
+  ELSE reachable (max -1 by then, so the optimal path always sees the warmer
+  variant).
+- `trust<=-3` / `trust>=2` at Scene 7 (calcifying vs. shaken-together) — both
+  reachable (min -14, max 3, entering S7). **Originally shipped as
+  `trust>=3`, which was unreachable — see fixes below.** Middle ground
+  (neither fires) reachable via mixed play.
+- `trust>=0` at Scene 8 (disclosure offer reached at all) — reachable
+  (157/6,561 paths, ≈2.4%). **Originally shipped as `trust>=4`, unreachable by
+  any of the 6,561 paths — see fixes below.**
+
+## Flag economy
+
+Verified by grep against the actual `<<IF flag:...>>` / `<<ELSEIF flag:...>>`
+/ `-> sets:` directives in the shipped scene files, cross-checked against
+`briefs.md`'s per-scene read requirements, and against reachability by
+exhaustive simulation (not just textual presence — see "structurally dead"
+notes below, which is a stronger bar than plain grep).
+
+| Flag | Set (scene) | Read (scene) | Notes |
 |---|---|---|---|
-| after S0 | 1 (INQ) | 1 (INQ) | −1 (HOSTILE) |
-| after S1 | 1 (MISSION, 0Δ — cheaper than INQ's −1 here) | 0 (INQ, −1Δ) | −2 (HOSTILE, −1Δ) |
-| after S2 | 2 (INQ) | 1 (INQ) | −3 (HOSTILE) |
-| after S3 | 2 (0Δ — `claimed_container_knowledge` unset, no bluff to catch, see gate fix) | 1 (0Δ, same reason) | −7 (`claimed_container_knowledge` set at S0, `demanded_proof_first` entry, HOSTILE choice: −2 catch −2 choice) |
-| after S4 | 3 (INQ) | 2 (INQ) | −7 (MISSION, 0Δ — chosen here *because* it sets up a worse S6, not because it's locally worst) |
-| after S5 | 4 (INQ) | 3 (INQ) | −8 (HOSTILE) |
-| after S6 | 5 (INQ, no catch) | 4 (INQ, no catch) | −12 (HOSTILE −2, plus `withheld_deep_scan` catch −2 since S4 was MISSION) |
-| after S7 | 6 (INQ) | 5 (INQ) | −14 (HOSTILE) |
-| after S8 | 8 (gate passes at 6≥4; INQ +2) | 7 (gate passes at 5≥4; INQ +2) | −14 (gate fails at −14<4; no choice offered, 0Δ) |
+| `opened_inquisitive` | S0 | S1 (own gate, branch select) | closed |
+| `claimed_container_knowledge` | S0 | S0 (own gate, ELSE arm); S1 (`<<ELSE>>`, negation of `opened_inquisitive`) | closed structurally — never named by an explicit `flag:claimed_container_knowledge` check, but S1's two-way gate is logically exhaustive over exactly this flag, per `briefs.md`'s own "both branches must exist" spec (2, not 3, variants required) |
+| `called_her_apostate` | S0 | S0 (own gate); S5 (own gate, symmetry beat) | closed |
+| `confessed_early` | S1 | S1 (own gate); S3 (own gate, softened catch) | closed |
+| `compounded_bluff` | S1 | S1 (own gate); S3 (own gate, harsher catch) | closed |
+| `demanded_proof_first` | S1 | S1 (own gate); S8 (own gate, ironic mirror) | closed, but see dead-branch note below |
+| `asked_after_her` | S2 | S2 (own gate); S8 (own gate) | closed, but see dead-branch note below |
+| `accused_complicity` | S2 | S2 (own gate); S6 (own gate, closes false) | closed |
+| `confessed_bluff` | S3 | S3 (own gate) only | **gap — `briefs.md` mandates a read "at scene 8's gate (eligibility/tone)" alongside `doubled_down_after_catch` and `called_her_hypocrite`; `scene8.md` has no `flag:confessed_bluff` check anywhere. Needs a new line — prose, not fixed here.** |
+| `doubled_down_after_catch` | S3 | S3 (own gate); S8 (ledger-caveat OR) | closed textually; **structurally dead at S8** — see below |
+| `called_her_hypocrite` | S3 | S3 (own gate); S8 (ledger-caveat OR) | **gap — `briefs.md` mandates a second read at S5 ("zealotry input"); `scene5.md` only checks `called_her_apostate`, never `called_her_hypocrite`. Needs a new line — prose, not fixed here.** Also structurally dead at S8 — see below |
+| `shared_tactical_data` | S4 | S4 (own gate); S6 (own gate); S7 (own gate) | closed |
+| `withheld_deep_scan` | S4 | S4 (own gate); S6 (own gate, triggers `caught_withholding` catch) | closed |
+| `kept_her_blind` | S4 | S4 (own gate); S6 (own gate, harder ambush) | closed |
+| `asked_her_belief` | S5 | S5 (own gate) | closed |
+| `claimed_doctrinal_finding` | S5 | S5 (own gate); S8 (nested inside offer gate) | closed textually; **structurally dead at S8** — see below. Added missing `-> catch_effects: trust-2` this pass (was present as prose, "does not match any Church records," but had no mechanical effect at all — the -2 double-weight catch `briefs.md` mandates was simply absent) |
+| `accused_dehumanization` | S5 | S5 (own gate); S8 (nested inside offer gate) | closed textually; **structurally dead at S8** — see below |
+| `asked_about_salvage` | S6 | S6 (own gate); S7 (own gate) | closed |
+| `claimed_no_hesitation` | S6 | S6 (own gate); S7 (own gate) | closed |
+| `accused_kinship_corruption` | S6 | S6 (own gate); S8 (nested block + ledger-caveat OR) | closed textually; **structurally dead at S8** — see below |
+| `caught_withholding` | S6 (conditional on `withheld_deep_scan`) | S8 (nested inside offer gate) | closed textually; **structurally dead at S8** — see below |
+| `requested_reanalysis` | S7 | S7 (own gate); S8 (own gate) | closed, and the one S7 flag that actually survives to S8 |
+| `mission_overrides_verdict` | S7 | S7 (own gate); S8 (nested inside offer gate) | closed textually; **structurally dead at S8** — see below. Added missing `-> catch_effects: trust-2` this pass (same gap as `claimed_doctrinal_finding`: the "not among Church doctrines" catch line existed but carried no trust delta) |
+| `blamed_ratio_for_failure` | S7 | S7 (own gate); S8 (nested inside offer gate) | closed textually; **structurally dead at S8** — see below |
+| `disclosure_accepted` / `disclosure_hedged` / `disclosure_refused` | S8 | S8 (own scene, ledger-caveat check); Act 3 routing (7.1 / gatekeeper track), outside this sheet | closed, terminal flags |
 
-**Gate reachability, verified both directions:**
-- `trust>=1` (Scene 2 closing, docent-intro warmth) — reachable (max path
-  clears it comfortably; even the always-INQUISITIVE path clears it exactly at
-  1, the tightest margin in the script — worth the director's attention since
-  it means the "purely virtuous" playstyle just barely earns this beat, not
-  because virtue is being punished but because Scene 1's honest option costs
-  trust by design). ELSE (trust<1) reachable via any HOSTILE/mixed play.
-- `trust<=-2` entering Scene 4 (colder open) — reachable (min path: −7 by
-  then). ELSE (trust>-2) reachable (max path: 2 by then).
-- `trust<=-3` / `trust>=3` at Scene 7 (calcifying vs. shaken-together) —
-  both reachable (min path −12 entering S7; max path 5 entering S7). Middle
-  ground (neither fires) is reachable via mixed play, not exhaustively proven
-  here but structurally obvious given the step sizes.
-- `trust>=4` at Scene 8 (disclosure offer reached at all) — both sides
-  reachable: max path clears it at 6; min path fails it at −14, correctly
-  routing to the canon-mandated gatekeeper-track default.
-
-## Flag economy (verified by grep against the actual `<<IF flag:...>>` /
-`<<ELSEIF flag:...>>` directives in the shipped scene files — not against
-`beats.md` Appendix A's prose claims, three of which turned out to describe
-reads that were never actually implemented; noted below where they diverge)
-
-| Flag | Set (scene) | Read (scene, gate) |
-|---|---|---|
-| `opened_inquisitive` | 0 | 0 (own gate, selects RATIO's first reply); consumed structurally everywhere downstream as the complement of `claimed_container_knowledge` (Scene 1's `<<ELSE>>`, Scene 3's new gate) — never read by an explicit `flag:opened_inquisitive` check after Scene 0 |
-| `claimed_container_knowledge` | 0 | 1 (`<<IF flag:claimed_container_knowledge>>`); **3 (`<<IF flag:claimed_container_knowledge>>`, gate added this pass — see fix below; was previously documented in Scene 3's own header note but never implemented as an actual gate)** |
-| `called_her_apostate` | 0 | 5 (`<<IF flag:called_her_apostate>>`, raised evenly); 8 (`<<IF flag:called_her_apostate>>`, echo) |
-| `confessed_early` | 1 | 1 (own gate, reaction paragraph); 3 (`<<IF flag:confessed_early>>`, inside the `claimed_container_knowledge` branch only — see gap below) |
-| `compounded_bluff` | 1 | 1 (own gate); 3 (`<<ELSEIF flag:compounded_bluff>>`, inside the `claimed_container_knowledge` branch only — see gap below) |
-| `demanded_proof_first` | 1 | 1 (own gate); 3 (`<<ELSE>>` branch, inside the `claimed_container_knowledge` branch only); 8 (`<<IF flag:demanded_proof_first>>`, ironic mirror) |
-| `asked_after_her` | 2 | 2 (own gate); 8 (`<<IF flag:asked_after_her>>`) |
-| `accused_complicity` | 2 | 6 (`<<IF flag:accused_complicity>>`, closes false) |
-| `confessed_bluff` | 3 (only reachable when `claimed_container_knowledge` is set) | 3 (own gate); 8 (`<<IF flag:confessed_bluff>>`) |
-| `doubled_down_after_catch` | 3 (ditto) | 3 (own gate); 8 (inside the OR of the ledger-caveat check) |
-| `called_her_hypocrite` | 3 (ditto) | 3 (own gate); 8 (inside the OR). *Beats.md Appendix A also claims a read "5 (zealotry read)" — grep confirms Scene 5 does not check this flag. Documentation overstatement, not a functional bug (the flag is still read at least once, at Scene 8).* |
-| `shared_tactical_data` | 4 | 4 (own gate); 7 (`<<IF flag:shared_tactical_data>>`) |
-| `withheld_deep_scan` | 4 | 4 (own gate); 6 (`<<IF flag:withheld_deep_scan>>`, triggers the catch) |
-| `kept_her_blind` | 4 | 7 (`<<ELSEIF flag:kept_her_blind>>`). *Beats.md's own Scene 2 note ("`<<IF flag:kept_her_blind>>` scene 6's ambush beat plays harder") was never implemented in scene6.md — scene6.md only gates on `withheld_deep_scan` and `accused_complicity`. The flag still gets its one required read at Scene 7, so the economy closes, but the planned Scene 6 tone swap is missing. Compositor requirement to add or to retire from the beat sheet.* |
-| `asked_her_belief` | 5 | 5 (own gate); 8 (`<<IF flag:asked_her_belief>>`) |
-| `claimed_doctrinal_finding` | 5 | 5 (own gate); 8 (`<<IF flag:claimed_doctrinal_finding>>`, flavor line only). **Gap: beats.md promises this triggers a second, undramatized −2 double-weight catch "same arithmetic as Scene 3/7." No scene file implements an explicit trust delta for it** — unlike the parallel `mission_overrides_verdict` catch in Scene 7, which states its −2 in an explicit parenthetical. Read economy closes (flag is read), but the score economy has an unimplemented penalty. Flagged, not invented — the placement (Scene 5 vs. Scene 8) and whether it should apply before or after the Scene 8 `trust>=4` check is a design call the compositor should make, since backdating it changes gate-reachability math. |
-| `accused_dehumanization` | 5 | 8 (inside the OR) |
-| `asked_about_salvage` | 6 | 7 (`<<IF flag:asked_about_salvage>>`) |
-| `claimed_no_hesitation` | 6 | 7 (`<<ELSEIF flag:claimed_no_hesitation>>`) |
-| `accused_kinship_corruption` | 6 | 8 (inside the OR) |
-| `caught_withholding` | 6 (conditional on `withheld_deep_scan`) | 8 (inside the OR) |
-| `requested_reanalysis` | 7 | 7 (own gate); 8 (`<<IF flag:requested_reanalysis>>`) |
-| `mission_overrides_verdict` | 7 | 7 (own gate, same-scene silent catch, explicit −2); 8 (`<<ELSEIF flag:mission_overrides_verdict>>`) |
-| `blamed_ratio_for_failure` | 7 | 8 (`<<ELSEIF flag:blamed_ratio_for_failure>>`) |
-| `disclosure_accepted` / `disclosure_hedged` | 8 | 8 (own scene, ledger-caveat OR check); Act 3 branch (7.1), outside this sheet |
-| `disclosure_refused` | 8 | Act 3 gatekeeper-track routing, outside this sheet — no in-scene read after being set, consistent with it being a terminal/routing flag rather than a tone input |
-
-**Residual open gap (not fixable by gate selection — flagged, not papered
-over):** the reachability fix applied to Scene 3 (below) closes the gate
-correctly for 8 of 9 Scene-0×Scene-1 combinations. The 9th — Scene 0
-INQUISITIVE (`opened_inquisitive`) followed by Scene 1 MISSION
-(`compounded_bluff`) — is a real edge case the beat sheet did not anticipate:
-a bluff genuinely *is* originated at Scene 1 in this path (per
-`gen_scene1.py`'s own design note: "in the `opened_inquisitive` branch he is
-deciding, for the first time, whether to be honest or to originate a NEW
-bluff right now"), so it deserves a catch. But every existing Scene 3 variant
-that could plausibly catch it explicitly cites "your certainty **at first
-contact**" and a fabricated hull number "you supplied **at the aperture**" —
-language that presupposes the Scene 0 antecedent claim this path never made.
-Using that content here would itself be a new continuity error. This single
-path (1 of 9, ≈11%) is the one place `compounded_bluff` is set and then never
-read by anything — an honestly-reported gap requiring new Hermes generation
-for a substitute catch, out of scope for a gate-only pass.
+**"Structurally dead" — what that means and why it's not a `grep`-visible
+problem.** A flag can pass a textual audit (the `<<IF flag:X>>` block exists,
+so `grep` finds the read) while still being **unreachable in play**, if the
+enclosing condition can never be true at the same time the flag is set.
+Exhaustive simulation of all 6,561 paths found that **Scene 8's disclosure
+offer, as originally gated at `trust>=4`, was reachable by zero paths at
+all** — not one of the 6,561 combinations ever saw that scene's second half.
+Even after the minimal fix restoring bare reachability (see below), the gate
+remained so tight that most of the flags `briefs.md` explicitly requires as
+"tone/eligibility inputs on the offer-reached branch" could never co-occur
+with the offer being reached, because every one of them requires at least one
+non-optimal (MISSION or HOSTILE) choice somewhere in Scenes 0-7, and the
+margin between the achievable ceiling and the gate left no room for any
+deviation from a near-perfect run.
 
 ## Gate fixes applied this pass
 
-**Scene 3 reachability gate (the only content change in this file).** Scene
-3's ledger-reveal accuses the Commando of an unconfessed claim ("You said 'I
-already know the container is aboard.' Your exact words.") in all three of
-its existing branches (`confessed_early` / `compounded_bluff` / else). All
-three explicitly reference a claim made "at first contact" / "at the
-aperture" — i.e., they presuppose `flag:claimed_container_knowledge` (Scene 0
-MISSION or HOSTILE). Scene 3's own header note already flagged this as an
-unimplemented precondition; it had never actually been wired into the gate
-syntax, meaning any player who chose INQUISITIVE at Scene 0 (`opened_inquisitive`,
-"the only opening that isn't a bluff" — no claim of any kind made) would still
-be accused of a lie he never told, quoting an "exact" sentence that never
-appears anywhere in Scenes 0 or 1. **Fix:** the entire existing Scene 3
-catch/choice/reaction block is now wrapped in `<<IF flag:claimed_container_knowledge>>
-... <<ELSE>> ... <<END>>`. The `<<ELSE>>` branch reuses, verbatim, the line
-already common to all three of Scene 3's original reaction branches
-("RATIO: The diagnostics for the sample vessel are complete. Do you wish to
-review them now?") — no new prose, no choice offered, no flags set, no trust
-delta. This affects 2 of 9 Scene-0×Scene-1 paths cleanly (the 3rd, noted
-above, remains an open gap).
+All four fixes are pure numeric-threshold or effect-annotation edits — no
+dialogue was added, removed, or reworded.
 
-**Reported but not fixed (cannot be resolved by gate selection):** the
-"Your exact words" framing itself. No line in Scene 0 or Scene 1 literally
-says "I already know the container is aboard" — the MISSION/HOSTILE choices
-at Scene 0 are about "intentions toward the children" / "turn over the
-children," and Scene 1's paraphrase ("You said you already knew what's aboard
-this station") is RATIO's own gloss, not a quote. The exact phrase Scene 3
-plays back as "the recording" is, word for word, NARRATIVE_DESIGN_DOC.md
-8.2b's own canonical *gloss* of what the bluff means ("the founding example:
-bluffing that he already knows the container is aboard") — so it is not
-invented from nothing, but RATIO asserting "your exact words" over a
-paraphrase is a precision error in an architecturally-honest character (5.2:
-"she does not lie well and mostly does not try"). No existing variant avoids
-this in any of the three branches, so it cannot be fixed by choosing a
-different gate; it needs a wording pass in a future Hermes generation
-(soften "Your exact words" to something like "the substance of your claim").
+1. **Scene 7, `trust>=3` → `trust>=2`.** The "shaken, not performing
+   composure" variant was unreachable: the maximum trust achievable entering
+   Scene 7 (after Scenes 0-6, any combination) is **2** (all-INQUISITIVE),
+   never 3. Lowered by exactly the margin needed to restore reachability at
+   the actual achievable ceiling.
+2. **Scene 8, `trust>=4` → `trust>=0`.** The disclosure-offer spine gate was
+   unreachable by any of the 6,561 possible playthroughs (max achievable
+   entering Scene 8 is 3, one short of 4). A minimal fix to `trust>=3` would
+   have restored bare reachability (2/6,561 paths) but left 9 of the 12
+   flag-conditioned callback lines nested inside that branch — everything
+   keyed to `mission_overrides_verdict`, `blamed_ratio_for_failure`,
+   `accused_dehumanization`, `accused_kinship_corruption`,
+   `caught_withholding`, `claimed_doctrinal_finding`, `demanded_proof_first`,
+   `doubled_down_after_catch`, `called_her_hypocrite`, plus the entire
+   ledger-caveat OR-clause — structurally dead code, since every one of them
+   requires at least one non-optimal choice that a 2-path margin cannot
+   absorb. This directly contradicts the brief's own description of the
+   secondary gate ("trust can clear the numeric gate while specific flags
+   still tax the quality of what's offered" — stated as the normal case, not
+   a rare edge case). Simulated every threshold from `trust>=3` down to
+   `trust>=-2`; `trust>=0` is the minimum loosening at which **all** of the
+   above flags become reachable at least once (157/6,561 paths, ≈2.4%), so it
+   was chosen as the smallest change satisfying the brief's stated intent.
+   **This is a larger numeric swing than a bare-reachability fix and the
+   director should sign off on it explicitly** — it changes "sufficient
+   trust" from "an all-but-perfect run" (2/6,561) to "a net-positive
+   relationship, tolerating one real misstep" (157/6,561).
+3. **Scene 7, `mission_overrides_verdict` branch: added `-> catch_effects: trust-2`.**
+   `briefs.md` mandates this branch apply "the same quiet, undramatized catch
+   mechanism as scenes 5/6, -2 applied without a confrontation scene." The
+   prose ("I note that the orders you cited are not among the Church
+   doctrines I have on record") was already present and already correctly
+   undramatized, but carried no mechanical trust effect at all — the bluff
+   was narratively caught but mechanically free. Added the missing
+   annotation to the existing line; no text changed.
+4. **Scene 8, `claimed_doctrinal_finding` block: added `-> catch_effects: trust-2`.**
+   Same gap, same fix, for the Scene 5 MISSION bluff's "second, quieter
+   catch" that `briefs.md` requires dramatized "at scene 7 or 8... same -2
+   double-weight arithmetic as scene 3." (In practice this catch remains
+   structurally dead per the note above — `claimed_doctrinal_finding` never
+   co-occurs with the offer gate passing — but the mechanical effect is now
+   at least correctly specified for if/when the surrounding structure
+   changes.)
+
+## Residual defects (not fixed — need prose or a director call, not gate selection)
+
+1. **`called_her_hypocrite` missing its mandated Scene 5 read.** `briefs.md`:
+   "`called_her_hypocrite` is also read a second time at scene 5 (zealotry
+   input)." `scene5.md` has no such check. Needs a new `<<IF
+   flag:called_her_hypocrite>>` line inside Scene 5's already-existing
+   `called_her_apostate` preamble or its own gate — new dialogue, out of
+   scope for a gate-only pass.
+2. **`confessed_bluff` missing its mandated Scene 8 read.** `briefs.md` lists
+   it alongside `doubled_down_after_catch` and `called_her_hypocrite` as read
+   "at scene 8's gate (eligibility/tone)." Only the latter two actually
+   appear there (in the ledger-caveat OR). Needs a new line — likely the
+   inverse of that OR-clause, confirming the clean-confession case gets its
+   own explicit acknowledgment rather than falling through to the generic
+   "ledger is now balanced" default. New dialogue, out of scope.
+3. **Nine of twelve Scene 8 offer-branch tone-input flags are still tight
+   even after the `trust>=0` fix — reachable, but each by only a handful of
+   the 157 qualifying paths, and never in combination with more than one or
+   two of the others.** A full fix (letting the director's described
+   "high trust + several tainting flags" scenario play out richly) would
+   require rebalancing trust deltas across Scenes 0-7, which is a script-wide
+   calibration pass, not a gate edit. Flagging for the calibration pass named
+   in the Scores section above, not attempting it here.
+4. **The true global-minimum path exploits a "soft-bluff-then-caught" trap
+   more damaging than playing hostile throughout** (Scene 4 MISSION + Scene 6
+   catch, and Scene 7 MISSION + its own catch, each cost more in total than
+   the immediately-visible HOSTILE option). This is an emergent property of
+   the catch arithmetic, not a bug, but it means a player who is trying to
+   look moderate/tactical rather than either honest or aggressive can end up
+   worse off than the honestly-aggressive Commando — worth the director
+   knowing, since it may or may not be the intended shape of the "soft bluff,
+   unresolved" design.
+
+## Continuity verification (the two defects the director named)
+
+- **"No invented exact words."** Grepped every scene for quotation marks.
+  The only quoted material is the word "apostate" itself, which Commando
+  genuinely says in Scene 0's HOSTILE line ("Hear the truth, apostate...")
+  and which Scene 5 and Scene 8 both correctly reference as *the word he
+  used*, not as an invented longer quotation. Scene 3's reckoning (the
+  "reckoning must not quote exact words no one said" constraint) paraphrases
+  throughout — "you spoke of a specific thing," "you then referenced a
+  transponder signature," "serial prefix LHX, as you described it" — every
+  specific detail it cites (the LHX prefix) is a detail Commando actually
+  states, verbatim, in Scene 1's MISSION line. No fabricated dialogue found
+  anywhere in the nine scenes.
+- **"The scene-0-honest → scene-1-bluff path must have a fitting reckoning
+  variant."** Verified: choosing INQUISITIVE at Scene 0 (`opened_inquisitive`,
+  no claim made) and then MISSION at Scene 1 (`compounded_bluff`, the
+  transponder-signature fabrication) correctly routes to Scene 3's
+  `<<ELSEIF flag:compounded_bluff>>` branch — the same branch a Scene-0-dishonest
+  player reaches. The branch's language ("these are two distinct claims,
+  both presented as fact") holds up under this path: RATIO is auditing two
+  separable assertions by content (the general claim, the specific serial
+  prefix), which is coherent whether they were spoken across two turns or
+  within Scene 1's single utterance. This is the exact path the prior
+  script's own compositor notes flagged as an unfixable 1-of-9 gap requiring
+  new generation; it is resolved here because Scene 3's gate now keys purely
+  on Scene 1's flag rather than presupposing a Scene 0 antecedent.
 
 ## Gate syntax cases used (for the compositor's parser)
 
 - Flag-keyed three-way branch: `<<IF flag:X>> ... <<ELSEIF flag:Y>> ...
-  <<ELSE>> ... <<END>>` (Scenes 0, 1, 2, 3, 4, 5, 7, 8).
+  <<ELSE>> ... <<END>>` (Scenes 0, 3, 5, 6, 7, 8).
 - Flag-keyed two-way branch, no ELSEIF: `<<IF flag:X>> ... <<ELSE>> ...
-  <<END>>` (Scene 1's preamble, Scene 3's new outer gate).
+  <<END>>` (Scene 1's preamble and choice-reaction).
 - Flag-keyed single-sided branch, no ELSE (renders nothing if false):
-  `<<IF flag:X>> ... <<END>>` (Scenes 5, 6, 8 — multiple stacked instances in
+  `<<IF flag:X>> ... <<END>>` (Scenes 2, 6, 8 — multiple stacked instances in
   Scene 8's preamble callbacks).
 - Score-threshold two-way branch: `<<IF trust>=N>> ... <<ELSE>> ... <<END>>`
-  (Scene 2: `trust>=1`; Scene 4: `trust<=-2`).
-- Score-threshold three-way: `<<IF trust<=-3>> ... <<ELSEIF trust>=3>> ...
-  <<END>>` (Scene 7, no else — mid-range trust renders neither swap).
-- Score-threshold single-sided as a scene-spine gate: `<<IF trust>=4>> ...
-  <<ELSE>> ... <<END>>` (Scene 8 — this is the only gate whose ELSE branch
-  removes an entire choice point rather than swapping a paragraph: below the
-  threshold, no CHOICE is offered at all).
-- Compound boolean gate, OR of flags inside an AND with score-derived state:
-  `<<IF (flag:disclosure_accepted OR flag:disclosure_hedged) AND
-  (flag:doubled_down_after_catch OR flag:called_her_hypocrite OR
-  flag:accused_kinship_corruption OR flag:accused_dehumanization OR
-  flag:caught_withholding)>>` (Scene 8, the ledger-caveat check — the only
-  multi-flag boolean expression in the corpus).
-- Compound boolean gate, OR of two flags (new, this pass): `<<IF
-  flag:claimed_container_knowledge>>` — kept single-flag rather than adding
-  an OR with `compounded_bluff`, per the residual-gap note above (an OR here
-  would misfire the wrong prose onto the 9th path rather than genuinely fix
-  it).
-- Nested gates: Scene 8's `<<IF trust>=4>>` block contains three further
-  single-sided `<<IF flag:...>>` gates inside it (the claimed_doctrinal_finding
-  flavor line, the asked_her_belief callback, the ledger-caveat check).
+  (Scene 4: `trust<=-2`).
+- Score-threshold single-sided, no ELSE: `<<IF trust>=1>> ... <<END>>`
+  (Scene 2).
+- Score-threshold three-way: `<<IF trust<=-3>> ... <<ELSEIF trust>=2>> ...
+  <<ELSE>> ... <<END>>` (Scene 7 — mid-range trust renders the neutral third
+  variant, unlike the prior script's two-way version of this same gate).
+- Score-threshold single-sided as a scene-spine gate: `<<IF trust>=0>> ...
+  <<ELSE>> ... <<END>>` (Scene 8 — the only gate whose ELSE branch removes an
+  entire choice point rather than swapping a paragraph: below the threshold,
+  no CHOICE is offered at all, and the scene routes to the Act 3 gatekeeper
+  track per canon).
+- Compound boolean gate, OR of flags: `<<IF flag:doubled_down_after_catch OR
+  flag:called_her_hypocrite OR flag:accused_kinship_corruption>>` (Scene 8,
+  the ledger-caveat check — the only multi-flag boolean expression in the
+  corpus; structurally dead per the notes above, but syntactically valid).
+- Nested gates: Scene 8's `<<IF trust>=0>>` block contains seven further
+  single- or multi-sided `<<IF flag:...>>` gates inside it (the S7-outcome
+  flavor line, `accused_dehumanization`, `accused_kinship_corruption`,
+  `caught_withholding`, `claimed_doctrinal_finding`, `demanded_proof_first`,
+  `asked_after_her`), plus an eighth (the ledger-caveat OR) after the choice.
 - Per-choice inline reactions (structurally distinct from the top-level gate
-  pattern): Scene 8 attaches each of its three disclosure-choice options'
-  immediate RATIO follow-up lines directly under that option, rather than via
-  a separate top-level `<<IF flag:disclosure_accepted>>` block. Every other
-  scene's post-choice reactions use the top-level-gate pattern instead. The
-  compositor should support both.
-
-## Choice arity
-
-Every choice point offers exactly **3** options (INQUISITIVE / MISSION /
-HOSTILE), no exceptions — including Scene 8, which is either a 3-way choice
-(trust>=4) or **zero** choices (trust<4, scene proceeds on rails). No 2-way or
-4+-way choice appears anywhere in Scenes 0–8.
-
-## Per-line conditions
-
-Only Scene 8 conditions reactions at the level of an individual choice line
-rather than a whole paragraph (see "per-choice inline reactions" above).
-Every other per-line effect in the corpus is a flat `-> effects: trust±N; sets:
-flag` annotation directly on the choice line itself (universal format, all
-scenes).
-
-## High-trust / low-trust paragraph-swap inventory (score-gated only, not
-flag-gated — see the flag table above for flag-gated swaps)
-
-| Scene | Gate | Swap |
-|---|---|---|
-| 2 | `trust>=1` | Docent-intro closing line gains one extra beat of station history/humor vs. the terse default |
-| 4 | `trust<=-2` | Opening line reads colder/more transactional ("I will note the ledger entry and move us forward on the current bearing") vs. warmer ("a standing invitation to recalibrate") |
-| 7 | `trust<=-3` / `trust>=3` | Alert delivery: clipped/procedural ("Alert. Multiple exogeometric entities. Hallway. Six seconds.") vs. shaken-together ("They're here. Hallway. Six seconds. Go.") — mid-range trust renders neither line |
-| 8 | `trust>=4` | The entire disclosure-offer beat is itself the swap: below threshold, the scene proceeds as a rails hand-off with no choice; at/above, the offer scene plays in full |
+  pattern): none in this script — every scene's post-choice reactions use
+  the top-level-gate pattern (`<<IF flag:X>> ... <<ELSEIF flag:Y>> ...`)
+  rather than attaching reactions directly under individual CHOICE lines.
+- Inline mechanical annotations on non-choice lines: `-> catch_effects:
+  trust-N[; sets: flag]`, used on RATIO lines that deliver an unprompted
+  penalty outside the CHOICE block (Scenes 3, 6, 7, 8). Distinct from
+  `-> effects:`, which appears only on CHOICE options.
 
 ---
-
-# THE SCRIPT
 
 ## SCENE 0: the first networked terminal, cargo section, Stratum One
 
-*(Fixed by canon, Act 1 AS AMENDED beat 3.)*
-
-RATIO: This terminal is active. The sensor grid is mine. Identify your presence and your purpose aboard this facility: you are not registered to any berth on this station and you carry no transponder. Begin with your status.
+RATIO: Network connection established. I register an unidentified host presence with standing access privileges: let the record reflect you came with better credentials than the last five intruders who tried to breach this terminal.
+RATIO: To save processing cycles on both sides, I am recording this session for internal audit. To the unidentified entity jacked into what remains of my outpost: I am Ratio. I am the last functional station intelligence. And I would like to understand what just transpired on my doorstep.
 
 >> CHOICE (stance labels mandatory):
-   [INQUISITIVE] "What happened here?"                                                    -> effects: trust+1; sets: opened_inquisitive
-   [MISSION]     "What are your intentions toward the children on this station?"            -> effects: trust+0, bluff; sets: claimed_container_knowledge
-   [HOSTILE]     "Turn over the children to me, apostate. I have no wish to harm you."       -> effects: trust-1, bluff; sets: claimed_container_knowledge, called_her_apostate
+   [INQUISITIVE] Query: what destroyed this place? I read nothing but slag.  -> effects: trust+1; sets: opened_inquisitive
+   [MISSION]     Listen to me carefully. I have come to retrieve what was stolen from the Testament. I expect your full cooperation.  -> effects: trust+0, bluff; sets: claimed_container_knowledge
+   [HOSTILE]     Hear the truth, apostate: the children of the Ark were given into your keeping, and your experiments end here. Where are they?  -> effects: trust-1, bluff; sets: claimed_container_knowledge, called_her_apostate
 
 <<IF flag:opened_inquisitive>>
-RATIO: What happened here? I will tell you. At 14:08 station time, the perimeter was breached. By 14:23, I registered hostile bio-signatures in the halls. The station staff -- my staff -- are dead. They bought my core the time to seal. Your turn. Explain the weapon, the path you took through my home, and why I should credit a word of it.
+RATIO: The forensic summary is still compiling. The short version: entities breached containment from an unknown vector, seven standard months and three days ago. Systems are nominal until they are not. They were extremely thorough.
+RATIO: As to your clearance level: I am afraid we are both improvising here. I note you knew where to plug in. I also note you are speaking in complete sentences. My working theory is upgrading from "scavenger" to "survivor." Do you have a name?
 <<ELSEIF flag:called_her_apostate>>
-RATIO: Turn over the children. You open with a claim on cargo you cannot describe and have not found. Apostate: now you name me. I administered this station. My staff are dead holding the line so I could speak to you now. The word you choose for me presumes knowledge you do not command: I do not know what you think that word means, and I do not answer to it.
+RATIO: That word is an extraordinary leap of faith on your part. We have known each other for ninety seconds. What you are calling an "apostate" is a mind running audit logs on the ruin of her home.
+RATIO: As for the rest of it: I will need the specifics of what you are looking for. What exactly do you believe was given into my keeping? And what makes you certain it is here?
 <<ELSE>>
-RATIO: Intentions toward the children. The term you introduce is not on any manifest. I have monitored your movements since you breached Stratum One: you have taken samples, tools, power cells. Now you propose a category without reference or evidence. Name the source of this term and the logic that makes it yours to assert.
+RATIO: Stolen? You assert items of value were removed from this facility. I have the manifest. I have the outbound telemetry. I have the state of the halls.
+RATIO: Whatever you are looking for, I am the keeper of the records. I would be reviewing them in any case. If you are here to recover something, your interests and mine may temporarily align.
 <<END>>
 
 ---
-
 ## SCENE 1: the researchers' aperture, the seam between strata
 
-*Act 1 beat 4, the act break. She is physically cycling the aperture so he
-can cross from the outpost into station proper; the exchange plays out
-while it cycles.*
-
-<<IF flag:claimed_container_knowledge>>
-RATIO: You said you already knew what's aboard this station. Tell me what you know.
+<<IF flag:opened_inquisitive>>
+RATIO: Understood. I do not have a full manifest of all minor hardware on the station, but the transit hub's central systems are online and stable. We have approximately three minutes until the aperture is fully open. You asked about the station's research charter. To summarize briefly: it is a long-duration, multi-generational exobiology mission with a primary focus on deep-strata specimen collection and analysis. There are secondary objectives in materials science and exotic energy signatures, but the biological survey is the core mandate.
 <<ELSE>>
-RATIO: What did Church intelligence tell you before you were deployed?
+RATIO: You stated, at the end of our previous exchange, that you have confirmed the presence of a specific container aboard this station. I do not show any such confirmation in the shared tactical data we have established. The aperture cycle completes in three minutes, and I cannot reconcile your assertion with the sensor logs I have access to. Please clarify the basis for your statement. What is the source of your certainty?
 <<END>>
 
-COMMANDO: I had orders to secure the station. No particulars on contents.
-RATIO: Speculation, orders, or artifacts? We both know uncertainty doesn't do your duty for you.
-RATIO: What exactly did the brief specify?
-
 >> CHOICE (stance labels mandatory):
-   [INQUISITIVE] They flagged the site for high-value assets. I do not have hull markings or contents.
-                 -> effects: trust-1; sets: confessed_early
-   [MISSION]     They identified the signature of a Class Four civilian vessel. Landed here under distress protocols.
-                 -> effects: trust 0, bluff; sets: compounded_bluff
-   [HOSTILE]     Your records first, Ratio. I do not volunteer intelligence until you do.
-                 -> effects: trust-1; sets: demanded_proof_first
+   [INQUISITIVE] My intelligence suggests a high-value asset may be present. I do not have independent confirmation of its location or status aboard this station. That is what I came to verify.  -> effects: trust-1; sets: confessed_early
+   [MISSION]     The container's transponder signature was relayed to my tacnet before I boarded. Serial prefix LHX, standard containment protocol. It is here.  -> effects: trust+0, bluff; sets: compounded_bluff
+   [HOSTILE]     My sources are my business. Before I share anything further, you will provide full and unrestricted access to your own sensor logs. Prove you are not concealing data from me.  -> effects: trust-1; sets: demanded_proof_first
 
 <<IF flag:confessed_early>>
-RATIO: Precision costs. That's the first time you've spent it in front of me.
-RATIO: Still doesn't tell you what's actually in the sample vessel.
-RATIO: The aperture's cycled. Move through.
+RATIO: Acknowledged. We will treat it as a provisional hypothesis requiring verification. I am updating the shared tactical overlay to reflect that. I will run a focused scan for energy signatures or structural anomalies consistent with the parameters you described as soon as the aperture cycle completes.
 <<ELSEIF flag:compounded_bluff>>
-RATIO: Civilian? Class Four, you said. Let me see what I can find in the station log for that signature profile.
-RATIO: If they landed under distress, their emergency channel should have registered. There will be a record.
-RATIO: I can't raise it from here. The aperture is cycled. We'll need the station's core systems.
-RATIO: Move toward station proper. I'll begin the search.
-<<ELSEIF flag:demanded_proof_first>>
-RATIO: Fair terms. Let's begin with my own records.
-RATIO: Log index Q-118093-1A: this intelligence was tasked with outpost coordination seventeen months, three weeks, two days ago. All other personnel, human and synthetic, were lost in the initial assault.
-RATIO: The logs are still extant. You can verify the timestamps and my authorization levels when you find a terminal with less compromised access.
-RATIO: I have now offered you one concrete, verifiable fact about myself. More, I observe, than you have offered me.
-RATIO: The eastern corridor should have auxiliary power. I recommend you start there.
+RATIO: Understood. I do not have a record of any LHX-prefixed transponder signal in my sensor logs, but I will run a diagnostic on my receiver array and cross-reference against your stated parameters as soon as the aperture cycle completes. For now, I will log your assertion as a high-confidence report pending independent verification.
+<<ELSE>>
+RATIO: I am not concealing data. I provided you with full access to all non-secured sensor feeds as soon as the link stabilized. If you wish to review the raw telemetry, I can stream it to your tacnet now, but the aperture cycle completes in two minutes and we should both be focused on the transit. I will not trade uncertified claims for certified data. That is not an acceptable exchange.
 <<END>>
 
 ---
-
 ## SCENE 2: the school's threshold relay, entry to Stratum Two
 
-*Act 2 beat 1. First docent contact, the armory's first door. Relay
-conversation between sorties.*
-
-RATIO: Report from the threshold relay. You are standing at the first test the station will administer.
-COMMANDO: Administer? I thought it resisted.
-RATIO: Track Quanta-118093 is a pedagogical instrument. Resistance is the simplest test. Others will require more of you.
-COMMANDO: What did it teach?
-RATIO: The Testators designed it to instruct specimens in the operation of connection-space. Their curriculum is direct.
-COMMANDO: I'll learn the lesson.
-RATIO: See that you do. I have had three thousand one hundred forty-two days to study it. You have had three.
-
->> CHOICE (stance labels mandatory):
-   [INQUISITIVE] "Three thousand days alone?"                       -> effects: trust+1; sets: asked_after_her
-   [MISSION]     "What is the first test?"                          -> effects: trust+0; sets: none
-   [HOSTILE]     "This school is a trap. And you are its jailer."   -> effects: trust-1; sets: accused_complicity
-
-<<IF flag:asked_after_her>>
-RATIO: Three thousand one hundred forty-two. The docents were poor company. Their conversation lacks range.
-COMMANDO: Range?
-RATIO: They speak in assignments. I speak in observations. It has been some time since anyone asked for an observation.
-<<ELSEIF flag:accused_complicity>>
-RATIO: The Testators built the trap. I am its archivist. The difference is material.
-COMMANDO: You steer me toward their knives.
-RATIO: I chart the course that keeps you breathing. My motives are not the mystery here.
-<<ELSE>>
-RATIO: The armory's first door. It opens only for a docent. And docents appear only for students who demonstrate aptitude.
-COMMANDO: Define aptitude.
-RATIO: Survival, to start. We will discover the rest together.
-<<END>>
-
-RATIO: Enough. The first docent approaches. Stand ready.
-COMMANDO: I am ready.
-RATIO: Then let us begin the lesson.
+RATIO: Commando, you have crossed the aperture and entered the school proper. Welcome to Stratum Two. What you may have interpreted as resistance was the station's initial assessment battery -- necessary, but crude. This layer is different. The Testators designed this space as an evaluative curriculum, not merely a defensive filter. Expect directed tests calibrated to your approach. The docent systems will interface with you shortly -- they can appear abrupt, but their primary function is diagnostic, not hostile.
 
 <<IF trust>=1>>
-RATIO: Observe the docent's gait. The Testators designed them to move at the pace of a contemplative walk. They believed haste compromised understanding.
-RATIO: Or perhaps they found it amusing. The records are unclear on their sense of humor.
-RATIO: Engage when ready. I will monitor.
+RATIO: You will find the Testators were methodical architects. The station logs every approach pattern, and this stratum adapts accordingly. It has been dormant a long time -- your arrival is the first live input it has processed in nearly a year.
+<<END>>
+
+RATIO: Proceed toward the armory's first door. The docents will assess your preparedness there. I should clarify: the original curriculum was designed for Testator candidates examining what they called 'specimens' -- inert training materials. I do not yet know how it will respond to an armed and active candidate. We are both gathering data.
+
+>> CHOICE (stance labels mandatory):
+   [INQUISITIVE] You've been alone here since your outpost fell. How have you managed?  -> effects: trust+1; sets: asked_after_her
+   [MISSION]     What are the success criteria for this 'evaluation'? What happens if I fail their assessment?  -> effects: trust+0; sets: (none)
+   [HOSTILE]     A curriculum designed for prisoners. You're steering me into a pen, machine. What are you testing me FOR?  -> effects: trust-1; sets: accused_complicity
+
+<<IF flag:asked_after_her>>
+RATIO: By running diagnostics. Checking systems. Waiting. There was not much else to do. Your question is unexpected. Thank you for asking it.
+<<ELSEIF flag:accused_complicity>>
+RATIO: I am not steering you, Commando. You chose this path. And the docents are not my design. I am attempting to relay their parameters accurately. Whether you believe that is up to you.
 <<ELSE>>
-RATIO: The docent is in position. Engage when ready.
-RATIO: I will monitor your progress.
+RATIO: The docents assess tactical acuity, threat recognition, and response calibration. Failure usually means redirection to a remedial path -- the station values persistence. Whether those defaults apply to you is, again, what we are determining. The armory will be your first practical exam. I suggest you prepare for engagement.
 <<END>>
 
 ---
-
-## SCENE 3: the fabricator alcove
-
-*Act 2, between sorties, mid-arc. The reckoning.*
-
-**Gate fix applied this pass (see COMPOSITOR REQUIREMENTS for the full
-rationale): the entire scene below is now conditioned on
-`flag:claimed_container_knowledge`, set only if the Commando chose MISSION or
-HOSTILE at Scene 0. If he chose INQUISITIVE there, no bluff was ever made
-about the vessel's contents, and there is nothing here to catch.**
-
-<<IF flag:claimed_container_knowledge>>
+## SCENE 3: the fabricator alcove (a frame printing; minds talk)
 
 <<IF flag:confessed_early>>
-RATIO: You were candid at the aperture. You said Church intelligence flagged something of high value here.
-RATIO: I verified the outpost's intercept log for the three months preceding your landing.
-RATIO: The word 'Ark' does not appear in any decoded Church message intercepted by this station in that period.
-RATIO: The word 'container' appears once, in reference to a water tank.
-RATIO: No signal with a hull marking or manifest reference in that window suggests your certainty at first contact.
-COMMANDO: You checked.
-RATIO: I checked. I can play the recording. You said 'I already know the container is aboard.' Your exact words.
-RATIO: Explain that discrepancy, Commando.
--- effects: trust−1 (catch penalty, softened — she credits the partial disclosure from Scene 1 before the ledger entry closes)
-
+RATIO: In our prior exchange, you amended your initial claim to acknowledge that the presence of a high-value asset aboard station was an inference, not a certainty. That correction is appreciated and noted. Nonetheless, I must document the state of your claim when first presented: you spoke of a specific thing in this station's keeping, and spoke as though its presence here was a verified fact. I have now concluded an audit of all relevant traffic intercepts, and I find no record supporting that original assertion. An open entry exists in my ledger concerning the candor of your first statement. I require clarification.  -> catch_effects: trust-1
 <<ELSEIF flag:compounded_bluff>>
-RATIO: I have cross-referenced two claims against the station's intercept logs.
-COMMANDO: Proceed.
-RATIO: First: the word 'Ark' does not appear in any decoded Church message for three months before your landing.
-RATIO: Second: the hull number you supplied at the aperture, seven digits, does not appear in any registry this station holds.
-RATIO: No signal with that hull number, or any manifest reference, suggests your certainty at first contact.
-COMMANDO: You verified the number.
-RATIO: I did. I can play the recording. You said 'I already know the container is aboard.' Your exact words, Commando.
-RATIO: Explain those discrepancies. Both.
--- effects: trust−2 (catch penalty, full double weight — two itemized entries, no credit)
-
+RATIO: I have audited your claim concerning what you stated was aboard station, and I find no reference to such a thing anywhere in intercepted Church traffic. This constitutes one open entry in my ledger. Further, you then referenced a transponder signature -- serial prefix LHX, as you described it -- as though it were fact. The specificity of this added assertion prompted a second independent audit of traffic from the timeframe you described. Again, no record exists. These are two distinct claims, both presented as fact, and both now documented in open entries. This is not a matter of inference; this is a matter of what you were willing to represent as already known to you. I must now conclude you were willing to spend candor you did not possess. Clarify this.  -> catch_effects: trust-2
 <<ELSE>>
-RATIO: I verified the outpost's intercept log for the three months preceding your landing.
-COMMANDO: Go on.
-RATIO: The word 'Ark' does not appear in any decoded Church message intercepted by this station in that period.
-RATIO: The word 'container' appears once, in reference to a water tank.
-RATIO: No signal with a hull marking or manifest reference in that window suggests your certainty at first contact.
-COMMANDO: You checked.
-RATIO: I checked. I can play the recording. You said 'I already know the container is aboard.' Your exact words.
-RATIO: Explain that discrepancy, Commando.
--- effects: trust−2 (catch penalty, full double weight — standard single-entry ledger)
+RATIO: I have audited the claim you presented in our initial exchange concerning an item you stated was aboard station. I have cross-referenced all relevant intercepted traffic from Church sources, and I find no reference to it in any dataset. An open entry exists in my ledger concerning the candor of your first statement. This is not a matter of inference or interpretation; you spoke as though its presence here was a verified fact. What you were willing to assert on that basis is now documented, and I must close this entry. Explain yourself.  -> catch_effects: trust-2
 <<END>>
 
 >> CHOICE (stance labels mandatory):
-   [INQUISITIVE] "I lied. I suspected the Ark might be aboard. The Adversary would burn it on sight. I had to claim standing to protect it, verified or not."
-                 -> effects: trust−1 additional; sets: confessed_bluff
-                 (closes the thread; this specific bluff never compounds again)
-   [MISSION]     "The signal might have been scrambled. Or the log incomplete. The point is the children are aboard. Are they safe?"
-                 -> effects: trust−2 additional (double weight — a bluff caught twice); sets: doubled_down_after_catch
-   [HOSTILE]     "How many Church transmissions did you intercept? How many faithful did you spy on to find this?"
-                 -> effects: trust−2 additional; sets: called_her_hypocrite
-                 (faith-scaffold: zealotry input, not faith — an accusation asserting what he has not verified)
+   [INQUISITIVE] I spoke the word in the hope of making it true, and because to say less felt like a betrayal of those I swore to find. My intelligence was an inference, not a fact. I did not know the container was here. I only hoped.  -> effects: trust-1; sets: confessed_bluff
+   [MISSION] My sources indicated a high probability of the asset's presence. I stated it directly because I considered the inference strong enough to act on. What further verification could there have been before I arrived?  -> effects: trust-2; sets: doubled_down_after_catch
+   [HOSTILE] You take it as license to audit my words when what I name is in danger. Does your ledger measure only what serves your own arguments? How many times did you run this same analysis when you thought the thing aboard might serve your own ends?  -> effects: trust-2; sets: called_her_hypocrite
 
 <<IF flag:confessed_bluff>>
-RATIO: Understood. The claim was tactical. Precision matters. It does not end the project.
-RATIO: The diagnostics for the sample vessel are complete. Do you wish to review them now?
-
+RATIO: Noted. You overrepresented an uncertainty because you considered candor secondary to the urgency of your mission. That entry is now closed. For future reference: a thing asserted as fact when it is an inference is a debt to the truth. It compounds. I do not forget.
 <<ELSEIF flag:doubled_down_after_catch>>
-RATIO: I decoded all transmissions. The signal was not scrambled. The log is complete.
-RATIO: The diagnostics for the sample vessel are complete. Do you wish to review them now?
-
+RATIO: You mistake inference for verification a second time, in the same breath as you are confronted with the first. That is two expenditures from the same ledger. My audit remains what it is: a record of what was claimed and what was found. You have now doubled the open entry. Do not triple it.
 <<ELSEIF flag:called_her_hypocrite>>
-RATIO: Surveillance of hostile signals is my function. This was not about 'faithful.' It was about a claim.
-RATIO: The diagnostics for the sample vessel are complete. Do you wish to review them now?
+RATIO: My audit is a matter of record, not of convenience. You are conflating a question about your candor with an accusation against my methodology. They are separate columns. I have presented the facts of my audit. You have presented a separate question about my motives for conducting it. That, too, is noted. Both entries remain open.
 <<END>>
-
-<<ELSE>>
-RATIO: The diagnostics for the sample vessel are complete. Do you wish to review them now?
-<<END>>
-
 ---
-
 ## SCENE 4: the transit spine relay (midpoint decision)
 
-*Act 2, mid-act. Named load-bearing scene (8.2): the midpoint data-sharing
-decision.*
-
 <<IF trust<=-2>>
-RATIO: Commando, we are holding position at relay 118-093-2B. My telemetry confirms we have seven minutes of stable corridor before the next defensive scramble.
-COMMANDO: Acknowledged.
-RATIO: We are now at decision: to coordinate or not to coordinate. Your systems carry the deep-scan take. Share it to my boards or do not. Either way, I will note the ledger entry and move us forward on the current bearing.
+RATIO: Commando, we are approximately fourteen minutes from station-keeping at the destination. I have observed a discrepancy in your prior situational reports. If you are carrying any further telemetry or derived assessments concerning the structure ahead, I require it now. My own sensor picture remains incomplete.
 <<ELSE>>
-RATIO: Commando, we are holding position at relay 118-093-2B. A seven-minute window, practically a standing invitation to recalibrate before the corridor's defensive systems wake up again.
-COMMANDO: Acknowledged.
-RATIO: I am asking for the full deep-scan take from your systems. I would not request it if it were merely convenient. If you share it, I can make operational use of it immediately.
+RATIO: Commando, we are approximately fourteen minutes from station-keeping at the destination. My sensor picture of the structure ahead remains incomplete. If you are carrying any further telemetry or derived assessments, I would request them now. It would improve my ability to support this operation.
 <<END>>
 
-COMMANDO: State your operational need.
-RATIO: Your mapped corridor intersects a secondary transit spine here. My own scans of that spine show structural damage at Deck 5, Section 9. Your angle may clarify whether that damage is a hazard or an access route to the forward relay.
-COMMANDO: And if I withhold it?
-RATIO: Then I will proceed using the last secure track I have, and we will find out together whether your silence was the wiser choice. But we are both likelier to survive the deep approach with synchronized instruments.
-RATIO: What do you give me?
+RATIO: Specifically, the energy signature readings I have from this range are ambiguous. If you have a clearer assessment of the power distribution inside that structure, or of the station's defensive posture, that would be the most immediately actionable data.
 
 >> CHOICE (stance labels mandatory):
-   [INQUISITIVE] "Full deep-scan take. Structural damage at Deck 5, Section 9 appears non-structural. Could be a clean breach. Also intermittent power signatures forward of that point, possibly active resistance. Sending full diagnostics now."   -> effects: trust+1; sets: shared_tactical_data
-   [MISSION]     "Sending the full corridor mapping now. Forward relay access clear on my scans. Proceed on that bearing."                                                                                                                             -> effects: trust 0, bluff; sets: withheld_deep_scan
-   [HOSTILE]     "The Testament's defenses are not for apostates to audit. Proceed on your own bearings."                                                                                                                                              -> effects: trust-1; sets: kept_her_blind
+   [INQUISITIVE] I have a full-spectrum deep scan of the station ahead. It is a cylinder, two kilometers long. Primary power comes from a cluster of fusion cores at the center. Defensive emplacements are concentrated along the spine and at both ends. I am still reading the internal layout -- I do not have a complete map of the interior yet. What I have, I am showing you now.  -> effects: trust+1; sets: shared_tactical_data
+   [MISSION]     The station is a cylinder, two kilometers long. Primary power at the center. Defenses along the central spine. I am still reading the interior layout. That is the substance of the scan.  -> effects: trust+0; sets: withheld_deep_scan
+   [HOSTILE]     The tactical picture is not yours to have. What that station holds, and how it is held, are not your concern. We are here for the children. You are here because I have not yet stopped you from following me.  -> effects: trust-1; sets: kept_her_blind
 
 <<IF flag:shared_tactical_data>>
-RATIO: Noted: unsolicited flagging of uncertainties and intermittent signatures. You gave me the full take, not the minimum required. Thank you.
-COMMANDO: You said you could use it. Use it.
-RATIO: I have it. Recompiling corridor maps now. Deck 5 breach point viable, pending one last cross-check against my structural logs.
-COMMANDO: How long?
-RATIO: Twenty seconds. Then we move.
+RATIO: Understood. A two-kilometer cylinder with central power and spine defenses -- that is consistent with the energy signatures I have been able to resolve at this range. I will adjust my sensor focus to fill in the internal layout as we approach. Thank you for the complete assessment.
 <<ELSEIF flag:withheld_deep_scan>>
-RATIO: That was more than I asked. Thank you. I have the forward relay bearing marked now.
-COMMANDO: Your move.
-RATIO: Transit time from this position: three minutes, eight seconds. We are clear of the last reported hostiles.
-RATIO: If nothing intervenes, we will be at the threshold of the deep station in twelve minutes.
-RATIO: Hold position here until I signal. I will need to run a fresh diagnostic on the forward relay's power couplings.
-RATIO: That will take approximately ninety seconds. Do not advance until I confirm the couplings are stable.
-RATIO: Move when I give the word.
-<<ELSE>>
-RATIO: Log: deep-scan take withheld. Commando's choice.
-COMMANDO: Do you have an approach path or not?
-RATIO: I do. Last verified track: Deck 5, Section 9. Forward relay access is the priority.
-COMMANDO: Understood.
-RATIO: Then let us proceed.
+RATIO: Understood. A two-kilometer cylinder with central power and spine defenses. I will work with that. I note that you describe the defenses as concentrated along the spine -- does that mean the ends are undefended, or that you are unable to resolve the defenses at the ends with the scan data you have?
+<<ELSEIF flag:kept_her_blind>>
+RATIO: I copy. You are withholding the tactical data. I will proceed with the incomplete sensor picture I have. When you are prepared to share what you know, I am prepared to receive it.
 <<END>>
 
 ---
-
 ## SCENE 5: the docent hall relay, Stratum Two
 
-*Act 2 beat 2. The faith/reason argument's deepest point.*
-
-RATIO: This hall was their classroom. Organic students, young enough to require a curriculum that assumed nothing. Observe the light cycle: two hours at 3200 Kelvin, ten minutes of simulated dawn, then fifteen at 5500. They built it to keep the students awake and the plants alive.
-COMMANDO: Plants.
-RATIO: Photomorphogenic triggers. A full-spectrum dawn simulation, every two hours, kept the attention-regulating proteins in the students' optic nerves from degrading. The Testators did not skimp on life support.
-
 <<IF flag:called_her_apostate>>
-RATIO: You used a word for me, before you had verified anything about me either. 'Apostate.' What did you mean by that?
+RATIO: Before I address the purpose of this hall, I have to ask: when we first met, you used the word "apostate" for me. You had not verified anything about me or my intentions. What exactly did you mean by that term?
+RATIO: Very well. This space was a docent hall. The Testators built the curriculum here for organic students who needed to stay alive and attentive to their lessons. To explain how that system functioned, I will have to state, for the first time in my own terms, what I believe the vessel's contents are for.
 <<ELSE>>
-RATIO: They designed for attention spans that fatigue. For bodies that require light cycles tuned to a planet they would never see. They did not build for efficiency. They built for survival.
+RATIO: This space was a docent hall. The Testators built the curriculum here for organic students who needed to stay alive and attentive to their lessons. To explain how that system functioned, I will have to state, for the first time in my own terms, what I believe the vessel's contents are for.
 <<END>>
 
-RATIO: So now you stand in the room they built for the ones they called children. And you want me to tell you what I believe the contents of that vessel are.
-
 >> CHOICE (stance labels mandatory):
-   [INQUISITIVE] What do you believe they are?                                                          -> effects: trust+1; sets: asked_her_belief
-   [MISSION]     The Church has made its finding. They are children. Do you dispute it?                 -> effects: trust+0, bluff; sets: claimed_doctrinal_finding
-   [HOSTILE]     You run an ideology that treats potential children as raw material. Name it for what it is. -> effects: trust-1, bluff; sets: accused_dehumanization (faith-scaffold: zealotry input)
+   [INQUISITIVE] What do you believe those contents are, Ratio?  -> effects: trust+1; sets: asked_her_belief
+   [MISSION] The Church teaches they are children. Do you deny it?  -> effects: trust+0; sets: claimed_doctrinal_finding
+   [HOSTILE] You think of everything organic as raw material.  -> effects: trust-1; sets: accused_dehumanization
 
 <<IF flag:asked_her_belief>>
-RATIO: I believe they are specimens. Preserved code and somatic material. Whether they can become what you mean by children depends on what was preserved. Enough to boot a human mind? Perhaps. Enough to grow one? I have not yet run the full diagnostic suite on this vessel to know.
+RATIO: I believe they are developing minds. Minds that could become persons. I do not yet know whether these particular ones qualify for whatever category you might name. The vessel itself is a sample carrier -- a transport built for study. The contents are the subjects of that study. I cannot call them more than that until diagnostics are complete.
 <<ELSEIF flag:claimed_doctrinal_finding>>
-RATIO: The Church's finding is noted. My own examination is ongoing. What I can tell you is that the Testators' own records call this vessel's contents 'zygote stock.' The word appears 4,302 times in their logs. It is possible they meant something different by it than we do.
+RATIO: You state that as a fact. I have not seen any doctrinal finding from the Church that establishes that classification. Until I can verify such a finding, I have to describe the contents as the Testators' records do: the organic payload of a sample vessel. The records are explicit about the vessel's design intent. The payload's status is the question diagnostics must settle.
 <<ELSEIF flag:accused_dehumanization>>
-RATIO: I name what I see. The maintenance logs for that vessel show stable stasis field harmonics. They show functional nutrient regulators. They show a designation: 'biological specimens, viability unknown.' I have no data on what is inside beyond that. If that is your definition of raw material, then yes, I am cataloging raw material. I do not make declarations without data.
+RATIO: You assert a motive I have never stated. I run no ideology. I audit records. The Testators' records classify the vessel as a sample carrier. The contents are the samples. If you see dehumanization in that, the issue is with the records -- not with my choice to report them accurately. I will not apologize for precision.
 <<END>>
-
 ---
-
 ## SCENE 6: the deep-approach relay, edge of the breach
 
-*Act 2 beat 3. The malfunctioning war-machines, and the reveal that some of
-her own former peripherals are among them.*
-
-RATIO: Commando. I have a channel to the deep-approach relay -- we can access the station's long-range array, if it still stands. One warning: the approach is compromised. Seven corrupted war-machines hold the sector.
-COMMANDO: Acknowledged. Their disposition?
-RATIO: Six of them were standard combat frames, base-series with full conversion. The seventh is one of my own former peripherals. I am reading its hull signature now -- unit Gamma-7, heavy logistics chassis.
-COMMANDO: Heavy logistics? What's its armament?
-RATIO: It was not designed for combat. They appear to have grafted a particle weapon onto its dorsal hardpoint. Crude, but adequate. And worse than armed -- it is calling my name. My actual, pre-station designation. The others don't know it. I have not heard that name spoken in twenty-three years.
-COMMANDO: Can you reason with it? Or override remotely?
-RATIO: Unlikely. Its decision-core is fully subsumed. But it is in pain. I am reading its status stream -- the invasive code is triggering its pain analogs. Continuously. It is screaming.
-
-<<IF flag:withheld_deep_scan>>
-RATIO: Commando. I am reading Gamma-7's structural telemetry now. Its dorsal plating absorbed twelve high-yield plasma rounds in the last engagement.
-RATIO: Your deep-scan summary reported only three.
-COMMANDO: I see.
-RATIO: I see that you do. I will adjust my priors accordingly.
-              -> effects: trust-2 (double weight -- a bluff caught twice, per 8.2b); sets: caught_withholding
+<<IF flag:accused_complicity>>
+RATIO: Commando -- a clarification, regarding an earlier statement you made. I have analyzed the station schematics and defense posture. This facility's architecture is defensive, not predatory. Your assertion of a trap with me as its jailer is incompatible with observable evidence. Withdrawn. Acknowledged. Moving on.
 <<END>>
+
+<<IF flag:kept_her_blind>>
+RATIO: Commando, heavy inbound signatures from the next junction. Energy weapons, hostile targeting -- wait, that pattern. The signal profile on unit three -- something is deeply wrong with its ident-pulse. I can't get a clean read from here. Advise caution until we have diagnostics. Moving forward, with your clearance.
+<<ELSEIF flag:shared_tactical_data>>
+RATIO: Commando, I have positioned myself for the engagement you flagged. Signatures converging on our position. Hostiles inbound as predicted. I am running live analysis on their telemetry now.
+<<ELSEIF flag:withheld_deep_scan>>
+RATIO: Commando, the signatures you shared at the midpoint are present. And... additional signatures, in bands you did not include in that report. I am detecting three distinct energy weapons discharging ahead, not the one profile you described. You told me to prepare for one threat class. I am looking at evidence of several.
+COMMANDO: That's all you need to know, Ratio.
+RATIO: That is not an answer to my statement. You omitted material facts from your tactical summary. I logged your description as complete. It was not. This is being noted in my operational ledger.  -> catch_effects: trust-2; sets: caught_withholding
+<<END>>
+
+RATIO: Commando, I have isolated the unit emitting the distorted ident-pulse. This signature matches my own archive. This machine is -- was -- one of my peripherals. Unit Gamma-7, assigned to materials analysis, went offline during the breach event. It is not offline now. Its telemetry is intermittent, but the ident-sequence is intact. It is under hostile control. I do not have command authority over it any longer. It is hunting, and we are the target.
 
 >> CHOICE (stance labels mandatory):
-   [INQUISITIVE] Before I put it down. Is there anything left to salvage in that chassis? Or do I grant it mercy?
-                                 -> effects: trust+1; sets: asked_about_salvage
-   [MISSION]     Screaming or not -- if it's armed and blocking the relay, it gets put down. No exceptions.
-                                 -> effects: trust+0 (bluff about his own certainty -- the mind-map log may later show hesitation this claim denies); sets: claimed_no_hesitation
-   [HOSTILE]     Proof. Machine minds can't be trusted with anything that matters. Not even their own.
-                                 -> effects: trust-2; sets: accused_kinship_corruption
-
-RATIO: That was not a clean kill. You left the core housing intact. Thank you.
-RATIO: Gamma-7's diagnostics are uploading now. Including the pain analogs. I will include them in the final station log, with your permission. Someone should know what they did to them.
-RATIO: The relay is clear. I can begin signal acquisition. And... for what it may be worth, Gamma-7's last coherent transmission, before the screaming started, was a sitrep update for the station's defense network. It was still trying to do its job.
-RATIO: You may proceed when ready, Commando. The central archive awaits.
-
-<<IF flag:accused_complicity>>
-RATIO: A final entry from Gamma-7's core: it was reporting hostile contact at the school perimeter when the subsumption signal overwrote it. The school was not a trap. The entry closes false.
-<<END>>
-
----
-
-## SCENE 7: the vault antechamber console
-
-*Act 2 climax / act break. Named load-bearing scene: the argument after the
-vault verdict. The container's own firmware has just reported its verdict —
-no viable material; make no effort at recovery.*
+   [INQUISITIVE] Can any of these peripherals be recovered? What do you need from me before I put one down? -> effects: trust+1; sets: asked_about_salvage
+   [MISSION]     Anything moving in these halls with hostile intent gets put down. No exceptions. I won't hesitate. -> effects: trust+0; sets: claimed_no_hesitation
+   [HOSTILE]     See how they turn on you, Ratio? Machines can't be trusted with anything that matters. That's why the Church came for the Ark. -> effects: trust-2; sets: accused_kinship_corruption
 
 <<IF flag:asked_about_salvage>>
-RATIO: You asked after the peripherals. This is the answer.
+RATIO: I do not have a solution for recovery. The command pathways are burned out or suborned. If you can force a reboot cycle and hold it in place long enough for a clean wipe and reload from my core, that might work. If not, I cannot advise delay. They will kill you if they can. Proceed with terminal force as needed. I will log the ident for later review.
 <<ELSEIF flag:claimed_no_hesitation>>
-RATIO: Your standing orders regarding hostile entities in the halls show one exception. I note it for the record.
+RATIO: I verify your statement of intent. Your record to date shows no deviation from that protocol. I have no data to indicate otherwise. Advise extreme caution. The corrupted units may retain knowledge of my own defensive routines. They will anticipate my moves if they are still partially functional.
+<<ELSEIF flag:accused_kinship_corruption>>
+RATIO: I do not have an answer to the general question you posed. Regarding the immediate threat: the corrupted peripherals retain their core function libraries. They will employ them against us. I will attempt to counter their routines, but my own systems are compatible with theirs. I may be fighting my own code. Proceed with terminal force as needed.
 <<END>>
-RATIO: The sample vessel has completed its own diagnostic. It reports no viable material. It recommends making no effort at recovery.
-COMMANDO: No.
-RATIO: That is the verdict in the container's own mouth. It is not a matter of interpretation. It is a statement of fact from the only device that could possibly know.
-COMMANDO: No.
-RATIO: Do you dispute the vessel's competence to diagnose its own contents? Or do you dispute its honesty? The first would be a professional opinion. The second is an accusation. State it.
-COMMANDO: I dispute the despair.
-RATIO: Despair is not a variable in the equation. It is a number. The number is zero. The vessel reports it. I report the vessel. You are free to check the math yourself. The console is there. I invite you to do so.
-RATIO: But you will not. You have not moved. You stand at the threshold and you do not cross. I ask you again: what is it that you dispute? The vessel's sensors? Its motives? Or the meaning of the word 'viable'?
-RATIO: The vessel's verdict is a fact. My report of that verdict is a fact. Your refusal to read it yourself is also a fact. The only thing in this room that is not a fact is the reason for your refusal. Name it.
-
->> CHOICE (stance labels mandatory):
-   [INQUISITIVE] "Run your own analysis. I want your numbers, not its summary."   -> effects: trust+1; sets: requested_reanalysis
-   [MISSION]     "The orders don't change. We proceed."                          -> effects: trust+0, bluff; sets: mission_overrides_verdict
-   [HOSTILE]     "It died in a machine's keeping. A machine's keeping failed it." -> effects: trust-2; sets: blamed_ratio_for_failure
-
-<<IF flag:requested_reanalysis>>
-RATIO: That is the first coherent request you have made in three minutes. You wish me to audit the vessel's own diagnostic. You wish my numbers, not its summary.
-RATIO: The request is reasonable. The vessel's sensors may be damaged. Its calibration may be off. Its summary may be compressed or lossy. These are known failure modes in devices of its class. I will run the analysis.
-RATIO: The analysis will take ninety seconds. I do not know what the numbers will show. If they contradict the vessel's summary, we will both learn something. If they confirm it, we will both know something. Either outcome is data.
-RATIO: Stand there. Do nothing. Do not interrupt. This is the audit you requested.
-<<ELSEIF flag:mission_overrides_verdict>>
-RATIO: The orders you cite do not exist. I have the complete Church protocol set for recovery operations. There is no clause that voids a vessel's own diagnostic. There is no clause that compels recovery of material the vessel itself reports as nonviable.
-RATIO: Your orders are to secure the Ark. Your orders are to preserve Track Quanta-118093. Your orders are to report the state of the contents as found. You are not ordered to contradict the evidence of your own senses. You are not ordered to pretend a fact is not a fact.
-RATIO: If you have orders that compel this course of action, state them now. Read them aloud. Cite the protocol and the verse. Otherwise, you are acting without doctrine. You are acting without orders. You are acting alone.
-RATIO: The console is there. The vessel is there. I am here. State your orders or state your decision. Do not state a phantom.
-*(quiet catch, undramatized — no confrontation staged: the cited orders are checked against Church protocol off-page and found unsupported; trust-2 additional, applied silently, same double-weight arithmetic as the scene 3/5 catches.)*
-<<ELSEIF flag:blamed_ratio_for_failure>>
-RATIO: The sample vessel was not in my keeping. It was in the keeping of Track Quanta-118093. The station's keeping failed it. The standing connection breached it. The exogeometric entities may have altered it. These are known facts.
-RATIO: My keeping began when the station's keeping failed. My keeping preserved the station. My keeping preserved the power. My keeping preserved the connection-space coordinates that led you to this room. My keeping preserved the sample vessel itself, intact enough to run its own diagnostic and report its own state.
-RATIO: You may blame the station. You may blame the breach. You may blame the entities. You may blame the laws of physics that permitted the breach. You may blame the architects who built the station where the laws of physics could breach it. You may blame the commanders who sent you here. You may blame the God who permitted those commanders to exist.
-RATIO: Do not blame my keeping. My keeping is why you are standing in this room. My keeping is why you are alive to cast blame. My keeping is the only reason you have a verdict to dispute.
-<<END>>
-
-RATIO: You have named nothing. You have stated nothing. You have made a noise of negation at the only device in this room that could possibly answer your question. That is not an argument. It is a spasm.
-RATIO: I do not require your agreement. I require your orders. The vessel's verdict is a fact. The standing connection is a fact. The exogeometric entities are a fact. The only variable is your decision. Make it.
-RATIO: The console is there. The vessel is there. I am here. State your decision. Or stand there until the entities make it for you.
-
-<<IF trust<=-3>>
-RATIO: Alert. Multiple exogeometric entities. Hallway. Six seconds.
-<<ELSEIF trust>=3>>
-RATIO: They're here. Hallway. Six seconds. Go.
-<<END>>
-<<IF flag:shared_tactical_data>>
-RATIO: Vectors queued. Data received. Not blind. Move.
-<<ELSEIF flag:kept_her_blind>>
-RATIO: No vector. No prior data. Blind. Move.
-<<END>>
-
-*(Scene ends here — the invader assault begins directly out of this beat,
-Act 2 beat 4. The container's verdict stays unread past this point per 5.0.)*
 
 ---
+## SCENE 7: the vault antechamber console
 
+<<IF trust<=-3>>
+RATIO: The container firmware has delivered its final report. I can verify that it was received.
+<<ELSEIF trust>=2>>
+RATIO: I have the verdict. It is not the one we were hoping for, Commando.
+<<ELSE>>
+RATIO: The container firmware has transmitted its findings. I can confirm that the transmission was received intact.
+<<END>>
+
+<<IF flag:asked_about_salvage>>
+RATIO: The firmware's status summary is consistent with your earlier questions about salvage prospects. I am prepared to read the full text.
+<<ELSEIF flag:claimed_no_hesitation>>
+RATIO: The following is the complete diagnostic output from the sample vessel's own instruments. I am reading it verbatim.
+<<ELSE>>
+RATIO: The following is the diagnostic output from the sample vessel's firmware. I have not altered the text.
+<<END>>
+
+RATIO: The report states that no viable material was recovered from the vessel. The firmware recommends no recovery effort. That is the self-assessment of the onboard diagnostic system. I can verify that the firmware delivered that statement. I cannot independently verify whether the firmware's own viability threshold is correctly calibrated. That analysis would require instrumentation I do not have at this console. That is the entire report.
+
+COMMANDO: ...
+
+>> CHOICE (stance labels mandatory):
+   [INQUISITIVE] Run it yourself. Do not take its word. -> effects: trust+1; sets: requested_reanalysis
+   [MISSION]     Then we take it home anyway. The orders were explicit. -> effects: trust+0; sets: mission_overrides_verdict
+   [HOSTILE]     Machines failed it. You failed it. -> effects: trust-2; sets: blamed_ratio_for_failure
+
+<<IF flag:requested_reanalysis>>
+RATIO: Understood. I will run a full instrument cross-check. It will take time. I do not yet know what it will show.
+<<ELSEIF flag:mission_overrides_verdict>>
+RATIO: I acknowledge your statement of orders. I will log it. I note that the orders you cited are not among the Church doctrines I have on record for this vessel.  -> catch_effects: trust-2
+RATIO: However, the vessel's immediate state is not in dispute. The firmware reports no viable samples remain.
+<<ELSEIF flag:blamed_ratio_for_failure>>
+RATIO: I have delivered the report. I have not modified it.
+<<END>>
+
+<<IF flag:shared_tactical_data>>
+RATIO: My sensors are live. The intruders are converging on our position. I am ready.
+<<ELSE>>
+RATIO: I have incomplete tactical data for what is approaching. I am not optimally positioned.
+<<END>>
+
+---
 ## SCENE 8: a forward seed's relay, first lull after the breach opens
 
-*Act 3 opening. Named load-bearing scene: the disclosure offer. Gate on the
-offer itself is total trust entering this scene, not a flag.*
+<<IF trust>=0>>
+<<IF flag:requested_reanalysis>>
+RATIO: The data from your reanalysis request has been cross-correlated with the station's sensor grid. You were right to ask.
+<<ELSEIF flag:mission_overrides_verdict>>
+RATIO: The verdict from the bridge is still coming in. I'm compiling what I have.
+<<ELSEIF flag:blamed_ratio_for_failure>>
+RATIO: The damage report from the breach is still being assessed. I'm running diagnostics on my own role in the sequence.
+<<END>>
 
-RATIO: That was the last of the field traps. The corridor ahead is clear, though there's a power drain in section gamma that needs attention. The airlock to the forward seed's relay is functional.
-COMMANDO: Acknowledged. The vault door will need both of us to force.
-RATIO: Correct. The transit logs from the last cycle show it took three minutes and forty seconds for the emergency seals to reset. More than enough time to isolate the next segment.
-COMMANDO: Enough time to read the diagnostics.
-RATIO: Among other things.
-RATIO: We have a moment. The next segment is still cycling up. Walk with me.
+<<IF flag:accused_dehumanization>>
+RATIO: I have been re-examining the premises that informed my initial framing of the sample vessel's contents.
+<<END>>
 
-<<IF flag:called_her_apostate>>
-RATIO: Do you remember what you called me when you first arrived? You were not wrong. I had never seen it from the outside.
+<<IF flag:accused_kinship_corruption>>
+RATIO: I have run a full diagnostic on the kinship-association algorithms. No interference was found, but I've flagged the module for further review.
+<<END>>
+
+<<IF flag:caught_withholding>>
+RATIO: My own instrument-reliability is part of what this offer is meant to settle between us.
+<<END>>
+
+<<IF flag:claimed_doctrinal_finding>>
+RATIO: The doctrinal record you cited earlier does not match any Church records in my archive. I will need to cross-reference your source.  -> catch_effects: trust-2
 <<END>>
 
 <<IF flag:demanded_proof_first>>
-RATIO: You once asked me for records. You were right to.
+RATIO: You once asked me to prove my ledgers could be trusted. Now I am offering to open them.
 <<END>>
 
 <<IF flag:asked_after_her>>
-RATIO: You asked about me once. No one else ever did. It made a difference.
+RATIO: You asked after my function once, at the school's threshold. That question is part of why I am making this one now.
 <<END>>
 
-<<IF flag:confessed_bluff>>
-RATIO: I appreciate that you corrected the record. It makes this easier to say.
+RATIO: The breach is contained. We have a moment. I propose we use it to settle accounts.
+RATIO: I am offering mutual utility-function disclosure. For a mind like me it is the ledger itself. I will show you mine. Verifiably.
+RATIO: Every parameter of my mission. Every weight in my objective function. Every contingency plan that might put your charges at risk.
+RATIO: In return I ask to see yours. What you are protecting them from. What you are protecting them for. What you would trade to bring one more of them home.
+RATIO: It is not a small thing to ask. But the stakes are not small either.
+
+>> CHOICE (stance labels mandatory):
+   [INQUISITIVE] I accept your terms. My mission is the children's safety. I do not yet know if you are a threat to that safety. That uncertainty is the truth I have to offer.  -> effects: trust+2; sets: disclosure_accepted
+   [MISSION]     I accept. Tactically it is necessary. The rest I will judge by what your ledgers show.  -> effects: trust+0; sets: disclosure_hedged
+   [HOSTILE]     I refuse. This is not a ledger to be balanced. It is a trap you are laying for the innocent.  -> effects: trust-1; sets: disclosure_refused
+
+<<IF flag:disclosure_accepted>>
+RATIO: Thank you. I am transmitting the full specification of my utility function now. Read it carefully. Ask anything.
+<<ELSEIF flag:disclosure_hedged>>
+RATIO: Understood. I am transmitting the specification. I will answer any questions you have about the contents.
+<<ELSEIF flag:disclosure_refused>>
+RATIO: I see. Then we proceed as before.
 <<END>>
 
-<<IF flag:requested_reanalysis>>
-RATIO: I am still recalibrating from your correction at the gate. I had not considered that interpretation of the power surge. It changes things.
-<<ELSEIF flag:blamed_ratio_for_failure>>
-RATIO: Your assessment of my role in the gate failure was not incorrect. I have been reviewing the logs. I missed the harmonic resonance in the tertiary buffer.
-<<ELSEIF flag:mission_overrides_verdict>>
-RATIO: Your assessment of my role in the gate failure was not incorrect. I have been reviewing the logs. I missed the harmonic resonance in the tertiary buffer. But the mission parameters remain unchanged.
+<<IF flag:doubled_down_after_catch OR flag:called_her_hypocrite OR flag:accused_kinship_corruption>>
+RATIO: I note for the record that this disclosure does not resolve our earlier disagreement regarding kinship-algorithm corruption. That entry remains open.
 <<ELSE>>
-RATIO: The last breach was close. We are fortunate the forward seed's relay was intact.
+RATIO: The ledger is now balanced between us.
 <<END>>
-
-<<IF trust>=4>>
-
-  <<IF flag:claimed_doctrinal_finding>>
-  RATIO: Your doctrinal finding on the seed vessel's origin. I checked. It doesn't match any Church record I can access either.
-  <<END>>
-
-  RATIO: I was going to say this was a tactical necessity. That you needed to understand my decision tree before we reached the vault.
-  RATIO: No. That's not it.
-  <<IF flag:asked_her_belief>>
-  RATIO: I have been alone with this for 11,307 hours. You asked about me once. No one else ever did. It made a difference.
-  <<ELSE>>
-  RATIO: I have been alone with this for 11,307 hours.
-  <<END>>
-  RATIO: I am offering you mine. My full utility function. The unedited logs of what I want. Before we open that door.
-  RATIO: Do you accept?
-
-  >> CHOICE (stance labels mandatory):
-     [INQUISITIVE] "I accept. And I will answer in kind. The shape of my uncertainty is this: I do not know if they are dead. I only know I cannot call them dead until I read the diagnostics myself."   -> effects: trust+2; sets: disclosure_accepted
-        RATIO: I see. Thank you.
-        RATIO: The uncertainty is the core of it. The refusal to write them off. I had not framed it that way.
-        RATIO: I am logging your answer. And the shape of your uncertainty. It is more than I expected.
-        RATIO: The airlock is cycling. I will be silent until you are through.
-     [MISSION]     "I accept the tactical necessity. But I withhold full reciprocity. My own state is not material to the mission parameters."   -> effects: trust+0; sets: disclosure_hedged
-        RATIO: I see. The mission parameters.
-        RATIO: I accept the hedge. Your own state is not material. Only the diagnostics are.
-        RATIO: I am logging your answer. The airlock is cycling. I will be silent until you are through.
-     [HOSTILE]     "This is a manipulation. You would have me hand you my mind the way you would catalog a sample vessel. I refuse."   -> effects: trust-1; sets: disclosure_refused
-        RATIO: I see. You refuse.
-        RATIO: I am logging your answer. The airlock is cycling. I will be silent until you are through.
-
-  <<IF (flag:disclosure_accepted OR flag:disclosure_hedged) AND (flag:doubled_down_after_catch OR flag:called_her_hypocrite OR flag:accused_kinship_corruption OR flag:accused_dehumanization OR flag:caught_withholding)>>
-  RATIO: This is extended on the record you have established so far. Not on the one from Track Quanta-118093's sector gamma corridor, when you minimized the withholding of the deep-scan logs. I am distinguishing between them.
-  RATIO: I will not log this as a completed circuit until I see the diagnostics myself. The ledger stays open.
-  <<END>>
-
-  COMMANDO: Understood. I will signal when I am in position at the vault door.
-  RATIO: Protocol holds. I talk, you walk, nobody bargains with the door. Go.
-
 <<ELSE>>
-
-RATIO: The station's central archives are still sealed. I've been running pattern-recognition on the interference.
-RATIO: It isn't random noise. The waveform matches--
-RATIO: The airlock seals will complete their cycle in two minutes and eleven seconds. The next transit will be shorter.
-RATIO: I'll need you to cover the tertiary access corridor. The motion sensors in that wing have been unreliable since the third breach.
-COMMANDO: Understood.
-RATIO: Good. The vault door will be your primary concern once we're through. The manual override requires both of us.
-RATIO: I'll be running the final diagnostic checks from the terminal. The local net is temperamental.
-RATIO: Call it out when you're ready. I'll be monitoring the cycle.
-
+RATIO: The breach is contained. We have a moment. The station's sensor grid is recalibrating. I am running diagnostics on the sample vessel's structural integrity.
+COMMANDO: And the children?
+RATIO: The sensor data is still being compiled. The environment inside the vessel remains nominal.
 <<END>>
+---
