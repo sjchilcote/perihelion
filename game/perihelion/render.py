@@ -947,6 +947,67 @@ def _warm_prims(prims, descent):
     return out
 
 
+
+def _props_otherworld(rng, verts, walls, x0, y0, x1, y1, descent=0.0, crng=None):
+    """The Otherworld: the prop vocabulary with its grammar broken. Familiar
+    objects in impossible syntax — a terminal slab floating mid-room facing
+    nothing, seats at half scale in a perfect ring, hairline afterimages of
+    the room's own outline. Placement rules everywhere else are law; here
+    their violation IS the read."""
+    prims = []
+    cx = (x0 + x1) / 2.0
+    cy = (y0 + y1) / 2.0
+    w = x1 - x0
+    h = y1 - y0
+    # afterimages: the room's own outline, shrunk and re-shrunk. Soft rooms
+    # deform after caching, so these echo what the room USED to be.
+    for shrink in (0.82, 0.62):
+        ring = [(cx + (vx - cx) * shrink, cy + (vy - cy) * shrink)
+                for vx, vy in verts]
+        prims.append(("polyline", ring, (52, 66, 58), 1, True))
+    # a floating console slab, mid-room, facing a direction that means
+    # nothing, screen glowing at nobody.
+    if rng.random() < 0.8 and min(w, h) > 60:
+        ang = rng.uniform(0, 2 * math.pi)
+        sw, sh = 14.0, 9.0
+        ca, sa = math.cos(ang), math.sin(ang)
+        px, py = cx + rng.uniform(-w * 0.18, w * 0.18), cy + rng.uniform(-h * 0.18, h * 0.18)
+        slab = [(px + ca * -sw - sa * -sh, py + sa * -sw + ca * -sh),
+                (px + ca * sw - sa * -sh, py + sa * sw + ca * -sh),
+                (px + ca * sw - sa * sh, py + sa * sw + ca * sh),
+                (px + ca * -sw - sa * sh, py + sa * -sw + ca * sh)]
+        prims.append(("poly", slab, (30, 34, 38), (72, 82, 86), 1))
+        prims.append(("screenglow", px + ca * 3, py + sa * 3, 7.0))
+    # a ring of half-scale seats around nothing.
+    if rng.random() < 0.6 and min(w, h) > 90:
+        n = rng.randint(5, 8)
+        rad = min(w, h) * 0.22
+        for i in range(n):
+            a = 2 * math.pi * i / n
+            bx, by = cx + math.cos(a) * rad, cy + math.sin(a) * rad
+            ca2, sa2 = math.cos(a), math.sin(a)
+            seat = [(bx + ca2 * -4 - sa2 * -2.5, by + sa2 * -4 + ca2 * -2.5),
+                    (bx + ca2 * 4 - sa2 * -2.5, by + sa2 * 4 + ca2 * -2.5),
+                    (bx + ca2 * 4 - sa2 * 2.5, by + sa2 * 4 + ca2 * 2.5),
+                    (bx + ca2 * -4 - sa2 * 2.5, by + sa2 * -4 + ca2 * 2.5)]
+            prims.append(("poly", seat, (36, 40, 42), None, 0))
+    # things half-into walls: a crate silhouette centered ON a wall vertex.
+    if walls and rng.random() < 0.7:
+        wd = rng.choice(walls)
+        (ax_, ay_), (bx_, by_) = wd["p0"], wd["p1"]
+        t = rng.random()
+        bx = ax_ + (bx_ - ax_) * t
+        by = ay_ + (by_ - ay_) * t
+        r = rng.uniform(6, 10)
+        prims.append(("poly", [(bx - r, by - r), (bx + r, by - r),
+                               (bx + r, by + r), (bx - r, by + r)],
+                      (32, 36, 40), (60, 66, 70), 1))
+    # sparse self-luminous floor speckle (the floor is starting to be sky)
+    for _ in range(rng.randint(3, 7)):
+        prims.append(("dot", (rng.uniform(x0, x1), rng.uniform(y0, y1))))
+    return prims
+
+
 _ROOM_PROP_GENERATORS = {
     "dock": _props_dock,
     "corridor": _props_corridor,
@@ -960,6 +1021,7 @@ _ROOM_PROP_GENERATORS = {
     "medbay": _props_medbay,
     "core": _props_core,
     "generic": _props_generic,
+    "otherworld": _props_otherworld,
 }
 
 
@@ -979,6 +1041,9 @@ class Renderer:
 
         self._ent_layer: "pygame.Surface | None" = None
         self._cov_mask: "pygame.Surface | None" = None
+        self._inv_darkness: "pygame.Surface | None" = None
+        self._ow_field: "pygame.Surface | None" = None
+        self._ow_mask: "pygame.Surface | None" = None
         self._detail_cache: dict[int, list] = {}
         self._pal_cache: dict[int, tuple] = {}
         self._portal_edges: "dict[int, set[int]] | None" = None
@@ -1199,6 +1264,7 @@ class Renderer:
             self._cov_mask = pygame.Surface(surf.get_size(), pygame.SRCALPHA)
         self._ent_layer.fill((0, 0, 0, 0))
         self._cov_mask.fill((0, 0, 0, 0))
+        ow_polys = []
         for room, xform, depth, clip_screen, walls, entry_edge, ents in instances:
             if len(clip_screen) < 3:
                 continue
@@ -1210,12 +1276,15 @@ class Renderer:
             self._draw_doors(surf, room, xform, clip_screen)
             pygame.draw.polygon(self._cov_mask, (255, 255, 255, 255),
                                 _pts(clip_screen))
+            kinds = self.session.level.room_kinds
+            if room < len(kinds) and kinds[room] == "otherworld":
+                ow_polys.append(clip_screen)
             self._draw_entities(self._ent_layer, ents, None)
             self._draw_effects(self._ent_layer, room, xform, clip_screen)
         self._ent_layer.blit(self._cov_mask, (0, 0),
                              special_flags=pygame.BLEND_RGBA_MIN)
         surf.blit(self._ent_layer, (0, 0))
-        self._apply_darkness(surf)
+        self._apply_darkness(surf, ow_polys)
         # light sources punch through the dark: muzzle glows and bolts
         for sx, sy, radius, clip_screen in self._deferred_glows:
             self._blit_glow(surf, sx, sy, radius, clip_screen)
@@ -1233,10 +1302,15 @@ class Renderer:
         if debug:
             self._draw_debug(surf, instances)
 
-    def _apply_darkness(self, surf) -> None:
+    def _apply_darkness(self, surf, ow_polys=None) -> None:
         """Player-centered radial falloff, multiply-composited over the whole
         world after it draws at uniform brightness. Smooth across portals by
-        construction: the field lives in screen space, not room space."""
+        construction: the field lives in screen space, not room space.
+
+        Otherworld regions invert the rule: the dark pools NEAR you and the
+        distance faintly luminesces - your presence stops mattering to the
+        light. Same multiply mechanism, reversed field, cold instead of
+        warm, blended only inside otherworld coverage."""
         size = surf.get_size()
         if self._darkness is None or self._darkness.get_size() != size:
             import numpy as np
@@ -1254,7 +1328,40 @@ class Renderer:
             dark = pygame.Surface(size)
             pygame.surfarray.blit_array(dark, arr.swapaxes(0, 1))
             self._darkness = dark
-        surf.blit(self._darkness, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
+            ik = 1.0 - k  # inverted: bright far, dim near
+            iarr = np.empty((h, w, 3), dtype=np.uint8)
+            # cold: green survives longest out there
+            iarr[..., 0] = (255 * (1.0 - 0.62 * ik)).astype(np.uint8)
+            iarr[..., 1] = (255 * (1.0 - 0.38 * ik)).astype(np.uint8)
+            iarr[..., 2] = (255 * (1.0 - 0.50 * ik)).astype(np.uint8)
+            idark = pygame.Surface(size)
+            pygame.surfarray.blit_array(idark, iarr.swapaxes(0, 1))
+            self._inv_darkness = idark
+        if not ow_polys:
+            surf.blit(self._darkness, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
+            return
+        # composite the two fields through the otherworld mask
+        if self._ow_field is None or self._ow_field.get_size() != size:
+            self._ow_field = pygame.Surface(size)
+        field = self._ow_field
+        field.blit(self._darkness, (0, 0))
+        if self._ow_mask is None or self._ow_mask.get_size() != size:
+            self._ow_mask = pygame.Surface(size)
+        mask = self._ow_mask
+        mask.fill((0, 0, 0))
+        for poly in ow_polys:
+            if len(poly) >= 3:
+                pygame.draw.polygon(mask, (255, 255, 255), _pts(poly))
+        # field = dark*(1-m) + inv*m  via masked blits
+        inv_cut = self._inv_darkness.copy()
+        inv_cut.blit(mask, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
+        neg = mask.copy()
+        arr2 = pygame.surfarray.pixels3d(neg)
+        arr2[...] = 255 - arr2
+        del arr2
+        field.blit(neg, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
+        field.blit(inv_cut, (0, 0), special_flags=pygame.BLEND_RGB_ADD)
+        surf.blit(field, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
 
     # -- (1) floor ------------------------------------------------------
 
