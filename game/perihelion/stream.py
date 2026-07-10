@@ -160,6 +160,21 @@ class WorldStreamer:
                 return i
         return self.current
 
+    def room_texture_key(self, room: int) -> tuple[str, int] | None:
+        """Renderer.room_texture_lookup hook: engine room index ->
+        (level_id, local_room_index) for the bespoke floor texture path,
+        or None. Transit-spine rooms are synthetic (not authored in any
+        levels/*.json) and never carry a texture."""
+        for c in self.chunks:
+            if c["offset"] <= room < c["offset"] + c["n_rooms"]:
+                level_id = getattr(c["level"], "level_id", "") or ""
+                if not level_id:
+                    return None
+                return (level_id, room - c["offset"])
+            if c["spine_rooms"] and room in c["spine_rooms"]:
+                return None
+        return None
+
     # ------------------------------------------------------------------
     # construction
     # ------------------------------------------------------------------

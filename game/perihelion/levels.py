@@ -94,6 +94,12 @@ class Level:
     # cartridge in hydroponics and a surgeon's cardkey one deck later).
     # Levels without an entry fall back to generic "<ID> SEAL" text.
     key_meta: dict[str, KeyMeta] = field(default_factory=dict)
+    # levels/<level_id>.json stem, set by load_level. Keys the bespoke
+    # texture path (assets/textures/<level_id>/room_<index>.png) and the
+    # streaming-chunk lookup in stream.py; "" for levels never loaded from
+    # a file path (LevelBuilder.build(), the debug level) -- such rooms
+    # simply never resolve a texture and render as today.
+    level_id: str = ""
 
 
 def _shoelace(verts) -> float:
@@ -126,7 +132,9 @@ def _centroid(verts: list[tuple[float, float]]) -> tuple[float, float]:
 
 def load_level(path: str | Path) -> Level:
     data = json.loads(Path(path).read_text())
-    return level_from_dict(data)
+    level = level_from_dict(data)
+    level.level_id = Path(path).stem
+    return level
 
 
 def level_from_dict(data: dict) -> Level:

@@ -21,7 +21,7 @@ from . import menus
 from .audio import Audio
 from .hud import HUD
 from .levels import Level, LevelBuilder, load_level
-from .render import INTERNAL_H, INTERNAL_W, Renderer
+from .render import INTERNAL_H, INTERNAL_RES_ZOOM_SCALE, INTERNAL_W, Renderer
 from .sim import DT, GameSession, InputFrame, WEAPON_ORDER
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -177,9 +177,14 @@ class GameScene(menus.Scene):
         self.level = level
         self.level_path = level_path
         self.seed = seed
+        # GameSession's default zoom (1.35, sim.py) is authored for the
+        # 640x360 default internal resolution; scale it by the resolution
+        # ratio so PERIHELION_INTERNAL_RES changes pixel density, not the
+        # world-space field of view.
         self.session = GameSession(level, seed=seed, player_state=player_state,
                                    difficulty=difficulty,
-                                   screen=(INTERNAL_W, INTERNAL_H))
+                                   screen=(INTERNAL_W, INTERNAL_H),
+                                   zoom=1.35 * INTERNAL_RES_ZOOM_SCALE)
         self.renderer = Renderer(self.session)
         self.hud = HUD()
         # one-line functional system prompt ("objective" fx), drawn
@@ -537,6 +542,10 @@ class App:
         game.streamer = WorldStreamer(
             game.session, [str(REPO_ROOT / p) for p in paths],
             start_chunk=start_chunk)
+        # each streamed chunk is its own levels/*.json (its own level_id);
+        # key bespoke floor textures off the streamer's engine-room -> chunk
+        # mapping instead of the single Level the renderer was built with.
+        game.renderer.room_texture_lookup = game.streamer.room_texture_key
 
         def on_entered(chunk_idx, name):
             self.current_level_index = chunk_idx

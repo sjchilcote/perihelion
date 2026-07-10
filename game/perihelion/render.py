@@ -39,16 +39,49 @@ import json
 import math
 import os
 import random
+from pathlib import Path
 
 import numpy as np
 import pygame
 
 import necore
 
+from . import texture_geom
 from .sim import DT
 from .sim import ENEMIES as SIM_ENEMIES
 
-INTERNAL_W, INTERNAL_H = 640, 360
+_DEFAULT_INTERNAL_W, _DEFAULT_INTERNAL_H = 640, 360
+
+
+def _parse_internal_res() -> tuple[int, int]:
+    """`PERIHELION_INTERNAL_RES=WxH` overrides the internal render
+    resolution (default unchanged: 640x360). Malformed values fail loudly
+    rather than silently falling back."""
+    raw = os.environ.get("PERIHELION_INTERNAL_RES")
+    if not raw:
+        return _DEFAULT_INTERNAL_W, _DEFAULT_INTERNAL_H
+    try:
+        w_s, h_s = raw.lower().split("x")
+        w, h = int(w_s), int(h_s)
+        if w <= 0 or h <= 0:
+            raise ValueError
+    except ValueError as exc:
+        raise ValueError(
+            f"PERIHELION_INTERNAL_RES must be WxH (e.g. 1280x720), got {raw!r}"
+        ) from exc
+    return w, h
+
+
+INTERNAL_W, INTERNAL_H = _parse_internal_res()
+
+# The camera's baseline zoom (GameSession's default 1.35, sim.py) is
+# authored for the 640x360 default internal resolution. Scale it by the
+# resolution ratio so the world-space field of view is unchanged when
+# PERIHELION_INTERNAL_RES changes the internal render size (ARTSTYLE_DIRECTION.md:
+# "at 1280x720 zoom doubles, ~3 px/world-unit territory" -- 1.35 * 2 = 2.7).
+INTERNAL_RES_ZOOM_SCALE = INTERNAL_W / _DEFAULT_INTERNAL_W
+
+TEXTURE_DIR = Path(__file__).resolve().parent / "assets" / "textures"
 
 FLOOR_BASE = (26, 26, 33)          # ~0x1a1a21 dark grey-blue — reads clearly against the void
 SHADOW_FLOOR = (11, 11, 15)        # known geometry outside line of sight: present, unlit
@@ -198,6 +231,7 @@ _OP_POLY_FILL, _OP_POLY_OUTLINE, _OP_POLYLINE = 0, 1, 2
 _OP_CIRCLE_FILL, _OP_CIRCLE_OUTLINE = 3, 4
 _OP_RECT_FILL, _OP_RECT_OUTLINE = 5, 6
 _OP_CLIP_FILL = 8
+_OP_TEX_FILL = 9
 _LAYER_WORLD, _LAYER_ENTITY = 0, 1
 _CLIP_NONE, _CLIP_GEOM, _CLIP_GATE = 0, 1, 2
 _FLAG_CLOSED = 1 << 4
@@ -1331,6 +1365,24 @@ class Renderer:
         self._frame: "pygame.Surface | None" = None
         self._blob_cache: dict[int, tuple] = {}
 
+        # -- bespoke per-room floor textures (ARTSTYLE_DIRECTION.md lever
+        # one) -----------------------------------------------------------
+        # Optional hook set by streaming code (WorldStreamer): callable
+        # room:int -> (level_id, local_room_index) | None. None (default)
+        # falls back to (session.level.level_id, room) -- correct for any
+        # non-streamed, single-level session.
+        self.room_texture_lookup = None
+        # engine room idx -> (rgb uint8 array (h,w,3), bbox_min_x, bbox_min_y)
+        # or None (no texture file for this room). Cached forever.
+        self._room_texture: dict[int, tuple | None] = {}
+        # rust backend: texture ids already uploaded to the CURRENT Raster
+        # instance (cleared whenever _ensure_raster rebuilds the Raster).
+        self._uploaded_tex_ids: set[int] = set()
+        # pygame backend: reusable full-surface alpha mask for the exact
+        # same clip-polygon coverage the rust OP_TEX_FILL / OP_CLIP_FILL
+        # spans use (see _draw_floor_textured).
+        self._tex_mask: "pygame.Surface | None" = None
+
         self._ent_layer: "pygame.Surface | None" = None
         self._cov_mask: "pygame.Surface | None" = None
         self._floor_color_cache: dict[int, tuple] = {}
@@ -1598,7 +1650,7 @@ class Renderer:
         for room, xform, depth, clip_screen, walls, entry_edge, ents in instances:
             if len(clip_screen) < 3:
                 continue
-            self._draw_floor(world, room, depth, clip_screen)
+            self._draw_floor(world, room, depth, clip_screen, xform)
             self._draw_detail(world, room, xform, clip_screen, depth)
             self._draw_decals(world, room, xform, clip_screen)
             self._draw_exit_and_terminals(world, room, xform, clip_screen)
@@ -1625,6 +1677,9 @@ class Renderer:
             return
         self._raster = necore.Raster(size[0], size[1])
         self._framebuf = bytearray(size[0] * size[1] * 4)
+        # a fresh Raster has an empty texture registry; every room texture
+        # must be re-uploaded lazily on next use
+        self._uploaded_tex_ids.clear()
         # one-time zero-copy wrap: finish_into writes into _framebuf, the
         # wrapping Surface sees the pixels with no per-frame allocation.
         # RGBX (alpha byte ignored) so the full-frame blit is an opaque
@@ -1734,12 +1789,20 @@ class Renderer:
                 continue
             clip_idx = r.add_clip(clip_screen, True)  # unions coverage
             xform_idx = r.add_xform(xform)
-            # floor: OP_CLIP_FILL paints the registered clip polygon itself
+            # floor: a bespoke texture (OP_TEX_FILL) if this room has one,
+            # else OP_CLIP_FILL paints the registered clip polygon itself
             # from its f64 points — pixel-identical to the pygame path's
             # polygon(_pts(clip_screen)) AND to the coverage union, with no
             # Python-side rounding or payload
-            cmds.extend((_OP_CLIP_FILL, _flags(_LAYER_WORLD), clip_idx,
-                         _IDX_NONE, _rgba(self._floor_color(room)), 0))
+            room_tex = self._room_texture_for_raster(room)
+            if room_tex is not None:
+                tex_id, bx, by = room_tex
+                cmds.extend((_OP_TEX_FILL, _flags(_LAYER_WORLD), clip_idx,
+                             xform_idx, tex_id, 0))
+                coords.extend((bx, by))
+            else:
+                cmds.extend((_OP_CLIP_FILL, _flags(_LAYER_WORLD), clip_idx,
+                             _IDX_NONE, _rgba(self._floor_color(room)), 0))
             blob_c, blob_f, glows = self._get_blob(room)
             if blob_c.size:
                 pieces.append(("dyn", len(cmds), len(coords)))
@@ -1901,8 +1964,110 @@ class Renderer:
             self._floor_color_cache[room] = color
         return color
 
-    def _draw_floor(self, canvas, room, depth, clip_screen):
+    # -- bespoke floor textures --------------------------------------------
+
+    def _texture_key(self, room: int):
+        """(level_id, local_room_index) for `room`'s texture file, or None
+        if no level_id is known (never loaded from a levels/*.json path --
+        e.g. LevelBuilder.build()'s debug level)."""
+        if self.room_texture_lookup is not None:
+            return self.room_texture_lookup(room)
+        level_id = getattr(self.session.level, "level_id", "") or ""
+        if not level_id:
+            return None
+        return (level_id, room)
+
+    def _load_room_texture(self, room: int):
+        """(rgb uint8 array shape (h, w, 3), bbox_min_x, bbox_min_y) for
+        `room`'s bespoke floor texture, or None if it has none. Cached
+        forever per Renderer instance; bbox_min is captured from the
+        room's CURRENT local verts at first load (matches the static verts
+        the generation tool used -- soft/otherworld rooms that deform their
+        verts at runtime don't carry textures today)."""
+        if room in self._room_texture:
+            return self._room_texture[room]
+        result = None
+        key = self._texture_key(room)
+        if key is not None:
+            level_id, local_idx = key
+            path = texture_geom.texture_path(TEXTURE_DIR, level_id, local_idx)
+            if path.is_file():
+                surf = pygame.image.load(str(path))
+                w, h = surf.get_size()
+                raw = pygame.image.tostring(surf, "RGB")
+                arr = np.frombuffer(raw, dtype=np.uint8).reshape((h, w, 3)).copy()
+                verts = self.session.level.room_verts[room]
+                bx, by, _, _ = texture_geom.room_bbox(verts)
+                result = (arr, bx, by)
+        self._room_texture[room] = result
+        return result
+
+    def _room_texture_for_raster(self, room: int):
+        """(texture_id, bbox_min_x, bbox_min_y) for the rust backend, or
+        None. Uploads the texture to the current Raster on first use."""
+        tex = self._load_room_texture(room)
+        if tex is None:
+            return None
+        arr, bx, by = tex
+        if room not in self._uploaded_tex_ids:
+            h, w, _ = arr.shape
+            self._raster.set_texture(room, w, h, arr.tobytes())
+            self._uploaded_tex_ids.add(room)
+        return room, bx, by
+
+    def _draw_floor(self, canvas, room, depth, clip_screen, xform=None):
+        tex = self._load_room_texture(room) if xform is not None else None
+        if tex is not None and isinstance(canvas, _PygameCanvas):
+            self._draw_floor_textured(canvas.surf, room, xform, clip_screen, tex)
+            return
         canvas.polygon(self._floor_color(room), _pts(clip_screen))
+
+    # -- (an aside for readers auditing the dual-backend split): the rust
+    # backend never calls _draw_floor -- _draw_world_rust emits the floor
+    # command (OP_TEX_FILL or OP_CLIP_FILL) directly, see below.
+
+    def _draw_floor_textured(self, surf, room, xform, clip_screen, tex):
+        """pygame/numpy mirror of the rust OP_TEX_FILL job: same coverage
+        (pygame.draw.polygon IS the ground truth the rust span math ports),
+        same f64 inverse-affine (necore.mat_inv is the exact same Rust
+        Mat3::inverse() the raster calls), same nearest floor+clamp sample."""
+        arr, bx, by = tex
+        th, tw, _ = arr.shape
+        pts = _pts(clip_screen)
+        xs = [p[0] for p in pts]
+        ys = [p[1] for p in pts]
+        sw, sh = surf.get_size()
+        minx = max(0, min(xs))
+        miny = max(0, min(ys))
+        maxx = min(sw - 1, max(xs))
+        maxy = min(sh - 1, max(ys))
+        if maxx < minx or maxy < miny:
+            return
+        if self._tex_mask is None or self._tex_mask.get_size() != (sw, sh):
+            self._tex_mask = pygame.Surface((sw, sh), pygame.SRCALPHA)
+        region = pygame.Rect(minx, miny, maxx - minx + 1, maxy - miny + 1)
+        self._tex_mask.fill((0, 0, 0, 0), region)
+        pygame.draw.polygon(self._tex_mask, (255, 255, 255, 255), pts)
+        alpha = pygame.surfarray.pixels_alpha(self._tex_mask)[
+            minx:maxx + 1, miny:maxy + 1]
+        cov = alpha > 0
+        del alpha
+        if not cov.any():
+            return
+        im0, im1, im2, im3, im4, im5, _, _, _ = necore.mat_inv(xform)
+        xs_idx = np.arange(minx, maxx + 1, dtype=np.float64) + 0.5
+        ys_idx = np.arange(miny, maxy + 1, dtype=np.float64) + 0.5
+        px, py = np.meshgrid(xs_idx, ys_idx, indexing="ij")
+        lx = im0 * px + im1 * py + im2
+        ly = im3 * px + im4 * py + im5
+        tx = np.floor((lx - bx) * texture_geom.DENSITY).astype(np.int64)
+        ty = np.floor((ly - by) * texture_geom.DENSITY).astype(np.int64)
+        np.clip(tx, 0, tw - 1, out=tx)
+        np.clip(ty, 0, th - 1, out=ty)
+        sampled = arr[ty, tx]
+        dest = pygame.surfarray.pixels3d(surf)[minx:maxx + 1, miny:maxy + 1]
+        dest[cov] = sampled[cov]
+        del dest
 
     # -- (2) room detail --------------------------------------------------
 
