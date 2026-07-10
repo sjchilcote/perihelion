@@ -582,6 +582,22 @@ impl Raster {
         self.r.add_xform(mat_from_tuple(m9).m)
     }
 
+    /// Upload (or replace) a room texture: RGB8, row-major, `data` a
+    /// `w*h*3`-byte buffer (bytes / bytearray / numpy uint8 array). Persists
+    /// across frames — call once per texture, not per frame. `id` is
+    /// caller-chosen (render.py uses the engine room index).
+    fn set_texture(
+        &mut self,
+        py: Python<'_>,
+        id: u32,
+        w: usize,
+        h: usize,
+        data: PyBuffer<u8>,
+    ) -> PyResult<()> {
+        let bytes = data.to_vec(py)?;
+        self.r.set_texture(id, w, h, &bytes).map_err(raster_err)
+    }
+
     /// Execute a command stream: `cmds` is a u32 buffer (array('I') or numpy
     /// uint32) of 6-word headers, `coords` an f32 buffer (array('f') or
     /// numpy float32) of payload points. Rasterization runs without the GIL.

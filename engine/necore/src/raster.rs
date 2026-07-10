@@ -60,6 +60,20 @@ pub const OP_GLOW: u32 = 7;
 /// the no-seams mask coincide by construction, and the Python emitter
 /// never has to round or re-send the polygon.
 pub const OP_CLIP_FILL: u32 = 8;
+/// Fill the command's CLIP-table polygon itself (as OP_CLIP_FILL does) but
+/// sample a registered texture instead of a flat color. World layer only.
+/// RGBA header field is repurposed as the u32 texture id (not a color); the
+/// two-float payload is the room-local texture origin `bbox_min`. The
+/// instance's XFORM (room-local -> screen) is inverted per instance (f64)
+/// to map screen pixels back to room-local texture space; see
+/// `TEX_DENSITY` and `sample_tex`.
+pub const OP_TEX_FILL: u32 = 9;
+
+/// Texture space density: px per world unit. Fixed by
+/// ARTSTYLE_DIRECTION.md's measured projection (matches the ~3px/world-unit
+/// native-res camera territory). Both rendering backends and the bespoke
+/// texture generation tool agree on this constant.
+pub const TEX_DENSITY: f64 = 3.0;
 
 pub const LAYER_WORLD: u32 = 0;
 pub const LAYER_ENTITY: u32 = 1;
@@ -549,6 +563,134 @@ fn pg_poly_fill(c: &mut Canvas, xs: &[i32], ys: &[i32]) {
     }
 }
 
+/// `(y, x1, x2)` spans of `pg_filltri`, verbatim, for callers that need
+/// per-pixel access (texture sampling) instead of a constant-color hline.
+/// Kept as an exact duplicate of `pg_filltri`'s math (not a refactor of it)
+/// so the pygame-parity fixtures for the constant-fill path stay untouched.
+fn filltri_spans(xs: &[i32], ys: &[i32]) -> Vec<(i32, i32, i32)> {
+    let (mut p0x, mut p0y) = (xs[0], ys[0]);
+    let (mut p1x, mut p1y) = (xs[1], ys[1]);
+    let (mut p2x, mut p2y) = (xs[2], ys[2]);
+
+    if p1y < p0y {
+        std::mem::swap(&mut p1x, &mut p0x);
+        std::mem::swap(&mut p1y, &mut p0y);
+    }
+    if p2y < p1y {
+        std::mem::swap(&mut p1x, &mut p2x);
+        std::mem::swap(&mut p1y, &mut p2y);
+        if p1y < p0y {
+            std::mem::swap(&mut p1x, &mut p0x);
+            std::mem::swap(&mut p1y, &mut p0y);
+        }
+    }
+    if p0y == p1y && p1y == p2y && p0x == p1x && p1x != p2x {
+        std::mem::swap(&mut p1x, &mut p2x);
+        std::mem::swap(&mut p1y, &mut p2y);
+    }
+
+    let d1 = ((p2x - p0x) as f64 / ((p2y - p0y) as f64 + 1e-17)) as f32;
+    let d2 = ((p1x - p0x) as f64 / ((p1y - p0y) as f64 + 1e-17)) as f32;
+    let d3 = ((p2x - p1x) as f64 / ((p2y - p1y) as f64 + 1e-17)) as f32;
+    let mut out = Vec::with_capacity((p2y - p0y).max(0) as usize + 1);
+    for y in p0y..=p2y {
+        let x1 = p0x + ((y - p0y) as f32 * d1) as i32;
+        let x2 = if y < p1y {
+            p0x + ((y - p0y) as f32 * d2) as i32
+        } else {
+            p1x + ((y - p1y) as f32 * d3) as i32
+        };
+        out.push((y, x1, x2));
+    }
+    out
+}
+
+/// `(y, x1, x2)` spans of `pg_fillpoly`, verbatim (see `filltri_spans`).
+fn fillpoly_spans(xs: &[i32], ys: &[i32]) -> Vec<(i32, i32, i32)> {
+    let n = xs.len();
+    let mut miny = ys[0];
+    let mut maxy = ys[0];
+    for &yy in ys.iter() {
+        miny = miny.min(yy);
+        maxy = maxy.max(yy);
+    }
+
+    let mut out = Vec::new();
+    if miny == maxy {
+        let mut minx = xs[0];
+        let mut maxx = xs[0];
+        for &xx in xs.iter() {
+            minx = minx.min(xx);
+            maxx = maxx.max(xx);
+        }
+        out.push((miny, minx, maxx));
+        return out;
+    }
+
+    let mut xsect: Vec<i32> = Vec::with_capacity(n);
+    for y in miny..=maxy {
+        xsect.clear();
+        for i in 0..n {
+            let ip = if i == 0 { n - 1 } else { i - 1 };
+            let (y1, y2, x1, x2) = if ys[ip] < ys[i] {
+                (ys[ip], ys[i], xs[ip], xs[i])
+            } else if ys[ip] > ys[i] {
+                (ys[i], ys[ip], xs[i], xs[ip])
+            } else {
+                continue;
+            };
+            if (y >= y1 && y < y2) || (y == maxy && y2 == maxy) {
+                let num = (y - y1) as i64 * (x2 - x1) as i64;
+                let mut intersect = num as f32 / (y2 - y1) as f32;
+                if xsect.len() % 2 == 0 {
+                    intersect = intersect.floor();
+                } else {
+                    intersect = intersect.ceil();
+                }
+                xsect.push(intersect as i32 + x1);
+            }
+        }
+        xsect.sort_unstable();
+        let mut i = 0;
+        while i + 1 < xsect.len() {
+            out.push((y, xsect[i], xsect[i + 1]));
+            i += 2;
+        }
+    }
+
+    for i in 0..n {
+        let ip = if i == 0 { n - 1 } else { i - 1 };
+        let y = ys[i];
+        if miny < y && ys[ip] == y && y < maxy {
+            out.push((y, xs[i], xs[ip]));
+        }
+    }
+    out
+}
+
+/// `poly_fill_spans` == `pg_poly_fill`'s dispatch, span form.
+fn poly_fill_spans(xs: &[i32], ys: &[i32]) -> Vec<(i32, i32, i32)> {
+    if xs.len() == 3 {
+        filltri_spans(xs, ys)
+    } else {
+        fillpoly_spans(xs, ys)
+    }
+}
+
+/// `drawhorzlineclipbounding` order+clamp, span-only (no canvas write).
+fn clamp_span(mut a: i32, mut b: i32, clip: IRect) -> Option<(i32, i32)> {
+    if b < a {
+        std::mem::swap(&mut a, &mut b);
+    }
+    a = a.max(clip.x);
+    b = b.min(clip.x + clip.w - 1);
+    if b < clip.x || a >= clip.x + clip.w {
+        None
+    } else {
+        Some((a, b))
+    }
+}
+
 /// `polygon(width>0)` == `lines(closed=1)`: every ring edge is an
 /// independent thick line (no joins).
 fn pg_poly_outline(c: &mut Canvas, xs: &[i32], ys: &[i32], width: i32) {
@@ -703,6 +845,65 @@ struct XformEntry {
     scale: f64,
 }
 
+/// A registered room texture: RGB8, row-major, top row first (row y=0 is
+/// room-local `bbox_min.y`, matching an ordinary decoded image).
+struct Texture {
+    w: usize,
+    h: usize,
+    rgb: Vec<u8>,
+}
+
+/// NEAREST-NEIGHBOR sample at screen pixel center `(px+0.5, py+0.5)`:
+/// invert the instance's room-local->screen xform to get the room-local
+/// point, then `texel = (local - bbox_min) * TEX_DENSITY`, floored and
+/// clamped to the texture bounds. `inv` and the arithmetic order here must
+/// stay bit-identical to the pygame mirror (render.py `_draw_floor_textured`),
+/// which reuses this exact same `Mat3::inverse()` via `necore.mat_inv`.
+fn sample_tex(tex: &Texture, inv: Mat3, bbox_min: Vec2, px: i32, py: i32) -> [u8; 3] {
+    let p = inv.apply(v(px as f64 + 0.5, py as f64 + 0.5));
+    let tx = ((p.x - bbox_min.x) * TEX_DENSITY).floor();
+    let ty = ((p.y - bbox_min.y) * TEX_DENSITY).floor();
+    let tx = (tx as i64).clamp(0, tex.w as i64 - 1) as usize;
+    let ty = (ty as i64).clamp(0, tex.h as i64 - 1) as usize;
+    let off = (ty * tex.w + tx) * 3;
+    [tex.rgb[off], tex.rgb[off + 1], tex.rgb[off + 2]]
+}
+
+/// Fill the (already-rounded) polygon `xs`/`ys` into `buf` (RGBA8, row
+/// stride `w*4`), sampling `tex` per covered pixel. Span coverage comes
+/// from `poly_fill_spans` — the exact same math `pg_poly_fill` /
+/// `OP_CLIP_FILL` use — so the textured floor's covered-pixel set is
+/// identical to the coverage mask's, preserving "floor == coverage".
+#[allow(clippy::too_many_arguments)]
+fn tex_fill_poly(
+    buf: &mut [u8],
+    w: i32,
+    h: i32,
+    xs: &[i32],
+    ys: &[i32],
+    tex: &Texture,
+    inv: Mat3,
+    bbox_min: Vec2,
+) {
+    let clip = IRect { x: 0, y: 0, w, h };
+    for (y, x1, x2) in poly_fill_spans(xs, ys) {
+        if y < clip.y || y >= clip.y + clip.h {
+            continue;
+        }
+        if let Some((a, b)) = clamp_span(x1, x2, clip) {
+            let row = y as usize * w as usize;
+            for x in a..=b {
+                let c = sample_tex(tex, inv, bbox_min, x, y);
+                let off = (row + x as usize) * 4;
+                buf[off] = c[0];
+                buf[off + 1] = c[1];
+                buf[off + 2] = c[2];
+                buf[off + 3] = 255;
+            }
+        }
+    }
+}
+
 /// A fully resolved draw job: geometry is post-xform, post-clip screen-space
 /// floats; rounding to pixels happens at raster time (matching `_pts`, which
 /// rounds after clipping).
@@ -732,6 +933,15 @@ enum Job {
         cy: f64,
         r: f64,
         rect: IRect,
+    },
+    /// Textured clip-polygon fill; handled specially (never through
+    /// `run_job`'s constant-`PxWrite` path — see `exec_cmd`'s LAYER_WORLD
+    /// routing and `tex_fill_poly`).
+    TexFill {
+        pts: Vec<Vec2>,
+        inv: Mat3,
+        bbox_min: Vec2,
+        tex_id: u32,
     },
 }
 
@@ -764,6 +974,9 @@ pub struct Raster {
     clips: Vec<ClipEntry>,
     xforms: Vec<XformEntry>,
     overlay: Vec<OverlayJob>,
+    /// Registered room textures (`set_texture`), keyed by caller-chosen id.
+    /// Persists across `begin()` — uploaded once, reused every frame.
+    textures: std::collections::HashMap<u32, Texture>,
 }
 
 impl Raster {
@@ -802,7 +1015,26 @@ impl Raster {
             clips: Vec::new(),
             xforms: Vec::new(),
             overlay: Vec::new(),
+            textures: std::collections::HashMap::new(),
         }
+    }
+
+    /// Upload (or replace) a texture: RGB8, row-major, `data.len() ==
+    /// w*h*3`. Persists across frames — call once per texture, not per
+    /// frame. `id` is caller-chosen (the game uses the engine room index).
+    pub fn set_texture(&mut self, id: u32, w: usize, h: usize, data: &[u8]) -> Result<(), RasterError> {
+        if w == 0 || h == 0 {
+            return err("set_texture: width and height must be positive");
+        }
+        let want = w * h * 3;
+        if data.len() != want {
+            return err(format!(
+                "set_texture: data is {} bytes, need {want} (w*h*3, RGB8)",
+                data.len()
+            ));
+        }
+        self.textures.insert(id, Texture { w, h, rgb: data.to_vec() });
+        Ok(())
     }
 
     pub fn width(&self) -> usize {
@@ -949,6 +1181,7 @@ impl Raster {
                 OP_CIRCLE_FILL | OP_CIRCLE_OUTLINE | OP_GLOW => 3,
                 OP_RECT_FILL | OP_RECT_OUTLINE => 4,
                 OP_CLIP_FILL => 0,
+                OP_TEX_FILL => 2,
                 _ => return err(format!("unknown opcode {op}")),
             };
             if coords.len() - fi < nfloats {
@@ -991,13 +1224,18 @@ impl Raster {
         if layer > LAYER_OVERLAY {
             return err(format!("bad layer {layer} in flags {flags:#x}"));
         }
-        if op != OP_GLOW && rgba[3] != 0xFF {
+        if op != OP_GLOW && op != OP_TEX_FILL && rgba[3] != 0xFF {
             // Phase 1 draws opaque only; a stray alpha means a broken
             // emitter (and would silently defeat the binary-alpha fold).
+            // OP_TEX_FILL repurposes the RGBA word as a texture id, not a
+            // color, so it is exempt from this check (like OP_GLOW).
             return err(format!(
                 "op {op}: alpha must be 0xFF in phase 1, got {:#x}",
                 rgba[3]
             ));
+        }
+        if op == OP_TEX_FILL && layer != LAYER_WORLD {
+            return err("tex fill must be on the world layer");
         }
 
         let xform = if xform_idx == IDX_NONE {
@@ -1157,6 +1395,30 @@ impl Raster {
                     clip.ok_or_else(|| RasterError("clip fill requires a clip index".into()))?;
                 jobs.push(Job::PolyFill(clip.pts.clone()));
             }
+            OP_TEX_FILL => {
+                if n != 0 {
+                    return err(format!("tex fill: N must be 0, got {n}"));
+                }
+                if clipmode != CLIPMODE_NONE {
+                    return err(format!(
+                        "tex fill: clipmode must be NONE (fills the clip entry itself), got {clipmode}"
+                    ));
+                }
+                let clip =
+                    clip.ok_or_else(|| RasterError("tex fill requires a clip index".into()))?;
+                let xform =
+                    xform.ok_or_else(|| RasterError("tex fill requires an xform index".into()))?;
+                if !xform.m.is_invertible() {
+                    return err("tex fill: instance xform is not invertible");
+                }
+                let bbox_min = v(payload[0] as f64, payload[1] as f64);
+                jobs.push(Job::TexFill {
+                    pts: clip.pts.clone(),
+                    inv: xform.m.inverse(),
+                    bbox_min,
+                    tex_id: rgba_u32,
+                });
+            }
             OP_GLOW => {
                 if layer != LAYER_OVERLAY {
                     return err("glow must be on the overlay layer");
@@ -1197,7 +1459,15 @@ impl Raster {
         match layer {
             LAYER_WORLD => {
                 for job in &jobs {
-                    run_job(&mut self.world, self.w, self.h, PxWrite::Set(rgba), job);
+                    if let Job::TexFill { pts, inv, bbox_min, tex_id } = job {
+                        let tex = self.textures.get(tex_id).ok_or_else(|| {
+                            RasterError(format!("tex fill: unknown texture id {tex_id}"))
+                        })?;
+                        let (xs, ys) = round_pts(pts);
+                        tex_fill_poly(&mut self.world, self.w, self.h, &xs, &ys, tex, *inv, *bbox_min);
+                    } else {
+                        run_job(&mut self.world, self.w, self.h, PxWrite::Set(rgba), job);
+                    }
                 }
             }
             LAYER_ENTITY => {
@@ -1364,6 +1634,9 @@ fn run_job(buf: &mut [u8], w: i32, h: i32, px: PxWrite, job: &Job) {
         }
         Job::Glow { cx, cy, r, .. } => {
             glow_radial(&mut c, *cx, *cy, *r);
+        }
+        Job::TexFill { .. } => {
+            unreachable!("TexFill is routed specially in exec_cmd's LAYER_WORLD arm")
         }
     }
 }
@@ -2479,6 +2752,66 @@ mod tests {
                 "floor/coverage mismatch at pixel {i}"
             );
         }
+    }
+
+    #[test]
+    fn tex_fill_samples_nearest_and_matches_coverage() {
+        // Identity xform: screen == room-local. bbox_min = (0,0), so texel
+        // = floor((px+0.5)*TEX_DENSITY), clamped. 4x4 raster, 12x12 texture
+        // (4 * TEX_DENSITY(3) = 12), value at texel (tx,ty) = (tx*20, ty*20, 128).
+        let mut r = Raster::new(4, 4);
+        r.set_darkness(false);
+        let mut tex = vec![0u8; 12 * 12 * 3];
+        for ty in 0..12usize {
+            for tx in 0..12usize {
+                let off = (ty * 12 + tx) * 3;
+                tex[off] = (tx * 20) as u8;
+                tex[off + 1] = (ty * 20) as u8;
+                tex[off + 2] = 128;
+            }
+        }
+        r.set_texture(7, 12, 12, &tex).unwrap();
+        r.begin(0x0000_00FF);
+        let ci = r.add_clip(&[0.0, 0.0, 4.0, 0.0, 4.0, 4.0, 0.0, 4.0], true).unwrap();
+        let xi = r.add_xform(Mat3::IDENTITY.m);
+        let fl = pack_flags(LAYER_WORLD, CLIPMODE_NONE, false, false, 0);
+        let (c, f) = cmd(OP_TEX_FILL, fl, ci, xi, 7, &[0.0, 0.0]);
+        r.draw(&c, &f).unwrap();
+        let cov = r.coverage.clone();
+        let frame = r.finish();
+        for py in 0..4usize {
+            for px in 0..4usize {
+                let i = py * 4 + px;
+                let off = i * 4;
+                let lit = frame[off] != 0 || frame[off + 1] != 0 || frame[off + 2] != 0;
+                assert_eq!(lit, cov[i] == 255, "floor/coverage mismatch at ({px},{py})");
+                if cov[i] == 255 {
+                    let tx = (((px as f64 + 0.5) * TEX_DENSITY).floor() as usize).min(11);
+                    let ty = (((py as f64 + 0.5) * TEX_DENSITY).floor() as usize).min(11);
+                    assert_eq!(frame[off], (tx * 20) as u8, "R at ({px},{py})");
+                    assert_eq!(frame[off + 1], (ty * 20) as u8, "G at ({px},{py})");
+                    assert_eq!(frame[off + 2], 128, "B at ({px},{py})");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn tex_fill_rejects_unknown_texture_missing_xform_and_bad_payload() {
+        let mut r = Raster::new(8, 8);
+        r.begin(0x0000_00FF);
+        let ci = r.add_clip(&[0.0, 0.0, 6.0, 0.0, 3.0, 6.0], true).unwrap();
+        let xi = r.add_xform(Mat3::IDENTITY.m);
+        let fl = pack_flags(LAYER_WORLD, CLIPMODE_NONE, false, false, 0);
+        // unknown texture id
+        let (c, f) = cmd(OP_TEX_FILL, fl, ci, xi, 99, &[0.0, 0.0]);
+        assert!(r.draw(&c, &f).is_err());
+        // missing xform
+        let (c, f) = cmd(OP_TEX_FILL, fl, ci, IDX_NONE, 99, &[0.0, 0.0]);
+        assert!(r.draw(&c, &f).is_err());
+        // missing clip
+        let (c, f) = cmd(OP_TEX_FILL, fl, IDX_NONE, xi, 99, &[0.0, 0.0]);
+        assert!(r.draw(&c, &f).is_err());
     }
 
     #[test]
