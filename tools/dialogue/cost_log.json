@@ -1,5 +1,5 @@
 {
-  "total_cost": 1.7385294999999994,
+  "total_cost": 1.7814594999999995,
   "calls": [
     {
       "tool": "generate",
@@ -3149,6 +3149,194 @@
       "completion_tokens": 1092,
       "valid": true,
       "ts": 1783674653.6219847
+    },
+    {
+      "tool": "naturalism_rank",
+      "cost": 0.003072,
+      "ts": 1783676352.402672,
+      "tool_variant": "script_v2_naturalism",
+      "window": "scene0_inquisitive",
+      "film_a": "t1",
+      "film_b": "t2",
+      "ranking": {
+        "script": 3,
+        "film_a": 2,
+        "film_b": 1,
+        "control": 4
+      }
+    },
+    {
+      "tool": "naturalism_rank",
+      "cost": 0.0028125,
+      "ts": 1783676354.306707,
+      "tool_variant": "script_v2_naturalism",
+      "window": "scene1_hostile",
+      "film_a": "t2",
+      "film_b": "t3",
+      "ranking": {
+        "script": 3,
+        "film_a": 1,
+        "film_b": 2,
+        "control": 4
+      }
+    },
+    {
+      "tool": "naturalism_rank",
+      "cost": 0.003831,
+      "ts": 1783676356.4657874,
+      "tool_variant": "script_v2_naturalism",
+      "window": "scene2_inquisitive",
+      "film_a": "t3",
+      "film_b": "t4",
+      "ranking": {
+        "script": 2,
+        "film_a": 1,
+        "film_b": 3,
+        "control": 4
+      }
+    },
+    {
+      "tool": "naturalism_rank",
+      "cost": 0.003999,
+      "ts": 1783676359.0319932,
+      "tool_variant": "script_v2_naturalism",
+      "window": "scene3_hostile",
+      "film_a": "t4",
+      "film_b": "t1",
+      "ranking": {
+        "script": 2,
+        "film_a": 3,
+        "film_b": 1,
+        "control": 4
+      }
+    },
+    {
+      "tool": "naturalism_rank",
+      "cost": 0.0031845,
+      "ts": 1783676360.9638333,
+      "tool_variant": "script_v2_naturalism",
+      "window": "scene4_inquisitive",
+      "film_a": "t1",
+      "film_b": "t2",
+      "ranking": {
+        "script": 3,
+        "film_a": 2,
+        "film_b": 1,
+        "control": 4
+      }
+    },
+    {
+      "tool": "naturalism_rank",
+      "cost": 0.0027675,
+      "ts": 1783676363.1176436,
+      "tool_variant": "script_v2_naturalism",
+      "window": "scene5_hostile",
+      "film_a": "t2",
+      "film_b": "t3",
+      "ranking": {
+        "script": 3,
+        "film_a": 1,
+        "film_b": 2,
+        "control": 4
+      }
+    },
+    {
+      "tool": "naturalism_rank",
+      "cost": 0.003894,
+      "ts": 1783676365.714023,
+      "tool_variant": "script_v2_naturalism",
+      "window": "scene6_inquisitive",
+      "film_a": "t3",
+      "film_b": "t4",
+      "ranking": {
+        "script": 3,
+        "film_a": 2,
+        "film_b": 1,
+        "control": 4
+      }
+    },
+    {
+      "tool": "naturalism_rank",
+      "cost": 0.0037335,
+      "ts": 1783676368.463714,
+      "tool_variant": "script_v2_naturalism",
+      "window": "scene7_hostile",
+      "film_a": "t4",
+      "film_b": "t1",
+      "ranking": {
+        "script": 3,
+        "film_a": 1,
+        "film_b": 2,
+        "control": 4
+      }
+    },
+    {
+      "tool": "naturalism_rank",
+      "cost": 0.003006,
+      "ts": 1783676371.8081295,
+      "tool_variant": "script_v2_naturalism",
+      "window": "scene8_inquisitive",
+      "film_a": "t1",
+      "film_b": "t2",
+      "ranking": {
+        "script": 3,
+        "film_a": 2,
+        "film_b": 1,
+        "control": 4
+      }
+    },
+    {
+      "tool": "naturalism_rank",
+      "cost": 0.002646,
+      "ts": 1783676373.5571167,
+      "tool_variant": "script_v2_naturalism",
+      "window": "scene8_hostile_blocked",
+      "film_a": "t2",
+      "film_b": "t3",
+      "ranking": {
+        "script": 3,
+        "film_a": 1,
+        "film_b": 2,
+        "control": 4
+      }
+    },
+    {
+      "tool": "naturalism_rank",
+      "cost": 0.009984,
+      "ts": 1783676499.0930305,
+      "tool_variant": "marathon_monologue_check",
+      "ranking": {
+        "scene0_open": 4,
+        "scene1_open": 7,
+        "scene2_open": 5,
+        "scene3_compounded_bluff": 3,
+        "scene3_confessed_early_catch": 2,
+        "scene6_gamma7": 6,
+        "scene8_disclosure": 1,
+        "ex1_broadcast": 14,
+        "ex3_farewell": 12,
+        "ex5_menace": 13,
+        "ex6_lowercase": 11,
+        "ex7_confession": 9,
+        "ex8_grievance": 10,
+        "ex10_ending": 8
+      },
+      "source_guess": {
+        "scene0_open": "Source A",
+        "scene1_open": "Source A",
+        "scene2_open": "Source A",
+        "scene3_compounded_bluff": "Source A",
+        "scene3_confessed_early_catch": "Source A",
+        "scene6_gamma7": "Source A",
+        "scene8_disclosure": "Source A",
+        "ex1_broadcast": "Source B",
+        "ex3_farewell": "Source B",
+        "ex5_menace": "Source B",
+        "ex6_lowercase": "Source B",
+        "ex7_confession": "Source B",
+        "ex8_grievance": "Source B",
+        "ex10_ending": "Source B"
+      }
     }
   ]
 }
