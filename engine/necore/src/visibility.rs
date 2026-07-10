@@ -171,10 +171,13 @@ pub fn visible_set(
             None => continue,
         };
 
-        let key = dedup_key(node.room, &node.rel, &node.frustum);
-        if !seen.insert(key) {
-            continue;
-        }
+        // Continuity rule: a dedup collision must never COST COVERAGE.
+        // Near-identical instances (two chains whose quantized keys
+        // alternate between colliding and not as the apex moves) both
+        // EMIT -- identical pixels overdraw harmlessly -- and only
+        // recursion is cut, which is all that termination needs. Dropping
+        // the emit made wedges pop in and out frame to frame.
+        let novel = seen.insert(dedup_key(node.room, &node.rel, &node.frustum));
 
         let hps: Vec<HalfPlane> = match &node.frustum {
             None => Vec::new(),
@@ -197,8 +200,10 @@ pub fn visible_set(
         {
             continue;
         }
-        // Sub-pixel region: nothing to draw or recurse into.
-        if geom::signed_area(&clip_screen).abs() < 0.5 {
+        // Degenerate region only (numeric zero): threshold culls of
+        // positive-measure regions pop the whole subtree as the region
+        // oscillates across the cutoff -- continuity forbids them.
+        if geom::signed_area(&clip_screen).abs() < 1e-6 {
             continue;
         }
 
@@ -225,7 +230,7 @@ pub fn visible_set(
         }
 
         // Recurse through portals.
-        if node.depth < max_depth {
+        if novel && node.depth < max_depth {
             let apex = match &node.frustum {
                 None => apex_local,
                 Some(f) => f.apex,
@@ -260,12 +265,13 @@ pub fn visible_set(
                 if sa.dist(sb) < 1e-6 {
                     continue;
                 }
-                // Skip portals whose visible span projects below a pixel.
+                // Continuity rule: no threshold culls of positive-measure
+                // views. A span is skipped only when exactly degenerate
+                // (the world-space 1e-6 check above); a "half-pixel" span
+                // must still recurse, or the room behind it pops as the
+                // span oscillates across the old 0.75px cutoff.
                 let ssa = node.xform.apply(sa);
                 let ssb = node.xform.apply(sb);
-                if ssa.dist(ssb) < 0.75 {
-                    continue;
-                }
                 // Cull spans entirely off-screen: the child's region lies
                 // within the wedge apex->span projected beyond the span; a
                 // cheap conservative test is the span bbox vs screen, expanded

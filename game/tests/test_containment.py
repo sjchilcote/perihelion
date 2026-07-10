@@ -1,5 +1,7 @@
-"""Containment sweep: entities that escape their room's polygon are
-recovered to the room's (verts-frame) centroid, loudly."""
+"""Containment: the ENGINE now enforces center-in-registered-room at the
+end of every step (contain_in_room, physics.rs), so escapes are corrected
+within one tick and the game-level sweep is a silent backstop that never
+fires in practice."""
 
 from perihelion.levels import LevelBuilder
 from perihelion.sim import GameSession, InputFrame
@@ -15,16 +17,20 @@ def _level():
 
 
 def test_escaped_enemy_is_recovered():
+    """Teleported far outside, the entity is back inside its registered
+    room within a tick or two -- by the ENGINE invariant, before the
+    game-level sweep (6 consecutive 30-tick strikes) can even arm."""
     s = GameSession(_level(), seed=1)
     eid = next(iter(s.enemies))
     s.sim.set_pos(eid, 4000.0, -4000.0)  # far outside the room polygon
-    # recovery requires 6 consecutive outside sweeps (3s) so door-crush
-    # excursions never trigger it
+    for _ in range(3):
+        s.tick(InputFrame())
+    _, x, y, *_ = s.sim.get(eid)
+    assert GameSession._outside_by(x, y, s.level.room_verts[0]) <= 1e-6
+    # the sweep stayed silent: the engine fixed it first
     for _ in range(200):
         s.tick(InputFrame())
-    assert s.metrics.get("containment_recoveries", 0) >= 1
-    _, x, y, *_ = s.sim.get(eid)
-    assert GameSession._outside_by(x, y, s.level.room_verts[0]) <= 0.0
+    assert s.metrics.get("containment_recoveries", 0) == 0
 
 
 def test_normal_play_never_triggers_recovery():

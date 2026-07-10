@@ -498,11 +498,26 @@ impl Sim {
             }
             remaining -= step_dt;
         }
+        // The invariant, enforced unconditionally: whatever the substep
+        // loop did (walls, portals, contacts, corner traps, stall breaks),
+        // the entity ends the tick with its center inside its registered
+        // room. Everything downstream (visibility apex, room queries,
+        // the game's containment sweep) is allowed to assume this.
+        self.contain_in_room(id);
     }
 
-    /// Cheap positional correction: push the entity back inside its room if a
-    /// separation push left it slightly out (never lets it cross a portal
-    /// implicitly; portal crossings must come from step motion).
+    /// Containment invariant: an entity's CENTER ends every correction
+    /// inside its registered room's polygon. Walls push out by radius;
+    /// portal planes clamp the center to the plane itself (a nudge inside)
+    /// -- never an implicit crossing: a center legitimately going through
+    /// re-triggers the sweep from d~0 next substep and transfers with
+    /// events. The old version skipped portal edges entirely (`rad > 0.0`
+    /// guard), so a corner-slip past a portal plane OUTSIDE its open span
+    /// left the entity permanently outside its room: room registration
+    /// and position disagreed, the visibility apex went exterior, and
+    /// everything behind the entry portal blacked out for those ticks
+    /// (the campaign flicker's blackout class), while escaped entities
+    /// needed the game-side containment sweep to recover at all.
     fn contain_in_room(&mut self, id: u64) {
         let e = match self.entities.get(&id) {
             Some(e) => e.clone(),
@@ -511,17 +526,23 @@ impl Sim {
         let room = &self.world.rooms[e.room];
         let n = room.verts.len();
         let mut pos = e.pos;
-        for i in 0..n {
-            let (a, _b) = room.edge(i);
-            let nn = room.normals[i];
-            let rad = if room.portals[i].is_some() {
-                0.0
-            } else {
-                e.radius
-            };
-            let d = (pos - a).dot(nn);
-            if d < rad - 1e-9 && rad > 0.0 {
-                pos = pos + nn * (rad - d);
+        // Convex polygon: two passes settle corner interactions.
+        for _pass in 0..2 {
+            for i in 0..n {
+                let (a, _b) = room.edge(i);
+                let nn = room.normals[i];
+                // Containment is CENTER-IN-POLYGON: d >= 0 on every
+                // half-plane, portal or wall. The plane itself counts as
+                // inside -- any positive floor is a repulsive barrier (slow
+                // portal approaches could never cross), and a radius floor
+                // on walls uses the INFINITE line, which walls split by
+                // the doorway-carver share with their portal: it would pin
+                // entities a radius short of every carved doorway. Radius
+                // standoff from walls is the sweep/reflection's job.
+                let d = (pos - a).dot(nn);
+                if d < -1e-9 {
+                    pos = pos - nn * d;
+                }
             }
         }
         if pos.dist(e.pos) > 1e-12 {
