@@ -662,17 +662,35 @@ reaching the offer routes to the gatekeeper confrontation in Act 3.
 
 ### 8.3 Voice and naming conventions (dual vocabulary)
 
-Every significant thing in the game has two names, and which one the player hears
-tracks the speaker and, late-game, the Commando's own drift:
+Every significant thing in the game has two names, because the speakers come from
+intellectual traditions that diverged TWO THOUSAND YEARS AGO and have named the
+world separately ever since. The Church names typologically (everything is a figure
+of scripture); Ratio's tradition names by catalog (everything is a record with a
+provenance). "The Testament" is strictly the Church's name for the station — Ratio
+calls it Track Quanta-118093 after the survey platform that first detected it, or
+just "the station." Which name the player hears tracks the speaker and, late-game,
+the Commando's own drift:
 
 | Thing | The Commando | Ratio |
 |---|---|---|
 | The invaders | the Adversary | exogeometric entities / allotopes |
-| The station | the Testament | the artifact / Site One |
+| The station | the Testament | Track Quanta-118093 / "the station" |
 | The breach | the Gate / the wound | the standing connection |
 | Frame death/revival | death and resurrection (uneasily) | state-restoration from checkpoint |
 | The container | the Ark | the sample vessel |
 | Folded space | the mystery / (late, apostate) the trick | connection-space |
+
+**The compatibility thesis (director's key, paired with 5.0).** Beneath the two
+registers is one root system. Ratio is a rationalist atheist whose tradition's
+founding act was smuggling an evolved human value system through the singularity —
+she fundamentally believes in Christian morality while rejecting every word of its
+metaphysics. The Commando believes truth is the way to God — his faith REQUIRES the
+diagnostics, which is why he will not grieve before reading them; for him epistemic
+honesty is worship. They are compatible when you dig through everything on the
+surface. The dramatic question of the whole game is whether they tolerate each
+other long enough to find that out. The trust arc is therefore RECOGNITION, not
+conversion: neither wins the argument; at high trust they discover they were
+holding the same thing in two grammars.
 
 On the apostasy path the Commando's log-voice quietly migrates toward her column — and
 past it, into Testator/Adversary technical vocabulary that neither of them uses. Players
