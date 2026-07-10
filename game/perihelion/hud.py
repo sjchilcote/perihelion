@@ -32,6 +32,7 @@ class HUD:
             surf.blit(img, (ui(6), ui(24)))
         self._draw_hp(surf, session, h)
         self._draw_economy(surf, session)
+        self._draw_think(surf, session)
         self._draw_weapon(surf, session, w, h)
         self._draw_keys(surf, session, w)
         if mouse_pos is not None:
@@ -81,6 +82,46 @@ class HUD:
         pygame.draw.rect(surf, (12, 12, 16),
                          (ui(3), y - ui(2), img.get_width() + ui(6), ui(14)))
         surf.blit(img, (ui(6), y))
+
+    def _draw_think(self, surf, session):
+        """Minimal think-progress pip (SEEDPOD_UI_DESIGN.md): a small ring
+        under the economy line that fills as the focus concept accrues in
+        the field, and pulses quietly once a thought has finished (the
+        unlock itself waits for the pod)."""
+        focus = getattr(session, "think_focus", None)
+        done = getattr(session, "think_done", [])
+        if focus is None and not done:
+            return
+        y = ui(38) if getattr(session.level, "vigil", False) else ui(24)
+        comp = getattr(session, "components", 0)
+        if comp or getattr(session, "chassis", 0) or \
+                getattr(session, "station_kits", 0) or \
+                getattr(session, "recalls", 0):
+            y += ui(16)  # sit below the economy line when it is shown
+        cx, cy, r = ui(10), y + ui(5), ui(4)
+        pygame.draw.rect(surf, (12, 12, 16),
+                         (cx - r - ui(2), cy - r - ui(2),
+                          2 * (r + ui(2)), 2 * (r + ui(2))))
+        if done:
+            pulse = 0.55 + 0.45 * math.sin(session.tick_count * 0.12)
+            col = (int(150 + 64 * pulse), int(145 + 60 * pulse),
+                   int(128 + 54 * pulse))
+            pygame.draw.circle(surf, col, (cx, cy), r)
+        else:
+            from . import mindmap
+            frac = min(1.0, session.think_progress.get(focus, 0)
+                       / max(1, mindmap.think_ticks(focus)))
+            pygame.draw.circle(surf, (45, 62, 54), (cx, cy), r, max(1, ui(1)))
+            if frac > 0.0:
+                start = -math.pi / 2
+                steps = max(1, int(frac * 20))
+                pts = [(cx, cy)]
+                for i in range(steps + 1):
+                    a = start + frac * 2 * math.pi * (i / steps)
+                    pts.append((cx + math.cos(a) * r, cy + math.sin(a) * r))
+                if len(pts) >= 3:
+                    pygame.draw.polygon(surf, (108, 168, 140),
+                                        [(int(px), int(py)) for px, py in pts])
 
     def _draw_weapon(self, surf, session, w, h):
         name = session.weapon

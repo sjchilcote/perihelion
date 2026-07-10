@@ -104,7 +104,7 @@ def by_region() -> dict[str, list[dict]]:
 # each region owns a compass sector (screen coords: +y is down)
 _REGION_ANGLE_DEG = {"vocation": -90.0, "history": 0.0,
                      "comprehension": 180.0, "void": 90.0}
-_SECTOR_HALF_DEG = 40.0
+_SECTOR_HALF_DEG = 46.0
 
 
 def depths() -> dict[str, int]:
@@ -139,7 +139,7 @@ def layout() -> dict[str, tuple[float, float]]:
         span = math.radians(2 * _SECTOR_HALF_DEG)
         for (region, d_), ids in groups.items():
             base = math.radians(_REGION_ANGLE_DEG[region])
-            r = 0.24 + 0.76 * (d_ / maxd)
+            r = 0.30 + 0.70 * (d_ / maxd)
             for i, nid in enumerate(ids):
                 a = base + span * ((i + 1) / (len(ids) + 1) - 0.5)
                 pos[nid] = (r * math.cos(a), r * math.sin(a))

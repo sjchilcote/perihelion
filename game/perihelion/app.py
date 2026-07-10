@@ -811,9 +811,9 @@ class App:
                     sy -= 11 * _s
                 game.float_texts.append([sx, sy, ev[3], 66])
             elif ev[0] == "shop":
-                if not any(isinstance(sc, menus.ShopScene)
-                           for sc in self.scenes):
-                    self.push(menus.ShopScene(game.session))
+                from .podscene import PodScene
+                if not any(isinstance(sc, PodScene) for sc in self.scenes):
+                    self.push(PodScene(game.session))
             elif ev[0] == "logvoice":
                 line = corpse_line(ev[1])
                 if line:
