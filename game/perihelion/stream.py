@@ -49,6 +49,9 @@ class WorldStreamer:
         first.room_descent = ([self._chunk_descent(0)]
                               * len(first.room_verts))
         self.entry_states[0] = self._snapshot_state()
+        # every chunk entry is a seed station (9.1: the seed that prints
+        # your frames; 9.3: planted kits extend the same network)
+        session.add_station(first.player_room, first.player_pos)
         session.exit_enabled = self._is_final(0)
         if self._is_final(0):
             self._point_exit_at(0)
@@ -128,11 +131,18 @@ class WorldStreamer:
             ammo["shell"] = max(ammo.get("shell", 0), 8)
         return dict(hp=max(int(s.hp), 85 if hard else 70), ammo=ammo,
                     weapons=list(s.weapons), weapon=s.weapon,
-                    holes=s.holes, cloister=s.cloister is not None)
+                    holes=s.holes, cloister=s.cloister is not None,
+                    # economy fields ride the snapshot for save-file
+                    # persistence only; _restore_state never touches them
+                    # (the corpse already holds what death cost you --
+                    # restoring entry values would duplicate it)
+                    components=s.components, chassis=s.chassis,
+                    station_kits=s.station_kits, max_hp=s.max_hp,
+                    hp_ups=s.hp_ups, mind=sorted(s.mind))
 
     def _restore_state(self, st: dict) -> None:
         s = self.session
-        s.hp = st["hp"]
+        s.hp = min(st["hp"], s.max_hp)
         s.ammo = dict(st["ammo"])
         s.weapons = list(st["weapons"])
         s.weapon = st["weapon"]
@@ -262,6 +272,8 @@ class WorldStreamer:
             if nxt["offset"] <= room < nxt["offset"] + nxt["n_rooms"]:
                 self.current += 1
                 self.entry_states[self.current] = self._snapshot_state()
+                s.add_station(nxt["entry_room"] + nxt["offset"],
+                              nxt["entry_pos"])
                 s.keys = set()  # a new security zone honors no old badges
                 s.exit_enabled = self._is_final(self.current)
                 if s.exit_enabled:
@@ -295,7 +307,10 @@ class WorldStreamer:
             s.sim.remove(eid)
             s.enemies.pop(eid, None)
         for eid in [e for e, rec in s.pickups.items()
-                    if lo <= s.sim.get_room(e) < hi]:
+                    if lo <= s.sim.get_room(e) < hi
+                    and rec["kind"] != "corpse_frame"]:
+            # wrecked frames survive the restock: loot is only lost until
+            # retrieved (9.1), and the cold restore never deletes a corpse
             s.sim.remove(eid)
             s.pickups.pop(eid, None)
         lvl: Level = c["level"]
@@ -326,11 +341,4 @@ class WorldStreamer:
 
     def _reseat_player(self, room: int, pos) -> None:
         """Move the player's engine entity to another room."""
-        s = self.session
-        import necore
-        old = s.pid
-        st = s.sim.get(old)
-        s.sim.remove(old)
-        s.pid = s.sim.spawn(room, pos[0], pos[1], 6.5, 1.2, 0)
-        s.sim.set_props(s.pid, rest_wall=0.0, rest_ent=0.05, max_substep=6.0)
-        s.sim.set_dir(s.pid, st[5], st[6])
+        self.session.reseat_player(room, pos)

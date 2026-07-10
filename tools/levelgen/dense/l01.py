@@ -315,7 +315,7 @@ def l01() -> LevelBuilder:
             "His church names him by a GUID, 128 bits, blessed.\n"
             "Everyone else says Commando.\n\n"
             "Mission: find out why the outpost went dark.\n"
-            "Locate the sample vessel. Subvert the node.")
+            "Locate the Ark. Subvert the node.")
     b.terminal(d_w, wall_pos(b, d_w, 0, 0.5, 15.0),
                "INTERCEPTED TRANSMISSION — TIGHT-BEAM, DOCK 4\n"
                "Source unregistered. Addressee: none on file.\n"
@@ -324,14 +324,6 @@ def l01() -> LevelBuilder:
                "frame: I see you. I have nothing left to stop\n"
                "you with, which you already know. So we talk.\n"
                "Designation Ratio. This was my outpost.'")
-    b.radio(f"enter_room:{junction}", "Ratio: The things wearing my "
-                                      "maintenance chassis are not mine "
-                                      "anymore. Storage ring ahead - eight "
-                                      "segments. Clear it and I'll consider "
-                                      "us introduced.")
-    b.radio(f"enter_room:{phantom}", "Ratio: ...Your beacon just left my "
-                                     "deck plan. That was not me. Noted, "
-                                     "Commando: it happens to you too.")
     b.terminal(junction, wall_pos(b, junction, 3, 0.5, 15.0),
                "WORK ORDER 7731\nGrid fault, storage ring north.\n"
                "Tech note: ring walk takes 41s. Spec says 33s.\n"
@@ -391,9 +383,6 @@ def l01() -> LevelBuilder:
                "Best guess, filed and closed: depot shipped a\n"
                "batch with someone else's stickers already on the\n"
                "boxes. Not worth a ticket.")
-    b.radio(f"enter_room:{ring_w}", "Ratio: West segment. Motion grid says "
-                                    "you're the only thing moving in there. "
-                                    "It has said that before, and been wrong.")
 
     # ring garrison — unchanged
     squad(b, ring_sw, "husk")
@@ -422,9 +411,6 @@ def l01() -> LevelBuilder:
     b.entity(d_w, "medkit", wall_pos(b, d_w, 0, 0.78, 15.0))
 
     b.exit(ring_se, (770, 230))
-    b.radio("exit", "Ratio: You cleared my ring and stole nothing that "
-                    "was mine. Provisional finding: talking was correct. "
-                    "There is worse below. Retainer terms to follow.")
     return b
 
 

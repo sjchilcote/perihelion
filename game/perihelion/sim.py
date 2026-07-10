@@ -100,6 +100,20 @@ PICKUPS: dict[str, dict] = {
     "implant_lightning": dict(radius=7.0),
     "key_red": dict(radius=5.5), "key_blue": dict(radius=5.5),
     "key_gold": dict(radius=5.5), "key_void": dict(radius=5.5),
+    "components": dict(radius=5.0),
+    "corpse_frame": dict(radius=8.0),
+}
+
+# The fabricator's price sheet. Components are salvaged mass — every enemy
+# yields its score in components (the same number the metrics already used,
+# so salvage income equals fight difficulty by construction).
+SHOP: dict[str, dict] = {
+    "chassis": dict(cost=8, label="SPARE CHASSIS"),
+    "station_kit": dict(cost=12, label="SEED STATION KIT"),
+    "hp_up": dict(cost=10, label="HULL PLATING +15", growth=6),
+    "ammo_9mm": dict(cost=3, label="9MM x30", ammo=("9mm", 30)),
+    "ammo_shell": dict(cost=3, label="SHELLS x7", ammo=("shell", 7)),
+    "ammo_cell": dict(cost=4, label="CELLS x8", ammo=("cell", 8)),
 }
 
 DROP_TABLES = {
@@ -196,9 +210,29 @@ class GameSession:
         self.pid = s.spawn(level.player_room, *level.player_pos,
                            PLAYER_RADIUS, PLAYER_MASS, GROUP_PLAYER)
         s.set_props(self.pid, rest_wall=0.0, rest_ent=0.05, max_substep=6.0)
-        self.hp = st.get("hp", PLAYER_HP)
+        self.max_hp = int(st.get("max_hp", PLAYER_HP))
+        self.hp = st.get("hp", self.max_hp)
         self.ammo = dict(st.get("ammo", {"9mm": 48, "shell": 0, "cell": 0}))
         self.weapons = list(st.get("weapons", ["knife", "pistol"]))
+        # --- the revival economy (design doc 9.1/9.3) ---
+        # components: salvaged mass, the one currency. chassis: hulls
+        # fabricated in advance; dying with one racked reprints you at the
+        # nearest seed station with the world left as it lies (your wreck
+        # included). With none racked, the seed cold-restores the chunk
+        # (streamer respawn) -- the pre-economy behavior, so bots and
+        # difficulty gates see an unchanged baseline.
+        self.components = int(st.get("components", 0))
+        self.chassis = int(st.get("chassis", 0))
+        self.station_kits = int(st.get("station_kits", 0))
+        self.hp_ups = int(st.get("hp_ups", 0))
+        # the mind map (9.2): purchased concept-node ids; faith is computed
+        # from the investment pattern, never displayed as a meter
+        self.mind: set[str] = set(st.get("mind", []))
+        self._recompute_mind()
+        self.stations: list[dict] = []  # {room, pos}: planted + chunk seeds
+        # the seed you just printed from is a station by definition (the
+        # streamer's chunk-entry add_station dedupes against this one)
+        self.add_station(level.player_room, level.player_pos)
         self.keys: set[str] = set()
         # key id -> KeyMeta of the object actually picked up (for HUD/world
         # glyphs); intersect with self.keys — the streamer clears keys on
@@ -294,13 +328,16 @@ class GameSession:
                                  wander_cd=0, buff=0)
         return eid
 
-    def spawn_pickup(self, room: int, pos, kind: str, meta=None) -> int:
+    def spawn_pickup(self, room: int, pos, kind: str, meta=None,
+                     extra: dict | None = None) -> int:
         d = PICKUPS[kind]
         eid = self.sim.spawn(room, pos[0], pos[1], d["radius"], 100.0, GROUP_PICKUP)
         self.sim.set_props(eid, transfers=False)
         rec = dict(kind=kind)
         if meta is not None:
             rec["meta"] = meta  # KeyMeta: the object this key id is here
+        if extra:
+            rec.update(extra)
         self.pickups[eid] = rec
         return eid
 
@@ -392,6 +429,12 @@ class GameSession:
                     rv[r_] = self.sim.room_verts(r_)
         if self.tick_count % 30 == 0:
             self._containment_sweep(proom)
+        if self._regen_rate and self.tick_count % 60 == 0:
+            # grafted Adversary organs knit the hull -- up to a fraction of
+            # max only; flesh does not respect fabrication tolerances
+            cap = self.max_hp * self._regen_cap_frac
+            if self.hp < cap:
+                self.hp = min(cap, self.hp + self._regen_rate)
 
         self._player_control(inp, proom)
         self._enemy_ai(proom)
@@ -408,6 +451,7 @@ class GameSession:
         self._turret_tick()
         self._pickup_scan(proom)
         self._terminal_scan(proom, inp)
+        self._station_scan(proom, inp)
         self._exit_scan(proom)
 
         if self.level.vigil:
@@ -463,8 +507,8 @@ class GameSession:
             ml = math.hypot(mdx, mdy)
             if ml > 1e-9:
                 ax_, ay_ = mdx / ml * mlen, mdy / ml * mlen
-                s.set_vel(self.pid, vx + ax_ * PLAYER_ACCEL * DT,
-                          vy + ay_ * PLAYER_ACCEL * DT)
+                s.set_vel(self.pid, vx + ax_ * PLAYER_ACCEL * self._accel_mul * DT,
+                          vy + ay_ * PLAYER_ACCEL * self._accel_mul * DT)
         # fire
         if inp.fire and self.cooldown <= 0:
             self._fire(proom, px, py)
@@ -542,7 +586,8 @@ class GameSession:
         else:
             _, _, _, pvx, pvy, _, _ = self.sim.get(self.pid)
             for _ in range(w.get("pellets", 1)):
-                ang = math.atan2(ady, adx) + self.rng.uniform(-w["spread"], w["spread"])
+                ang = math.atan2(ady, adx) + self.rng.uniform(
+                    -w["spread"], w["spread"]) * self._spread_mul
                 spd = w["speed"] * self.rng.uniform(0.95, 1.05)
                 bid = self.sim.spawn(proom, mx_, my_, 1.6, 0.002, GROUP_PBULLET)
                 self.sim.set_props(bid, rest_wall=0.0, rest_ent=0.0, max_substep=3.2)
@@ -918,6 +963,11 @@ class GameSession:
         e = self.enemies.get(eid)
         if e is None:
             return
+        dmg *= self._dmg_out_mul
+        if e["state"] != "idle":
+            dmg *= self._target_mark_mul
+        if self._crit_p > 0.0 and self.rng.random() < self._crit_p:
+            dmg *= self._crit_mul
         e["hp"] -= dmg
         e["state"] = "hunt"
         self.metrics["hits"] += 1
@@ -959,6 +1009,13 @@ class GameSession:
                 self.spawn_pickup(room, (pos[0] + self.rng.uniform(-6, 6),
                                          pos[1] + self.rng.uniform(-6, 6)), kind_)
                 break
+        # salvage: every kill yields its score in components (9.1 -- wrecks
+        # are materials; score already priced each enemy's difficulty)
+        self.spawn_pickup(room, (pos[0] + self.rng.uniform(-5, 5),
+                                 pos[1] + self.rng.uniform(-5, 5)),
+                          "components",
+                          extra=dict(amount=int(math.ceil(
+                              d["score"] * self._salvage_mul))))
         # nearby enemies hear the death
         self.alert_enemies(room, 1)
 
@@ -966,7 +1023,7 @@ class GameSession:
         if self.hurt_cd > 0 or self.dead:
             return
         self.hurt_cd = 30
-        dmg *= self._dmg_mul
+        dmg *= self._dmg_mul * self._armor_mul
         self.hp -= dmg
         self.metrics["dmg_taken"] += dmg
         px, py = self.player_pos()
@@ -981,6 +1038,29 @@ class GameSession:
             self._snd("player_die", room, (px, py))
             self.fx.append(("playerdie",))
             self._decal(room, "corpse_player", px, py, PLAYER_RADIUS)
+            self._drop_corpse(room, (px, py))
+
+    def _drop_corpse(self, room: int, pos) -> None:
+        """The wrecked frame stays where it fell, holding what it carried:
+        components and unplanted station kits (weapons and hole charges are
+        licensed patterns -- the seed reprints those with the frame, so they
+        never ride the corpse; carrying them here would duplicate them
+        through the cold-restore path). As many wrecks accumulate as you
+        leave unrecovered; nothing is lost until then, and nothing is lost
+        after retrieval (9.1)."""
+        if self._protected_revival:
+            # Vocation capstone: the seed holds your salvage in trust; the
+            # wreck carries only what a fabricator can't bank (kits)
+            contents = dict(components=0, station_kits=self.station_kits)
+        else:
+            contents = dict(components=self.components,
+                            station_kits=self.station_kits)
+            self.components = 0
+        self.station_kits = 0
+        if any(contents.values()):
+            self.spawn_pickup(room, pos, "corpse_frame",
+                              extra=dict(contents=contents,
+                                         line=self.rng.randrange(1 << 30)))
 
     # ------------------------------------------------------------------
 
@@ -1357,14 +1437,15 @@ class GameSession:
             kind = p["kind"]
             if kind.startswith("ammo_"):
                 t = kind[5:]
-                self.ammo[t] = self.ammo.get(t, 0) + PICKUPS[kind]["amount"]
+                amt = int(PICKUPS[kind]["amount"] * self._ammo_mul)
+                self.ammo[t] = self.ammo.get(t, 0) + amt
                 self._snd("pickup_ammo", proom, (x, y))
                 self.fx.append(("pickup_text", proom, (x, y),
-                                f"+{PICKUPS[kind]['amount']} {t.upper()}"))
+                                f"+{amt} {t.upper()}"))
             elif kind == "medkit":
                 if self.hp > 70:
                     continue  # leave it for later — scarcity respects foresight
-                self.hp = min(PLAYER_HP, self.hp + PICKUPS[kind]["amount"])
+                self.hp = min(self.max_hp, self.hp + PICKUPS[kind]["amount"])
                 self._snd("pickup_medkit", proom, (x, y))
                 self.fx.append(("pickup_text", proom, (x, y),
                                 f"+{PICKUPS[kind]['amount']} INTEGRITY"))
@@ -1386,7 +1467,7 @@ class GameSession:
             elif kind == "turret":
                 continue  # not a pickup; the guardians are furniture
             elif kind == "portable_hole":
-                self.holes += 1
+                self.holes += 1 + self._hole_bonus
                 if "hole" not in self.weapons:
                     self.weapons.append("hole")
                 self._snd("pickup_key", proom, (x, y))
@@ -1396,6 +1477,25 @@ class GameSession:
                     self.weapons.append("lightning")
                 self._snd("pickup_key", proom, (x, y))
                 self._acquired("lightning")
+            elif kind == "components":
+                n = p.get("amount", 1)
+                self.components += n
+                self._snd("pickup_ammo", proom, (x, y))
+                self.fx.append(("pickup_text", proom, (x, y),
+                                f"+{n} COMPONENTS"))
+            elif kind == "corpse_frame":
+                c = p.get("contents", {})
+                self.components += c.get("components", 0)
+                self.station_kits += c.get("station_kits", 0)
+                self._snd("pickup_key", proom, (x, y))
+                got = []
+                if c.get("components"):
+                    got.append(f"+{c['components']} COMPONENTS")
+                if c.get("station_kits"):
+                    got.append(f"+{c['station_kits']} SEED KIT")
+                self.fx.append(("pickup_text", proom, (x, y),
+                                "FRAME RECOVERED  " + "  ".join(got)))
+                self.fx.append(("logvoice", p.get("line", 0)))
             elif kind.startswith("key_"):
                 key = kind[4:]
                 self.keys.add(key)
@@ -1428,6 +1528,184 @@ class GameSession:
                 self.door_edges.pop((d["b"], d["eb"]), None)
                 mx, my = self.sim.edge_midpoint(d["a"], d["ea"])
                 self._snd("door_unlock", d["a"], (mx, my))
+
+    # ------------------------------------------------------------------
+    # the revival economy: seed stations, the fabricator, chassis reprint
+    # ------------------------------------------------------------------
+
+    STATION_RADIUS = 30.0
+
+    def add_station(self, room: int, pos) -> None:
+        """Register a seed station (chunk-entry seeds are planted by the
+        streamer; the player plants forward seeds with kits, 9.3)."""
+        for st in self.stations:
+            if st["room"] == room and \
+                    math.hypot(st["pos"][0] - pos[0], st["pos"][1] - pos[1]) < 24.0:
+                return
+        self.stations.append(dict(room=room, pos=(pos[0], pos[1])))
+
+    def station_near(self, proom: int):
+        px, py = self.player_pos()
+        for st in self.stations:
+            if st["room"] == proom and \
+                    math.hypot(st["pos"][0] - px, st["pos"][1] - py) < self.STATION_RADIUS:
+                return st
+        return None
+
+    def place_station(self) -> bool:
+        if self.station_kits <= 0:
+            return False
+        proom = self.player_room()
+        px, py = self.player_pos()
+        self.station_kits -= 1
+        self.add_station(proom, (px, py))
+        self._snd("terminal_open", proom, (px, py))
+        self._objective("SEED PLANTED - REVIVAL ANCHORED HERE")
+        return True
+
+    def buy(self, item: str) -> bool:
+        d = SHOP[item]
+        cost = d["cost"] + d.get("growth", 0) * (self.hp_ups if item == "hp_up" else 0)
+        if self.components < cost:
+            return False
+        self.components -= cost
+        if item == "chassis":
+            self.chassis += 1
+        elif item == "station_kit":
+            self.station_kits += 1
+        elif item == "hp_up":
+            self.hp_ups += 1
+            self.max_hp += 15
+            self.hp = min(self.max_hp, self.hp + 15)
+        elif "ammo" in d:
+            t, n = d["ammo"]
+            self.ammo[t] = self.ammo.get(t, 0) + n
+        proom = self.player_room()
+        self._snd("pickup_key", proom, self.player_pos())
+        self.fx.append(("pickup_text", proom, self.player_pos(),
+                        f"-{cost} COMPONENTS"))
+        return True
+
+    def shop_price(self, item: str) -> int:
+        d = SHOP[item]
+        return d["cost"] + d.get("growth", 0) * (self.hp_ups if item == "hp_up" else 0)
+
+    # ------------------------------------------------------------------
+    # the mind map: purchase and effect wiring (9.2)
+    # ------------------------------------------------------------------
+
+    def buy_node(self, node_id: str) -> bool:
+        from . import mindmap
+        if not mindmap.available(self.mind, node_id):
+            return False
+        cost = mindmap.price(node_id)
+        if self.components < cost:
+            return False
+        self.components -= cost
+        self.mind.add(node_id)
+        self._recompute_mind()
+        proom = self.player_room()
+        self._snd("pickup_key", proom, self.player_pos())
+        label = mindmap.nodes()[node_id]["label"]
+        self._objective(f"INTEGRATED: {label.upper()}")
+        return True
+
+    @property
+    def faith(self) -> int:
+        from . import mindmap
+        return mindmap.faith_score(self.mind)
+
+    def _recompute_mind(self) -> None:
+        """Fold the purchased nodes' unlock keys into flat combat numbers,
+        recomputed whole on every purchase. Keys with no combat meaning
+        here (dialogue depth, intel translation, beacons) are read by the
+        app/dialogue layers straight from `self.mind`."""
+        from . import mindmap
+        u = mindmap.unlocks(self.mind)
+        self.mind_unlocks = u
+        dmg = 1.0
+        if "blessed_rounds_dmg_adversary" in u:
+            dmg *= 1.20   # everything that walks here is Adversary biology
+        if "monstrous_power_1" in u:
+            dmg *= 1.15
+        self._dmg_out_mul = dmg
+        # legitimate targets: bonus only against enemies bearing down on
+        # you (state != idle) -- sleepers are not yet combatants
+        self._target_mark_mul = 1.10 if "target_mark_1" in u else 1.0
+        self._spread_mul = 0.75 if "recoil_control_1" in u else 1.0
+        self._armor_mul = 0.85 if "shield_charge_1" in u else 1.0
+        self._accel_mul = (1.0
+                           * (1.08 if "overclock_1" in u else 1.0)
+                           * (1.07 if "overclock_2" in u else 1.0)
+                           * (1.05 if "monstrous_power_1" in u else 1.0))
+        if "weakpoint_scan_2" in u:
+            self._crit_p, self._crit_mul = 0.20, 2.0
+        elif "weakpoint_scan_1" in u:
+            self._crit_p, self._crit_mul = 0.10, 1.75
+        else:
+            self._crit_p, self._crit_mul = 0.0, 1.0
+        self._salvage_mul = 1.5 if "salvage_yield_1" in u else 1.0
+        self._ammo_mul = 1.25 if "faction_tech_mk1" in u else 1.0
+        if "adversary_organ_slot_2" in u:
+            self._regen_cap_frac, self._regen_rate = 0.75, 1
+        elif "adversary_organ_slot_1" in u:
+            self._regen_cap_frac, self._regen_rate = 0.50, 1
+        else:
+            self._regen_cap_frac, self._regen_rate = 0.0, 0
+        self._protected_revival = "protected_revival" in u
+        self._hole_bonus = 1 if "hole_stability_1" in u else 0
+
+    def reseat_player(self, room: int, pos) -> None:
+        """Move the player's engine entity to another room (engine set_pos
+        does not move room membership; respawn under the same groups)."""
+        st = self.sim.get(self.pid)
+        self.sim.remove(self.pid)
+        self.pid = self.sim.spawn(room, pos[0], pos[1], PLAYER_RADIUS,
+                                  PLAYER_MASS, GROUP_PLAYER)
+        self.sim.set_props(self.pid, rest_wall=0.0, rest_ent=0.05,
+                           max_substep=6.0)
+        self.sim.set_dir(self.pid, st[5], st[6])
+
+    def respawn_at_station(self) -> bool:
+        """Chassis path: a racked hull prints at the nearest seed station.
+        The world stays exactly as it lies -- enemies, doors, and the wreck
+        you just left. Returns False with no chassis or no station (the
+        caller falls back to the cold restore)."""
+        if self.chassis <= 0 or not self.stations:
+            return False
+        death_room = self.player_room()
+        best = min(self.stations,
+                   key=lambda st: (self.sim.hop_distance(st["room"], death_room)
+                                   if self.sim.hop_distance(st["room"], death_room) >= 0
+                                   else 1 << 20))
+        self.chassis -= 1
+        for eid in list(self.bullets):
+            self.sim.remove(eid)
+        self.bullets.clear()
+        room, (px, py) = best["room"], best["pos"]
+        if self.player_room() != room:
+            self.reseat_player(room, (px, py))
+        else:
+            self.sim.set_pos(self.pid, px, py)
+        self.sim.set_vel(self.pid, 0.0, 0.0)
+        self.hp = self.max_hp
+        self.dead = False
+        self.freeze = 0
+        self.tau_charge = 0
+        self.hole_mark = None
+        self.cam = necore.mat_mul(
+            necore.mat_mul(
+                necore.mat_translate(self.screen_w / 2, self.screen_h / 2),
+                necore.mat_scale(self.zoom, self.zoom)),
+            necore.mat_translate(-px, -py))
+        self._objective(f"REPRINTED - {self.chassis} CHASSIS RACKED")
+        return True
+
+    def _station_scan(self, proom: int, inp: InputFrame):
+        if not inp.interact:
+            return
+        if self.station_near(proom) is not None:
+            self.fx.append(("shop",))
 
     def _terminal_scan(self, proom: int, inp: InputFrame):
         if not inp.interact:
@@ -1549,6 +1827,11 @@ class GameSession:
             keys=set(self.keys),
             lightning_ready=self.lightning_charge >= LIGHTNING_RECHARGE_TICKS,
             holes=self.holes, tau_charge=self.tau_charge,
+            components=self.components, chassis=self.chassis,
+            station_kits=self.station_kits, max_hp=self.max_hp,
+            mind=set(self.mind), faith=self.faith,
+            stations=[dict(room=st["room"], pos=st["pos"])
+                      for st in self.stations],
             cloister=(dict(links=len(self.cloister["links"]),
                            attached=self.cloister["attached"])
                       if self.cloister else None),

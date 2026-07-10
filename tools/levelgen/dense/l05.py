@@ -295,15 +295,6 @@ def l05() -> LevelBuilder:
     b.player(lobby, (110, 90))
     b.intro("Crew quarters. West wing and east wing.\n"
             "The station schematic shows one wing.\nIt is drawn twice, in two colors.")
-    b.radio("start", "Ratio: Quarters sweep. West wing, then east. They "
-                     "mirror each other; you'll be done fast.")
-    b.radio(f"enter_room:{w2}", "Ratio: West two. Your beacon overlaps the "
-                                "east-two marker. Interference.")
-    b.radio(f"enter_room:{e2}", "Ratio: East two. Same interference. Exactly "
-                                "the same. To the meter.")
-    b.radio(f"enter_room:{chapel}", "Ratio: Both wings end at one room. One "
-                                    "room, two doors that cannot share a "
-                                    "wall. I've stopped calling this noise.")
     b.terminal(w1, wall_pos(b, w1, 1, 0.5, 15.0),
                "BUNK 12-W\nDear M — the man in 12-E snores. I hear him\n"
                "through the wall. 12-E is on the other side of\nthe station. — R")
@@ -373,14 +364,7 @@ def l05() -> LevelBuilder:
     # two identical steward's keys, in the same bunk, in both wings
     b.entity(w1, "key_gold", (-90, 40))
     b.entity(e1, "key_gold", (1270, 40))
-    b.radio("pickup:gold", "Ratio: The steward's hatch key. Manifest lists "
-                           "exactly one steward, bunk 12. It doesn't say "
-                           "which 12.")
     b.exit(chapel, (-430, 420), key="gold")
-    b.radio("exit", "Ratio: I overlaid the wings. They occupy the same "
-                    "cubic meters. I ran the check nine times, then filed "
-                    "it under structures, subfolder impossible. Tell no "
-                    "one I keep that subfolder.")
 
     # --- district population: pacing off the critical path (lobby -> w1
     # key -> w2 -> w3 -> chapel), quiet beats left quiet on the east copy ---

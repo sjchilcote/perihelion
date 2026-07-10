@@ -332,9 +332,6 @@ def build() -> LevelBuilder:
     # -- diegetics preserved verbatim from campaign.py:l08() --------------
     b.intro("The chapel deck. Folded.\nSix rooms around one. Or one room\n"
             "around six. The count depends on the walker.")
-    b.radio("start", "Ratio: I can't map this for you. Every route you take "
-                     "adds a room that was already there. Kill what moves "
-                     "and get to the heart.")
     b.terminal(core, (0, -60),
                "SERMON, UNDELIVERED\nThey ask: is the station haunted?\n"
                "No. A haunting is a place remembering.\n"
@@ -372,13 +369,6 @@ def build() -> LevelBuilder:
             cache(b, p, petal_caches[i])
     cache(b, core, "medkit medkit ammo_cell ammo_shell ammo_9mm safe_room_core portable_hole")
     b.exit(core, (0, 40), gate_kind="warden")
-    b.radio("kills:14", "Ratio: That was a Warden. The thing under the "
-                        "Core prints them, the way your seed prints "
-                        "frames. There will be a fresh one at the door.")
-    b.radio("exit", "Ratio: Core approach is open. The vault is down "
-                    "there — and so is the thing that holds the vault "
-                    "shut. If something makes you an offer, any offer: "
-                    "the offer is the weapon. Listen to me instead.")
 
     # -- district population (playbook pacing: fights in named rooms, the
     # dock and most corridor chains stay quiet beats) ----------------------

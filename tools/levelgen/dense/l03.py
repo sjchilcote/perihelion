@@ -88,11 +88,11 @@ def l03() -> LevelBuilder:
     ring = sector_ring(b, 0, 0, 180, 320, 6,
                        math.radians(-90), math.radians(90))
     for r in ring:
-        b.set_kind(r, "lab")   # hydroponics benches, the ring's own function
+        b.set_kind(r, "hydro")   # hydroponics benches, the ring's own function
     # entry room sized to the outer chord (165.6) to keep portals rigid
     entry = b.poly([(-83, -440), (-83, -320), (83, -320), (83, -440)])
     b.set_kind(entry, "corridor")
-    garden = b.rect(400, -80, 166, 160, kind="lab")
+    garden = b.rect(400, -80, 166, 160, kind="hydro")
     storeroom = b.rect(-420, 40, 166, 140, kind="storage")
 
     b.connect_pts(entry, (0, -320), ring[0],
@@ -250,14 +250,6 @@ def l03() -> LevelBuilder:
     # LORE — verbatim from campaign.py l03().
     # ------------------------------------------------------------------
     b.intro("Hydroponics. The torus keeps the greens\nalive. The greens are dying in a spiral.")
-    b.radio("start", "Ratio: The torus is a half-ring. Walk it out and back, "
-                     "check the feeders.")
-    b.radio(f"enter_room:{ring[5]}", "Ratio: End cap. Turn around when "
-                                     "you're done.")
-    b.radio(f"enter_room:{garden}", "Ratio: Hold on. Your suit gyro says "
-                                    "you're facing spinward. You entered "
-                                    "anti-spinward. Say something so I know "
-                                    "you're you.")
     b.terminal(garden, wall_pos(b, garden, 2, 0.5, 15.0),
                "BOTANY NOTE\nThe cucumbers grow clockwise here.\n"
                "In the seed manual they grow counterclockwise.\n"
@@ -283,9 +275,6 @@ def l03() -> LevelBuilder:
                "The dying trays spiral inward, sunwise.\n"
                "The healthy trays spiral the other way.\n"
                "Botany says plants do not have a 'way'.")
-    b.radio(f"enter_room:{ring[1]}", "Ratio: Feeder pressure is nominal in "
-                                     "sector two. First nominal reading I've "
-                                     "had all month. Enjoy it.")
     b.terminal(entry, wall_pos(b, entry, 3, 0.5, 15.0),
                "SURVEY LOG — WEEK SIXTEEN\n"
                "Nutrient uptake within tolerance. Torus rotation\n"
@@ -371,16 +360,7 @@ def l03() -> LevelBuilder:
     cache(b, alc_ch8, "ammo_9mm")                     # drum store niche
     cache(b, alc_ch6, "ammo_shell")                   # pump plant locker
 
-    b.radio("pickup:blue", "Ratio: Fresh scrubber cartridge, off the "
-                           "end-cap rack. The garden airlock takes it. "
-                           "Back the way you came — or, apparently, "
-                           "straight ahead. Both work. Neither should.")
-    b.radio("kills:8", "Ratio: That big one read twice your mass. The "
-                       "station manifest has nothing that shape.")
     b.exit(garden, (483, 40))
-    b.radio("exit", "Ratio: I plotted your walk. The turns sum to half a "
-                    "circle, and you got home anyway. Logging it as... no. "
-                    "Not logging it.")
     return b
 
 

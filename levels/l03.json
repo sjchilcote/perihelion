@@ -39,7 +39,7 @@
      ]
     }
    ],
-   "kind": "lab"
+   "kind": "hydro"
   },
   {
    "verts": [
@@ -83,7 +83,7 @@
      ]
     }
    ],
-   "kind": "lab"
+   "kind": "hydro"
   },
   {
    "verts": [
@@ -134,7 +134,7 @@
      ]
     }
    ],
-   "kind": "lab"
+   "kind": "hydro"
   },
   {
    "verts": [
@@ -164,7 +164,7 @@
      ]
     }
    ],
-   "kind": "lab"
+   "kind": "hydro"
   },
   {
    "verts": [
@@ -215,7 +215,7 @@
      ]
     }
    ],
-   "kind": "lab"
+   "kind": "hydro"
   },
   {
    "verts": [
@@ -252,7 +252,7 @@
      ]
     }
    ],
-   "kind": "lab"
+   "kind": "hydro"
   },
   {
    "verts": [
@@ -334,7 +334,7 @@
      ]
     }
    ],
-   "kind": "lab"
+   "kind": "hydro"
   },
   {
    "verts": [
@@ -6232,36 +6232,7 @@
  },
  "lore": {
   "intro": "Hydroponics. The torus keeps the greens\nalive. The greens are dying in a spiral.",
-  "radio": [
-   {
-    "trigger": "start",
-    "text": "Ratio: The torus is a half-ring. Walk it out and back, check the feeders."
-   },
-   {
-    "trigger": "enter_room:5",
-    "text": "Ratio: End cap. Turn around when you're done."
-   },
-   {
-    "trigger": "enter_room:7",
-    "text": "Ratio: Hold on. Your suit gyro says you're facing spinward. You entered anti-spinward. Say something so I know you're you."
-   },
-   {
-    "trigger": "enter_room:1",
-    "text": "Ratio: Feeder pressure is nominal in sector two. First nominal reading I've had all month. Enjoy it."
-   },
-   {
-    "trigger": "pickup:blue",
-    "text": "Ratio: Fresh scrubber cartridge, off the end-cap rack. The garden airlock takes it. Back the way you came \u2014 or, apparently, straight ahead. Both work. Neither should."
-   },
-   {
-    "trigger": "kills:8",
-    "text": "Ratio: That big one read twice your mass. The station manifest has nothing that shape."
-   },
-   {
-    "trigger": "exit",
-    "text": "Ratio: I plotted your walk. The turns sum to half a circle, and you got home anyway. Logging it as... no. Not logging it."
-   }
-  ],
+  "radio": [],
   "terminals": [
    {
     "room": 7,

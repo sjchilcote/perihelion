@@ -8715,28 +8715,7 @@
  },
  "lore": {
   "intro": "The Core. The vault is here.\nThe Congregation briefing calls the cargo the Ark.\nRatio calls it the sample vessel.\nIt was here before the station. The station\ngrew around it, like scar tissue.\n\nRatio is quiet for the first time.",
-  "radio": [
-   {
-    "trigger": "start",
-    "text": "Ratio: ...I'll say this once, and then we work. If it offers you an ending \u2014 any ending \u2014 the offer is the weapon. Guard the door. That's all we are now."
-   },
-   {
-    "trigger": "enter_room:4",
-    "text": "Ratio: The vault seal answers the watchers' signet. Last door, Commando."
-   },
-   {
-    "trigger": "pickup:void",
-    "text": "Ratio: The watch signet. It was waiting in the far coset. It WANTS to be found, Commando. Remember that at the door."
-   },
-   {
-    "trigger": "kills:20",
-    "text": "Ratio: The Warden is the door's idea of a guard. Show it a better one."
-   },
-   {
-    "trigger": "exit",
-    "text": "Ratio: The vessel's own reading says there is nothing left to save. I reran it. The threshold is pessimism dressed as precision \u2014 there is enough left to try. Believe me or don't: either way, we guard it. It'll stay quiet a thousand years, as long as someone stands here. Lucky for the universe, I know a guy. Sunward, Commando. We'll take the watch together."
-   }
-  ],
+  "radio": [],
   "terminals": [
    {
     "room": 2,

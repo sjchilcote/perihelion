@@ -257,9 +257,6 @@ def vigil():
     b.intro("The watch, kept.\n"
             "Things still come through, some decades.\n"
             "They are met.")
-    b.radio("start", "Ratio: Contact plotting is live. They come through "
-                     "the petals; the heart is yours to hold. I'll keep "
-                     "the count.")
     return b
 
 

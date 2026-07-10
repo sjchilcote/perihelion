@@ -4771,32 +4771,7 @@
  },
  "lore": {
   "intro": "Coolant Row. The pumps have been louder\nlately. Nobody says so on record.",
-  "radio": [
-   {
-    "trigger": "start",
-    "text": "Ratio: Terms: you clear my decks, I open my doors, and we both pretend that's all this is. Pressure's uneven in the row. Don't stand in front of a line when it pops."
-   },
-   {
-    "trigger": "enter_room:40",
-    "text": "Ratio: That's pump bay two. Except you went in through bay one. I'm marking a relay fault. Again."
-   },
-   {
-    "trigger": "pickup:red",
-    "text": "Ratio: The row's valve wheel. The armory annex pressure hatch takes it \u2014 east end, and the lift out is inside."
-   },
-   {
-    "trigger": "enter_room:35",
-    "text": "Ratio: If you're going to loot my pump bays anyway, bay two holds sealed supplies. Consider it a retainer. I want to know what you see down there."
-   },
-   {
-    "trigger": "enter_room:57",
-    "text": "Ratio: That's the filter room. The things nesting in it used to be my cleaning swarm. Mind the floor."
-   },
-   {
-    "trigger": "exit",
-    "text": "Ratio: Row's clear. The count in Osei's log... forget it. Clock drift."
-   }
-  ],
+  "radio": [],
   "terminals": [
    {
     "room": 142,

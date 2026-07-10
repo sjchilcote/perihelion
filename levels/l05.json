@@ -5591,32 +5591,7 @@
  },
  "lore": {
   "intro": "Crew quarters. West wing and east wing.\nThe station schematic shows one wing.\nIt is drawn twice, in two colors.",
-  "radio": [
-   {
-    "trigger": "start",
-    "text": "Ratio: Quarters sweep. West wing, then east. They mirror each other; you'll be done fast."
-   },
-   {
-    "trigger": "enter_room:2",
-    "text": "Ratio: West two. Your beacon overlaps the east-two marker. Interference."
-   },
-   {
-    "trigger": "enter_room:5",
-    "text": "Ratio: East two. Same interference. Exactly the same. To the meter."
-   },
-   {
-    "trigger": "enter_room:7",
-    "text": "Ratio: Both wings end at one room. One room, two doors that cannot share a wall. I've stopped calling this noise."
-   },
-   {
-    "trigger": "pickup:gold",
-    "text": "Ratio: The steward's hatch key. Manifest lists exactly one steward, bunk 12. It doesn't say which 12."
-   },
-   {
-    "trigger": "exit",
-    "text": "Ratio: I overlaid the wings. They occupy the same cubic meters. I ran the check nine times, then filed it under structures, subfolder impossible. Tell no one I keep that subfolder."
-   }
-  ],
+  "radio": [],
   "terminals": [
    {
     "room": 1,

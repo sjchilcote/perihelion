@@ -4511,28 +4511,7 @@
  },
  "lore": {
   "intro": "The Long Gallery. Two service corridors,\nfour crossings. Everyone agrees on that.\nEveryone who walked it southside.",
-  "radio": [
-   {
-    "trigger": "start",
-    "text": "Ratio: Gallery run. South corridor to the far end, come back along the north."
-   },
-   {
-    "trigger": "enter_room:16",
-    "text": "Ratio: North side. Count the crossings for me, would you? I have four on file."
-   },
-   {
-    "trigger": "enter_room:21",
-    "text": "Ratio: Crossing one. There's a cardkey pinging in there \u2014 which is strange, because from the north wall, there is no crossing one."
-   },
-   {
-    "trigger": "pickup:blue",
-    "text": "Ratio: The attending's cardkey. The vault bolt answers it. Commando \u2014 the notes say what's in that vault isn't ours."
-   },
-   {
-    "trigger": "exit",
-    "text": "Ratio: Your arm. Is it\u2014 okay. We'll call it equipment. Equipment doesn't hum, but we'll call it that."
-   }
-  ],
+  "radio": [],
   "terminals": [
    {
     "room": 8,

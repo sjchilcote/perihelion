@@ -468,7 +468,9 @@ class LevelBuilder:
         self.data["lore"]["intro"] = text
 
     def radio(self, trigger: str, text: str):
-        self.data["lore"]["radio"].append({"trigger": trigger, "text": text})
+        raise RuntimeError(
+            "radio was eliminated: dialogue lives at terminals and relay "
+            "conversations")
 
     def terminal(self, room: int, pos, text: str):
         self.data["lore"]["terminals"].append(

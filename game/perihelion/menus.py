@@ -431,10 +431,12 @@ COMMANDO_LOGS = [
 
 
 class DeathScene(Scene):
-    def __init__(self, deaths: int, wave: int = 0, best_wave: int = 0):
+    def __init__(self, deaths: int, wave: int = 0, best_wave: int = 0,
+                 chassis: int = 0):
         self.deaths = deaths
         self.wave = wave
         self.best_wave = best_wave
+        self.chassis = chassis
         self.t = 0.0
         self._overlay: "pygame.Surface | None" = None
 
@@ -452,7 +454,7 @@ class DeathScene(Scene):
             return
         if event.key in (pygame.K_r, pygame.K_SPACE, pygame.K_RETURN):
             app.pop()
-            app.restart_level()
+            app.reprint()
         elif event.key == pygame.K_ESCAPE:
             app.pop_to_title()
 
@@ -466,16 +468,22 @@ class DeathScene(Scene):
         surf.blit(self._ensure_overlay(surf.get_size()), (0, 0))
         pulse = 0.6 + 0.4 * math.sin(self.t * 2.0)
         color = (min(255, int(200 * pulse) + 40), 20, 20)
-        img = get_font(26).render("YOU DIED", True, color)
+        img = get_font(26).render("FRAME LOST", True, color)
         surf.blit(img, (w // 2 - img.get_width() // 2, 100))
         mf = get_font(12)
-        deaths_text = f"deaths: {self.deaths}"
+        deaths_text = f"frames lost: {self.deaths}"
         if self.wave:
             deaths_text = (f"the watch held for {self.wave} waves"
                            f"   (best: {self.best_wave})")
         img2 = mf.render(deaths_text, True, (190, 150, 150))
         surf.blit(img2, (w // 2 - img2.get_width() // 2, 140))
-        img3 = mf.render("SPACE: rise again    ESC: title", True, (170, 130, 130))
+        if self.chassis > 0:
+            rise = (f"SPACE: reprint at the seed"
+                    f"   ({self.chassis} chassis racked)    ESC: title")
+        else:
+            rise = ("SPACE: cold restore - the seed reprints the chunk"
+                    "    ESC: title")
+        img3 = mf.render(rise, True, (170, 130, 130))
         surf.blit(img3, (w // 2 - img3.get_width() // 2, 160))
         log = COMMANDO_LOGS[min(self.deaths - 1, len(COMMANDO_LOGS) - 1)] \
             if self.deaths >= 1 else COMMANDO_LOGS[0]
@@ -492,6 +500,192 @@ class DeathScene(Scene):
                 surf.blit(img4, (w // 2 - img4.get_width() // 2, y))
                 y += 16
             line = word
+
+
+class ShopScene(Scene):
+    """The fabricator at a seed station. Buys mutate the live session
+    directly (menu interaction, same class as conversation trust)."""
+
+    ORDER = ["chassis", "station_kit", "hp_up",
+             "ammo_9mm", "ammo_shell", "ammo_cell"]
+
+    def __init__(self, session):
+        self.session = session
+        self.sel = 0
+        self.flash = 0.0  # >0 green (bought), <0 red (can't afford)
+        self._overlay: "pygame.Surface | None" = None
+
+    def _ensure_overlay(self, size):
+        if self._overlay is None or self._overlay.get_size() != size:
+            self._overlay = pygame.Surface(size, pygame.SRCALPHA)
+            self._overlay.fill((4, 10, 8, 205))
+        return self._overlay
+
+    def update(self, app, dt: float) -> None:
+        if self.flash > 0:
+            self.flash = max(0.0, self.flash - dt)
+        elif self.flash < 0:
+            self.flash = min(0.0, self.flash + dt)
+
+    def handle_event(self, app, event) -> None:
+        if event.type != pygame.KEYDOWN:
+            return
+        if event.key in (pygame.K_ESCAPE, pygame.K_e):
+            app.pop()
+        elif event.key == pygame.K_m:
+            app.push(MindMapScene(self.session))
+        elif event.key in (pygame.K_UP, pygame.K_w):
+            self.sel = (self.sel - 1) % len(self.ORDER)
+        elif event.key in (pygame.K_DOWN, pygame.K_s):
+            self.sel = (self.sel + 1) % len(self.ORDER)
+        elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+            self.flash = 0.35 if self.session.buy(self.ORDER[self.sel]) \
+                else -0.35
+
+    def draw(self, app, surf) -> None:
+        from .sim import SHOP
+        w, h = surf.get_size()
+        if app.game is not None:
+            app.game.draw(app, surf)
+        surf.blit(self._ensure_overlay(surf.get_size()), (0, 0))
+        s = self.session
+        img = get_font(18).render("SEED STATION - FABRICATOR", True,
+                                  (190, 235, 210))
+        surf.blit(img, (w // 2 - img.get_width() // 2, 26))
+        mf = get_font(12)
+        head = (f"COMPONENTS: {s.components}    CHASSIS: {s.chassis}    "
+                f"SEED KITS: {s.station_kits}")
+        img2 = mf.render(head, True, (170, 210, 185))
+        surf.blit(img2, (w // 2 - img2.get_width() // 2, 56))
+        y = 88
+        for i, item in enumerate(self.ORDER):
+            price = s.shop_price(item)
+            label = f"{SHOP[item]['label']:<22} {price:>3}c"
+            if i == self.sel:
+                col = (240, 245, 240)
+                if self.flash > 0:
+                    col = (140, 255, 160)
+                elif self.flash < 0:
+                    col = (255, 120, 110)
+                label = "> " + label
+            else:
+                col = (150, 180, 160) if s.components >= price \
+                    else (100, 115, 105)
+                label = "  " + label
+            surf.blit(mf.render(label, True, col), (w // 2 - 110, y))
+            y += 18
+        tip = mf.render("ENTER: fabricate    M: mind map    ESC/E: leave",
+                        True, (140, 165, 150))
+        surf.blit(tip, (w // 2 - tip.get_width() // 2, y + 14))
+
+
+class MindMapScene(Scene):
+    """The mind map (9.2): between sorties, at a seed station, the
+    Commando chooses what he has room in his soul to metabolize. No faith
+    meter is shown anywhere -- the investment pattern IS the meter."""
+
+    def __init__(self, session):
+        self.session = session
+        from .mindmap import REGION_ORDER, by_region
+        self.regions = REGION_ORDER
+        self.grid = by_region()  # region -> [node,...]
+        self.col = 0
+        self.rows = {r: 0 for r in self.regions}
+        self.flash = 0.0
+        self._overlay: "pygame.Surface | None" = None
+
+    def _ensure_overlay(self, size):
+        if self._overlay is None or self._overlay.get_size() != size:
+            self._overlay = pygame.Surface(size, pygame.SRCALPHA)
+            self._overlay.fill((6, 6, 12, 225))
+        return self._overlay
+
+    def _sel(self):
+        r = self.regions[self.col]
+        return self.grid[r][self.rows[r]]
+
+    def update(self, app, dt: float) -> None:
+        if self.flash > 0:
+            self.flash = max(0.0, self.flash - dt)
+        elif self.flash < 0:
+            self.flash = min(0.0, self.flash + dt)
+
+    def handle_event(self, app, event) -> None:
+        if event.type != pygame.KEYDOWN:
+            return
+        r = self.regions[self.col]
+        if event.key in (pygame.K_ESCAPE, pygame.K_m):
+            app.pop()
+        elif event.key in (pygame.K_LEFT, pygame.K_a):
+            self.col = (self.col - 1) % len(self.regions)
+        elif event.key in (pygame.K_RIGHT, pygame.K_d):
+            self.col = (self.col + 1) % len(self.regions)
+        elif event.key in (pygame.K_UP, pygame.K_w):
+            self.rows[r] = (self.rows[r] - 1) % len(self.grid[r])
+        elif event.key in (pygame.K_DOWN, pygame.K_s):
+            self.rows[r] = (self.rows[r] + 1) % len(self.grid[r])
+        elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+            self.flash = 0.35 if self.session.buy_node(self._sel()["id"]) \
+                else -0.35
+
+    def draw(self, app, surf) -> None:
+        from .mindmap import REGION_LABELS, available, price
+        w, h = surf.get_size()
+        if app.game is not None:
+            app.game.draw(app, surf)
+        surf.blit(self._ensure_overlay(surf.get_size()), (0, 0))
+        s = self.session
+        head = get_font(16).render("MIND MAP", True, (210, 205, 235))
+        surf.blit(head, (w // 2 - head.get_width() // 2, 10))
+        mf = get_font(12)
+        sub = mf.render(f"COMPONENTS: {s.components}", True, (170, 200, 185))
+        surf.blit(sub, (w // 2 - sub.get_width() // 2, 32))
+        col_w = w // len(self.regions)
+        tf = get_font(10)
+        for ci, region in enumerate(self.regions):
+            x0 = ci * col_w + 10
+            rl = mf.render(REGION_LABELS[region], True,
+                           (200, 200, 220) if ci == self.col
+                           else (120, 120, 140))
+            surf.blit(rl, (x0, 52))
+            for ri, n in enumerate(self.grid[region]):
+                owned = n["id"] in s.mind
+                can = available(s.mind, n["id"]) and \
+                    s.components >= price(n["id"])
+                locked = not owned and not available(s.mind, n["id"])
+                mark = "#" if owned else ("-" if locked else " ")
+                label = f"{mark} {n['label']}"
+                if not owned:
+                    label += f"  {price(n['id'])}c"
+                sel = ci == self.col and ri == self.rows[region]
+                if sel:
+                    col = (240, 240, 245)
+                    if self.flash > 0:
+                        col = (140, 255, 160)
+                    elif self.flash < 0:
+                        col = (255, 120, 110)
+                elif owned:
+                    col = (170, 200, 235)
+                elif locked:
+                    col = (85, 85, 100)
+                elif can:
+                    col = (165, 175, 165)
+                else:
+                    col = (115, 122, 118)
+                img = tf.render(label, True, col)
+                surf.blit(img, (x0, 68 + ri * 13))
+        # the selected node's brief, footer band
+        n = self._sel()
+        brief = n.get("brief", "")
+        yb = h - 46
+        pygame.draw.rect(surf, (10, 10, 16), (0, yb - 4, w, 50))
+        for line in _wrap(brief, 96):
+            img = tf.render(line, True, (160, 158, 150))
+            surf.blit(img, (12, yb))
+            yb += 12
+        tip = tf.render("arrows: move    ENTER: integrate    ESC/M: back",
+                        True, (130, 135, 145))
+        surf.blit(tip, (w - tip.get_width() - 8, h - 12))
 
 
 class WinScene(Scene):

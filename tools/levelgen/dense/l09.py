@@ -353,15 +353,6 @@ def l09() -> LevelBuilder:
             "You are not on the station anymore.\n\n"
             "Sixteen rooms. Every room borders four.\n"
             "Bleed carefully. It's the only ink you have.")
-    b.radio("start", "Ratio: Your beacon is sixteen places at once, all "
-                     "equally strong. I'll talk you through by TOPOLOGY, "
-                     "because geometry has resigned.")
-    b.radio(f"enter_room:{rooms[15]}", "Ratio: THERE. Signal spike. The way "
-                                       "down is in that room.")
-    b.radio(f"enter_room:{rooms[10]}", "Ratio: The spike answers when you "
-                                       "move. Four doors from home, "
-                                       "Commando. Count in bits, not "
-                                       "meters.")
     b.terminal(rooms[5], wall_pos(b, rooms[5], CHAMFER, 0.5, 15.0),
                "SCRATCHED IN THE FLOOR\n0 1 0 1\nif you can read this,\n"
                "flip one bit at a time.\n— O.")
@@ -410,13 +401,7 @@ def l09() -> LevelBuilder:
     cache(b, rooms[12], "medkit", wall=CHAMFER)
     c10 = center(b, rooms[10])
     b.entity(rooms[10], "key_void", (c10[0] - 60, c10[1]))
-    b.radio("pickup:void", "Ratio: A token, waiting in 1010 — two bit-flips "
-                           "from the spike. You're learning to read this "
-                           "place. I'm not sure that's good.")
     b.exit(rooms[15], (c15[0] + 60, c15[1]), key="void")
-    b.radio("exit", "Ratio: You crossed a four-dimensional cube on foot. "
-                    "When we get home I'm never telling anyone this, and "
-                    "neither are you.")
 
     # =====================================================================
     # MESH ENTITIES — modest growth per LEVEL_DESIGN_PLAYBOOK.md pacing;

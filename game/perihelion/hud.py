@@ -31,6 +31,7 @@ class HUD:
                                    True, (200, 190, 170))
             surf.blit(img, (6, 24))
         self._draw_hp(surf, session, h)
+        self._draw_economy(surf, session)
         self._draw_weapon(surf, session, w, h)
         self._draw_keys(surf, session, w)
         if mouse_pos is not None:
@@ -55,6 +56,25 @@ class HUD:
         pygame.draw.rect(surf, color, (x, y, int(bar_w * frac), bar_h))
         pygame.draw.rect(surf, (90, 90, 90), (x, y, bar_w, bar_h), 1)
         surf.blit(img, (x + bar_w + 6, y - 6))
+
+    def _draw_economy(self, surf, session):
+        # under the hp bar: salvage and racked hulls (only once either
+        # exists -- the HUD stays clean until the economy is live)
+        comp = getattr(session, "components", 0)
+        chas = getattr(session, "chassis", 0)
+        kits = getattr(session, "station_kits", 0)
+        if not (comp or chas or kits):
+            return
+        text = f"{comp}c"
+        if chas:
+            text += f"  {chas} chassis"
+        if kits:
+            text += f"  {kits} kit"
+        y = 38 if getattr(session.level, "vigil", False) else 24
+        img = _font(11).render(text, True, (170, 200, 180))
+        pygame.draw.rect(surf, (12, 12, 16),
+                         (3, y - 2, img.get_width() + 6, 14))
+        surf.blit(img, (6, y))
 
     def _draw_weapon(self, surf, session, w, h):
         name = session.weapon

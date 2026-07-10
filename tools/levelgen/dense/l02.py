@@ -257,27 +257,10 @@ def l02() -> LevelBuilder:
 
     b.player(e0, (60, 70))
     b.intro("Coolant Row. The pumps have been louder\nlately. Nobody says so on record.")
-    b.radio("start", "Ratio: Terms: you clear my decks, I open my doors, "
-                     "and we both pretend that's all this is. Pressure's "
-                     "uneven in the row. Don't stand in front of a line "
-                     "when it pops.")
-    b.radio(f"enter_room:{pb[0][0]}", "Ratio: That's pump bay two. Except you "
-                                      "went in through bay one. I'm marking a "
-                                      "relay fault. Again.")
-    b.radio("pickup:red", "Ratio: The row's valve wheel. The armory annex "
-                          "pressure hatch takes it — east end, and the "
-                          "lift out is inside.")
-    b.radio(f"enter_room:{pa[3][1]}", "Ratio: If you're going to loot my "
-                                      "pump bays anyway, bay two holds sealed "
-                                      "supplies. Consider it a retainer. I "
-                                      "want to know what you see down there.")
     b.terminal(pb[1][0], wall_pos(b, pb[1][0], 0, 0.5, 15.0),
                "MAINT LOG 2280.11\nCrewman Osei walked Coolant Row end to end.\n"
                "Counted five hatches going. Counted six coming back.\n"
                "Recommend rest rotation for Osei.")
-    b.radio(f"enter_room:{keyroom}", "Ratio: That's the filter room. The "
-                                     "things nesting in it used to be my "
-                                     "cleaning swarm. Mind the floor.")
     b.terminal(t2, wall_pos(b, t2, 1, 0.4, 15.0),
                "MAINT TICKET 4471\n"
                "Coolant flow, east tail: 210 l/min rated,\n"
@@ -353,8 +336,6 @@ def l02() -> LevelBuilder:
     # room shares (playbook §5.1).
     cache(b, armory, "weapon_smg ammo_9mm ammo_9mm", wall=0, t=0.5, inset=12.0)
     b.exit(armory, (1370, 70))
-    b.radio("exit", "Ratio: Row's clear. The count in Osei's log... "
-                    "forget it. Clock drift.")
     return b
 
 

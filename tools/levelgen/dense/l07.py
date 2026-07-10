@@ -292,17 +292,6 @@ def l07() -> LevelBuilder:
     # ---- spawn / lore: all text verbatim from campaign.py's l07() --------
     b.player(entry, (80, 70))
     b.intro("Records. Aisle 9 is missing.\nAisle 9 is where the missing things go.")
-    b.radio("start", "Ratio: Records stack, one aisle. Grab the incident "
-                     "files and get out.")
-    b.radio(f"enter_room:{closet}", "Ratio: The cores. Bring them— no. "
-                                    "Leave them at their posts. They died "
-                                    "holding the line so I could seal. Read "
-                                    "the manifest, Commando. Say their "
-                                    "names back to me. Please.")
-    b.radio(f"enter_room:{stack}", "Ratio: Your depth gauge is counting. "
-                                   "You're walking north in a room forty "
-                                   "meters long and you've made three "
-                                   "hundred. Stop walking north.")
     b.terminal(stack, (410, 105),
                "SHELF TAG, AISLE 9\nEverything filed here is filed here.\n"
                "Everything filed here is filed here.\n"
@@ -383,15 +372,7 @@ def l07() -> LevelBuilder:
 
     # the stamp sits with the recovered effects, below the racked cores
     b.entity(closet, "key_gold", (735, 335))
-    b.radio("pickup:gold", "Ratio: The registrar's stamp, filed under "
-                           "'registrar's stamp'. At least the shelving "
-                           "is honest.")
     b.exit(deep, (860, -230), key="gold")
-    b.radio("exit", "Ratio: You walked out of a room that has no end. "
-                    "Remember that, next time something chases you. Core "
-                    "approach is next. The vault, and the sample vessel. "
-                    "The vault predates this station, Commando. We built "
-                    "the Core around a door we could not open.")
 
     # silence the linters for cells referenced only by weld geometry
     _ = (a_alc1, a_alc2, b_alc1, c_alc1, c_alc2, c_alc3, c_alc4,

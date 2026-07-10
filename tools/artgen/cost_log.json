@@ -1,5 +1,5 @@
 {
-  "total_cost": 0.74819,
+  "total_cost": 2.1343535000000005,
   "calls": [
     {
       "model": "google/gemini-3.1-flash-image",
@@ -88,6 +88,302 @@
       "prompt_tokens": 1371,
       "completion_tokens": 1120,
       "ts": 1783610577.119448
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/artgen_raw/player_test.png",
+      "cost": 0.068577,
+      "prompt_tokens": 474,
+      "completion_tokens": 1500,
+      "ts": 1783669110.9923954
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/artgen_raw/player_test2.png",
+      "cost": 0.068385,
+      "prompt_tokens": 486,
+      "completion_tokens": 1434,
+      "ts": 1783669322.599053
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/artgen_raw/enemy_husk.png",
+      "cost": 0.067885,
+      "prompt_tokens": 1370,
+      "completion_tokens": 1120,
+      "ts": 1783670127.2118719
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "verify:enemy_husk_composite_a1.png",
+      "cost": 0.0044295,
+      "prompt_tokens": 1627,
+      "completion_tokens": 221,
+      "ts": 1783670134.2787104
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/artgen_raw/enemy_mite.png",
+      "cost": 0.0678835,
+      "prompt_tokens": 1367,
+      "completion_tokens": 1120,
+      "ts": 1783670150.960873
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "verify:enemy_mite_composite_a1.png",
+      "cost": 0.004164,
+      "prompt_tokens": 1624,
+      "completion_tokens": 192,
+      "ts": 1783670154.9435878
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/artgen_raw/enemy_spitter.png",
+      "cost": 0.068349,
+      "prompt_tokens": 516,
+      "completion_tokens": 1417,
+      "ts": 1783670165.2363882
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "verify:enemy_spitter_composite_a1.png",
+      "cost": 0.004296,
+      "prompt_tokens": 1634,
+      "completion_tokens": 205,
+      "ts": 1783670169.2663743
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/artgen_raw/enemy_brute.png",
+      "cost": 0.0678855,
+      "prompt_tokens": 1371,
+      "completion_tokens": 1120,
+      "ts": 1783670200.9824193
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "verify:enemy_brute_composite_a1.png",
+      "cost": 0.004278,
+      "prompt_tokens": 1628,
+      "completion_tokens": 204,
+      "ts": 1783670205.978403
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/artgen_raw/enemy_shrieker.png",
+      "cost": 0.0680035,
+      "prompt_tokens": 1367,
+      "completion_tokens": 1160,
+      "ts": 1783670223.116138
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "verify:enemy_shrieker_composite_a1.png",
+      "cost": 0.004389,
+      "prompt_tokens": 1624,
+      "completion_tokens": 217,
+      "ts": 1783670227.4827812
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/artgen_raw/enemy_shrieker.png",
+      "cost": 0.068401,
+      "prompt_tokens": 506,
+      "completion_tokens": 1436,
+      "ts": 1783670242.0443828
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "verify:enemy_shrieker_composite_a2.png",
+      "cost": 0.004335,
+      "prompt_tokens": 1624,
+      "completion_tokens": 211,
+      "ts": 1783670250.4547718
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/artgen_raw/enemy_warden.png",
+      "cost": 0.0678895,
+      "prompt_tokens": 1379,
+      "completion_tokens": 1120,
+      "ts": 1783670276.8451664
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "verify:enemy_warden_composite_a1.png",
+      "cost": 0.0042,
+      "prompt_tokens": 1636,
+      "completion_tokens": 194,
+      "ts": 1783670283.4733615
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/artgen_raw/prop_terminal.png",
+      "cost": 0.067895,
+      "prompt_tokens": 1390,
+      "completion_tokens": 1120,
+      "ts": 1783670303.9710932
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "verify:prop_terminal_composite_a1.png",
+      "cost": 0.013263,
+      "prompt_tokens": 1648,
+      "completion_tokens": 1199,
+      "ts": 1783670326.84824
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/artgen_raw/prop_seed_station.png",
+      "cost": 0.0678945,
+      "prompt_tokens": 1389,
+      "completion_tokens": 1120,
+      "ts": 1783670348.5482807
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "verify:prop_seed_station_composite_a1.png",
+      "cost": 0.00453,
+      "prompt_tokens": 1646,
+      "completion_tokens": 229,
+      "ts": 1783670353.259945
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/artgen_raw/prop_seed_station.png",
+      "cost": 0.0678945,
+      "prompt_tokens": 1389,
+      "completion_tokens": 1120,
+      "ts": 1783670383.7877324
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "verify:prop_seed_station_composite_a2.png",
+      "cost": 0.004188,
+      "prompt_tokens": 1646,
+      "completion_tokens": 191,
+      "ts": 1783670388.3783882
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/artgen_raw/prop_corpse_husk.png",
+      "cost": 0.0678875,
+      "prompt_tokens": 1375,
+      "completion_tokens": 1120,
+      "ts": 1783670410.0544183
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "verify:prop_corpse_husk_composite_a1.png",
+      "cost": 0.004716,
+      "prompt_tokens": 1632,
+      "completion_tokens": 252,
+      "ts": 1783670416.9367857
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/artgen_raw/prop_corpse_husk.png",
+      "cost": 0.068348,
+      "prompt_tokens": 514,
+      "completion_tokens": 1417,
+      "ts": 1783670435.8750532
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "verify:prop_corpse_husk_composite_a2.png",
+      "cost": 0.004815,
+      "prompt_tokens": 1632,
+      "completion_tokens": 263,
+      "ts": 1783670443.4517605
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/artgen_raw/pickup_ammo.png",
+      "cost": 0.0673255,
+      "prompt_tokens": 251,
+      "completion_tokens": 1120,
+      "ts": 1783670467.6599338
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "verify:pickup_ammo_composite_a1.png",
+      "cost": 0.004134,
+      "prompt_tokens": 1628,
+      "completion_tokens": 188,
+      "ts": 1783670472.171223
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/artgen_raw/pickup_medkit.png",
+      "cost": 0.0681975,
+      "prompt_tokens": 243,
+      "completion_tokens": 1412,
+      "ts": 1783670487.1854284
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "verify:pickup_medkit_composite_a1.png",
+      "cost": 0.0041475,
+      "prompt_tokens": 1619,
+      "completion_tokens": 191,
+      "ts": 1783670497.5959454
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/artgen_raw/pickup_weapon.png",
+      "cost": 0.06807,
+      "prompt_tokens": 246,
+      "completion_tokens": 1369,
+      "ts": 1783670509.1919105
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "verify:pickup_weapon_composite_a1.png",
+      "cost": 0.004458,
+      "prompt_tokens": 1622,
+      "completion_tokens": 225,
+      "ts": 1783670514.462011
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/artgen_raw/pickup_weapon.png",
+      "cost": 0.0673225,
+      "prompt_tokens": 245,
+      "completion_tokens": 1120,
+      "ts": 1783670533.0480256
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "verify:pickup_weapon_composite_a2.png",
+      "cost": 0.004287,
+      "prompt_tokens": 1622,
+      "completion_tokens": 206,
+      "ts": 1783670539.252699
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "verify:prop_corpse_husk_composite_fixed.png",
+      "cost": 0.00429,
+      "prompt_tokens": 1624,
+      "completion_tokens": 206,
+      "ts": 1783670721.9882705
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/artgen_raw/enemy_shrieker_v2.png",
+      "cost": 0.0683795,
+      "prompt_tokens": 535,
+      "completion_tokens": 1424,
+      "ts": 1783671108.89994
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "verify:enemy_shrieker_composite_v2.png",
+      "cost": 0.01077,
+      "prompt_tokens": 1642,
+      "completion_tokens": 923,
+      "ts": 1783671235.5360126
     }
   ]
 }

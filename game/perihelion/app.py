@@ -119,6 +119,27 @@ def epilogue_text(trust: int) -> str:
     return _EPILOGUE_HEAD + para + _EPILOGUE_TAIL
 
 
+_CORPSE_LINES: list[str] | None = None
+
+
+def corpse_line(idx: int) -> str | None:
+    """One line of the wrecked frame's log-voice (9.1). The pool is
+    Hermes-generated (data/corpse_lines.json); with no pool there is no
+    line -- a recovered wreck stays silent rather than speak text no one
+    wrote in his voice."""
+    global _CORPSE_LINES
+    if _CORPSE_LINES is None:
+        try:
+            with open(Path(__file__).parent / "data" /
+                      "corpse_lines.json", encoding="utf-8") as f:
+                _CORPSE_LINES = [str(x) for x in json.load(f)]
+        except (OSError, ValueError):
+            _CORPSE_LINES = []
+    if not _CORPSE_LINES:
+        return None
+    return _CORPSE_LINES[idx % len(_CORPSE_LINES)]
+
+
 def save_dir() -> Path:
     base = os.environ.get("XDG_DATA_HOME")
     root = Path(base) if base else Path.home() / ".local" / "share"
@@ -146,7 +167,6 @@ def build_debug_level() -> Level:
     b.entity(r1, "ammo_9mm", (400, 100))
     b.entity(r2, "medkit", (650, 80))
     b.intro("Diagnostic corridor. Not part of the station.\nProbably.")
-    b.radio("start", "Ratio: This deck isn't on my plan. Walk it anyway.")
     b.terminal(r1, (330, 40), "LOG 44: measured the corridor twice.\nGot two answers. Filed the longer one.")
     return b.build()
 
@@ -170,6 +190,8 @@ class GameScene(menus.Scene):
         self.loc_title: tuple[str, int] | None = None  # (name, ticks_left)
         self.float_texts: list[list] = []  # [sx, sy, label, ticks_left]
         self.shakes: list[list[float]] = []  # [magnitude, ticks_left]
+        # a recovered wreck's one line of log-voice: (text, ticks_left)
+        self.logvoice: tuple[str, int] | None = None
 
     def on_enter(self, app) -> None:
         app.audio.ambience(self.level.ambience)
@@ -194,6 +216,8 @@ class GameScene(menus.Scene):
                 app.debug = not app.debug
             elif event.key == pygame.K_F12:
                 app.take_screenshot()
+            elif event.key == pygame.K_b:
+                self.session.place_station()
             elif pygame.K_1 <= event.key <= pygame.K_8:
                 app.pending_weapon_select = event.key - pygame.K_1 + 1
         elif event.type == pygame.MOUSEWHEEL:
@@ -243,13 +267,23 @@ class GameScene(menus.Scene):
             img.set_alpha(alpha)
             surf.blit(img, (surf.get_width() // 2 - img.get_width() // 2, 62))
             self.objective = (text, ticks - 1) if ticks > 1 else None
+        if self.logvoice:
+            text, ticks = self.logvoice
+            f = menus.get_font(10)
+            alpha = 255 if ticks > 60 else max(0, int(255 * ticks / 60))
+            img = f.render(text, True, (150, 140, 120), (10, 10, 14))
+            img.set_alpha(alpha)
+            surf.blit(img, (surf.get_width() // 2 - img.get_width() // 2,
+                            surf.get_height() - 40))
+            self.logvoice = (text, ticks - 1) if ticks > 1 else None
         if self.show_hints and self.session.tick_count < 60 * 14 \
                 and not self.session.dead:
             f = menus.get_font(10)
             fade = 255 if self.session.tick_count < 60 * 11 else \
                 max(0, int(255 * (60 * 14 - self.session.tick_count) / (60 * 3)))
             for i, line in enumerate(("WASD move    mouse aim    LMB fire",
-                                      "E read terminals    1-8 weapons    ESC pause")):
+                                      "E terminals + seed stations    "
+                                      "B plant seed kit    1-8 weapons    ESC pause")):
                 img = f.render(line, True, (200, 200, 190),
                                (10, 10, 14))  # plate: busy floors eat bare text
                 img.set_alpha(fade)
@@ -521,6 +555,17 @@ class App:
         if not self.dummy and level.intro:
             self.push(menus.IntroCard(level.name, level.intro, level.tier))
 
+    def reprint(self) -> None:
+        """Death recovery. A racked chassis prints at the nearest seed with
+        the world left as it lies (the wreck included); with none racked,
+        fall back to the cold restore."""
+        if self.game is not None and \
+                self.game.session.respawn_at_station():
+            self.game.objective = None
+            self.game.float_texts.clear()
+            return
+        self.restart_level()
+
     def restart_level(self) -> None:
         if self.game is not None and self.game.streamer is not None:
             self.game.objective = None
@@ -714,6 +759,14 @@ class App:
                 import necore
                 sx, sy = necore.mat_apply(game.session.cam, *ev[2])
                 game.float_texts.append([sx, sy, ev[3], 66])
+            elif ev[0] == "shop":
+                if not any(isinstance(sc, menus.ShopScene)
+                           for sc in self.scenes):
+                    self.push(menus.ShopScene(game.session))
+            elif ev[0] == "logvoice":
+                line = corpse_line(ev[1])
+                if line:
+                    game.logvoice = (line, 60 * 7)
             elif ev[0] == "locname":
                 game.loc_title = (ev[1], 60 * 4)
             elif ev[0] == "ambience":
@@ -729,15 +782,23 @@ class App:
                 self._persist_save()
                 self.push(menus.DeathScene(game.session.metrics["deaths"],
                                            wave=wave,
-                                           best_wave=self.save_data["best_wave"]))
+                                           best_wave=self.save_data["best_wave"],
+                                           chassis=game.session.chassis))
             else:
-                self.push(menus.DeathScene(game.session.metrics["deaths"]))
+                self.push(menus.DeathScene(game.session.metrics["deaths"],
+                                           chassis=game.session.chassis))
             return
         if not was_complete and game.session.complete:
             carried = dict(hp=max(game.session.hp, 40), ammo=dict(game.session.ammo),
                            holes=game.session.holes,
                            cloister=game.session.cloister is not None,
-                            weapons=list(game.session.weapons), weapon=game.session.weapon)
+                           weapons=list(game.session.weapons), weapon=game.session.weapon,
+                           components=game.session.components,
+                           chassis=game.session.chassis,
+                           station_kits=game.session.station_kits,
+                           max_hp=game.session.max_hp,
+                           hp_ups=game.session.hp_ups,
+                           mind=sorted(game.session.mind))
             if game.streamer is not None:
                 self.save_data["ng_plus"] = self.save_data.get("ng_plus", 0) + 1
                 self.save_data["ng_state"] = carried

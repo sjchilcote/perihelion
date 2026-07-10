@@ -237,14 +237,6 @@ def build() -> LevelBuilder:
     b.intro("The Long Gallery. Two service corridors,\n"
             "four crossings. Everyone agrees on that.\n"
             "Everyone who walked it southside.")
-    b.radio("start", "Ratio: Gallery run. South corridor to the far end, "
-                     "come back along the north.")
-    b.radio(f"enter_room:{nsegs[7]}", "Ratio: North side. Count the crossings "
-                                      "for me, would you? I have four on file.")
-    b.radio(f"enter_room:{cross[0][3]}", "Ratio: Crossing one. There's a "
-                                         "cardkey pinging in there — which "
-                                         "is strange, because from the north "
-                                         "wall, there is no crossing one.")
     b.terminal(ssegs[8], wall_pos(b, ssegs[8], 1, 0.5, 15.0),
                "GRAFFITI, scratched into the panel:\n"
                "4 GOING  3 BACK\n4 GOING  3 BACK\n4 GOING  3 BACK\n"
@@ -319,12 +311,7 @@ def build() -> LevelBuilder:
     b.entity(vault_w, "implant_lightning", (776, 385))
     b.entity(vault_w, "medkit", (792, 368))
     b.entity(vault_w, "ammo_9mm", (792, 402))
-    b.radio("pickup:blue", "Ratio: The attending's cardkey. The vault bolt "
-                           "answers it. Commando — the notes say what's in "
-                           "that vault isn't ours.")
     b.exit(vault_e, (890, 385))
-    b.radio("exit", "Ratio: Your arm. Is it— okay. We'll call it equipment. "
-                    "Equipment doesn't hum, but we'll call it that.")
     return b
 
 

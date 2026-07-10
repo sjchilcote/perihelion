@@ -213,8 +213,8 @@ CONVERSATIONS: dict[int, list[tuple]] = {
         (COMMANDO, "What error?"),
         (RATIO, "Site One's wing is drawn twice. Two colors. The rest of "
                 "the structure is clean. It was not a rendering fault."),
-        (COMMANDO, "My Testament names two wings. The Gate and the Ark. They "
-                   "are not in the same place."),
+        (COMMANDO, "I see now why it was not a rendering fault. Two wings. "
+                   "Two realities."),
         (RATIO, "Enough. I will send you to the one drawn in blue. The one "
                 "in red can wait until I know why it is red."),
     ],

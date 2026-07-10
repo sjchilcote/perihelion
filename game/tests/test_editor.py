@@ -155,17 +155,28 @@ def test_delete_room_clears_player_when_its_room_is_deleted():
 def test_delete_room_reindexes_terminals_and_radio_triggers():
     model = M.EditorModel()
     model.load(L01)
-    # l01 must carry at least one terminal and one enter_room-triggered
-    # radio line for this test to mean anything -- find them dynamically
-    # rather than hardcoding which rooms happen to hold them.
+    # l01 must carry at least one terminal for this test to mean anything --
+    # find it dynamically rather than hardcoding which room happens to hold
+    # it. Radio is a dead gameplay channel (LevelBuilder.radio() now raises;
+    # see levels.py) so l01.json no longer carries any authored radio lines
+    # -- the editor's lore.radio reindexing is still live code (the editor
+    # lets an author park radio-shaped notes in lore.radio for later
+    # terminal/conversation work), so exercise it with a synthetic entry
+    # instead of relying on campaign content that no longer exists.
     term_rooms = {t["room"] for t in model.data["lore"]["terminals"]}
+    assert term_rooms, "l01 should have at least one terminal"
+
+    non_player_rooms = [r for r in range(len(model.data["rooms"]))
+                        if r != model.data["player"]["room"]]
+    radio_room = non_player_rooms[0]
+    model.data["lore"]["radio"].append(
+        {"trigger": f"enter_room:{radio_room}", "text": "test line"})
     radio_rooms = {
         int(_ENTER_ROOM_RE.match(r["trigger"]).group(1))
         for r in model.data["lore"]["radio"]
         if _ENTER_ROOM_RE.match(r["trigger"])
     }
-    assert term_rooms, "l01 should have at least one terminal"
-    assert radio_rooms, "l01 should have at least one enter_room radio trigger"
+    assert radio_rooms, "synthetic enter_room radio trigger should be present"
 
     player_room = model.data["player"]["room"]
     # Delete the player's room: it invalidates the level (checked

@@ -410,10 +410,6 @@ def build() -> LevelBuilder:
     b.player(entry, (70, 70))
     b.intro("Medical isolation. The ward was sealed\n"
             "from the inside. The seal is intact.\nThe ward is not empty.")
-    b.radio("start", "Ratio: Isolation ward. Camera shows movement. It also "
-                     "shows you, which is odd, because you're with me.")
-    b.radio(f"enter_room:{ward}", "Ratio: There you are on the ward camera. "
-                                  "Twice. Commando, wave. ...Both of you waved.")
     b.terminal(side, wall_pos(b, side, 3, 0.5, 15.0),
                "ISOLATION LOG\nDay 1: patient stares at south wall.\n"
                "Day 2: patient talks to south wall.\nDay 3: patient answers.\n"
@@ -490,15 +486,7 @@ def build() -> LevelBuilder:
     # the discharge handle lies against the mirror wall: to leave, you must
     # walk up to your own reflection
     b.entity(ward, "key_red", (680, 108))
-    b.radio("pickup:red", "Ratio: You saw it, didn't you. The other one "
-                          "picked its handle up at the same time.")
-    b.radio("kills:10", "Ratio: The ones coming out of that wall — their "
-                        "wounds are on the wrong side. You're shooting the "
-                        "same things twice.")
     b.exit(morgue, (930, 70), key="red")
-    b.radio("exit", "Ratio: Theory. The station's connected to somewhere "
-                    "that folds back on itself. Corollary: somewhere can "
-                    "see us.")
     return b
 
 

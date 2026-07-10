@@ -340,12 +340,6 @@ def l10() -> LevelBuilder:
             "It was here before the station. The station\n"
             "grew around it, like scar tissue.\n\n"
             "Ratio is quiet for the first time.")
-    b.radio("start", "Ratio: ...I'll say this once, and then we work. If it "
-                     "offers you an ending — any ending — the offer is the "
-                     "weapon. Guard the door. That's all we are now.")
-    b.radio(f"enter_room:{hexes[3]}", "Ratio: The vault seal answers the "
-                                      "watchers' signet. Last door, "
-                                      "Commando.")
     b.terminal(hexes[1], wall_pos(b, hexes[1], HEX_FREE, 0.5, 15.0),
                "SITE ONE — FINAL PROTOCOL\n"
                "1. Do not bargain with the door.\n"
@@ -414,9 +408,6 @@ def l10() -> LevelBuilder:
                "the vault seal answers the signet, not the\n"
                "hand. whoever carries it stands a watch,\n"
                "knowing or not.")
-    b.radio("pickup:void", "Ratio: The watch signet. It was waiting in the "
-                           "far coset. It WANTS to be found, Commando. "
-                           "Remember that at the door.")
     cache(b, sanctum, "medkit ammo_cell ammo_shell", wall=6)
     # dressings left at the vault-door post (mesh-rebuild addition, playbook
     # §5.1 threshold logic: hexes[3] is the one room every route to the
@@ -429,16 +420,6 @@ def l10() -> LevelBuilder:
     cache(b, sanctum, "medkit", wall=1, inset=16.0)
     cache(b, sanctum, "medkit", wall=5, inset=16.0)
     b.exit(sanctum, (1600, 180), gate_kind="warden")
-    b.radio("kills:20", "Ratio: The Warden is the door's idea of a guard. "
-                        "Show it a better one.")
-    b.radio("exit", "Ratio: The vessel's own reading says there is "
-                    "nothing left to save. I reran it. The threshold is "
-                    "pessimism dressed as precision — there is enough "
-                    "left to try. Believe me or don't: either way, we "
-                    "guard it. It'll stay quiet a thousand years, as long "
-                    "as someone stands here. Lucky for the universe, I "
-                    "know a guy. Sunward, Commando. We'll take the watch "
-                    "together.")
 
     # ---- the mesh -------------------------------------------------------
     # Authored entirely in fresh canvas space (y >= 720) so no skeleton wall

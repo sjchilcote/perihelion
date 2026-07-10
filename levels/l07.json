@@ -7882,28 +7882,7 @@
  },
  "lore": {
   "intro": "Records. Aisle 9 is missing.\nAisle 9 is where the missing things go.",
-  "radio": [
-   {
-    "trigger": "start",
-    "text": "Ratio: Records stack, one aisle. Grab the incident files and get out."
-   },
-   {
-    "trigger": "enter_room:2",
-    "text": "Ratio: The cores. Bring them\u2014 no. Leave them at their posts. They died holding the line so I could seal. Read the manifest, Commando. Say their names back to me. Please."
-   },
-   {
-    "trigger": "enter_room:1",
-    "text": "Ratio: Your depth gauge is counting. You're walking north in a room forty meters long and you've made three hundred. Stop walking north."
-   },
-   {
-    "trigger": "pickup:gold",
-    "text": "Ratio: The registrar's stamp, filed under 'registrar's stamp'. At least the shelving is honest."
-   },
-   {
-    "trigger": "exit",
-    "text": "Ratio: You walked out of a room that has no end. Remember that, next time something chases you. Core approach is next. The vault, and the sample vessel. The vault predates this station, Commando. We built the Core around a door we could not open."
-   }
-  ],
+  "radio": [],
   "terminals": [
    {
     "room": 1,

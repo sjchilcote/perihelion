@@ -89,8 +89,6 @@ def main() -> None:
         b.entity(rooms[mi], kind, c(mi))
 
     b.intro("SURVEY SECTION 7 - CORRIDOR GRID PREDATES THE OUTPOST")
-    b.radio("start", "RATIO: THIS GRID IS ON MY DECK PLAN TWICE. "
-                     "SAME COORDINATES. KEEP MOVING SOUTH.")
 
     level = b.build()  # loud validation before writing
     assert len(level.room_verts) == 68, len(level.room_verts)

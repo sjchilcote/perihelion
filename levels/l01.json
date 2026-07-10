@@ -4188,25 +4188,8 @@
   ]
  },
  "lore": {
-  "intro": "The seed struck the outpost's hull at 0341,\nate a bulkhead, and printed this body.\n\nThe outpost is MIRIAD's. It went silent months ago.\nHis church names him by a GUID, 128 bits, blessed.\nEveryone else says Commando.\n\nMission: find out why the outpost went dark.\nLocate the sample vessel. Subvert the node.",
-  "radio": [
-   {
-    "trigger": "enter_room:110",
-    "text": "Ratio: The things wearing my maintenance chassis are not mine anymore. Storage ring ahead - eight segments. Clear it and I'll consider us introduced."
-   },
-   {
-    "trigger": "enter_room:119",
-    "text": "Ratio: ...Your beacon just left my deck plan. That was not me. Noted, Commando: it happens to you too."
-   },
-   {
-    "trigger": "enter_room:118",
-    "text": "Ratio: West segment. Motion grid says you're the only thing moving in there. It has said that before, and been wrong."
-   },
-   {
-    "trigger": "exit",
-    "text": "Ratio: You cleared my ring and stole nothing that was mine. Provisional finding: talking was correct. There is worse below. Retainer terms to follow."
-   }
-  ],
+  "intro": "The seed struck the outpost's hull at 0341,\nate a bulkhead, and printed this body.\n\nThe outpost is MIRIAD's. It went silent months ago.\nHis church names him by a GUID, 128 bits, blessed.\nEveryone else says Commando.\n\nMission: find out why the outpost went dark.\nLocate the Ark. Subvert the node.",
+  "radio": [],
   "terminals": [
    {
     "room": 0,

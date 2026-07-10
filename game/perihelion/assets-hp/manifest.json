@@ -1,0 +1,184 @@
+{
+  "player": {
+    "file": "assets-hp/player.png",
+    "role": "player",
+    "sim_kind": null,
+    "world_radius_units": 6.5,
+    "sprite_px_size": [
+      937,
+      809
+    ],
+    "sprite_px_radius": 390.5,
+    "px_per_world_unit": 60.08,
+    "rotation": "continuous",
+    "anchor": "center"
+  },
+  "enemy_husk": {
+    "file": "assets-hp/enemy_husk.png",
+    "role": "enemy",
+    "sim_kind": "husk",
+    "world_radius_units": 8.0,
+    "sprite_px_size": [
+      593,
+      540
+    ],
+    "sprite_px_radius": 290.0,
+    "px_per_world_unit": 36.25,
+    "rotation": "continuous",
+    "anchor": "center"
+  },
+  "enemy_mite": {
+    "file": "assets-hp/enemy_mite.png",
+    "role": "enemy",
+    "sim_kind": "mite",
+    "world_radius_units": 4.0,
+    "sprite_px_size": [
+      511,
+      410
+    ],
+    "sprite_px_radius": 249.0,
+    "px_per_world_unit": 62.25,
+    "rotation": "continuous",
+    "anchor": "center"
+  },
+  "enemy_spitter": {
+    "file": "assets-hp/enemy_spitter.png",
+    "role": "enemy",
+    "sim_kind": "spitter",
+    "world_radius_units": 9.0,
+    "sprite_px_size": [
+      720,
+      760
+    ],
+    "sprite_px_radius": 376.5,
+    "px_per_world_unit": 41.83,
+    "rotation": "continuous",
+    "anchor": "center"
+  },
+  "enemy_brute": {
+    "file": "assets-hp/enemy_brute.png",
+    "role": "enemy",
+    "sim_kind": "brute",
+    "world_radius_units": 13.5,
+    "sprite_px_size": [
+      1364,
+      731
+    ],
+    "sprite_px_radius": 675.5,
+    "px_per_world_unit": 50.04,
+    "rotation": "continuous",
+    "anchor": "center"
+  },
+  "enemy_shrieker": {
+    "file": "assets-hp/enemy_shrieker.png",
+    "role": "enemy",
+    "sim_kind": "shrieker",
+    "world_radius_units": 7.0,
+    "sprite_px_size": [
+      1408,
+      768
+    ],
+    "sprite_px_radius": 703.5,
+    "px_per_world_unit": 100.5,
+    "rotation": "continuous",
+    "anchor": "center"
+  },
+  "enemy_warden": {
+    "file": "assets-hp/enemy_warden.png",
+    "role": "enemy",
+    "sim_kind": "warden",
+    "world_radius_units": 16.0,
+    "sprite_px_size": [
+      1408,
+      750
+    ],
+    "sprite_px_radius": 700.5,
+    "px_per_world_unit": 43.78,
+    "rotation": "continuous",
+    "anchor": "center"
+  },
+  "prop_terminal": {
+    "file": "assets-hp/prop_terminal.png",
+    "role": "prop",
+    "sim_kind": "terminal",
+    "world_radius_units": 6.5,
+    "sprite_px_size": [
+      622,
+      462
+    ],
+    "sprite_px_radius": 304.5,
+    "px_per_world_unit": 46.85,
+    "rotation": "wall_normal",
+    "anchor": "center"
+  },
+  "prop_seed_station": {
+    "file": "assets-hp/prop_seed_station.png",
+    "role": "prop",
+    "sim_kind": "safe_room_core",
+    "world_radius_units": 7.0,
+    "sprite_px_size": [
+      864,
+      875
+    ],
+    "sprite_px_radius": 431.0,
+    "px_per_world_unit": 61.57,
+    "rotation": "none",
+    "anchor": "center"
+  },
+  "prop_corpse_husk": {
+    "file": "assets-hp/prop_corpse_husk.png",
+    "role": "prop",
+    "sim_kind": "corpse_husk",
+    "world_radius_units": 8.0,
+    "sprite_px_size": [
+      1245,
+      768
+    ],
+    "sprite_px_radius": 550.5,
+    "px_per_world_unit": 68.81,
+    "rotation": "baked",
+    "anchor": "center"
+  },
+  "pickup_ammo": {
+    "file": "assets-hp/pickup_ammo.png",
+    "role": "pickup",
+    "sim_kind": "ammo_9mm|ammo_shell|ammo_cell",
+    "world_radius_units": 5.0,
+    "sprite_px_size": [
+      526,
+      381
+    ],
+    "sprite_px_radius": 256.5,
+    "px_per_world_unit": 51.3,
+    "rotation": "none",
+    "anchor": "center"
+  },
+  "pickup_medkit": {
+    "file": "assets-hp/pickup_medkit.png",
+    "role": "pickup",
+    "sim_kind": "medkit",
+    "world_radius_units": 6.0,
+    "sprite_px_size": [
+      898,
+      551
+    ],
+    "sprite_px_radius": 445.0,
+    "px_per_world_unit": 74.17,
+    "rotation": "none",
+    "anchor": "center"
+  },
+  "pickup_weapon": {
+    "file": "assets-hp/pickup_weapon.png",
+    "role": "pickup",
+    "sim_kind": "weapon_smg|weapon_shotgun|weapon_rail|weapon_tau",
+    "world_radius_units": 7.0,
+    "sprite_px_size": [
+      1285,
+      551
+    ],
+    "sprite_px_radius": 574.5,
+    "px_per_world_unit": 82.07,
+    "rotation": "none",
+    "anchor": "center"
+  }
+}

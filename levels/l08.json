@@ -5988,20 +5988,7 @@
  },
  "lore": {
   "intro": "The chapel deck. Folded.\nSix rooms around one. Or one room\naround six. The count depends on the walker.",
-  "radio": [
-   {
-    "trigger": "start",
-    "text": "Ratio: I can't map this for you. Every route you take adds a room that was already there. Kill what moves and get to the heart."
-   },
-   {
-    "trigger": "kills:14",
-    "text": "Ratio: That was a Warden. The thing under the Core prints them, the way your seed prints frames. There will be a fresh one at the door."
-   },
-   {
-    "trigger": "exit",
-    "text": "Ratio: Core approach is open. The vault is down there \u2014 and so is the thing that holds the vault shut. If something makes you an offer, any offer: the offer is the weapon. Listen to me instead."
-   }
-  ],
+  "radio": [],
   "terminals": [
    {
     "room": 0,

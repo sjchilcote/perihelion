@@ -1,7 +1,8 @@
 """The objective prompt: the only in-combat text channel. Spoken narrative
 lives solely in relay conversations (convscene) and wall terminals; the sim
-emits terse ("objective", text) fx for functional state, and authored
-level.radio triggers are consumed as nothing. No radio strip exists.
+emits terse ("objective", text) fx for functional state. Radio was
+eliminated outright: LevelBuilder.radio() raises rather than staging dead
+data, and no radio strip exists.
 """
 
 from __future__ import annotations
@@ -10,6 +11,8 @@ import os
 
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
+
+import pytest
 
 from perihelion.levels import LevelBuilder
 from perihelion.sim import GameSession, InputFrame
@@ -159,19 +162,13 @@ def test_weapon_pickup_emits_acquired_prompt():
     assert "tau" in s.weapons
 
 
-def test_authored_radio_triggers_are_consumed_as_nothing():
-    # the debug level still authors a "start" radio line (the authoring API
-    # is intact) -- the game must never surface it as fx
-    from perihelion.app import build_debug_level
-
-    level = build_debug_level()
-    assert level.radio, "debug level should still author radio data"
-    s = GameSession(level, seed=1)
-    tags = set()
-    for _ in range(120):
-        s.tick(InputFrame(mx=1.0))
-        tags |= {ev[0] for ev in s.fx}
-    assert "radio" not in tags
+def test_radio_authoring_raises():
+    # radio was eliminated outright: the authoring API itself refuses to
+    # stage dead data, rather than silently accepting lines the sim would
+    # never surface.
+    b = LevelBuilder("t", 1)
+    with pytest.raises(RuntimeError):
+        b.radio("start", "Ratio: this should never be authored again.")
 
 
 def test_no_radio_strip_surface_exists():

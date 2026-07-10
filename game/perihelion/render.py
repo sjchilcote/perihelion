@@ -84,6 +84,9 @@ PIPE_COLOR = (70, 80, 92)
 PUDDLE_COLOR = (32, 40, 48)
 SCREEN_COLOR = (110, 235, 165)     # lit phosphor screen (lab consoles, terminals)
 SCREEN_DIM = (46, 96, 78)          # unlit / already-read screen
+HYDRO_TRAY = (44, 68, 48)          # planter trough fill: green-tinted, still below screen brightness
+HYDRO_RIM = (74, 100, 78)          # trough rim -- one step brighter, same delta as PROP_RIM/PROP_COLOR
+HYDRO_STALK = (88, 152, 96)        # growing stalk dot -- dimmer than SCREEN_COLOR, distinct from GROWTH's red rot
 
 # -- the descent arc ---------------------------------------------------------
 # One station, falling sunward. `level.room_descent` holds a per-room scalar
@@ -901,6 +904,37 @@ def _props_lab(rng, verts, walls, x0, y0, x1, y1, descent=0.0, crng=None):
     return prims
 
 
+def _props_hydro(rng, verts, walls, x0, y0, x1, y1, descent=0.0, crng=None):
+    """Planter troughs along the walls (long thin trays, green-tinted fill),
+    with occasional stalks poking up out of a trough. A center planter row
+    stands in for the lab's specimen table -- this room grows things."""
+    prims = []
+    for wall in walls[:3]:
+        for cx, cy, ang in _place_along_wall(wall, 20.0, 6.0, 5.0):
+            prims.append(("poly", _rect_local(cx, cy, 20.0, 6.5, ang), HYDRO_TRAY, HYDRO_RIM, 1))
+            if rng.random() < 0.6:
+                n_stalks = rng.randint(2, 4)
+                for s in range(n_stalks):
+                    t = (s + 0.5) / n_stalks - 0.5
+                    sx = cx + wall["tx"] * t * 16.0
+                    sy = cy + wall["ty"] * t * 16.0
+                    prims.append(("dot", (sx, sy), HYDRO_STALK, rng.uniform(1.2, 2.2)))
+    off = rng.uniform(10, 18)
+    a0 = rng.uniform(0, 2 * math.pi)
+    tcx = (x0 + x1) / 2.0 + math.cos(a0) * off
+    tcy = (y0 + y1) / 2.0 + math.sin(a0) * off
+    trough_ang = rng.uniform(-0.2, 0.2)
+    prims.append(("poly", _rect_local(tcx, tcy, 22.0, 8.0, trough_ang),
+                  HYDRO_TRAY, HYDRO_RIM, 1))
+    tx_ = math.cos(trough_ang)
+    ty_ = math.sin(trough_ang)
+    for s in range(rng.randint(3, 5)):
+        t = rng.uniform(-9.0, 9.0)
+        prims.append(("dot", (tcx + tx_ * t, tcy + ty_ * t), HYDRO_STALK,
+                      rng.uniform(1.4, 2.6)))
+    return prims
+
+
 def _props_quarters(rng, verts, walls, x0, y0, x1, y1, descent=0.0, crng=None):
     """Cot bays along the walls, each with a pillow and a footlocker.
     Near the core the bays are shoved askew — nobody squared them away."""
@@ -1243,6 +1277,7 @@ _ROOM_PROP_GENERATORS = {
     "storage": _props_storage,
     "pump": _props_pump,
     "lab": _props_lab,
+    "hydro": _props_hydro,
     "quarters": _props_quarters,
     "chapel": _props_chapel,
     "records": _props_records,
@@ -2049,6 +2084,22 @@ class Renderer:
             if t["room"] != room:
                 continue
             self._draw_terminal(canvas, room, xform, clip_screen, t)
+        for st in getattr(session, "stations", ()):
+            if st["room"] != room:
+                continue
+            sx, sy = necore.mat_apply(xform, *st["pos"])
+            if not _point_in_poly(sx, sy, clip_screen):
+                continue
+            ix, iy = _pt((sx, sy))
+            # the seed: a squat pedestal with a slow revival-ring pulse
+            body = [(ix - 5, iy + 4), (ix + 5, iy + 4),
+                    (ix + 3, iy - 6), (ix - 3, iy - 6)]
+            canvas.polygon((36, 52, 46), body)
+            canvas.polygon((120, 230, 170), body, 1)
+            canvas.circle((190, 250, 210), (ix, iy - 2), 1)
+            phase = (session.tick_count % 120) / 120.0
+            rr = 9 + 3 * math.sin(phase * 2 * math.pi)
+            canvas.circle((120, 230, 170), (ix, iy), max(2, int(rr)), 1)
 
     def _nearest_wall_point(self, room: int, pos):
         """Nearest point on a room's wall to `pos` (room-local), for
@@ -2346,6 +2397,23 @@ class Renderer:
             canvas.rect((190, 195, 200),
                         pygame.Rect(ix - int(r * 0.3), iy - int(r * 0.7),
                                     max(1, int(r * 0.4)), int(r * 0.7)))
+        elif kind == "components":
+            # salvaged mass: a small scatter of scrap facets
+            canvas.polygon((150, 130, 90),
+                           [(ix - 3, iy + 2), (ix, iy - 3), (ix + 3, iy + 1)])
+            canvas.rect((110, 100, 80),
+                        pygame.Rect(ix - 1, iy + 1, 3, 2))
+            canvas.polygon((190, 170, 120),
+                           [(ix - 3, iy + 2), (ix, iy - 3), (ix + 3, iy + 1)], 1)
+        elif kind == "corpse_frame":
+            # a wrecked frame, prone; the faint pulse marks it recoverable
+            canvas.rect((40, 44, 50), pygame.Rect(ix - int(r), iy - 3,
+                                                  int(r * 2), 6))
+            canvas.circle((40, 44, 50), (ix + int(r), iy), 3)
+            phase = (self.session.tick_count % 90) / 90.0
+            a = 0.5 + 0.5 * math.sin(phase * 2 * math.pi)
+            rim = (int(90 + 90 * a), int(160 + 60 * a), int(120 + 60 * a))
+            canvas.rect(rim, pygame.Rect(ix - int(r), iy - 3, int(r * 2), 6), 1)
         elif kind == "implant_lightning":
             pts = [(ix, iy - r), (ix + r, iy), (ix, iy + r), (ix - r, iy)]
             canvas.polygon((90, 220, 255), [(int(x), int(y)) for x, y in pts])
