@@ -1994,7 +1994,7 @@ class Renderer:
             if path.is_file():
                 surf = pygame.image.load(str(path))
                 w, h = surf.get_size()
-                raw = pygame.image.tostring(surf, "RGB")
+                raw = pygame.image.tobytes(surf, "RGB")
                 arr = np.frombuffer(raw, dtype=np.uint8).reshape((h, w, 3)).copy()
                 verts = self.session.level.room_verts[room]
                 bx, by, _, _ = texture_geom.room_bbox(verts)
