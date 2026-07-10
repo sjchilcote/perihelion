@@ -4,7 +4,7 @@
   "n_sounds": 44,
   "n_ok": 44,
   "n_error": 0,
-  "avg_p_shippable": 0.5482954545454546,
+  "avg_p_shippable": 0.5576704545454546,
   "min_p_shippable": 0.1,
   "results": [
     {
@@ -1541,52 +1541,86 @@
     {
       "name": "scrap_fire",
       "spec": "the scrap driver firing salvage shards: a raspier, junkier gunshot than the shotgun -- bitcrushed grit and a rattling scattered-debris tail instead of a smooth boom, like flinging scrap metal, not firing a clean shotgun blast",
-      "p_shippable": 0.3,
+      "p_shippable": 0.1,
       "matches_spec": false,
       "amateur_tells": [
-        "Lacks the promised rattling, scattered-debris tail, sounding instead like a simple static noise gate.",
-        "The transient is too clean and synthetic, missing the organic, bitcrushed grit of flung scrap metal.",
-        "Severe lack of low-mid body, making the weapon sound weak and thin rather than industrial and heavy.",
-        "Lacks the promised bitcrushed grit and rattling scattered-debris tail",
-        "Sounds like a dry, isolated synthesizer transient rather than a complex, textured scrap-metal weapon fire",
-        "Too clean and lacks the low-fi industrial weight and analog saturation established in Clip A"
+        "Lacks the intended bitcrushed grit and metallic rattling debris tail",
+        "Sounds like a wet, rubbery synthesizer sweep rather than a mechanical scrap-metal weapon",
+        "Attack is too soft and lacks the violent, explosive transient required for a projectile weapon",
+        "synthetic synth-like tone instead of metallic grit",
+        "lacks the promised rattling debris tail",
+        "overly clean digital modulation instead of lo-fi bitcrushed texture",
+        "soft, non-impactful transient attack",
+        "lacks the requested bitcrushed grit and metallic debris tail",
+        "sounds like a wet synthesizer sweep rather than mechanical scrap metal",
+        "Lacks any physical, metallic, or debris-like textures required by the scrap driver spec",
+        "Sounds like a generic synthesizer pitch sweep rather than a gritty, bitcrushed mechanical weapon",
+        "Fails to match the lo-fi, analog-industrial weight and distortion profile calibrated by Clip A"
       ],
-      "summary": "While Clip A establishes a high bar for heavy, saturated analog dread, Clip B fails to meet its own design specification for a gritty scrap driver. Instead of a raspy, debris-strewn metal blast, it delivers a thin, synthetic pop with a generic white-noise tail. To become shippable, it needs a much dirtier, bitcrushed transient and a loose, rattling tail of physical metal debris. | While Clip A establishes a high bar for heavy, saturated, and gritty industrial sound design, Clip B falls short of its own spec. It lacks the gritty texture, bitcrushed character, and rattling debris tail required for a scrap driver, sounding instead like a dry, synthetic metallic click. To be shippable, it needs significant layering of textured debris, analog saturation, and a much dirtier, more complex decay tail.",
-      "n_passes": 2,
-      "n_ok": 2,
+      "summary": "Clip B completely misses its design specification, delivering a wet, synthetic squelch instead of a gritty, metallic scrap-metal blast. It lacks the lo-fi industrial texture, harsh high-end bite, and rattling debris tail required for the weapon's identity. Compared to the heavy, analog-saturated weight of Clip A, Clip B feels thin, overly clean, and entirely out of place in a cosmic-horror aesthetic. | Clip B fails to meet its design spec, delivering a rubbery, synthesized filter sweep rather than a gritty, bitcrushed scrap-metal blast. It lacks the tactile, industrial debris tail and the raw, analog-saturated weight established by Clip A's aesthetic bar. To fit the game, it needs a much harsher, noisier transient, genuine metallic crunch, and a scattered, rattling decay. | Clip B completely misses the intended spec of a raspy, junk-filled scrap driver, delivering instead a clean, squelchy synthesizer sweep. It lacks the gritty, lo-fi industrial texture established by Clip A and fails to convey any sense of physical impact or metallic debris. | Clip B fails to meet its design spec, sounding like a clean, sci-fi synthesizer sweep rather than a gritty, physical scrap-metal driver. It lacks the bitcrushed grit, mechanical rattle, and industrial weight established by the calibration anchor. The sound is far too clean and synthetic for the game's established lo-fi cosmic-horror aesthetic.",
+      "n_passes": 4,
+      "n_ok": 4,
       "n_error": 0,
       "errors": [],
       "raw_passes": [
         {
-          "heard_a": "A heavy, low-frequency industrial thud with a highly saturated, distorted mid-range crunch and a short, gated analog noise tail.",
-          "heard_b": "A mid-frequency metallic pop with a synthetic, hollow transient and a brief, high-frequency digital hiss tail. The sound lacks low-end weight and has a very clean, clinical decay rather than a gritty, rattling debris texture.",
+          "heard_a": "A heavy, low-frequency industrial thud with a highly compressed, saturated transient and a short, gated analog-style decay.",
+          "heard_b": "A mid-frequency synthetic squelch with a soft, rounded attack, a rubbery resonant sweep, and a clean, abrupt decay. It lacks high-frequency grit, metallic texture, or any post-shot debris tail.",
           "matches_spec": false,
-          "p_shippable": 0.3,
+          "p_shippable": 0.1,
           "better_or_worse": "B clearly worse",
           "amateur_tells": [
-            "Lacks the promised rattling, scattered-debris tail, sounding instead like a simple static noise gate.",
-            "The transient is too clean and synthetic, missing the organic, bitcrushed grit of flung scrap metal.",
-            "Severe lack of low-mid body, making the weapon sound weak and thin rather than industrial and heavy."
+            "Lacks the intended bitcrushed grit and metallic rattling debris tail",
+            "Sounds like a wet, rubbery synthesizer sweep rather than a mechanical scrap-metal weapon",
+            "Attack is too soft and lacks the violent, explosive transient required for a projectile weapon"
           ],
-          "summary": "While Clip A establishes a high bar for heavy, saturated analog dread, Clip B fails to meet its own design specification for a gritty scrap driver. Instead of a raspy, debris-strewn metal blast, it delivers a thin, synthetic pop with a generic white-noise tail. To become shippable, it needs a much dirtier, bitcrushed transient and a loose, rattling tail of physical metal debris."
+          "summary": "Clip B completely misses its design specification, delivering a wet, synthetic squelch instead of a gritty, metallic scrap-metal blast. It lacks the lo-fi industrial texture, harsh high-end bite, and rattling debris tail required for the weapon's identity. Compared to the heavy, analog-saturated weight of Clip A, Clip B feels thin, overly clean, and entirely out of place in a cosmic-horror aesthetic."
         },
         {
           "heard_a": "A heavy, low-frequency industrial thud with a highly compressed, saturated transient and a short, gritty, analog-style decay.",
-          "heard_b": "A mid-frequency metallic clank with a sharp, synthetic transient, followed by a very brief, dry, and slightly hollow decay.",
+          "heard_b": "A synthetic, mid-frequency synth-like burst with a prominent 'wow' or sweeping filter modulation and a clean, digital-sounding release.",
           "matches_spec": false,
-          "p_shippable": 0.3,
+          "p_shippable": 0.1,
           "better_or_worse": "B clearly worse",
           "amateur_tells": [
-            "Lacks the promised bitcrushed grit and rattling scattered-debris tail",
-            "Sounds like a dry, isolated synthesizer transient rather than a complex, textured scrap-metal weapon fire",
-            "Too clean and lacks the low-fi industrial weight and analog saturation established in Clip A"
+            "synthetic synth-like tone instead of metallic grit",
+            "lacks the promised rattling debris tail",
+            "overly clean digital modulation instead of lo-fi bitcrushed texture"
           ],
-          "summary": "While Clip A establishes a high bar for heavy, saturated, and gritty industrial sound design, Clip B falls short of its own spec. It lacks the gritty texture, bitcrushed character, and rattling debris tail required for a scrap driver, sounding instead like a dry, synthetic metallic click. To be shippable, it needs significant layering of textured debris, analog saturation, and a much dirtier, more complex decay tail."
+          "summary": "Clip B fails to meet its design spec, delivering a rubbery, synthesized filter sweep rather than a gritty, bitcrushed scrap-metal blast. It lacks the tactile, industrial debris tail and the raw, analog-saturated weight established by Clip A's aesthetic bar. To fit the game, it needs a much harsher, noisier transient, genuine metallic crunch, and a scattered, rattling decay."
+        },
+        {
+          "heard_a": "A heavy, low-frequency industrial thud with a highly compressed, saturated transient and a short, gated analog-style decay.",
+          "heard_b": "A mid-frequency synthetic squelch with a soft, rounded attack, a distinct resonant filter sweep, and a clean, abrupt release.",
+          "matches_spec": false,
+          "p_shippable": 0.1,
+          "better_or_worse": "B clearly worse",
+          "amateur_tells": [
+            "soft, non-impactful transient attack",
+            "lacks the requested bitcrushed grit and metallic debris tail",
+            "sounds like a wet synthesizer sweep rather than mechanical scrap metal"
+          ],
+          "summary": "Clip B completely misses the intended spec of a raspy, junk-filled scrap driver, delivering instead a clean, squelchy synthesizer sweep. It lacks the gritty, lo-fi industrial texture established by Clip A and fails to convey any sense of physical impact or metallic debris."
+        },
+        {
+          "heard_a": "A heavy, low-frequency industrial thud with a highly saturated, distorted mid-range crunch and a short, gated analog noise tail.",
+          "heard_b": "A synthetic, high-frequency laser-like sweep with a prominent resonant filter sweep and a clean, digital-sounding release.",
+          "matches_spec": false,
+          "p_shippable": 0.1,
+          "better_or_worse": "B clearly worse",
+          "amateur_tells": [
+            "Lacks any physical, metallic, or debris-like textures required by the scrap driver spec",
+            "Sounds like a generic synthesizer pitch sweep rather than a gritty, bitcrushed mechanical weapon",
+            "Fails to match the lo-fi, analog-industrial weight and distortion profile calibrated by Clip A"
+          ],
+          "summary": "Clip B fails to meet its design spec, sounding like a clean, sci-fi synthesizer sweep rather than a gritty, physical scrap-metal driver. It lacks the bitcrushed grit, mechanical rattle, and industrial weight established by the calibration anchor. The sound is far too clean and synthetic for the game's established lo-fi cosmic-horror aesthetic."
         }
       ],
       "anchored": true,
       "anchor": "rail_fire",
       "better_or_worse": [
+        "B clearly worse",
+        "B clearly worse",
         "B clearly worse",
         "B clearly worse"
       ],
@@ -1595,106 +1629,153 @@
     {
       "name": "gland_fire",
       "spec": "a grafted Adversary gland discharging: wet organic burst with a sour, faintly wrong detuned tonal component -- distinct from the enemy spitter's clean gurgle-plop, this is the player's own flesh doing something it shouldn't",
-      "p_shippable": 0.1,
+      "p_shippable": 0.7749999999999999,
       "matches_spec": false,
       "amateur_tells": [
-        "Lacks any wet, organic, or squelchy textures specified in the brief",
-        "No sour or detuned tonal component, sounding like a simple synthesizer pitch-bend instead",
-        "Clean, sterile digital rendering that lacks the lo-fi, gritty, analog-industrial distortion calibrated by Clip A",
-        "Lacks any wet, organic, or squelchy textures required for a biological gland",
-        "No sour, detuned tonal component or complex harmonic grit",
-        "Sounds like a basic synthesizer pitch envelope rather than a physical or organic discharge"
+        "Lacks the wet, organic, squelchy texture required for a biological gland discharge",
+        "The tonal component sounds like a metallic synthesizer ring rather than a sour, detuned organic mutation",
+        "Too dry and clean in its mid-range, missing the lo-fi industrial grit established by Clip A"
       ],
-      "summary": "Clip B completely misses the organic, wet, and sour aesthetic required by the spec, sounding instead like a clean, synthetic synthesizer sweep. It lacks the grit, saturation, and textural complexity established as the game's quality bar in Clip A. To be usable, it needs a complete redesign utilizing organic source material, heavy saturation, and a wet, bursting transient. | While Clip A establishes a high bar for gritty, analog-industrial texture with excellent transient design, Clip B fails to meet its creative spec entirely. It presents as a clean, synthetic synthesizer chirp rather than a wet, organic, and sourly detuned adversary gland. The sound lacks the necessary texture, complexity, and lo-fi grit to fit into the established aesthetic of the game.",
-      "n_passes": 2,
-      "n_ok": 2,
+      "summary": "Clip B perfectly executes the requested spec, delivering a wet, organic burst with a highly effective, unsettlingly detuned tonal tail. It matches the gritty, lo-fi industrial-horror aesthetic established by Clip A while maintaining its own distinct identity as a player-grafted biological discharge. The sound is punchy, texturally complex, and ready to ship. | Clip B perfectly captures the requested 'grafted Adversary gland' spec, delivering a wet, visceral organic burst contrasted by a deeply unsettling, detuned metallic ring. The grit, saturation, and lo-fi texture match the high-bar aesthetic established by Clip A, making it immediately shippable for this game's universe. | While Clip B has a decent low-end weight, it completely misses the organic, wet, and 'wrong' biological texture required by the spec. Instead of a discharging grafted gland, it reads as a dry, metallic impact or a synthetic UI thump. To match the aesthetic of Clip A, it needs significant high-frequency grit, wet squelch layers, and a much more unsettling, sour tonal modulation. | Clip B perfectly captures the requested 'grafted Adversary gland' spec, delivering a wet, organic burst with a distinctly unsettling, detuned tonal tail. It matches the lo-fi, gritty, industrial-cosmic horror aesthetic established by Clip A while maintaining its own unique identity as a player-activated biological weapon. The frequency balance is excellent, sitting nicely in the low-mid register without muddying the mix.",
+      "n_passes": 4,
+      "n_ok": 4,
       "n_error": 0,
       "errors": [],
       "raw_passes": [
         {
-          "heard_a": "A low-frequency, highly compressed industrial thud with a sharp, saturated transient, a gritty mid-range resonance, and a rapid, gated decay.",
-          "heard_b": "A synthetic, low-frequency pitch sweep with a rubbery, resonant filter sweep and a clean, digital-sounding decay.",
-          "matches_spec": false,
-          "p_shippable": 0.1,
-          "better_or_worse": "B clearly worse",
-          "amateur_tells": [
-            "Lacks any wet, organic, or squelchy textures specified in the brief",
-            "No sour or detuned tonal component, sounding like a simple synthesizer pitch-bend instead",
-            "Clean, sterile digital rendering that lacks the lo-fi, gritty, analog-industrial distortion calibrated by Clip A"
-          ],
-          "summary": "Clip B completely misses the organic, wet, and sour aesthetic required by the spec, sounding instead like a clean, synthetic synthesizer sweep. It lacks the grit, saturation, and textural complexity established as the game's quality bar in Clip A. To be usable, it needs a complete redesign utilizing organic source material, heavy saturation, and a wet, bursting transient."
+          "heard_a": "A dry, low-frequency thud with a sharp, synthetic transient and a short, highly-damped decay that has a subtle, metallic ring.",
+          "heard_b": "A heavy, low-end thud with a wet, squelching transient, followed immediately by a distinct, sour, detuned mid-frequency tonal groan that decays quickly.",
+          "matches_spec": true,
+          "p_shippable": 0.95,
+          "better_or_worse": "comparable craft",
+          "amateur_tells": [],
+          "summary": "Clip B perfectly executes the requested spec, delivering a wet, organic burst with a highly effective, unsettlingly detuned tonal tail. It matches the gritty, lo-fi industrial-horror aesthetic established by Clip A while maintaining its own distinct identity as a player-grafted biological discharge. The sound is punchy, texturally complex, and ready to ship."
         },
         {
           "heard_a": "A low-frequency, highly compressed industrial thud with a sharp, saturated transient, a gritty mid-range texture, and a rapid, gated decay.",
-          "heard_b": "A synthetic, low-frequency pitch-sliding chirp with a rubbery, resonant filter sweep and a clean, dry decay.",
+          "heard_b": "A wet, squelching organic impact with a distinct, metallic, detuned ringing tail that decays slowly. The attack is sharp and fleshy, followed by a resonant, sour tonal ring in the mid-high frequencies.",
+          "matches_spec": true,
+          "p_shippable": 0.95,
+          "better_or_worse": "comparable craft",
+          "amateur_tells": [],
+          "summary": "Clip B perfectly captures the requested 'grafted Adversary gland' spec, delivering a wet, visceral organic burst contrasted by a deeply unsettling, detuned metallic ring. The grit, saturation, and lo-fi texture match the high-bar aesthetic established by Clip A, making it immediately shippable for this game's universe."
+        },
+        {
+          "heard_a": "A dry, low-frequency transient thump with a fast attack, followed by a short, gritty, low-mid digital clipping or bit-crushed decay.",
+          "heard_b": "A heavy, low-end thud with a slightly saturated transient, followed by a brief, metallic, resonant ringing tail that has a subtle pitch-bend.",
           "matches_spec": false,
-          "p_shippable": 0.1,
+          "p_shippable": 0.3,
           "better_or_worse": "B clearly worse",
           "amateur_tells": [
-            "Lacks any wet, organic, or squelchy textures required for a biological gland",
-            "No sour, detuned tonal component or complex harmonic grit",
-            "Sounds like a basic synthesizer pitch envelope rather than a physical or organic discharge"
+            "Lacks the wet, organic, squelchy texture required for a biological gland discharge",
+            "The tonal component sounds like a metallic synthesizer ring rather than a sour, detuned organic mutation",
+            "Too dry and clean in its mid-range, missing the lo-fi industrial grit established by Clip A"
           ],
-          "summary": "While Clip A establishes a high bar for gritty, analog-industrial texture with excellent transient design, Clip B fails to meet its creative spec entirely. It presents as a clean, synthetic synthesizer chirp rather than a wet, organic, and sourly detuned adversary gland. The sound lacks the necessary texture, complexity, and lo-fi grit to fit into the established aesthetic of the game."
+          "summary": "While Clip B has a decent low-end weight, it completely misses the organic, wet, and 'wrong' biological texture required by the spec. Instead of a discharging grafted gland, it reads as a dry, metallic impact or a synthetic UI thump. To match the aesthetic of Clip A, it needs significant high-frequency grit, wet squelch layers, and a much more unsettling, sour tonal modulation."
+        },
+        {
+          "heard_a": "A low-frequency, muffled thud with a fast attack, a gritty mid-range texture, and a very short, highly damped decay.",
+          "heard_b": "A low-mid heavy impact with a wet, squelching transient, followed by a brief, slightly metallic, detuned ringing tail. The sound has a distinct organic crunch in the attack and a hollow, resonant decay.",
+          "matches_spec": true,
+          "p_shippable": 0.9,
+          "better_or_worse": "comparable craft",
+          "amateur_tells": [],
+          "summary": "Clip B perfectly captures the requested 'grafted Adversary gland' spec, delivering a wet, organic burst with a distinctly unsettling, detuned tonal tail. It matches the lo-fi, gritty, industrial-cosmic horror aesthetic established by Clip A while maintaining its own unique identity as a player-activated biological weapon. The frequency balance is excellent, sitting nicely in the low-mid register without muddying the mix."
         }
       ],
       "anchored": true,
       "anchor": "player_hurt",
       "better_or_worse": [
+        "comparable craft",
+        "comparable craft",
         "B clearly worse",
-        "B clearly worse"
+        "comparable craft"
       ],
       "category": "enemy"
     },
     {
       "name": "fabricate_buy",
       "spec": "a seed-station fabricator printing a purchase: quick servo spin-up, a short deposition hum, then a bright two-tone confirmation chirp -- a transaction completing, short and unmissable, well under 0.6s",
-      "p_shippable": 0.2,
+      "p_shippable": 0.1,
       "matches_spec": false,
       "amateur_tells": [
-        "Lacks the gritty, lo-fi, analog-industrial texture established by Clip A",
-        "Sounds like a generic, clean FM synth preset rather than a physical machine process",
-        "Fails to deliver the three distinct phases of the spec: servo spin-up, deposition hum, and a two-tone confirmation chirp",
-        "Lacks the gritty, analog-industrial saturation established in Clip A",
-        "Too clean and sterile, sounding like a default FM synth preset rather than a lo-fi machine",
-        "Missing the mechanical servo spin-up and deposition hum requested in the spec"
+        "Lacks the intended three-part structure of a servo spin-up, deposition hum, and confirmation chirp",
+        "Completely misses the lo-fi, gritty, analog-industrial texture calibrated by Clip A",
+        "Sounds like a generic, clean retro-arcade jump sound rather than a tactile mechanical fabrication process",
+        "Lacks the gritty, analog-industrial texture established by Clip A",
+        "Sounds like a generic, clean FM synth preset rather than a physical machine",
+        "Missing the distinct three-part sequence of servo spin-up, deposition hum, and confirmation chirp requested in the spec",
+        "lacks the gritty, analog-industrial texture established in Clip A",
+        "sounds like a clean, default FM synth preset rather than a physical machine",
+        "completely misses the three-stage mechanical narrative of servo spin-up, deposition hum, and confirmation chirp",
+        "Lacks the promised structural elements of the spec (no servo, no deposition hum, no two-tone chirp)",
+        "Sounds like a generic, unrendered placeholder synth preset rather than a textured, lo-fi industrial asset",
+        "Fails to match the gritty, analog-distorted aesthetic weight established by Clip A"
       ],
-      "summary": "While Clip A establishes a beautifully gritty, heavy, and textured industrial aesthetic, Clip B is a sterile, clean FM sweep that lacks any of the required lo-fi grit or mechanical weight. Furthermore, Clip B fails to meet its own design spec, sounding like a generic sci-fi UI beep rather than a physical fabricator printing a purchase. | While Clip B technically meets the structural timing and two-tone chirp requirement of the spec, it completely fails the aesthetic calibration set by Clip A. It is far too clean, digital, and lightweight, lacking the gritty, distorted, industrial weight necessary for a Teleglitch-adjacent cosmic horror game. To be shippable, it needs to be run through analog saturation, bit-crushed, and layered with a mechanical, low-mid servo grind.",
-      "n_passes": 2,
-      "n_ok": 2,
+      "summary": "While Clip A establishes a masterclass in heavy, textured, industrial dread, Clip B fails to meet its own design specification entirely. It lacks the mechanical complexity of the requested servo and deposition phases, presenting instead as a simple, clean, retro-arcade chirp. It completely misses the gritty, analog-industrial aesthetic of the game, sounding like a placeholder asset from a different genre. | While Clip A establishes a beautifully degraded, heavy, and tactile industrial aesthetic, Clip B is far too clean, digital, and lightweight. It fails to deliver the mechanical narrative of a fabricator printing an item, sounding instead like a generic 8-bit arcade UI chirp. To fit this game, it needs significant analog saturation, mechanical grit, and a clearer division of the requested sound stages. | While Clip A establishes a beautifully ruined, saturated, and heavy industrial aesthetic, Clip B is far too clean, digital, and lightweight. It sounds like a generic, untextured sci-fi UI beep rather than a physical, lo-fi fabricator unit operating in a cosmic-horror setting. It fails to deliver the mechanical narrative requested in the spec and completely misses the established aesthetic bar. | While Clip A establishes a masterclass in heavy, textured, analog-industrial dread, Clip B completely misses both its technical spec and the game's established aesthetic. Instead of a multi-part mechanical fabrication sequence, Clip B is a single, harsh, toy-like synthetic chirp that lacks any physical weight or industrial grit. It feels like an unedited placeholder from a generic 8-bit library and is entirely unsuited for a dark cosmic-horror setting.",
+      "n_passes": 4,
+      "n_ok": 4,
       "n_error": 0,
       "errors": [],
       "raw_passes": [
         {
-          "heard_a": "A heavy, low-frequency industrial thud or mechanical stomp with a gritty, distorted transient and a short, muffled acoustic decay.",
-          "heard_b": "A rapid, high-pitched FM synthesizer sweep that rises and falls quickly, ending in a clean, digital sine-wave-like tone with virtually no low-end or mid-range grit.",
+          "heard_a": "A heavy, low-frequency industrial thud or stomp with a gritty, distorted mid-range texture and a fast, highly damped decay.",
+          "heard_b": "A high-pitched, digital FM-style synth chirp with a rapid pitch sweep and a bright, clean, almost 8-bit aesthetic.",
           "matches_spec": false,
           "p_shippable": 0.1,
           "better_or_worse": "B clearly worse",
           "amateur_tells": [
-            "Lacks the gritty, lo-fi, analog-industrial texture established by Clip A",
-            "Sounds like a generic, clean FM synth preset rather than a physical machine process",
-            "Fails to deliver the three distinct phases of the spec: servo spin-up, deposition hum, and a two-tone confirmation chirp"
+            "Lacks the intended three-part structure of a servo spin-up, deposition hum, and confirmation chirp",
+            "Completely misses the lo-fi, gritty, analog-industrial texture calibrated by Clip A",
+            "Sounds like a generic, clean retro-arcade jump sound rather than a tactile mechanical fabrication process"
           ],
-          "summary": "While Clip A establishes a beautifully gritty, heavy, and textured industrial aesthetic, Clip B is a sterile, clean FM sweep that lacks any of the required lo-fi grit or mechanical weight. Furthermore, Clip B fails to meet its own design spec, sounding like a generic sci-fi UI beep rather than a physical fabricator printing a purchase."
+          "summary": "While Clip A establishes a masterclass in heavy, textured, industrial dread, Clip B fails to meet its own design specification entirely. It lacks the mechanical complexity of the requested servo and deposition phases, presenting instead as a simple, clean, retro-arcade chirp. It completely misses the gritty, analog-industrial aesthetic of the game, sounding like a placeholder asset from a different genre."
         },
         {
-          "heard_a": "A heavy, low-frequency industrial thud with a highly saturated, distorted transient and a gritty, metallic tail that decays rapidly. It has a distinct analog tape-warmth and a heavily compressed, lo-fi aesthetic.",
-          "heard_b": "A high-pitched, clean digital FM synthesizer chirp with a rapid pitch sweep and a bright, resonant two-tone chime. It features a very sharp attack, a glassy texture, and almost no low-end or mid-range weight.",
-          "matches_spec": true,
-          "p_shippable": 0.3,
+          "heard_a": "A heavy, low-frequency industrial thud with a highly saturated, distorted transient and a gritty, analog-style decay that quickly breaks up into noise.",
+          "heard_b": "A rapid, high-pitched FM synthesizer sweep that rises and falls sharply, ending in a bright, clean digital beep with almost no low-end weight or mechanical texture.",
+          "matches_spec": false,
+          "p_shippable": 0.1,
           "better_or_worse": "B clearly worse",
           "amateur_tells": [
-            "Lacks the gritty, analog-industrial saturation established in Clip A",
-            "Too clean and sterile, sounding like a default FM synth preset rather than a lo-fi machine",
-            "Missing the mechanical servo spin-up and deposition hum requested in the spec"
+            "Lacks the gritty, analog-industrial texture established by Clip A",
+            "Sounds like a generic, clean FM synth preset rather than a physical machine",
+            "Missing the distinct three-part sequence of servo spin-up, deposition hum, and confirmation chirp requested in the spec"
           ],
-          "summary": "While Clip B technically meets the structural timing and two-tone chirp requirement of the spec, it completely fails the aesthetic calibration set by Clip A. It is far too clean, digital, and lightweight, lacking the gritty, distorted, industrial weight necessary for a Teleglitch-adjacent cosmic horror game. To be shippable, it needs to be run through analog saturation, bit-crushed, and layered with a mechanical, low-mid servo grind."
+          "summary": "While Clip A establishes a beautifully degraded, heavy, and tactile industrial aesthetic, Clip B is far too clean, digital, and lightweight. It fails to deliver the mechanical narrative of a fabricator printing an item, sounding instead like a generic 8-bit arcade UI chirp. To fit this game, it needs significant analog saturation, mechanical grit, and a clearer division of the requested sound stages."
+        },
+        {
+          "heard_a": "A heavy, low-frequency industrial thud with a highly saturated, distorted transient and a gritty, analog-style decay that quickly breaks up into lo-fi noise.",
+          "heard_b": "A rapid, high-pitched FM synthesizer sweep that rises and falls sharply, ending in a clean, digital-sounding dual-tone beep with almost no low-end weight or mechanical texture.",
+          "matches_spec": false,
+          "p_shippable": 0.1,
+          "better_or_worse": "B clearly worse",
+          "amateur_tells": [
+            "lacks the gritty, analog-industrial texture established in Clip A",
+            "sounds like a clean, default FM synth preset rather than a physical machine",
+            "completely misses the three-stage mechanical narrative of servo spin-up, deposition hum, and confirmation chirp"
+          ],
+          "summary": "While Clip A establishes a beautifully ruined, saturated, and heavy industrial aesthetic, Clip B is far too clean, digital, and lightweight. It sounds like a generic, untextured sci-fi UI beep rather than a physical, lo-fi fabricator unit operating in a cosmic-horror setting. It fails to deliver the mechanical narrative requested in the spec and completely misses the established aesthetic bar."
+        },
+        {
+          "heard_a": "A heavy, low-frequency industrial thud or stomp with a highly saturated, distorted mid-range tail and a rapid, abrupt decay. It has a gritty, analog-clipped texture that feels physically weighty and oppressive.",
+          "heard_b": "A high-pitched, synthetic FM-style bleep that rises rapidly in pitch, ending on a sharp, piercing square-wave tone. It lacks any distinct mechanical servo spin-up, physical deposition hum, or a clear two-tone confirmation chirp, sounding instead like a generic 8-bit jump sound effect.",
+          "matches_spec": false,
+          "p_shippable": 0.1,
+          "better_or_worse": "B clearly worse",
+          "amateur_tells": [
+            "Lacks the promised structural elements of the spec (no servo, no deposition hum, no two-tone chirp)",
+            "Sounds like a generic, unrendered placeholder synth preset rather than a textured, lo-fi industrial asset",
+            "Fails to match the gritty, analog-distorted aesthetic weight established by Clip A"
+          ],
+          "summary": "While Clip A establishes a masterclass in heavy, textured, analog-industrial dread, Clip B completely misses both its technical spec and the game's established aesthetic. Instead of a multi-part mechanical fabrication sequence, Clip B is a single, harsh, toy-like synthetic chirp that lacks any physical weight or industrial grit. It feels like an unedited placeholder from a generic 8-bit library and is entirely unsuited for a dark cosmic-horror setting."
         }
       ],
       "anchored": true,
       "anchor": "terminal_open",
       "better_or_worse": [
+        "B clearly worse",
+        "B clearly worse",
         "B clearly worse",
         "B clearly worse"
       ],
@@ -1703,99 +1784,150 @@
     {
       "name": "corpse_recover",
       "spec": "recovering your own wreck: a low, somber metallic pickup -- a dull dark clank plus a soft mournful low tone, respectful rather than triumphant, distinct from pickup_key's bright detuned chime",
-      "p_shippable": 0.625,
+      "p_shippable": 0.6875,
       "matches_spec": false,
       "amateur_tells": [
-        "The high-mid metallic ring sounds clean and resonant rather than dull, dark, or lo-fi.",
-        "The low-frequency tone is too clean and lacks the analog saturation, grit, or tape-style warmth established by Clip A.",
-        "The decay of the low tone is abruptly gated, preventing it from sounding mournful or somber."
+        "lacks the dull dark clank transient specified in the prompt",
+        "features a synthetic, sci-fi pitch sweep rather than a mournful low tone",
+        "lacks the gritty, lo-fi analog texture established by Clip A"
       ],
-      "summary": "Clip B perfectly executes the design brief, delivering a somber, low-key metallic clank and a mournful low-frequency resonance. It matches the lo-fi, analog-industrial aesthetic of Clip A by avoiding clean digital sheen, opting instead for a warm, tape-saturated darkness that feels heavy and respectful. | While Clip B attempts the correct structural elements of a clank and a low tone, it completely misses the established lo-fi, industrial aesthetic calibrated by Clip A. The high-pitched metallic ring is too bright and clean, sounding more like a generic UI tap than a dark, somber wreck recovery. To be shippable, it needs significant analog saturation, a darker frequency roll-off, and a more natural, decaying low-end bloom.",
-      "n_passes": 2,
-      "n_ok": 2,
+      "summary": "Clip B perfectly captures the somber, non-triumphant tone required for recovering a wreck, contrasting beautifully with typical high-pitched pickup chimes. It matches the lo-fi, dark industrial aesthetic calibrated by Clip A through its muffled, analog-like warmth and lack of modern high-end sheen. The sound is highly atmospheric, evocative, and fits the game's cosmic-horror dread seamlessly. | Clip B perfectly executes the design brief, delivering a somber, heavy, and respectful metallic clank with a beautifully controlled low-end bloom. It matches the lo-fi, dark industrial aesthetic of Clip A through its gritty, hollow resonance rather than harsh distortion, making it an excellent fit for recovering a wreck. | While Clip A establishes a highly textured, gritty, and tactile lo-fi industrial aesthetic, Clip B presents as a clean, synthetic pitch sweep that lacks any physical or metallic impact transient. It fails to meet the structural requirements of the spec and feels completely disconnected from the established analog-dread art direction. | Clip B perfectly captures the requested somber, respectful tone for recovering a wreck, avoiding any triumphant brightness. It matches the lo-fi, dark industrial aesthetic of Clip A through its muted high-end and hollow, metallic resonance. The sound is clean, evocative, and ready to ship with only minor level adjustments needed to sit in the final mix.",
+      "n_passes": 4,
+      "n_ok": 4,
       "n_error": 0,
       "errors": [],
       "raw_passes": [
         {
-          "heard_a": "A heavy, distorted industrial impact with a sharp, clipped transient, a gritty mid-range crunch, and a rapid, gated low-end decay.",
-          "heard_b": "A dull, hollow metallic thud with a soft, rounded attack, followed immediately by a low-frequency, resonant hum that gently fades out. The sound is dark, muted, and free of high-frequency harshness.",
+          "heard_a": "A heavy, distorted low-end impact with a sharp, clipped transient, followed by a gritty, bit-crushed sub-bass tail that decays rapidly. It has a highly compressed, industrial, and overdriven analog texture.",
+          "heard_b": "A soft, muffled metallic thud with a slow attack, immediately followed by a low, resonant, and slightly warbling synth drone that gently fades out. The high frequencies are heavily rolled off, giving it a dark, submerged, and somber character.",
+          "matches_spec": true,
+          "p_shippable": 0.85,
+          "better_or_worse": "comparable craft",
+          "amateur_tells": [],
+          "summary": "Clip B perfectly captures the somber, non-triumphant tone required for recovering a wreck, contrasting beautifully with typical high-pitched pickup chimes. It matches the lo-fi, dark industrial aesthetic calibrated by Clip A through its muffled, analog-like warmth and lack of modern high-end sheen. The sound is highly atmospheric, evocative, and fits the game's cosmic-horror dread seamlessly."
+        },
+        {
+          "heard_a": "A rhythmic, highly distorted low-end thud with a harsh, clipped transient and a gritty, bit-crushed industrial tail that decays rapidly.",
+          "heard_b": "A low-frequency metallic impact with a soft, rounded transient, followed by a resonant, mournful sub-bass hum that slowly fades out. The sound has a dark, hollow acoustic space and a very clean, analog-like decay.",
           "matches_spec": true,
           "p_shippable": 0.95,
           "better_or_worse": "comparable craft",
           "amateur_tells": [],
-          "summary": "Clip B perfectly executes the design brief, delivering a somber, low-key metallic clank and a mournful low-frequency resonance. It matches the lo-fi, analog-industrial aesthetic of Clip A by avoiding clean digital sheen, opting instead for a warm, tape-saturated darkness that feels heavy and respectful."
+          "summary": "Clip B perfectly executes the design brief, delivering a somber, heavy, and respectful metallic clank with a beautifully controlled low-end bloom. It matches the lo-fi, dark industrial aesthetic of Clip A through its gritty, hollow resonance rather than harsh distortion, making it an excellent fit for recovering a wreck."
         },
         {
-          "heard_a": "A heavy, distorted industrial impact with a sharp, clipped transient, a saturated mid-range crunch, and a rapid, gated decay. It exhibits a highly compressed, low-bitrate digital crunchiness that perfectly defines the game's gritty, lo-fi aesthetic.",
-          "heard_b": "A hollow, resonant metallic clink with a prominent high-mid ring, followed by a very brief, low-frequency sub-bass hum. The sound has a clean, digital transient and a rapid decay that cuts off abruptly, leaving a sterile, empty space.",
+          "heard_a": "A series of four identical, highly compressed, mid-heavy industrial impacts with a harsh, distorted transient, a gritty metallic texture, and a rapid, gated decay.",
+          "heard_b": "A single continuous event featuring a low-frequency, resonant metallic scrape that transitions into a hollow, synthesized sub-bass sweep with a slow, rising pitch modulation.",
           "matches_spec": false,
-          "p_shippable": 0.3,
+          "p_shippable": 0.1,
           "better_or_worse": "B clearly worse",
           "amateur_tells": [
-            "The high-mid metallic ring sounds clean and resonant rather than dull, dark, or lo-fi.",
-            "The low-frequency tone is too clean and lacks the analog saturation, grit, or tape-style warmth established by Clip A.",
-            "The decay of the low tone is abruptly gated, preventing it from sounding mournful or somber."
+            "lacks the dull dark clank transient specified in the prompt",
+            "features a synthetic, sci-fi pitch sweep rather than a mournful low tone",
+            "lacks the gritty, lo-fi analog texture established by Clip A"
           ],
-          "summary": "While Clip B attempts the correct structural elements of a clank and a low tone, it completely misses the established lo-fi, industrial aesthetic calibrated by Clip A. The high-pitched metallic ring is too bright and clean, sounding more like a generic UI tap than a dark, somber wreck recovery. To be shippable, it needs significant analog saturation, a darker frequency roll-off, and a more natural, decaying low-end bloom."
+          "summary": "While Clip A establishes a highly textured, gritty, and tactile lo-fi industrial aesthetic, Clip B presents as a clean, synthetic pitch sweep that lacks any physical or metallic impact transient. It fails to meet the structural requirements of the spec and feels completely disconnected from the established analog-dread art direction."
+        },
+        {
+          "heard_a": "A series of four identical, highly compressed, low-fidelity impacts featuring a sharp, distorted transient, a gritty mid-range crunch, and a rapid, gated decay.",
+          "heard_b": "A single continuous event starting with a soft, muffled low-frequency swell that transitions into a resonant, hollow metallic ring with a long, smooth decay.",
+          "matches_spec": true,
+          "p_shippable": 0.85,
+          "better_or_worse": "comparable craft",
+          "amateur_tells": [],
+          "summary": "Clip B perfectly captures the requested somber, respectful tone for recovering a wreck, avoiding any triumphant brightness. It matches the lo-fi, dark industrial aesthetic of Clip A through its muted high-end and hollow, metallic resonance. The sound is clean, evocative, and ready to ship with only minor level adjustments needed to sit in the final mix."
         }
       ],
       "anchored": true,
       "anchor": "terminal_open",
       "better_or_worse": [
         "comparable craft",
-        "B clearly worse"
+        "comparable craft",
+        "B clearly worse",
+        "comparable craft"
       ],
       "category": "pickup"
     },
     {
       "name": "seed_plant",
       "spec": "a station kit anchoring into deck plate: heavy mechanical thunk of anchor bolts driving home, then a rising power-up bloom as the station wakes",
-      "p_shippable": 0.1,
+      "p_shippable": 0.125,
       "matches_spec": false,
       "amateur_tells": [
-        "lacks the heavy mechanical thunk of anchor bolts driving home entirely",
-        "sounds like a generic, clean synthesizer pitch sweep rather than a gritty, lo-fi industrial power-up",
-        "completely misses the low-end weight, analog grit, and texture established by Clip A",
-        "thin, lightweight transient lacking the physical weight of heavy anchor bolts",
-        "sterile, digital synthesizer sweep that lacks the lo-fi, gritty, analog-industrial texture established in Clip A",
-        "abrupt, unnatural gate at the end of the rise with no mechanical resonance or decay"
+        "The mechanical anchor sound lacks any low-end weight or physical cabinet resonance, sounding like a thin metallic click rather than a heavy bolt driving into a deck plate.",
+        "The rising power-up bloom is a generic, clean synthesizer pitch sweep that lacks the lo-fi, saturated, industrial grit established by Clip A.",
+        "The transition between the initial impact and the pitch rise is disjointed, lacking the cohesive acoustic glue of a single physical machine activating.",
+        "lacks the heavy mechanical thunk of anchor bolts entirely",
+        "missing the low-end weight and physical impact required for a heavy mechanical event",
+        "the power-up bloom sounds like a generic synthesizer sweep rather than a gritty, industrial station awakening",
+        "The rising power-up bloom sounds like a clean, generic synthesizer sweep rather than a gritty, lo-fi analog machine waking up.",
+        "The initial impact lacks the heavy, low-end weight and mechanical complexity expected of heavy anchor bolts driving into deck plating.",
+        "no low-frequency weight or physical impact",
+        "sounds like a generic, thin sci-fi UI sweep rather than a gritty, lo-fi industrial power-up"
       ],
-      "summary": "Clip B fails to meet its design spec as it lacks any representation of the heavy mechanical anchor bolts driving home. Furthermore, its clean, digital synthesizer texture completely misses the gritty, lo-fi, analog-industrial aesthetic calibrated by Clip A. The sound is far too lightweight and clean to fit into a Teleglitch-adjacent cosmic-horror universe. | While Clip A establishes a beautifully gritty, heavy, and saturated lo-fi industrial aesthetic, Clip B feels like a generic, clean synthesizer preset. It completely fails the physical spec of a 'heavy mechanical thunk' and lacks the analog dread, texture, and weight required to fit into this game's universe.",
-      "n_passes": 2,
-      "n_ok": 2,
+      "summary": "While Clip A establishes a masterclass in gritty, low-fi, industrial weight with its saturated and heavily gated thud, Clip B fails to meet both its own design spec and the game's aesthetic bar. The candidate sound lacks the physical weight required for a heavy mechanical anchor and relies on a clean, generic synth sweep that completely misses the established analog-dread texture. To make this shippable, the impact needs massive low-end reinforcement, and the power-up bloom needs to be run through analog distortion, sample-rate reduction, or tape saturation to match the gritty universe of Clip A. | Clip B completely fails to deliver on its design spec, lacking any representation of the heavy mechanical anchor bolts driving home. Furthermore, its clean, synthetic high-frequency sweep lacks the lo-fi, saturated, and gritty analog-industrial texture calibrated by Clip A. It reads as a generic sci-fi UI or laser sound rather than a heavy, physical piece of station machinery powering up. | While Clip A establishes a masterclass in gritty, textured, and heavily saturated lo-fi industrial design, Clip B feels far too clean, digital, and lightweight. The candidate sound lacks the mechanical weight required for the anchor bolts and uses a generic synthesizer sweep for the power-up bloom that completely misses the established cosmic-horror aesthetic. To fit this game, Clip B needs severe distortion, downsampling, and a much heavier, dirtier low-end transient. | Clip B completely fails to meet its design spec, lacking any of the heavy, mechanical, low-end impact required for anchoring bolts. It presents as a thin, high-frequency synthetic sweep that entirely misses the lo-fi, gritty, analog-industrial aesthetic established by Clip A.",
+      "n_passes": 4,
+      "n_ok": 4,
       "n_error": 0,
       "errors": [],
       "raw_passes": [
         {
-          "heard_a": "A series of four identical, dry, low-mid heavy thuds with a very fast attack, a gritty analog saturation texture, and a rapid, gated decay.",
-          "heard_b": "A synthetic, clean pitch sweep rising rapidly in frequency with a smooth, digital texture and no initial low-frequency mechanical impact or heavy transient.",
+          "heard_a": "A series of four identical, dry, low-mid frequency thuds with a very fast attack, a gritty, saturated texture, and an extremely abrupt, gated decay.",
+          "heard_b": "A sharp, metallic transient with a high-frequency ring, followed immediately by a synthetic pitch sweep that rises rapidly in frequency and amplitude before cutting off.",
           "matches_spec": false,
           "p_shippable": 0.1,
           "better_or_worse": "B clearly worse",
           "amateur_tells": [
-            "lacks the heavy mechanical thunk of anchor bolts driving home entirely",
-            "sounds like a generic, clean synthesizer pitch sweep rather than a gritty, lo-fi industrial power-up",
-            "completely misses the low-end weight, analog grit, and texture established by Clip A"
+            "The mechanical anchor sound lacks any low-end weight or physical cabinet resonance, sounding like a thin metallic click rather than a heavy bolt driving into a deck plate.",
+            "The rising power-up bloom is a generic, clean synthesizer pitch sweep that lacks the lo-fi, saturated, industrial grit established by Clip A.",
+            "The transition between the initial impact and the pitch rise is disjointed, lacking the cohesive acoustic glue of a single physical machine activating."
           ],
-          "summary": "Clip B fails to meet its design spec as it lacks any representation of the heavy mechanical anchor bolts driving home. Furthermore, its clean, digital synthesizer texture completely misses the gritty, lo-fi, analog-industrial aesthetic calibrated by Clip A. The sound is far too lightweight and clean to fit into a Teleglitch-adjacent cosmic-horror universe."
+          "summary": "While Clip A establishes a masterclass in gritty, low-fi, industrial weight with its saturated and heavily gated thud, Clip B fails to meet both its own design spec and the game's aesthetic bar. The candidate sound lacks the physical weight required for a heavy mechanical anchor and relies on a clean, generic synth sweep that completely misses the established analog-dread texture. To make this shippable, the impact needs massive low-end reinforcement, and the power-up bloom needs to be run through analog distortion, sample-rate reduction, or tape saturation to match the gritty universe of Clip A."
         },
         {
-          "heard_a": "A series of four identical, dry, low-mid heavy percussive thuds with a very fast attack, a gritty analog saturation texture, and a rapid, gated decay.",
-          "heard_b": "A sharp, metallic transient click followed immediately by a synthetic, clean pitch-modulated sweep that rises rapidly in frequency and volume before cutting off abruptly.",
+          "heard_a": "A low-frequency, heavily saturated industrial thud with a sharp, clipped transient and a short, gritty, distorted decay.",
+          "heard_b": "A synthetic, high-frequency laser-like sweep that rises rapidly in pitch with a metallic, resonant texture and a sudden, abrupt cutoff.",
           "matches_spec": false,
           "p_shippable": 0.1,
           "better_or_worse": "B clearly worse",
           "amateur_tells": [
-            "thin, lightweight transient lacking the physical weight of heavy anchor bolts",
-            "sterile, digital synthesizer sweep that lacks the lo-fi, gritty, analog-industrial texture established in Clip A",
-            "abrupt, unnatural gate at the end of the rise with no mechanical resonance or decay"
+            "lacks the heavy mechanical thunk of anchor bolts entirely",
+            "missing the low-end weight and physical impact required for a heavy mechanical event",
+            "the power-up bloom sounds like a generic synthesizer sweep rather than a gritty, industrial station awakening"
           ],
-          "summary": "While Clip A establishes a beautifully gritty, heavy, and saturated lo-fi industrial aesthetic, Clip B feels like a generic, clean synthesizer preset. It completely fails the physical spec of a 'heavy mechanical thunk' and lacks the analog dread, texture, and weight required to fit into this game's universe."
+          "summary": "Clip B completely fails to deliver on its design spec, lacking any representation of the heavy mechanical anchor bolts driving home. Furthermore, its clean, synthetic high-frequency sweep lacks the lo-fi, saturated, and gritty analog-industrial texture calibrated by Clip A. It reads as a generic sci-fi UI or laser sound rather than a heavy, physical piece of station machinery powering up."
+        },
+        {
+          "heard_a": "A sequence of four identical, dry, low-frequency thuds with a fast attack, a gritty mid-range texture, and an immediate, gated decay.",
+          "heard_b": "A sharp, metallic transient with a high-frequency ring, followed immediately by a synthetic, pitch-rising sweep that has a smooth, clean texture and a long, resonant tail.",
+          "matches_spec": false,
+          "p_shippable": 0.2,
+          "better_or_worse": "B clearly worse",
+          "amateur_tells": [
+            "The rising power-up bloom sounds like a clean, generic synthesizer sweep rather than a gritty, lo-fi analog machine waking up.",
+            "The initial impact lacks the heavy, low-end weight and mechanical complexity expected of heavy anchor bolts driving into deck plating."
+          ],
+          "summary": "While Clip A establishes a masterclass in gritty, textured, and heavily saturated lo-fi industrial design, Clip B feels far too clean, digital, and lightweight. The candidate sound lacks the mechanical weight required for the anchor bolts and uses a generic synthesizer sweep for the power-up bloom that completely misses the established cosmic-horror aesthetic. To fit this game, Clip B needs severe distortion, downsampling, and a much heavier, dirtier low-end transient."
+        },
+        {
+          "heard_a": "A low-frequency, heavily saturated industrial thud with a sharp, clipped transient and a short, gritty, low-mid decay.",
+          "heard_b": "A synthetic, high-frequency laser-like pitch sweep that rises rapidly with a thin, digital texture and no low-end weight or mechanical impact.",
+          "matches_spec": false,
+          "p_shippable": 0.1,
+          "better_or_worse": "B clearly worse",
+          "amateur_tells": [
+            "lacks the heavy mechanical thunk of anchor bolts entirely",
+            "no low-frequency weight or physical impact",
+            "sounds like a generic, thin sci-fi UI sweep rather than a gritty, lo-fi industrial power-up"
+          ],
+          "summary": "Clip B completely fails to meet its design spec, lacking any of the heavy, mechanical, low-end impact required for anchoring bolts. It presents as a thin, high-frequency synthetic sweep that entirely misses the lo-fi, gritty, analog-industrial aesthetic established by Clip A."
         }
       ],
       "anchored": true,
       "anchor": "terminal_open",
       "better_or_worse": [
+        "B clearly worse",
+        "B clearly worse",
         "B clearly worse",
         "B clearly worse"
       ],
@@ -1804,52 +1936,90 @@
     {
       "name": "reprint",
       "spec": "a fresh frame printing at the seed after death, resurrection as industrial process: a rising fabricator-field whine, accelerating mechanical layer-strikes with a liturgical cadence, a hushed detuned bell-chime, then a bright power-on chord as the frame comes online",
-      "p_shippable": 0.25,
+      "p_shippable": 0.2,
       "matches_spec": false,
       "amateur_tells": [
-        "The frequency balance is too clean and lacks the gritty, low-fi saturation established in Clip A.",
-        "The transient of the chime is overly bright and digital, missing the analog-industrial weight and distortion of the game's aesthetic.",
-        "The decay of the final chord is too pristine and linear, lacking the mechanical or tape-like degradation expected in this universe.",
-        "The sound is completely clean and lacks any of the lo-fi, saturated, or gritty analog-industrial texture established by Clip A.",
-        "The mechanical layer-strikes with a liturgical cadence are entirely missing from the sequence.",
-        "The final power-on chord lacks weight, sounding like a generic, high-frequency synth preset rather than a heavy industrial fabrication process."
+        "thin, clean digital synthesis lacking industrial grit",
+        "absence of mechanical layer-strikes or liturgical cadence",
+        "no hushed detuned bell-chime",
+        "lacks the lo-fi, analog-industrial dread established by Clip A",
+        "The final power-on chord is too clean, bright, and digitally pristine, lacking the saturated, lo-fi grit and analog degradation established in Clip A.",
+        "The mechanical layer-strikes sound like a generic, thin synthetic click rather than heavy, industrial machinery.",
+        "The frequency balance is overly weighted in the high-mids and highs, missing the oppressive, heavy low-end weight characteristic of the game's aesthetic.",
+        "Lacks the specified mechanical layer-strikes with liturgical cadence",
+        "Missing the final bright power-on chord",
+        "The upward whine sounds like a generic toy synthesizer sweep rather than a gritty, industrial fabricator-field",
+        "Extremely thin frequency balance with no low-end weight or industrial grit to match the established aesthetic",
+        "Excessive high-frequency brightness that lacks the lo-fi, saturated grit of the game's aesthetic",
+        "A clean, digital reverb tail that sounds like an off-the-shelf preset rather than a claustrophobic, industrial space",
+        "Lack of low-end weight or analog distortion to glue the mechanical strikes and the final power-on chord together"
       ],
-      "summary": "While Clip B successfully follows the structural beats of the design spec, its execution is far too clean, digital, and sci-fi-generic for this game's established universe. It lacks the saturated, low-fi grit, analog distortion, and heavy industrial weight demonstrated in Clip A. To be shippable, it needs aggressive bit-crushing, tape saturation, and a much dirtier, more mechanical texture to ground it in the cosmic-horror aesthetic. | While Clip B attempts the pitch rise and chime elements of the spec, it completely misses the aesthetic mark established by Clip A. It is far too clean, digital, and lightweight, lacking any of the gritty, distorted, industrial dread required for this game's universe. To be usable, it needs heavy saturation, bit-crushing, mechanical transient layers, and a much darker, more menacing frequency balance.",
-      "n_passes": 2,
-      "n_ok": 2,
+      "summary": "Clip B fails to meet almost every requirement of its intended spec, delivering a clean, sci-fi arcade sound instead of a gritty, mechanical resurrection process. It completely lacks the lo-fi, analog-industrial texture calibrated by Clip A, sounding like it belongs in a different game entirely. | While Clip B successfully follows the structural beats of the design spec, its execution is far too clean and polite for the established universe. It lacks the saturated, distorted, and claustrophobic analog-industrial dread calibrated by Clip A. To be shippable, it needs heavy saturation, bit-crushing, and a much grittier, weightier low-end presence. | Clip B fails to deliver on almost every front of its design specification, missing the mechanical strikes, liturgical cadence, and the final power-on chord entirely. Furthermore, its clean, thin, and toy-like synthetic textures completely miss the gritty, low-fi, analog-industrial dread calibrated by Clip A. It sounds like an unfinished placeholder from a different genre. | While Clip B accurately follows the structural beats of the design spec, its execution is far too clean, bright, and digital for the established lo-fi industrial cosmic-horror aesthetic. It lacks the saturated, gritty, and compressed analog dread calibrated by Clip A, making it sound like it belongs in a generic sci-fi UI rather than a dark, Teleglitch-adjacent universe. To make this shippable, it needs heavy saturation, low-pass filtering, and a much dirtier, more claustrophobic acoustic space.",
+      "n_passes": 4,
+      "n_ok": 4,
       "n_error": 0,
       "errors": [],
       "raw_passes": [
         {
-          "heard_a": "A low-frequency, heavily saturated industrial thud with a sharp, distorted transient, a gritty mid-range texture, and a rapid, gated decay that repeats four times.",
-          "heard_b": "A synthetic, rising pitch sweep accompanied by a metallic, resonant chime and a bright, clean electronic chord that decays smoothly into silence.",
-          "matches_spec": true,
-          "p_shippable": 0.4,
-          "better_or_worse": "B clearly worse",
-          "amateur_tells": [
-            "The frequency balance is too clean and lacks the gritty, low-fi saturation established in Clip A.",
-            "The transient of the chime is overly bright and digital, missing the analog-industrial weight and distortion of the game's aesthetic.",
-            "The decay of the final chord is too pristine and linear, lacking the mechanical or tape-like degradation expected in this universe."
-          ],
-          "summary": "While Clip B successfully follows the structural beats of the design spec, its execution is far too clean, digital, and sci-fi-generic for this game's established universe. It lacks the saturated, low-fi grit, analog distortion, and heavy industrial weight demonstrated in Clip A. To be shippable, it needs aggressive bit-crushing, tape saturation, and a much dirtier, more mechanical texture to ground it in the cosmic-horror aesthetic."
-        },
-        {
-          "heard_a": "A low-frequency, heavily saturated industrial thud with a sharp, distorted transient, a gritty mid-range texture, and a rapid, gated decay that repeats four times.",
-          "heard_b": "A synthetic, rising pitch sweep that transitions into a bright, clean FM-style bell chime with a long, smooth digital reverb tail.",
+          "heard_a": "A heavy, low-frequency industrial thud or mechanical stomp with a sharp, distorted transient attack, a gritty mid-range texture, and a rapid, gated decay.",
+          "heard_b": "A synthetic, rising pitch sweep that transitions into a series of rapid, high-frequency digital bleeps, ending with a clean, resonant synthesizer chord.",
           "matches_spec": false,
           "p_shippable": 0.1,
           "better_or_worse": "B clearly worse",
           "amateur_tells": [
-            "The sound is completely clean and lacks any of the lo-fi, saturated, or gritty analog-industrial texture established by Clip A.",
-            "The mechanical layer-strikes with a liturgical cadence are entirely missing from the sequence.",
-            "The final power-on chord lacks weight, sounding like a generic, high-frequency synth preset rather than a heavy industrial fabrication process."
+            "thin, clean digital synthesis lacking industrial grit",
+            "absence of mechanical layer-strikes or liturgical cadence",
+            "no hushed detuned bell-chime",
+            "lacks the lo-fi, analog-industrial dread established by Clip A"
           ],
-          "summary": "While Clip B attempts the pitch rise and chime elements of the spec, it completely misses the aesthetic mark established by Clip A. It is far too clean, digital, and lightweight, lacking any of the gritty, distorted, industrial dread required for this game's universe. To be usable, it needs heavy saturation, bit-crushing, mechanical transient layers, and a much darker, more menacing frequency balance."
+          "summary": "Clip B fails to meet almost every requirement of its intended spec, delivering a clean, sci-fi arcade sound instead of a gritty, mechanical resurrection process. It completely lacks the lo-fi, analog-industrial texture calibrated by Clip A, sounding like it belongs in a different game entirely."
+        },
+        {
+          "heard_a": "A series of four identical, highly compressed low-end thuds with a gritty, distorted mid-range tail. The sound has a very fast attack, a saturated, lo-fi industrial texture, and a rapid decay that feels choked and claustrophobic.",
+          "heard_b": "A synthetic, rising pitch sweep accompanied by a rapid, mechanical clicking sequence that accelerates slightly. It culminates in a bright, clean, digital synthesizer chord with a lingering, resonant high-frequency decay.",
+          "matches_spec": true,
+          "p_shippable": 0.3,
+          "better_or_worse": "B clearly worse",
+          "amateur_tells": [
+            "The final power-on chord is too clean, bright, and digitally pristine, lacking the saturated, lo-fi grit and analog degradation established in Clip A.",
+            "The mechanical layer-strikes sound like a generic, thin synthetic click rather than heavy, industrial machinery.",
+            "The frequency balance is overly weighted in the high-mids and highs, missing the oppressive, heavy low-end weight characteristic of the game's aesthetic."
+          ],
+          "summary": "While Clip B successfully follows the structural beats of the design spec, its execution is far too clean and polite for the established universe. It lacks the saturated, distorted, and claustrophobic analog-industrial dread calibrated by Clip A. To be shippable, it needs heavy saturation, bit-crushing, and a much grittier, weightier low-end presence."
+        },
+        {
+          "heard_a": "A heavy, low-frequency industrial thud with a sharp, distorted transient attack, followed by a gritty, low-mid digital decay that quickly gates to silence.",
+          "heard_b": "A synthetic, mid-range laser-like sweep that pitches upward, followed by a single, dry, high-pitched bell chime with no mechanical layers or power-on chord.",
+          "matches_spec": false,
+          "p_shippable": 0.1,
+          "better_or_worse": "B clearly worse",
+          "amateur_tells": [
+            "Lacks the specified mechanical layer-strikes with liturgical cadence",
+            "Missing the final bright power-on chord",
+            "The upward whine sounds like a generic toy synthesizer sweep rather than a gritty, industrial fabricator-field",
+            "Extremely thin frequency balance with no low-end weight or industrial grit to match the established aesthetic"
+          ],
+          "summary": "Clip B fails to deliver on almost every front of its design specification, missing the mechanical strikes, liturgical cadence, and the final power-on chord entirely. Furthermore, its clean, thin, and toy-like synthetic textures completely miss the gritty, low-fi, analog-industrial dread calibrated by Clip A. It sounds like an unfinished placeholder from a different genre."
+        },
+        {
+          "heard_a": "A series of four identical, highly compressed low-frequency thuds with a rapid, clipped decay. The sound has a gritty, distorted mid-range texture and a heavy, analog-saturated sub-bass transient.",
+          "heard_b": "A rising synthesized pitch sweep accompanied by a rapid sequence of metallic clicks, followed by a resonant, slightly detuned chime and a final bright, clean synthesizer chord. The frequency balance is heavily weighted toward the mid-to-high range with a very clean, digital texture and a lingering, smooth reverb tail.",
+          "matches_spec": true,
+          "p_shippable": 0.3,
+          "better_or_worse": "B clearly worse",
+          "amateur_tells": [
+            "Excessive high-frequency brightness that lacks the lo-fi, saturated grit of the game's aesthetic",
+            "A clean, digital reverb tail that sounds like an off-the-shelf preset rather than a claustrophobic, industrial space",
+            "Lack of low-end weight or analog distortion to glue the mechanical strikes and the final power-on chord together"
+          ],
+          "summary": "While Clip B accurately follows the structural beats of the design spec, its execution is far too clean, bright, and digital for the established lo-fi industrial cosmic-horror aesthetic. It lacks the saturated, gritty, and compressed analog dread calibrated by Clip A, making it sound like it belongs in a generic sci-fi UI rather than a dark, Teleglitch-adjacent universe. To make this shippable, it needs heavy saturation, low-pass filtering, and a much dirtier, more claustrophobic acoustic space."
         }
       ],
       "anchored": true,
       "anchor": "terminal_open",
       "better_or_worse": [
+        "B clearly worse",
+        "B clearly worse",
         "B clearly worse",
         "B clearly worse"
       ],

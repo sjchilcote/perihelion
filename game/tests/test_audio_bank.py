@@ -95,3 +95,24 @@ def test_manifest_covers_expected_sound_count():
     assert len(MANIFEST) >= 30, f"expected >=30 bank entries, got {len(MANIFEST)}"
     names = [e["name"] for e in MANIFEST]
     assert len(names) == len(set(names)), "duplicate sound names in MANIFEST"
+
+
+# Revival-economy and weapon sound names sim.py resolves via Audio._load()
+# (game/perihelion/audio.py: SFX_DIR / f"{name}.wav") -- must have their own
+# dedicated bank entries and wav files, not reuse an unrelated sound's name.
+NEW_REVIVAL_ECONOMY_SOUNDS = {
+    "fabricate_buy", "reprint", "seed_plant", "corpse_recover",
+    "scrap_fire", "gland_fire",
+}
+
+
+def test_manifest_covers_new_revival_economy_sounds():
+    names = {e["name"] for e in MANIFEST}
+    missing = NEW_REVIVAL_ECONOMY_SOUNDS - names
+    assert not missing, f"MANIFEST missing dedicated entries for: {sorted(missing)}"
+
+
+@pytest.mark.parametrize("name", sorted(NEW_REVIVAL_ECONOMY_SOUNDS))
+def test_new_revival_economy_sound_resolves_to_its_own_wav(name):
+    path = REPO_ROOT / "game" / "assets" / "sfx" / f"{name}.wav"
+    assert path.exists(), f"missing wav for {name}: {path}"

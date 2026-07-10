@@ -52,11 +52,11 @@ WEAPONS: dict[str, dict] = {
     # shot (ammo IS the currency), printed at any fabricator
     "scrap": dict(dmg=13, cd=46, speed=980.0, spread=math.radians(8.5),
                   pellets=3, ammo="components", per=2,
-                  sound="shotgun_fire", kick=5.5),
+                  sound="scrap_fire", kick=5.5),
     # a harvested spitter gland, grafted (Void path): fat slow caustic
     # glob; each discharge costs 1 integrity -- flesh feeds on the frame
     "gland": dict(dmg=16, cd=36, speed=560.0, spread=math.radians(2.5),
-                  pellets=1, hp_cost=1, sound="spitter_shoot", kick=3.0),
+                  pellets=1, hp_cost=1, sound="gland_fire", kick=3.0),
 }
 WEAPON_ORDER = ["knife", "pistol", "smg", "shotgun", "rail", "lightning",
                 "tau", "hole", "scrap", "gland"]
@@ -1544,7 +1544,7 @@ class GameSession:
                 c = p.get("contents", {})
                 self.components += c.get("components", 0)
                 self.station_kits += c.get("station_kits", 0)
-                self._snd("pickup_key", proom, (x, y))
+                self._snd("corpse_recover", proom, (x, y))
                 got = []
                 if c.get("components"):
                     got.append(f"+{c['components']} COMPONENTS")
@@ -1623,7 +1623,7 @@ class GameSession:
         px, py = self.player_pos()
         self.station_kits -= 1
         self.add_station(proom, (px, py))
-        self._snd("terminal_open", proom, (px, py))
+        self._snd("seed_plant", proom, (px, py))
         self._objective("SEED PLANTED - REVIVAL ANCHORED HERE")
         self._park_oob(mark)
         return True
@@ -1652,7 +1652,7 @@ class GameSession:
             self.ammo[t] = self.ammo.get(t, 0) + n
         mark = len(self.fx)
         proom = self.player_room()
-        self._snd("pickup_key", proom, self.player_pos())
+        self._snd("fabricate_buy", proom, self.player_pos())
         self.fx.append(("pickup_text", proom, self.player_pos(),
                         f"-{cost} COMPONENTS"))
         self._park_oob(mark)
@@ -1774,7 +1774,7 @@ class GameSession:
             necore.mat_translate(-px, -py))
         mark = len(self.fx)
         self._objective(f"REPRINTED - {self.chassis} CHASSIS RACKED")
-        self._snd("terminal_open", room, (px, py))
+        self._snd("reprint", room, (px, py))
         self._park_oob(mark)
         return True
 
