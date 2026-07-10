@@ -121,6 +121,19 @@ def _wing_district(b: LevelBuilder, dx: float) -> dict:
 
     d: dict = {}
 
+    # --- south antechamber off the wing room's own south wall (y=170 is
+    # NOT one of the reserved paradox walls -- only w3's south/west and
+    # w1/e1's north are reserved). A 30 s AggroBot walk from spawn spends
+    # most of its time fighting the squad in w1/e1 itself, so this is the
+    # room that actually moves this level's median (rule 1): a real 180 u
+    # doorway straight off the wing room, not a detour through the deck
+    # junction slot. ---
+    d["ws1"] = R(-180, 170, 180, 90, "quarters")
+    d["ws2"] = R(-180, 260, 90, 90, "storage")
+    d["ws3"] = R(-90, 260, 90, 90, "storage")
+    d["ws4"] = R(-180, 350, 90, 80, "storage")
+    d["ws5"] = R(-90, 350, 90, 80, "storage")
+
     # --- north maintenance band (attaches to w2's north wall only; w1's
     # north wall is the bunk_f secret and w3's carries e3's twin terminal) --
     d["nt2"] = R(-300, -30, 80, 40, "corridor")     # 80u door out of w2

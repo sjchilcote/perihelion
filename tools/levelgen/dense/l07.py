@@ -174,9 +174,13 @@ def l07() -> LevelBuilder:
     a3 = rect_c(b, 1390, 25, 110, 90, cut="ne", kind="corridor")  # bend
     v1 = b.rect(1400, 115, 90, 100, kind="corridor")
     v2 = b.rect(1400, 215, 90, 90, kind="corridor")
-    h1 = b.rect(1400, 305, 110, 90, kind="corridor")
-    h2 = b.rect(1510, 305, 90, 90, kind="corridor")
-    h3 = rect_c(b, 1600, 305, 100, 90, cut="ne", kind="corridor")
+    # h-row grown from 90 to 150 u tall (south wall only -- the 75 u gap
+    # down to guard/g_stub at y=470 is otherwise empty): the checkpoint
+    # approach is what a 30 s AggroBot walk from spawn actually samples, so
+    # widening its portals is what moves this level's median (rule 1).
+    h1 = b.rect(1400, 305, 110, 150, kind="corridor")
+    h2 = b.rect(1510, 305, 90, 150, kind="corridor")
+    h3 = rect_c(b, 1600, 305, 100, 150, cut="ne", kind="corridor")
     rotunda = b.ngon(1815, 350, 110, 8, phase=math.pi / 8, kind="transit")
     a_alc1 = b.rect(1315, -35, 60, 60, kind="storage")       # slot off a2 north
     a_alc2 = b.rect(1490, 230, 60, 60, kind="storage")       # slot off v2 east
@@ -226,12 +230,17 @@ def l07() -> LevelBuilder:
     b.connect_pts(ow, (1545, 2140), aisles[2][6], (1570, 2115))
     b.connect_pts(ow, (1635, 2140), aisles[3][6], (1610, 2115))
     # shelf-rank slot portals between adjacent aisles (skip the pair the
-    # otherworld cell owns, and the mouth rows next to the corridors)
+    # otherworld cell owns, and the mouth rows next to the corridors).
+    # Density tuning: two rows open for every one skipped (was checkerboard,
+    # half the rows) -- the aisle district is ~140 of this level's 231
+    # cells and its shelf-bay cells (90x50) are too narrow to see far down
+    # their own aisle, so cross-aisle sightlines are what carries this
+    # district's potentially-visible count into the Marathon band (rule 1).
     for i in range(8):
         for k in range(1, 15):
             if k >= min(len(aisles[i]), len(aisles[i + 1])):
                 continue
-            if (i + k) % 2 == 0:
+            if (i + k) % 3 == 0:
                 continue
             if i == 2 and k in (6, 7):
                 continue  # ow holds aisle2[6].east / aisle3[6].west

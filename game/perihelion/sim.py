@@ -139,6 +139,10 @@ class GameSession:
                  screen: tuple[int, int] = (480, 270), zoom: float = 1.35,
                  player_state: dict | None = None, difficulty: str = "normal"):
         self.level = level
+        # Soft (otherworld) rooms deform level.room_verts in place via the
+        # per-tick refresh; copy so a Level object reused across sessions
+        # never inherits another session's deformations.
+        level.room_verts = [list(map(tuple, vs)) for vs in level.room_verts]
         self.difficulty = difficulty
         self._hp_mul = 1.35 if difficulty == "hard" else 1.0
         self._dmg_mul = 1.25 if difficulty == "hard" else 1.0

@@ -125,8 +125,16 @@ def l03() -> LevelBuilder:
     p5 = _chain(b, 533, -425, 90, 80, 2)
     p6 = _chain(b, 623, -425, 90, 80, 2)
 
-    # lab annex: a 3x3 chamber cluster opening south onto the whole spine
+    # lab annex: a 3x3 chamber cluster opening south onto the whole spine.
+    # Sight-line break: sever the center cell's N/S interior seams (it
+    # keeps its E/W seams, so the grid stays fully connected via the
+    # middle row) -- this cluster sits right on the spine approach a 30 s
+    # AggroBot walk actually samples, and a fully-open 3x3 grid welded onto
+    # an already-open spine is a real contributor to this level's measured
+    # over-flood (med 18, target 8-16).
     ch2 = _grid(b, 173, -695, 3, 3, 90, 90, "lab")
+    b.no_connect(ch2[1][1], ch2[0][1])
+    b.no_connect(ch2[1][1], ch2[2][1])
     # dead-end tool alcove off the annex's north face (chamfered)
     alc_ch2 = b.poly([(283, -755), (323, -755), (343, -735),
                       (343, -695), (283, -695)])

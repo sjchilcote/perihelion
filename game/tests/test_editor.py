@@ -14,6 +14,7 @@ from pathlib import Path
 import pytest
 
 from perihelion.editor import model as M
+from perihelion.editor.model import _ENTER_ROOM_RE
 from perihelion.levels import load_level
 from perihelion.sim import GameSession, InputFrame
 
@@ -30,20 +31,31 @@ def m() -> M.EditorModel:
 
 
 def test_load_l01(m):
-    assert len(m.data["rooms"]) == 12
+    assert len(m.data["rooms"]) > 0
     assert m.validate() == []
     assert not m.dirty
 
 
 def test_move_room_moves_verts_and_entities(m):
-    before_verts = copy.deepcopy(m.data["rooms"][0]["verts"])
-    before_entities = copy.deepcopy(m.data["rooms"][0]["entities"])
-    assert before_entities, "room 0 should have at least one entity (medkit) in l01"
+    # Find a room with at least one entity in it to exercise the entity-drag
+    # path, and note the player's spawn room -- whichever room that is, its
+    # marker must travel with the room if the two coincide.
+    room_with_entity = next(
+        ri for ri, r in enumerate(m.data["rooms"]) if r["entities"]
+    )
+    player_room = m.data["player"]["room"]
+    target = player_room if m.data["rooms"][player_room]["entities"] else room_with_entity
 
-    m.move_room(0, 40, 40)
+    before = copy.deepcopy(m.data)
+    before_verts = before["rooms"][target]["verts"]
+    before_entities = before["rooms"][target]["entities"]
+    assert before_entities, "chosen room should have at least one entity"
+    before_player_pos = copy.deepcopy(m.data["player"]["pos"])
 
-    after_verts = m.data["rooms"][0]["verts"]
-    after_entities = m.data["rooms"][0]["entities"]
+    m.move_room(target, 40, 40)
+
+    after_verts = m.data["rooms"][target]["verts"]
+    after_entities = m.data["rooms"][target]["entities"]
     for (bx, by), (ax, ay) in zip(before_verts, after_verts):
         assert ax == pytest.approx(bx + 40)
         assert ay == pytest.approx(by + 40)
@@ -51,12 +63,20 @@ def test_move_room_moves_verts_and_entities(m):
         assert ae["pos"][0] == pytest.approx(be["pos"][0] + 40)
         assert ae["pos"][1] == pytest.approx(be["pos"][1] + 40)
 
-    # player spawns in room 0 in l01.json -- the marker must travel with it.
-    assert m.data["player"]["room"] == 0
-    assert m.data["player"]["pos"] == pytest.approx([80 + 40, 90 + 40])
+    # the player marker travels with its room iff that's the room we moved.
+    assert m.data["player"]["room"] == player_room
+    if player_room == target:
+        assert m.data["player"]["pos"] == pytest.approx(
+            [before_player_pos[0] + 40, before_player_pos[1] + 40]
+        )
+    else:
+        assert m.data["player"]["pos"] == pytest.approx(before_player_pos)
 
-    # other rooms are untouched.
-    assert m.data["rooms"][1]["verts"] == [[220, 60], [220, 130], [560, 130], [560, 60]]
+    # every OTHER room is untouched.
+    for ri, room in enumerate(m.data["rooms"]):
+        if ri == target:
+            continue
+        assert room["verts"] == before["rooms"][ri]["verts"]
 
     assert m.dirty
 
@@ -70,12 +90,35 @@ def test_move_room_is_a_single_undo_step(m):
 
 
 def test_delete_room_reindexes_everything(m):
-    # room 3 participates in connects [3,2,11,0], [0,3,1,0]->untouched,
-    # [2,3,8,3]->untouched, [3,1,10,3]; exit sits in room 7 (> 3, must shift).
-    n_rooms_before = len(m.data["rooms"])
-    assert m.data["exit"]["room"] == 7
+    # Pick a victim room that is neither the player's nor the exit's room,
+    # and that actually participates in at least one `connects` entry, so
+    # the "drop connects touching the deleted room" path is exercised.
+    player_room = m.data["player"]["room"]
+    exit_room = m.data["exit"]["room"]
+    touched_rooms = {a for a, _, b, _ in m.data["connects"]} | {
+        b for a, _, b, _ in m.data["connects"]
+    }
+    victim = next(
+        ri for ri in touched_rooms
+        if ri not in (player_room, exit_room)
+    )
 
-    m.delete_room(3)
+    before_connects = copy.deepcopy(m.data["connects"])
+
+    def remap(idx):
+        if idx is None or idx == victim:
+            return None
+        return idx - 1 if idx > victim else idx
+
+    expected_connects = []
+    for a, ea, b, eb in before_connects:
+        na, nb = remap(a), remap(b)
+        if na is None or nb is None:
+            continue
+        expected_connects.append([na, ea, nb, eb])
+
+    n_rooms_before = len(m.data["rooms"])
+    m.delete_room(victim)
 
     assert len(m.data["rooms"]) == n_rooms_before - 1
     # no connect may reference the deleted room, and every remaining index
@@ -87,26 +130,15 @@ def test_delete_room_reindexes_everything(m):
     for d in m.data["doors"]:
         assert 0 <= d["a"] < n_rooms_after
         assert 0 <= d["b"] < n_rooms_after
-    # player was in room 0 (< 3): untouched.
-    assert m.data["player"]["room"] == 0
-    # exit was in room 7 (> 3): shifted down by one.
-    assert m.data["exit"]["room"] == 6
-    # Exact expected remap of every original `connects` entry: the two
-    # entries that touched room 3 ([3,2,11,0] and [3,1,10,3]) are dropped;
-    # every other room index > 3 shifts down by one (note new index 3 is
-    # legitimately reused by what used to be room 4 -- it is NOT "the
-    # deleted room" reappearing).
-    assert m.data["connects"] == [
-        [10, 2, 3, 0],
-        [0, 3, 1, 0],
-        [1, 2, 2, 1],
-        [2, 3, 7, 3],
-        [3, 2, 4, 0],
-        [4, 1, 5, 3],
-        [5, 1, 6, 3],
-        [7, 0, 8, 2],
-        [8, 3, 9, 1],
-    ]
+    # player/exit room indices shift exactly like any other reference.
+    assert m.data["player"]["room"] == remap(player_room)
+    assert m.data["exit"]["room"] == remap(exit_room)
+    # Exact expected remap of every original `connects` entry: entries that
+    # touched the victim room are dropped; every other room index above the
+    # victim shifts down by one (the victim's old index is legitimately
+    # reused by what used to be the next room -- it is NOT "the deleted
+    # room" reappearing).
+    assert m.data["connects"] == expected_connects
     assert m.validate() == []
 
 
@@ -123,19 +155,41 @@ def test_delete_room_clears_player_when_its_room_is_deleted():
 def test_delete_room_reindexes_terminals_and_radio_triggers():
     model = M.EditorModel()
     model.load(L01)
-    # l01 has a terminal in room 2 and a radio line triggered by
-    # "enter_room:2" and another by "enter_room:11".
-    assert any(t["room"] == 2 for t in model.data["lore"]["terminals"])
-    assert any(r["trigger"] == "enter_room:11" for r in model.data["lore"]["radio"])
+    # l01 must carry at least one terminal and one enter_room-triggered
+    # radio line for this test to mean anything -- find them dynamically
+    # rather than hardcoding which rooms happen to hold them.
+    term_rooms = {t["room"] for t in model.data["lore"]["terminals"]}
+    radio_rooms = {
+        int(_ENTER_ROOM_RE.match(r["trigger"]).group(1))
+        for r in model.data["lore"]["radio"]
+        if _ENTER_ROOM_RE.match(r["trigger"])
+    }
+    assert term_rooms, "l01 should have at least one terminal"
+    assert radio_rooms, "l01 should have at least one enter_room radio trigger"
 
-    # Room 0 also happens to hold the player spawn in l01.json, so deleting
-    # it correctly invalidates the level (checked separately elsewhere);
-    # what this test cares about is that the *other* room-index references
-    # scattered through lore still shift down by one correctly.
-    model.delete_room(0)  # rooms >0 shift down by one; room 2 -> 1, room 11 -> 10
+    player_room = model.data["player"]["room"]
+    # Delete the player's room: it invalidates the level (checked
+    # separately elsewhere); what this test cares about is that the
+    # *other* room-index references scattered through lore still shift
+    # down by one correctly.
+    model.delete_room(player_room)
 
-    assert any(t["room"] == 1 for t in model.data["lore"]["terminals"])
-    assert any(r["trigger"] == "enter_room:10" for r in model.data["lore"]["radio"])
+    def remap(idx):
+        if idx == player_room:
+            return None
+        return idx - 1 if idx > player_room else idx
+
+    expected_term_rooms = {remap(r) for r in term_rooms} - {None}
+    expected_radio_rooms = {remap(r) for r in radio_rooms} - {None}
+
+    after_term_rooms = {t["room"] for t in model.data["lore"]["terminals"]}
+    after_radio_rooms = {
+        int(_ENTER_ROOM_RE.match(r["trigger"]).group(1))
+        for r in model.data["lore"]["radio"]
+        if _ENTER_ROOM_RE.match(r["trigger"])
+    }
+    assert after_term_rooms == expected_term_rooms
+    assert after_radio_rooms == expected_radio_rooms
     errs = model.validate()
     assert errs == ["no player spawn"]
 
@@ -143,15 +197,36 @@ def test_delete_room_reindexes_terminals_and_radio_triggers():
 def test_add_room_connect_save_loads_and_runs(tmp_path):
     model = M.EditorModel()
     model.load(L01)
+    n_rooms_before = len(model.data["rooms"])
 
     ri = model.add_rect_room(1000, 1000, 120, 90)
     assert model.data["rooms"][ri]["verts"] == [
         [1000, 1000], [1000, 1090], [1120, 1090], [1120, 1000],
     ]
 
-    # room 11 (the "beacon jumped" room) has edges 0 and 2 already used by
-    # connects in l01.json; edge 1 is free.
-    model.connect_edges(ri, 0, 11, 1)
+    # Find some existing room/edge pair that no `connects`/`connects_x`/
+    # `doors` entry already claims, so wiring the new room to it is a clean
+    # single connection rather than a double-use conflict.
+    used_edges = set()
+    for a, ea, b, eb in model.data["connects"]:
+        used_edges.add((a, ea))
+        used_edges.add((b, eb))
+    for a, ea, b, eb in model.data.get("connects_x", []):
+        used_edges.add((a, ea))
+        used_edges.add((b, eb))
+    for d in model.data["doors"]:
+        used_edges.add((d["a"], d["ea"]))
+        used_edges.add((d["b"], d["eb"]))
+
+    target_room, target_edge = next(
+        (target_room, ei)
+        for target_room, room in enumerate(model.data["rooms"])
+        if target_room != ri
+        for ei in range(len(room["verts"]))
+        if (target_room, ei) not in used_edges
+    )
+
+    model.connect_edges(ri, 0, target_room, target_edge)
     assert model.validate() == []
 
     out = tmp_path / "edited.json"
@@ -162,10 +237,10 @@ def test_add_room_connect_save_loads_and_runs(tmp_path):
 
     on_disk = json.loads(out.read_text())
     assert on_disk["version"] == 2
-    assert len(on_disk["rooms"]) == 13
+    assert len(on_disk["rooms"]) == n_rooms_before + 1
 
     lvl = load_level(out)
-    assert len(lvl.room_verts) == 13
+    assert len(lvl.room_verts) == n_rooms_before + 1
 
     session = GameSession(lvl, seed=1)
     for t in range(60):

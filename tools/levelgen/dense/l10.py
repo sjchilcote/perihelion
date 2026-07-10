@@ -481,7 +481,7 @@ def l10() -> LevelBuilder:
     cache(b, cp.ids[0][1], "ammo_9mm medkit", off=(0.0, 0.0))
 
     # CONCOURSE (otherworld): strand s1 east out of the checkpoint
-    s1 = Walk(b, *cp.door_cursor(1, 0, "E"), "E", w=80, kind="otherworld",
+    s1 = Walk(b, *cp.door_cursor(1, 0, "E"), "E", w=96, kind="otherworld",
               rng=rng)
     c1a = s1.cell(88)
     c1b = s1.cell(96)
@@ -507,7 +507,7 @@ def l10() -> LevelBuilder:
     squad(b, cha.ids[1][1], "mite spitter")
 
     # strand s2: chamber A east -> rotunda approach
-    s2 = Walk(b, *cha.door_cursor(3, 0, "E"), "E", w=80, kind="otherworld",
+    s2 = Walk(b, *cha.door_cursor(3, 0, "E"), "E", w=96, kind="otherworld",
               rng=rng)
     c2a = s2.cell(96)
     c2b = s2.cell(88)
@@ -533,7 +533,7 @@ def l10() -> LevelBuilder:
     b.connect_pts(s2_end, wall_mid(s2.rects[s2_end], "E"), rot, rot_mid(4))
 
     # strand s3: rotunda -> chamber B (the deep concourse hall)
-    s3 = Walk(b, 2700, 900, "E", w=80, kind="otherworld", rng=rng)
+    s3 = Walk(b, 2700, 900, "E", w=96, kind="otherworld", rng=rng)
     s3_first = s3.cell(96)
     b.connect_pts(rot, rot_mid(0), s3_first, wall_mid(s3.rects[s3_first], "W"))
     c3b = s3.cell(88)
@@ -551,7 +551,7 @@ def l10() -> LevelBuilder:
     # strand s4: rotunda north wall -> records pocket (normal island; a
     # filed place the otherworld hasn't digested). The first cell's south
     # edge sits ON the octagon's north edge: the splitter welds it.
-    s4 = Walk(b, *rot_mid(2), "N", w=80, kind="otherworld", rng=rng)
+    s4 = Walk(b, *rot_mid(2), "N", w=92, kind="otherworld", rng=rng)
     c4a = s4.cell(96)
     c4b = s4.cell(88)
     siderow(b, s4, [c4a], "E", depth=72)
@@ -570,14 +570,14 @@ def l10() -> LevelBuilder:
 
     # CHAMBER C hangs off the rotunda's south wall (same weld trick), with
     # a dead finger west — the otherworld pooling below the concourse
-    sc = Walk(b, *rot_mid(6), "S", w=80, kind="otherworld", rng=rng)
+    sc = Walk(b, *rot_mid(6), "S", w=92, kind="otherworld", rng=rng)
     cca = sc.cell(88)
     ccb = sc.cell(96)
     siderow(b, sc, [cca, ccb], "E", depth=72)
     siderow(b, sc, [cca, ccb], "W", depth=72)
     chc = chamber_at_cursor(b, sc, 3, 3, 96, "otherworld", rng, enter=1)
     squad(b, chc.ids[1][1], "mite")
-    scx = Walk(b, *chc.door_cursor(0, 1, "W"), "W", w=72, kind="otherworld",
+    scx = Walk(b, *chc.door_cursor(0, 1, "W"), "W", w=92, kind="otherworld",
                rng=rng)
     scx.cell(96)
     scx.alcove("N", mouth=48, depth=48)
@@ -587,7 +587,7 @@ def l10() -> LevelBuilder:
     # strand s5: service loop, chamber A south -> pillared hall P1 -> the
     # walk. P1 is a 5x4 grid with three solid pillar cells: corridors
     # bending around mass, the highest local flood in the district.
-    s5 = Walk(b, *cha.door_cursor(1, 2, "S"), "S", w=72, kind="otherworld",
+    s5 = Walk(b, *cha.door_cursor(1, 2, "S"), "S", w=92, kind="otherworld",
               rng=rng)
     c5p = s5.cell(88)
     c5q = s5.cell(96)
@@ -610,7 +610,7 @@ def l10() -> LevelBuilder:
     p1 = chamber_at_cursor(b, s5, 6, 4, 88, "otherworld", rng, enter=2,
                            holes={(1, 1), (3, 1), (2, 2), (4, 2)})
     squad(b, p1.ids[3][4], "mite")
-    s5x = Walk(b, *p1.door_cursor(1, 3, "S"), "S", w=80, kind="otherworld",
+    s5x = Walk(b, *p1.door_cursor(1, 3, "S"), "S", w=92, kind="otherworld",
                rng=rng)
     s5x.cell(88)
     s5x.turn("W", chamfer=True)
@@ -618,7 +618,7 @@ def l10() -> LevelBuilder:
     s5x.alcove("S", mouth=56, depth=48)
 
     # strand s6: chamber B south -> quarters pocket + dead fingers
-    s6 = Walk(b, *chb.door_cursor(1, 3, "S"), "S", w=80, kind="otherworld",
+    s6 = Walk(b, *chb.door_cursor(1, 3, "S"), "S", w=92, kind="otherworld",
               rng=rng)
     s6.cell(96)
     s6.alcove("W", mouth=56, depth=48)
@@ -637,7 +637,7 @@ def l10() -> LevelBuilder:
 
     # THE WALK: chamber B west -> long braided approach to the hex core
     # (row 2, not row 1: s3 already welds into (0,1)'s west wall)
-    s7 = Walk(b, *chb.door_cursor(0, 2, "W"), "W", w=80, kind="otherworld",
+    s7 = Walk(b, *chb.door_cursor(0, 2, "W"), "W", w=92, kind="otherworld",
               rng=rng)
     c7a = s7.cell(96)
     c7b = s7.cell(88)
@@ -694,7 +694,7 @@ def l10() -> LevelBuilder:
     p2 = chamber_at_cursor(b, s7b, 4, 4, 96, "otherworld", rng, enter=1,
                            holes={(1, 1), (2, 1), (1, 2), (2, 2)})
     squad(b, p2.ids[0][2], "husk")
-    s7c = Walk(b, *p2.door_cursor(0, 0, "W"), "W", w=80, kind="otherworld",
+    s7c = Walk(b, *p2.door_cursor(0, 0, "W"), "W", w=92, kind="otherworld",
                rng=rng)
     s7c.cell(88)
     s7c.turn("N", chamfer=True)
@@ -709,7 +709,7 @@ def l10() -> LevelBuilder:
 
     # concourse cross-link: chamber A north edge back to the entry strand —
     # the mesh reads as a district, not a tree
-    s8 = Walk(b, *cha.door_cursor(0, 0, "N"), "N", w=72, kind="otherworld",
+    s8 = Walk(b, *cha.door_cursor(0, 0, "N"), "N", w=92, kind="otherworld",
               rng=rng)
     c8a = s8.cell(88)
     c8b = s8.cell(96)
