@@ -193,6 +193,22 @@ class WorldStreamer:
             frontier = nxt_frontier
         raise RuntimeError(f"chunk at offset {lo}: no carvable wall anywhere")
 
+    # The relay conversations happen at PLACES (DIALOGUE_SCRIPT.md scene
+    # headers); the spine that hosts scene k dresses as that place and
+    # announces itself, instead of nine identical anonymous corridors
+    # (diegesis audit finding #1). Kinds reuse shipped prop generators.
+    SCENE_STAGES = {
+        0: ("dock", "CARGO RELAY"),
+        1: ("lab", "THE RESEARCHERS' APERTURE"),
+        2: ("chapel", "THE SCHOOL'S THRESHOLD"),
+        3: ("storage", "THE FABRICATOR ALCOVE"),
+        4: ("transit", "THE TRANSIT SPINE"),
+        5: ("chapel", "THE DOCENT HALL"),
+        6: ("corridor", "THE DEEP APPROACH"),
+        7: ("core", "THE VAULT ANTECHAMBER"),
+        8: ("generic", "A FORWARD SEED'S RELAY"),
+    }
+
     def _build_spine(self, chunk_idx: int) -> None:
         """Carve a doorway near chunk k's exit pad into a two-room transit
         spine. Its far end stays sealed until the next chunk loads."""
@@ -210,7 +226,10 @@ class WorldStreamer:
         s.sim.connect(spine_a, 2, spine_b, 0)
         c["spine_rooms"] = (spine_a, spine_b)
         s.level.room_seeds.extend([spine_a * 7919 + 13, spine_b * 7919 + 13])
-        s.level.room_kinds.extend(["transit", "transit"])
+        stage = self.SCENE_STAGES.get(self.start_chunk + chunk_idx,
+                                      ("transit", None))
+        c["spine_name"] = stage[1]
+        s.level.room_kinds.extend([stage[0], "transit"])
         # the spine joins chunk k and k+1: give it the midpoint descent so
         # the palette gradient crosses INSIDE the transit corridor (two
         # half-steps) instead of a full step at either doorway
@@ -264,6 +283,8 @@ class WorldStreamer:
         cur = self.chunks[self.current]
         # entering the spine streams the next chunk in
         if cur["spine_rooms"] and room in cur["spine_rooms"]:
+            if cur.get("spine_name"):
+                s.fx.append(("locname", cur.pop("spine_name")))
             self._load_next(self.current)
             self._retarget()
             return
