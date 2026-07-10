@@ -1,5 +1,5 @@
 {
-  "total_cost": 1.6495719999999994,
+  "total_cost": 1.6854894999999992,
   "calls": [
     {
       "tool": "generate",
@@ -2923,6 +2923,160 @@
       "completion_tokens": 810,
       "valid": false,
       "ts": 1783673661.570799
+    },
+    {
+      "tool": "naturalism_rank",
+      "cost": 0.003321,
+      "ts": 1783674057.099949,
+      "gap": 0,
+      "marathon_ref": "ex1_broadcast",
+      "film_ref": "t1",
+      "ranking": {
+        "game": 1,
+        "marathon": 3,
+        "film": 2,
+        "control": 4
+      }
+    },
+    {
+      "tool": "naturalism_rank",
+      "cost": 0.0027405,
+      "ts": 1783674059.4158964,
+      "gap": 4,
+      "marathon_ref": "ex7_confession",
+      "film_ref": "t2",
+      "ranking": {
+        "game": 2,
+        "marathon": 3,
+        "film": 1,
+        "control": 4
+      }
+    },
+    {
+      "tool": "naturalism_rank",
+      "cost": 0.003654,
+      "ts": 1783674066.2458725,
+      "gap": 0,
+      "marathon_ref": "ex1_broadcast",
+      "film_ref": "t1",
+      "ranking": {
+        "game": 1,
+        "marathon": 3,
+        "film": 2,
+        "control": 4
+      }
+    },
+    {
+      "tool": "naturalism_rank",
+      "cost": 0.003582,
+      "ts": 1783674068.429082,
+      "gap": 1,
+      "marathon_ref": "ex7_confession",
+      "film_ref": "t2",
+      "ranking": {
+        "game": 2,
+        "marathon": 3,
+        "film": 1,
+        "control": 4
+      }
+    },
+    {
+      "tool": "naturalism_rank",
+      "cost": 0.003285,
+      "ts": 1783674071.5768886,
+      "gap": 2,
+      "marathon_ref": "ex8_grievance",
+      "film_ref": "t3",
+      "ranking": {
+        "game": 2,
+        "marathon": 3,
+        "film": 1,
+        "control": 4
+      }
+    },
+    {
+      "tool": "naturalism_rank",
+      "cost": 0.0029685,
+      "ts": 1783674073.4753306,
+      "gap": 3,
+      "marathon_ref": "ex9_twohander",
+      "film_ref": "t4",
+      "ranking": {
+        "game": 2,
+        "marathon": 4,
+        "film": 1,
+        "control": 3
+      }
+    },
+    {
+      "tool": "naturalism_rank",
+      "cost": 0.003555,
+      "ts": 1783674077.1877358,
+      "gap": 4,
+      "marathon_ref": "ex1_broadcast",
+      "film_ref": "t1",
+      "ranking": {
+        "game": 1,
+        "marathon": 4,
+        "film": 2,
+        "control": 3
+      }
+    },
+    {
+      "tool": "naturalism_rank",
+      "cost": 0.0028125,
+      "ts": 1783674078.9615252,
+      "gap": 5,
+      "marathon_ref": "ex7_confession",
+      "film_ref": "t2",
+      "ranking": {
+        "game": 2,
+        "marathon": 3,
+        "film": 1,
+        "control": 4
+      }
+    },
+    {
+      "tool": "naturalism_rank",
+      "cost": 0.002988,
+      "ts": 1783674081.2887402,
+      "gap": 6,
+      "marathon_ref": "ex8_grievance",
+      "film_ref": "t3",
+      "ranking": {
+        "game": 2,
+        "marathon": 4,
+        "film": 1,
+        "control": 3
+      }
+    },
+    {
+      "tool": "naturalism_rank",
+      "cost": 0.0034245,
+      "ts": 1783674085.4237432,
+      "gap": 7,
+      "marathon_ref": "ex9_twohander",
+      "film_ref": "t4",
+      "ranking": {
+        "game": 1,
+        "marathon": 4,
+        "film": 2,
+        "control": 3
+      }
+    },
+    {
+      "tool": "naturalism_rank",
+      "cost": 0.0035865,
+      "ts": 1783674087.6021297,
+      "gap": 8,
+      "marathon_ref": "ex1_broadcast",
+      "film_ref": "t1",
+      "ranking": {
+        "game": 1,
+        "marathon": 3,
+        "film": 2,
+        "control": 4
+      }
     }
   ]
 }
