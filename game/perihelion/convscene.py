@@ -35,7 +35,7 @@ from typing import Callable, Optional
 
 import pygame
 
-from .menus import DIM_GREEN, PHOSPHOR_GREEN, Scene, _wrap, get_font
+from .menus import DIM_GREEN, PHOSPHOR_GREEN, Scene, _wrap, get_font, ui
 
 COMMANDO_BONE = (231, 214, 178)
 CHOICE_AMBER = (255, 200, 90)
@@ -44,10 +44,10 @@ HEADER = "TIGHT-BEAM // FRAME IN TRANSIT"
 CHARS_PER_SEC = 55.0
 IDLE_ADVANCE_S = 2.5
 WRAP_WIDTH = 52          # chars; Fixedsys at 16px is ~8px/glyph on a 480 panel
-LINE_STEP = 16           # px; keeps the bitmap font on its pixel grid
-MARGIN = 26
-HEADER_H = 30
-FOOTER_H = 34
+LINE_STEP = ui(16)       # px; keeps the bitmap font on its pixel grid
+MARGIN = ui(26)
+HEADER_H = ui(30)
+FOOTER_H = ui(34)
 
 SPEAKER_COLORS = {"RATIO": PHOSPHOR_GREEN, "COMMANDO": COMMANDO_BONE}
 VALID_POSTURES = {"warm", "cold"}
@@ -282,16 +282,18 @@ class ConversationScene(Scene):
     def draw(self, app, surf) -> None:
         w, h = surf.get_size()
         surf.fill((0, 10, 4))
-        pygame.draw.rect(surf, DIM_GREEN, (8, 8, w - 16, h - 16), 1)
+        pygame.draw.rect(surf, DIM_GREEN,
+                         (ui(8), ui(8), w - ui(16), h - ui(16)), max(1, ui(1)))
         f = get_font(12)
-        surf.blit(f.render(HEADER, True, DIM_GREEN), (16, 12))
-        pygame.draw.line(surf, DIM_GREEN, (16, HEADER_H), (w - 16, HEADER_H), 1)
+        surf.blit(f.render(HEADER, True, DIM_GREEN), (ui(16), ui(12)))
+        pygame.draw.line(surf, DIM_GREEN, (ui(16), HEADER_H),
+                         (w - ui(16), HEADER_H), max(1, ui(1)))
 
         rows = self._rows()
         if self._in_choice():
             rows = rows + self._choice_rows()
-        max_rows = max(1, (h - HEADER_H - FOOTER_H - 8) // LINE_STEP)
-        y = HEADER_H + 6
+        max_rows = max(1, (h - HEADER_H - FOOTER_H - ui(8)) // LINE_STEP)
+        y = HEADER_H + ui(6)
         for text, color in rows[-max_rows:]:
             if text:
                 surf.blit(f.render(text, True, color), (MARGIN, y))
@@ -303,4 +305,4 @@ class ConversationScene(Scene):
         else:
             hint = "SPACE: next    ESC: skip"
         img = get_font(9).render(hint, True, DIM_GREEN)
-        surf.blit(img, (w - img.get_width() - 20, h - 28))
+        surf.blit(img, (w - img.get_width() - ui(20), h - ui(28)))

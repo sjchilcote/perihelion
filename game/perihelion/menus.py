@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pygame
 
-from .render import INTERNAL_W, INTERNAL_H
+from .render import INTERNAL_W, INTERNAL_H, ui
 
 PHOSPHOR_GREEN = (90, 240, 140)
 DIM_GREEN = (40, 110, 70)
@@ -36,7 +36,10 @@ def _snap(size: int) -> int:
 
 
 def get_font(size: int) -> "pygame.font.Font":
-    size = _snap(size)
+    # snap to the bitmap grid first, then scale with the internal
+    # resolution so text occupies the same screen fraction (and gets
+    # crisper, not smaller) at any PERIHELION_INTERNAL_RES
+    size = ui(_snap(size))
     f = _FONT_CACHE.get(size)
     if f is None:
         if not pygame.font.get_init():
@@ -61,7 +64,10 @@ def _load_bg(name: str) -> "pygame.Surface | None":
         return _BG_CACHE[name]
     img = None
     stem, dot, ext = name.rpartition(".")
-    hi = _ART_DIR / f"{stem}@4x.{ext}" if dot else _ART_DIR / name
+    # prefer the @4x sibling only when the internal resolution actually
+    # exceeds the default -- at 640x360 the original stays byte-for-byte
+    hi = _ART_DIR / f"{stem}@4x.{ext}" if (dot and INTERNAL_W > 640) \
+        else _ART_DIR / name
     try:
         img = pygame.image.load(str(hi if hi.exists() else _ART_DIR / name))
         try:
@@ -171,7 +177,7 @@ class TitleScene(Scene):
         bg = _load_bg("title_bg.png")
         if bg is not None:
             _blit_bg(surf, bg, (w, h))
-            surf.blit(self._ensure_text_band(w, 235), (0, 0))
+            surf.blit(self._ensure_text_band(w, ui(235)), (0, 0))
         else:
             pulse = 0.5 + 0.5 * math.sin(self.t * 0.6)
             top = (int(14 + 16 * pulse), 4, 6)
@@ -183,18 +189,18 @@ class TitleScene(Scene):
                 pygame.draw.line(surf, (r, g, b), (0, y), (w, y))
         for x, y, spd in self.dust:
             y2 = (y + self.t * spd) % h
-            surf.set_at((int(x), int(y2)), (95, 75, 62))
+            surf.fill((95, 75, 62), (int(x), int(y2), ui(1), ui(1)))
         title = get_font(40).render("PERIHELION", True, (235, 225, 210))
-        surf.blit(title, (w // 2 - title.get_width() // 2, 55))
+        surf.blit(title, (w // 2 - title.get_width() // 2, ui(55)))
         sub = get_font(12).render("a descent into non-Euclidean dark", True, (150, 120, 110))
-        surf.blit(sub, (w // 2 - sub.get_width() // 2, 98))
+        surf.blit(sub, (w // 2 - sub.get_width() // 2, ui(98)))
         mf = get_font(16)
         for i, item in enumerate(self.items):
             selected = i == self.sel
             color = (255, 255, 255) if selected else (150, 150, 150)
             prefix = "> " if selected else "  "
             img = mf.render(prefix + item, True, color)
-            surf.blit(img, (w // 2 - 60, 150 + i * 20))
+            surf.blit(img, (w // 2 - ui(60), ui(150) + i * ui(20)))
 
 
 class DifficultyScene(Scene):
@@ -222,16 +228,16 @@ class DifficultyScene(Scene):
         w, h = surf.get_size()
         surf.fill((6, 6, 10))
         img = get_font(18).render("HOW FAR IN ARE YOU?", True, (230, 230, 230))
-        surf.blit(img, (w // 2 - img.get_width() // 2, 70))
+        surf.blit(img, (w // 2 - img.get_width() // 2, ui(70)))
         mf = get_font(12)
         for i, (_, label) in enumerate(self.items):
             selected = i == self.sel
             color = (255, 255, 255) if selected else (150, 150, 150)
             prefix = "> " if selected else "  "
             t = mf.render(prefix + label, True, color)
-            surf.blit(t, (w // 2 - t.get_width() // 2, 130 + i * 22))
+            surf.blit(t, (w // 2 - t.get_width() // 2, ui(130) + i * ui(22)))
         hint = get_font(10).render("ESC: back", True, (110, 110, 110))
-        surf.blit(hint, (10, h - 16))
+        surf.blit(hint, (ui(10), h - ui(16)))
 
 
 class LevelSelectScene(Scene):
@@ -263,19 +269,19 @@ class LevelSelectScene(Scene):
         w, h = surf.get_size()
         surf.fill((6, 6, 10))
         img = get_font(18).render("LEVEL SELECT", True, (230, 230, 230))
-        surf.blit(img, (w // 2 - img.get_width() // 2, 20))
+        surf.blit(img, (w // 2 - img.get_width() // 2, ui(20)))
         mf = get_font(12)
         if not self.levels:
             hint = mf.render("(no campaign manifest -- debug level only)", True, (140, 140, 140))
-            surf.blit(hint, (30, 50))
+            surf.blit(hint, (ui(30), ui(50)))
         for i, path in enumerate(self.levels):
             locked = i >= self.unlocked
             selected = i == self.sel
             color = (90, 90, 90) if locked else ((255, 255, 255) if selected else (170, 170, 170))
             name = f"{i + 1}. {Path(path).stem}" + ("  [locked]" if locked else "")
-            surf.blit(mf.render(name, True, color), (40, 50 + i * 16))
+            surf.blit(mf.render(name, True, color), (ui(40), ui(50) + i * ui(16)))
         hint = get_font(10).render("ESC: back", True, (110, 110, 110))
-        surf.blit(hint, (10, h - 16))
+        surf.blit(hint, (ui(10), h - ui(16)))
 
 
 class SettingsScene(Scene):
@@ -301,7 +307,7 @@ class SettingsScene(Scene):
         w, h = surf.get_size()
         surf.fill((6, 6, 10))
         img = get_font(18).render("SETTINGS", True, (230, 230, 230))
-        surf.blit(img, (w // 2 - img.get_width() // 2, 20))
+        surf.blit(img, (w // 2 - img.get_width() // 2, ui(20)))
         mf = get_font(12)
         lines = [
             f"Master volume: {app.audio.master_vol:.1f}   (left/right)",
@@ -311,7 +317,8 @@ class SettingsScene(Scene):
             "ESC: back",
         ]
         for i, line in enumerate(lines):
-            surf.blit(mf.render(line, True, (180, 180, 180)), (40, 60 + i * 18))
+            surf.blit(mf.render(line, True, (180, 180, 180)),
+                      (ui(40), ui(60) + i * ui(18)))
 
 
 class IntroCard(Scene):
@@ -354,15 +361,15 @@ class IntroCard(Scene):
         else:
             surf.fill((4, 4, 6))
         img = get_font(20).render(self.name, True, (220, 220, 225))
-        surf.blit(img, (w // 2 - img.get_width() // 2, 50))
+        surf.blit(img, (w // 2 - img.get_width() // 2, ui(50)))
         bf = get_font(11)
-        y = 90
+        y = ui(90)
         for line in _wrap(self.text[: self.shown_chars], 58):
-            surf.blit(bf.render(line, True, (172, 172, 178)), (30, y))
-            y += 14
+            surf.blit(bf.render(line, True, (172, 172, 178)), (ui(30), y))
+            y += ui(14)
         if self.shown_chars >= len(self.text):
             hint = get_font(10).render("press any key", True, (110, 110, 115))
-            surf.blit(hint, (w // 2 - hint.get_width() // 2, h - 22))
+            surf.blit(hint, (w // 2 - hint.get_width() // 2, h - ui(22)))
 
 
 class PauseScene(Scene):
@@ -404,14 +411,14 @@ class PauseScene(Scene):
         surf.blit(self._ensure_overlay(surf.get_size()), (0, 0))
         w, h = surf.get_size()
         img = get_font(22).render("PAUSED", True, (230, 230, 230))
-        surf.blit(img, (w // 2 - img.get_width() // 2, 80))
+        surf.blit(img, (w // 2 - img.get_width() // 2, ui(80)))
         mf = get_font(14)
         for i, item in enumerate(self.items):
             selected = i == self.sel
             color = (255, 255, 255) if selected else (150, 150, 150)
             prefix = "> " if selected else "  "
             img = mf.render(prefix + item, True, color)
-            surf.blit(img, (w // 2 - 60, 120 + i * 20))
+            surf.blit(img, (w // 2 - ui(60), ui(120) + i * ui(20)))
 
 
 # The cheapest characterization channel in the game: one line of the
@@ -471,14 +478,14 @@ class DeathScene(Scene):
         pulse = 0.6 + 0.4 * math.sin(self.t * 2.0)
         color = (min(255, int(200 * pulse) + 40), 20, 20)
         img = get_font(26).render("FRAME LOST", True, color)
-        surf.blit(img, (w // 2 - img.get_width() // 2, 100))
+        surf.blit(img, (w // 2 - img.get_width() // 2, ui(100)))
         mf = get_font(12)
         deaths_text = f"frames lost: {self.deaths}"
         if self.wave:
             deaths_text = (f"the watch held for {self.wave} waves"
                            f"   (best: {self.best_wave})")
         img2 = mf.render(deaths_text, True, (190, 150, 150))
-        surf.blit(img2, (w // 2 - img2.get_width() // 2, 140))
+        surf.blit(img2, (w // 2 - img2.get_width() // 2, ui(140)))
         if self.chassis > 0:
             rise = (f"SPACE: reprint at the seed"
                     f"   ({self.chassis} chassis racked)    ESC: title")
@@ -486,21 +493,21 @@ class DeathScene(Scene):
             rise = ("SPACE: cold restore - the seed reprints the chunk"
                     "    ESC: title")
         img3 = mf.render(rise, True, (170, 130, 130))
-        surf.blit(img3, (w // 2 - img3.get_width() // 2, 160))
+        surf.blit(img3, (w // 2 - img3.get_width() // 2, ui(160)))
         log = COMMANDO_LOGS[min(self.deaths - 1, len(COMMANDO_LOGS) - 1)] \
             if self.deaths >= 1 else COMMANDO_LOGS[0]
-        y = 196
+        y = ui(196)
         words = log.split()
         line = ""
         for word in words + [""]:
             trial = (line + " " + word).strip()
-            if word and mf.size(trial)[0] < w - 80:
+            if word and mf.size(trial)[0] < w - ui(80):
                 line = trial
                 continue
             if line:
                 img4 = mf.render(line, True, (150, 140, 120))
                 surf.blit(img4, (w // 2 - img4.get_width() // 2, y))
-                y += 16
+                y += ui(16)
             line = word
 
 
@@ -553,13 +560,13 @@ class ShopScene(Scene):
         s = self.session
         img = get_font(18).render("SEED STATION - FABRICATOR", True,
                                   (190, 235, 210))
-        surf.blit(img, (w // 2 - img.get_width() // 2, 26))
+        surf.blit(img, (w // 2 - img.get_width() // 2, ui(26)))
         mf = get_font(12)
         head = (f"COMPONENTS: {s.components}    CHASSIS: {s.chassis}    "
                 f"SEED KITS: {s.station_kits}")
         img2 = mf.render(head, True, (170, 210, 185))
-        surf.blit(img2, (w // 2 - img2.get_width() // 2, 56))
-        y = 88
+        surf.blit(img2, (w // 2 - img2.get_width() // 2, ui(56)))
+        y = ui(88)
         for i, item in enumerate(self.ORDER):
             price = s.shop_price(item)
             label = f"{SHOP[item]['label']:<22} {price:>3}c"
@@ -574,11 +581,11 @@ class ShopScene(Scene):
                 col = (150, 180, 160) if s.components >= price \
                     else (100, 115, 105)
                 label = "  " + label
-            surf.blit(mf.render(label, True, col), (w // 2 - 110, y))
-            y += 18
+            surf.blit(mf.render(label, True, col), (w // 2 - ui(110), y))
+            y += ui(18)
         tip = mf.render("ENTER: fabricate    M: mind map    ESC/E: leave",
                         True, (140, 165, 150))
-        surf.blit(tip, (w // 2 - tip.get_width() // 2, y + 14))
+        surf.blit(tip, (w // 2 - tip.get_width() // 2, y + ui(14)))
 
 
 class MindMapScene(Scene):
@@ -638,18 +645,18 @@ class MindMapScene(Scene):
         surf.blit(self._ensure_overlay(surf.get_size()), (0, 0))
         s = self.session
         head = get_font(16).render("MIND MAP", True, (210, 205, 235))
-        surf.blit(head, (w // 2 - head.get_width() // 2, 10))
+        surf.blit(head, (w // 2 - head.get_width() // 2, ui(10)))
         mf = get_font(12)
         sub = mf.render(f"COMPONENTS: {s.components}", True, (170, 200, 185))
-        surf.blit(sub, (w // 2 - sub.get_width() // 2, 32))
+        surf.blit(sub, (w // 2 - sub.get_width() // 2, ui(32)))
         col_w = w // len(self.regions)
         tf = get_font(10)
         for ci, region in enumerate(self.regions):
-            x0 = ci * col_w + 10
+            x0 = ci * col_w + ui(10)
             rl = mf.render(REGION_LABELS[region], True,
                            (200, 200, 220) if ci == self.col
                            else (120, 120, 140))
-            surf.blit(rl, (x0, 52))
+            surf.blit(rl, (x0, ui(52)))
             for ri, n in enumerate(self.grid[region]):
                 owned = n["id"] in s.mind
                 can = available(s.mind, n["id"]) and \
@@ -663,7 +670,7 @@ class MindMapScene(Scene):
                 name = n["label"]
                 label = f"{mark} {name}{tail}"
                 while len(name) > 4 and \
-                        tf.size(label)[0] > col_w - 16:
+                        tf.size(label)[0] > col_w - ui(16):
                     name = name[:-2] + "…"
                     label = f"{mark} {name}{tail}"
                 sel = ci == self.col and ri == self.rows[region]
@@ -682,21 +689,21 @@ class MindMapScene(Scene):
                 else:
                     col = (115, 122, 118)
                 img = tf.render(label, True, col)
-                surf.blit(img, (x0, 68 + ri * 13))
+                surf.blit(img, (x0, ui(68) + ri * ui(13)))
         # the selected node's brief, footer band
         n = self._sel()
         brief = n.get("brief", "")
-        yb = h - 52
-        pygame.draw.rect(surf, (10, 10, 16), (0, yb - 4, w, 56))
+        yb = h - ui(52)
+        pygame.draw.rect(surf, (10, 10, 16), (0, yb - ui(4), w, ui(56)))
         # char budget sized to the font's real advance (~8px at size 10);
         # 96 chars overflowed the 640px surface and clipped mid-word
         for line in _wrap(brief, 74)[:3]:
             img = tf.render(line, True, (160, 158, 150))
-            surf.blit(img, (12, yb))
-            yb += 12
+            surf.blit(img, (ui(12), yb))
+            yb += ui(12)
         tip = tf.render("arrows: move    ENTER: integrate    ESC/M: back",
                         True, (130, 135, 145))
-        surf.blit(tip, (w - tip.get_width() - 8, h - 12))
+        surf.blit(tip, (w - tip.get_width() - ui(8), h - ui(12)))
 
 
 class WinScene(Scene):
@@ -728,15 +735,15 @@ class WinScene(Scene):
             surf.fill((0, 0, 0))
         f = get_font(13)
         lines = _wrap(self.text, 56)
-        y0 = h - self.scroll_y
+        y0 = h - self.scroll_y * (ui(16) / 16.0)
         for i, line in enumerate(lines):
-            y = y0 + i * 16
-            if -16 <= y <= h:
+            y = y0 + i * ui(16)
+            if -ui(16) <= y <= h:
                 img = f.render(line, True, (225, 225, 225))
                 surf.blit(img, (w // 2 - img.get_width() // 2, y))
-        if self.scroll_y > len(lines) * 16 + h:
+        if self.scroll_y * (ui(16) / 16.0) > len(lines) * ui(16) + h:
             hint = get_font(10).render("ESC: title", True, (120, 120, 120))
-            surf.blit(hint, (w // 2 - hint.get_width() // 2, h - 16))
+            surf.blit(hint, (w // 2 - hint.get_width() // 2, h - ui(16)))
 
 
 class TerminalOverlay(Scene):
@@ -766,13 +773,14 @@ class TerminalOverlay(Scene):
             app.game.draw(app, surf)
         w, h = surf.get_size()
         surf.blit(self._ensure_overlay(surf.get_size()), (0, 0))
-        pygame.draw.rect(surf, DIM_GREEN, (16, 16, w - 32, h - 32), 1)
+        pygame.draw.rect(surf, DIM_GREEN,
+                         (ui(16), ui(16), w - ui(32), h - ui(32)), max(1, ui(1)))
         f = get_font(11)
-        y = 26
+        y = ui(26)
         for line in _wrap(self.text, 62)[self.scroll:]:
-            surf.blit(f.render(line, True, PHOSPHOR_GREEN), (26, y))
-            y += 14
-            if y > h - 30:
+            surf.blit(f.render(line, True, PHOSPHOR_GREEN), (ui(26), y))
+            y += ui(14)
+            if y > h - ui(30):
                 break
         hint = get_font(9).render("E/ESC: close", True, DIM_GREEN)
-        surf.blit(hint, (w - hint.get_width() - 20, h - 26))
+        surf.blit(hint, (w - hint.get_width() - ui(20), h - ui(26)))

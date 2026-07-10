@@ -81,6 +81,16 @@ INTERNAL_W, INTERNAL_H = _parse_internal_res()
 # "at 1280x720 zoom doubles, ~3 px/world-unit territory" -- 1.35 * 2 = 2.7).
 INTERNAL_RES_ZOOM_SCALE = INTERNAL_W / _DEFAULT_INTERNAL_W
 
+
+def ui(px: float) -> int:
+    """Scale a screen-space pixel constant tuned for the 640x360 default
+    internal resolution to the actual internal resolution, so HUD/menu/toast
+    layout occupies the same screen fraction at any PERIHELION_INTERNAL_RES.
+    At the default resolution this is the identity on ints (regression bar:
+    pixel-identical output at 640x360)."""
+    return int(round(px * INTERNAL_RES_ZOOM_SCALE))
+
+
 TEXTURE_DIR = Path(__file__).resolve().parent / "assets" / "textures"
 
 FLOOR_BASE = (26, 26, 33)          # ~0x1a1a21 dark grey-blue — reads clearly against the void
@@ -2776,7 +2786,7 @@ class Renderer:
         if self._font is None:
             if not pygame.font.get_init():
                 pygame.font.init()
-            self._font = pygame.font.Font(None, 12)
+            self._font = pygame.font.Font(None, ui(12))
         for room, xform, depth, clip_screen, walls, entry_edge, ents in instances:
             if not clip_screen:
                 continue

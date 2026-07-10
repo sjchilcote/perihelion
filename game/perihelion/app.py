@@ -21,7 +21,7 @@ from . import menus
 from .audio import Audio
 from .hud import HUD
 from .levels import Level, LevelBuilder, load_level
-from .render import INTERNAL_H, INTERNAL_RES_ZOOM_SCALE, INTERNAL_W, Renderer
+from .render import INTERNAL_H, INTERNAL_RES_ZOOM_SCALE, INTERNAL_W, Renderer, ui
 from .sim import DT, GameSession, InputFrame, WEAPON_ORDER
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -259,8 +259,9 @@ class GameScene(menus.Scene):
                 (210, 185, 125) if label.startswith("+") else (220, 210, 170)
             img = f.render(label, True, color)
             img.set_alpha(255 if ticks > 24 else max(0, int(255 * ticks / 24)))
-            rise = (66 - ticks) * 0.35
-            surf.blit(img, (int(sx - img.get_width() / 2), int(sy - 14 - rise)))
+            rise = (66 - ticks) * 0.35 * INTERNAL_RES_ZOOM_SCALE
+            surf.blit(img, (int(sx - img.get_width() / 2),
+                            int(sy - 14 * INTERNAL_RES_ZOOM_SCALE - rise)))
             ft[3] -= 1
         self.float_texts = [ft for ft in self.float_texts if ft[3] > 0]
         if self.loc_title:
@@ -269,7 +270,7 @@ class GameScene(menus.Scene):
             alpha = 255 if ticks > 60 else max(0, int(255 * ticks / 60))
             img = f.render(name, True, (225, 218, 200))
             img.set_alpha(alpha)
-            surf.blit(img, (surf.get_width() // 2 - img.get_width() // 2, 26))
+            surf.blit(img, (surf.get_width() // 2 - img.get_width() // 2, ui(26)))
             self.loc_title = (name, ticks - 1) if ticks > 1 else None
         if self.objective:
             text, ticks = self.objective
@@ -280,7 +281,7 @@ class GameScene(menus.Scene):
             # busy floors eat bare text
             img = f.render(text, True, (235, 205, 130), (10, 10, 14))
             img.set_alpha(alpha)
-            surf.blit(img, (surf.get_width() // 2 - img.get_width() // 2, 62))
+            surf.blit(img, (surf.get_width() // 2 - img.get_width() // 2, ui(62)))
             self.objective = (text, ticks - 1) if ticks > 1 else None
         if self.logvoice:
             text, ticks = self.logvoice
@@ -289,7 +290,7 @@ class GameScene(menus.Scene):
             img = f.render(text, True, (150, 140, 120), (10, 10, 14))
             img.set_alpha(alpha)
             surf.blit(img, (surf.get_width() // 2 - img.get_width() // 2,
-                            surf.get_height() - 40))
+                            surf.get_height() - ui(40)))
             self.logvoice = (text, ticks - 1) if ticks > 1 else None
         if self.show_hints and self.session.tick_count < 60 * 14 \
                 and not self.session.dead:
@@ -303,7 +304,7 @@ class GameScene(menus.Scene):
                                (10, 10, 14))  # plate: busy floors eat bare text
                 img.set_alpha(fade)
                 surf.blit(img, (surf.get_width() // 2 - img.get_width() // 2,
-                                surf.get_height() - 66 + i * 14))
+                                surf.get_height() - ui(66) + i * ui(14)))
 
 
 class App:
@@ -800,11 +801,14 @@ class App:
                 # simultaneous pickups smear into one blob at the same
                 # spot: stack against each float's CURRENT rendered y (they
                 # rise ~0.35px/tick from their base), not its spawn y
+                _s = INTERNAL_RES_ZOOM_SCALE
+
                 def _vis_y(ft):
-                    return ft[1] - (66 - ft[3]) * 0.35
-                while any(abs(ft[0] - sx) < 46 and abs(_vis_y(ft) - sy) < 11
+                    return ft[1] - (66 - ft[3]) * 0.35 * _s
+                while any(abs(ft[0] - sx) < 46 * _s and
+                          abs(_vis_y(ft) - sy) < 11 * _s
                           for ft in game.float_texts):
-                    sy -= 11
+                    sy -= 11 * _s
                 game.float_texts.append([sx, sy, ev[3], 66])
             elif ev[0] == "shop":
                 if not any(isinstance(sc, menus.ShopScene)
@@ -873,7 +877,7 @@ class App:
     def _draw_fps_overlay(self) -> None:
         f = menus.get_font(11)
         img = f.render(f"{self.clock.get_fps():.0f} fps", True, (255, 255, 0))
-        self.internal.blit(img, (4, 4))
+        self.internal.blit(img, (ui(4), ui(4)))
 
     def _blit_scaled(self) -> None:
         pygame.transform.scale(self.internal, self._scaled_surface.get_size(), self._scaled_surface)
