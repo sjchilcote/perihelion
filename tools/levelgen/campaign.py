@@ -290,6 +290,30 @@ def l02():
                "PRESSURE HATCH SEALED - VALVE WHEEL REQUIRED",
                "ACQUIRED: VALVE WHEEL")
 
+    # HATCH SIX — the homage. Arrival's east maze (Marathon 1), grafted as
+    # the row's unfiled maintenance warren behind the stub: Osei counted
+    # five hatches going and six coming back, and this is the sixth. The
+    # maze keeps its genuine 5D overlaps (its no_connect list guards the
+    # crossings); it is optional, silent, and holds a cache at the far end.
+    from arrival_maze import build_maze
+    maze = build_maze(b, origin=(1300.0, 500.0), scale=80.0)
+    b.connect_pts(keyroom, (335, 350), maze["entry"][0], maze["entry"][1])
+    vault = b.rect(2300, 500, 120, 90, kind="storage")
+    b.connect_pts(maze["exit"][0], maze["exit"][1], vault, (2360, 500))
+    b.entity(vault, "husk", (2340, 545))
+    b.entity(vault, "ammo_9mm", (2320, 570))
+    b.entity(vault, "ammo_shell", (2350, 570))
+    b.entity(vault, "medkit", (2390, 570))
+    b.terminal(vault, wall_pos(b, vault, 2, 0.5, 15.0),
+               "SURVEY ADDENDUM, UNFILED\n"
+               "The row has five hatches. The count says six.\n"
+               "The sixth is behind the filters. Walked it once,\n"
+               "drew a map. Walked it again against the map.\n"
+               "The map was wrong in a way I could not mark:\n"
+               "every corridor was where I drew it, and two of\n"
+               "them cross where neither has a junction.\n"
+               "Recommend: do not draw another map.")
+
     b.player(entry, (70, 70))
     b.intro("Coolant Row. The pumps have been louder\nlately. Nobody says so on record.")
     b.radio("start", "Ratio: Terms: you clear my decks, I open my doors, "
