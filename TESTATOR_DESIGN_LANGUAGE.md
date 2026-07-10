@@ -1,4 +1,13 @@
-# TESTATOR DESIGN LANGUAGE (working doc, 2026-07-10)
+# TESTATOR DESIGN LANGUAGE (director-ratified, 2026-07-10)
+
+Director's formulation, verbatim law: MIRIAD = machine efficiency, vector
+art, industrial signage. Invaders = total chaos, NOTHING EVER STATIC — the
+walls breathe. Testator = machines weaving homage to the living things they
+could not save into every artifact. "They gave up, while the works of Man
+refuse to" — the Testators accepted extinction and spent it on an elegy;
+the human lineage (MIRIAD, the outpost, the Commando) is defined by
+refusal. The station is the TESTAMENT — built to save *someone*, and
+corrupted (§4.3: the Adversary hijacked the gift).
 
 Director's framing: the Testators are neither human-derived machine (that's
 MIRIAD's lane) nor truly extradimensional (that's the invaders' lane). They
@@ -11,17 +20,36 @@ of that without a word of text.
 
 | lane | who | geometry | repetition | wear |
 |---|---|---|---|---|
-| MIRIAD | human-derived utility | right angles, grids | modular, identical parts | use-wear: scuffs, grime, patched repairs |
+| MIRIAD | human-derived utility | right angles, grids | modular, identical parts | use-wear: scuffs, grime, patched repairs — REFUSAL. Everything visibly kept alive past its design life: jury-rigs, mismatched replacement parts, hand-painted supplements to printed signage. The works of Man refuse to die, and the wear language says so. |
 | TESTATOR | machine heirs of the organic | curves, radial, folded self-similarity | NEVER repeats, always exact | time-wear: worn smooth, re-cut, curated decay |
 | SEED | the Commando's growth | organic tendril | branching | fresh, wet, spreading (exists: GROWTH_FILL/TENDRIL) |
-| ADVERSARY | the unfolders | inconsistency itself | anti-pattern | not wear — dissolution |
+| ADVERSARY | the unfolders | inconsistency itself | anti-pattern | not wear — dissolution. NOTHING EVER STATIC: invader-touched surfaces must move — the walls breathe. |
+
+MECHANICAL CONSEQUENCE (new requirement from the breathing-walls law):
+static textures are sufficient for MIRIAD and Testator lanes but NOT for
+Adversary-touched spaces (otherworld, late corruption). Those need a
+time-varying surface treatment — candidates: per-frame low-amplitude UV
+warp on OP_TEX_FILL's inverse transform (cheap, in-raster), slow palette /
+darkness-field drift (partly exists via the otherworld inverse-field
+compositing), or a two-frame texture crossfade. Phase with lighting, not
+with the pilot; the pilot's static otherworld textures are placeholders
+for judging fidelity only.
 
 ## Core principles
 
-1. ONE-OFF PRECISION. Humans standardize because manufacture is expensive;
-   MIRIAD inherits that (every bracket identical). The Testators had no
-   scarcity and no assembly lines — every element they made could be, and
-   was, unique. So the signature is: perfect execution, zero repetition.
+1. ONE-OFF PRECISION, BECAUSE EVERYTHING IS HANDCRAFT (director's law:
+   the Testators have no industrial society — perhaps their makers did
+   not either. Everything is a handcraft, INCLUDING THEMSELVES). No
+   assembly lines ever existed in their lineage: each Testator was a
+   made, individual thing, and each thing they made was made once, by a
+   maker, with a maker's idiom. Humans standardize because manufacture
+   is expensive; MIRIAD inherits that (every bracket identical). The
+   Testator signature is the opposite: perfect execution, zero repetition,
+   and a faint individual "hand" — two artifacts doing the same job solve
+   it differently, the way two master smiths would. Consequence for the
+   station's autonomous defenses (enemy class 2): they are handcrafted
+   individuals, not a production run — each unit visually one-of-a-kind
+   within its role, a person-shaped absence when destroyed.
    Two Testator rings are never the same two radii; the spacing is never
    uniform; and nothing about it reads as damage or noise — it reads as
    a decision made freshly every time. (The invaders, by contrast, have no
