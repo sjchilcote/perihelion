@@ -62,6 +62,66 @@ PUDDLE_COLOR = (32, 40, 48)
 SCREEN_COLOR = (110, 235, 165)     # lit phosphor screen (lab consoles, terminals)
 SCREEN_DIM = (46, 96, 78)          # unlit / already-read screen
 
+# -- the descent arc ---------------------------------------------------------
+# One station, falling sunward. `level.room_descent` holds a per-room scalar
+# 0..1: chunk k of N sits at k/(N-1) (stream.py extends the list as chunks
+# append; transit spines take the midpoint of the chunks they join; a level
+# loaded alone derives it from its tier). Descent drives a palette drift —
+# cold industrial grey-blue at the dock, dried-blood warmth through the
+# middle decks, deep wrong red with the first suggestion of organic growth
+# near the Perihelion Core — plus rising grime and, past ~0.55, per-kind
+# prop corruption. Every per-chunk step is deliberately tiny (a full step
+# moves the floor ~3 per channel) so no portal crossing ever reads as a
+# palette seam: SEAMLESSNESS IS LAW; the drama is cumulative. Ramps below
+# are (cold, mid, deep) waypoints sampled piecewise-linearly at d=0/0.5/1.
+_FLOOR_RAMP = ((26, 26, 33), (38, 28, 30), (54, 22, 26))
+_WALL_RAMP = ((184, 196, 204), (194, 186, 178), (206, 168, 154))
+_WALL_MIN_RAMP = ((74, 80, 88), (80, 75, 73), (90, 66, 62))
+_PROP_WARM = (18, -6, -16)         # additive full-descent prop temperature shift
+
+GROWTH_FILL = (44, 14, 16)         # the seed's spread: organic patches
+GROWTH_RIM = (70, 24, 22)
+TENDRIL_COLOR = (58, 20, 20)
+_GRIME_COLD = (33, 27, 28)
+_GRIME_DEEP = (44, 16, 16)
+_MARK_COLD = (70, 74, 84)          # Congregation crosses, scratched near walls
+_MARK_DEEP = (98, 74, 64)
+
+# accent colors that must keep their pop at every depth: lit phosphor,
+# the medbay cross, and the corruption palette (authored at final value)
+_DESCENT_KEEP = {SCREEN_COLOR, SCREEN_DIM, (200, 90, 90),
+                 GROWTH_FILL, GROWTH_RIM, TENDRIL_COLOR}
+
+
+def _mix(a, b, t: float):
+    return (int(round(a[0] + (b[0] - a[0]) * t)),
+            int(round(a[1] + (b[1] - a[1]) * t)),
+            int(round(a[2] + (b[2] - a[2]) * t)))
+
+
+def _ramp(way, d: float):
+    """Sample a (cold, mid, deep) waypoint triple at descent d in [0, 1]."""
+    if d <= 0.5:
+        return _mix(way[0], way[1], d * 2.0)
+    return _mix(way[1], way[2], (d - 0.5) * 2.0)
+
+
+def _warm(color, d: float):
+    """Drift a structural prop color toward dried-blood warmth. Accents in
+    _DESCENT_KEEP pass through untouched so instruments and growth keep
+    their deliberate pop against the drifting floor."""
+    if d <= 0.0 or color in _DESCENT_KEEP:
+        return color
+    return (max(0, min(255, int(round(color[0] + _PROP_WARM[0] * d)))),
+            max(0, min(255, int(round(color[1] + _PROP_WARM[1] * d)))),
+            max(0, min(255, int(round(color[2] + _PROP_WARM[2] * d)))))
+
+
+def _corruption(descent: float) -> float:
+    """0 until descent 0.55, then ramps to 1.0 at the core: the threshold
+    past which props themselves start going wrong."""
+    return max(0.0, (descent - 0.55) / 0.45)
+
 PLAYER_SHAPE = [(1.3, 0.0), (-0.8, 0.85), (-0.35, 0.0), (-0.8, -0.85)]
 PLAYER_COLOR = (205, 248, 255)
 
@@ -290,7 +350,8 @@ def _place_along_wall(wall, item_w, gap, inset, margin=6.0):
     return out
 
 
-def _crate(cx, cy, w, h, ang, rng, fill=PROP_COLOR, rim=PROP_RIM):
+def _crate(cx, cy, w, h, ang, rng, fill=PROP_COLOR, rim=PROP_RIM,
+           descent=0.0, crng=None):
     pts = _rect_local(cx, cy, w, h, ang)
     prims = [("poly", pts, fill, rim, 1)]
     strap = tuple(max(0, c - 16) for c in rim)
@@ -298,6 +359,20 @@ def _crate(cx, cy, w, h, ang, rng, fill=PROP_COLOR, rim=PROP_RIM):
         prims.append(("line", pts[0], pts[2], strap, 1))
     if w > 7 and h > 7 and rng.random() < 0.6:
         prims.append(("line", pts[1], pts[3], strap, 1))
+    # deep-station corruption: the seed's tendrils creep out from under a
+    # crate corner and wander a few units across the floor
+    cor = _corruption(descent)
+    if cor > 0.0 and crng is not None and crng.random() < 0.10 + 0.35 * cor:
+        px_, py_ = crng.choice(pts)
+        a = math.atan2(py_ - cy, px_ - cx) + crng.uniform(-0.6, 0.6)
+        tpts = [(px_, py_)]
+        for _ in range(crng.randint(2, 3)):
+            a += crng.uniform(-0.7, 0.7)
+            step = crng.uniform(3.0, 6.0)
+            px_ += math.cos(a) * step
+            py_ += math.sin(a) * step
+            tpts.append((px_, py_))
+        prims.append(("polyline", tpts, TENDRIL_COLOR, 1, False))
     return prims
 
 
@@ -316,7 +391,7 @@ def _vent_grate(cx, cy, ang, wall, w=8.0, h=5.0):
     return prims
 
 
-def _props_dock(rng, verts, walls, x0, y0, x1, y1):
+def _props_dock(rng, verts, walls, x0, y0, x1, y1, descent=0.0, crng=None):
     """Cargo crates in corner stacks, a hazard-striped strip near one wall,
     mooring rings along another."""
     prims = []
@@ -333,7 +408,8 @@ def _props_dock(rng, verts, walls, x0, y0, x1, y1):
             jitter = rng.uniform(-4, 4)
             cx = cx0 + ux * off + uy * jitter
             cy = cy0 + uy * off - ux * jitter
-            prims.extend(_crate(cx, cy, w, h, rng.uniform(-0.15, 0.15), rng))
+            prims.extend(_crate(cx, cy, w, h, rng.uniform(-0.15, 0.15), rng,
+                                descent=descent, crng=crng))
     if walls:
         wall = rng.choice(walls)
         strip_w = min(wall["len"] * 0.6, 60.0)
@@ -357,7 +433,7 @@ def _props_dock(rng, verts, walls, x0, y0, x1, y1):
     return prims
 
 
-def _props_corridor(rng, verts, walls, x0, y0, x1, y1):
+def _props_corridor(rng, verts, walls, x0, y0, x1, y1, descent=0.0, crng=None):
     """Wall-hugging pipe runs with elbow joints, floor lane chevrons, vent
     grates. Shared by "corridor" and "transit"."""
     prims = []
@@ -402,7 +478,7 @@ def _props_corridor(rng, verts, walls, x0, y0, x1, y1):
     return prims
 
 
-def _props_storage(rng, verts, walls, x0, y0, x1, y1):
+def _props_storage(rng, verts, walls, x0, y0, x1, y1, descent=0.0, crng=None):
     """Dense crate rows with a walkable aisle, shelf lines along the walls."""
     prims = []
     w_span, h_span = x1 - x0, y1 - y0
@@ -419,7 +495,8 @@ def _props_storage(rng, verts, walls, x0, y0, x1, y1):
                 w = rng.uniform(10, 16)
                 if not (aisle_lo - w < cx_ < aisle_hi + w):
                     prims.extend(_crate(cx_, ry + rng.uniform(-3, 3), w,
-                                        rng.uniform(10, 16), rng.uniform(-0.08, 0.08), rng))
+                                        rng.uniform(10, 16), rng.uniform(-0.08, 0.08), rng,
+                                        descent=descent, crng=crng))
                 cx_ += w + rng.uniform(3, 6)
     else:
         cols_x = [x0 + w_span * (0.22 + 0.56 * k / max(1, n_rows - 1)) for k in range(n_rows)]
@@ -431,7 +508,8 @@ def _props_storage(rng, verts, walls, x0, y0, x1, y1):
                 h = rng.uniform(10, 16)
                 if not (aisle_lo - h < cy_ < aisle_hi + h):
                     prims.extend(_crate(rx + rng.uniform(-3, 3), cy_, rng.uniform(10, 16),
-                                        h, rng.uniform(-0.08, 0.08), rng))
+                                        h, rng.uniform(-0.08, 0.08), rng,
+                                        descent=descent, crng=crng))
                 cy_ += h + rng.uniform(3, 6)
     for wall in walls[:3]:
         inset = 5.0
@@ -444,7 +522,7 @@ def _props_storage(rng, verts, walls, x0, y0, x1, y1):
     return prims
 
 
-def _props_pump(rng, verts, walls, x0, y0, x1, y1):
+def _props_pump(rng, verts, walls, x0, y0, x1, y1, descent=0.0, crng=None):
     """A large tank ring (sometimes two) with an inflow pipe from the
     nearest wall, plus floor puddle stains."""
     prims = []
@@ -454,6 +532,30 @@ def _props_pump(rng, verts, walls, x0, y0, x1, y1):
     oy = (y0 + y1) / 2.0 + rng.uniform(-h_span, h_span) * 0.08
     prims.append(("polyline", _ring_local(ox, oy, r, 20), PROP_RIM, 2, True))
     prims.append(("polyline", _ring_local(ox, oy, r * 0.78, 18), PROP_COLOR, 1, True))
+    # corruption: growth patches colonize the tank rim near the core
+    cor = _corruption(descent)
+    if cor > 0.0 and crng is not None:
+        for _ in range(1 + int(round(cor * 2))):
+            a = crng.uniform(0.0, 2.0 * math.pi)
+            gx, gy = ox + math.cos(a) * r, oy + math.sin(a) * r
+            rad = crng.uniform(2.5, 4.5 + 2.0 * cor)
+            n = crng.randint(5, 7)
+            blob = [(gx + math.cos(2 * math.pi * i / n) * rad * crng.uniform(0.6, 1.0),
+                     gy + math.sin(2 * math.pi * i / n) * rad * crng.uniform(0.6, 1.0))
+                    for i in range(n)]
+            prims.append(("stain", blob, GROWTH_FILL))
+            prims.append(("polyline", blob, GROWTH_RIM, 1, True))
+            if crng.random() < 0.6:
+                ta = a + crng.uniform(-0.5, 0.5)
+                tpts = [(gx, gy)]
+                tx_, ty_ = gx, gy
+                for _ in range(crng.randint(2, 3)):
+                    ta += crng.uniform(-0.6, 0.6)
+                    step = crng.uniform(3.0, 5.5)
+                    tx_ += math.cos(ta) * step
+                    ty_ += math.sin(ta) * step
+                    tpts.append((tx_, ty_))
+                prims.append(("polyline", tpts, TENDRIL_COLOR, 1, False))
     if walls:
         wall = min(walls, key=lambda w: (w["mx"] - ox) ** 2 + (w["my"] - oy) ** 2)
         elbow = (wall["mx"] + wall["nx"] * (r * 0.6), wall["my"] + wall["ny"] * (r * 0.6))
@@ -481,7 +583,7 @@ def _props_pump(rng, verts, walls, x0, y0, x1, y1):
     return prims
 
 
-def _props_lab(rng, verts, walls, x0, y0, x1, y1):
+def _props_lab(rng, verts, walls, x0, y0, x1, y1, descent=0.0, crng=None):
     """Console blocks (bright screens on dark slabs) along the walls, a
     specimen table center-adjacent."""
     prims = []
@@ -489,7 +591,8 @@ def _props_lab(rng, verts, walls, x0, y0, x1, y1):
         for cx, cy, ang in _place_along_wall(wall, 12.0, 6.0, 5.0):
             prims.append(("poly", _rect_local(cx, cy, 12.0, 7.0, ang), PROP_DARK, PROP_RIM, 1))
             scr_cx, scr_cy = cx + wall["nx"], cy + wall["ny"]
-            bright = rng.random() < 0.8
+            # deeper decks are dying decks: fewer screens still lit
+            bright = rng.random() < (0.8 - 0.45 * descent)
             prims.append(("poly", _rect_local(scr_cx, scr_cy, 6.5, 4.0, ang),
                           SCREEN_COLOR if bright else SCREEN_DIM, None, 0))
             if bright:
@@ -504,11 +607,17 @@ def _props_lab(rng, verts, walls, x0, y0, x1, y1):
     return prims
 
 
-def _props_quarters(rng, verts, walls, x0, y0, x1, y1):
-    """Cot bays along the walls, each with a pillow and a footlocker."""
+def _props_quarters(rng, verts, walls, x0, y0, x1, y1, descent=0.0, crng=None):
+    """Cot bays along the walls, each with a pillow and a footlocker.
+    Near the core the bays are shoved askew — nobody squared them away."""
     prims = []
+    cor = _corruption(descent)
     for wall in walls[:3]:
         for cx, cy, ang in _place_along_wall(wall, 16.0, 8.0, 7.0):
+            if cor > 0.0 and crng is not None:
+                ang = ang + crng.uniform(-0.4, 0.4) * cor
+                cx += crng.uniform(-2.5, 2.5) * cor
+                cy += crng.uniform(-2.5, 2.5) * cor
             prims.append(("poly", _rect_local(cx, cy, 16.0, 8.0, ang), PROP_COLOR, PROP_RIM, 1))
             pcx, pcy = cx + wall["tx"] * 5.5, cy + wall["ty"] * 5.5
             prims.append(("poly", _rect_local(pcx, pcy, 4.0, 5.5, ang), PROP_RIM, None, 0))
@@ -518,19 +627,29 @@ def _props_quarters(rng, verts, walls, x0, y0, x1, y1):
     return prims
 
 
-def _props_chapel(rng, verts, walls, x0, y0, x1, y1):
-    """Pew rows facing one wall (the "front"), a dais arc against it."""
+def _props_chapel(rng, verts, walls, x0, y0, x1, y1, descent=0.0, crng=None):
+    """Pew rows facing one wall (the "front"), a dais arc against it.
+    Near the core the rows go askew — knocked, dragged, never restored."""
     prims = []
     if not walls:
         return prims
     front = walls[0]
     pew_half = front["len"] * 0.32
+    cor = _corruption(descent)
     for k in range(rng.randint(4, 6)):
         d = 14.0 + k * 9.0
         cx = front["mx"] + front["nx"] * d
         cy = front["my"] + front["ny"] * d
-        a = (cx - front["tx"] * pew_half, cy - front["ty"] * pew_half)
-        b = (cx + front["tx"] * pew_half, cy + front["ty"] * pew_half)
+        tx_, ty_ = front["tx"], front["ty"]
+        if cor > 0.0 and crng is not None:
+            skew = crng.uniform(-0.5, 0.5) * cor
+            ca, sa = math.cos(skew), math.sin(skew)
+            tx_, ty_ = tx_ * ca - ty_ * sa, tx_ * sa + ty_ * ca
+            slide = crng.uniform(-4.0, 4.0) * cor
+            cx += front["tx"] * slide
+            cy += front["ty"] * slide
+        a = (cx - tx_ * pew_half, cy - ty_ * pew_half)
+        b = (cx + tx_ * pew_half, cy + ty_ * pew_half)
         prims.append(("line", a, b, PROP_COLOR, 1))
     dcx, dcy = front["mx"] + front["nx"] * 6.0, front["my"] + front["ny"] * 6.0
     prims.append(("polyline",
@@ -540,7 +659,7 @@ def _props_chapel(rng, verts, walls, x0, y0, x1, y1):
     return prims
 
 
-def _props_records(rng, verts, walls, x0, y0, x1, y1):
+def _props_records(rng, verts, walls, x0, y0, x1, y1, descent=0.0, crng=None):
     """Shelf stacks: long parallel double-lines filling the room in rows."""
     prims = []
     w_span, h_span = x1 - x0, y1 - y0
@@ -561,7 +680,7 @@ def _props_records(rng, verts, walls, x0, y0, x1, y1):
     return prims
 
 
-def _props_medbay(rng, verts, walls, x0, y0, x1, y1):
+def _props_medbay(rng, verts, walls, x0, y0, x1, y1, descent=0.0, crng=None):
     """Cots with curtain arcs, a cross-marked cabinet."""
     prims = []
     cabinet_done = False
@@ -583,7 +702,7 @@ def _props_medbay(rng, verts, walls, x0, y0, x1, y1):
     return prims
 
 
-def _props_core(rng, verts, walls, x0, y0, x1, y1):
+def _props_core(rng, verts, walls, x0, y0, x1, y1, descent=0.0, crng=None):
     """Concentric ring inlays, radial conduit spokes, an amber warning ring."""
     prims = []
     r_max = min(x1 - x0, y1 - y0) * 0.42
@@ -608,7 +727,7 @@ def _props_core(rng, verts, walls, x0, y0, x1, y1):
     return prims
 
 
-def _props_generic(rng, verts, walls, x0, y0, x1, y1):
+def _props_generic(rng, verts, walls, x0, y0, x1, y1, descent=0.0, crng=None):
     """Untagged room: subtle plates/rivets + grime, toned down from the old
     always-on abstract-lines-and-dots generator."""
     prims = []
@@ -644,6 +763,124 @@ def _props_generic(rng, verts, walls, x0, y0, x1, y1):
     return prims
 
 
+def _descent_dressing(crng, descent, walls, x0, y0, x1, y1):
+    """Kind-independent descent dressing layered over every room's props:
+    grime density rising with depth, Congregation crosses scratched near
+    the walls from the middle decks down, and — past the corruption
+    threshold — the seed's growth crawling in from the room's edges. All
+    colors sit between floor and prop range so none of it ever competes
+    with a live threat for the eye."""
+    prims = []
+    if descent <= 0.05:
+        return prims
+    g = descent
+    grime = _mix(_GRIME_COLD, _GRIME_DEEP, g)
+    for _ in range(int(round(g * 3))):
+        cx = crng.uniform(x0 + 8, x1 - 8)
+        cy = crng.uniform(y0 + 8, y1 - 8)
+        rad = crng.uniform(4.0, 9.0 + 6.0 * g)
+        n = crng.randint(6, 8)
+        blob = [(cx + math.cos(2 * math.pi * i / n + crng.uniform(-0.2, 0.2))
+                 * rad * crng.uniform(0.6, 1.0),
+                 cy + math.sin(2 * math.pi * i / n + crng.uniform(-0.2, 0.2))
+                 * rad * crng.uniform(0.6, 1.0)) for i in range(n)]
+        prims.append(("stain", blob, grime))
+    for _ in range(int(round(g * 5))):
+        prims.append(("dot", (crng.uniform(x0 + 4, x1 - 4),
+                              crng.uniform(y0 + 4, y1 - 4)), grime, 1))
+    # streaks bleeding in from the walls
+    for wall in walls[:3]:
+        if wall["len"] > 24 and crng.random() < 0.25 + 0.5 * g:
+            t = crng.uniform(8.0, wall["len"] - 8.0)
+            bx = wall["p0"][0] + wall["tx"] * t
+            by = wall["p0"][1] + wall["ty"] * t
+            run = crng.uniform(4.0, 8.0 + 10.0 * g)
+            prims.append(("line", (bx, by),
+                          (bx + wall["nx"] * run, by + wall["ny"] * run),
+                          grime, 1))
+    # Congregation iconography, intensifying with depth: small crosses
+    # scratched into the deck near the walls — the faithful went down,
+    # and kept writing
+    if g > 0.3 and walls:
+        mark = _mix(_MARK_COLD, _MARK_DEEP, g)
+        n_marks = 1 + (1 if crng.random() < (g - 0.3) else 0)
+        for _ in range(n_marks):
+            wall = crng.choice(walls)
+            if wall["len"] < 30:
+                continue
+            t = crng.uniform(10.0, wall["len"] - 10.0)
+            s = crng.uniform(2.2, 3.4)
+            cx = wall["p0"][0] + wall["tx"] * t + wall["nx"] * crng.uniform(4.0, 8.0)
+            cy = wall["p0"][1] + wall["ty"] * t + wall["ny"] * crng.uniform(4.0, 8.0)
+            nx, ny, tx, ty = wall["nx"], wall["ny"], wall["tx"], wall["ty"]
+            prims.append(("line", (cx - nx * s * 1.2, cy - ny * s * 1.2),
+                          (cx + nx * s * 1.8, cy + ny * s * 1.8), mark, 1))
+            bx, by = cx + nx * s * 0.9, cy + ny * s * 0.9
+            prims.append(("line", (bx - tx * s, by - ty * s),
+                          (bx + tx * s, by + ty * s), mark, 1))
+    # the seed's spread: growth patches anchored to the room's edges
+    cor = _corruption(descent)
+    if cor > 0.0 and walls:
+        for _ in range(1 + int(round(cor * 2))):
+            wall = crng.choice(walls)
+            if wall["len"] < 20:
+                continue
+            t = crng.uniform(6.0, wall["len"] - 6.0)
+            gx = wall["p0"][0] + wall["tx"] * t + wall["nx"] * crng.uniform(2.0, 5.0)
+            gy = wall["p0"][1] + wall["ty"] * t + wall["ny"] * crng.uniform(2.0, 5.0)
+            rad = crng.uniform(3.0, 6.0 + 3.0 * cor)
+            n = crng.randint(5, 7)
+            blob = [(gx + math.cos(2 * math.pi * i / n) * rad * crng.uniform(0.55, 1.0),
+                     gy + math.sin(2 * math.pi * i / n) * rad * crng.uniform(0.55, 1.0))
+                    for i in range(n)]
+            prims.append(("stain", blob, GROWTH_FILL))
+            prims.append(("polyline", blob, GROWTH_RIM, 1, True))
+            for _ in range(crng.randint(1, 2)):
+                a = math.atan2(wall["ny"], wall["nx"]) + crng.uniform(-0.9, 0.9)
+                tpts = [(gx, gy)]
+                tx_, ty_ = gx, gy
+                for _ in range(crng.randint(2, 4)):
+                    a += crng.uniform(-0.6, 0.6)
+                    step = crng.uniform(3.5, 6.5)
+                    tx_ += math.cos(a) * step
+                    ty_ += math.sin(a) * step
+                    tpts.append((tx_, ty_))
+                prims.append(("polyline", tpts, TENDRIL_COLOR, 1, False))
+    return prims
+
+
+def _warm_prims(prims, descent):
+    """Bake the descent temperature drift into a cached prim list: every
+    structural color drifts cold->warm by _warm(); geometry is untouched.
+    Runs once per room at cache time, so per-frame cost is zero."""
+    if descent <= 0.0:
+        return prims
+    out = []
+    for prim in prims:
+        kind = prim[0]
+        if kind == "line" and len(prim) > 3 and prim[3] is not None:
+            out.append((prim[0], prim[1], prim[2], _warm(prim[3], descent))
+                       + tuple(prim[4:]))
+        elif kind == "dot" and len(prim) > 2 and prim[2] is not None:
+            out.append((prim[0], prim[1], _warm(prim[2], descent))
+                       + tuple(prim[3:]))
+        elif kind == "stain" and len(prim) > 2 and prim[2] is not None:
+            out.append((prim[0], prim[1], _warm(prim[2], descent)))
+        elif kind == "poly":
+            _, pts_local, fill, outline, ow = prim
+            out.append(("poly", pts_local,
+                        _warm(fill, descent) if fill is not None else None,
+                        _warm(outline, descent) if outline is not None else None,
+                        ow))
+        elif kind == "polyline":
+            _, pts_local, color, width, closed = prim
+            out.append(("polyline", pts_local, _warm(color, descent),
+                        width, closed))
+        else:
+            out.append(prim)
+    return out
+
+
 _ROOM_PROP_GENERATORS = {
     "dock": _props_dock,
     "corridor": _props_corridor,
@@ -669,7 +906,7 @@ class Renderer:
     live in `session.decals`).
     """
 
-    def __init__(self, session, max_depth: int = 14, max_instances: int = 96):
+    def __init__(self, session, max_depth: int = 22, max_instances: int = 320):
         self.session = session
         self.max_depth = max_depth
         self.max_instances = max_instances
@@ -677,6 +914,7 @@ class Renderer:
         self._ent_layer: "pygame.Surface | None" = None
         self._cov_mask: "pygame.Surface | None" = None
         self._detail_cache: dict[int, list] = {}
+        self._pal_cache: dict[int, tuple] = {}
         self._portal_edges: "dict[int, set[int]] | None" = None
 
         self._gibs: list[dict] = []
@@ -902,7 +1140,7 @@ class Renderer:
             self._draw_detail(surf, room, xform, clip_screen, depth)
             self._draw_decals(surf, room, xform, clip_screen)
             self._draw_exit_and_terminals(surf, room, xform, clip_screen)
-            self._draw_walls(surf, walls, depth)
+            self._draw_walls(surf, walls, depth, room)
             self._draw_doors(surf, room, xform, clip_screen)
             pygame.draw.polygon(self._cov_mask, (255, 255, 255, 255),
                                 _pts(clip_screen))
@@ -954,10 +1192,33 @@ class Renderer:
 
     # -- (1) floor ------------------------------------------------------
 
+    def _room_descent(self, room: int) -> float:
+        """Per-room descent scalar. Rooms the sim added on its own since the
+        streamer last extended the list (portable-hole corridors, the
+        cloister) clamp to the last known value — they are always carved
+        near where the player already is, so the error is at most a chunk
+        step, which is invisible by construction."""
+        rd = getattr(self.session.level, "room_descent", None)
+        if not rd:
+            return 0.0
+        return rd[room] if room < len(rd) else rd[-1]
+
+    def _room_pal(self, room: int) -> tuple:
+        """(floor, wall, wall_min) for this room's descent, cached — descent
+        is a per-room constant, assigned before the room is ever visible."""
+        pal = self._pal_cache.get(room)
+        if pal is None:
+            d = self._room_descent(room)
+            pal = (_ramp(_FLOOR_RAMP, d),
+                   _ramp(_WALL_RAMP, d),
+                   _ramp(_WALL_MIN_RAMP, d))
+            self._pal_cache[room] = pal
+        return pal
+
     def _draw_floor(self, surf, room, depth, clip_screen):
         dim = _floor_dim(depth)
         tint = _room_tint(room)
-        color = _shade(FLOOR_BASE, dim, tint)
+        color = _shade(self._room_pal(room)[0], dim, tint)
         pygame.draw.polygon(surf, color, _pts(clip_screen))
 
     # -- (2) room detail --------------------------------------------------
@@ -1000,7 +1261,17 @@ class Renderer:
         y0, y1 = min(ys), max(ys)
         walls = _wall_edges(verts, self._portal_edges_for(room))
         gen = _ROOM_PROP_GENERATORS.get(kind, _props_generic)
-        prims = gen(rng, verts, walls, x0, y0, x1, y1)
+        # The descent pipeline: the base layout draws from `rng` exactly as
+        # it always did (a room's furniture is identical at every depth);
+        # corruption and dressing draw from a SECOND stream seeded from the
+        # same room seed, so frames stay deterministic without the additions
+        # reshuffling the base. Temperature drift is baked in last, once.
+        descent = self._room_descent(room)
+        crng = random.Random(seed ^ 0x5EED5EED)
+        prims = list(gen(rng, verts, walls, x0, y0, x1, y1,
+                         descent=descent, crng=crng))
+        prims.extend(_descent_dressing(crng, descent, walls, x0, y0, x1, y1))
+        prims = _warm_prims(prims, descent)
         self._detail_cache[room] = prims
         return prims
 
@@ -1010,7 +1281,8 @@ class Renderer:
             return
         dim = _floor_dim(depth)
         tint = _room_tint(room)
-        default_color = _shade(FLOOR_BASE, dim, (tint[0] + 18, tint[1] + 18, tint[2] + 18))
+        default_color = _shade(self._room_pal(room)[0], dim,
+                               (tint[0] + 18, tint[1] + 18, tint[2] + 18))
         scale = None
         for prim in prims:
             kind = prim[0]
@@ -1207,12 +1479,18 @@ class Renderer:
 
     # -- (5) walls + doors --------------------------------------------------
 
-    def _draw_walls(self, surf, walls, depth):
-        # Walls are the level's readability skeleton: dim with depth but
-        # never below WALL_MIN (floors may go darker than walls ever do).
-        dim = _dim(depth)
-        c = _shade(WALL_COLOR, dim)
-        color = (max(c[0], WALL_MIN[0]), max(c[1], WALL_MIN[1]), max(c[2], WALL_MIN[2]))
+    def _wall_color(self, room: int):
+        # Walls are the level's readability skeleton: they may dim (via
+        # _dim, currently identity — distance lighting replaced depth
+        # dimming) but never below the wall-min floor. Both ends of that
+        # range drift with the room's descent.
+        _, wall, wall_min = self._room_pal(room)
+        c = _shade(wall, _dim(0))
+        return (max(c[0], wall_min[0]), max(c[1], wall_min[1]),
+                max(c[2], wall_min[2]))
+
+    def _draw_walls(self, surf, walls, depth, room):
+        color = self._wall_color(room)
         for x1, y1, x2, y2, is_portal in walls:
             if is_portal:
                 continue  # seamlessness is sacred: never draw a portal edge
@@ -1230,14 +1508,15 @@ class Renderer:
             sx1, sy1 = necore.mat_apply(xform, x1, y1)
             sx2, sy2 = necore.mat_apply(xform, x2, y2)
             if key == "shoot":
-                # a secret is a wall that keeps its secret: ordinary wall
-                # color, one hairline fissure off-center
+                # a secret is a wall that keeps its secret: THIS room's wall
+                # color (which drifts with descent — a cold grey slab in a
+                # warm deep deck would be a tell), one hairline fissure
                 for seg in necore.clip_polyline([(sx1, sy1), (sx2, sy2)],
                                                 clip_screen):
                     if len(seg) < 2:
                         continue
                     a, b = seg[0], seg[-1]
-                    pygame.draw.line(surf, (184, 196, 204), _pt(a), _pt(b), 2)
+                    pygame.draw.line(surf, self._wall_color(room), _pt(a), _pt(b), 2)
                     fx_ = a[0] + (b[0] - a[0]) * 0.62
                     fy_ = a[1] + (b[1] - a[1]) * 0.62
                     nx_, ny_ = (b[1] - a[1]), -(b[0] - a[0])
