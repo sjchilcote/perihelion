@@ -218,9 +218,12 @@ Testators mastered spatial connection as an engineering material. The station's 
 is folded: more volume than its hull could contain, corridors that reconnect impossibly,
 defensive layouts where four left turns take an intruder somewhere they did not expect.
 But it is still *architecture* — doors, halls, chambers, sight lines — designed to be
-navigated and inhabited by embodied, organic-compatible beings, because it was built to
-receive refugees and students. It is pressurized and life-supporting for the same
-reason. It teaches its geometry to the visitor deliberately, in escalating lessons —
+navigated and inhabited by embodied, organic-compatible beings. Not a refuge: a
+CLASSROOM WITH GOOD CHAIRS. The station's mission is to warn and to prepare, and a
+warning no one stays to decode warns no one — so the Testators made the place
+interesting and hospitable enough that its discoverers would remain long enough to
+learn. Quarters, gardens, pressurized halls: retention engineering, hospitality as
+pedagogy. It teaches its geometry to the visitor deliberately, in escalating lessons —
 the station is, among other things, a school. (This is the diegetic justification for
 the level-design difficulty curve of the spatial mechanics.)
 
@@ -239,9 +242,13 @@ Narrative function:
 ### 4.3 Stratum Three: The Breach — the far side
 
 Deep in the station's core is the reason the Testators built warning stations at all: a
-standing connection to the invaders' space. Not a portal the Testators made — a wound
-they *contained*. The station is also a bandage over a hole in the world, and its
-deepest defenses face inward.
+standing connection to the invaders' space. Not a portal the Testators made, and not
+a wound the station merely happened to contain: THE ADVERSARY HIJACKED THE GIFT. The
+warning system itself became the attack vector — the connection rode in through what
+the Testators built to save people, unintended and unforeseen by its builders. The
+station is a bandage over a hole in the world that the bandage itself carried in,
+and its deepest defenses face inward because, at the end, the builders understood
+what their gift had become.
 
 **Geometry: purely non-Euclidean, with no concession to embodied life.** The invaders'
 space has no global embedding, no consistent orientation, no "outside." Room-graph
@@ -705,7 +712,8 @@ Adversary than either of them would like.
 Air is diegetically motivated at every layer: outpost life support (Act 1 hazards and
 puzzles — repressurize a sealed lab to cross it, vent a corridor to hurl a hunter-frame
 into a shredder), station-provided atmosphere in Stratum Two (the Testators built for
-organic refugees; defenses weaponize pressure, and so can the player), and airlessness
+organic students it needed to keep alive and attentive; defenses weaponize pressure,
+and so can the player), and airlessness
 as the default of Stratum Three, where the player carries, generates, and spends
 atmosphere — for cooling, for the container's eventual transport needs, and as a
 weapon that behaves *very* strangely across non-Euclidean edges (a pressure gradient
