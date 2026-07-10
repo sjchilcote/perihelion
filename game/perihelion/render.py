@@ -28,6 +28,7 @@ INTERNAL_W, INTERNAL_H = 640, 360
 
 FLOOR_BASE = (26, 26, 33)          # ~0x1a1a21 dark grey-blue — reads clearly against the void
 SHADOW_FLOOR = (11, 11, 15)        # known geometry outside line of sight: present, unlit
+OW_FLOOR = (52, 64, 58)            # otherworld: the floor itself luminesces, cold
 WALL_COLOR = (184, 196, 204)       # 0xb8c4cc
 WALL_MIN = (74, 80, 88)            # 0x4a5058 — walls never dim below this (readability skeleton)
 DOOR_COLOR = (208, 128, 24)        # 0xd08018
@@ -1389,6 +1390,13 @@ class Renderer:
         return pal
 
     def _draw_floor(self, surf, room, depth, clip_screen):
+        kinds = self.session.level.room_kinds
+        if room < len(kinds) and kinds[room] == "otherworld":
+            # the floor is the light source: self-luminous cold base that
+            # the inverted darkness field then sculpts (dim near the
+            # player, glowing at distance)
+            pygame.draw.polygon(surf, OW_FLOOR, _pts(clip_screen))
+            return
         dim = _floor_dim(depth)
         tint = _room_tint(room)
         color = _shade(self._room_pal(room)[0], dim, tint)
