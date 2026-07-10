@@ -237,8 +237,14 @@ class GameScene(menus.Scene):
 
     def draw(self, app, surf) -> None:
         self.renderer.draw(surf, debug=app.debug)
+        is_top = not app.scenes or app.scenes[-1] is self
         mouse_internal = app.window_to_internal(pygame.mouse.get_pos())
         self.hud.draw(surf, self.session, mouse_internal)
+        if not is_top:
+            # a menu overlay is on top: its own text owns the screen --
+            # objectives/floats pause (undrawn, undecayed) until it closes,
+            # instead of interleaving with the overlay's header lines
+            return
         for ft in self.float_texts:
             sx, sy, label, ticks = ft
             f = menus.get_font(10)
@@ -761,8 +767,11 @@ class App:
                 import necore
                 sx, sy = necore.mat_apply(game.session.cam, *ev[2])
                 # simultaneous pickups smear into one blob at the same
-                # spot: stack later floats upward so each stays readable
-                while any(abs(ft[0] - sx) < 46 and abs(ft[1] - sy) < 11
+                # spot: stack against each float's CURRENT rendered y (they
+                # rise ~0.35px/tick from their base), not its spawn y
+                def _vis_y(ft):
+                    return ft[1] - (66 - ft[3]) * 0.35
+                while any(abs(ft[0] - sx) < 46 and abs(_vis_y(ft) - sy) < 11
                           for ft in game.float_texts):
                     sy -= 11
                 game.float_texts.append([sx, sy, ev[3], 66])

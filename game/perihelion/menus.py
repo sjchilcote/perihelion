@@ -654,14 +654,16 @@ class MindMapScene(Scene):
                     s.components >= price(n["id"])
                 locked = not owned and not available(s.mind, n["id"])
                 mark = "#" if owned else ("-" if locked else " ")
-                # hard column budget: four columns at 640 internal px --
-                # long concept names truncate rather than bleed
+                # hard column budget: measure-trim the whole line (name AND
+                # price) against the column width, or prices bleed into the
+                # neighboring column
+                tail = "" if owned else f" {price(n['id'])}c"
                 name = n["label"]
-                if len(name) > 17:
-                    name = name[:16] + "…"
-                label = f"{mark} {name}"
-                if not owned:
-                    label += f" {price(n['id'])}c"
+                label = f"{mark} {name}{tail}"
+                while len(name) > 4 and \
+                        tf.size(label)[0] > col_w - 16:
+                    name = name[:-2] + "…"
+                    label = f"{mark} {name}{tail}"
                 sel = ci == self.col and ri == self.rows[region]
                 if sel:
                     col = (240, 240, 245)
@@ -682,9 +684,11 @@ class MindMapScene(Scene):
         # the selected node's brief, footer band
         n = self._sel()
         brief = n.get("brief", "")
-        yb = h - 46
-        pygame.draw.rect(surf, (10, 10, 16), (0, yb - 4, w, 50))
-        for line in _wrap(brief, 96):
+        yb = h - 52
+        pygame.draw.rect(surf, (10, 10, 16), (0, yb - 4, w, 56))
+        # char budget sized to the font's real advance (~8px at size 10);
+        # 96 chars overflowed the 640px surface and clipped mid-word
+        for line in _wrap(brief, 74)[:3]:
             img = tf.render(line, True, (160, 158, 150))
             surf.blit(img, (12, yb))
             yb += 12

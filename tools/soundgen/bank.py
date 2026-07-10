@@ -392,6 +392,40 @@ def gen_shotgun_fire() -> np.ndarray:
     )
 
 
+def gen_scrap_fire() -> np.ndarray:
+    # Junkier cousin of the shotgun: same gunshot skeleton (proven weight)
+    # but with a rattling metal-debris tail -- irregular scattered grains,
+    # not the smooth comb-delayed room tail -- plus bitcrush grit so it
+    # reads as a driver flinging scrap, not a clean shotgun blast.
+    seed = _seed("scrapfire")
+    x = gunshot(
+        0.42, seed,
+        thump_kw=dict(f0=136, f1=44, pitch_s=0.03, dur_s=0.16, drive=2.3),
+        body_kw=dict(dur_s=0.16, f_hi=2400, f_lo=260, brown_mix=0.6),
+        tail_kw=dict(dur_s=0.24, lp_hz=900),
+        transient_gain=1.0, thump_gain=1.0, transient_lp=3200, knock_gain=0.7,
+        knock_hz=210.0, body_gain=0.6, tail_gain=0.3, drive=2.4,
+        sub_gain=0.5, sub_kw=dict(f0=80, f1=30, pitch_s=0.03, dur_s=0.14, drive=1.7),
+        fade_s=0.04,
+    )
+    rng = np.random.default_rng(seed + 30)
+    debris_events = []
+    t = 0.03
+    while t < 0.32:
+        gdur = rng.uniform(0.006, 0.016)
+        g = sy.white_noise(gdur, seed=int(rng.integers(0, 1 << 30)))
+        g = sy.bandpass(g, rng.uniform(900, 3200), q=rng.uniform(2.0, 5.0))
+        g = sy.apply_env(g, sy.env_exp_decay(gdur, tau=gdur / 2.5))
+        debris_events.append((t, g, rng.uniform(0.3, 0.7) * (1.0 - t / 0.35)))
+        t += rng.uniform(0.008, 0.02)
+    total_s = len(x) / SR
+    debris = place(total_s, *debris_events)
+    x = place(total_s, (0.0, x, 1.0), (0.0, debris, 0.8))
+    x = sy.bitcrush(x, bits=9)
+    x = sy.soft_clip(x, 1.2)
+    return finish(x, fade_s=0.05, pad_s=0.03)
+
+
 def gen_rail_fire() -> np.ndarray:
     # NOTE: pinned to the round-2 parameters that judged 0.95 -- keep bit-exact
     seed = _seed("rail")
@@ -852,6 +886,48 @@ def gen_spitter_shoot() -> np.ndarray:
     return finish(x, fade_s=0.04, pad_s=0.03)
 
 
+def gen_gland_fire() -> np.ndarray:
+    """A grafted Adversary gland discharging: wet organic burst with a sour,
+    faintly wrong tonal component (a close detuned sine pair beating just
+    off true) so it never reads as the enemy spitter's clean gurgle-plop --
+    this is the player's own flesh doing something it shouldn't."""
+    seed = _seed("glandfire")
+    dur = 0.48
+    gurgle = sy.brown_noise(dur, seed=seed)
+    gurgle = sy.lowpass(gurgle, 1100)
+    lfo = sy.one_pole_lowpass(sy.white_noise(dur, seed=seed + 1), 40).astype(np.float64)
+    lfo = 0.35 + 0.65 * np.abs(lfo) / (np.max(np.abs(lfo)) + 1e-9)
+    gurgle = (gurgle.astype(np.float64) * lfo).astype(np.float32)
+    gurgle = sy.apply_env(gurgle, sy.env_adsr(dur, 0.008, 0.05, 0.45, 0.1))
+    # wet ejection burst: fast down-swept bandpassed noise (organic, unlike
+    # the spitter's slower lowpass-swept 'plop')
+    burst = sy.white_noise(0.09, seed=seed + 4)
+    burst = sy.bandpass(burst, sy.pitch_env(0.09, 2200, 500), q=1.1)
+    burst = sy.apply_env(burst, sy.env_exp_decay(0.09, tau=0.02, end=0.001))
+    burst = sy.soft_clip(burst, 2.2)
+    knock = body_knock(0.08, 250, seed=seed + 5)
+    # the 'wrong' tonal component: a close detuned sine pair, sour beating
+    wrong = sy.mix_layers([sy.sine(310.0, 0.16), sy.sine(322.0, 0.16)], [0.4, 0.35])
+    wrong = sy.soft_clip(wrong, 1.6)
+    wrong = sy.apply_env(wrong, sy.env_exp_decay(0.16, tau=0.05, end=0.001))
+    wrong = sy.bandpass(wrong, 500, q=0.8)
+    grains = squelch_grains(dur, 8, 400, 1500, grain_s=0.009, spread=0.75,
+                            seed=seed + 2, gain=1.1)
+    splash = squelch_grains(0.1, 4, 1600, 3800, grain_s=0.005, spread=0.8,
+                            seed=seed + 7, gain=0.4)
+    x = place(dur,
+              (0.0, hot_transient(0.004, seed=seed + 3, gain=0.2, lp_hz=1600), 0.5),
+              (0.0, gurgle, 1.0),
+              (0.002, burst, 0.9),
+              (0.004, knock, 0.5),
+              (0.006, wrong, 0.55),
+              (0.0, grains, 0.95),
+              (0.004, splash, 0.9))
+    x = grit(x, drive=1.9, floor_db=-38, seed=seed + 8)
+    x = sy.lowpass(x, 3600)
+    return finish(x, fade_s=0.04, pad_s=0.03)
+
+
 def gen_shrieker_scream() -> np.ndarray:
     seed = _seed("shrieker")
     dur = 0.88
@@ -1035,6 +1111,161 @@ def gen_pickup_key() -> np.ndarray:
               (0.0, floor_, 0.3))
     x = sy.soft_clip(x, 1.3)
     return finish(x, fade_s=0.06, pad_s=0.02)
+
+
+def gen_fabricate_buy() -> np.ndarray:
+    """A seed-station fabricator printing a purchase: quick servo spin-up,
+    a short deposition hum (the nozzle laying material down), then a bright
+    two-tone confirmation chirp -- a transaction completing, not a UI
+    blip. Kept well under 0.6s."""
+    seed = _seed("fabbuy")
+    dur = 0.5
+    servo_dur = 0.16
+    servo = sy.mix_layers([
+        sy.saw(sy.pitch_env(servo_dur, 90, 260), servo_dur),
+        sy.square(sy.pitch_env(servo_dur, 260, 520), servo_dur),
+    ], [0.8, 0.35])
+    servo = sy.lowpass(servo, 2200)
+    servo = sy.soft_clip(servo, 2.2)
+    servo = sy.apply_env(servo, sy.env_adsr(servo_dur, 0.02, 0.02, 0.75, 0.05))
+    servo_noise = sy.white_noise(servo_dur, seed=seed + 3)
+    servo_noise = sy.bandpass(servo_noise, 1200, q=1.1)
+    servo = sy.mix_layers([servo, servo_noise], [1.0, 0.25])
+    dep_dur = 0.22
+    dep = squelch_grains(dep_dur, 14, 900, 2200, grain_s=0.006, spread=0.9,
+                         seed=seed + 5, gain=0.5)
+    hum = sy.square(220.0, dep_dur)
+    hum = sy.lowpass(hum, 900)
+    hum = sy.apply_env(hum, sy.env_adsr(dep_dur, 0.02, 0.02, 0.6, 0.05))
+    knock = body_knock(0.05, 260, seed=seed + 6)
+    chirp_dur = 0.09
+    c1 = sy.apply_env(sy.sine(1400, chirp_dur * 0.5),
+                      sy.env_exp_decay(chirp_dur * 0.5, tau=0.02))
+    c2 = sy.apply_env(sy.sine(2000, chirp_dur * 0.6),
+                      sy.env_exp_decay(chirp_dur * 0.6, tau=0.025))
+    chirp = sy.concat(c1, c2)
+    chirp = sy.soft_clip(chirp, 1.6)
+    x = place(dur,
+              (0.0, servo, 1.0),
+              (0.1, dep, 1.0),
+              (0.1, hum, 0.6),
+              (0.13, knock, 0.5),
+              (0.32, chirp, 0.9))
+    x = grit(x, drive=1.7, floor_db=-38, seed=seed + 9)
+    return finish(x, fade_s=0.03, pad_s=0.03)
+
+
+def gen_reprint() -> np.ndarray:
+    """A fresh frame printing at the seed after death: resurrection as
+    industrial process. A rising fabricator-field whine builds under
+    accelerating mechanical layer-strikes (the printer's cadence read as
+    liturgical repetition), a hushed detuned bell-chime layer, and a final
+    bright power-on chord as the frame comes online."""
+    seed = _seed("reprint")
+    dur = 1.2
+    build_dur = dur * 0.85
+    sweep = sy.pitch_env(build_dur, 90, 700)
+    whine = sy.sine(sweep, build_dur)
+    whine = sy.mix_layers([whine, sy.sine(sweep * 1.503, build_dur)], [0.8, 0.3])
+    whine = sy.soft_clip(whine, 1.6)
+    trem = 1.0 - 0.2 * sy.sine(9.0, build_dur).astype(np.float64)
+    whine = (whine.astype(np.float64) * trem).astype(np.float32)
+    whine = sy.apply_env(whine, sy.env_adsr(build_dur, 0.5, 0.1, 0.85, 0.1))
+    strike_events = []
+    t = 0.05
+    i = 0
+    while t < dur * 0.8:
+        th = gun_thump(f0=140 + i * 6, f1=60 + i * 4, pitch_s=0.02, dur_s=0.09, drive=1.8)
+        kn = body_knock(0.07, 180 + i * 5, seed=seed + i + 20)
+        strike_events.append((t, th, 0.9))
+        strike_events.append((t, kn, 0.6))
+        gap = max(0.05, 0.16 - 0.01 * i)
+        t += gap
+        i += 1
+    strikes = place(dur, *strike_events)
+    chime = metal_clank(480, 0.5, ratios=(1.0, 2.0, 3.01), detune_cents=6.0,
+                        strike=False, lp_hz=3200, seed=seed + 2)
+    chime2 = metal_clank(480 * 1.5, 0.4, ratios=(1.0, 1.99, 2.98), detune_cents=6.0,
+                         strike=False, lp_hz=3400, seed=seed + 3)
+    chord_dur = 0.3
+    chord = sy.mix_layers([
+        sy.sine(440.0, chord_dur), sy.sine(660.0, chord_dur), sy.sine(880.0, chord_dur),
+    ], [0.6, 0.45, 0.35])
+    chord = sy.soft_clip(chord, 1.5)
+    chord = sy.apply_env(chord, sy.env_adsr(chord_dur, 0.03, 0.05, 0.7, 0.18))
+    x = place(dur,
+              (0.0, whine, 0.9),
+              (0.0, strikes, 1.0),
+              (0.05, chime, 0.4),
+              (0.3, chime2, 0.3),
+              (dur - chord_dur - 0.02, chord, 0.9))
+    x = grit(x, drive=1.6, floor_db=-36, seed=seed + 8)
+    return finish(x, fade_s=0.12, pad_s=0.05)
+
+
+def gen_seed_plant() -> np.ndarray:
+    """A station kit anchoring into deck plate: heavy mechanical thunk of
+    the anchor bolts driving home, then a rising power-up bloom as the
+    station wakes."""
+    seed = _seed("seedplant")
+    dur = 0.9
+    thunk = gun_thump(f0=100, f1=32, pitch_s=0.04, dur_s=0.3, drive=2.3)
+    knock = body_knock(0.18, 130, seed=seed + 2)
+    bolts = metal_clank(300, 0.22, ratios=(1.0, 1.48, 2.21), seed=seed, lp_hz=2200)
+    dust = sy.brown_noise(0.25, seed=seed + 4)
+    dust = sy.lowpass(dust, 400)
+    dust = sy.apply_env(dust, sy.env_exp_decay(0.25, tau=0.08, end=0.001))
+    bloom_dur = 0.55
+    bsweep = sy.pitch_env(bloom_dur, 120, 900)
+    bloom = sy.sine(bsweep, bloom_dur)
+    bloom = sy.mix_layers([bloom, sy.saw(bsweep * 2.0, bloom_dur)], [0.85, 0.25])
+    bloom = sy.lowpass(bloom, 3200)
+    bloom = sy.soft_clip(bloom, 1.5)
+    bloom = sy.apply_env(bloom, sy.env_adsr(bloom_dur, 0.35, 0.05, 0.85, 0.1))
+    hum = sy.square(60.0, bloom_dur)
+    hum = sy.lowpass(hum, 300)
+    hum = sy.apply_env(hum, sy.env_adsr(bloom_dur, 0.3, 0.05, 0.8, 0.1))
+    x = place(dur,
+              (0.0, hot_transient(0.006, seed=seed + 1, gain=0.5, lp_hz=2200), 0.8),
+              (0.0, thunk, 1.2),
+              (0.0, knock, 0.9),
+              (0.0, bolts, 0.6),
+              (0.0, dust, 0.7),
+              (0.3, bloom, 0.9),
+              (0.3, hum, 0.5))
+    x = grit(x, drive=1.7, floor_db=-36, seed=seed + 9)
+    return finish(x, fade_s=0.08, pad_s=0.04)
+
+
+def gen_corpse_recover() -> np.ndarray:
+    """Recovering your own wreck: a low, somber metallic pickup -- a dull
+    dark clank (heavily damped, unlike pickup_key's bright detuned chime)
+    plus a soft mournful low tone, respectful rather than triumphant."""
+    seed = _seed("corpserecover")
+    dur = 0.7
+    clank = metal_clank(210, 0.32, ratios=(1.0, 1.44, 1.98), detune_cents=4.0,
+                        strike=True, lp_hz=1400, seed=seed)
+    thud = gun_thump(f0=110, f1=55, pitch_s=0.02, dur_s=0.1, drive=1.8)
+    knock = body_knock(0.09, 160, seed=seed + 3)
+    tone1 = sy.sine(220.0, 0.28)
+    tone2 = sy.sine(196.0, 0.32)
+    tone1 = sy.apply_env(tone1, sy.env_adsr(0.28, 0.05, 0.05, 0.5, 0.15))
+    tone2 = sy.apply_env(tone2, sy.env_adsr(0.32, 0.05, 0.05, 0.4, 0.2))
+    tone = sy.soft_clip(sy.mix_layers([tone1, tone2], [0.4, 0.32]), 1.3)
+    tone = sy.lowpass(tone, 1400)
+    dust = sy.brown_noise(0.3, seed=seed + 4)
+    dust = sy.lowpass(dust, 400)
+    dust = sy.apply_env(dust, sy.env_exp_decay(0.3, tau=0.1, end=0.001))
+    x = place(dur,
+              (0.0, hot_transient(0.005, seed=seed + 1, gain=0.35, lp_hz=1800), 0.6),
+              (0.0, thud, 1.0),
+              (0.0, knock, 0.7),
+              (0.0, clank, 0.6),
+              (0.0, dust, 0.6),
+              (0.1, tone, 0.7))
+    x = grit(x, drive=1.6, floor_db=-38, seed=seed + 8)
+    x = sy.lowpass(x, 2600)
+    return finish(x, fade_s=0.06, pad_s=0.04)
 
 
 def gen_terminal_open() -> np.ndarray:
@@ -1541,6 +1772,7 @@ _ENTRIES = [
     ("pistol_fire", "a punchy sci-fi pistol shot: sharp crack transient, tight low-mid body with real weight, fast natural decay -- must sound like a lethal handgun discharge, not a synth blip or metal ping", 0.10, 0.20, "gun", gen_pistol_fire, ("peak", PEAK_GUN)),
     ("smg_fire", "a tight, ratty submachine-gun shot: fast sharp snap transient, compact low-mid body, very quick decay -- shorter and snappier than the pistol but with real low-end punch", 0.06, 0.14, "gun", gen_smg_fire, ("peak", PEAK_GUN)),
     ("shotgun_fire", "a deep shotgun boom: heavy low-end concussion, broadband pellet-spread rattle, longer decaying boom tail -- the heaviest, most physical gunshot in the game", 0.22, 0.42, "gun", gen_shotgun_fire, ("peak", PEAK_GUN)),
+    ("scrap_fire", "the scrap driver firing salvage shards: a raspier, junkier gunshot than the shotgun -- bitcrushed grit and a rattling scattered-debris tail instead of a smooth boom, like flinging scrap metal, not firing a clean shotgun blast", 0.28, 0.55, "gun", gen_scrap_fire, ("peak", PEAK_GUN)),
     ("rail_fire", "electric zap plus deep thud", 0.24, 0.36, "gun", gen_rail_fire, ("peak", PEAK_GUN)),
     ("lightning_fire", "a crackling electric discharge weapon burst: dense sizzling arc crackle over a deep pulsing low-end body -- scary, dangerous, physically heavy, not a thin digital buzz", 0.35, 0.85, "gun", gen_lightning_fire, ("peak", PEAK_GUN)),
     ("dry_click", "an empty-chamber dry-fire click: short, hard, mechanical -- a real gun hammer/striker snapping on nothing, with a bit of metal-on-metal weight, not a thin plastic tap", 0.02, 0.10, "gun", gen_dry_click, ("peak", PEAK_GUN)),
@@ -1558,6 +1790,7 @@ _ENTRIES = [
     ("enemy_alert_husk", "raspy inhale and groan, unsettling", 0.25, 0.60, "enemy", gen_enemy_alert_husk, ("peak", PEAK_ENEMY)),
     ("enemy_alert_mite", "rapid insect-like chittering", 0.15, 0.30, "enemy", gen_enemy_alert_mite, ("peak", PEAK_ENEMY)),
     ("spitter_shoot", "organic wet spit lob projectile launch", 0.15, 0.30, "enemy", gen_spitter_shoot, ("peak", PEAK_ENEMY)),
+    ("gland_fire", "a grafted Adversary gland discharging: wet organic burst with a sour, faintly wrong detuned tonal component -- distinct from the enemy spitter's clean gurgle-plop, this is the player's own flesh doing something it shouldn't", 0.30, 0.55, "enemy", gen_gland_fire, ("peak", PEAK_ENEMY)),
     ("shrieker_scream", "piercing distorted shriek, the scariest sound in the game", 0.55, 1.0, "enemy", gen_shrieker_scream, ("peak", PEAK_ENEMY + 0.5)),
     ("player_hurt", "sharp grunt-like thump plus a high sting", 0.10, 0.20, "player", gen_player_hurt, ("peak", PEAK_PLAYER)),
     ("player_die", "long collapse with a fading ring", 1.0, 1.5, "player", gen_player_die, ("peak", PEAK_PLAYER)),
@@ -1565,10 +1798,14 @@ _ENTRIES = [
     ("pickup_ammo", "metallic clink-slide of picking up ammo", 0.10, 0.20, "pickup", gen_pickup_ammo, ("peak", PEAK_UI)),
     ("pickup_medkit", "soft latch click plus a hiss", 0.18, 0.32, "pickup", gen_pickup_medkit, ("peak", PEAK_UI)),
     ("pickup_key", "small chime, but dark and detuned", 0.15, 0.28, "pickup", gen_pickup_key, ("peak", PEAK_UI)),
+    ("fabricate_buy", "a seed-station fabricator printing a purchase: quick servo spin-up, a short deposition hum, then a bright two-tone confirmation chirp -- a transaction completing, short and unmissable, well under 0.6s", 0.35, 0.58, "pickup", gen_fabricate_buy, ("peak", PEAK_UI)),
+    ("corpse_recover", "recovering your own wreck: a low, somber metallic pickup -- a dull dark clank plus a soft mournful low tone, respectful rather than triumphant, distinct from pickup_key's bright detuned chime", 0.55, 0.85, "pickup", gen_corpse_recover, ("peak", PEAK_UI)),
     ("terminal_open", "CRT power hum blip", 0.15, 0.28, "ui", gen_terminal_open, ("peak", PEAK_UI)),
     ("terminal_type", "single keyboard key tick", 0.015, 0.05, "ui", gen_terminal_type, ("peak", PEAK_UI)),
     ("radio_blip", "short filtered static burst plus tone, radio voice cue", 0.10, 0.20, "ui", gen_radio_blip, ("peak", PEAK_UI)),
     ("door_unlock", "heavy mechanical servo clunk unlocking a door", 0.25, 0.40, "door", gen_door_unlock, ("peak", PEAK_IMPACT)),
+    ("seed_plant", "a station kit anchoring into deck plate: heavy mechanical thunk of anchor bolts driving home, then a rising power-up bloom as the station wakes", 0.70, 1.10, "door", gen_seed_plant, ("peak", PEAK_IMPACT)),
+    ("reprint", "a fresh frame printing at the seed after death, resurrection as industrial process: a rising fabricator-field whine, accelerating mechanical layer-strikes with a liturgical cadence, a hushed detuned bell-chime, then a bright power-on chord as the frame comes online", 1.0, 1.5, "door", gen_reprint, ("peak", PEAK_IMPACT)),
     ("tau_fire", "sharp electric snap-crack with a metallic ring-down, zappy experimental energy weapon shot, brighter than a railgun", 0.15, 0.22, "gun", gen_tau_fire, ("peak", PEAK_GUN)),
     ("tau_charge", "rising capacitor whine, swept tone with growing tremolo and electrical crackle, charging energy weapon; intentionally ends hot mid-charge because it hands off to the shot", 1.2, 1.8, "gun", gen_tau_charge, ("peak", -3.5)),
     ("tau_charged_fire", "big energy discharge: deep concussion plus a long electric arc tail with a descending metallic ring", 0.5, 0.8, "gun", gen_tau_charged_fire, ("peak", PEAK_GUN)),

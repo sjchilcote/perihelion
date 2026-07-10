@@ -35,6 +35,7 @@ frame-rate independent like everything else in this engine.
 
 from __future__ import annotations
 
+import json
 import math
 import os
 import random
@@ -48,6 +49,25 @@ from .sim import DT
 from .sim import ENEMIES as SIM_ENEMIES
 
 INTERNAL_W, INTERNAL_H = 640, 360
+
+# -- HP (high-pixel) sprite integration -------------------------------------
+# Opt-in via PERIHELION_HP_SPRITES=1 (see Renderer._hp_ensure_loaded). Maps
+# sim pickup `kind` -> the manifest asset key that draws it; kinds absent
+# from this dict (turret, implant_lightning, key_*, portable_hole,
+# components, corpse_frame, organ_gland) have no HP art yet and keep their
+# vector draw unconditionally.
+_HP_PICKUP_ASSET = {
+    "ammo_9mm": "pickup_ammo",
+    "ammo_shell": "pickup_ammo",
+    "ammo_cell": "pickup_ammo",
+    "medkit": "pickup_medkit",
+    "weapon_smg": "pickup_weapon",
+    "weapon_shotgun": "pickup_weapon",
+    "weapon_rail": "pickup_weapon",
+    "weapon_tau": "pickup_weapon",
+    "safe_room_core": "prop_seed_station",
+}
+_HP_ANGLE_BUCKET_DEG = 22.5  # 360 / 16
 
 FLOOR_BASE = (26, 26, 33)          # ~0x1a1a21 dark grey-blue — reads clearly against the void
 SHADOW_FLOOR = (11, 11, 15)        # known geometry outside line of sight: present, unlit
@@ -1353,6 +1373,15 @@ class Renderer:
 
         self._font = None
 
+        # -- HP sprite state (opt-in, see _hp_ensure_loaded) ----------------
+        self._hp_enabled = os.environ.get("PERIHELION_HP_SPRITES") == "1"
+        self._hp_load_attempted = False
+        self._hp_manifest: dict = {}
+        self._hp_sprites: dict = {}         # asset key -> raw pygame.Surface
+        self._hp_white_sprites: dict = {}   # asset key -> white-tinted raw Surface
+        self._hp_variant_cache: dict = {}   # (key, scale, deg, flashed) -> Surface
+        self._hp_queue: list = []           # per-frame sprite blit jobs
+
         self._bake_glows()
         self._bake_vignette()
         self._darkness: "pygame.Surface | None" = None
@@ -1440,6 +1469,144 @@ class Renderer:
         death = pygame.Surface((w, h), pygame.SRCALPHA)
         death.fill((0, 0, 0, 255))
         self._death_overlay = death
+
+    # ------------------------------------------------------------------
+    # HP (high-pixel) sprite loading + scale/rotation cache. Everything
+    # here is a no-op when PERIHELION_HP_SPRITES is unset (the vector look
+    # stays the shipped default) and is best-effort when it IS set: a
+    # missing manifest, a missing/corrupt individual PNG, or a missing
+    # assets-hp dir entirely all fall back to the vector draw for whatever
+    # they touch, never raise, never draw a placeholder.
+    # ------------------------------------------------------------------
+
+    def _hp_ensure_loaded(self) -> None:
+        if self._hp_load_attempted or not self._hp_enabled:
+            return
+        self._hp_load_attempted = True
+        asset_dir = os.path.join(os.path.dirname(__file__), "assets-hp")
+        manifest_path = os.path.join(asset_dir, "manifest.json")
+        try:
+            with open(manifest_path, "r") as f:
+                manifest = json.load(f)
+        except (OSError, ValueError):
+            return  # no manifest -> HP sprites stay off, vector draws everything
+        sprites: dict = {}
+        white: dict = {}
+        for key, entry in manifest.items():
+            rel = entry.get("file")
+            if not rel:
+                continue
+            path = os.path.join(os.path.dirname(__file__), rel)
+            try:
+                img = pygame.image.load(path)
+                if img.get_bytesize() != 4:
+                    continue  # not RGBA -- no usable alpha silhouette
+                tint = img.copy()
+                arr = pygame.surfarray.pixels3d(tint)
+                arr[:, :, :] = 255
+                del arr
+            except (pygame.error, OSError):
+                continue  # this one asset missing/corrupt -> skip it only
+            sprites[key] = img
+            white[key] = tint
+        self._hp_manifest = manifest
+        self._hp_sprites = sprites
+        self._hp_white_sprites = white
+
+    def _hp_key_for(self, role: str, kind) -> "str | None":
+        """Manifest asset key for a player/enemy/pickup instance, or None
+        if HP sprites are off, unloaded, or this kind has no HP art yet."""
+        if not self._hp_enabled:
+            return None
+        if not self._hp_load_attempted:
+            self._hp_ensure_loaded()
+        if role == "player":
+            key = "player"
+        elif role == "enemy":
+            key = f"enemy_{kind}"
+        elif role == "pickup":
+            key = _HP_PICKUP_ASSET.get(kind)
+        else:
+            return None
+        return key if key in self._hp_sprites else None
+
+    def _hp_prop_key(self, key: str) -> "str | None":
+        """Manifest asset key for a non-entity prop (terminal, corpse
+        decal) -- same load-gate as _hp_key_for, just no role/kind mapping
+        since the caller already knows the exact manifest key."""
+        if not self._hp_enabled:
+            return None
+        if not self._hp_load_attempted:
+            self._hp_ensure_loaded()
+        return key if key in self._hp_sprites else None
+
+    def _hp_queue_sprite(self, key: str, sx: float, sy: float,
+                          srad: float, ang: float, eid) -> None:
+        """Queue one HP sprite for the end-of-world-pass flush. `ang` is a
+        math-convention screen-space angle (atan2 in y-down space); `eid`
+        is used only to look up hitflash state at flush time (None for
+        props that never flash, e.g. corpses/terminals)."""
+        if srad <= 0.0:
+            return
+        self._hp_queue.append((key, sx, sy, srad, ang, eid))
+
+    def _hp_variant(self, key: str, scale: float, deg: float, flashed: bool):
+        cache_key = (key, round(scale, 2), deg, flashed)
+        img = self._hp_variant_cache.get(cache_key)
+        if img is not None:
+            return img
+        src = (self._hp_white_sprites if flashed else self._hp_sprites).get(key)
+        if src is None:
+            return None
+        w = max(1, int(round(src.get_width() * cache_key[1])))
+        h = max(1, int(round(src.get_height() * cache_key[1])))
+        try:
+            scaled = pygame.transform.scale(src, (w, h))
+            if deg:
+                scaled = pygame.transform.rotate(scaled, deg)
+        except (pygame.error, ValueError, OverflowError):
+            return None
+        if len(self._hp_variant_cache) > 4000:
+            self._hp_variant_cache.clear()
+        self._hp_variant_cache[cache_key] = scaled
+        return scaled
+
+    def _hp_flush(self, surf) -> None:
+        """Blit every sprite queued this frame onto the already-composited
+        `surf`, then clear the queue. Sprites draw WHOLE (never
+        pre-clipped) -- callers only queue instances the no-seams
+        entity-layer fold would have shown whole anyway (fully_inside, or
+        a center-point-in-clip check matching the vector fallback's own
+        visibility test), so this needs no mask of its own."""
+        if not self._hp_queue:
+            return
+        for key, sx, sy, srad, ang, eid in self._hp_queue:
+            entry = self._hp_manifest.get(key)
+            if entry is None:
+                continue
+            px_radius = entry.get("sprite_px_radius") or 0.0
+            if px_radius <= 0.0:
+                continue
+            scale = srad / px_radius
+            if scale <= 0.0:
+                continue
+            rot_mode = entry.get("rotation", "none")
+            if rot_mode == "none":
+                deg = 0.0
+            else:
+                # pygame rotates CCW for +degrees in a y-down surface;
+                # `ang` is atan2(dy, dx) in the same y-down math convention
+                # _xform_pts uses, so the sign flips here (see
+                # INTEGRATION_HP_ART.md "Rotation").
+                raw = -math.degrees(ang)
+                deg = (round(raw / _HP_ANGLE_BUCKET_DEG) * _HP_ANGLE_BUCKET_DEG) % 360.0
+            flashed = eid is not None and self._hitflash.get(eid, 0) > 0
+            img = self._hp_variant(key, scale, deg, flashed)
+            if img is None:
+                continue
+            iw, ih = img.get_size()
+            surf.blit(img, (int(round(sx - iw / 2.0)), int(round(sy - ih / 2.0))))
+        self._hp_queue.clear()
 
     # ------------------------------------------------------------------
     # fx ingestion (call once per sim tick, after session.tick())
@@ -1542,6 +1709,8 @@ class Renderer:
         self._deferred_glows = []
         self._deferred_bolts = []
         self._deferred_screen_glows = []
+        if self._hp_enabled and not self._hp_load_attempted:
+            self._hp_ensure_loaded()
         instances = session.visible(self.max_depth, self.max_instances)
         if self.backend == "rust":
             # no surf.fill: the composed frame blit covers every pixel

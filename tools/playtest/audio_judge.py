@@ -32,6 +32,35 @@ MODEL = "google/gemini-3.5-flash"  # OpenRouter model id
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 DEFAULT_CONTEXT = "lo-fi industrial cosmic-horror top-down shooter, Teleglitch-adjacent"
 
+# Running cost log, same shape/convention as tools/dialogue/judge.py's
+# cost_log.json -- one file shared across every audio_judge caller.
+COST_LOG = Path(__file__).resolve().parent / "cost_log.json"
+
+
+def _read_cost_log() -> dict:
+    if COST_LOG.exists():
+        try:
+            return json.loads(COST_LOG.read_text())
+        except (json.JSONDecodeError, OSError):
+            pass
+    return {"total_cost": 0.0, "calls": []}
+
+
+def _write_cost_log(log: dict) -> None:
+    COST_LOG.write_text(json.dumps(log, indent=2))
+
+
+def _log_call(extra: dict, cost: float) -> None:
+    log = _read_cost_log()
+    log["total_cost"] = log.get("total_cost", 0.0) + cost
+    log.setdefault("calls", []).append(
+        {"tool": "audio_judge", "cost": cost, "ts": time.time(), **extra})
+    _write_cost_log(log)
+
+
+def total_cost() -> float:
+    return float(_read_cost_log().get("total_cost", 0.0))
+
 ANCHORED_PROMPT_TEMPLATE = """You are a veteran game sound designer doing a \
 calibrated listening review.
 
@@ -240,6 +269,10 @@ def _ask(mp3_path: Path, spec: str, context: str,
     )
     with urllib.request.urlopen(req, timeout=300) as resp:
         payload = json.load(resp)
+    usage = payload.get("usage", {})
+    cost = float(usage.get("cost", 0.0) or 0.0)
+    _log_call({"model": MODEL, "prompt_tokens": usage.get("prompt_tokens"),
+               "completion_tokens": usage.get("completion_tokens")}, cost)
     txt = payload["choices"][0]["message"]["content"]
     return _parse_json_response(txt)
 

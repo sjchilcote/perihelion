@@ -1,5 +1,5 @@
 {
-  "total_cost": 1.559409999999999,
+  "total_cost": 1.6057719999999993,
   "calls": [
     {
       "tool": "generate",
@@ -2779,6 +2779,78 @@
       "completion_tokens": 1364,
       "valid": true,
       "ts": 1783672238.0475988
+    },
+    {
+      "tool": "scene6_whole",
+      "candidate": 0,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.7,
+      "top_p": 0.9,
+      "cost": 0.007737,
+      "prompt_tokens": 5355,
+      "completion_tokens": 794,
+      "valid": true,
+      "ts": 1783672781.5398576
+    },
+    {
+      "tool": "scene6_whole",
+      "candidate": 1,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.8,
+      "top_p": 0.92,
+      "cost": 0.007449,
+      "prompt_tokens": 5355,
+      "completion_tokens": 698,
+      "valid": true,
+      "ts": 1783672800.3648505
+    },
+    {
+      "tool": "scene6_whole",
+      "candidate": 2,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.9,
+      "top_p": 0.94,
+      "cost": 0.007296,
+      "prompt_tokens": 5355,
+      "completion_tokens": 647,
+      "valid": true,
+      "ts": 1783672816.6183443
+    },
+    {
+      "tool": "scene6_whole",
+      "candidate": 3,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.95,
+      "top_p": 0.95,
+      "cost": 0.007908,
+      "prompt_tokens": 5355,
+      "completion_tokens": 851,
+      "valid": true,
+      "ts": 1783672856.2357974
+    },
+    {
+      "tool": "scene6_whole",
+      "candidate": 4,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 1.0,
+      "top_p": 0.97,
+      "cost": 0.007401,
+      "prompt_tokens": 5355,
+      "completion_tokens": 682,
+      "valid": true,
+      "ts": 1783672873.2114887
+    },
+    {
+      "tool": "scene6_whole",
+      "candidate": 5,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 1.1,
+      "top_p": 0.98,
+      "cost": 0.008571,
+      "prompt_tokens": 5355,
+      "completion_tokens": 1072,
+      "valid": true,
+      "ts": 1783672899.910399
     }
   ]
 }

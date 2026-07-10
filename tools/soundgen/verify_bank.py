@@ -141,6 +141,8 @@ def main() -> int:
         for r in errored:
             print(f"  {r['name']:22s} errors={r['errors']}")
 
+    print(f"\ncumulative audio_judge cost (tools/playtest/cost_log.json): "
+          f"${audio_judge.total_cost():.4f}")
     print(f"\nWrote {args.out}")
     return 0
 

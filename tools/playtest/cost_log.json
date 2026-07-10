@@ -1,0 +1,101 @@
+{
+  "total_cost": 0.041081999999999994,
+  "calls": [
+    {
+      "tool": "audio_judge",
+      "cost": 0.003747,
+      "ts": 1783672939.6351788,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 653,
+      "completion_tokens": 281
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.003486,
+      "ts": 1783672945.7118502,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 653,
+      "completion_tokens": 252
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.003336,
+      "ts": 1783672950.7038035,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 623,
+      "completion_tokens": 246
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.003255,
+      "ts": 1783672956.202473,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 623,
+      "completion_tokens": 237
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.003435,
+      "ts": 1783672962.228032,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 627,
+      "completion_tokens": 255
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.00384,
+      "ts": 1783672966.24146,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 627,
+      "completion_tokens": 300
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.002718,
+      "ts": 1783672970.345049,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 558,
+      "completion_tokens": 197
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.003969,
+      "ts": 1783672975.1199565,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 558,
+      "completion_tokens": 336
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.0031455,
+      "ts": 1783672979.3710866,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 550,
+      "completion_tokens": 245
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.0031095,
+      "ts": 1783672984.300864,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 550,
+      "completion_tokens": 241
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.00357,
+      "ts": 1783672988.5701852,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 585,
+      "completion_tokens": 285
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.003471,
+      "ts": 1783672993.065805,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 585,
+      "completion_tokens": 274
+    }
+  ]
+}
