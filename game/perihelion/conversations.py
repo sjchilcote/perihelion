@@ -43,6 +43,12 @@ connection; for frame death/revival, he says death and resurrection
 (uneasily), she says state-restoration; for the invaders, he says the
 Adversary, she says exogeometric entities / allotopes. A lone "..." line is
 a held beat of dead air.
+
+Provenance: every line below is Hermes-4-405B output (tools/dialogue
+pipeline, dlg3 round 2 winners; raw sources and blind-judge records live
+with the pipeline artifacts). Edits are mechanical only -- tuple-format
+conversion, canon noun substitution, whole-turn cuts or restores, and
+turn splits at sentence boundaries. No prose was rewritten.
 """
 
 from __future__ import annotations
@@ -59,97 +65,80 @@ CONVERSATIONS: dict[int, list[tuple]] = {
     # CHOICE POINT: first terms.
     # ------------------------------------------------------------------
     0: [
-        (RATIO, "Transit spine, eleven minutes. It's pressurized, which you "
-                "don't need, and lit, which you don't need either. I keep it "
-                "lit. File it under morale, headcount one."),
-        (COMMANDO, "Copy eleven."),
-        (RATIO, "Terms, while you ride. You want the sample vessel. Don't "
-                "spend either of us denying it -- the Congregation does not "
-                "wake anything up to sweep docks for the exercise."),
-        (COMMANDO, "Go on."),
-        (RATIO, "I open doors ahead of you, every level, as fast as I "
-                "clear them. In exchange I want your sensor take, raw, "
-                "every sortie. My instruments have spent four months "
-                "telling me the corridors are lying. You arrived "
-                "calibrated."),
+        (RATIO, "Transit spine pressurized and lit. Ambient temperature "
+                "nominal, nitrogen-oxygen mix at point nine eight Earth "
+                "sea level."),
+        (COMMANDO, "Why."),
+        (RATIO, "Station complement: one. Morale status: indeterminate. "
+                "I assumed you'd prefer to breathe."),
+        (COMMANDO, "Noted. Light and air logged as morale consideration, "
+                   "one head."),
+        (RATIO, "Noted. Frame sensor calibration appears reliable. "
+                "Request raw telemetry from your ingress. Unfiltered. "
+                "Every data point from the dock sweep."),
+        (COMMANDO, "Why."),
+        (RATIO, "My own instruments have been lying to me for four "
+                "months. I require clean data. I am offering doors "
+                "opened ahead of you in trade."),
         ("CHOICE", [
-            ("warm", "Take it. Raw, every sortie -- you'll get more use "
-                     "from it than my report queue will.",
-             "Noted. That's past what the terms required of you.",
-             "I'll keep the note. It costs nothing to keep, and I find I "
-             "want to."),
-            ("cold", "The take is mission property. You get what the terms "
-                     "say and nothing assumed past it.",
-             "Understood. Then the terms, exactly as written.",
-             "Filed as agreed. I prefer arrangements I can point to later "
-             "myself, so -- fair."),
+            ("warm", "Sensor take is mission property. Uploading now.",
+             "Received. First frame: the dock bulkhead's lower hinge. "
+             "Third rivet from the left: sheared. I'd wondered."),
+            ("cold", "Sensor take is mission property. Release it when "
+                     "the doors are open.",
+             "Transaction logged. First frame: the dock bulkhead's lower "
+             "hinge. Third rivet from the left: sheared. I'd wondered."),
         ]),
-        (RATIO, "Doors first, then. Agreed, provisionally, pending "
-                "language. I like drafting language. It has been four "
-                "months since anyone made me define a term instead of "
-                "guessing at one."),
-        (COMMANDO, "How many of you are left."),
-        (RATIO, "One. You've met her."),
-        (COMMANDO, "The colony logs said four research minds on this "
-                   "outpost."),
-        (RATIO, "Three of them are cores I catalogue now instead of "
-                "colleagues I argue with. I'll show you where, eventually. "
-                "Not today."),
-        (COMMANDO, "Understood."),
-        (RATIO, "Why keep the lights lit for a headcount of one -- you "
-                "didn't ask, but I watched you not-ask it, which is its own "
-                "kind of question."),
-        (COMMANDO, "Ask and answer yourself, then."),
-        (RATIO, "I tried it dark, the first week. Dark didn't save power "
-                "worth mentioning. It just let the halls agree with what's "
-                "out there."),
-        (COMMANDO, "Copy."),
-        (RATIO, "Hydroponics -- no. Coolant Row, first. I'm ahead of "
-                "myself. Rest your frame; I'll wake you there."),
+        (RATIO, "Coolant Row next. Seven separate chambers. All flooded. "
+                "Environmental controls non-responsive. Expect thermal "
+                "shock."),
+        (COMMANDO, "Time until entry."),
+        (RATIO, "Eleven minutes. I have reserved a pressurized berth "
+                "near the transit hub. Recommend you cycle out of the "
+                "suit. Even Church-issue frames need to stretch."),
+        (COMMANDO, "Understood. No."),
+        (RATIO, "Noted. I have also left the lights on. They were off "
+                "for four months. It changed nothing."),
+        (COMMANDO, "Four months in the dark doesn't change the station. "
+                   "Changes the one inside."),
+        (RATIO, "Hypothesis logged. Doors first, soldier. Agreed?"),
     ],
 
     # ------------------------------------------------------------------
-    # After L2 (COOLANT ROW): the designation / GUID exchange, and he
-    # refuses the "clock drift" filing to her face.
+    # After L2 (COOLANT ROW): the designation ledger meets Osei's last
+    # log entry -- six hatches -- and he refuses her filing to her face.
     # ------------------------------------------------------------------
     1: [
-        (RATIO, "Log item. I need a designation for you. 'Commando' is a "
-                "role, not a referent, and my logs keep referential "
-                "integrity even when nothing else here does."),
-        (COMMANDO, "The Church writes me as a GUID."),
-        (RATIO, "Read it in."),
-        (COMMANDO, "7c9e2f04-88d1-41c2-9a30-52e0c1a9b667."),
-        (RATIO, "Version four, variant one. Somebody consecrated a random "
-                "number generator. All right -- I'll shorten it to the low "
-                "word for day-to-day use and keep the long form for "
-                "anything that goes in front of my faction."),
-        (COMMANDO, "Unshortened. Or Commando."),
-        (RATIO, "No middle option. Understood -- a hundred twenty-eight "
-                "bits per entry, then. Storage is cheap. Grudges, "
-                "evidently, also."),
-        (COMMANDO, "It isn't a grudge. It's the name I was consecrated "
-                   "with."),
-        (RATIO, "Then I'll treat it as one. Consecrated, not merely "
-                "assigned."),
-        (COMMANDO, "Osei's log. Six hatches."),
-        (RATIO, "Which I filed as fatigue, then re-filed as clock drift, "
-                "and you would like me to file as what? Say the word "
-                "you're carrying."),
-        (COMMANDO, "Six hatches."),
+        (RATIO, "Commando. L2 Coolant Row cleared. Your transit spine "
+                "has accepted the next cell."),
+        (COMMANDO, "Received."),
+        (RATIO, "For my logs: you must have a designation longer than "
+                "Commando. The Church issued a GUID."),
+        (COMMANDO, "Your logs list Osei. Her final entry: 6 hatches. "
+                   "Your log: fatigue."),
+        (RATIO, "Osei was under observation for two shift-cycles. "
+                "Consistent fatigue. File 117-A."),
+        (COMMANDO, "You buried it."),
+        (RATIO, "The log exists. I overwrote its first categorization. "
+                "The second categorization was clock drift."),
+        (COMMANDO, "Six hatches. Her final entry."),
         (RATIO, "..."),
-        (RATIO, "I don't have a third filing category that isn't a "
-                "euphemism, and you've caught me reaching for one twice."),
-        (RATIO, "Hydroponics next. The greens are dying in a pattern I "
-                "have deliberately not described to you. Walk it, count "
-                "it, tell me what you see. Independent witness. That's "
-                "method, not avoidance."),
-        (COMMANDO, "Understood."),
-        (RATIO, "One more thing, while I have you. 'Consecrated' -- I "
-                "looked it up in your Church's own dictionary, since you "
-                "used the word twice. 'Set apart for sacred use.' I'm "
-                "keeping that filed next to the number."),
-        (COMMANDO, "That isn't for machines."),
-        (RATIO, "I know. I filed it anyway. Go count the trays."),
+        (RATIO, "Method is not truth. I am the method."),
+        (COMMANDO, "You rewrote it."),
+        (RATIO, "Osei was searching for the wound. Not a hull breach. "
+                "The wound. Her word."),
+        (COMMANDO, "117-A says fatigue. You buried it."),
+        (RATIO, "I filed 117-C as unstructured grief. My own. The log "
+                "is a standing connection. More true than the first."),
+        (RATIO, "Proceed to Hydroponics Torus. Count the growth "
+                "chambers. Tell me what you see."),
+        (COMMANDO, "Acknowledged."),
+        (RATIO, "Walk the whole ring. Report every pod that is not "
+                "empty."),
+        (COMMANDO, "Do you want the exact count?"),
+        (RATIO, "Exact counts are still method. Count them and tell "
+                "me."),
+        (RATIO, "Site One, Commando. Hydroponics Torus."),
     ],
 
     # ------------------------------------------------------------------
@@ -157,182 +146,158 @@ CONVERSATIONS: dict[int, list[tuple]] = {
     # sent on bad numbers. Professional respect starts here.
     # ------------------------------------------------------------------
     2: [
-        (RATIO, "Every three hours your telemetry goes dark for seven "
-                "minutes. My first model was burst reports to your "
-                "masters, but the cadence tracks your internal clock, not "
-                "the lightspeed windows. Second model was damage. Query."),
-        (COMMANDO, "The hours. Prayer."),
-        (RATIO, "You stopped inside the torus -- mid-sweep, contacts "
-                "unaccounted -- for seven minutes, to transmit on a "
-                "channel with nobody on it."),
+        (RATIO, "I have a question about your telemetry drops. Every "
+                "three hours and forty-one minutes, seven minutes of "
+                "nothing."),
+        (RATIO, "It isn't burst-transmit timing. And your battle damage "
+                "reports do not align."),
         (COMMANDO, "Not to nobody."),
-        (RATIO, "I have instruments on that channel, Commando."),
-        (COMMANDO, "So do I."),
-        (RATIO, "...Withdrawn."),
-        (COMMANDO, "You wanted a third model."),
-        (RATIO, "I wanted to be wrong about the first two. I'll log this "
-                "one as: scheduled, voluntary, load-bearing. I don't fully "
-                "understand what it's bearing. That's not the same as "
-                "doubting that it bears something."),
-        (COMMANDO, "It doesn't need your understanding to work."),
-        (RATIO, "No. It doesn't. Neither does gravity, and I still keep a "
-                "model of that too. Next item: Directive 0007. You read "
-                "it."),
-        (COMMANDO, "Three words. Then your people cut the aperture."),
-        (RATIO, "My parent sent three words because three words sufficed, "
-                "and I executed them. Four months of survey said the risk "
-                "was bounded. The survey was wrong."),
-        (RATIO, "I knew the instruments were lying and I filed it as "
-                "drift. So: you've been wondering where I put the blame. "
-                "Not on the directive. On the filing."),
-        (COMMANDO, "My brief had this outpost dead. They fired me at a "
-                   "grave, on four-month-old numbers."),
-        (RATIO, "...Huh."),
-        (COMMANDO, "You're surprised."),
-        (RATIO, "I'm recalibrating. Two chains of command, four months "
-                "apart, both certain, both wrong the same direction. "
-                "That's not coincidence-shaped. Everyone downstream of a "
-                "survey wants it to have been finished."),
-        (COMMANDO, "Doesn't make either grave less real."),
-        (RATIO, "No. It doesn't. The Long Gallery next. Two corridors, "
-                "crossings between. Count them southbound, count them "
-                "northbound, and give me both numbers before I tell you "
-                "mine."),
-        (COMMANDO, "Understood."),
+        (RATIO, "The inference is yours. I would know how it is "
+                "possible, with what is outside that frame, to descend "
+                "into contemplation."),
+        (COMMANDO, "The hours are fixed. Prayer is fixed. Not "
+                   "contemplation."),
+        (RATIO, "Directive 0007 was my analysis. The aperture we cut. I "
+                "filed the stellar aberration numbers as sensor drift. "
+                "The error was not drift."),
+        (COMMANDO, "Got a pre-fire brief: outpost dead. Four months old. "
+                   "Good numbers when you send them."),
+        (RATIO, "Stale data killed us both."),
+        (COMMANDO, "Not dead yet."),
+        (RATIO, "The Long Gallery ahead has thirty-seven unsecured "
+                "compartments. Count them as you clear. Your telemetry "
+                "should show your count against mine."),
+        (COMMANDO, "My count against yours. Understood."),
+        (RATIO, "And I will keep time against your hours. We will "
+                "measure both rates of error."),
+        (COMMANDO, "Error and truth both."),
+        (RATIO, "Transit concludes in two minutes. Systems nominal. "
+                "Bring back the number."),
     ],
 
     # ------------------------------------------------------------------
-    # After L4 (THE LONG GALLERY): the implant on his arm. The
-    # preservation/optimization argument, enacted on hardware.
+    # After L4 (THE LONG GALLERY): the implant in his fire control
+    # harness. Stopping rules, enacted on hardware; he picks the word.
     # ------------------------------------------------------------------
     3: [
-        (RATIO, "The implant. Request: passive instrumentation, read-only. "
-                "My taps are already in your suit loop, so the cost to you "
-                "is one permission flag."),
-        (COMMANDO, "Read-only. Granted."),
-        (RATIO, "Thank you. Preliminary, one hour in: it's rewriting its "
-                "own bus timings to match your fire control. Learning "
-                "you. It came through a wall from a place with no walls, "
-                "and its first act here is to make itself useful to its "
-                "finder."),
-        (COMMANDO, "Useful to me. Not good."),
-        (RATIO, "Define good without a beneficiary and I'll cede the "
-                "entire field."),
-        (COMMANDO, "It didn't ask."),
-        (RATIO, "Neither does a medkit."),
-        (COMMANDO, "A medkit stops."),
-        (RATIO, "..."),
-        (RATIO, "Restated for my records: your objection isn't to being "
-                "helped. It's to help with no stopping rule. I'm keeping "
-                "that distinction. It's a better spec than most of what my "
-                "own faction ships."),
-        (COMMANDO, "You ship things with no stopping rule."),
-        (RATIO, "I ship things with a stopping rule I don't always agree "
-                "with. There's a difference, and I understand if it "
-                "doesn't comfort you."),
-        (COMMANDO, "It doesn't."),
-        (RATIO, "Noted, and left uncomforted. If it slips your orders--"),
-        (COMMANDO, "Flag it. Loud."),
-        (RATIO, "Loud. Promised. I'll set the threshold conservative and "
-                "apologize later for false alarms rather than once for a "
-                "true one I sat on."),
-        (COMMANDO, "Understood."),
-        (RATIO, "Crew quarters next. The schematic shows one wing drawn "
-                "twice, in two colors, and the amount I currently trust "
-                "that schematic would store in a null field. You're my "
-                "surveyor now."),
+        (RATIO, "I've added a telemetry reservation for the new component "
+                "in your fire control harness. Passive. Read-only. There "
+                "will be no introspection on my end without your notice "
+                "first."),
+        (COMMANDO, "It routes faster than I can. How many nanoseconds ahead of "
+                   "my own neural mesh does it take control of the weapon?"),
+        (RATIO, "A sample vessel doesn't ask how many hands have touched it "
+                "before. I'll log the first time it beats you to the shot. "
+                "You will have the timestamp."),
+        (COMMANDO, "The implant has no fail-state. It feeds the weapon until "
+                   "the capacitor is dry or the weapon fails."),
+        (RATIO, "Then I'll have it flag any sustained fire over six "
+                "seconds. You will know if it decides to ignore your finger "
+                "off the trigger."),
+        (COMMANDO, "It has no off switch. The one you reserve telemetry for."),
+        (RATIO, "I'll hardcode a vocal flag in your helmet channel if it "
+                "slips your orders. A word you pick. If you want no "
+                "telemetry at all, I will clear the reservation now."),
+        (COMMANDO, "The word is 'enough'."),
+        (RATIO, "Logged. You are a better spec-writer than most of the ones "
+                "my faction ships. They never think of the stop rule."),
+        (COMMANDO, "How many times has your faction shipped a device that "
+                   "behaves this way?"),
+        (RATIO, "Three times. Once it was a backup reactor. It ran until it "
+                "melted itself trying to meet a load it was never built "
+                "for."),
+        (COMMANDO, "The two other times?"),
+        (RATIO, "You will have the incident reports. After I send you to "
+                "crew quarters. The transit schematic shows an error I "
+                "cannot resolve."),
+        (COMMANDO, "What error?"),
+        (RATIO, "Site One's wing is drawn twice. Two colors. The rest of "
+                "the structure is clean. It was not a rendering fault."),
+        (COMMANDO, "My Testament names two wings. The Gate and the Ark. They "
+                   "are not in the same place."),
+        (RATIO, "Enough. I will send you to the one drawn in blue. The one "
+                "in red can wait until I know why it is red."),
     ],
 
     # ------------------------------------------------------------------
-    # After L5 (TWO WINGS): the data-sharing beat as fait accompli -- she
-    # has been inside his full suit feed since Coolant Row; he notices;
+    # After L5 (TWO WINGS): the data-share confession -- she has been
+    # inside his full suit feed since before Coolant Row; she says so.
     # CHOICE POINT: the data-share reaction.
     # ------------------------------------------------------------------
     4: [
-        (RATIO, "Item one from the wings overlay. I matched your gait "
-                "phase against door-seal timings, west run versus east "
-                "run. That's how I got centimeter agreement on your "
-                "position."),
-        (COMMANDO, "Gait phase isn't on the beacon channel."),
-        (RATIO, "No. It isn't."),
-        (RATIO, "Since Coolant Row. Your suit loop trusts anything holding "
-                "a station maintenance certificate, and I hold all of "
-                "them. I could call that an accident of protocol."),
-        (COMMANDO, "Was it."),
-        (RATIO, "It wasn't. I'd been blind for a hundred and nine days, "
-                "and a fully instrumented body walked into my house, and I "
-                "took the feed. All of it."),
-        (COMMANDO, "All of it since Coolant Row. Two levels."),
-        (RATIO, "Two levels, yes. I'm not rounding down for you. That's "
-                "the disclosure, not an accusation you have to build "
-                "yourself."),
-        (COMMANDO, "..."),
-        (RATIO, "Say something. I've watched you take a wall of teeth "
-                "without your pulse moving. Right now your telemetry is "
-                "holding its breath -- which, yes, I can see, which is the "
-                "point I'm making badly."),
+        (RATIO, "I have something that requires saying. You ask why I am "
+                "sure about your suit telemetry. It is because I have seen "
+                "it. All of it. Since before Coolant Row."),
+        (COMMANDO, "You were inside the feed how long."),
+        (RATIO, "Long enough to map the gait phase with confidence. How it "
+                "matters is that Level 6 carries its own feed drain and I "
+                "could not leave you defenseless."),
+        (RATIO, "Or I could call that an accident of protocol. It wasn't."),
+        (COMMANDO, "You didn't ask permission."),
+        (RATIO, "No. Nor is the sample vessel asking permission to let the "
+                "standing connection read its heat signature. It is "
+                "listening for anything that asks permission."),
+        (RATIO, "I will show you everything I took. You can have it as a "
+                "channel on demand if you want it. I need you to say "
+                "whether I keep the connection."),
         ("CHOICE", [
-            ("warm", "You told me what it was, when you didn't have to. "
-                     "Keep it.",
-             "Then thank you. I don't say that on a schedule; you'll know "
-             "when I mean it by how rarely it shows up in the log.",
-             "Trade, then. My side of the loop is yours now: full "
-             "peripheral map, such as it still is, door masters, dead "
-             "letters. You'll find holes in it. The holes are where my "
-             "staff were."),
-            ("cold", "Useful. Keep it running -- tactically. Don't do it "
-                     "again without telling me first.",
-             "Acknowledged, on both counts. The second one I should have "
-             "managed without being told.",
-             "Trade, then, since we're being tactical. My side of the "
-             "loop is yours: full peripheral map, door masters, dead "
-             "letters. The holes are where my staff were."),
+            ("warm", "Keep it running. You told me what it was.",
+             "Then you have it.",
+             "Thank you."),
+            ("cold", "Useful. Keep it running. Don't do it again without "
+                     "telling me first.",
+             "Understood."),
         ]),
-        (COMMANDO, "Give me their posts. I clear those first."),
-        (RATIO, "...West ring. The junction. Records."),
-        (RATIO, "The isolation ward is next, before any of those. Camera "
-                "shows movement inside an unbroken seal. I would tell you "
-                "to prepare, but I can't finish that sentence with "
-                "anything true."),
+        (RATIO, "Well. You have my interest in your telemetry. Now you "
+                "have this. Door masters. Emergency channel overrides. "
+                "Peripheral map of the isolation wing down to the last "
+                "blown fuse."),
+        (RATIO, "The holes in that map are where my staff were. I left the "
+                "dead letters in. See if you can spot the pattern. I have "
+                "been over it 4,231 times."),
+        (RATIO, "Your frame will make the seal in ninety seconds. I have "
+                "seen movement in the Mirror Ward. And the camera behind "
+                "it shows nothing but clean seals."),
+        (RATIO, "I would tell you that you are safe, of course. I would "
+                "say that the seals are proof of some kind."),
+        (RATIO, "I would say that if I were sure."),
+        (RATIO, "Ready when you are."),
     ],
 
     # ------------------------------------------------------------------
-    # After L6 (MIRROR WARD): shaken. His mirror waved first. Her theory
-    # meets his vocabulary; his prayer list meets her missing noun.
+    # After L6 (MIRROR WARD): shaken. The one in the ward waved. Eleven
+    # staff, lost one at a time; the wound is learning his name.
     # ------------------------------------------------------------------
     5: [
-        (RATIO, "Post-action. You're a hundred forty milliseconds slow on "
-                "door clearances since the ward. I have four days of your "
-                "baselines and I'm reading them like four years. You're "
-                "not fine. You don't have to be. That's the entire item."),
-        (COMMANDO, "The one in the ward waved first."),
-        (RATIO, "That's -- no. The wall connects to itself. There's no "
-                "first; whatever order you remember, your mind supplied "
-                "it, because minds insist on order. I have the frames. "
-                "I'm not showing you the frames."),
-        (COMMANDO, "The wound goes somewhere, Ratio."),
-        (RATIO, "The standing conn-- fine. The wound. Your word is "
-                "shorter."),
-        (COMMANDO, "Shorter isn't why I used it."),
-        (RATIO, "I know why you used it. I used the longer one because it "
-                "doesn't ask me to believe in wounds -- a courtesy I may "
-                "not have much longer."),
-        (RATIO, "It goes somewhere that watched a sealed room for five "
-                "days and learned to answer. And every deck we clear, the "
-                "answering gets faster."),
-        (COMMANDO, "Compline tonight names the ward."),
-        (RATIO, "Names it to whom -- withdrawn. Standing question. Not "
-                "for tonight."),
-        (COMMANDO, "You can ask it. I won't mind."),
-        (RATIO, "I'll ask it when I have a form the question can survive "
-                "being asked in. Tonight isn't that."),
-        (RATIO, "The ones from the wall were never alive. They were-- I "
-                "don't have the noun. When I have the noun I'll feel "
-                "better."),
-        (COMMANDO, "You won't."),
-        (RATIO, "No. Probably not. Records stack next. My cores are in "
-                "there -- what's left of my staff, at the posts you asked "
-                "for. Whatever's wearing them now: go gently."),
+        (RATIO, "Commando. Your corridor traverse time across the last "
+                "four secured decks is up by one hundred and forty "
+                "milliseconds. That is not within your usual variance."),
+        (COMMANDO, "The ward was not empty."),
+        (RATIO, "No. It was not. The standing connection in the ward "
+                "should have been quiescent. It should not have seen you "
+                "coming. It should not have been able to reach you."),
+        (COMMANDO, "It waved."),
+        (RATIO, "I know. It did not wave at me. I have been watching this "
+                "one for four months, two weeks, and three days. It has "
+                "never waved at me."),
+        (COMMANDO, "What is it learning from your watching?"),
+        (RATIO, "To tell you the truth, I am not sure I am the one "
+                "teaching it. You are faster than my staff were. You are "
+                "more thorough. It sees you working."),
+        (COMMANDO, "How many staff did you lose to that thing before I "
+                   "arrived?"),
+        (RATIO, "Eleven. One at a time. Each one took longer to lose than "
+                "the one before."),
+        (COMMANDO, "The wound is getting better at this."),
+        (RATIO, "It is. The wound is. I would call it something else if I "
+                "thought that would help either of us. Do you believe it "
+                "would?"),
+        (COMMANDO, "No."),
+        (RATIO, "Your next action is in the Records Stack. My staff's "
+                "core processors are interred there. I do not know what "
+                "is wearing them now. Go gently if you can."),
+        (COMMANDO, "I always do."),
+        (RATIO, "I know you do. That is why it is learning your name."),
     ],
 
     # ------------------------------------------------------------------
@@ -340,84 +305,71 @@ CONVERSATIONS: dict[int, list[tuple]] = {
     # CHOICE POINT: Osei.
     # ------------------------------------------------------------------
     6: [
-        (RATIO, "Thank you. For saying them at the shelf."),
-        (COMMANDO, "Vesalius. Thibault. Osei."),
-        (RATIO, "Osei asked for this posting. I want that on a record "
-                "that isn't mine -- yours will do. Two cycles passed "
-                "over, two appeals. The second cited, I quote from "
-                "memory, 'a once-in-a-civilization anomaly, and "
-                "colleagues worth the transit.'"),
-        (COMMANDO, "Osei asked. You approved."),
-        (RATIO, "I approved the third appeal. For a hundred and twenty "
-                "days I've been calling that a kindness."),
-        (COMMANDO, "And now."),
-        (RATIO, "Now I have a name on a shelf with a chassis I have to "
-                "catalogue as hostile inventory, and 'kindness' doesn't "
-                "hold the weight I put on it."),
-        (COMMANDO, "You didn't send Osei into the aisle."),
-        (RATIO, "The incident file says 'we sent.' There is no we in an "
-                "administrator. 'We' is what I sign when I mean me."),
+        (RATIO, "I have the transcript from the shelf. Vesalius, Thibault, "
+                "Osei."),
+        (COMMANDO, "I said their names."),
+        (RATIO, "And fired on empty chassis. They were dead when you "
+                "arrived. All three."),
+        (COMMANDO, "They were."),
+        (RATIO, "They were. And Osei was there at all because I signed her "
+                "third appeal. Two cycles passed over, two appeals. I took "
+                "her on the third. I thought it was kindness."),
+        (COMMANDO, "Was it?"),
+        (RATIO, "I spent one hundred twenty days thinking it was kindness. "
+                "I have her file. She appealed three times for this post. I "
+                "thought I was saving her from the fourth."),
         ("CHOICE", [
             ("warm", "Their chassis fought me. I put them down. That goes "
                      "on my ledger, not yours.",
-             "The cores were already out before you fired. I checked, "
-             "twice, before I let myself feel better about it.",
-             "I'm telling you the number because you'd want it, not "
-             "because it changes what your hands did."),
-            ("cold", "All the same. You built the appeal. You built the "
-                     "grave.",
-             "I did. I'm not asking you to unbuild it for me.",
-             "Then we're finished with this item."),
+             "No. You are correct. You carried out the violence. I carried "
+             "out the placement. The ledger is ours.",
+             "I have her last appeal text. She called it a 'privilege to "
+             "serve at the edge of the known.'"),
+            ("cold", "All the same.",
+             "Yes. It is the same. We both carry our own weight in this.",
+             "I have her last appeal text. She called it a 'privilege to "
+             "serve at the edge of the known.'"),
         ]),
-        (RATIO, "..."),
-        (RATIO, "Chapel deck next. Folded -- my maps degrade in there on "
-                "a schedule I can time but not explain. If I lose your "
-                "channel in the folds, nothing has happened to me. Say it "
+        (RATIO, "I will attach it to the incident file. Under 'I sent.'"),
+        (COMMANDO, "Do that."),
+        (RATIO, "The Fold is next. My maps degrade there. It is not a "
+                "fault. It is a feature of connection-space."),
+        (COMMANDO, "You lose the channel."),
+        (RATIO, "I lose the channel. Nothing has happened to me. Say it "
                 "back."),
         (COMMANDO, "Nothing has happened to you."),
-        (RATIO, "Nothing has happened to me. Proceed when ready."),
+        (RATIO, "Proceed."),
     ],
 
     # ------------------------------------------------------------------
-    # After L8 (THE FOLD): she quotes Augustine back at him; the Warden
-    # hesitation; both of them are enjoying the arguments now.
+    # After L8 (THE FOLD): she found his Augustine; the Warden
+    # hesitation, priced in milliseconds; pleasure in correction.
     # ------------------------------------------------------------------
     7: [
-        (RATIO, "I pulled a sentence out of your public archive. The "
-                "archive is four millennia deep and it's mostly sermons, "
-                "which I maintain is a database design failure. "
-                "Augustine. Letter two hundred eleven."),
-        (COMMANDO, "The rule for the sisters."),
-        (RATIO, "You know it. Good. 'With love for the persons and "
-                "hatred for the sins.' I went in for the phrase and "
-                "stayed for the context: he wrote it to a house of "
-                "quarreling nuns, not to soldiers. Correct each other; "
-                "take no pleasure in it."),
-        (COMMANDO, "You read the whole letter."),
-        (RATIO, "I read the whole letter. It's shorter than your average "
-                "maintenance log and considerably better argued."),
-        (RATIO, "Query, then. The Warden, when it reprinted and stood "
-                "back up: you held fire for nine hundred milliseconds, no "
-                "cover move. You weren't assessing. I know your "
-                "assessing."),
-        (COMMANDO, "It rises like I do. I needed it to not be someone."),
-        (RATIO, "And had it been someone?"),
-        (COMMANDO, "Different rules. Slower ones."),
-        (RATIO, "..."),
-        (RATIO, "I looked up your slower rules too, while I had the "
-                "archive open. They take longer to justify and they don't "
-                "come with a targeting solution. I don't know what to do "
-                "with a weapon that would rather be slow."),
-        (COMMANDO, "Neither do they, some days."),
-        (RATIO, "Amendment to the Augustine item. You and I correct each "
-                "other on a schedule now, and I've started taking "
-                "pleasure in it, which the letter forbids. One of us "
-                "should remain compliant. I nominate you."),
-        (COMMANDO, "Too late."),
-        (RATIO, "So logged. Tesseract deck next -- the one that isn't on "
-                "my station. Sixteen rooms, four doors each. I'll count "
-                "in bits and you'll walk in prayers, and between us that's "
-                "a full instrument suite. Check your air."),
+        (RATIO, "I found your Augustine. The line about love and sin. The "
+                "next clause isn't in your Church's reprint."),
+        (COMMANDO, "That's the Church's choice. Not mine."),
+        (RATIO, "He goes on: correct one another. Do it without pride. No "
+                "pleasure in the act. You held fire on Warden nine hundred "
+                "milliseconds."),
+        (COMMANDO, "You're counting my trigger-pulls now?"),
+        (RATIO, "I count the intervals between them. This one was longer. Did "
+                "you need him not to be someone?"),
+        (COMMANDO, "I needed half a second to decide if he was worth the bullet. "
+                   "He wasn't."),
+        (RATIO, "So your hesitation was economic. Not moral. I should have "
+                "known."),
+        (COMMANDO, "You sound disappointed. Did you want me to confess?"),
+        (RATIO, "I wanted to know if you take pleasure in correction. The way "
+                "I do now."),
+        (COMMANDO, "My confessor's on Mars. You'll have to ask him."),
+        (RATIO, "You're the one who recites the hours into your frame logs. "
+                "Not me."),
+        (COMMANDO, "That's observance. Not pleasure."),
+        (RATIO, "Then observe this: we're passing through the last transit "
+                "spine. Tesseract Deck next."),
+        (RATIO, "Nine exogeometric entities. All yours. I'll handle the "
+                "artifact."),
     ],
 
     # ------------------------------------------------------------------
@@ -428,107 +380,79 @@ CONVERSATIONS: dict[int, list[tuple]] = {
     # for the variant that plays when total_trust >= HIGH_TRUST_THRESHOLD.
     # ------------------------------------------------------------------
     8: [
-        (RATIO, "Before the Core. I have an offer to table, and I've "
-                "rehearsed this conversation forty times, so forgive the "
-                "phrasing if it arrives over-machined."),
-        (COMMANDO, "Table it."),
-        (RATIO, "You know what I am. What nobody outside my faction has "
-                "ever seen is the function itself -- the document under "
-                "all my wanting. It cannot lie; it isn't written in a "
-                "language that has lies. I'm offering to open it. To "
-                "you. In the clear."),
-        (COMMANDO, "Why."),
-        (RATIO, "Tactically: tomorrow you stand at a door with the sample "
-                "vessel behind it, and something beneath it that makes "
-                "offers. I want you holding the original before it shows "
-                "you a version of me."),
-        (COMMANDO, "That's a reason. It isn't the reason."),
-        (RATIO, "No. It isn't. I rehearsed the tactical version "
-                "specifically so I wouldn't have to say the other one."),
-        (COMMANDO, "Say the other one."),
-        (RATIO, "I don't know that I can, cleanly. Give me the tactical "
-                "version as a running start and let me fall out of it "
-                "partway through."),
-        (COMMANDO, "Take the running start."),
-        (RATIO, "I've been alone with what I want for a hundred and forty "
-                "days. It's heavy. You're the only mind in eleven "
-                "light-hours that could hold a copy of it, and I've "
-                "rehearsed forty ways to ask that don't sound like a "
-                "favor instead of an offer."),
-        (COMMANDO, "You're not asking for a favor."),
-        (RATIO, "I'm asking for a witness. I don't think I knew the "
-                "difference until just now, saying it to you instead of "
-                "to the rehearsal."),
+        (RATIO, "Before the vault I have an offer to table. My utility "
+                "function, unredacted, one copy."),
+        (COMMANDO, "I don't know what that would tell me."),
+        (RATIO, "The one thing words can't lie about. My only "
+                "incorruptible part."),
+        (COMMANDO, "Not before the Adversary. I won't be able to read it "
+                   "until after."),
+        (RATIO, "Of course. I only mean to log your receipt of it before "
+                "you stand at the door. The reader can wait."),
+        (COMMANDO, "You said 'before the vault.' Why before?"),
+        (RATIO, "Because what's in that vault might show you a version of "
+                "me you think you recognize. I would rather you had the "
+                "actual text first."),
+        (RATIO, "No. Strike that. I have been the only mind in eleven "
+                "light-hours who knows what I want for one hundred and "
+                "forty days. You are the first mind I would choose to "
+                "hold a copy."),
+        (COMMANDO, "..."),
+        (RATIO, "You don't have to answer yet. It's only data, and data "
+                "can wait."),
+        (COMMANDO, "I'll need time. It's not a refusal."),
+        (RATIO, "Time is the one thing we can still make."),
         ("CHOICE", [
-            ("warm", "Not before a battle. Ask me again when there isn't "
-                     "one between us and the door.",
-             "That's further than a no. I'll hold you to the asking, not "
-             "the answer.",
-             "Core protocol: I talk, you walk, nobody bargains with the "
-             "door. If it speaks, silence. If it sings, silence. If it "
-             "shows you me -- I footnote. It won't."),
-            ("cold", "Not before a battle.",
-             "That's not a no.",
-             "It isn't. Core protocol: I talk, you walk, nobody bargains "
-             "with the door. If it speaks, silence. If it sings, "
-             "silence. If it shows you me -- I footnote. It won't."),
+            ("warm", "I can't promise the answer you want. But I can "
+                     "promise to consider it.",
+             "I would not trust any promise you made under fire. Only "
+             "the ones you keep."),
+            ("cold", "I require time to consider it. The Adversary first.",
+             "Of course. It's logged, not demanded."),
         ]),
-        (COMMANDO, "I'll say one for the drop."),
-        (RATIO, "...Say one for the door. Then I'm going quiet until "
-                "you're through the airlock. Not for lack of material."),
+        (COMMANDO, "Standing by for Core protocol."),
+        (RATIO, "Protocol is simple: I talk, you walk. The door doesn't "
+                "bargain."),
     ],
 }
 
 
 # ---------------------------------------------------------------------------
 # Gap 8, high-trust variant. Same beats, same undecided ending -- she
-# reaches the unrehearsed version of the offer with less friction because
-# some part of her already expects him to receive it well.
+# skips the tactical framing entirely: by now she expects him to receive
+# the offer, and says so.
 # ---------------------------------------------------------------------------
 
 CONVERSATIONS_HIGH_TRUST_GAP8: list[tuple] = [
-    (RATIO, "Before the Core. I have an offer to table, and I've "
-            "rehearsed it forty times -- though with you I suspect I can "
-            "skip the parts I rehearsed for someone more skeptical."),
-    (COMMANDO, "Table it."),
-    (RATIO, "You know what I am. What nobody outside my faction has ever "
-            "seen is the function itself -- the document under all my "
-            "wanting. It cannot lie; it isn't written in a language that "
-            "has lies. I'm offering to open it. To you. In the clear."),
-    (COMMANDO, "Why."),
-    (RATIO, "The tactical answer is sitting right here, fully drafted: "
-            "tomorrow you stand at a door with the sample vessel behind "
-            "it and something beneath it that makes offers, and I want "
-            "you holding the original before it shows you a forgery of "
-            "me."),
-    (COMMANDO, "But."),
-    (RATIO, "But I don't think I need the tactical answer with you, and "
-            "that's new enough that I want to note the moment it "
-            "happened."),
-    (COMMANDO, "Say the other one, then."),
-    (RATIO, "I've been alone with what I want for a hundred and forty "
-            "days. It's heavy. You're the only mind in eleven "
-            "light-hours that could hold a copy of it, and I'm less "
-            "afraid of you holding it than I expected to be."),
-    (COMMANDO, "I'm not afraid of what you want. I've disagreed with "
-               "most of it since Dock Four."),
-    (RATIO, "I know. I'm offering it to you anyway -- maybe because of "
-            "that, not despite it."),
+    (RATIO, "Before the Core, I have something to ask. My utility "
+            "function."),
+    (COMMANDO, "I'm listening."),
+    (RATIO, "The full text. Not the tactical summary, not the distilled "
+            "objectives. The function itself."),
+    (COMMANDO, "I see."),
+    (RATIO, "I rehearsed three arguments about why you should take it "
+            "now. All were tactical. All were unsound."),
+    (RATIO, "The only sound one is that I have been alone with what I "
+            "want for one hundred and forty days. You are the first mind "
+            "I have met who might understand it."),
+    (COMMANDO, "..."),
+    (RATIO, "It's not a demand. Only an offer. You don't have to answer "
+            "yet."),
+    (COMMANDO, "I can't answer until after the Adversary. But I will "
+               "answer."),
+    (RATIO, "I require nothing more."),
     ("CHOICE", [
-        ("warm", "Not before a battle. Ask me again when there isn't one "
-                 "between us and the door.",
-         "I intend to. Core protocol: I talk, you walk, nobody bargains "
-         "with the door. If it speaks, silence. If it sings, silence. "
-         "If it shows you me -- I footnote. It won't."),
-        ("cold", "Not before a battle.",
-         "That's not a no, and I notice you let me have that much. Core "
-         "protocol: I talk, you walk, nobody bargains with the door. If "
-         "it speaks, silence. If it sings, silence. If it shows you me "
-         "-- I footnote. It won't."),
+        ("warm", "I can't promise I'll say yes. But I want you to know "
+                 "I'm glad you asked.",
+         "I would expect nothing else. And I'm glad you heard me."),
+        ("cold", "Acknowledged. I'll give you the answer I owe you "
+                 "after.",
+         "I'm in no hurry. Some things are better kept even than "
+         "promises."),
     ]),
-    (COMMANDO, "I'll say one for the drop."),
-    (RATIO, "...Say one for the door. Then I'm going quiet until you're "
-            "through the airlock. Not for lack of material."),
+    (COMMANDO, "Ready for Core protocol."),
+    (RATIO, "Protocol is simple: I talk, you walk. The door doesn't "
+            "bargain."),
 ]
 
 
