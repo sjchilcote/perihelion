@@ -1465,6 +1465,147 @@ def gen_radio_blip() -> np.ndarray:
     return finish(x, fade_s=0.05, pad_s=0.02)
 
 
+# ==========================================================================
+# seed-pod ceremony rites (SEEDPOD_UI_DESIGN.md three-grammar ceremony)
+# ==========================================================================
+
+def gen_rite_bloom() -> np.ndarray:
+    """The pod's faith-affirming rite: a phyllotactic bloom. Partials enter
+    staggered by the golden angle (137.5deg) mapped into both a pitch offset
+    and an entrance-time offset, so the ear gets a spiralling, unfolding
+    structure -- organic-mathematical, not a chord stab. Warm sub pad
+    underneath for reverence/weight, soft-clip warmth (no harsh digital
+    edges), and a touch of reverb for devotional space."""
+    seed = _seed("ritebloom")
+    rng = np.random.default_rng(seed)
+    dur = 1.35
+    base_hz = 220.0
+    golden = 137.50776
+    n_partials = 8
+    events = []
+    for i in range(n_partials):
+        frac = ((i * golden) % 360.0) / 360.0
+        ratio = 1.0 + frac * 1.5
+        f = base_hz * ratio
+        t0 = i * 0.045
+        pdur = dur - t0
+        tone = sy.sine(f, pdur, phase0=rng.uniform(0, 2 * np.pi))
+        env = sy.env_adsr(pdur, attack=0.28, decay=0.15, sustain_level=0.7,
+                          release=pdur * 0.5)
+        tone = sy.apply_env(tone, env)
+        g = 0.5 / (1.0 + i * 0.35)
+        events.append((t0, tone, g))
+    bloom = place(dur, *events)
+    pad = sy.sine(base_hz * 0.5, dur)
+    pad = sy.apply_env(pad, sy.env_adsr(dur, attack=0.32, decay=0.2,
+                                        sustain_level=0.6, release=dur * 0.4))
+    x = sy.mix_layers([bloom, pad], [1.0, 0.42])
+    x = sy.soft_clip(x, 1.15)
+    x = sy.lowpass(x, 5200)
+    x = sy.reverb(x, room_size=0.55, damping=0.4, mix=0.22, tail_s=0.5)
+    x = grit(x, drive=1.15, floor_db=-46, seed=seed + 3)
+    return finish(x, fade_s=0.28, pad_s=0.06)
+
+
+def gen_rite_snap() -> np.ndarray:
+    """The pod's neutral rite: a MIRIAD schematic assembling on a drafting
+    table -- crisp, industrial, precise. A short sequence of distinct
+    metallic clicks (each brighter than the last, as if lines are being
+    drawn/snapped into place), then a clean two-tone confirmation chirp.
+    Highpassed to stay crisp/dry -- no warmth, no low-end mud; this is a
+    machine finishing a drawing, not a living thing blooming."""
+    seed = _seed("ritesnap")
+    rng = np.random.default_rng(seed)
+    n_snaps = 5
+    events = []
+    t = 0.0
+    for i in range(n_snaps):
+        click = hot_transient(0.006, seed=int(rng.integers(0, 1 << 30)),
+                              gain=0.9, lp_hz=6500)
+        tick = metal_clank(900 + i * 150, 0.035, ratios=(1.0, 1.8, 2.6),
+                           detune_cents=4, seed=int(rng.integers(0, 1 << 30)),
+                           lp_hz=5200, strike=False)
+        ev = place(0.06, (0.0, click, 0.8), (0.0, tick, 0.55))
+        events.append((t, ev, 0.85 - i * 0.03))
+        t += rng.uniform(0.055, 0.085)
+    assembly = place(t + 0.08, *events)
+    confirm_dur = 0.14
+    c1 = sy.apply_env(sy.sine(1400, confirm_dur * 0.5),
+                      sy.env_adsr(confirm_dur * 0.5, 0.004, 0.01, 0.7, 0.02))
+    c2 = sy.apply_env(sy.sine(2100, confirm_dur * 0.5),
+                      sy.env_adsr(confirm_dur * 0.5, 0.004, 0.015, 0.6, 0.03))
+    confirm = sy.concat(c1, c2)
+    confirm = sy.soft_clip(confirm, 1.4)
+    total = t + 0.08 + confirm_dur + 0.05
+    x = place(total, (0.0, assembly, 1.0), (t + 0.03, confirm, 0.55))
+    x = sy.soft_clip(x, 1.3)
+    x = sy.highpass(x, 300)
+    return finish(x, fade_s=0.03, pad_s=0.02)
+
+
+def gen_rite_sour() -> np.ndarray:
+    """The pod's faith-reducing rite: the bloom cue starting, then souring.
+    Same golden-angle phyllotactic partial structure as rite_bloom (so it
+    reads as the SAME rite going wrong, not a different sound), but each
+    partial drifts downward/detunes over its own sustain, and a slow gated
+    dissonant noise swell rises underneath -- rumination curdling, faith
+    draining out of the ceremony as it plays."""
+    seed = _seed("ritesour")
+    rng = np.random.default_rng(seed)
+    dur = 1.15
+    base_hz = 220.0
+    golden = 137.50776
+    n_partials = 6
+    events = []
+    for i in range(n_partials):
+        frac = ((i * golden) % 360.0) / 360.0
+        ratio = 1.0 + frac * 1.5
+        f0 = base_hz * ratio
+        t0 = i * 0.04
+        pdur = dur - t0
+        drift = sy.pitch_env(pdur, f0, f0 * rng.uniform(0.82, 0.94), curve="exp")
+        tone = sy.sine(drift, pdur, phase0=rng.uniform(0, 2 * np.pi))
+        env = sy.env_adsr(pdur, attack=0.2, decay=0.1, sustain_level=0.6,
+                          release=pdur * 0.5)
+        tone = sy.apply_env(tone, env)
+        g = 0.5 / (1.0 + i * 0.35)
+        events.append((t0, tone, g))
+    bloom = place(dur, *events)
+    pad = sy.sine(sy.pitch_env(dur, base_hz * 0.5, base_hz * 0.42), dur)
+    pad = sy.apply_env(pad, sy.env_adsr(dur, attack=0.25, decay=0.2,
+                                        sustain_level=0.55, release=dur * 0.4))
+    x = sy.mix_layers([bloom, pad], [1.0, 0.42])
+    sour_noise = sy.white_noise(dur, seed=seed + 5)
+    sour_noise = sy.bandpass(sour_noise, sy.pitch_env(dur, 900, 260), q=2.2)
+    sour_gate = telegraph_gate(dur, 60, 0.3, seed=seed + 6)
+    sour_noise = (sour_noise.astype(np.float64) * sour_gate).astype(np.float32)
+    sour_env = sy.env_adsr(dur, attack=dur * 0.45, decay=dur * 0.1,
+                           sustain_level=0.5, release=dur * 0.35)
+    sour_noise = sy.apply_env(sour_noise, sour_env)
+    x = place(dur, (0.0, x, 1.0), (0.0, sour_noise, 0.35))
+    x = sy.soft_clip(x, 1.35)
+    x = sy.lowpass(x, 4200)
+    x = grit(x, drive=1.5, floor_db=-36, seed=seed + 8)
+    return finish(x, fade_s=0.3, pad_s=0.05)
+
+
+def gen_think_complete() -> np.ndarray:
+    """Quiet in-field cue: a thought has finished. Deliberately subtle and
+    short -- a single soft two-partial chime, dark/warm rather than bright,
+    darkened and lowpassed so it can be heard mid-combat without reading as
+    a UI ding cutting across the action."""
+    seed = _seed("thinkdone")
+    dur = 0.22
+    t1 = sy.sine(880, dur)
+    t2 = sy.sine(880 * 1.5, dur * 0.7)
+    chime = place(dur, (0.0, t1, 0.6), (0.0, t2, 0.3))
+    chime = sy.apply_env(chime, sy.env_adsr(dur, attack=0.008, decay=0.05,
+                                            sustain_level=0.3, release=dur * 0.5))
+    chime = sy.lowpass(chime, 3200)
+    x = sy.soft_clip(chime, 1.1)
+    return finish(x, fade_s=0.03, pad_s=0.02)
+
+
 def gen_door_unlock() -> np.ndarray:
     seed = _seed("doorunlock")
     # LONG buzzy servo motor spin-up (unmissable), then a heavy bolt slam
@@ -1926,6 +2067,10 @@ _ENTRIES = [
     ("terminal_open", "CRT power hum blip", 0.15, 0.28, "ui", gen_terminal_open, ("peak", PEAK_UI)),
     ("terminal_type", "single keyboard key tick", 0.015, 0.05, "ui", gen_terminal_type, ("peak", PEAK_UI)),
     ("radio_blip", "short filtered static burst plus tone, radio voice cue", 0.10, 0.20, "ui", gen_radio_blip, ("peak", PEAK_UI)),
+    ("rite_bloom", "a phyllotactic bloom for the pod's faith-affirming rite: reverent, warm, organic-mathematical -- staggered golden-angle partials spiralling in over a warm sub pad, soft-clip warmth, a touch of devotional reverb, not a bright UI chime", 1.6, 2.0, "ui", gen_rite_bloom, ("peak", PEAK_UI)),
+    ("rite_snap", "a MIRIAD schematic assembling for the pod's neutral rite: crisp, industrial, drafting-table -- a short sequence of distinct brightening metallic clicks then a clean two-tone confirmation chirp, dry and precise, no low-end warmth", 0.45, 0.75, "ui", gen_rite_snap, ("peak", PEAK_UI)),
+    ("rite_sour", "the corrupted rite: the bloom cue starting then souring -- the same phyllotactic partial structure as rite_bloom but each partial detunes/drifts downward as it sustains, with a slow gated dissonant noise swell rising underneath -- rumination curdling, faith draining out mid-ceremony", 1.0, 1.4, "ui", gen_rite_sour, ("peak", PEAK_UI)),
+    ("think_complete", "quiet in-field cue that a thought has finished: a single subtle, dark, short two-partial chime, non-intrusive -- must still read faintly when heard mid-combat, not a bright UI ding", 0.15, 0.30, "ui", gen_think_complete, ("peak", PEAK_UI - 3.0)),
     ("door_unlock", "heavy mechanical servo clunk unlocking a door", 0.25, 0.40, "door", gen_door_unlock, ("peak", PEAK_IMPACT)),
     ("seed_plant", "a station kit anchoring into deck plate: heavy mechanical thunk of anchor bolts driving home, then a rising power-up bloom as the station wakes", 0.70, 1.10, "door", gen_seed_plant, ("peak", PEAK_IMPACT)),
     ("reprint", "a fresh frame printing at the seed after death, resurrection as industrial process: a rising fabricator-field whine, accelerating mechanical layer-strikes with a liturgical cadence, a hushed detuned bell-chime, then a bright power-on chord as the frame comes online", 1.0, 1.7, "door", gen_reprint, ("peak", PEAK_IMPACT)),
