@@ -674,6 +674,8 @@ class Renderer:
         self.max_depth = max_depth
         self.max_instances = max_instances
 
+        self._ent_layer: "pygame.Surface | None" = None
+        self._cov_mask: "pygame.Surface | None" = None
         self._detail_cache: dict[int, list] = {}
         self._portal_edges: "dict[int, set[int]] | None" = None
 
@@ -880,20 +882,19 @@ class Renderer:
         self._deferred_bolts = []
         self._deferred_screen_glows = []
         instances = session.visible(self.max_depth, self.max_instances)
-        # Pass 0 — known-geometry shadow base: every visible room's full
-        # footprint in deep shadow, before any lit content. Line-of-sight
-        # occlusion then reads as LIGHT (the visible wedge) falling on dark
-        # floor instead of geometry ending in void; a body half-out of the
-        # wedge reads as standing in shadow, not sliced by a bug. This is
-        # what makes the frustum edges sweeping with camera motion read as
-        # moving light rather than strobing world.
-        level = self.session.level
-        for room, xform, depth, clip_screen, walls, entry_edge, ents in instances:
-            if room >= len(level.room_verts) or len(clip_screen) < 3:
-                continue
-            pts = [necore.mat_apply(xform, vx, vy)
-                   for vx, vy in level.room_verts[room]]
-            pygame.draw.polygon(surf, SHADOW_FLOOR, _pts(pts))
+        # The no-seams invariant (ported from the original engine): entities
+        # draw WHOLE and unclipped onto their own layer, which is then
+        # masked per-pixel by the UNION of every instance's visible region.
+        # A body is only ever cut exactly where the rendered world itself
+        # ends — against void — so a cut edge can never be visible: there is
+        # nothing on the other side of it to contrast with. Per-instance
+        # polygon clipping of bodies (the old way) put cut edges INSIDE the
+        # picture whenever a sibling wedge or lit floor continued past them.
+        if self._ent_layer is None or self._ent_layer.get_size() != surf.get_size():
+            self._ent_layer = pygame.Surface(surf.get_size(), pygame.SRCALPHA)
+            self._cov_mask = pygame.Surface(surf.get_size(), pygame.SRCALPHA)
+        self._ent_layer.fill((0, 0, 0, 0))
+        self._cov_mask.fill((0, 0, 0, 0))
         for room, xform, depth, clip_screen, walls, entry_edge, ents in instances:
             if len(clip_screen) < 3:
                 continue
@@ -903,8 +904,13 @@ class Renderer:
             self._draw_exit_and_terminals(surf, room, xform, clip_screen)
             self._draw_walls(surf, walls, depth)
             self._draw_doors(surf, room, xform, clip_screen)
-            self._draw_entities(surf, ents, clip_screen)
-            self._draw_effects(surf, room, xform, clip_screen)
+            pygame.draw.polygon(self._cov_mask, (255, 255, 255, 255),
+                                _pts(clip_screen))
+            self._draw_entities(self._ent_layer, ents, None)
+            self._draw_effects(self._ent_layer, room, xform, clip_screen)
+        self._ent_layer.blit(self._cov_mask, (0, 0),
+                             special_flags=pygame.BLEND_RGBA_MIN)
+        surf.blit(self._ent_layer, (0, 0))
         self._apply_darkness(surf)
         # light sources punch through the dark: muzzle glows and bolts
         for sx, sy, radius, clip_screen in self._deferred_glows:
@@ -1276,7 +1282,7 @@ class Renderer:
             ang = math.atan2(diry, dirx) if (dirx or diry) else 0.0
             if role == "player":
                 pts = _xform_pts(PLAYER_SHAPE, sx, sy, max(srad, 2.0), ang)
-                if not fully_inside:
+                if clip_screen is not None and not fully_inside:
                     pts = necore.clip_polygon(pts, clip_screen)
                     if len(pts) < 3:
                         continue
@@ -1296,7 +1302,8 @@ class Renderer:
         if flashed:
             fill = rim = (255, 255, 255)
         if kind == "mite":
-            if not _point_in_poly(sx, sy, clip_screen) and not fully_inside:
+            if clip_screen is not None and not fully_inside \
+                    and not _point_in_poly(sx, sy, clip_screen):
                 return
             r = max(1, int(round(srad * 0.85)))
             pygame.draw.circle(surf, fill, _pt((sx, sy)), r)
@@ -1304,7 +1311,7 @@ class Renderer:
             return
         shape = ENEMY_SHAPE.get(kind, _CIRCLE_SHAPE)
         pts = _xform_pts(shape, sx, sy, max(srad, 2.0), ang)
-        if not fully_inside:
+        if clip_screen is not None and not fully_inside:
             pts = necore.clip_polygon(pts, clip_screen)
             if len(pts) < 3:
                 return
@@ -1316,13 +1323,13 @@ class Renderer:
             bx = sx - math.cos(ang) * r * 0.22
             by = sy - math.sin(ang) * r * 0.22
             body = _xform_pts(shape, bx, by, r * 0.62, ang)
-            if not fully_inside:
+            if clip_screen is not None and not fully_inside:
                 body = necore.clip_polygon(body, clip_screen)
             if len(body) >= 3:
                 pygame.draw.polygon(surf, _scale_color(fill, 0.72), _pts(body))
             hx = sx + math.cos(ang) * r * 0.42
             hy = sy + math.sin(ang) * r * 0.42
-            if fully_inside or _point_in_poly(hx, hy, clip_screen):
+            if clip_screen is None or fully_inside or _point_in_poly(hx, hy, clip_screen):
                 if kind == "spitter":
                     pygame.draw.circle(surf, (140, 205, 60), _pt((hx, hy)),
                                        max(1, int(r * 0.24)))
@@ -1336,12 +1343,13 @@ class Renderer:
                     y0 = sy + math.sin(ta) * r * 0.7
                     x1 = sx + math.cos(ta) * r * 1.15
                     y1 = sy + math.sin(ta) * r * 1.15
-                    if fully_inside or (_point_in_poly(x0, y0, clip_screen)
-                                        and _point_in_poly(x1, y1, clip_screen)):
+                    if clip_screen is None or fully_inside or (
+                            _point_in_poly(x0, y0, clip_screen)
+                            and _point_in_poly(x1, y1, clip_screen)):
                         pygame.draw.line(surf, (228, 210, 190),
                                          _pt((x0, y0)), _pt((x1, y1)), 2)
             elif kind == "warden":
-                if fully_inside or _point_in_poly(sx, sy, clip_screen):
+                if clip_screen is None or fully_inside or _point_in_poly(sx, sy, clip_screen):
                     pygame.draw.circle(surf, (140, 110, 170), _pt((sx, sy)),
                                        max(2, int(r * 0.5)), 1)
         pygame.draw.polygon(surf, rim, _pts(pts), ENEMY_RIM_W.get(kind, 1))
@@ -1349,7 +1357,7 @@ class Renderer:
             pygame.draw.circle(surf, (66, 78, 62), _pt((sx, sy)), max(1, int(srad * 0.22)))
 
     def _draw_bullet(self, surf, kind, sx, sy, dirx, diry, clip_screen):
-        if not _point_in_poly(sx, sy, clip_screen):
+        if clip_screen is not None and not _point_in_poly(sx, sy, clip_screen):
             return
         if kind == "spit":
             pygame.draw.circle(surf, (140, 205, 60), _pt((sx, sy)), 2)
@@ -1368,7 +1376,7 @@ class Renderer:
             pygame.draw.circle(surf, color, _pt((sx, sy)), 2)
 
     def _draw_pickup(self, surf, kind, sx, sy, srad, clip_screen):
-        if not _point_in_poly(sx, sy, clip_screen):
+        if clip_screen is not None and not _point_in_poly(sx, sy, clip_screen):
             return
         r = max(2.5, srad)
         ix, iy = _pt((sx, sy))
