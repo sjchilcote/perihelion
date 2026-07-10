@@ -315,6 +315,22 @@ axis.
 
 ## 5. Characters
 
+### 5.0 THE CORE CONFLICT (director's key — everything hangs off this)
+
+**Ratio sees the zygotes as specimens. The Commando sees them as children —
+maybe dead children, but he refuses to write them off until he reads the
+diagnostics himself.** Every other tension in the game is downstream of this
+one: the dual vocabulary (5.1/8.3) is not house style, it is the conflict
+made audible — she says *sample vessel* because a vessel holds specimens; he
+says *the Ark* because an ark carries the living. Her ledger-voice and his
+diagnostics-refusal are the same trait pointed in opposite directions: both
+of them trust records over feelings, and the fight is over WHICH record gets
+to decide what the container holds. The trust arc measures one thing: how
+far Ratio travels from *specimen* toward *children* — and the writing must
+never hand her the word for free. The verdict in the container's mouth stays
+unread on the page (the epilogue's "keep it, and see"); what may change by
+the end is only what each of them is prepared to call the contents.
+
 ### 5.1 The Commando
 
 **Working names:** wartime program designation **CUCULUS** ("cuckoo" — it plants its egg
