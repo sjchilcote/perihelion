@@ -111,7 +111,8 @@ def basetruth_path(stem: str, room_idx: int) -> Path:
 
 
 def texture_out_path(stem: str, room_idx: int) -> Path:
-    return TEXTURES_ROOT / stem / f"room_{room_idx:03d}.png"
+    # MUST match game/perihelion/texture_geom.py::texture_path (unpadded).
+    return TEXTURES_ROOT / stem / f"room_{room_idx}.png"
 
 
 # ---------------------------------------------------------------------------
