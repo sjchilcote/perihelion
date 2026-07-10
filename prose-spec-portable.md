@@ -38,6 +38,31 @@ The generative pull behind all of it is **insurance against being missed.** When
 
 ---
 
+### I.b THE PROPER-NOUN TABOO (director's law)
+
+Invented proper nouns are BANNED. One indulgence is licensed for the whole
+work: the station is **the Testament**. Everything else gets expressed, not
+named. A capitalized noun is a promissory note for meaning the text has not
+earned; the amateur trap is letting The Proper Nouns stand in for actual
+expression (wiki-depth cosplay: names cross-referencing names).
+
+- People and minds are identified by deed, role, and register, never by
+  christening: *the surveyor who counted six hatches*, *the one who kept
+  the west ring*, *the registrar*. Identity lives in how they write - if
+  two documents can't be told apart without a byline, the documents are
+  the failure, not the missing name.
+- Record designations are not names and remain licensed: file numbers,
+  berth numbers, hatch counts, dates. Machine minds cite records; this is
+  the correct replacement for naming.
+- Descriptive labels in common-noun grammar are not names: the coolant
+  row, the filter room, the long gallery. The test: if it reads as a
+  description that got capitalized by habit, lowercase it and see if
+  anything is lost.
+- Established cast and factions from the design bible (Ratio, the
+  Commando, the Church, the Congregation, the Adversary, the Testators)
+  are quotations from canon, not inventions - usable, never extendable:
+  no new members, sites, programs, or projects get names.
+
 ## II. THE REGISTER SYSTEM
 
 Prose registers should be assigned by **epistemic source** — how the narrative knows what it's telling you — not by mood. Three proven registers, each stolen from a master and reduced to its information-flow rule:
