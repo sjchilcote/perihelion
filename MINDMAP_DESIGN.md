@@ -169,6 +169,28 @@ it costs subtracts directly from the ~60-component mind-map budget above, tighte
 the ratio further. **Open question for the director:** what should a station cost,
 and should the first one be free/cheap (tutorial) with subsequent ones scaling up?
 
+### 3.4 MEASURED income (supersedes the §3.2 estimates)
+
+The shipped economy (sim.py, 2026-07-10) resolved the open questions differently
+than §3.2 assumed, and the numbers were then measured, not estimated:
+
+- **One currency.** `data` was not shipped; a node's price is the SUM of its
+  components + data columns (`mindmap.price()`). No JSON changes — the loader sums.
+- **Salvage is deterministic, not a drop chance:** every kill yields the enemy's
+  `score` in components (husk/mite 1, spitter 2, shrieker 3, brute 4, warden 25).
+- **Ceiling:** summing scores across shipped `levels/l01–l10.json`: **447
+  components** for a full-clear, full-collection campaign (per-level: 15, 29, 34,
+  36, 33, 36, 43, 84, 75, 62).
+- **Floor:** AggroBot full-campaign soaks (tools/playtest/stream_soak.py, 5 seeds,
+  all complete) banked **53–85 components** while only ever collecting salvage it
+  happened to walk over. A deliberate player lands well between floor and ceiling.
+- **Shipped prices** (sim.SHOP): chassis 8, seed-station kit 12, hull plating
+  10+6/level, scrap driver 15, ammo 3–4. The summed-price full tree costs **576**,
+  so a diligent collector who also buys hardware affords roughly one region's spine
+  plus change — the §3.3 scarcity conclusion survives measurement.
+- The first station is free at every chunk entry (the seed you printed from);
+  §3.3's open question is answered: kits are for FORWARD placement (12c).
+
 **Tunability note:** every number in §3.2–3.3 is a first-pass estimate built from
 static level-generator inspection, not from a shipped drop table or a playtest. If the
 sim agent's actual `components`/`data` drop rates differ, the intended affordability
