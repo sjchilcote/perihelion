@@ -154,6 +154,72 @@ ENEMY_COLOR = {
 }
 
 
+
+
+def draw_key_glyph(surf, item_name, cx, cy, r, color) -> bool:
+    """Tiny object silhouette for a diegetic key item; returns False when
+    the name matches no known family (caller draws its fallback)."""
+    name = (item_name or "").upper()
+    ix, iy, r = int(cx), int(cy), max(4, int(r))
+    if "WHEEL" in name:
+        pygame.draw.circle(surf, color, (ix, iy), r, 1)
+        for a in (0.0, math.pi / 2, math.pi, 3 * math.pi / 2):
+            pygame.draw.line(surf, color, (ix, iy),
+                             (ix + int(math.cos(a) * r), iy + int(math.sin(a) * r)), 1)
+        pygame.draw.circle(surf, color, (ix, iy), max(1, r // 4))
+        return True
+    if "CARTRIDGE" in name or "CANISTER" in name:
+        w, h = max(4, int(r * 0.9)), max(6, int(r * 1.4))
+        rect = pygame.Rect(ix - w // 2, iy - h // 2, w, h)
+        pygame.draw.rect(surf, color, rect, 1)
+        for k in range(3):
+            y = rect.top + 2 + k * max(2, h // 4)
+            pygame.draw.line(surf, color, (rect.left + 1, y), (rect.right - 2, y), 1)
+        pygame.draw.line(surf, color, (ix, rect.top - 2), (ix, rect.top), 2)
+        return True
+    if "CARD" in name:
+        w, h = max(8, int(r * 1.5)), max(5, int(r * 0.9))
+        rect = pygame.Rect(ix - w // 2, iy - h // 2, w, h)
+        pygame.draw.rect(surf, color, rect, 1)
+        pygame.draw.line(surf, color, (rect.right - 3, rect.top),
+                         (rect.right, rect.top + 3), 1)
+        mx, my = rect.left + w // 3, rect.centery
+        pygame.draw.line(surf, color, (mx - 2, my), (mx + 2, my), 1)
+        pygame.draw.line(surf, color, (mx, my - 2), (mx, my + 2), 1)
+        return True
+    if "HANDLE" in name or "LEVER" in name:
+        pygame.draw.line(surf, color, (ix - r, iy + r // 2), (ix, iy + r // 2), 2)
+        pygame.draw.line(surf, color, (ix, iy + r // 2), (ix, iy - r), 2)
+        pygame.draw.rect(surf, color,
+                         (ix - 2, iy - r - 3, 5, 5), 1)
+        return True
+    if "STAMP" in name:
+        pygame.draw.circle(surf, color, (ix, iy - r // 2), max(2, r // 3))
+        pygame.draw.line(surf, color, (ix, iy - r // 4), (ix, iy + r // 4), 2)
+        pygame.draw.line(surf, color, (ix - r + 1, iy + r // 2),
+                         (ix + r - 1, iy + r // 2), 2)
+        return True
+    if "TOKEN" in name:
+        pts = [(ix + int(math.cos(a) * r), iy + int(math.sin(a) * r))
+               for a in [math.pi / 6 + k * math.pi / 3 for k in range(6)]]
+        pygame.draw.polygon(surf, color, pts, 1)
+        for dx, dy in ((-2, -2), (2, -2), (-2, 2), (2, 2)):
+            surf.set_at((ix + dx, iy + dy), color)
+        return True
+    if "SIGNET" in name:
+        pygame.draw.circle(surf, color, (ix, iy + 1), max(3, int(r * 0.8)), 1)
+        pygame.draw.ellipse(surf, color,
+                            (ix - r // 2, iy - r + 1, r, max(3, r // 2)))
+        return True
+    if "KEY" in name:
+        pygame.draw.circle(surf, color, (ix - int(r * 0.5), iy), max(2, int(r * 0.45)), 1)
+        pygame.draw.line(surf, color, (ix - int(r * 0.1), iy), (ix + r, iy), 1)
+        pygame.draw.line(surf, color, (ix + int(r * 0.55), iy),
+                         (ix + int(r * 0.55), iy + int(r * 0.45)), 1)
+        pygame.draw.line(surf, color, (ix + r - 1, iy), (ix + r - 1, iy + int(r * 0.45)), 1)
+        return True
+    return False
+
 def _brighten(c, amt: int):
     return (min(255, c[0] + amt), min(255, c[1] + amt), min(255, c[2] + amt))
 
@@ -1572,7 +1638,7 @@ class Renderer:
             elif role == "bullet":
                 self._draw_bullet(surf, kind, sx, sy, dirx, diry, clip_screen)
             elif role == "pickup":
-                self._draw_pickup(surf, kind, sx, sy, srad, clip_screen)
+                self._draw_pickup(surf, eid, kind, sx, sy, srad, clip_screen)
 
     def _draw_enemy(self, surf, eid, kind, sx, sy, ang, srad, clip_screen, fully_inside):
         flashed = self._hitflash.get(eid, 0) > 0
@@ -1654,7 +1720,7 @@ class Renderer:
             pygame.draw.line(surf, color, _pt((sx, sy)), _pt((tx, ty)), 1)
             pygame.draw.circle(surf, color, _pt((sx, sy)), 2)
 
-    def _draw_pickup(self, surf, kind, sx, sy, srad, clip_screen):
+    def _draw_pickup(self, surf, eid, kind, sx, sy, srad, clip_screen):
         if clip_screen is not None and not _point_in_poly(sx, sy, clip_screen):
             return
         r = max(2.5, srad)
@@ -1700,10 +1766,13 @@ class Renderer:
             pygame.draw.polygon(surf, (90, 220, 255), [(int(x), int(y)) for x, y in pts])
         elif kind.startswith("key_"):
             col = KEY_COLORS.get(kind[4:], DOOR_COLOR)
-            pygame.draw.circle(surf, col, (ix - int(r * 0.3), iy), max(1, int(r * 0.5)), 1)
-            pygame.draw.line(surf, col, (ix, iy), (ix + int(r), iy), 1)
-            pygame.draw.line(surf, col, (ix + int(r * 0.6), iy),
-                              (ix + int(r * 0.6), iy + int(r * 0.4)), 1)
+            meta = self.session.pickups.get(eid, {}).get("meta")
+            item = getattr(meta, "item_name", None)
+            if not draw_key_glyph(surf, item, ix, iy, int(r * 0.9), col):
+                pygame.draw.circle(surf, col, (ix - int(r * 0.3), iy), max(1, int(r * 0.5)), 1)
+                pygame.draw.line(surf, col, (ix, iy), (ix + int(r), iy), 1)
+                pygame.draw.line(surf, col, (ix + int(r * 0.6), iy),
+                                  (ix + int(r * 0.6), iy + int(r * 0.4)), 1)
 
     # -- (7) particles / effects pools --------------------------------------
 

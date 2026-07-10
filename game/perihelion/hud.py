@@ -95,13 +95,17 @@ class HUD:
             surf.blit(label, (w - label.get_width() - 8, h - 16))
 
     def _draw_keys(self, surf, session, w):
-        x = w - 10
+        from .render import draw_key_glyph
+        x = w - 12
         y = 8
         for key in sorted(session.keys):
             color = KEY_COLORS.get(key, (200, 170, 60))
-            pygame.draw.circle(surf, color, (x, y + 4), 4)
-            pygame.draw.circle(surf, (0, 0, 0), (x, y + 4), 4, 1)
-            x -= 12
+            meta = getattr(session, "held_key_meta", {}).get(key)
+            item = getattr(meta, "item_name", None)
+            if not draw_key_glyph(surf, item, x, y + 5, 5, color):
+                pygame.draw.circle(surf, color, (x, y + 4), 4)
+                pygame.draw.circle(surf, (0, 0, 0), (x, y + 4), 4, 1)
+            x -= 16
 
     def _draw_crosshair(self, surf, session, mouse_pos):
         mx, my = mouse_pos
