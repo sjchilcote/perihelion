@@ -283,6 +283,12 @@ def l02():
     b.connect_pts(pump_a, (320, -200), pump_b, (840, -170))
     b.door_pts(tail, (940, 70), armory, (940, 70), "red")
     b.no_connect(tail, armory)  # the door IS the only opening
+    # the "red key" is the row's one loose valve handwheel, racked in the
+    # filter room; the armory annex hides behind a pressure hatch whose
+    # undogging spindle takes the same square drive (terminal below).
+    b.key_meta("red", "VALVE WHEEL", "PRESSURE HATCH",
+               "PRESSURE HATCH SEALED - VALVE WHEEL REQUIRED",
+               "ACQUIRED: VALVE WHEEL")
 
     b.player(entry, (70, 70))
     b.intro("Coolant Row. The pumps have been louder\nlately. Nobody says so on record.")
@@ -293,8 +299,9 @@ def l02():
     b.radio(f"enter_room:{pump_b}", "Ratio: That's pump bay two. Except you "
                                     "went in through bay one. I'm marking a "
                                     "relay fault. Again.")
-    b.radio("pickup:red", "Ratio: Red access. Armory annex, east end — "
-                          "and the lift out is inside it.")
+    b.radio("pickup:red", "Ratio: The row's valve wheel. The armory annex "
+                          "pressure hatch takes it — east end, and the "
+                          "lift out is inside.")
     b.radio(f"enter_room:{pump_a}", "Ratio: If you're going to loot my "
                                     "pump bays anyway, bay two holds sealed "
                                     "supplies. Consider it a retainer. I "
@@ -336,12 +343,21 @@ def l02():
                "someone was counting seconds. or minutes. or\n"
                "hatches. whoever it was stopped at forty-one and\n"
                "left the chalk on the ledge.")
+    b.terminal(keyroom, wall_pos(b, keyroom, 0, 0.5, 15.0),
+               "FILTER SWAP PROCEDURE, POSTED\n"
+               "Isolate the loop before pulling a filter: the\n"
+               "isolation valve takes the loose handwheel racked\n"
+               "by the manifold. One wheel serves the row — the\n"
+               "same square drive runs the armory annex pressure\n"
+               "hatch at the east tail. Engineering never issued\n"
+               "a second wheel. Asked twice. Bring it back.")
     squad(b, row, "mite mite mite mite")
     squad(b, pump_a, "husk mite mite")
     squad(b, pump_b, "husk husk")
     squad(b, keyroom, "mite mite mite mite mite spitter")
     squad(b, tail, "spitter husk")
-    b.entity(keyroom, "key_red", (335, 270))
+    # the handwheel hangs on the manifold wall, under the posted procedure
+    b.entity(keyroom, "key_red", wall_pos(b, keyroom, 0, 0.72, 16.0))
     cache(b, pump_a, "ammo_9mm", wall=2)
     cache(b, pump_b, "medkit ammo_9mm", wall=2)
     cache(b, row, "medkit", off=(180, 0))
@@ -383,6 +399,12 @@ def l03():
                garden, (400, 0), "blue")
     b.connect_pts(ring[3], arc_mid(0, 0, 320, math.radians(15)),
                   storeroom, (-254, 110))
+    # the "blue key" is a fresh air-scrubber cartridge off the end-cap
+    # environmentals rack; the seed garden's airlock refuses to cycle on a
+    # spent scrubber (entry-procedure terminal at the door, below).
+    b.key_meta("blue", "SCRUBBER CARTRIDGE", "GARDEN AIRLOCK",
+               "AIRLOCK INERT - SCRUBBER CARTRIDGE REQUIRED",
+               "ACQUIRED: SCRUBBER CARTRIDGE")
 
     b.player(entry, (0, -380))
     b.intro("Hydroponics. The torus keeps the greens\nalive. The greens are dying in a spiral.")
@@ -440,6 +462,14 @@ def l03():
                "yields for a sector two rows over. Someone keeps\n"
                "correcting the logger. The correction keeps\n"
                "needing to happen again.")
+    b.terminal(ring[2], tuple(arc_mid(0, 0, 294, math.radians(-15))),
+               "GARDEN AIRLOCK — ENTRY PROCEDURE\n"
+               "The lock will not cycle on a spent scrubber.\n"
+               "Fresh cartridges are racked at the end cap,\n"
+               "sector six, past the feeders. Slot the\n"
+               "cartridge, wait for the green, return the spent\n"
+               "unit to the rack. Do not prop the inner door.\n"
+               "Not after last time.")
     b.terminal(ring[3], wall_pos(b, ring[3], 0, 0.5, 15.0),
                "SHIPPING TAG, ZIP-TIED TO A FERTILIZER DRUM\n"
                "Contents: fertilizer, 1 of 2.\n"
@@ -453,8 +483,10 @@ def l03():
     squad(b, ring[4], "spitter husk")
     squad(b, ring[5], "brute")
     squad(b, garden, "mite mite mite")
+    # the environmentals rack rides the end cap's outer wall (mid-sector,
+    # clear of both radial portal faces)
     b.entity(ring[5], "key_blue",
-             tuple(arc_mid(0, 0, 250, math.radians(75))))
+             tuple(arc_mid(0, 0, 296, math.radians(75))))
     # ring[0] is the ring's sole doorway from the entry -- unlike every
     # later cell, the mobius glue offers no shortcut around it, so the
     # level's namesake shotgun goes here rather than in the storeroom
@@ -469,10 +501,10 @@ def l03():
     cache(b, ring[3], "medkit", off=(-44.9, -12.0))
     cache(b, ring[4], "medkit ammo_9mm", off=(-32.9, -32.9))
     cache(b, storeroom, "ammo_shell ammo_shell", wall=1, t=0.2, inset=16.0)
-    b.radio("pickup:blue", "Ratio: Blue seal, from the end cap. The garden "
-                           "airlock takes it. Back the way you came — "
-                           "or, apparently, straight ahead. Both work. "
-                           "Neither should.")
+    b.radio("pickup:blue", "Ratio: Fresh scrubber cartridge, off the "
+                           "end-cap rack. The garden airlock takes it. "
+                           "Back the way you came — or, apparently, "
+                           "straight ahead. Both work. Neither should.")
     b.radio("kills:8", "Ratio: That big one read twice your mass. The "
                        "station manifest has nothing that shape.")
     b.exit(garden, (483, 40))
@@ -500,6 +532,13 @@ def l04():
     vault = b.rect(760, 310, 170, 150, kind="storage")
     b.door_pts(south, (760, 255), vault, (760, 385), "blue")
     b.no_connect(south, vault)
+    # the "blue key" is the attending surgeon's cardkey, dropped on gallery
+    # rounds and lying in the crossing that isn't there from the north; the
+    # vault holding the retained implant sits behind a quarantine bolt that
+    # releases to that cardkey only (medbay terminal, below).
+    b.key_meta("blue", "SURGEON'S CARDKEY", "QUARANTINE BOLT",
+               "BOLT ENGAGED - SURGEON'S CARDKEY REQUIRED",
+               "ACQUIRED: SURGEON'S CARDKEY")
 
     b.player(entry, (-80, 255))
     b.intro("The Long Gallery. Two service corridors,\n"
@@ -510,8 +549,8 @@ def l04():
     b.radio(f"enter_room:{north}", "Ratio: North side. Count the crossings "
                                    "for me, would you? I have four on file.")
     b.radio(f"enter_room:{crossings[0]}", "Ratio: Crossing one. There's a "
-                                          "blue seal in there — which is "
-                                          "strange, because from the north "
+                                          "cardkey pinging in there — which "
+                                          "is strange, because from the north "
                                           "wall, there is no crossing one.")
     b.terminal(south, wall_pos(b, south, 1, 0.92, 15.0),
                "GRAFFITI, scratched into the panel:\n"
@@ -521,7 +560,12 @@ def l04():
                "MEDICAL BAY (RELOCATED)\nPatient: unnamed, found in Gallery.\n"
                "Implant of unknown design fused to left arm.\n"
                "Patient states the implant 'came through the wall.'\n"
-               "Patient discharged. Implant retained. Vault, blue seal.")
+               "Patient discharged. Implant retained: vault,\n"
+               "quarantine bolt thrown, release on the\n"
+               "attending's cardkey only.\n"
+               "Addendum: attending reports the cardkey lost on\n"
+               "gallery rounds. Search of all four crossings\n"
+               "found three.")
     b.terminal(entry, wall_pos(b, entry, 3, 0.5, 15.0),
                "POSTED NOTICE, GALLERY ENTRANCE\n"
                "GALLERY CLOSED PENDING STRUCTURAL REVIEW.\n"
@@ -557,7 +601,8 @@ def l04():
     squad(b, crossings[2], "husk husk husk")
     squad(b, north, "spitter spitter brute")
     squad(b, reliquary, "husk husk spitter")
-    # the key lives in the crossing that doesn't exist from the north side
+    # the lost cardkey lies in the crossing that doesn't exist from the
+    # north side — where the gallery's missing things end up
     b.entity(crossings[0], "key_blue", (115, 60))
     cache(b, crossings[0], "ammo_shell medkit", wall=3)  # the blank north wall
     cache(b, north, "ammo_9mm ammo_9mm medkit", off=(300, 0))
@@ -565,8 +610,9 @@ def l04():
     # the west-entry/east-exit line runs straight through vault center at
     # y=385 -- every route from the blue door to the exit pad crosses it.
     cache(b, vault, "implant_lightning medkit ammo_9mm")
-    b.radio("pickup:blue", "Ratio: Blue seal. The vault. Commando — the "
-                           "notes say what's in there isn't ours.")
+    b.radio("pickup:blue", "Ratio: The attending's cardkey. The vault bolt "
+                           "answers it. Commando — the notes say what's in "
+                           "that vault isn't ours.")
     b.exit(vault, (890, 385))
     b.radio("exit", "Ratio: Your arm. Is it— okay. We'll call it equipment. "
                     "Equipment doesn't hum, but we'll call it that.")
@@ -594,6 +640,13 @@ def l05():
     b.connect_pts(lobby, (220, 90), e1, (1360, 90))   # east door, impossible
     b.connect_pts(w3, (-450, 170), chapel, (-430, 300))
     b.connect_pts(e3, (820, 90), chapel, (-320, 380))  # east wall of chapel
+    # the "gold key" is the deck steward's hatch key; the chapel doubles as
+    # the deck's pressure refuge and the way out is its aft refuge hatch.
+    # The steward bunks in 12 — and bunk 12, like everything on this deck,
+    # exists twice (directory terminal below; both wings hold the key).
+    b.key_meta("gold", "STEWARD'S KEY", "REFUGE HATCH",
+               "REFUGE HATCH SEALED - STEWARD'S KEY REQUIRED",
+               "ACQUIRED: STEWARD'S KEY")
 
     b.player(lobby, (110, 90))
     b.intro("Crew quarters. West wing and east wing.\n"
@@ -633,6 +686,8 @@ def l05():
                "chapel access.\n"
                "EAST WING: bunks 10 through 15, common room,\n"
                "chapel access.\n"
+               "PRESSURE REFUGE: the chapel, aft hatch. Hatch\n"
+               "key held by the deck steward, bunk 12.\n"
                "Directory printed once. Read twice by mistake,\n"
                "corrected, read twice again. Facilities notified.\n"
                "Facilities printed a second copy, identical, and\n"
@@ -671,11 +726,12 @@ def l05():
                "Mark a wall. Mark another wall. Walk through.\n"
                "Units 1 and 2 are why the east wing has a\n"
                "draft. Do not tell facilities.")
-    # two identical gold keys, in the same bunk, in both wings
+    # two identical steward's keys, in the same bunk, in both wings
     b.entity(w1, "key_gold", (-90, 40))
     b.entity(e1, "key_gold", (1270, 40))
-    b.radio("pickup:gold", "Ratio: Gold seal. Manifest lists exactly one, "
-                           "in bunk 12. It doesn't say which 12.")
+    b.radio("pickup:gold", "Ratio: The steward's hatch key. Manifest lists "
+                           "exactly one steward, bunk 12. It doesn't say "
+                           "which 12.")
     b.exit(chapel, (-430, 420), key="gold")
     b.radio("exit", "Ratio: I overlaid the wings. They occupy the same "
                     "cubic meters. I ran the check nine times, then filed "
@@ -698,6 +754,13 @@ def l06():
 
     # THE MIRROR: the ward's south wall connects to itself.
     b.connect_pts(ward, (680, 120), ward, (680, 120))
+    # the "red key" is the discharge bolt's removable handle. The bolt has
+    # no handle on the morgue side by design — discharge is a decision the
+    # ward makes — and the seal team carried the handle in with them when
+    # they closed the section (discharge-notice terminal, below).
+    b.key_meta("red", "DISCHARGE HANDLE", "DISCHARGE BOLT",
+               "BOLT THROWN - DISCHARGE HANDLE REQUIRED",
+               "ACQUIRED: DISCHARGE HANDLE")
 
     b.player(entry, (70, 70))
     b.intro("Medical isolation. The ward was sealed\n"
@@ -715,6 +778,13 @@ def l06():
                "All organs mirrored. Situs inversus totalis.\n"
                "Subject's ID chip reads valid.\n"
                "It is the chip of a crewman standing\nguard outside.")
+    b.terminal(morgue, wall_pos(b, morgue, 1, 0.5, 15.0),
+               "ISOLATION WING — DISCHARGE NOTICE\n"
+               "The discharge bolt takes its handle from the\n"
+               "ward side. There is no handle on this side;\n"
+               "that is the design. The seal team carried the\n"
+               "ward handle in with them when they closed it.\n"
+               "Nobody has carried it back out.")
     b.terminal(entry, wall_pos(b, entry, 0, 0.5, 15.0),
                "GUARD LOG, WARD ENTRANCE\n"
                "0600 — on post.\n"
@@ -744,11 +814,11 @@ def l06():
     # way the smg rack in COOLANT ROW's armory does.
     cache(b, morgue, "weapon_tau ammo_cell", wall=0, t=0.5, inset=12.0)
     cache(b, morgue, "ammo_shell ammo_shell medkit", off=(30, 0))
-    # the seal sits against the mirror wall: to leave, you must walk up to
-    # your own reflection
+    # the discharge handle lies against the mirror wall: to leave, you must
+    # walk up to your own reflection
     b.entity(ward, "key_red", (680, 108))
     b.radio("pickup:red", "Ratio: You saw it, didn't you. The other one "
-                          "picked its key up at the same time.")
+                          "picked its handle up at the same time.")
     b.radio("kills:10", "Ratio: The ones coming out of that wall — their "
                         "wounds are on the wrong side. You're shooting the "
                         "same things twice.")
@@ -778,6 +848,12 @@ def l07():
     b.connect_pts(stack, (410, 0), stack, (410, 140))
     b.connect_pts(stack, (520, 70), closet, (700, 370))
     b.connect_pts(closet, (820, 370), deep, (700, -230))
+    # the "gold key" is the registrar's records stamp, recovered with the
+    # staff-mind cores' effects; the gate out of deep records releases on
+    # it — nothing uncatalogued crosses (manifest terminal, below).
+    b.key_meta("gold", "REGISTRAR'S STAMP", "STACK GATE",
+               "STACK GATE SEALED - REGISTRAR'S STAMP REQUIRED",
+               "ACQUIRED: REGISTRAR'S STAMP")
 
     b.player(entry, (80, 70))
     b.intro("Records. Aisle 9 is missing.\nAisle 9 is where the missing things go.")
@@ -810,7 +886,10 @@ def l07():
                "  OSEI - [NO CORE RECOVERED]\n"
                "They held the subverted peripherals out of the\n"
                "core ring so the administrator could seal.\n"
-               "Osei walked into Aisle 9 to buy them the time.")
+               "Osei walked into Aisle 9 to buy them the time.\n"
+               "Effects racked below the cores: one records\n"
+               "stamp, registrar's issue. The deep-stack gate\n"
+               "releases on the stamp. Sign it back in after.")
     b.terminal(annex, wall_pos(b, annex, 3, 0.5, 15.0),
                "INCIDENT FILE 0000\n"
                "Empty folder. The tab reads 0000.\n"
@@ -846,9 +925,11 @@ def l07():
     cache(b, stack, "ammo_9mm ammo_shell", off=(60, 30))  # the aisle has no free wall
     cache(b, closet, "medkit ammo_cell portable_hole", wall=3, t=0.6, inset=16.0)
     cache(b, deep, "medkit ammo_cell ammo_shell", wall=0, t=0.5, inset=14.0)
+    # the stamp sits with the recovered effects, below the racked cores
     b.entity(closet, "key_gold", (735, 335))
-    b.radio("pickup:gold", "Ratio: Gold seal, filed under 'gold seal'. "
-                           "At least the shelving is honest.")
+    b.radio("pickup:gold", "Ratio: The registrar's stamp, filed under "
+                           "'registrar's stamp'. At least the shelving "
+                           "is honest.")
     b.exit(deep, (860, -230), key="gold")
     b.radio("exit", "Ratio: You walked out of a room that has no end. "
                     "Remember that, next time something chases you. Core "
@@ -979,6 +1060,12 @@ def l09():
 
     c15 = center(b, rooms[15])
     b.player(rooms[0], center(b, rooms[0]))
+    # the "void key" is a Testator docent's token — the station admits no
+    # one to the deep it cannot count as taught, and the token is the
+    # proof-of-walk it counts (docent terminal in 1010, below).
+    b.key_meta("void", "DOCENT'S TOKEN", "DESCENT APERTURE",
+               "APERTURE SHUT - DOCENT'S TOKEN REQUIRED",
+               "ACQUIRED: DOCENT'S TOKEN")
     b.intro("There is no deck like this on the station.\n"
             "You are not on the station anymore.\n\n"
             "Sixteen rooms. Every room borders four.\n"
@@ -1009,6 +1096,13 @@ def l09():
                "before it stops answering to the first.\n"
                "we did not choose one name each. the choosing\n"
                "was the mistake the last generation made.")
+    b.terminal(rooms[10], wall_pos(b, rooms[10], CHAMFER, 0.5, 15.0),
+               "[TRANSLATION CONFIDENCE 27%]\n"
+               "a token waits where a student will stand.\n"
+               "the aperture beneath the sixteenth name\n"
+               "will not part for an untaught hand.\n"
+               "carry the token. it remembers the walk\n"
+               "for you.")
     b.terminal(rooms[11], wall_pos(b, rooms[11], CHAMFER, 0.5, 15.0),
                "CARGO TAG, MIRIAD STOCK NUMBER — FOUND HERE,\n"
                "HALF BURIED\n"
@@ -1033,9 +1127,9 @@ def l09():
     cache(b, rooms[12], "medkit", wall=CHAMFER)
     c10 = center(b, rooms[10])
     b.entity(rooms[10], "key_void", (c10[0] - 60, c10[1]))
-    b.radio("pickup:void", "Ratio: Void seal. 1010 — two bit-flips from "
-                           "the spike. You're learning to read this place. "
-                           "I'm not sure that's good.")
+    b.radio("pickup:void", "Ratio: A token, waiting in 1010 — two bit-flips "
+                           "from the spike. You're learning to read this "
+                           "place. I'm not sure that's good.")
     b.exit(rooms[15], (c15[0] + 60, c15[1]), key="void")
     b.radio("exit", "Ratio: You crossed a four-dimensional cube on foot. "
                     "When we get home I'm never telling anyone this, and "
@@ -1073,8 +1167,14 @@ def l10():
     alcove = b.rect(1240, 560, 120, 100, kind="quarters")  # the first watcher's post
     b.door_pts(hexes[1], (812, 90), alcove, (1300, 560), "shoot")
     b.connect_pts(airlock, (160, 70), hexes[0], (348, -90))
-    # sanctum behind the void seal, off hex 3's remaining edge (2)
+    # sanctum behind the vault seal, off hex 3's remaining edge (2). The
+    # "void key" is the signet of the station's watch, set down at the far
+    # coset's post by the last watcher: the vault answers the signet, not
+    # the hand that carries it (docent terminal in hexes[5], below).
     b.door(a=hexes[3], ea=2, b=sanctum, eb=4, key="void")
+    b.key_meta("void", "WATCH SIGNET", "VAULT SEAL",
+               "VAULT SEALED - WATCH SIGNET REQUIRED",
+               "ACQUIRED: WATCH SIGNET")
 
     b.player(airlock, (80, 70))
     b.intro("The Core. The vault is here.\n"
@@ -1086,8 +1186,9 @@ def l10():
     b.radio("start", "Ratio: ...I'll say this once, and then we work. If it "
                      "offers you an ending — any ending — the offer is the "
                      "weapon. Guard the door. That's all we are now.")
-    b.radio(f"enter_room:{hexes[3]}", "Ratio: The seal answers the void key. "
-                                      "Last door, Commando.")
+    b.radio(f"enter_room:{hexes[3]}", "Ratio: The vault seal answers the "
+                                      "watchers' signet. Last door, "
+                                      "Commando.")
     b.terminal(hexes[1], wall_pos(b, hexes[1], HEX_FREE, 0.5, 15.0),
                "SITE ONE — FINAL PROTOCOL\n"
                "1. Do not bargain with the door.\n"
@@ -1146,10 +1247,18 @@ def l10():
     cache(b, hexes[2], "ammo_cell ammo_shell medkit medkit", wall=HEX_FREE)
     cache(b, hexes[4], "ammo_9mm ammo_9mm ammo_shell", wall=HEX_FREE)
     cache(b, hexes[5], "medkit medkit ammo_cell medkit", wall=HEX_FREE)
+    # the signet rests at the far coset's watch post
     b.entity(hexes[5], "key_void",
              (center(b, hexes[5])[0], center(b, hexes[5])[1] - 60))
-    b.radio("pickup:void", "Ratio: The void seal. It was waiting in the far "
-                           "coset. It WANTS to be found, Commando. "
+    b.terminal(hexes[5], wall_pos(b, hexes[5], 2, 0.5, 15.0),
+               "[TRANSLATION CONFIDENCE 17%]\n"
+               "the last watcher set its signet down here,\n"
+               "at the far post, where the walk ends twice.\n"
+               "the vault seal answers the signet, not the\n"
+               "hand. whoever carries it stands a watch,\n"
+               "knowing or not.")
+    b.radio("pickup:void", "Ratio: The watch signet. It was waiting in the "
+                           "far coset. It WANTS to be found, Commando. "
                            "Remember that at the door.")
     cache(b, sanctum, "medkit ammo_cell ammo_shell", wall=6)
     b.exit(sanctum, (1600, 180), gate_kind="warden")

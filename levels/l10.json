@@ -623,11 +623,11 @@
    },
    {
     "trigger": "enter_room:4",
-    "text": "Ratio: The seal answers the void key. Last door, Commando."
+    "text": "Ratio: The vault seal answers the watchers' signet. Last door, Commando."
    },
    {
     "trigger": "pickup:void",
-    "text": "Ratio: The void seal. It was waiting in the far coset. It WANTS to be found, Commando. Remember that at the door."
+    "text": "Ratio: The watch signet. It was waiting in the far coset. It WANTS to be found, Commando. Remember that at the door."
    },
    {
     "trigger": "kills:20",
@@ -686,8 +686,24 @@
      437.0096189432334
     ],
     "text": "SCRATCHED, LOW ON THE WALL, EASY TO MISS\ntape measure, one (1), still on its reel, no\ntape drawn out.\nSomeone set it down gently."
+   },
+   {
+    "room": 6,
+    "pos": [
+     1075.5384757729337,
+     282.9903810567666
+    ],
+    "text": "[TRANSLATION CONFIDENCE 17%]\nthe last watcher set its signet down here,\nat the far post, where the walk ends twice.\nthe vault seal answers the signet, not the\nhand. whoever carries it stands a watch,\nknowing or not."
    }
   ]
  },
- "alert_hops": 1
+ "alert_hops": 1,
+ "keys": {
+  "void": {
+   "item_name": "WATCH SIGNET",
+   "gate_name": "VAULT SEAL",
+   "gate_prompt": "VAULT SEALED - WATCH SIGNET REQUIRED",
+   "acquire_prompt": "ACQUIRED: WATCH SIGNET"
+  }
+ }
 }

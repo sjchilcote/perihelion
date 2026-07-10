@@ -865,7 +865,7 @@
    },
    {
     "trigger": "pickup:void",
-    "text": "Ratio: Void seal. 1010 \u2014 two bit-flips from the spike. You're learning to read this place. I'm not sure that's good."
+    "text": "Ratio: A token, waiting in 1010 \u2014 two bit-flips from the spike. You're learning to read this place. I'm not sure that's good."
    },
    {
     "trigger": "exit",
@@ -898,6 +898,14 @@
     "text": "[TRANSLATION CONFIDENCE 33%]\nsixteen is not the number of rooms.\nsixteen is how many names one room accepts\nbefore it stops answering to the first.\nwe did not choose one name each. the choosing\nwas the mistake the last generation made."
    },
    {
+    "room": 10,
+    "pos": [
+     939.3933982822018,
+     939.3933982822018
+    ],
+    "text": "[TRANSLATION CONFIDENCE 27%]\na token waits where a student will stand.\nthe aperture beneath the sixteenth name\nwill not part for an untaught hand.\ncarry the token. it remembers the walk\nfor you."
+   },
+   {
     "room": 11,
     "pos": [
      1339.3933982822018,
@@ -906,5 +914,13 @@
     "text": "CARGO TAG, MIRIAD STOCK NUMBER \u2014 FOUND HERE,\nHALF BURIED\nContents: 2x fertilizer drum.\nThis tag belongs four levels back, in a\nstoreroom that grows food. There is no food\nhere. There was no floor here, on any schematic,\nbefore today.\nNobody has come to collect it."
    }
   ]
+ },
+ "keys": {
+  "void": {
+   "item_name": "DOCENT'S TOKEN",
+   "gate_name": "DESCENT APERTURE",
+   "gate_prompt": "APERTURE SHUT - DOCENT'S TOKEN REQUIRED",
+   "acquire_prompt": "ACQUIRED: DOCENT'S TOKEN"
+  }
  }
 }

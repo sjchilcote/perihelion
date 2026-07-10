@@ -247,8 +247,8 @@
     {
      "type": "key_blue",
      "pos": [
-      64.70476127563019,
-      241.4814565722671
+      76.61043735034613,
+      285.9140445815642
      ]
     }
    ],
@@ -453,7 +453,7 @@
    },
    {
     "trigger": "pickup:blue",
-    "text": "Ratio: Blue seal, from the end cap. The garden airlock takes it. Back the way you came \u2014 or, apparently, straight ahead. Both work. Neither should."
+    "text": "Ratio: Fresh scrubber cartridge, off the end-cap rack. The garden airlock takes it. Back the way you came \u2014 or, apparently, straight ahead. Both work. Neither should."
    },
    {
     "trigger": "kills:8",
@@ -514,6 +514,14 @@
     "text": "BENCH TAG, SECTOR ONE\nControl group. No treatment applied. For\ncomparison only. Yield tracked weekly, entered by\nhand because the automatic logger keeps entering\nyields for a sector two rows over. Someone keeps\ncorrecting the logger. The correction keeps\nneeding to happen again."
    },
    {
+    "room": 2,
+    "pos": [
+     283.9821929289861,
+     -76.09279926014109
+    ],
+    "text": "GARDEN AIRLOCK \u2014 ENTRY PROCEDURE\nThe lock will not cycle on a spent scrubber.\nFresh cartridges are racked at the end cap,\nsector six, past the feeders. Slot the\ncartridge, wait for the green, return the spent\nunit to the rack. Do not prop the inner door.\nNot after last time."
+   },
+   {
     "room": 3,
     "pos": [
      182.4311737349355,
@@ -522,5 +530,13 @@
     "text": "SHIPPING TAG, ZIP-TIED TO A FERTILIZER DRUM\nContents: fertilizer, 1 of 2.\nSecond tag, zip-tied to the same drum, underneath\nthe first:\nContents: fertilizer, 1 of 2.\nBoth tags are dated the same day. Neither one is\nwrong."
    }
   ]
+ },
+ "keys": {
+  "blue": {
+   "item_name": "SCRUBBER CARTRIDGE",
+   "gate_name": "GARDEN AIRLOCK",
+   "gate_prompt": "AIRLOCK INERT - SCRUBBER CARTRIDGE REQUIRED",
+   "acquire_prompt": "ACQUIRED: SCRUBBER CARTRIDGE"
+  }
  }
 }

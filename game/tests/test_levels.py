@@ -55,6 +55,42 @@ def test_keys_reachable_before_their_doors(path):
         assert hops >= 0, f"key_{d['key']} unreachable while its door is shut"
 
 
+def test_key_meta_round_trips_through_save_and_load(tmp_path):
+    from perihelion.levels import save_level
+
+    b = LevelBuilder("t", 1)
+    r = b.rect(0, 0, 200, 200)
+    b.key_meta("gold", "VALVE WHEEL", "PRESSURE HATCH",
+               "PRESSURE HATCH SEALED - VALVE WHEEL REQUIRED",
+               "ACQUIRED: VALVE WHEEL")
+    b.player(r, (100, 100))
+    save_level(b.to_dict(), tmp_path / "t.json")
+    lvl = load_level(tmp_path / "t.json")
+    km = lvl.key_meta["gold"]
+    assert km.item_name == "VALVE WHEEL"
+    assert km.gate_name == "PRESSURE HATCH"
+    assert km.gate_prompt == "PRESSURE HATCH SEALED - VALVE WHEEL REQUIRED"
+    assert km.acquire_prompt == "ACQUIRED: VALVE WHEEL"
+
+
+@pytest.mark.parametrize("path", LEVELS, ids=[p.stem for p in LEVELS])
+def test_every_shipped_key_has_diegetic_metadata(path):
+    """Keys are a mechanic; the fiction is per level. Every key id a level
+    actually gates on (doors or the exit) must name a real station object
+    and the mechanism it operates."""
+    lvl = load_level(path)
+    ids = {d.key for d in lvl.doors if d.key not in ("", "shoot")}
+    if lvl.exit_key:
+        ids.add(lvl.exit_key)
+    for k in sorted(ids):
+        assert k in lvl.key_meta, \
+            f"{path.stem}: key {k!r} has no diegetic identity (key_meta)"
+        km = lvl.key_meta[k]
+        assert km.item_name and km.gate_name
+        assert km.item_name in km.gate_prompt
+        assert km.acquire_prompt.startswith("ACQUIRED: ")
+
+
 def test_doorway_splitter_makes_doorways():
     b = LevelBuilder("t", 1)
     big = b.rect(0, 0, 400, 300)

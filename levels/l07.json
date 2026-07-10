@@ -356,7 +356,7 @@
    },
    {
     "trigger": "pickup:gold",
-    "text": "Ratio: Gold seal, filed under 'gold seal'. At least the shelving is honest."
+    "text": "Ratio: The registrar's stamp, filed under 'registrar's stamp'. At least the shelving is honest."
    },
    {
     "trigger": "exit",
@@ -386,7 +386,7 @@
      772.0,
      315.0
     ],
-    "text": "CORE RECOVERY MANIFEST\nStaff-mind cores, recovered from Records:\n  VESALIUS - damaged, held the west ring\n  THIBAULT - damaged, held the junction\n  OSEI - [NO CORE RECOVERED]\nThey held the subverted peripherals out of the\ncore ring so the administrator could seal.\nOsei walked into Aisle 9 to buy them the time."
+    "text": "CORE RECOVERY MANIFEST\nStaff-mind cores, recovered from Records:\n  VESALIUS - damaged, held the west ring\n  THIBAULT - damaged, held the junction\n  OSEI - [NO CORE RECOVERED]\nThey held the subverted peripherals out of the\ncore ring so the administrator could seal.\nOsei walked into Aisle 9 to buy them the time.\nEffects racked below the cores: one records\nstamp, registrar's issue. The deep-stack gate\nreleases on the stamp. Sign it back in after."
    },
    {
     "room": 4,
@@ -413,5 +413,13 @@
     "text": "REQUISITION SLIP \u2014 APPROVED\nItem: one (1) additional room. Justification\nfield: blank.\nApproving signature: illegible scan, three\ncharacters resolve, the rest is scanner noise.\nThe three that resolve are not initials MIRIAD\nuses for anyone on this posting.\nCost center charged: Site One, pre-existing\nallocation. Site One had no pre-existing\nallocation. The charge went through anyway."
    }
   ]
+ },
+ "keys": {
+  "gold": {
+   "item_name": "REGISTRAR'S STAMP",
+   "gate_name": "STACK GATE",
+   "gate_prompt": "STACK GATE SEALED - REGISTRAR'S STAMP REQUIRED",
+   "acquire_prompt": "ACQUIRED: REGISTRAR'S STAMP"
+  }
  }
 }

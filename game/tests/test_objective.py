@@ -68,6 +68,85 @@ def test_exit_gated_by_warden_names_the_holder():
     assert not s.complete
 
 
+def test_exit_locked_prompt_uses_key_metadata():
+    b = LevelBuilder("t", 1)
+    r = b.rect(0, 0, 200, 200)
+    b.key_meta("gold", "VALVE WHEEL", "PRESSURE HATCH",
+               "PRESSURE HATCH SEALED - VALVE WHEEL REQUIRED",
+               "ACQUIRED: VALVE WHEEL")
+    b.player(r, (100, 100))
+    b.exit(r, (110, 100), key="gold")
+    s = GameSession(b.build(), seed=1)
+    seen = []
+    for _ in range(30):
+        s.tick(InputFrame())
+        seen += _objectives(s.fx)
+    assert seen == ["PRESSURE HATCH SEALED - VALVE WHEEL REQUIRED"]
+
+
+def test_key_pickup_with_metadata_names_the_object():
+    b = LevelBuilder("t", 1)
+    r = b.rect(0, 0, 200, 200)
+    b.key_meta("red", "VALVE WHEEL", "PRESSURE HATCH",
+               "PRESSURE HATCH SEALED - VALVE WHEEL REQUIRED",
+               "ACQUIRED: VALVE WHEEL")
+    b.player(r, (100, 100))
+    b.entity(r, "key_red", (104, 100))  # inside pickup reach
+    b.exit(r, (180, 180))
+    s = GameSession(b.build(), seed=1)
+    s.tick(InputFrame())
+    assert "ACQUIRED: VALVE WHEEL" in _objectives(s.fx)
+    floats = [ev[3] for ev in s.fx if ev[0] == "pickup_text"]
+    assert floats == ["VALVE WHEEL"]
+    assert "red" in s.keys
+
+
+def test_key_pickup_without_metadata_falls_back_to_seal():
+    b = LevelBuilder("t", 1)
+    r = b.rect(0, 0, 200, 200)
+    b.player(r, (100, 100))
+    b.entity(r, "key_red", (104, 100))
+    b.exit(r, (180, 180))
+    s = GameSession(b.build(), seed=1)
+    s.tick(InputFrame())
+    floats = [ev[3] for ev in s.fx if ev[0] == "pickup_text"]
+    assert floats == ["RED SEAL"]
+    assert _objectives(s.fx) == []  # generic keys stay silent on the channel
+
+
+def _door_bump_session(with_meta: bool) -> GameSession:
+    b = LevelBuilder("t", 1)
+    a = b.rect(0, 0, 200, 200)
+    c = b.rect(200, 0, 200, 200)
+    b.door_pts(a, (200, 100), c, (200, 100), "red")
+    b.no_connect(a, c)
+    if with_meta:
+        b.key_meta("red", "VALVE WHEEL", "PRESSURE HATCH",
+                   "PRESSURE HATCH SEALED - VALVE WHEEL REQUIRED",
+                   "ACQUIRED: VALVE WHEEL")
+    b.player(a, (150, 100))
+    b.exit(c, (300, 100))
+    return GameSession(b.build(), seed=1)
+
+
+def test_locked_door_bump_shows_gate_prompt_once():
+    s = _door_bump_session(with_meta=True)
+    seen = []
+    for _ in range(120):  # shove east into the locked door
+        s.tick(InputFrame(mx=1.0))
+        seen += _objectives(s.fx)
+    assert seen == ["PRESSURE HATCH SEALED - VALVE WHEEL REQUIRED"]
+
+
+def test_locked_door_bump_without_metadata_falls_back():
+    s = _door_bump_session(with_meta=False)
+    seen = []
+    for _ in range(120):
+        s.tick(InputFrame(mx=1.0))
+        seen += _objectives(s.fx)
+    assert seen == ["DOOR SEALED - RED SEAL REQUIRED"]
+
+
 def test_weapon_pickup_emits_acquired_prompt():
     b = LevelBuilder("t", 1)
     r = b.rect(0, 0, 200, 200)

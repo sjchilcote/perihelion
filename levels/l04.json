@@ -543,11 +543,11 @@
    },
    {
     "trigger": "enter_room:3",
-    "text": "Ratio: Crossing one. There's a blue seal in there \u2014 which is strange, because from the north wall, there is no crossing one."
+    "text": "Ratio: Crossing one. There's a cardkey pinging in there \u2014 which is strange, because from the north wall, there is no crossing one."
    },
    {
     "trigger": "pickup:blue",
-    "text": "Ratio: Blue seal. The vault. Commando \u2014 the notes say what's in there isn't ours."
+    "text": "Ratio: The attending's cardkey. The vault bolt answers it. Commando \u2014 the notes say what's in that vault isn't ours."
    },
    {
     "trigger": "exit",
@@ -569,7 +569,7 @@
      380.0,
      445.0
     ],
-    "text": "MEDICAL BAY (RELOCATED)\nPatient: unnamed, found in Gallery.\nImplant of unknown design fused to left arm.\nPatient states the implant 'came through the wall.'\nPatient discharged. Implant retained. Vault, blue seal."
+    "text": "MEDICAL BAY (RELOCATED)\nPatient: unnamed, found in Gallery.\nImplant of unknown design fused to left arm.\nPatient states the implant 'came through the wall.'\nPatient discharged. Implant retained: vault,\nquarantine bolt thrown, release on the\nattending's cardkey only.\nAddendum: attending reports the cardkey lost on\ngallery rounds. Search of all four crossings\nfound three."
    },
    {
     "room": 0,
@@ -596,5 +596,13 @@
     "text": "STRUCTURAL NOTE, GALLERY MIDPOINT\nFour load-bearing crossings, per the original\ndrawings. Fieldwork confirms three, walking\nnorth.\nRecommendation: trust the drawings; they were\nmade before anyone walked it drunk on double\nshifts.\nSecond recommendation, struck through but still\nlegible: the walking is probably right. Filed\nunder morale. Moving on."
    }
   ]
+ },
+ "keys": {
+  "blue": {
+   "item_name": "SURGEON'S CARDKEY",
+   "gate_name": "QUARANTINE BOLT",
+   "gate_prompt": "BOLT ENGAGED - SURGEON'S CARDKEY REQUIRED",
+   "acquire_prompt": "ACQUIRED: SURGEON'S CARDKEY"
+  }
  }
 }

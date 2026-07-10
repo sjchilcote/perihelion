@@ -173,6 +173,20 @@ def test_add_room_connect_save_loads_and_runs(tmp_path):
     assert not session.dead
 
 
+def test_key_metadata_survives_editor_round_trip(tmp_path):
+    # l02 carries a top-level "keys" table (diegetic key identities); the
+    # editor must not drop unknown-to-it fields on load/save.
+    model = M.EditorModel()
+    errs = model.load(ROOT / "levels" / "l02.json")
+    assert errs == []
+    out = tmp_path / "edited.json"
+    assert model.save(out) == []
+    on_disk = json.loads(out.read_text())
+    assert on_disk["keys"]["red"]["item_name"] == "VALVE WHEEL"
+    lvl = load_level(out)
+    assert lvl.key_meta["red"].gate_name == "PRESSURE HATCH"
+
+
 def test_undo_restores_exact_prior_dict(m):
     prior = copy.deepcopy(m.data)
     m.add_rect_room(2000, 2000, 50, 50)

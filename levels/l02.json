@@ -350,8 +350,8 @@
     {
      "type": "key_red",
      "pos": [
-      335,
-      270
+      256.0,
+      305.2
      ]
     }
    ],
@@ -483,7 +483,7 @@
    },
    {
     "trigger": "pickup:red",
-    "text": "Ratio: Red access. Armory annex, east end \u2014 and the lift out is inside it."
+    "text": "Ratio: The row's valve wheel. The armory annex pressure hatch takes it \u2014 east end, and the lift out is inside."
    },
    {
     "trigger": "enter_room:2",
@@ -538,7 +538,23 @@
      150.0
     ],
     "text": "SCRATCHED NEAR THE FLOOR VENT\ntally marks, forty-one of them, then nothing\nsomeone was counting seconds. or minutes. or\nhatches. whoever it was stopped at forty-one and\nleft the chalk on the ledge."
+   },
+   {
+    "room": 6,
+    "pos": [
+     255.0,
+     270.0
+    ],
+    "text": "FILTER SWAP PROCEDURE, POSTED\nIsolate the loop before pulling a filter: the\nisolation valve takes the loose handwheel racked\nby the manifold. One wheel serves the row \u2014 the\nsame square drive runs the armory annex pressure\nhatch at the east tail. Engineering never issued\na second wheel. Asked twice. Bring it back."
    }
   ]
+ },
+ "keys": {
+  "red": {
+   "item_name": "VALVE WHEEL",
+   "gate_name": "PRESSURE HATCH",
+   "gate_prompt": "PRESSURE HATCH SEALED - VALVE WHEEL REQUIRED",
+   "acquire_prompt": "ACQUIRED: VALVE WHEEL"
+  }
  }
 }

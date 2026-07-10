@@ -175,10 +175,17 @@ class GameSession:
         self.doors: list[dict] = []
         self.door_edges: dict[tuple[int, int], str] = {}
         for d in level.doors:
-            rec = dict(a=d.a, ea=d.ea, b=d.b, eb=d.eb, key=d.key, open=False)
+            meta = level.key_meta.get(d.key)
+            rec = dict(a=d.a, ea=d.ea, b=d.b, eb=d.eb, key=d.key, open=False,
+                       gate_prompt=meta.gate_prompt if meta else "")
             self.doors.append(rec)
             self.door_edges[(d.a, d.ea)] = d.key
             self.door_edges[(d.b, d.eb)] = d.key
+        self._door_prompt_at: dict[str, int] = {}  # key id -> last prompt tick
+        # the exit's blocked prompt, from this level's key metadata (the
+        # streamer re-points this at the final chunk's metadata)
+        exit_meta = level.key_meta.get(level.exit_key) if level.exit_key else None
+        self.exit_gate_prompt = exit_meta.gate_prompt if exit_meta else ""
 
         # --- player ---
         st = player_state or {}
@@ -189,6 +196,10 @@ class GameSession:
         self.ammo = dict(st.get("ammo", {"9mm": 48, "shell": 0, "cell": 0}))
         self.weapons = list(st.get("weapons", ["knife", "pistol"]))
         self.keys: set[str] = set()
+        # key id -> KeyMeta of the object actually picked up (for HUD/world
+        # glyphs); intersect with self.keys — the streamer clears keys on
+        # zone crossings without touching this
+        self.held_key_meta: dict = {}
         self.weapon = st.get("weapon", "pistol")
         if self.weapon not in self.weapons:
             self.weapon = self.weapons[-1]
@@ -241,7 +252,11 @@ class GameSession:
     # spawning
     # ------------------------------------------------------------------
 
-    def _spawn_from_spec(self, room: int, spec) -> None:
+    def _spawn_from_spec(self, room: int, spec, key_meta=None) -> None:
+        """`key_meta` is the key-id -> KeyMeta table of the LEVEL this spec
+        came from — the streamer passes each chunk's own table because
+        `self.level` is chunk 0's and key ids mean different objects on
+        different decks. None = use this session's level."""
         t = spec.type
         if t in ENEMIES:
             eid = self.spawn_enemy(room, spec.pos, t)
@@ -250,7 +265,11 @@ class GameSession:
             if spec.props.get("tether"):
                 self.enemies[eid]["tether"] = True
         elif t in PICKUPS:
-            self.spawn_pickup(room, spec.pos, t)
+            meta = None
+            if t.startswith("key_"):
+                table = key_meta if key_meta is not None else self.level.key_meta
+                meta = table.get(t[4:])
+            self.spawn_pickup(room, spec.pos, t, meta)
         elif t == "player":
             pass  # player spawn handled by level.player
         else:
@@ -265,11 +284,14 @@ class GameSession:
                                  wander_cd=0, buff=0)
         return eid
 
-    def spawn_pickup(self, room: int, pos, kind: str) -> int:
+    def spawn_pickup(self, room: int, pos, kind: str, meta=None) -> int:
         d = PICKUPS[kind]
         eid = self.sim.spawn(room, pos[0], pos[1], d["radius"], 100.0, GROUP_PICKUP)
         self.sim.set_props(eid, transfers=False)
-        self.pickups[eid] = dict(kind=kind)
+        rec = dict(kind=kind)
+        if meta is not None:
+            rec["meta"] = meta  # KeyMeta: the object this key id is here
+        self.pickups[eid] = rec
         return eid
 
     # ------------------------------------------------------------------
@@ -691,8 +713,10 @@ class GameSession:
         for a, ea, b, eb, m9 in level.connects_x:
             self.sim.connect_with_xform(a + offset, ea, b + offset, eb, m9)
         for d in level.doors:
+            meta = level.key_meta.get(d.key)
             rec = dict(a=d.a + offset, ea=d.ea, b=d.b + offset, eb=d.eb,
-                       key=d.key, open=False)
+                       key=d.key, open=False,
+                       gate_prompt=meta.gate_prompt if meta else "")
             self.doors.append(rec)
             self.door_edges[(rec["a"], rec["ea"])] = d.key
             self.door_edges[(rec["b"], rec["eb"])] = d.key
@@ -700,7 +724,7 @@ class GameSession:
             self.terminals.append(dict(room=t.room + offset, pos=t.pos,
                                        text=t.text, read=False))
         for room, spec in level.entities:
-            self._spawn_from_spec(room + offset, spec)
+            self._spawn_from_spec(room + offset, spec, key_meta=level.key_meta)
         self.level.room_seeds.extend(level.room_seeds)
         self.level.room_kinds.extend(level.room_kinds)
         self.level.room_verts.extend(level.room_verts)
@@ -1119,6 +1143,8 @@ class GameSession:
                     self.metrics["rooms_visited"].add(to_room)
             elif tag == "wall":
                 _, ent, room, edge, px_, py_, nx, ny, speed = ev
+                if ent == self.pid:
+                    self._door_bump(room, edge)
                 b = self.bullets.get(ent)
                 if b is not None and b["kind"] != "spit" \
                         and self.door_edges.get((room, edge)) == "shoot":
@@ -1155,6 +1181,26 @@ class GameSession:
             elif tag == "contact":
                 _, a, b, cx, cy, nx, ny, rel = ev
                 self._contact(a, b, cx, cy, nx, ny)
+
+    def _door_bump(self, room: int, edge: int):
+        """The player pressed against a locked door: name the mechanism
+        and the object it wants. Rate-limited per key id — the prompt
+        holds ~4s on screen; re-arm after 5s of continued shoving."""
+        key = self.door_edges.get((room, edge))
+        if not key or key == "shoot" or key in self.keys:
+            return
+        last = self._door_prompt_at.get(key)
+        if last is not None and self.tick_count - last < 300:
+            return
+        self._door_prompt_at[key] = self.tick_count
+        prompt = ""
+        for d in self.doors:
+            if not d["open"] and d["key"] == key and (
+                    (d["a"], d["ea"]) == (room, edge)
+                    or (d["b"], d["eb"]) == (room, edge)):
+                prompt = d.get("gate_prompt", "")
+                break
+        self._objective(prompt or f"DOOR SEALED - {key.upper()} SEAL REQUIRED")
 
     def _contact(self, a: int, b: int, cx: float, cy: float, nx: float, ny: float):
         # normalize order: identify roles
@@ -1318,8 +1364,13 @@ class GameSession:
                 key = kind[4:]
                 self.keys.add(key)
                 self._snd("pickup_key", proom, (x, y))
+                meta = p.get("meta")
                 self.fx.append(("pickup_text", proom, (x, y),
-                                f"{key.upper()} SEAL"))
+                                meta.item_name if meta
+                                else f"{key.upper()} SEAL"))
+                if meta:
+                    self.held_key_meta[key] = meta
+                    self._objective(meta.acquire_prompt)
                 self._unlock_doors(key)
             self.metrics["pickups"] += 1
             self.sim.remove(eid)
@@ -1373,7 +1424,8 @@ class GameSession:
             if "exit_locked" not in self._objective_fired:
                 self._objective_fired.add("exit_locked")
                 self._objective(
-                    f"EXIT SEALED - {lvl.exit_key.upper()} SEAL REQUIRED")
+                    self.exit_gate_prompt
+                    or f"EXIT SEALED - {lvl.exit_key.upper()} SEAL REQUIRED")
             return
         gate_rooms = getattr(self, "exit_gate_rooms", None)
 

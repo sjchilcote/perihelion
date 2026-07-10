@@ -561,7 +561,7 @@
    },
    {
     "trigger": "pickup:gold",
-    "text": "Ratio: Gold seal. Manifest lists exactly one, in bunk 12. It doesn't say which 12."
+    "text": "Ratio: The steward's hatch key. Manifest lists exactly one steward, bunk 12. It doesn't say which 12."
    },
    {
     "trigger": "exit",
@@ -607,7 +607,7 @@
      110.0,
      15.0
     ],
-    "text": "WING DIRECTORY, POSTED AT THE LOBBY DOOR\nWEST WING: bunks 10 through 15, common room,\nchapel access.\nEAST WING: bunks 10 through 15, common room,\nchapel access.\nDirectory printed once. Read twice by mistake,\ncorrected, read twice again. Facilities notified.\nFacilities printed a second copy, identical, and\nhung it under the first."
+    "text": "WING DIRECTORY, POSTED AT THE LOBBY DOOR\nWEST WING: bunks 10 through 15, common room,\nchapel access.\nEAST WING: bunks 10 through 15, common room,\nchapel access.\nPRESSURE REFUGE: the chapel, aft hatch. Hatch\nkey held by the deck steward, bunk 12.\nDirectory printed once. Read twice by mistake,\ncorrected, read twice again. Facilities notified.\nFacilities printed a second copy, identical, and\nhung it under the first."
    },
    {
     "room": 6,
@@ -626,5 +626,13 @@
     "text": "FIELD NOTE, TAPED TO A DEVICE\nAd-hoc connection applicator, unit 3 of 3.\nMark a wall. Mark another wall. Walk through.\nUnits 1 and 2 are why the east wing has a\ndraft. Do not tell facilities."
    }
   ]
+ },
+ "keys": {
+  "gold": {
+   "item_name": "STEWARD'S KEY",
+   "gate_name": "REFUGE HATCH",
+   "gate_prompt": "REFUGE HATCH SEALED - STEWARD'S KEY REQUIRED",
+   "acquire_prompt": "ACQUIRED: STEWARD'S KEY"
+  }
  }
 }
