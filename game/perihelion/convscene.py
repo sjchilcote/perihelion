@@ -53,9 +53,22 @@ SPEAKER_COLORS = {"RATIO": PHOSPHOR_GREEN, "COMMANDO": COMMANDO_BONE}
 VALID_POSTURES = {"warm", "cold"}
 TRUST_DELTA = {"warm": 1, "cold": -1}
 
+# Script-compositor three-option CHOICE stances (NARRATIVE_DESIGN_DOC.md
+# SS8.2b): inquisitive/mission/hostile, colored cool/neutral/hot.
+STANCE_COOL = (120, 200, 255)     # INQUISITIVE
+STANCE_NEUTRAL = (231, 214, 178)  # MISSION
+STANCE_HOT = (255, 110, 90)       # HOSTILE
+VALID_STANCES = {"INQUISITIVE", "MISSION", "HOSTILE"}
+STANCE_COLOR = {
+    "INQUISITIVE": STANCE_COOL,
+    "MISSION": STANCE_NEUTRAL,
+    "HOSTILE": STANCE_HOT,
+}
+
 _CHOICE_KEYS = {
     0: (pygame.K_1, pygame.K_KP1),
     1: (pygame.K_2, pygame.K_KP2),
+    2: (pygame.K_3, pygame.K_KP3),
 }
 
 
@@ -69,24 +82,53 @@ def _validate(lines: list) -> None:
         if head == "CHOICE":
             if not isinstance(body, (list, tuple)) or len(body) < 2:
                 raise ValueError(f"CHOICE turn needs >=2 options, got {body!r}")
-            for opt in body:
-                if not isinstance(opt, tuple) or len(opt) < 2:
-                    raise ValueError(f"malformed CHOICE option {opt!r}")
-                posture = opt[0]
-                if posture not in VALID_POSTURES:
-                    raise ValueError(f"unknown posture {posture!r} (want warm/cold)")
-                if not opt[1]:
-                    raise ValueError(f"CHOICE option missing its Commando line: {opt!r}")
+            stances = {opt[0] for opt in body if isinstance(opt, tuple) and opt}
+            is_stance_form = bool(stances & VALID_STANCES)
+            if is_stance_form:
+                if len(body) != 3 or stances != VALID_STANCES:
+                    raise ValueError(
+                        f"three-option CHOICE must have exactly the stances "
+                        f"{VALID_STANCES}, got {stances!r} ({len(body)} options)")
+                for opt in body:
+                    if not isinstance(opt, tuple) or len(opt) < 4:
+                        raise ValueError(f"malformed stance CHOICE option {opt!r}")
+                    stance, text, trust_delta, flags = opt[0], opt[1], opt[2], opt[3]
+                    if not text:
+                        raise ValueError(f"CHOICE option missing its Commando line: {opt!r}")
+                    if not isinstance(trust_delta, int):
+                        raise ValueError(f"CHOICE option trust delta must be int: {opt!r}")
+                    if not isinstance(flags, (list, tuple)):
+                        raise ValueError(f"CHOICE option flags must be a list: {opt!r}")
+            else:
+                for opt in body:
+                    if not isinstance(opt, tuple) or len(opt) < 2:
+                        raise ValueError(f"malformed CHOICE option {opt!r}")
+                    posture = opt[0]
+                    if posture not in VALID_POSTURES:
+                        raise ValueError(f"unknown posture {posture!r} (want warm/cold)")
+                    if not opt[1]:
+                        raise ValueError(f"CHOICE option missing its Commando line: {opt!r}")
         elif head not in SPEAKER_COLORS:
             raise ValueError(f"unknown speaker {head!r}")
 
 
 class ConversationScene(Scene):
-    def __init__(self, lines: list[tuple], on_trust: Optional[Callable[[int], None]] = None):
+    def __init__(self, lines: list[tuple], on_trust: Optional[Callable[[int], None]] = None,
+                 on_flags: Optional[Callable[[list], None]] = None,
+                 initial_trust: int = 0, initial_flags=()):
         _validate(lines)
         self.lines = list(lines)          # authored script, verbatim (CHOICE turns included)
         self.on_trust = on_trust
-        self.result_trust = 0
+        self.on_flags = on_flags
+        # `initial_trust`/`initial_flags` seed effects that already fired
+        # unconditionally before the player reached this scene's choice (or
+        # for a scene with no choice at all) -- e.g. the script compositor's
+        # base_trust_delta/base_flags from a `-> catch_effects:` line that
+        # precedes the CHOICE block. Reported back through on_trust/on_flags
+        # exactly like choice-driven effects, so the caller has one place to
+        # persist state regardless of whether a choice was offered.
+        self.result_trust = initial_trust
+        self.result_flags: set = set(initial_flags)
         self.idx = 0                      # index into self._turns (the resolved playback list)
         self.shown = 0.0                  # fractional chars revealed of current line
         self.idle = 0.0                   # seconds since current line completed
@@ -120,8 +162,15 @@ class ConversationScene(Scene):
             return
         if not (0 <= option_index < len(self._pending_options)):
             return
-        posture, commando_line, *replies = self._pending_options[option_index]
-        self.result_trust += TRUST_DELTA[posture]
+        opt = self._pending_options[option_index]
+        head = opt[0]
+        if head in VALID_STANCES:
+            _stance, commando_line, trust_delta, flags, *replies = opt
+            self.result_trust += trust_delta
+            self.result_flags.update(flags)
+        else:
+            posture, commando_line, *replies = opt
+            self.result_trust += TRUST_DELTA[posture]
         self._turns.append(("COMMANDO", commando_line))
         for line in replies:
             self._turns.append(("RATIO", line))
@@ -153,6 +202,8 @@ class ConversationScene(Scene):
             self.finished = True
             if self.on_trust is not None:
                 self.on_trust(self.result_trust)
+            if self.on_flags is not None:
+                self.on_flags(sorted(self.result_flags))
             app.pop()
 
     # ------------------------------------------------------------------
@@ -218,11 +269,14 @@ class ConversationScene(Scene):
 
     def _choice_rows(self) -> list[tuple[str, tuple[int, int, int]]]:
         rows: list[tuple[str, tuple[int, int, int]]] = [("", CHOICE_AMBER)]
-        for i, opt in enumerate(self._pending_options[:2]):
-            _, commando_line = opt[0], opt[1]
-            wrapped = _wrap(f"{i + 1}) {commando_line}", WRAP_WIDTH)
+        for i, opt in enumerate(self._pending_options[:3]):
+            stance, commando_line = opt[0], opt[1]
+            color = STANCE_COLOR.get(stance, CHOICE_AMBER)
+            label = f"{i + 1}) [{stance}] {commando_line}" if stance in VALID_STANCES \
+                else f"{i + 1}) {commando_line}"
+            wrapped = _wrap(label, WRAP_WIDTH)
             for j, row in enumerate(wrapped):
-                rows.append((row if j == 0 else "   " + row, CHOICE_AMBER))
+                rows.append((row if j == 0 else "   " + row, color))
         return rows
 
     def draw(self, app, surf) -> None:
@@ -243,6 +297,10 @@ class ConversationScene(Scene):
                 surf.blit(f.render(text, True, color), (MARGIN, y))
             y += LINE_STEP
 
-        hint = "1/2: choose    ESC: skip" if self._in_choice() else "SPACE: next    ESC: skip"
+        if self._in_choice():
+            keys = "/".join(str(i + 1) for i in range(len(self._pending_options)))
+            hint = f"{keys}: choose    ESC: skip"
+        else:
+            hint = "SPACE: next    ESC: skip"
         img = get_font(9).render(hint, True, DIM_GREEN)
         surf.blit(img, (w - img.get_width() - 20, h - 28))

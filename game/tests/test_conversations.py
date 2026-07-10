@@ -117,15 +117,24 @@ def test_choice_gaps_match_the_load_bearing_beats():
 
 
 def test_gap8_trust_gate():
-    assert conversation_for(8, 0) is CONVERSATIONS[8]
-    assert conversation_for(8, HIGH_TRUST_THRESHOLD - 1) is CONVERSATIONS[8]
-    assert conversation_for(8, HIGH_TRUST_THRESHOLD) is CONVERSATIONS_HIGH_TRUST_GAP8
-    assert conversation_for(8, HIGH_TRUST_THRESHOLD + 5) is CONVERSATIONS_HIGH_TRUST_GAP8
-    # every other gap ignores total_trust
+    # conversation_for(8, ...) now composites DIALOGUE_SCRIPT.md's Scene 8
+    # against live state -- the CHOICE is itself gated on the script's own
+    # `trust>=0` scene-spine gate (front matter: "the only gate whose ELSE
+    # branch removes an entire choice point"). Below the threshold, no
+    # CHOICE turn is offered at all; at/above it, one is.
+    low = conversation_for(8, -1, [])
+    assert low is not None and low.lines
+    assert not any(t[0] == "CHOICE" for t in low.lines)
+
+    high = conversation_for(8, 0, [])
+    assert high is not None and high.lines
+    assert any(t[0] == "CHOICE" for t in high.lines)
+
+    # every gap resolves to a non-empty bundle for a fresh (0-trust,
+    # no-flags) playthrough
     for gap in range(N_GAPS):
-        if gap == 8:
-            continue
-        assert conversation_for(gap, 99) is CONVERSATIONS[gap]
+        bundle = conversation_for(gap, 0, [])
+        assert bundle is not None and bundle.lines
 
 
 def test_gap8_variants_stay_undecided_on_the_page():
@@ -348,9 +357,13 @@ def test_advance_level_pushes_conversation_above_intro(tmp_path, monkeypatch):
                    weapon=WEAPON_ORDER[0])
     app.advance_level(carried)
 
+    from perihelion.conversations import conversation_for as _conv_for
+
     assert app.current_level_index == 1
     assert isinstance(app.scenes[-1], ConversationScene)
-    assert app.scenes[-1].lines == CONVERSATIONS[0]
+    # gap 0 == Scene 0 of DIALOGUE_SCRIPT.md, composited fresh (0 trust, no
+    # flags) -- matches what conversation_for hands back for a new game.
+    assert app.scenes[-1].lines == _conv_for(0, 0, []).lines
     assert isinstance(app.scenes[-2], menus.IntroCard)
     assert isinstance(app.scenes[-3], GameScene)
 

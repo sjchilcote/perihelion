@@ -53,6 +53,10 @@ turn splits at sentence boundaries. No prose was rewritten.
 
 from __future__ import annotations
 
+from typing import NamedTuple
+
+from . import script_compositor
+
 RATIO = "RATIO"
 COMMANDO = "COMMANDO"
 
@@ -456,11 +460,33 @@ CONVERSATIONS_HIGH_TRUST_GAP8: list[tuple] = [
 ]
 
 
-def conversation_for(gap: int, total_trust: int = 0) -> list[tuple] | None:
-    """Resolve which script plays for `gap`, given the trust accumulated
-    from the choice-bearing gaps (0, 4, 6) that precede it. Only gap 8
-    currently branches on `total_trust`; every other gap ignores it and
-    this is equivalent to `CONVERSATIONS.get(gap)`."""
-    if gap == 8 and total_trust >= HIGH_TRUST_THRESHOLD:
-        return CONVERSATIONS_HIGH_TRUST_GAP8
-    return CONVERSATIONS.get(gap)
+class ConversationBundle(NamedTuple):
+    """What `conversation_for` hands back to the caller: the
+    ConversationScene-ready turn list, plus the effects that already fired
+    unconditionally (before any choice, or because this gap's scene offers
+    no choice at all given the incoming state) and must be seeded into
+    `ConversationScene(initial_trust=..., initial_flags=...)` so they are
+    reported through the same on_trust/on_flags persistence hook as
+    choice-driven effects."""
+    lines: list[tuple]
+    base_trust: int
+    base_flags: tuple
+
+
+def conversation_for(gap: int, trust: int = 0, flags=()) -> ConversationBundle | None:
+    """Thin adapter: composites DIALOGUE_SCRIPT.md's scene `gap` (scenes and
+    gaps are 1:1, both 0-8) against the persistent play state -- trust total
+    and flags set by prior gaps -- via `script_compositor`. Replaces the old
+    authored-CONVERSATIONS lookup as the source for gaps 0-8; CONVERSATIONS /
+    CONVERSATIONS_HIGH_TRUST_GAP8 above are kept for their own tests but are
+    no longer read here.
+
+    `total_trust`/`HIGH_TRUST_THRESHOLD`-style gating is now internal to the
+    script's own gates (Scene 7's `trust<=-3`/`trust>=2`, Scene 8's
+    `trust>=0` scene-spine gate) rather than a second variant table."""
+    if not (0 <= gap < 9):
+        return None
+    scenes = script_compositor.load_scenes()
+    composited = script_compositor.composite_scene(scenes[gap], set(flags), trust)
+    lines = script_compositor.build_conversation_lines(composited)
+    return ConversationBundle(lines, composited.base_trust_delta, composited.base_flags)

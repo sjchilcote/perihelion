@@ -610,20 +610,44 @@ class App:
         # select menu never replays the gap conversation. Skipped headless,
         # matching the IntroCard convention above.
         if not self.dummy:
-            from .conversations import conversation_for
-            from .convscene import ConversationScene
-            conv = conversation_for(idx - 1,
-                                    self.save_data.get("trust_total", 0))
-            if conv:
-                self.push(ConversationScene(conv, on_trust=self._add_trust))
+            self._push_gap_conversation(idx - 1)
 
     # ------------------------------------------------------------------
+
+    def _push_gap_conversation(self, gap: int) -> None:
+        """Composites DIALOGUE_SCRIPT.md's scene `gap` against persistent
+        state (conversations.conversation_for -> script_compositor) and
+        pushes it as a ConversationScene, if that gap's scene has content at
+        the current trust/flags. Effects that already fired unconditionally
+        (base_trust/base_flags -- e.g. a pre-choice catch, or a no-choice
+        scene) are seeded into the scene so on_trust/on_flags reports them
+        exactly once at scene completion, same as choice-driven effects."""
+        from .conversations import conversation_for
+        from .convscene import ConversationScene
+        bundle = conversation_for(gap, self.save_data.get("trust_total", 0),
+                                   self.save_data.get("flags", []))
+        if bundle and bundle.lines:
+            self.push(ConversationScene(
+                bundle.lines, on_trust=self._add_trust, on_flags=self._add_flags,
+                initial_trust=bundle.base_trust, initial_flags=bundle.base_flags))
 
     def _add_trust(self, delta: int) -> None:
         """Trust accrued across conversations gates late-game variants
         (conversations.conversation_for); persisted with the save."""
         self.save_data["trust_total"] = \
             self.save_data.get("trust_total", 0) + delta
+        self._persist_save()
+
+    def _add_flags(self, flags: list) -> None:
+        """Flags set by a gap conversation (script_compositor), persisted
+        with the save. Also mirrors the faith-scaffold subset into
+        save_data["faith_flags"] -- read-only provisional faith input per
+        DIALOGUE_SCRIPT.md's front matter; the mind map owns real faith."""
+        from .script_compositor import FAITH_SCAFFOLD_FLAGS
+        current = set(self.save_data.get("flags", []))
+        current.update(flags)
+        self.save_data["flags"] = sorted(current)
+        self.save_data["faith_flags"] = sorted(current & FAITH_SCAFFOLD_FLAGS)
         self._persist_save()
 
     def take_screenshot(self) -> None:
@@ -757,12 +781,7 @@ class App:
                 game.objective = (ev[1], OBJECTIVE_TICKS)
             elif ev[0] == "terminal":
                 if ev[1].startswith("__CONV__"):
-                    from .conversations import conversation_for
-                    from .convscene import ConversationScene
-                    conv = conversation_for(
-                        int(ev[1][8:]), self.save_data.get("trust_total", 0))
-                    if conv:
-                        self.push(ConversationScene(conv, on_trust=self._add_trust))
+                    self._push_gap_conversation(int(ev[1][8:]))
                 else:
                     self.push(menus.TerminalOverlay(ev[1]))
             elif ev[0] == "pickup_text":
