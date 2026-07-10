@@ -1,5 +1,5 @@
 {
-  "total_cost": 1.5149469999999992,
+  "total_cost": 1.559409999999999,
   "calls": [
     {
       "tool": "generate",
@@ -2707,6 +2707,78 @@
       "completion_tokens": 537,
       "valid": true,
       "ts": 1783671507.5565903
+    },
+    {
+      "tool": "scene5_whole",
+      "candidate": 0,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.7,
+      "top_p": 0.9,
+      "cost": 0.007256,
+      "prompt_tokens": 5093,
+      "completion_tokens": 721,
+      "valid": true,
+      "ts": 1783672093.1226978
+    },
+    {
+      "tool": "scene5_whole",
+      "candidate": 1,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.8,
+      "top_p": 0.92,
+      "cost": 0.006821,
+      "prompt_tokens": 5093,
+      "completion_tokens": 576,
+      "valid": true,
+      "ts": 1783672107.6828604
+    },
+    {
+      "tool": "scene5_whole",
+      "candidate": 2,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.9,
+      "top_p": 0.94,
+      "cost": 0.007217,
+      "prompt_tokens": 5093,
+      "completion_tokens": 708,
+      "valid": true,
+      "ts": 1783672143.0989745
+    },
+    {
+      "tool": "scene5_whole",
+      "candidate": 3,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.95,
+      "top_p": 0.95,
+      "cost": 0.006722,
+      "prompt_tokens": 5093,
+      "completion_tokens": 543,
+      "valid": true,
+      "ts": 1783672180.0248318
+    },
+    {
+      "tool": "scene5_whole",
+      "candidate": 4,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 1.0,
+      "top_p": 0.97,
+      "cost": 0.007262,
+      "prompt_tokens": 5093,
+      "completion_tokens": 723,
+      "valid": true,
+      "ts": 1783672201.721038
+    },
+    {
+      "tool": "scene5_whole",
+      "candidate": 5,
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 1.1,
+      "top_p": 0.98,
+      "cost": 0.009185,
+      "prompt_tokens": 5093,
+      "completion_tokens": 1364,
+      "valid": true,
+      "ts": 1783672238.0475988
     }
   ]
 }
