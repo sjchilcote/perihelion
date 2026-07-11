@@ -16,6 +16,10 @@ to produce independent candidates, each 14-24 turns (longer than the current
 6-14 turn scripts; the director's verdict on those was "ultracompressed and
 frankly entirely unreadable").
 
+Temperature note (2026-07-11): SAMPLE_POINTS below was originally a 6-point
+0.70-1.10 band. The director's temperature fix drops it to 0/0.25/0.5 --
+see the comment at the definition for the reasoning.
+
 The API key is read at call time from `.openrouter_key` at the repo root (or
 OPENROUTER_API_KEY) and never printed, logged, or written anywhere by this
 module -- only usage/cost numbers are recorded, following the pattern in
@@ -57,16 +61,18 @@ MIN_TURNS = 14
 MAX_TURNS = 24
 MAX_LINE_CHARS = 240
 
-# Sample points across the requested temperature 0.7-1.1 band, paired with a
-# top_p that loosens as temperature rises (keeps low-temp candidates crisp,
-# high-temp candidates genuinely varied rather than just noisier).
+# Director's fix (2026-07-11): the toolchain's actual prior spread was
+# 0.70-1.10 (six points, see git history), NOT the 0.5/1.0/1.5 the director
+# recalled -- verified against source, not assumed. He suspects the high
+# temperatures caused the "vaguely coherent word salad" the shipped script
+# was benched for, so this drops the whole band to 0/0.25/0.5. top_p held at
+# 1.0 throughout: at these temperatures nucleus sampling has little left to
+# trim, and the old scheme's "loosen top_p as temp rises" logic no longer
+# applies to a band that no longer rises past 0.5.
 SAMPLE_POINTS = [
-    (0.70, 0.90),
-    (0.80, 0.92),
-    (0.90, 0.94),
-    (0.95, 0.95),
-    (1.00, 0.97),
-    (1.10, 0.98),
+    (0.0, 1.0),
+    (0.25, 1.0),
+    (0.5, 1.0),
 ]
 
 
