@@ -158,6 +158,21 @@ from the prototype, now law:
    validates traversal, transforms, transfer, and visibility together.
 7. t-flip: parametric quantities crossing any edge obey t → 1−t (checked via
    marked points on glued edges).
+8. **Root-frame invariance**: which room `session.player_room()` currently
+   names as root (the portal-chain anchor camera transforms compose from)
+   is pure bookkeeping and must have zero pixel consequence. For a fixed
+   world state and camera pose expressible in two adjacent rooms' local
+   frames (a point in/near an open doorway span), rendering with root=A at
+   local pose p is byte-identical (within float-rounding tolerance) to
+   rendering with root=B at portal_xform(p) — across floors (flat and
+   bespoke-textured), wall strokes, detail prims, decals, entities, and
+   the darkness field. Re-rooting must never pop a room's appearance the
+   instant the player crosses its threshold. This parallels the no-seams
+   visibility invariant (#3) one level up: #3 says two simultaneously
+   visible instances of the same geometry must not show a seam between
+   them; this says two sequential *root choices* for the same instance
+   must not show a seam in time. Game-layer regression coverage:
+   `game/tests/test_root_invariance.py`.
 
 ## 3. The game layer (Python, pygame-ce)
 
