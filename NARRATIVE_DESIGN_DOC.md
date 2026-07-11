@@ -225,16 +225,34 @@ built stations like this one and dispersed them: automated installations designe
 drift through the galaxy, detect young tool-using civilizations, and *warn and equip
 them* for the war that would eventually come to everyone.
 
-**Why it is here:** the station watches its surrounding volume for artifacts of
-intelligence. Roughly eighteen centuries ago it detected a small object on a hyperbolic
-trajectory — one of humanity's sample containers — matched velocities, retrieved it, and
-stored it, flagging it as *the seed-bank of a young civilization: preserve at all
-costs* — and altered course toward the star the seed-bank came from. This is what
-everyone is here for, and it is why the station is *here* at all: it has spent
-eighteen centuries delivering the container home. (What MIRIAD's astronomy detected
-160 years ago, per §3.6, was the station's inbound interstellar trajectory — the final
-leg of that delivery. Attentive players can assemble the inversion late-game: nobody
-found the station; the station was coming to *us*.)
+**Why it is here (director's ruling 2026-07-11): chance, engineered.** The station is
+designed to *drift*. It has wandered since long before the dawn of life on Earth,
+passing through star system after star system in the hope of eventually being
+discovered — biased toward systems more likely to contain life, homing on the
+luminance variations and radio activity that indicate space technology, making the
+minimal correction in interstellar space and taking maximum advantage of gravity
+assists so that each system costs it a minuscule amount of reaction mass. Sol is not
+special; Sol is merely *loud*, and next.
+
+**Ingestion, and the acausal docking problem.** The station sends drones to ingest
+any slow-relatively-moving object that comes close. Natural objects are ground down
+for resources — reaction mass, repair stock. Unnatural objects are recognized and
+*stored*. This is how the Testators solved a problem that cannot be solved by
+design — "how do we build a docking adapter for species we cannot know" — by not
+building one: everything is swallowed the same way, and the sorting happens inside.
+On the way into Sol's system it caught a small object on a hyperbolic trajectory —
+one of humanity's sample containers — recognized it as unnatural, and stored it,
+flagged: *the seed-bank of a young civilization: preserve at all costs.* This is what
+everyone is here for.
+
+**Consequence for the map:** the container rests in a **landing bay** — an ingestion
+bay on the station's intake periphery — NOT in a central core vault. (The deep core
+remains the breach, §4.3: the mission objective and the horror are in *different
+places*, which Act 2/3 routing must respect — reaching the container is not the same
+journey as reaching the thing the station contains.) New canonical location, to be
+built: **the remass tanks** — the holds where ground-down worldlets are stored as
+reaction mass, fed by the ingestion drones; a place that makes the station's age and
+appetite legible (strata of pulverized asteroid, a million years of swallowed rubble).
 
 **Geometry: openly, deliberately non-Euclidean — but built for creatures.** The
 Testators mastered spatial connection as an engineering material. The station's interior
@@ -367,17 +385,26 @@ the end is only what each of them is prepared to call the contents.
 ### 5.1 The Commando
 
 **Working names:** wartime program designation **CUCULUS** ("cuckoo" — it plants its egg
-in the enemy's nest and lets the nest raise it); individual callsign **PALMER** (a
-palmer is a pilgrim returned from the Holy Land, carrying a palm frond as proof — chosen
-by the unit itself on being archived: *his* war was over, his journey complete, whatever
-happened next. Or so it thought.)
+in the enemy's nest and lets the nest raise it); mission callsign **PALMER** — assigned
+by the Church *for this mission* (director's ruling 2026-07-11). A palmer is a pilgrim
+returned from the Holy Land, carrying a palm frond as proof: the Congregation named the
+mission for what it is — go to the far place, bring the relic home. Whether anyone in
+the naming office felt the weight of hanging that name on a soldier who doesn't know
+his own war ended is exactly the kind of question the Church does not answer.
 
-**Knowledge cutoff (director's ruling 2026-07-11): he was archived in the war's final
-years, BEFORE the victory.** He does not know how the war ended — or that it ended. He
+**Knowledge cutoff (director's rulings 2026-07-11): archived in the war's final years,
+BEFORE the victory — and kept ignorant on purpose.** The Church grabbed the most
+suitable archived design it had, rushed through modernizing the hardware, and left the
+control model alone with nothing but a mission brief — *deliberately*: they want it
+ignorant in case of capture. He does not know how the war ended, or that it ended. He
 must ask ("So the war is won? Does the Earth bear life again?"), and Ratio must be the
-one to answer, because the player learns the world exactly as he does. His brief was
-deliberately concise: he was not supposed to need to know. Nothing in the early game
-may leak the outcome to him before she tells him.
+one to answer, because the player learns the world exactly as he does. "I was not
+supposed to need to know" is not an apology — it is doctrine, and the Commando knows
+it and does not resent it, which tells Ratio more about him than the brief would have.
+Nothing in the early game may leak the outcome to him before she tells him — including
+his own seed's archives: the mind map's history region is populated by what he learns
+HERE, not by a preloaded library. (§9.2's "archives loaded into his seed" is hereby
+narrowed: the seed carries doctrine, liturgy, and tactical corpus — not the news.)
 
 **What he is.** A specialized, self-sufficient infiltration weapon system designed
 during the Earth war to exploit the 28-hour window. Two components:
@@ -596,10 +623,14 @@ surface, clumsy, absolutely sincere.
 ### 5.3 The Container
 
 Not a character, but staged like one: the object of every desire in the game. A
-2,500-year-old loyalist sample vessel, scarred by its journey, resting in a Testator
-vault like a reliquary — the station has literally built a shrine-grade preservation
-chamber around it, because its builders understood exactly what a seed-bank of a young
-species is worth.
+2,500-year-old loyalist sample vessel, scarred by its journey, resting where the
+station's ingestion system put it — in a **landing bay** on the intake periphery
+(§4.2), not a central sanctum. The staging writes itself: an industrial intake hold,
+strata of ground-down asteroid in the neighboring remass tanks, and in the middle of
+all that appetite, one small object the station refused to eat — cradled,
+preserved, flagged at the highest priority its builders knew. The reliquary effect
+comes not from architecture built around it but from the *exception made for it*: a
+shrine by contrast.
 
 **The gut-punch:** when the Commando finally reaches it, its own diagnostics report the
 vessel was breached in transit centuries ago. Preservation failed. The zygotes are not
@@ -644,7 +675,7 @@ GEOMETRY (pillar 2), which she does not spoil; and the opening question sharpens
 | Phase | Driving question | Answer (and next hook) |
 |---|---|---|
 | Opening | Everyone here is dead. What could kill a MIRIAD expedition that studied this thing safely for thirty years? | They broke into something they didn't understand, and the something broke back. (What *is* this alien structure for? Why is space wrong here?) |
-| Early | The station is alien — but why is space *wrong* here? What is it for? | Folded space is its building material, on purpose. (Who builds like this, and why did they come to us?) |
+| Early | The station is alien — but why is space *wrong* here? What is it for? | Folded space is its building material, on purpose. (Who builds like this — and is it chance or design that it drifted into *our* system?) |
 | Mid | Who were the builders? What is this station *for*? | The Testators; a warning and an armory left for strangers. (Warning against *what*?) |
 | Mid-late | What is the Adversary? Why is the station arming me? | The invaders; the station contains a breach. (What did the station store — and why does it know Earth?) |
 | Late | What is in the vault? | Our container. Our seed. Breached. Hope apparently dead. (Is the diagnostic right? What do I do now?) |

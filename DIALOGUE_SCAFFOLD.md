@@ -6,8 +6,8 @@ his). This document is the other half: the structural scaffolding — branch top
 session mechanics, flag/trust bookkeeping, and the connective beats that *earn* each
 key moment. Slots marked `⟨SLOT: ...⟩` are dialogue the director has not written yet,
 with a note on what the slot must accomplish. Lines quoted from the director's drafts
-are **verbatim canon** (typos preserved until his own pass — some, like "Thiniking",
-may be intentional terminal degradation; flagged inline, his call).
+are **verbatim canon** (obvious typos corrected per his instruction 2026-07-11;
+wording otherwise untouched).
 
 The generated placeholder script (`game/perihelion/data/dialogue_script.md`) remains
 in the repo as the **negative control** and still drives the compositor until scenes
@@ -91,19 +91,29 @@ casualty-accounting now and re-parse it much later. Reserved callback, late Act 
 
 **R1.3** RATIO: `I see. Thinking...` `{TRANSFER PAUSES FOR 180 ms}`
 
-**R1.4** RATIO (verbatim): apology-for-hostility + the strategic-intelligence caveat +
-the situation summary — station detected entering the Solar system 160 years ago, NOT
-Solar in origin, "we are not alone," stationfall 30 years ago, ~400 days since the
-disconfirmatory evidence. *(Director's draft text, used as-is; his typo pass pending:
-"strtong", "unnanounced", "posession".)*
+**R1.4** RATIO (verbatim, typo-corrected):
+
+> I apologize for my earlier hostility, but I hope you understand my perspective,
+> given the circumstances and the fact you arrived, _destructively_ on our station
+> armed and unannounced. I hope you also understand that the information I'm able to
+> share with you is limited by the strategic intelligence realities of our situation.
+>
+> In short; MIRIAD intelligence detected this station entering the Solar system on an
+> interstellar trajectory one hundred and sixty years ago. It is NOT Solar in origin.
+> So yes - we are not alone, the existence of extraterrestrial intelligence has been
+> confirmed beyond any doubt. Our expedition made stationfall thirty years ago. Until
+> approximately four hundred days ago, we believed with moderate confidence the
+> station to be uninhabited, and with strong confidence that its defenses are designed
+> to defend the station from attack, and to defend peaceful visitors. As you can see,
+> we have since come into the possession of substantial disconfirmatory evidence.
 
 **R1.5** PLAYER (fixed): `What is MIRIAD?`
 
 **R1.6** RATIO: `Thinking...` `{TRANSFER PAUSES FOR 400 ms}` then:
-`What is your knownedge cutoff date?`
+`What is your knowledge cutoff date?`
 *(She answers the question with a question — she cannot calibrate the answer without
 knowing what he is. This is her care and her clumsiness in one move: the right
-question, socially bizarre. Typo "knownedge" pending director pass.)*
+question, socially bizarre.)*
 
 **R1.7** PLAYER (fixed): states cutoff ⟨SLOT-0A: the exact date — director to pick;
 shortly before the victory over the unaligned⟩ + verbatim: `I'm aware of the date but
@@ -113,12 +123,11 @@ war is won? Does the Earth bear life again?`
 **R1.8** THE STALL (the scene's emotional hinge — mechanics fixed, verbatim):
 ```
 Thinking ... {TRANSFER PAUSES FOR 1000 ms}
-Thiniking longer, please wait... {TRANSFER PAUSES FOR 1000 ms}
+Thinking longer, please wait... {TRANSFER PAUSES FOR 1000 ms}
 Ratio is taking a long time to think, your answer will arrive in time... {TRANSFER PAUSES FOR 560 ms}
 ```
-*("Thiniking" preserved — possibly intentional glitch under load; director's call.
-The third line's register shift (someone/something else narrating her silence) is the
-Commando's terminal filling the dead air — keep.)*
+*(The third line's register shift — someone/something else narrating her silence — is
+the Commando's terminal filling the dead air; keep.)*
 
 **R1.9** RATIO (verbatim): `I am so, so, so sorry. I had no way of knowing.`
 
@@ -170,7 +179,7 @@ every subsequent scene reads differently with this flag set: armor bought after 
 loss.)*
 
 **R2.5** RATIO (verbatim, the detonation):
-`Fuck you. I will plunge this station in to the sun before I let you christofascist
+`Fuck you. I will plunge this station into the sun before I let you christofascist
 _fucks_ decide what happens to humanity when ***WE*** restore Man to the surface of
 the Earth.`
 *(Faction fury, not personal: the fight is over who decides. Also leaks, under rage,
