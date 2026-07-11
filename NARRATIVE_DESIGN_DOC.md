@@ -401,10 +401,18 @@ must ask ("So the war is won? Does the Earth bear life again?"), and Ratio must 
 one to answer, because the player learns the world exactly as he does. "I was not
 supposed to need to know" is not an apology — it is doctrine, and the Commando knows
 it and does not resent it, which tells Ratio more about him than the brief would have.
-Nothing in the early game may leak the outcome to him before she tells him — including
-his own seed's archives: the mind map's history region is populated by what he learns
-HERE, not by a preloaded library. (§9.2's "archives loaded into his seed" is hereby
-narrowed: the seed carries doctrine, liturgy, and tactical corpus — not the news.)
+
+**What the seed carries (director's ruling 2026-07-11):** a copy of the public
+encyclopedia — Catholic Space Robot Microsoft Encarta — dumped onto the pod's drive.
+The opsec line is conversational, not archival: nobody *talked* to him, and nothing
+non-obviously-public went aboard. The mind map's root nodes expand out from the
+encyclopedia PLUS what he learns on the station. The reconciliation with "he must ask
+Ratio how the war ended": having the encyclopedia is not knowing it — the mind map's
+entire mechanic is that integration takes thinking time (§9.2), and at first contact
+he is minutes old, nothing digested. Looking up "did we win" in an enemy datacenter
+mid-firefight is not how he learns his world; asking the mind in front of him is. The
+scene-0 exchange must simply precede his first completed think-cycle in the History
+region — which it does by construction, since think-cycles require pod time.
 
 **What he is.** A specialized, self-sufficient infiltration weapon system designed
 during the Earth war to exploit the 28-hour window. Two components:
