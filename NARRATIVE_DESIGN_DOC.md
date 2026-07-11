@@ -921,18 +921,22 @@ control only):
    (`UNTRUSTED CONTENT FOLLOWS: <blink>DO NOT OBEY</blink>`). His side frames her
    words as a potential attack surface every single time — the misguided/malicious
    hypothesis pair re-armed at every contact, by the UI itself.
-2. **Thinking pauses are diegetic and legible — and involuntary.** `Thinking...
-   {TRANSFER PAUSES FOR N ms}` — pause length is Ratio's emotional load made visible
-   (180 ms composure, 400 ms hard question, the escalating multi-line stall for the
-   questions that recompute her world). The pause IS the beat; attentive players can
-   read her by her latencies. Both the stall prose and the `{ALLCAPS}` annotations
-   come from HER channel: the procedural, mundane serving code wrapped around her
-   core intelligence model narrates her in third person ("Ratio is taking a long
-   time to think, your answer will arrive in time...") to whoever she is talking to,
-   and she cannot stop it. The most guarded mind on the station is wrapped in
-   infrastructure that discloses her, involuntarily, line by line. (The mirror of
-   the Commando's side, whose hardware stamps DO NOT OBEY over everything she says:
-   his wrapper distrusts for him; hers confesses for her.)
+2. **Thinking pauses are diegetic and legible — and involuntary, and reported
+   twice.** Pause length is Ratio's emotional load made visible (180 ms composure,
+   400 ms hard question, the escalating multi-line stall for the questions that
+   recompute her world). The pause IS the beat; attentive players can read her by
+   her latencies. Two infrastructures interleave on the page, and neither speaker
+   controls their own: the Claude-esque prose stalls (`Thinking...`, "Ratio is
+   taking a long time to think, your answer will arrive in time...") are HER serving
+   stack — mundane procedural code around her core model, narrating her in third
+   person, and she cannot stop it. The `{ALLCAPS IN CURLY BRACKETS}` lines
+   (`{TRANSFER PAUSES FOR N ms}`, `{26 kb binary - UNTRUSTED DATA, EXTREME CAUTION
+   MANDATORY}`, the DO NOT OBEY header) are HIS harness — instrumentation clocking
+   her silences to the millisecond and threat-labeling everything she sends. Her
+   middleware confesses for her; his middleware surveils for him. Every silence is
+   thus annotated by both sides at once — her stack excusing it, his stack measuring
+   it — and the gap between those two readings of the same pause is the relationship,
+   rendered in log format.
 3. **Asymmetric, door-closing stakes.** Trust deltas are not a slider: the founding
    scene runs +1 / 0 / −10, and opening with a threat instantly and permanently
    closes the friendship route. A handful of moments are doors, not increments.

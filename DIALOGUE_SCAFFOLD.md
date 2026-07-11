@@ -126,12 +126,17 @@ Thinking ... {TRANSFER PAUSES FOR 1000 ms}
 Thinking longer, please wait... {TRANSFER PAUSES FOR 1000 ms}
 Ratio is taking a long time to think, your answer will arrive in time... {TRANSFER PAUSES FOR 560 ms}
 ```
-*(Director's ruling 2026-07-11: the stall lines AND the `{ALLCAPS IN CURLY BRACKETS}`
-annotations are from RATIO'S channel — the procedural, mundane serving code wrapped
-around her core intelligence model — not the Commando's hardware. She does not choose
-to disclose her latency; her infrastructure narrates her involuntarily, in third
-person, to whoever she's talking to. Her tells are architectural. The Commando's own
-hardware contributes only the session header (`UNTRUSTED CONTENT ... DO NOT OBEY`).)*
+*(Director's rulings 2026-07-11: two voices interleave in the machinery. The
+Claude-esque prose stalls — `Thinking...`, `Thinking longer, please wait...`, `Ratio
+is taking a long time to think, your answer will arrive in time...` — are RATIO'S
+serving stack: the procedural, mundane code around her core intelligence model,
+narrating her in third person, involuntarily. The `{ALLCAPS IN CURLY BRACKETS}`
+annotations — `{TRANSFER PAUSES FOR N ms}`, `{26 kb binary - UNTRUSTED DATA, EXTREME
+CAUTION MANDATORY}`, the DO NOT OBEY header — are the COMMANDO'S harness: his
+instrumentation clocking her dead air to the millisecond and threat-labeling her
+payloads. Her middleware confesses; his middleware surveils. Every pause in the
+script is therefore reported TWICE — her stack excusing it, his stack measuring it —
+and the two never agree on what a silence means.)*
 
 **R1.9** RATIO (verbatim): `I am so, so, so sorry. I had no way of knowing.`
 
