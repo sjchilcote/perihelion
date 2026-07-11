@@ -198,8 +198,61 @@ budget is ~90s added to `check.sh`):
 
 ---
 
-## Open violations discovered while making wave-1 properties fail-first
+## Phase 3/4 — wave 1 implemented, open violations found
 
-(Populated in Phase 3/4 below — see the final report for anything a
-deliberately-broken variant caught that also turned out to be a *real*,
-already-present bug rather than an intentionally-mutated one.)
+Seven wave-1 properties implemented (5 Rust, 2 Python), each fail-first
+verified against a deliberately-broken/mutated variant, mutation reverted
+before commit. Full details and exact test names/locations in the final
+report; summarized here for the record:
+
+- **M5 / G4 (extended)** — `math::tests::normalized_fallback_is_unit_and_never_nan`,
+  `properties::degenerate_edge_injection_is_inert_under_arbitrary_polygons`.
+  Both fail-first confirmed load-bearing. The G4 test's own first draft
+  had a real bug (winding not canonicalized before feeding
+  `clip_polygon_convex`) — caught and fixed before it could give a false
+  pass; documented as a lesson, not a product bug.
+- **W4** — `properties::connect_with_xform_rejects_singular_or_installs_true_inverse`.
+  Fail-first confirmed load-bearing (discovered `connect_with_xform` has
+  the invertibility guard duplicated at two call sites — the outer
+  function AND `install_portal` — so both had to be removed together to
+  observe the failure; harmless redundancy, not a bug).
+- **W8 / Q3** — `query::tests::router_cache_invalidates_on_topology_change`.
+  Fail-first confirmed load-bearing.
+- **P4** — `properties::corner_trap_safety_valve_preserves_containment`.
+  **Negative result, reported honestly**: two rounds of fail-first
+  (disabling `MAX_ITERS`/`MAX_STALLS` entirely, across increasingly acute
+  wedge geometry) never tripped a failure for single-entity elastic
+  bounces — this engine's per-substep resolution always makes forward
+  progress for that scenario class. The test itself is a genuine new
+  containment property for sharp-angle rooms (a real gap the existing
+  `min_edge_len>=5` strategy excluded), but **P4's specific mechanism
+  remains unverified instrumentation** — open item, not closed.
+- **S4 — REAL OPEN VIOLATION FOUND**: `soft_walls::on_split_array_length_tracks_world_split_edge`.
+  `world::split_edge` inserts TWO new vertices per call (three collinear
+  sub-edges from one wall). `SoftSystem::on_split`'s own doc comment
+  describes a ONE-vertex split ("edge, edge+1 are the halves") and its
+  body performs exactly one `Vec::insert` on `vel`/`rest_len`. Confirmed:
+  after a real `split_edge` + `on_split` call, the soft-state arrays are
+  short by one entry relative to the room's vertex count. **Not
+  crash-class** — `SoftSystem::step` has its own defensive length-mismatch
+  check that re-softens (silently drops in-flight velocity/rest-length
+  state) rather than indexing out of bounds. **Not currently
+  player-reachable** — the game layer never calls `split_edge` on a soft
+  (Otherworld) room (only rigid rooms get the portable-hole treatment
+  today, per the game-layer catalog's H1-H3 audit). Left unfixed per
+  scope (this pass is PBT-enforcement, not feature engineering); flagged
+  here as the one genuine latent bug this directive's fail-first
+  methodology surfaced.
+- **SIM7** — `test_corpse_economy.py`'s three tests. Fail-first confirmed
+  load-bearing on the round-trip test (retrieval accumulation).
+- **L1** — `test_level_winding.py`'s three tests. Fail-first confirmed
+  load-bearing on both the single-room and multi-room-position variants.
+
+## Deferred wave-1-adjacent items (not implemented this pass)
+
+Time-budgeted out per the ~90s check.sh runtime ceiling and this pass's
+scope (PBT enforcement, not feature work): V9 re-grading after commit
+2f4fa94 fully lands, Q2 (raycast-vs-physics span cross-check), X3
+(streamed texture-key stability), H3 (cloister hole-attach rejection),
+P8 (direct physics-level `fits`-gate test). These remain P0/P1 in the
+gap matrix above for a future wave.
