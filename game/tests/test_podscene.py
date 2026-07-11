@@ -13,6 +13,7 @@ import pytest
 
 from perihelion import mindmap
 from perihelion.levels import LevelBuilder
+from perihelion.podscene import CAM_GLIDE_DUR
 from perihelion.render import INTERNAL_H, INTERNAL_W
 from perihelion.sim import GameSession
 
@@ -191,14 +192,18 @@ def test_escape_seals_the_pod():
 
 
 # ---------------------------------------------------------------------------
-# the selection pin (director-directed: "yanked to the center...drifted
-# back...when released"). Uses the real mindmap-wide live_relax_step, so
-# these test the WIRING (page/settle/rite precedence, selection-change =
-# release) rather than re-deriving the physics bounds -- see
-# test_mindmap_layout.py's test_live_pin_* for the physics guarantees.
-# The pin exists only in physics mode (rings mode glides the camera and
-# never moves a node), so these tests pin the mode explicitly instead of
-# inheriting PERIHELION_MINDMAP_LAYOUT from the environment.
+# the camera glide (director's hybridization, superseding the earlier
+# "yanked to the center...drifted back...when released" pin): selection
+# now moves podscene's CAMERA to frame the selected node's ring, never the
+# node itself -- no node is ever exempt from its own depth-annulus band,
+# selected or not. These tests exercise the WIRING (page/settle/rite
+# precedence, selection-change starts a glide, the node stays confined to
+# its band throughout) rather than re-deriving the physics bounds -- see
+# test_mindmap_layout.py's annulus/camera_glide properties for those.
+# Physics mode is the only one with live node motion (rings mode glides
+# the camera over STATIC node positions, already covered by
+# test_mindmap_rings.py), so these tests pin the mode explicitly instead
+# of inheriting PERIHELION_MINDMAP_LAYOUT from the environment.
 # ---------------------------------------------------------------------------
 
 @pytest.fixture(autouse=False)
@@ -207,45 +212,56 @@ def _physics_mode(monkeypatch):
     monkeypatch.setattr(podscene, "MINDMAP_LAYOUT", "physics")
 
 
-def test_pin_pulls_selected_node_toward_center(_physics_mode):
+def test_selecting_a_node_glides_the_camera_toward_it(_physics_mode):
     sc, s, app = _scene()
     sc.on_enter(app)
     sc.page = "mind"
     sc._ensure_selection()
-    rest_d = math.hypot(*sc.layout[sc.sel])
-    _run(sc, app, 4.0)  # past the open-settle (0.7s) and well into the pin
-    x, y = sc._node_pos(sc.sel)
-    assert math.hypot(x, y) < rest_d
-
-
-def test_pin_releases_and_drifts_back_on_selection_change(_physics_mode):
-    sc, s, app = _scene()
-    sc.on_enter(app)
-    sc.page = "mind"
-    sc._ensure_selection()
-    first = sc.sel
-    _run(sc, app, 4.0)
-    pulled_x, pulled_y = sc._node_pos(first)
-    pulled_d = math.hypot(pulled_x, pulled_y)
-    # walk to a different visible node -- the old one's spring reverts to
-    # its own rest anchor, no special "release" call needed
+    _run(sc, app, 1.0)  # past the open-settle; camera already at initial sel
     sc._nav(1, 0)
-    assert sc.sel != first
-    _run(sc, app, 4.0)
-    x, y = sc._node_pos(first)
-    rest_x, rest_y = sc.layout[first]
-    assert math.hypot(x - rest_x, y - rest_y) < math.hypot(pulled_x - rest_x, pulled_y - rest_y)
+    assert sc.sel != sc._cam_sel  # the glide hasn't started ticking yet
+    sc.update(app, 1 / 60)
+    assert sc._cam_sel == sc.sel  # update() latches the new target...
+    assert sc._cam["dur"] > 0.0   # ...and animates toward it, not a snap
+    _run(sc, app, CAM_GLIDE_DUR + 0.5)
+    camx, camy = sc._cam_pos()
+    tx, ty = sc.layout[sc.sel]
+    assert math.hypot(camx - tx, camy - ty) < 1e-6  # exact finite-time arrival
 
 
-def test_pin_suspended_during_rite(_physics_mode):
+def test_node_never_leaves_its_band_while_selected(_physics_mode):
+    """The director's hard law: selection may move the CAMERA, but no
+    node -- selected or not -- may ever cross its own depth-ring boundary.
+    Selection sweeps across several nodes while the live physics keeps
+    ticking; every node's position is checked against its OWN band on
+    every tick."""
+    from perihelion import mindmap
+    sc, s, app = _scene()
+    sc.on_enter(app)
+    sc.page = "mind"
+    sc._ensure_selection()
+    bands = mindmap.node_bands()
+    vis = sorted(sc._visible())
+    for i in range(90):  # 1.5s: several settle/glide cycles
+        if i % 20 == 0:
+            sc._nav(1, 0) if (i // 20) % 2 else sc._nav(-1, 0)
+        sc.update(app, 1 / 60)
+        for nid in vis:
+            x, y = sc._node_pos(nid)
+            r = math.hypot(x, y)
+            lo, hi = bands[nid]
+            assert lo - 1e-6 <= r <= hi + 1e-6, (nid, r, lo, hi)
+
+
+def test_camera_suspended_during_rite(_physics_mode):
     sc, s, app = _scene(think_done=["vocation-just-war"])
     sc.on_enter(app)
     assert sc.rite is not None
-    node = sc.rite["node"]
+    # force a selection the camera has NOT yet glided to, simulating a
+    # mid-ceremony change -- the rite's own camera math (_to_screen) owns
+    # the view regardless, so this must never start a selection glide
+    sc.sel = next(nid for nid in sc._visible() if nid != sc._cam_sel)
     for _ in range(120):  # 2s mid-ceremony
         sc.update(app, 1 / 60)
-    # the ceremony owns positions: the pin never engaged, so the rite's
-    # subject is exactly at its static rest position, not yanked
-    x, y = sc._node_pos(node)
-    rx, ry = sc.layout[node]
-    assert (x, y) == (rx, ry)
+    assert sc._cam["dur"] == 0.0  # no glide ever started
+    assert sc._cam_sel != sc.sel  # update() never latched the new target

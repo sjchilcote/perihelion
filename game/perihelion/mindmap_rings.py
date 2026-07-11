@@ -447,24 +447,11 @@ def count_crossings(layout: dict[str, dict], graph: dict[str, dict] | None = Non
 
 # ---------------------------------------------------------------------------
 # camera glide: selection moves the CAMERA to the node (director's brief,
-# verbatim), never the node to the camera. A pure function of (t, t0,
-# dur, endpoints) -- no wall-clock, no pygame -- so both podscene.py and
-# the test suite drive the exact same math. Smoothstep easing gives the
-# "critically damped" FEEL (ease in, ease out, no ringing) while
-# guaranteeing an EXACT finite-time arrival (u clamps to 1.0 and the
-# result becomes bitwise `p_to` from then on) -- a literal damped-spring
-# ODE integration only approaches its target asymptotically and would
-# never satisfy "then bitwise-static frames".
+# verbatim), never the node to the camera. PROMOTED to mindmap.py (director-
+# directed follow-up: podscene's physics-mode variant now needs the exact
+# same glide for its own selection-changes-move-the-camera hybridization),
+# re-exported here under its original name for backward compatibility --
+# mindmap_rings.camera_glide and mindmap.camera_glide are the same function.
 # ---------------------------------------------------------------------------
 
-def camera_glide(t: float, t0: float, dur: float,
-                  p_from: tuple[float, float], p_to: tuple[float, float],
-                  ) -> tuple[float, float]:
-    if dur <= 0.0 or t >= t0 + dur:
-        return p_to
-    if t <= t0:
-        return p_from
-    u = (t - t0) / dur
-    u = u * u * (3.0 - 2.0 * u)
-    return (p_from[0] + (p_to[0] - p_from[0]) * u,
-            p_from[1] + (p_to[1] - p_from[1]) * u)
+camera_glide = mindmap.camera_glide

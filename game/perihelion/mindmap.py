@@ -128,6 +128,17 @@ def depths() -> dict[str, int]:
     return memo
 
 
+def _ring_radius(d: int, maxd: int) -> float:
+    """Unit-space radius of depth `d`'s seed ring, out of `maxd` total
+    depth levels (0..maxd) -- the ONE formula `seed_layout()` places every
+    node's radius with, so `depth_bands()`/`ring_boundary_radii()` below
+    (the annulus containment bands, and the concentric circles podscene
+    draws for them) share exactly these numbers with the seed, not an
+    independently-derived approximation of them."""
+    dm = maxd or 1
+    return 0.30 + 0.70 * (d / dm)
+
+
 def seed_layout(graph: dict[str, dict] | None = None) -> dict[str, tuple[float, float]]:
     """node id -> (x, y) in unit space (roughly -1..1 both axes): the
     fixed initial condition the relaxation starts from. Nodes sit at a
@@ -143,11 +154,72 @@ def seed_layout(graph: dict[str, dict] | None = None) -> dict[str, tuple[float, 
     span = math.radians(2 * _SECTOR_HALF_DEG)
     for (region, d_), ids in groups.items():
         base = math.radians(_REGION_ANGLE_DEG.get(region, 0.0))
-        r = 0.30 + 0.70 * (d_ / maxd)
+        r = _ring_radius(d_, maxd)
         for i, nid in enumerate(ids):
             a = base + span * ((i + 1) / (len(ids) + 1) - 0.5)
             pos[nid] = (r * math.cos(a), r * math.sin(a))
     return pos
+
+
+# ---------------------------------------------------------------------------
+# depth-annulus bands (director's hybridization: "nodes can't cross the
+# concentric ring boundaries, so there's still organization and a global
+# structure to the map, but the details are allowed to be chaotic"). Each
+# depth d owns a radial band, bounded by the midpoints between adjacent
+# seed-ring radii -- the SAME `_ring_radius()` seed_layout() places nodes
+# at, so the annulus a node is hard-confined to (both relax()'s baked rest
+# and the live dynamics) and the concentric circles podscene draws for the
+# player are, by construction, the same boundary.
+# ---------------------------------------------------------------------------
+
+def depth_bands(maxd: int) -> dict[int, tuple[float, float]]:
+    """depth -> (r_lo, r_hi) in unit space, for depth 0..maxd. Depth 0's
+    inner bound is 0 (no hole at the map's center); every other band is
+    bounded by the midpoint between its own ring radius and its
+    neighbors'; the outermost depth's outer bound extends past its own
+    ring by the same half-gap as its inner boundary (a symmetric band) --
+    the global ellipse bound (`_BOUNDS_R`) is still the real outer
+    backstop for it in practice (see `_hard_contain`), since a wide graph's
+    outermost half-gap alone can exceed the canvas. `maxd <= 0` (every
+    node at depth 0 -- degenerate/synthetic graphs) collapses to a single
+    band spanning the whole bounded disc: there is only one depth level,
+    so an annulus constraint would be vacuous."""
+    if maxd <= 0:
+        return {0: (0.0, _BOUNDS_R)}
+    step = _ring_radius(1, maxd) - _ring_radius(0, maxd)
+    half = step / 2.0
+    out: dict[int, tuple[float, float]] = {}
+    for d in range(maxd + 1):
+        r = _ring_radius(d, maxd)
+        lo = 0.0 if d == 0 else r - half
+        hi = r + half
+        out[d] = (lo, hi)
+    return out
+
+
+def node_bands(graph: dict[str, dict] | None = None) -> dict[str, tuple[float, float]]:
+    """node id -> (r_lo, r_hi) in unit space: this node's own depth-
+    annulus band, resolved from `depth_bands()` -- exposed for callers
+    (the PBT suite, podscene's boundary-circle draw) that need a node's
+    band without touching the numpy system arrays."""
+    tbl = graph if graph is not None else nodes()
+    dep = _depths_of(tbl)
+    maxd = max(dep.values()) if dep else 0
+    bands = depth_bands(maxd)
+    return {nid: bands[dep[nid]] for nid in tbl}
+
+
+def ring_boundary_radii(maxd: int) -> list[float]:
+    """Unit-space radii of the `maxd` interior boundaries between adjacent
+    depth bands (depth d | d+1's shared edge), for d in 0..maxd-1 -- what
+    podscene draws as the background concentric depth-ring circles.
+    Single source of truth with `depth_bands()`: literally each band's own
+    `hi`, for every depth except the last (whose `hi` is not shared with a
+    deeper band)."""
+    if maxd <= 0:
+        return []
+    bands = depth_bands(maxd)
+    return [bands[d][1] for d in range(maxd)]
 
 
 def _depths_of(tbl: dict[str, dict]) -> dict[str, int]:
@@ -227,6 +299,13 @@ _EDGE_LEN_PX = 46.0
 _REGION_K = 0.020
 _BOUNDS_R = 0.985           # unit-space containment radius (ellipse)
 _BOUNDS_K = 6.0
+_BAND_K = 10.0               # depth-annulus soft restoring force stiffness
+                              # (see _force_step) -- stronger than _BOUNDS_K
+                              # since the band boundary is now the map's
+                              # real organizing constraint (director's
+                              # hybridization); the hard clamp in
+                              # _hard_contain_bands backs it unconditionally
+                              # regardless of this value.
 # edge-crossing reduction (director-directed follow-up: relaxation alone
 # left the graph "a dense tangle"). Two cooperating terms:
 #  (1) node <-> non-incident-edge repulsion -- a node sitting on or near an
@@ -362,10 +441,22 @@ def _build_system(tbl: dict[str, dict]) -> dict:
     off_diag = ~np.eye(n, dtype=bool) if n else np.zeros((0, 0), dtype=bool)
     cx, cy = CANVAS_W * CX_FRAC, CANVAS_H * CY_FRAC
     bx, by = CANVAS_W * SX_FRAC * _BOUNDS_R, CANVAS_H * SY_FRAC * _BOUNDS_R
+    # bx0/by0: the SAME per-axis unit-space -> px scale, WITHOUT the
+    # _BOUNDS_R shrink -- depth-band radii (0.30..~1.0, see _ring_radius)
+    # are authored in raw unit space, so the annulus containment below
+    # measures its own ellipse-normalized radius against these, not the
+    # canvas-bounds ellipse's already-shrunk axes.
+    bx0, by0 = CANVAS_W * SX_FRAC, CANVAS_H * SY_FRAC
+    dep = _depths_of(tbl)
+    maxd = max(dep.values()) if dep else 0
+    bands = depth_bands(maxd)
+    band_lo = np.array([bands[dep[nid]][0] for nid in ids], dtype=np.float64)
+    band_hi = np.array([bands[dep[nid]][1] for nid in ids], dtype=np.float64)
     return dict(ids=ids, idx=idx, n=n, R=R, LW=LW, LH=LH, region_angle=region_angle,
                 ei=ei, ej=ej, pair_a=pair_a, pair_b=pair_b, node_ix=node_ix,
                 tie_dx=np.cos(tiebreak_ang), tie_dy=np.sin(tiebreak_ang),
-                off_diag=off_diag, cx=cx, cy=cy, bx=bx, by=by)
+                off_diag=off_diag, cx=cx, cy=cy, bx=bx, by=by,
+                bx0=bx0, by0=by0, band_lo=band_lo, band_hi=band_hi)
 
 
 _SYSTEM_CACHE: dict[int, dict] = {}
@@ -402,12 +493,53 @@ _CONTAIN_TOL = 1e-9  # floating-point slack on the hard ellipse clamp below:
                      # containment guarantee itself.
 
 
-def _hard_contain(P, sysd) -> None:
-    """Project any point still outside the ellipse bounds straight onto
-    the boundary -- in place. Shared by relax()'s per-iteration hard
-    containment and live_relax_step() (containment must hold unconditionally
-    for both, not just "usually")."""
+_BAND_CONTAIN_TOL = 1e-9   # same role/reason as _CONTAIN_TOL above, for the
+                           # per-node depth-annulus clamp: the band's OWN
+                           # soft restoring force (see _force_step) settles
+                           # a boundary-riding node to r == lo/hi +/- a
+                           # couple ULP, not exactly -- zero tolerance here
+                           # would re-trigger the clamp forever, the same
+                           # never-sleeps bug class _CONTAIN_TOL's comment
+                           # documents for the outer ellipse bound.
+
+
+def _hard_contain_bands(P, sysd) -> None:
+    """Project any node whose radial position falls outside its OWN
+    depth's annulus band straight onto the nearest band edge, along the
+    ellipse-normalized radial direction the band was defined in -- in
+    place. The director's hybridization: nodes may never cross their own
+    ring boundary, in either the baked rest layout or the live dynamics
+    (both call this, via _hard_contain, below)."""
     import numpy as np
+    cx, cy = sysd["cx"], sysd["cy"]
+    bx0, by0 = sysd["bx0"], sysd["by0"]
+    lo, hi = sysd["band_lo"], sysd["band_hi"]
+    dxn, dyn = (P[:, 0] - cx) / bx0, (P[:, 1] - cy) / by0
+    r = np.sqrt(dxn * dxn + dyn * dyn)
+    tie = r < 1e-9
+    ux = np.where(tie, sysd["tie_dx"], dxn / np.maximum(r, 1e-12))
+    uy = np.where(tie, sysd["tie_dy"], dyn / np.maximum(r, 1e-12))
+    too_far_in = r < lo - _BAND_CONTAIN_TOL
+    too_far_out = r > hi + _BAND_CONTAIN_TOL
+    need = too_far_in | too_far_out
+    if np.any(need):
+        target = np.where(too_far_in, lo, np.where(too_far_out, hi, r))
+        P[:, 0] = np.where(need, cx + ux * target * bx0, P[:, 0])
+        P[:, 1] = np.where(need, cy + uy * target * by0, P[:, 1])
+
+
+def _hard_contain(P, sysd) -> None:
+    """Project any point still outside its own depth-band annulus AND/OR
+    the canvas ellipse bounds straight onto the boundary -- in place.
+    Shared by relax()'s per-iteration hard containment and
+    live_relax_step() (containment must hold unconditionally for both,
+    not just "usually"). Band clamp first, ellipse clamp second: the
+    outermost depth's band `hi` deliberately extends past the canvas
+    ellipse (see depth_bands()'s docstring), so the ellipse is what
+    actually binds there -- applying it after the band clamp never fights
+    it, it just tightens the outermost ring the rest of the way."""
+    import numpy as np
+    _hard_contain_bands(P, sysd)
     cx, cy, bx, by = sysd["cx"], sysd["cy"], sysd["bx"], sysd["by"]
     edx, edy = (P[:, 0] - cx) / bx, (P[:, 1] - cy) / by
     e = edx * edx + edy * edy
@@ -435,6 +567,8 @@ def _force_step(P, sysd):
     tie_dx, tie_dy = sysd["tie_dx"], sysd["tie_dy"]
     region_angle = sysd["region_angle"]
     cx, cy, bx, by = sysd["cx"], sysd["cy"], sysd["bx"], sysd["by"]
+    bx0, by0 = sysd["bx0"], sysd["by0"]
+    band_lo, band_hi = sysd["band_lo"], sysd["band_hi"]
 
     def label_boxes(P):
         left = P[:, 0] - LW / 2 - LABEL_PAD_PX
@@ -599,6 +733,21 @@ def _force_step(P, sysd):
     F[:, 0] += tx * rk
     F[:, 1] += ty * rk
 
+    # depth-annulus band: soft radial restoring force, active only NEAR/
+    # PAST a node's own band boundary (zero strictly inside it, so the
+    # chaotic tangential motion within the band is undamped by this term)
+    # -- the complement to _hard_contain_bands' unconditional clamp, here
+    # so a boundary-riding node settles instead of visibly grinding
+    # against the hard projection every tick.
+    bdx, bdy = (P[:, 0] - cx) / bx0, (P[:, 1] - cy) / by0
+    br = np.sqrt(np.maximum(bdx * bdx + bdy * bdy, 1e-12))
+    under = np.maximum(band_lo - br, 0.0)
+    over_b = np.maximum(br - band_hi, 0.0)
+    ddb = np.sqrt(np.maximum((P[:, 0] - cx) ** 2 + (P[:, 1] - cy) ** 2, 1e-12))
+    bpush = (under - over_b) * _BAND_K
+    F[:, 0] += (P[:, 0] - cx) / ddb * bpush
+    F[:, 1] += (P[:, 1] - cy) / ddb * bpush
+
     # ellipse bounds containment (soft force; _hard_contain backs it with
     # an unconditional projection every step, same as relax())
     edx2, edy2 = (P[:, 0] - cx) / bx, (P[:, 1] - cy) / by
@@ -612,28 +761,33 @@ def _force_step(P, sysd):
 
 
 # ---------------------------------------------------------------------------
-# live selection-pin stepping (director-directed: "the currently selected
-# one got yanked to the center and then drifted back to wherever it
-# naturally wants to be when released"). An ONLINE, frame-by-frame twin of
-# relax()'s force field -- SAME physics (_force_step) drives every tick, so
-# the deformation shape while pinned is the graph's real force response,
-# not a hand-tuned approximation of it.
+# live idle stepping (director's hybridization, superseding the earlier
+# "yank the selection to center" pin: "let's instead have the camera move
+# out to the ring that hosts the selected concept" -- selection now drives
+# podscene's CAMERA, never a node's position; see podscene.py's
+# camera_glide usage. No node is ever exempt from its own depth-annulus
+# band -- there is no pin force left in this field at all). An ONLINE,
+# frame-by-frame twin of relax()'s force field -- SAME physics
+# (`_force_step`, including the annulus containment) drives every tick, so
+# the map's continuous, chaotic-within-bands motion is the graph's real
+# force response, not a hand-tuned approximation of it.
 #
-# TRUE VELOCITY (director-directed follow-up: the first-order, capped-step
-# version above -- "step = min(|F|, temp_px) toward F" every tick, forever --
-# never actually stops. Direct measurement while building this: even with
-# the cap removed and heavy velocity damping added, positions kept moving at
-# a near-constant, non-decaying speed indefinitely (still ~1.5-3.7px/s after
-# 20000 ticks). The culprit was NOT "not enough damping" -- it was that one
-# force term (the label<->label rectangle push in _force_step, now fixed
-# to be a central force, see its comment) was NON-CONSERVATIVE: paired
-# equal-and-opposite but not directed along the line between the two labels,
-# which is exactly the condition under which a force can sustain a stable
-# limit cycle forever, immune to any amount of linear velocity damping. With
-# that term made conservative, this second-order integrator (semi-implicit
-# Euler: acceleration = force, damped, dt = sim.DT) drives every node's
-# speed to true float-precision zero (~1e-12) given enough ticks -- rest is
-# now a real property of the physics, not a hoped-for one.
+# TRUE VELOCITY (director-directed follow-up: an earlier first-order,
+# capped-step version -- "step = min(|F|, temp_px) toward F" every tick,
+# forever -- never actually stopped. Direct measurement while building
+# this: even with the cap removed and heavy velocity damping added,
+# positions kept moving at a near-constant, non-decaying speed indefinitely
+# (still ~1.5-3.7px/s after 20000 ticks). The culprit was NOT "not enough
+# damping" -- it was that one force term (the label<->label rectangle push
+# in _force_step, now fixed to be a central force, see its comment) was
+# NON-CONSERVATIVE: paired equal-and-opposite but not directed along the
+# line between the two labels, which is exactly the condition under which a
+# force can sustain a stable limit cycle forever, immune to any amount of
+# linear velocity damping. With that term made conservative, this second-
+# order integrator (semi-implicit Euler: acceleration = force, damped,
+# dt = sim.DT) drives every node's speed to true float-precision zero
+# (~1e-12) given enough ticks -- rest is now a real property of the
+# physics, not a hoped-for one.
 #
 # Even so, "real convergence" is asymptotic, not exact-in-finite-time (an
 # exponential decay never hits literal 0.0 by a fixed tick count) -- and the
@@ -642,28 +796,32 @@ def _force_step(P, sysd):
 # force stay under a tiny threshold for `_SLEEP_K_CONSEC` consecutive ticks,
 # velocities snap to exactly (0, 0) and the tick becomes a no-op -- positions
 # are the same dict, unchanged, forever, until something perturbs the force
-# field enough to cross the wake threshold again. There is no separate
-# "wake event" plumbing: waking is just recomputing the force at the current
-# `pin` on the next call and finding it's no longer tiny (a pin engaging,
-# releasing, or the caller resetting to a fresh `live_rest_state()` on page
-# open / rite reveal all show up this way), so it is automatically
-# deterministic and event-driven without extra bookkeeping.
+# field enough to cross the wake threshold again (the caller resetting to a
+# fresh `live_rest_state()` on page open / rite reveal is the only such
+# perturbation left now that selection no longer touches the force field).
 #
-# Every node still carries a permanent spring back to its OWN `layout()`
-# position (`REST_SPRING_K`) -- `_force_step`'s residual at `layout()` is
-# not exactly zero (real graphs don't settle to a literal force-free point
-# in a fixed-schedule cooled relaxation), so without an anchor the true
-# equilibrium of the live field would drift away from the position the rest
-# of the game thinks the graph lives at. The selected node's anchor target
-# is swapped for the view center at a much higher stiffness (`PIN_SPRING_K`);
-# dropping the pin (`pin=None`) simply restores its normal rest anchor, so
-# release is not a special code path -- it is every node (now including the
-# formerly-pinned one) relaxing toward its own `layout()` spot at once,
-# exactly like idle.
+# Every node carries a permanent spring back to its OWN `layout()` position
+# (`REST_SPRING_K`) -- `_force_step`'s residual at `layout()` is not exactly
+# zero (real graphs don't settle to a literal force-free point in a fixed-
+# schedule cooled relaxation), so without an anchor the true equilibrium of
+# the live field would drift away from the position the rest of the game
+# thinks the graph lives at.
 #
-# Deterministic: `live_relax_step` is a pure function of (state, graph, pin)
-# -- no wall-clock; the caller (the UI) controls ticking, at a fixed sim
-# rate, so the trajectory is identical on every machine for the same input
+# Anisotropic damping (director-directed: "give the vertices a bias towards
+# moving along circular paths -- friction applies more strongly in
+# directions other than moving along the perimeter"): velocity is resolved
+# into a component RADIAL to the view center and a component TANGENTIAL to
+# it (the local "along this node's own ring" direction), and each is damped
+# by its own coefficient (`LIVE_DAMPING_RADIAL` > `LIVE_DAMPING_TANGENT`).
+# A node fighting its way toward/away from center bleeds speed fast; a node
+# drifting along its ring bleeds speed slowly -- exactly the "bank-
+# switching within limited main memory" feel, and it composes cleanly with
+# the annulus containment (the hard radial clamp is what ultimately stops
+# radial motion at the boundary; damping alone never needs to).
+#
+# Deterministic: `live_relax_step` is a pure function of (state, graph) --
+# no wall-clock; the caller (the UI) controls ticking, at a fixed sim rate,
+# so the trajectory is identical on every machine for the same input
 # sequence.
 # ---------------------------------------------------------------------------
 
@@ -673,19 +831,22 @@ _LIVE_DT = 1.0 / 60.0   # matches sim.DT -- the fixed sim rate podscene
                         # the sim/necore stack.
 REST_SPRING_K = 200.0   # every node's permanent pull toward its own
                         # layout() position (px/s^2 per px of offset).
-                        # Tuned (with LIVE_DAMPING) for two competing
-                        # measured goals: strong enough that a released
-                        # node's worst-case (33-node sweep) settle point
-                        # stays close to the ORIGINAL layout() (no
-                        # permanent deformation), weak enough that the
-                        # pin still visibly deforms the neighborhood while
-                        # held (the yank/drift feel the director liked).
-PIN_SPRING_K = 40.0     # the selected node's replacement anchor stiffness
-                        # while pinned.
-LIVE_DAMPING = 50.0     # linear velocity damping: a = F - LIVE_DAMPING*v.
-                        # Chosen (with REST_SPRING_K/PIN_SPRING_K above) so
-                        # every measured trajectory below is monotonic --
-                        # no overshoot, no ringing -- "arrives with weight".
+                        # Tuned (with the damping constants below) so a
+                        # perturbed node's settle point stays close to the
+                        # ORIGINAL layout() (no permanent deformation)
+                        # while the field still visibly, chaotically
+                        # jitters within its band before sleeping.
+LIVE_DAMPING_RADIAL = 50.0    # velocity damping along the radial
+                               # direction (toward/away from the view
+                               # center) -- px/s^2 per px/s of radial speed.
+LIVE_DAMPING_TANGENT = 20.0   # velocity damping along the tangential
+                               # (circular/"along the ring") direction --
+                               # deliberately weaker than the radial
+                               # coefficient: the director's "bias towards
+                               # moving along circular paths".
+LIVE_DAMPING = LIVE_DAMPING_RADIAL   # back-compat alias: the isotropic
+                                      # damping constant this module used
+                                      # before the radial/tangential split.
 _LIVE_MAX_SPEED_PX = 600.0     # terminal-velocity safety cap (px/s):
                                 # guards against a momentary huge force
                                 # (near-coincident nodes) without capping
@@ -713,15 +874,12 @@ _SLEEP_K_CONSEC = 10            # consecutive ticks under both epsilons
                                  # of a not-yet-settled trajectory should
                                  # not freeze it.
 
-# Measured settle times (33-node real map, 60Hz ticks, worst case over a
-# sweep of every one of the 33 nodes as the pin selection):
-#   page-open, no input:                 9 ticks   (~0.15s)
-#   pin engaged, from rest, worst case: 450 ticks   (~7.5s)
-#   release, from pinned rest, worst case: 112 ticks (~1.9s)
-#   worst release deviation from the original layout():  ~11.0px
-#   worst pinned distance-to-view-center:                ~152.5px
-_LIVE_SETTLE_BOUND_TICKS = 600   # generous over the measured 450-tick worst
-                                 # case pin settle, not a vacuous ceiling.
+# Measured settle time (33-node real map, 60Hz ticks): see
+# test_live_rest_open_reaches_exact_bitwise_rest for the current measured
+# worst case from a fresh live_rest_state() -- there is no pin/release
+# trajectory left to measure now that selection doesn't touch the field.
+_LIVE_SETTLE_BOUND_TICKS = 600   # generous over the measured worst case,
+                                 # not a vacuous ceiling.
 
 
 @dataclasses.dataclass(frozen=True)
@@ -771,32 +929,33 @@ def _cached_rest(tbl: dict[str, dict]) -> dict[str, tuple[float, float]]:
 
 def live_relax_step(state: LiveState,
                      graph: dict[str, dict] | None = None,
-                     pin: str | None = None,
-                     pin_strength: float = PIN_SPRING_K,
                      rest_strength: float = REST_SPRING_K,
-                     damping: float = LIVE_DAMPING,
+                     damping_radial: float = LIVE_DAMPING_RADIAL,
+                     damping_tangent: float = LIVE_DAMPING_TANGENT,
                      max_speed: float = _LIVE_MAX_SPEED_PX,
                      sleep_speed_eps: float = _SLEEP_SPEED_EPS_PX,
                      sleep_disp_eps: float = _SLEEP_DISP_EPS_PX,
                      sleep_k_consec: int = _SLEEP_K_CONSEC,
                      ) -> LiveState:
     """One tick (dt = sim.DT, fixed 60Hz) of the online, second-order
-    relaxation, starting from `state` (need not be at rest -- e.g.
-    mid-yank or mid-drift-back). Every node feels the live graph force
-    field (`_force_step`) PLUS a weak spring back to its own `layout()`
-    position; if `pin` names a node, THAT node's spring targets the view
-    center instead, at a much higher stiffness. `pin=None` simply removes
-    the override -- the formerly-pinned node's spring reverts to its own
-    rest position like every other node's already is, so "drift back" is
-    not a special code path. Missing nodes in `state.pos`/`state.vel`
-    (e.g. a node not yet visible) fall back to rest position / zero
-    velocity, so callers can pass a partial state.
+    relaxation, starting from `state` (need not be at rest). Every node
+    feels the live graph force field (`_force_step`, which includes its
+    own depth-annulus band containment) PLUS a weak spring back to its own
+    `layout()` position -- there is no selection/pin override left in this
+    field; selection is expressed purely by podscene's camera. Missing
+    nodes in `state.pos`/`state.vel` (e.g. a node not yet visible) fall
+    back to rest position / zero velocity, so callers can pass a partial
+    state.
 
     Semi-implicit (symplectic) Euler: acceleration = force (mass = 1),
-    linearly damped (`a = F - damping*v`), velocity updated first, then
-    position from the NEW velocity -- unconditionally stable for the
-    stiffnesses here at DT = 1/60, and it is what gives the motion real
-    inertia (a yank arrives with weight, eases in, does not snap).
+    ANISOTROPICALLY damped -- velocity is resolved into a component
+    radial to the view center and a component tangential to it, each
+    damped by its own coefficient (`damping_radial` > `damping_tangent`,
+    the director's "bias towards moving along circular paths": friction
+    bites harder radially than along a node's own ring) -- velocity
+    updated first, then position from the NEW velocity -- unconditionally
+    stable for the stiffnesses here at DT = 1/60, and it is what gives the
+    motion real inertia (arrives with weight, eases in, does not snap).
 
     Sleep latch: quiescence is judged by the ACTUAL applied per-node
     displacement this tick (position AFTER integration and hard
@@ -816,8 +975,8 @@ def live_relax_step(state: LiveState,
     returned completely unchanged tick after tick (bitwise-identical
     positions, discarding whatever infinitesimal candidate move the
     physics would otherwise have made) until something perturbs the field
-    past the threshold -- pin engage/release, or the caller resetting to
-    `live_rest_state()` on page open / rite reveal."""
+    past the threshold -- the caller resetting to `live_rest_state()` on
+    page open / rite reveal."""
     import numpy as np
 
     tbl = graph if graph is not None else nodes()
@@ -835,14 +994,30 @@ def live_relax_step(state: LiveState,
                   if nid in state.vel else (0.0, 0.0) for nid in ids],
                  dtype=np.float64)
 
-    F_graph = _force_step(P0, sysd)
-    F = F_graph + (restP - P0) * rest_strength
-    if pin is not None and pin in sysd["idx"]:
-        i = sysd["idx"][pin]
-        F[i, 0] = F_graph[i, 0] + (sysd["cx"] - P0[i, 0]) * pin_strength
-        F[i, 1] = F_graph[i, 1] + (sysd["cy"] - P0[i, 1]) * pin_strength
+    F = _force_step(P0, sysd) + (restP - P0) * rest_strength
 
-    A = F - damping * V
+    # anisotropic damping: resolve V into radial (toward/away from the
+    # view center) and tangential (along this node's own ring) unit
+    # components and damp each independently. A node sitting exactly at
+    # the center has no well-defined radial direction -- fall back to the
+    # same deterministic per-node tiebreak angle _force_step's coincidence
+    # handling uses, so this stays a pure function with no discontinuity
+    # at r == 0.
+    cx, cy = sysd["cx"], sysd["cy"]
+    rx, ry = P0[:, 0] - cx, P0[:, 1] - cy
+    rn = np.sqrt(rx * rx + ry * ry)
+    tie = rn < 1e-9
+    urx = np.where(tie, sysd["tie_dx"], rx / np.maximum(rn, 1e-12))
+    ury = np.where(tie, sysd["tie_dy"], ry / np.maximum(rn, 1e-12))
+    utx, uty = -ury, urx
+    v_rad = V[:, 0] * urx + V[:, 1] * ury
+    v_tan = V[:, 0] * utx + V[:, 1] * uty
+    damp_x = damping_radial * v_rad * urx + damping_tangent * v_tan * utx
+    damp_y = damping_radial * v_rad * ury + damping_tangent * v_tan * uty
+
+    A = np.empty_like(F)
+    A[:, 0] = F[:, 0] - damp_x
+    A[:, 1] = F[:, 1] - damp_y
     V = V + A * _LIVE_DT
     raw_speed = np.sqrt(np.maximum(V[:, 0] ** 2 + V[:, 1] ** 2, 1e-24))
     scale = np.minimum(raw_speed, max_speed) / raw_speed
@@ -936,6 +1111,8 @@ def relax(seed: dict[str, tuple[float, float]],
     off_diag = sysd["off_diag"]
     node_ix = sysd["node_ix"]
     cx, cy, bx, by = sysd["cx"], sysd["cy"], sysd["bx"], sysd["by"]
+    bx0, by0 = sysd["bx0"], sysd["by0"]
+    band_lo, band_hi = sysd["band_lo"], sysd["band_hi"]
 
     def step_once(P):
         return _force_step(P, sysd)
@@ -955,22 +1132,17 @@ def relax(seed: dict[str, tuple[float, float]],
         scale = np.minimum(mag, temp) / mag
         P = P + F * scale[:, None]
 
-        # hard containment: the soft bounds FORCE above is what gives the
-        # settle its shape, but under extreme density (many same-region
-        # nodes, no springs to pull them back) the temperature-capped step
-        # can outrun a purely force-based push-back within the fixed
-        # iteration budget. Project anything still outside the ellipse
-        # straight onto its boundary every iteration so containment holds
-        # unconditionally, not just "usually" -- the PBT bounds property
-        # must be strict, so the mechanism backing it must be too.
+        # hard containment: the soft bounds/band FORCEs above are what give
+        # the settle its shape, but under extreme density (many same-
+        # region nodes, no springs to pull them back) the temperature-
+        # capped step can outrun a purely force-based push-back within the
+        # fixed iteration budget. Project anything still outside its own
+        # depth band or the canvas ellipse straight onto the boundary
+        # every iteration so containment holds unconditionally, not just
+        # "usually" -- the PBT bounds/band properties must be strict, so
+        # the mechanism backing them must be too.
         if n:
-            edx3, edy3 = (P[:, 0] - cx) / bx, (P[:, 1] - cy) / by
-            e2 = edx3 * edx3 + edy3 * edy3
-            over_e = e2 > 1.0 + _CONTAIN_TOL
-            if np.any(over_e):
-                shrink = np.where(over_e, 1.0 / np.sqrt(np.maximum(e2, 1e-12)), 1.0)
-                P[:, 0] = cx + (P[:, 0] - cx) * shrink
-                P[:, 1] = cy + (P[:, 1] - cy) * shrink
+            _hard_contain(P, sysd)
 
         if record_every > 0 and ((it + 1) % record_every == 0 or it == iters - 1):
             traj.append(to_frame(P))
@@ -1044,6 +1216,17 @@ def relax(seed: dict[str, tuple[float, float]],
             dd = np.sqrt(np.maximum((P[:, 0] - cx) ** 2 + (P[:, 1] - cy) ** 2, 1e-12))
             F[:, 0] -= np.where(outside, (P[:, 0] - cx) / dd * over * _BOUNDS_K, 0.0)
             F[:, 1] -= np.where(outside, (P[:, 1] - cy) / dd * over * _BOUNDS_K, 0.0)
+            # depth-annulus band soft force (same term as _force_step's --
+            # the uncrossing polish is an isolated local search, but it
+            # must not visibly grind a boundary-riding node against the
+            # hard clamp below either)
+            bdx, bdy = (P[:, 0] - cx) / bx0, (P[:, 1] - cy) / by0
+            br = np.sqrt(np.maximum(bdx * bdx + bdy * bdy, 1e-12))
+            under = np.maximum(band_lo - br, 0.0)
+            over_b = np.maximum(br - band_hi, 0.0)
+            bpush = (under - over_b) * _BAND_K
+            F[:, 0] += (P[:, 0] - cx) / dd * bpush
+            F[:, 1] += (P[:, 1] - cy) / dd * bpush
             return F
 
         best_P, best_c = P, crossings_now
@@ -1054,13 +1237,7 @@ def relax(seed: dict[str, tuple[float, float]],
             pmag = np.sqrt(np.maximum(F[:, 0] ** 2 + F[:, 1] ** 2, 1e-18))
             pscale = np.minimum(pmag, ptemp) / pmag
             P = P + F * pscale[:, None]
-            edx3, edy3 = (P[:, 0] - cx) / bx, (P[:, 1] - cy) / by
-            e2 = edx3 * edx3 + edy3 * edy3
-            over_e = e2 > 1.0 + _CONTAIN_TOL
-            if np.any(over_e):
-                shrink = np.where(over_e, 1.0 / np.sqrt(np.maximum(e2, 1e-12)), 1.0)
-                P[:, 0] = cx + (P[:, 0] - cx) * shrink
-                P[:, 1] = cy + (P[:, 1] - cy) * shrink
+            _hard_contain(P, sysd)
             c = crossings_of(P)
             if c <= best_c:
                 best_P, best_c = P.copy(), c
@@ -1074,6 +1251,35 @@ def relax(seed: dict[str, tuple[float, float]],
     if record_every > 0 and (not traj or traj[-1] != final):
         traj.append(final)
     return final, traj
+
+
+# ---------------------------------------------------------------------------
+# camera glide (promoted here from mindmap_rings.py, its original home, so
+# BOTH mind-map layout variants can share it: podscene's physics mode now
+# also expresses selection by gliding the CAMERA to the selected node --
+# director's hybridization, superseding the old "yank node to center" pin
+# -- rather than writing a second glide function. A pure function of (t,
+# t0, dur, endpoints) -- no wall-clock, no pygame -- so both podscene.py
+# and the test suites drive the exact same math. Smoothstep easing gives
+# the "critically damped" FEEL (ease in, ease out, no ringing) while
+# guaranteeing an EXACT finite-time arrival (u clamps to 1.0 and the
+# result becomes bitwise `p_to` from then on) -- a literal damped-spring
+# ODE integration only approaches its target asymptotically and would
+# never satisfy "then bitwise-static frames". mindmap_rings.py re-exports
+# this name for backward compatibility.
+# ---------------------------------------------------------------------------
+
+def camera_glide(t: float, t0: float, dur: float,
+                  p_from: tuple[float, float], p_to: tuple[float, float],
+                  ) -> tuple[float, float]:
+    if dur <= 0.0 or t >= t0 + dur:
+        return p_to
+    if t <= t0:
+        return p_from
+    u = (t - t0) / dur
+    u = u * u * (3.0 - 2.0 * u)
+    return (p_from[0] + (p_to[0] - p_from[0]) * u,
+            p_from[1] + (p_to[1] - p_from[1]) * u)
 
 
 # ---------------------------------------------------------------------------

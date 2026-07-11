@@ -39,13 +39,15 @@ from .sim import DT, SHOP
 # ---------------------------------------------------------------------------
 # MIND page layout A/B (director-directed): PERIHELION_MINDMAP_LAYOUT
 # selects between variant B (default, "physics" -- mindmap.py's force-
-# relaxation settle, node yanks to camera) and variant A ("rings" --
-# mindmap_rings.py's static concentric-ring layout, camera glides to node
-# instead). Every rings-mode branch below is additive/guarded so the
-# physics path (and its own concurrent edits elsewhere in this file) is
-# untouched when the env var is unset or "physics".
+# relaxation settle; nodes are hard-confined to their own depth-ring
+# annulus and chaotically jitter within it, camera glides to the selected
+# node's ring) and variant A ("rings" -- mindmap_rings.py's static
+# concentric-ring layout, camera glides to node instead, nodes never
+# move). Every rings-mode branch below is additive/guarded so the physics
+# path (and its own concurrent edits elsewhere in this file) is untouched
+# when the env var is unset or "physics".
 MINDMAP_LAYOUT = os.environ.get("PERIHELION_MINDMAP_LAYOUT", "physics")
-CAM_GLIDE_DUR = 0.6     # rings-mode camera glide duration (seconds)
+CAM_GLIDE_DUR = 0.6     # camera glide duration (seconds), both layout modes
 REVEAL_DUR = 0.6        # rings-mode reveal grow/fade duration (seconds)
 
 # ---------------------------------------------------------------------------
@@ -183,22 +185,25 @@ class PodScene(Scene):
         self._overlay: "pygame.Surface | None" = None
         self._ducked = False
         self._settle: dict | None = None
-        # the selection pin (director-directed: "yanked to the center...
-        # drifted back...when released"): a live, per-tick relaxation
-        # (mindmap.live_relax_step), NOT a baked trajectory -- it is the
-        # SAME live force field regardless of which node self.sel names,
-        # so simply changing self.sel IS the "release": the old node's
-        # spring reverts to its own rest anchor and the new one's becomes
-        # the center pin, no special-cased transition needed. Suspended
-        # (positions held at rest) whenever a baked settle or the rite
-        # ceremony owns the camera -- see _node_pos()/update(). Unused in
-        # rings mode (nodes never move -- see `_cam`/`_reveal` instead).
-        self._pin_state = mindmap.live_rest_state()
-        self._pin_accum = 0.0
-        # rings mode only: the camera glide state (`mindmap_rings.
-        # camera_glide`) and the per-node reveal-grow timestamps (new
-        # nodes fade/grow in AT their static position instead of a baked
-        # settle trajectory -- see `_finish_rite`/`_draw_node`).
+        # live physics (director-directed hybridization: nodes stay
+        # hard-confined to their own depth-annulus band; selection no
+        # longer yanks a node anywhere -- see `_cam` below instead): a
+        # live, per-tick relaxation (mindmap.live_relax_step), NOT a baked
+        # trajectory -- ticked continuously while the MIND page is open,
+        # so the graph's chaotic-within-bands jitter is always the real
+        # physics settling, not a canned animation. Suspended (positions
+        # held at rest) whenever a baked settle or the rite ceremony owns
+        # the camera -- see _node_pos()/update(). Unused in rings mode
+        # (nodes never move -- see `_cam`/`_reveal` instead).
+        self._phys_state = mindmap.live_rest_state()
+        self._phys_accum = 0.0
+        # the camera (director-directed: selection moves the CAMERA to
+        # frame the selected node's ring, never the node itself -- this
+        # used to be rings-mode-only machinery; physics mode now shares it
+        # instead of writing a second glide, see mindmap.camera_glide) and
+        # the per-node reveal-grow timestamps (rings mode only: new nodes
+        # fade/grow in AT their static position instead of a baked settle
+        # trajectory -- see `_finish_rite`/`_draw_node`).
         cam0 = self.layout.get(self.sel, (0.0, 0.0))
         self._cam = {"from": cam0, "to": cam0, "t0": 0.0, "dur": 0.0}
         self._cam_sel: str | None = None
@@ -209,15 +214,13 @@ class PodScene(Scene):
     def on_enter(self, app) -> None:
         self.session.pod_heal()  # entering the pod heals (design brief)
         self._ensure_selection()
-        if self._layout_mode == "rings":
-            # rings mode: no baked settle trajectory to play -- nodes are
-            # already at their static positions; just make sure the
-            # camera opens ALREADY centered on the selection (a 0-duration
-            # glide) instead of animating in from the world origin.
-            p = self.layout.get(self.sel, (0.0, 0.0))
-            self._cam = {"from": p, "to": p, "t0": self.t, "dur": 0.0}
-            self._cam_sel = self.sel
-        elif self.page == "mind":
+        # both layout modes: open with the camera ALREADY centered on the
+        # selection (a 0-duration glide) instead of animating in from the
+        # world origin -- only a later selection CHANGE glides.
+        p = self.layout.get(self.sel, (0.0, 0.0))
+        self._cam = {"from": p, "to": p, "t0": self.t, "dur": 0.0}
+        self._cam_sel = self.sel
+        if self._layout_mode != "rings" and self.page == "mind":
             self._start_settle()
         if self.session.think_done and self.rite is None:
             self.page = "mind"
@@ -259,45 +262,48 @@ class PodScene(Scene):
                     return (x0 + (x1 - x0) * frac, y0 + (y1 - y0) * frac)
             return self.layout.get(nid, (0.0, 0.0))
         if s is None and self.rite is None:
-            # no baked settle or ceremony in flight: the live selection pin
-            # owns positions (ceremony precedence -- see update()'s
-            # pin-suspend guard, which keeps _pin_state parked at rest
-            # whenever a settle or the rite is active)
-            p = self._pin_state.pos.get(nid)
+            # no baked settle or ceremony in flight: the live physics
+            # state owns positions (ceremony precedence -- see update()'s
+            # suspend guard, which keeps _phys_state parked at rest
+            # whenever a settle or the rite is active). Selection plays no
+            # part here at all -- see _cam/_to_screen for how selection is
+            # expressed instead.
+            p = self._phys_state.pos.get(nid)
             if p is not None:
                 return p
         return self.layout.get(nid, (0.0, 0.0))
 
     # ------------------------------------------------------------------
-    # the selection pin (director-directed feature): "the currently
-    # selected one got yanked to the center and then drifted back to
-    # wherever it naturally wants to be when released." Ticked at a FIXED
-    # sim rate (accumulator over real dt, like the rest of the engine's
-    # fixed-step sim) so the trajectory is deterministic -- identical on
-    # every machine, independent of frame rate. Precedence (task-directed):
-    # a baked settle (open/reveal) or the rite ceremony OWNS the camera and
-    # positions while active; the pin is suspended (held at rest) for that
-    # whole span rather than fighting it, and simply resumes -- from a
-    # clean rest state -- the moment both are clear.
+    # the live physics (director's hybridization: nodes are hard-confined
+    # to their own depth-annulus band; the ONLY thing selection moves is
+    # the camera, see _cam below -- see mindmap.live_relax_step). Ticked
+    # at a FIXED sim rate (accumulator over real dt, like the rest of the
+    # engine's fixed-step sim) so the trajectory is deterministic --
+    # identical on every machine, independent of frame rate. Precedence
+    # (task-directed): a baked settle (open/reveal) or the rite ceremony
+    # OWNS the camera and positions while active; live physics is
+    # suspended (held at rest) for that whole span rather than fighting
+    # it, and simply resumes -- from a clean rest state -- the moment
+    # both are clear.
     # ------------------------------------------------------------------
 
-    def _update_pin(self, dt: float) -> None:
+    def _update_physics(self, dt: float) -> None:
         if self._layout_mode == "rings":
-            return  # rings mode has no live physics pin -- see _update_cam
+            return  # rings mode has no live physics -- see _cam instead
         if self._settle is not None or self.rite is not None:
-            # ceremony/settle precedence: park the pin at a fresh rest
+            # ceremony/settle precedence: park the physics at a fresh rest
             # state (asleep=False, quiet=0 -- re-verified, not assumed) so
-            # it resumes cleanly (not from a stale mid-yank position) the
+            # it resumes cleanly (not from a stale mid-motion position) the
             # instant it gets the floor back
-            self._pin_state = mindmap.live_rest_state()
-            self._pin_accum = 0.0
+            self._phys_state = mindmap.live_rest_state()
+            self._phys_accum = 0.0
             return
         if self.page != "mind":
-            return  # nothing reads pin positions off-page; don't tick it
-        self._pin_accum += dt
-        while self._pin_accum >= DT:
-            self._pin_accum -= DT
-            self._pin_state = mindmap.live_relax_step(self._pin_state, pin=self.sel)
+            return  # nothing reads physics positions off-page; don't tick it
+        self._phys_accum += dt
+        while self._phys_accum >= DT:
+            self._phys_accum -= DT
+            self._phys_state = mindmap.live_relax_step(self._phys_state)
 
     def on_exit(self, app) -> None:
         if self._ducked:
@@ -336,11 +342,14 @@ class PodScene(Scene):
         self.sel = next(iter(sorted(vis)), None)
 
     def _cam_pos(self) -> tuple[float, float]:
-        """rings mode only: the camera's current world-space target, via
-        `mindmap_rings.camera_glide` (pure function, tested independent of
-        pygame -- see test_mindmap_rings.py)."""
+        """The camera's current position (world space for rings mode,
+        unit space for physics mode) via `mindmap.camera_glide` (pure
+        function, tested independent of pygame -- see
+        test_mindmap_layout.py/test_mindmap_rings.py). Shared by both
+        layout variants: selection glides the camera to the selected
+        node/its ring in both, not just rings mode."""
         c = self._cam
-        return mindmap_rings.camera_glide(self.t, c["t0"], c["dur"], c["from"], c["to"])
+        return mindmap.camera_glide(self.t, c["t0"], c["dur"], c["from"], c["to"])
 
     def _to_screen_rings(self, surf, x: float, y: float) -> tuple[int, int]:
         """rings mode's view transform: the CAMERA glides to the selected
@@ -395,6 +404,14 @@ class PodScene(Scene):
                 amp = ui(2) * math.exp(-(r["t"] - RITE_GLIDE))
                 cx += math.sin(r["t"] * 37.0) * amp
                 cy += math.cos(r["t"] * 41.0) * amp
+        else:
+            # the rite (above) owns the camera during ceremony; otherwise
+            # selection glides the camera out to frame the selected node's
+            # ring (director's hybridization, superseding the old "yank
+            # the node to center" pin -- see _cam_pos/update()).
+            camx, camy = self._cam_pos()
+            cx -= camx * sx
+            cy -= camy * sy
         return int(cx + x * sx), int(cy + y * sy)
 
     # ------------------------------------------------------------------
@@ -544,13 +561,18 @@ class PodScene(Scene):
             self.flash = min(0.0, self.flash + dt)
         if self._settle is not None and self.t - self._settle["t0"] >= self._settle["dur"]:
             self._settle = None
-        self._update_pin(dt)
-        if self._layout_mode == "rings" and self.sel != self._cam_sel:
+        self._update_physics(dt)
+        if self.sel != self._cam_sel and self.rite is None and self._settle is None:
             # selection changed (anywhere -- nav, rite start, fog lifting):
             # glide the CAMERA to the node instead of the node to the
-            # camera (director's brief, verbatim). Starts from wherever
-            # the camera currently sits (mid-glide or at rest), so a rapid
-            # re-selection re-targets smoothly rather than jumping.
+            # camera (director's brief, verbatim -- now shared by BOTH
+            # layout variants, see _cam_pos). Starts from wherever the
+            # camera currently sits (mid-glide or at rest), so a rapid
+            # re-selection re-targets smoothly rather than jumping. Gated
+            # off while a baked settle or the rite owns the camera (see
+            # on_enter's precedence comment); the glide simply starts once
+            # whichever one finishes, from the camera's current resting
+            # spot.
             cur = self._cam_pos()
             target = self.layout.get(self.sel, cur)
             self._cam = {"from": cur, "to": target, "t0": self.t, "dur": CAM_GLIDE_DUR}
@@ -843,6 +865,24 @@ class PodScene(Scene):
         vis = self._visible()
         over = self._ensure_overlay((w, h))
         r = self.rite
+
+        # depth-ring boundaries (director's hybridization: "nodes can't
+        # cross the concentric ring boundaries" -- physics mode only,
+        # drawn from the SAME radii mindmap.py's annulus containment
+        # clamps every node to, single source of truth via
+        # ring_boundary_radii()). Drawn first so every node/edge/label
+        # sits above them.
+        if self._layout_mode != "rings" and r is None:
+            maxd = max(mindmap.depths().values())
+            ccx, ccy = self._to_screen(surf, 0.0, 0.0)
+            for rr in mindmap.ring_boundary_radii(maxd):
+                ex, _ = self._to_screen(surf, rr, 0.0)
+                _, ey = self._to_screen(surf, 0.0, rr)
+                rx, ry = abs(ex - ccx), abs(ey - ccy)
+                if rx > 1 and ry > 1:
+                    pygame.draw.ellipse(surf, (26, 32, 30),
+                                        (ccx - rx, ccy - ry, 2 * rx, 2 * ry),
+                                        max(1, ui(1)))
 
         # region territory: each region names its own compass sector
         for region in mindmap.REGION_ORDER:

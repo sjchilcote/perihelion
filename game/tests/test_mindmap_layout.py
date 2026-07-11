@@ -306,11 +306,17 @@ def _seeded_batch_graphs(rng_seed: int, n_graphs: int) -> list[dict[str, dict]]:
 # shapes must be substantial, not a token few percent -- that is the
 # "penalizes crossing" term actually doing its job across the space, not
 # just on the one real map. Measured on 3 independent seeded batches of
-# 40 (this fixture's seed and two others): 43%, 53%, 55% reduction --
-# 0.35 is a real, comfortably-clear-of-zero floor, not a number picked to
-# exactly clear this one run.
+# 40 (this fixture's seed and two others), BEFORE the depth-annulus
+# containment existed: 43%, 53%, 55% reduction. The annulus (director's
+# hybridization: nodes hard-confined to their own depth band) genuinely
+# costs some of this -- a crossing-uncrossing move that would require
+# leaving a node's own ring is no longer available, so the achievable
+# reduction on the same batch dropped for real, not from a tuning
+# regression: re-measured after the annulus landed at 32.8% on this exact
+# batch. 0.30 is the new real, comfortably-clear-of-zero floor for the
+# constrained field, not a number picked to exactly clear this one run.
 _BATCH_SEED = 20260710
-_BATCH_MIN_REDUCTION = 0.35
+_BATCH_MIN_REDUCTION = 0.30
 
 
 def test_crossings_batch_substantial_reduction():
@@ -412,165 +418,193 @@ def test_real_mindmap_crossings():
     relaxation (repulsion + springs + region affinity + bounds, no
     crossing-aware term) made it WORSE -- 31 crossings at rest. With the
     node<->edge repulsion + explicit uncrossing pass + polish closer, the
-    real map settles at 6 crossings (re-measured after making the
-    label<->label repulsion term a central force -- see _force_step's
-    comment -- which shifts the settled positions slightly since it is
-    the SAME force field relax() uses; still a substantial 11 -> 6
-    reduction). The achieved number is asserted as a tight regression
-    bound (not just "<= seed") so a future change that quietly regresses
-    the tangle gets caught even though 6 is still technically <= 11."""
+    real map settled at 6 crossings (after making the label<->label
+    repulsion term a central force). Re-measured AGAIN after adding the
+    depth-annulus hard containment (director's hybridization: nodes can
+    never cross their own ring boundary) -- honestly, this genuinely costs
+    a little of the uncrossing freedom (a crossing fix that would require
+    leaving a node's own ring is no longer reachable): the real map now
+    settles at 5 crossings, still a substantial 11 -> 5 reduction, and
+    (coincidentally) one better than before the annulus, not worse -- the
+    band constraint happened to steer this particular graph's settle into
+    a cleaner configuration than the unconstrained one found. The achieved
+    number is asserted as a tight regression bound (not just "<= seed") so
+    a future change that quietly regresses the tangle gets caught even
+    though 5 is still technically <= 11."""
     graph = mindmap.nodes()
     seed = mindmap.seed_layout(graph)
     pos, _ = mindmap.relax(seed, graph)
     seed_c = mindmap.count_crossings(seed, graph)
     relaxed_c = mindmap.count_crossings(pos, graph)
     assert seed_c == 11, seed_c
-    assert relaxed_c <= 6, relaxed_c
+    assert relaxed_c <= 5, relaxed_c
     assert relaxed_c <= seed_c
 
 
 # ---------------------------------------------------------------------------
-# the live selection pin (director-directed: "yanked to the center...
-# drifted back...when released" -- podscene.py's per-tick UI feature).
-# live_relax_step() is the ONLINE twin of relax()'s force field: ticked
-# indefinitely at a fixed rate rather than run once over a cooling
-# schedule.
-#
-# THE quiescence law (director follow-up, "we need to assert that the
+# depth-annulus containment (director's hybridization, superseding the
+# earlier "yanked to the center...drifted back...when released" pin:
+# "let's make it so nodes can't cross the concentric ring boundaries...
+# but the details are allowed to be chaotic. A slight hybridization...
+# I *love* the way the vertices move now" -- then, superseding the pin
+# entirely, "let's instead have the camera move out to the ring that
+# hosts the selected concept" -- no node is EVER exempt from its own band,
+# selected or not, live physics or baked rest).
+# ---------------------------------------------------------------------------
+
+def _within_own_band(pos, graph=None, tol=1e-6):
+    bands = mindmap.node_bands(graph)
+    for nid, (x, y) in pos.items():
+        lo, hi = bands[nid]
+        r = math.hypot(x, y)
+        assert lo - tol <= r <= hi + tol, (nid, r, lo, hi)
+
+
+@given(graph=mindmap_graph())
+def test_relax_respects_depth_annulus(graph):
+    """Property (a) for the baked rest layout: every node's relaxed
+    position, over the FULL hypothesis-generated graph space, sits inside
+    its own depth's band -- not just the real map."""
+    pos, _ = mindmap.relax(mindmap.seed_layout(graph), graph)
+    _within_own_band(pos, graph)
+
+
+def test_real_mindmap_relax_respects_annulus():
+    _within_own_band(mindmap.layout())
+
+
+def test_live_rest_respects_annulus_at_sleep():
+    """Property (b): at live sleep (no selection input -- there is none
+    left in the force field), every node is inside its own band, for the
+    real map."""
+    st = mindmap.live_rest_state()
+    for _ in range(mindmap._LIVE_SETTLE_BOUND_TICKS):
+        st = mindmap.live_relax_step(st)
+        if st.asleep:
+            break
+    else:
+        raise AssertionError("never reached bitwise rest")
+    _within_own_band(st.pos)
+
+
+def test_live_trajectory_never_leaves_annulus():
+    """Property (a) restated for the LIVE dynamics: every node stays
+    inside its own band on EVERY tick of a real trajectory, not just at
+    the end -- from the most displaced starting condition the UI actually
+    produces (the raw seed layout, e.g. right after a graph reveal, before
+    any settle has run), through to sleep."""
+    seed = mindmap.seed_layout()
+    st = mindmap.LiveState(pos=dict(seed), vel={nid: (0.0, 0.0) for nid in seed})
+    for _ in range(mindmap._LIVE_SETTLE_BOUND_TICKS):
+        st = mindmap.live_relax_step(st)
+        _within_own_band(st.pos)
+        if st.asleep:
+            break
+    else:
+        raise AssertionError("never reached bitwise rest")
+
+
+# ---------------------------------------------------------------------------
+# the quiescence law (director follow-up, "we need to assert that the
 # graph nodes come to a rest after a certain point"): from any starting
 # state, the system must reach a point where every SUBSEQUENT tick's
 # positions are EXACTLY equal (bitwise) -- not "very still", not "within
 # a few px", literally the same dict. This is the mind-map's second-order
 # integrator (see mindmap.py's live_relax_step comment block) plus its
-# sleep latch, and every bound below is a real, measured number (not
-# picked to make these pass), captured while tuning REST_SPRING_K /
-# PIN_SPRING_K / LIVE_DAMPING:
-#   page-open, no input, worst case:        9 ticks   (~0.15s)
-#   pin engaged, from rest, worst case:   450 ticks   (~7.5s)
-#   release, from pinned rest, worst case: 112 ticks  (~1.9s)
-#   worst release deviation from layout():        ~11.0px
-#   worst pinned distance-to-view-center:        ~152.5px
+# sleep latch. Selection no longer touches the force field at all (the
+# director's camera-glide hybridization), so there is nothing left to
+# sweep as a "pin" -- the measured worst case below is from the most
+# displaced state the UI actually produces (the raw seed layout):
+#   page-open, no input, worst case:               9 ticks   (~0.15s)
+#   from the raw seed layout (post-reveal), worst case: 91 ticks (~1.5s)
 # ---------------------------------------------------------------------------
 
 _LIVE_SETTLE_BOUND = mindmap._LIVE_SETTLE_BOUND_TICKS  # 600: generous over
                                                         # the measured
-                                                        # 450-tick worst case
-_PIN_CENTER_BOUND_PX = 160.0   # measured worst case (33-node sweep): 152.5px,
-                               # against a mean rest-to-center distance of
-                               # ~99px -- a real, non-vacuous "pulled toward
-                               # center" bound, not the literal center (the
-                               # pin is one spring among several; it wins,
-                               # it doesn't obliterate the others).
-_RELEASE_EPSILON_PX = 20.0     # measured worst case (33-node sweep, settle
-                               # under pin -> release -> re-settle): ~11.0px.
+                                                        # ~91-tick worst case
 
 
-def _pin_center_px():
-    return (mindmap.CANVAS_W * mindmap.CX_FRAC, mindmap.CANVAS_H * mindmap.CY_FRAC)
-
-
-def _run_to_sleep(state, pin, budget=_LIVE_SETTLE_BOUND):
-    """Tick `state` (with the given pin) until it reports asleep, or
-    `budget` ticks pass. Returns (tick_index_or_None, final_state)."""
+def _run_to_sleep(state, budget=_LIVE_SETTLE_BOUND):
+    """Tick `state` until it reports asleep, or `budget` ticks pass.
+    Returns (tick_index_or_None, final_state)."""
     for i in range(budget):
-        state = mindmap.live_relax_step(state, pin=pin)
+        state = mindmap.live_relax_step(state)
         if state.asleep:
             return i, state
     return None, state
 
 
 def test_live_rest_open_reaches_exact_bitwise_rest():
-    """Property (a): from page-open state with no input, there exists a
-    bounded T after which every subsequent tick's positions are EXACTLY
-    equal -- proven over a further 600 ticks (10s @ 60Hz), not just
-    the tick T itself."""
+    """From page-open state with no input, there exists a bounded T after
+    which every subsequent tick's positions are EXACTLY equal -- proven
+    over a further 600 ticks (10s @ 60Hz), not just the tick T itself."""
     st = mindmap.live_rest_state()
-    settle_at, st = _run_to_sleep(st, pin=None)
+    settle_at, st = _run_to_sleep(st)
     assert settle_at is not None, "never reached bitwise rest"
     assert settle_at <= _LIVE_SETTLE_BOUND, settle_at
     frozen = dict(st.pos)
     for _ in range(600):
-        st = mindmap.live_relax_step(st, pin=None)
+        st = mindmap.live_relax_step(st)
         assert st.pos == frozen, "positions moved after the system reported asleep"
 
 
-def test_live_rest_under_pin_reaches_exact_bitwise_rest():
-    """Property (b): the SAME exact-rest guarantee holds at the pinned
-    equilibrium, for every node in the real map as the selection (not
-    just one hand-picked case)."""
-    rest = mindmap.layout()
-    for sel in sorted(rest):
-        st = mindmap.live_rest_state()
-        settle_at, st = _run_to_sleep(st, pin=sel)
-        assert settle_at is not None, (sel, "never reached bitwise rest while pinned")
-        assert settle_at <= _LIVE_SETTLE_BOUND, (sel, settle_at)
-        frozen = dict(st.pos)
-        for _ in range(120):
-            st = mindmap.live_relax_step(st, pin=sel)
-            assert st.pos == frozen, (sel, "positions moved after asleep, still pinned")
-
-
-def test_live_pin_pulls_selected_node_near_center():
-    rest = mindmap.layout()
-    cx, cy = _pin_center_px()
-    worst = 0.0
-    for sel in sorted(rest):
-        st = mindmap.live_rest_state()
-        _, st = _run_to_sleep(st, pin=sel)
-        px, py = mindmap._to_px(st.pos[sel])
-        worst = max(worst, math.hypot(px - cx, py - cy))
-    assert worst <= _PIN_CENTER_BOUND_PX, worst
-
-
-def test_live_wake_and_re_rest_within_epsilon():
-    """Property (c), the key one: releasing a held selection must WAKE
-    the (now sleeping) system -- releasing changes the force field (the
-    formerly-pinned node's spring reverts to its own rest anchor), so the
-    very next tick must NOT be quiescent, i.e. the sleep latch is not a
-    one-way door -- and the system must then re-settle, again to EXACT
-    bitwise rest, within the same bounded tick budget, landing within
-    epsilon of the ORIGINAL static layout() for every node (not just the
-    formerly-pinned one) -- the no-permanent-deformation property must
-    hold THROUGH the sleep mechanism, not be broken by it."""
-    rest = mindmap.layout()
-    worst_release_settle = 0
-    worst_dev = 0.0
-    for sel in sorted(rest):
-        st = mindmap.live_rest_state()
-        settle_at, st = _run_to_sleep(st, pin=sel)
-        assert settle_at is not None, (sel, "never settled under pin")
-        assert st.asleep
-
-        st = mindmap.live_relax_step(st, pin=None)  # release: the perturbation
-        assert st.quiet == 0, (sel, "release did not wake the sleeping system")
-
-        settle_at, st = _run_to_sleep(st, pin=None)
-        assert settle_at is not None, (sel, "never re-settled after release")
-        worst_release_settle = max(worst_release_settle, settle_at)
-
-        devpx = max(
-            math.hypot(*(a - b for a, b in zip(mindmap._to_px(st.pos[n]), mindmap._to_px(rest[n]))))
-            for n in rest)
-        worst_dev = max(worst_dev, devpx)
-
-    assert worst_release_settle <= _LIVE_SETTLE_BOUND, worst_release_settle
-    assert worst_dev <= _RELEASE_EPSILON_PX, worst_dev
+def test_live_rest_from_seed_reaches_exact_bitwise_rest():
+    """The SAME exact-rest guarantee holds from the most displaced state
+    the UI actually produces (the raw seed layout, right after a reveal,
+    before any settle)."""
+    seed = mindmap.seed_layout()
+    st = mindmap.LiveState(pos=dict(seed), vel={nid: (0.0, 0.0) for nid in seed})
+    settle_at, st = _run_to_sleep(st)
+    assert settle_at is not None, "never reached bitwise rest from seed"
+    assert settle_at <= _LIVE_SETTLE_BOUND, settle_at
+    frozen = dict(st.pos)
+    for _ in range(120):
+        st = mindmap.live_relax_step(st)
+        assert st.pos == frozen, "positions moved after the system reported asleep"
 
 
 def test_live_relax_deterministic():
-    """Property (d): two independent runs from the same start, ticked
-    through the same pin sequence (pin, then release, through sleep and
-    wake both times), produce IDENTICAL LiveState at every tick -- pos,
-    vel, and the quiet/asleep bookkeeping all included. No wall-clock, no
-    unseeded randomness."""
-    sel = sorted(mindmap.layout())[7]
-    st1 = mindmap.live_rest_state()
-    st2 = mindmap.live_rest_state()
+    """Two independent runs from the same start produce IDENTICAL
+    LiveState at every tick -- pos, vel, and the quiet/asleep bookkeeping
+    all included. No wall-clock, no unseeded randomness."""
+    seed = mindmap.seed_layout()
+    st1 = mindmap.LiveState(pos=dict(seed), vel={nid: (0.0, 0.0) for nid in seed})
+    st2 = mindmap.LiveState(pos=dict(seed), vel={nid: (0.0, 0.0) for nid in seed})
     for _ in range(500):
-        st1 = mindmap.live_relax_step(st1, pin=sel)
-        st2 = mindmap.live_relax_step(st2, pin=sel)
+        st1 = mindmap.live_relax_step(st1)
+        st2 = mindmap.live_relax_step(st2)
         assert st1 == st2
-    for _ in range(300):
-        st1 = mindmap.live_relax_step(st1, pin=None)
-        st2 = mindmap.live_relax_step(st2, pin=None)
-        assert st1 == st2
+
+
+# ---------------------------------------------------------------------------
+# the camera glide (director's hybridization: selection moves the CAMERA
+# to frame the selected node's ring, never the node itself -- see
+# podscene.py's usage). Promoted here from mindmap_rings.py (its original
+# home for the rings-mode A/B variant) so BOTH layout variants share the
+# exact same math; mindmap_rings.camera_glide re-exports this same
+# function (see test_mindmap_rings.py for those same properties exercised
+# through that name).
+# ---------------------------------------------------------------------------
+
+def test_camera_glide_exact_arrival_and_static_after():
+    p_from, p_to, t0, dur = (0.0, 0.0), (10.0, -4.0), 2.0, 0.5
+    assert mindmap.camera_glide(t0 - 1.0, t0, dur, p_from, p_to) == p_from
+    assert mindmap.camera_glide(t0, t0, dur, p_from, p_to) == p_from
+    mid = mindmap.camera_glide(t0 + dur / 2.0, t0, dur, p_from, p_to)
+    assert 0.0 < mid[0] < 10.0 and -4.0 < mid[1] < 0.0
+    arrival = mindmap.camera_glide(t0 + dur, t0, dur, p_from, p_to)
+    assert arrival == p_to
+    later = mindmap.camera_glide(t0 + dur + 50.0, t0, dur, p_from, p_to)
+    assert later == p_to  # bitwise-static after arrival, forever
+
+
+def test_camera_glide_zero_duration_snaps():
+    p_from, p_to = (1.0, 1.0), (5.0, 5.0)
+    assert mindmap.camera_glide(0.0, 0.0, 0.0, p_from, p_to) == p_to
+
+
+def test_camera_glide_deterministic():
+    p_from, p_to = (0.0, 0.0), (3.0, 7.0)
+    a = [mindmap.camera_glide(t / 10.0, 0.0, 0.5, p_from, p_to) for t in range(20)]
+    b = [mindmap.camera_glide(t / 10.0, 0.0, 0.5, p_from, p_to) for t in range(20)]
+    assert a == b
