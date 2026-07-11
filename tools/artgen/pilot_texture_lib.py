@@ -283,6 +283,69 @@ def build_material_prompt(kind: str) -> str:
     )
 
 
+# Per-kind DIEGETIC FLOORPLAN notes (director's ruling, property 3): where
+# people walk vs where equipment sits, and how wear/staining should follow
+# that plan rather than an invented decorative pattern. See FLOORPLANS.md
+# for the full room-by-room rationale this is distilled from.
+FLOORPLAN_NOTE = {
+    "hydro": (
+        "FLOORPLAN: the wall-mounted troughs (shown in the geometry guide) "
+        "are growing-bed rows; there is also ONE island trough near the "
+        "center. These troughs already leave the rest of the floor open as "
+        "walk aisles -- especially the paths from the doorway to the "
+        "center trough and around it to each wall trough. Concentrate "
+        "damp/algae/mineral staining AT and RADIATING OUT FROM each "
+        "trough's actual footprint (condensation and overflow drip "
+        "naturally pool right next to a planter, not evenly across the "
+        "whole room) -- do NOT paint an even all-over damp/organic pattern "
+        "across the entire floor, and do NOT invent additional tray "
+        "shapes, grid lines, or rows anywhere the geometry guide doesn't "
+        "already show a trough. The walk aisles must read as comparatively "
+        "clean, scuffed-but-dry plating -- a worker can cross this room "
+        "without stepping over anything."
+    ),
+    "dock": (
+        "FLOORPLAN: crates cluster in the two room corners farthest from "
+        "the door (out of the way); the hazard-striped strip marks a "
+        "loader's working lane along one wall; the path from the doorway "
+        "to the mooring-ring wall is the main tow/walk lane. Show a "
+        "visibly worn, slightly lighter travel path along that line; let "
+        "the crate corners read grimier (low traffic)."
+    ),
+    "corridor": (
+        "FLOORPLAN: this is a through-corridor -- the floor chevrons mark "
+        "the center walk lane. Show worn traffic polish (lighter, "
+        "smoother-looking plating) down the center axis, fading to "
+        "grimier plating at the wall edges under the pipe runs."
+    ),
+    "storage": (
+        "FLOORPLAN: the crate rows already leave a walkable aisle between "
+        "them for cart traffic. Show the aisle as polished/worn plating; "
+        "show dust and undisturbed grime specifically in the shadow under "
+        "and between the crate rows, away from the aisle."
+    ),
+    "lab": (
+        "FLOORPLAN: the specimen table is the workstation; screens are "
+        "wall-mounted. Concentrate faint chemical staining near the "
+        "table's actual footprint and let an implied cable-tray line run "
+        "from the screen wall toward the table; keep the rest of the open "
+        "floor plain, unstained."
+    ),
+    "quarters": (
+        "FLOORPLAN: cot bays ring the walls with open floor in the "
+        "middle. Concentrate scuff/wear at the foot of each bunk (where a "
+        "person stands to use the footlocker) and along doorway-to-bunk "
+        "paths; keep the open center floor lightly worn but plain."
+    ),
+    "chapel": (
+        "FLOORPLAN: pews face the dais along the front wall; the center "
+        "aisle (perpendicular to the pew rows) and the area around the "
+        "dais are where bodies moved. Let old dark ritual staining follow "
+        "those paths specifically, not an even wash across the room."
+    ),
+}
+
+
 def build_room_prompt(kind: str) -> str:
     material = KIND_MATERIAL[kind]
     flavor = (
@@ -291,9 +354,11 @@ def build_room_prompt(kind: str) -> str:
         if kind in TESTATOR_KINDS else
         "MIRIAD-era human infrastructure: utilitarian, regular, maintained."
     )
+    floorplan = FLOORPLAN_NOTE.get(kind, "")
     return (
         f"{STYLE_LANGUAGE}\n\n"
         f"Room kind: {kind}. {flavor} Material language: {material}.\n\n"
+        + (f"{floorplan}\n\n" if floorplan else "") +
         "First reference image: this room's GEOMETRY GUIDE -- a flat "
         "vector render of THIS room's exact layout (floor region shown "
         "brightened for clarity, simple prop shapes drawn on it, pure "

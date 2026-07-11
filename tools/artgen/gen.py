@@ -21,6 +21,7 @@ import base64
 import io
 import json
 import os
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -57,6 +58,20 @@ def _load_key() -> str:
     )
 
 
+# Every caller across this pipeline (gen.py itself, verify_in_situ.py,
+# verify_gemini.py, verify_sprite_in_context.py) runs its paid calls from a
+# ThreadPoolExecutor and logs cost via read-modify-write on the same JSON
+# file. Without a lock spanning the read+write, concurrent threads race:
+# each reads a stale snapshot, appends its own entry, and writes it back --
+# the last writer clobbers every other thread's update. Caught 2026-07-11
+# when a 6-worker verify_in_situ run truncated 1580 historical call records
+# (recovered from git) down to the 4 that happened not to race. This lock
+# is process-wide (module-level, shared by every import of this module) and
+# every read-modify-write of COST_LOG anywhere in the pipeline must hold it
+# -- use record_cost() below rather than calling _read/_write directly.
+_cost_log_lock = threading.Lock()
+
+
 def _read_cost_log() -> dict:
     if COST_LOG.exists():
         try:
@@ -68,6 +83,19 @@ def _read_cost_log() -> dict:
 
 def _write_cost_log(log: dict) -> None:
     COST_LOG.write_text(json.dumps(log, indent=2))
+
+
+def record_cost(cost: float, entry: dict) -> dict:
+    """Atomically add `cost` to the running total and append `entry` to the
+    call log. Thread-safe across every caller in this process (holds
+    _cost_log_lock for the full read-modify-write); safe to call from any
+    ThreadPoolExecutor worker. Returns the updated log dict."""
+    with _cost_log_lock:
+        log = _read_cost_log()
+        log["total_cost"] = log.get("total_cost", 0.0) + cost
+        log.setdefault("calls", []).append(entry)
+        _write_cost_log(log)
+        return log
 
 
 def total_spend() -> float:
@@ -172,9 +200,7 @@ def generate_image(
     usage = data.get("usage", {})
     cost = float(usage.get("cost", 0.0))
 
-    log = _read_cost_log()
-    log["total_cost"] = log.get("total_cost", 0.0) + cost
-    log.setdefault("calls", []).append({
+    log = record_cost(cost, {
         "model": model,
         "out": str(out_path),
         "cost": cost,
@@ -182,7 +208,6 @@ def generate_image(
         "completion_tokens": usage.get("completion_tokens"),
         "ts": time.time(),
     })
-    _write_cost_log(log)
 
     return {
         "path": str(out_path),

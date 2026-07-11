@@ -45,7 +45,7 @@ from perihelion.levels import load_level  # noqa: E402
 from perihelion.render import Renderer  # noqa: E402
 from perihelion.sim import GameSession  # noqa: E402
 
-from tools.artgen.gen import API_URL, _load_key, _read_cost_log, _write_cost_log  # noqa: E402
+from tools.artgen.gen import API_URL, _load_key, record_cost  # noqa: E402
 from tools.artgen.pilot_texture_lib import load_pilot  # noqa: E402
 
 SCRATCH = Path(
@@ -208,13 +208,10 @@ def judge_pair(shot: dict, max_retries: int = 3) -> dict:
         raw = "".join(c.get("text", "") for c in raw if isinstance(c, dict))
     usage = data.get("usage", {})
     cost = float(usage.get("cost", 0.0))
-    log = _read_cost_log()
-    log["total_cost"] = log.get("total_cost", 0.0) + cost
-    log.setdefault("calls", []).append({
+    record_cost(cost, {
         "model": VERIFY_MODEL, "out": f"insitu:{shot['pair_id']}", "cost": cost,
         "prompt_tokens": usage.get("prompt_tokens"),
         "completion_tokens": usage.get("completion_tokens"), "ts": time.time()})
-    _write_cost_log(log)
 
     text_clean = raw.strip()
     if text_clean.startswith("```"):

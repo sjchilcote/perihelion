@@ -88,6 +88,34 @@ def verify_fullbleed(im: Image.Image, mask: np.ndarray | None = None,
                 border_structure=border_structure)
 
 
+def verify_no_interior_void(im: Image.Image, mask: np.ndarray,
+                             black_thresh: float = 12.0,
+                             frac_thresh: float = 0.02) -> dict:
+    """Catch INVENTED CORNER/INTERIOR VOID: the model paints a chamfered or
+    octagonal room silhouette (solid near-black wedges, usually at corners)
+    over a base truth whose true polygon (per level geometry) has no such
+    notch there. verify_fullbleed's edge-band-vs-center comparison misses
+    this because a localized corner wedge is diluted by the rest of a
+    uniform edge band; this check instead measures what fraction of the
+    pixels the ANALYTIC MASK says are real floor are painted near-black --
+    real floor material is never more than a few percent near-black even
+    with heavy grime/shadow, whereas an invented void wedge pushes this
+    well past frac_thresh (measured: ~4% on a caught real defect vs
+    0.2-0.9% on clean accepted rooms). `mask` must be the true polygon
+    mask, resized to `im`'s pixel size, True = real floor.
+    """
+    gray = np.asarray(im.convert("L")).astype(np.float32)
+    if mask.shape != gray.shape:
+        raise ValueError(f"mask shape {mask.shape} != image shape {gray.shape}")
+    in_mask = gray[mask]
+    if in_mask.size < 40:
+        return dict(ok=True, reason="region too small to judge (thin polygon)",
+                    black_frac=None)
+    black_frac = float((in_mask < black_thresh).mean())
+    ok = black_frac <= frac_thresh
+    return dict(ok=ok, black_frac=black_frac, frac_thresh=frac_thresh)
+
+
 # ---------------------------------------------------------------------------
 # tileable base material: offset-wrap + mirror-feather seam repair, verified
 # by tiling 2x2 and measuring the seam

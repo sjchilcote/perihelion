@@ -17,7 +17,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-from tools.artgen.gen import API_URL, _load_key, _read_cost_log, _write_cost_log
+from tools.artgen.gen import API_URL, _load_key, record_cost
 
 VERIFY_MODEL = "google/gemini-3.5-flash"
 
@@ -101,14 +101,11 @@ def verify_texture(base_truth_path: str | Path, generated_path: str | Path,
 
     usage = data.get("usage", {})
     cost = float(usage.get("cost", 0.0))
-    log = _read_cost_log()
-    log["total_cost"] = log.get("total_cost", 0.0) + cost
-    log.setdefault("calls", []).append({
+    record_cost(cost, {
         "model": VERIFY_MODEL, "out": f"verify:{generated_path}", "cost": cost,
         "prompt_tokens": usage.get("prompt_tokens"),
         "completion_tokens": usage.get("completion_tokens"), "ts": time.time(),
     })
-    _write_cost_log(log)
 
     text_clean = raw.strip()
     if text_clean.startswith("```"):

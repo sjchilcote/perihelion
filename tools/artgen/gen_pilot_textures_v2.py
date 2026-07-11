@@ -37,6 +37,7 @@ from tools.artgen.pilot_texture_lib import (
 )
 from tools.artgen.texture_checks import (
     grade_toward, in_window, region_tone, verify_fullbleed,
+    verify_no_interior_void,
 )
 
 GUIDE_DIR = SCRATCH / "guides"
@@ -156,6 +157,28 @@ def process_room(room: dict, progress: dict) -> dict:
                           f"{fb.get('darken_ratio')}, grad_ratio={fb.get('grad_ratio')}). "
                           f"{explain}"),
                 "_fullbleed": fb,
+            })
+            continue
+
+        # SECOND programmatic gate: an invented CORNER/INTERIOR void
+        # (e.g. a chamfered/octagonal silhouette painted over a true
+        # rectangle) that verify_fullbleed's uniform-edge-band comparison
+        # can miss because a localized wedge is diluted by the rest of a
+        # clean edge band. Caught by personal frame review on l05/room_007
+        # (2026-07-11): an accepted room shipped with invented black
+        # corner wedges neither gate above nor the Gemini judge flagged.
+        iv = verify_no_interior_void(raw_resized, mask)
+        if not iv["ok"]:
+            verdicts.append({
+                "verdict": "fail",
+                "notes": (f"programmatic interior-void check rejected: "
+                          f"{iv['black_frac']:.1%} of the TRUE floor polygon "
+                          f"is painted near-black (threshold {iv['frac_thresh']:.0%}) "
+                          "-- this is almost always an invented notch/chamfer/"
+                          "corner cut that does not exist in the base truth's "
+                          "actual silhouette. Render ordinary floor material "
+                          "there instead."),
+                "_interior_void": iv,
             })
             continue
 

@@ -1,5 +1,5 @@
 {
-  "total_cost": 73.56242100000006,
+  "total_cost": 74.929222,
   "calls": [
     {
       "model": "google/gemini-3.1-flash-image",
@@ -12640,6 +12640,104 @@
       "prompt_tokens": 911,
       "completion_tokens": 1543,
       "ts": 1783771987.1637104
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "insitu:l07:223-224",
+      "cost": 0.004722,
+      "prompt_tokens": 2656,
+      "completion_tokens": 82,
+      "ts": 1783789749.9605212
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "insitu:l10:115-116",
+      "cost": 0.004776,
+      "prompt_tokens": 2656,
+      "completion_tokens": 88,
+      "ts": 1783789750.0673344
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "insitu:l10:182-183",
+      "cost": 0.004668,
+      "prompt_tokens": 2656,
+      "completion_tokens": 76,
+      "ts": 1783789750.3263195
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "insitu:l10:182-184",
+      "cost": 0.004974,
+      "prompt_tokens": 2656,
+      "completion_tokens": 110,
+      "ts": 1783789750.3353846
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "RECONCILE:insitu_race_condition_lost_51_of_55_calls",
+      "cost": 0.244035,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "ts": 1783789826.6344619,
+      "note": "verify_in_situ.py judge_pair() had no lock around its cost-log read-modify-write; running --workers 6 across 55 pairs raced and clobbered the log down to the last writer, losing 51/55 entries and, worse, this session temporarily overwrote 1580 prior committed call records (recovered from git commit 3d4525a). This entry reconciles the estimated lost spend from this session using the observed avg cost of the 4 calls that survived; see gen.py for the lock fix."
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "insitu:l01:0-2",
+      "cost": 0.004749,
+      "prompt_tokens": 2656,
+      "completion_tokens": 85,
+      "ts": 1783789915.6007547
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "insitu:l01:2-55",
+      "cost": 0.004686,
+      "prompt_tokens": 2656,
+      "completion_tokens": 78,
+      "ts": 1783789917.5451515
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "insitu:l03:5-0",
+      "cost": 0.004632,
+      "prompt_tokens": 2656,
+      "completion_tokens": 72,
+      "ts": 1783789920.2093964
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "insitu:l05:4-5",
+      "cost": 0.004866,
+      "prompt_tokens": 2656,
+      "completion_tokens": 98,
+      "ts": 1783789922.3076854
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l05_room005_a1.png",
+      "cost": 0.0695085,
+      "prompt_tokens": 1737,
+      "completion_tokens": 1600,
+      "ts": 1783789972.5794322
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l05_room005_a2.png",
+      "cost": 0.068984,
+      "prompt_tokens": 3568,
+      "completion_tokens": 1120,
+      "ts": 1783789993.2251015
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "RECONCILE:session_generation_calls_lost_to_same_race_clobber",
+      "cost": 0.9462,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "ts": 1783790075.8789895,
+      "note": "8 real generate_image calls this session (l03/room_000, l01/room_116 x2 attempts, l03/room_005 x2 attempts, l01/room_117, l05/room_007 attempt 1, l01/room_002), costs observed directly from this session driver print output before the verify_in_situ race clobbered the log (see the other RECONCILE entry). Restored here since the git-baseline recovery merge predates these calls."
     }
   ]
 }

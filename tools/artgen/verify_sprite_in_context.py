@@ -30,7 +30,7 @@ from PIL import Image
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from gen import _load_key, _read_cost_log, _write_cost_log  # noqa: E402
+from gen import _load_key, record_cost  # noqa: E402
 
 MODEL = "google/gemini-3.5-flash"
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
@@ -131,14 +131,11 @@ def _ask(composite_path: Path, spec: str, attempts: int = 3) -> dict:
                 payload = json.load(resp)
             usage = payload.get("usage", {})
             cost = float(usage.get("cost", 0.0))
-            log = _read_cost_log()
-            log["total_cost"] = log.get("total_cost", 0.0) + cost
-            log.setdefault("calls", []).append({
+            record_cost(cost, {
                 "model": MODEL, "out": f"verify:{composite_path.name}",
                 "cost": cost, "prompt_tokens": usage.get("prompt_tokens"),
                 "completion_tokens": usage.get("completion_tokens"), "ts": time.time(),
             })
-            _write_cost_log(log)
             txt = payload["choices"][0]["message"]["content"]
             return _parse_json(txt)
         except Exception as e:  # noqa: BLE001 -- never fabricate a pass on error
