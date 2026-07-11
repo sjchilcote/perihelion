@@ -812,6 +812,19 @@ aftermath.
    in force for the first time. Act break: the mission is ash, the Adversary is real,
    and the only way out is in.
 
+**The sail (director, 2026-07-11; spans Acts 2–3).** Standing situation from
+Terminal 1: the station was always headed for a close solar gravity assist (its
+normal system-exit maneuver); Ratio nudged the pass into an impact, months out,
+believing the Sun would kill the Adversary along with the station. The planted gun
+("And you're sure that'll do the job?" / "Not at all.") fires mid-game: the
+discovery that a solar plunge would in fact **supercharge** the invaders. The
+objective inverts — they must build a **solar sail** and avert the impact Ratio
+herself engineered. Her decisive first move becomes the threat; averting it takes
+both of them (his fabrication reach, the station's handcraft, her coordination).
+Perihelion passage remains the climax geography — now as the pass they must
+survive, sail spread. (Also the diegetic release of the surviving-station endings:
+the station that clears perihelion under sail is the one that can still be kept.)
+
 ### Act 3 — The Breach (Stratum Three)
 
 The shape of Act 3 depends on the two axes, which by now are largely set (§8):

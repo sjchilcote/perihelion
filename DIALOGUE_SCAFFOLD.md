@@ -577,30 +577,27 @@ the fact without the why.⟫
 
 ### Review flags — rulings received 2026-07-11
 
-- **F1 — RULED: no diegetic clock.** The game's timescale is deliberately
-  unspecified; these terminal dialogues occur in fractions of a second
-  (machine-speed). The thinking clock's display unit changed s → ms
-  (podscene.py) so nothing on screen pins the timescale. The deadline is
-  narrative pressure, never a timer. (Defusal mechanism for the surviving-
-  station endings still needed eventually — candidate stands: the station
-  corrects its own course; park until act-structure work.)
-- **F2 — RESOLVED by F1** (no clock; think-display now ms).
+- **F1/F2 + "four hours" — RULED (final form, 2026-07-11):** the station was
+  ALWAYS headed for a close solar gravity assist (its standard system-exit
+  maneuver, per §4.2's drift design) — Ratio just NUDGED the pass into an
+  impact. Deorbit is therefore **months** away; no diegetic clock; the
+  thinking display stays in seconds (ms change reverted — with months of
+  margin it pins nothing).
+  **THE GUN (director):** the loredump's "[And you're sure that'll do the
+  job?] / Not at all." is a planted Chekhov — later they discover the sun
+  impact would in fact **SUPERCHARGE the invaders**, and the objective
+  inverts: they must build a **solar sail** to avert the very impact Ratio
+  engineered. This is the defusal for the surviving-station endings AND the
+  mid-game reversal: her decisive first move becomes the threat; the enemy's
+  gift (his fabrication capability + the station's handcraft) becomes the
+  save. Perihelion passage remains the climax geography — now as the pass
+  they must SURVIVE, sail spread.
 - **F4 — RULED: she IS bluffing** — the station's comms are DEAD; she cannot
   send targeting data at all. But she doesn't make arithmetic mistakes even
   while lying: the offer needs rewording so it isn't self-refuting on its
-  face (window shorter than impact, or non-time-based). The lie must be
-  catchable only by facts he might learn (the dead comms), never by math.
-  Director rewrites the line.
-- **"Four hours" — RULED: not attached to it; physics says days-to-weeks.**
-  Sun-infall from 1 AU ≈ 65 days, Mercury-distance ≈ 23 days, 0.3 AU ≈ 11
-  days; hours-to-impact requires already sun-grazing (contradicts the 30-year
-  expedition), and a from-scratch de-orbit needs tens of km/s (no RCS does
-  that). Canon-clean version: the station's capture orbit ALREADY dips
-  through the inner system (it homes on radio noise — it was always coming
-  close); Ratio's burn was a PERIHELION TRIM, done when it was cheap,
-  burning out the marginal thrusters. Deadline: days-to-weeks; the campaign
-  is the final approach; the climax sits at perihelion passage — the title
-  is the setting. Numbers: director's rewrite.
+  face. The lie must be catchable only by facts he might learn (the dead
+  comms), never by math. Director rewrites the line (months timeline gives
+  the reword room — a six-hour head start is now trivially keepable).
 - **F3/F9 — RULED: the christening is Ratio's, period.** "I am COMMANDO."
   removed from the intro scroll (see above). ==0 path players get named in
   Terminal 1 (:start-over); **high-trust players get named in TERMINAL 2 —

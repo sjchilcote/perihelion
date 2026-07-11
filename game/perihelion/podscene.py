@@ -1283,18 +1283,13 @@ class PodScene(Scene):
         else:
             need = mindmap.think_ticks(nid)
             have = s.think_progress.get(nid, 0)
-            # displayed in MILLISECONDS (director, 2026-07-11): the game's
-            # timescale is deliberately unspecified, and machine minds
-            # converse in fractions of a second -- the diegetic compute
-            # time is ms even though the gameplay wait is wall-clock
-            # seconds. Same number, honest unit for the speaker.
-            ms = mindmap.weight(nid) * mindmap.THINK_SECONDS_PER_WEIGHT
+            secs = mindmap.weight(nid) * mindmap.THINK_SECONDS_PER_WEIGHT
             if nid == s.think_focus:
-                status = f"THINKING - {100 * have // need}% of {ms}ms"
+                status = f"THINKING - {100 * have // need}% of {secs}s"
             elif have:
-                status = f"PARKED AT {100 * have // need}% of {ms}ms"
+                status = f"PARKED AT {100 * have // need}% of {secs}s"
             else:
-                status = f"THINK TIME: {ms}ms IN THE FIELD"
+                status = f"THINK TIME: {secs}s IN THE FIELD"
         surf.blit(_label_img(status, 9 * k, VERDIGRIS, "medium"),
                   (ui(16), y0 + ui(38)))
         bx = max(ui(268), ui(20) + title.get_width())
