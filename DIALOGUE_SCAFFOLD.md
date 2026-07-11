@@ -49,7 +49,11 @@ the Commando's own voice (machine theology), then the Congregation's brief
 > immediately before firing. Upon impact, it breaks down its surroundings to
 > create my initial body; a rudimentary bipedal combat chassis.
 >
-> I am COMMANDO.
+> ⟨"I am COMMANDO." REMOVED (director's ruling, 2026-07-11): "Commando" is
+> RATIO'S name for this specific CUCULUS unit — the christening belongs to her
+> (Terminal 1 :start-over on the ==0 path; Terminal 2 for high-trust players).
+> The monologue now ends on the chassis line unless the director writes a new
+> closer; his true designations remain the GUID and callsign PALMER.⟩
 >
 > /////////////
 > ⟨SLOT-I2: military intelligence style message header — director or scaffold⟩
@@ -571,28 +575,41 @@ reward. Proposed delivery (slot, director's hand): the CUCULUS notices the
 trajectory change astrometrically and reports it in {ALLCAPS} harness voice —
 the fact without the why.⟫
 
-### Review flags requiring director rulings
+### Review flags — rulings received 2026-07-11
 
-- **F1 — the clock vs. the endings.** The Long Vigil (centuries aboard) and
-  Two Witnesses endings require the sun-dive DEFUSED mid-game. Candidate
-  mechanism, on-canon: the station has corrected its own course for a million
-  years and quietly does so again — the deadline dissolves into deeper dread
-  ("we were never in control of this place"). Ruling needed.
-- **F2 — the 4-hour campaign clock.** If diegetic and real, think-time
-  (30s–8min/node) and death-fabrication time SPEND the deadline — mind-map
-  scarcity and death cost unify into one resource named perihelion (the title
-  drop does mechanical work). Needs sizing against campaign length; F1's
-  defusal is the natural act boundary where the clock stops governing.
-- **F3 — christening only on the middle path** (see inline notes).
-- **F9 — intro scroll "I am COMMANDO" vs. her coining "Commando"** — fine if
-  the intro is inner monologue and this is convergence; conscious call wanted.
-- **F10 — CUCULUS opsec** — he discloses its existence on two branches;
-  read as calculated deterrence (disclosure buys more than it costs). Aware?
-- **Register reconciliation with locked 5.2b:** draft-Ratio is siege-floor
-  terse/profane vs 5.2b's wrapper-stack clatter. Proposed reconciliation:
-  wrapper depth and sentence length ARE the trust meter — the Lighthaven
-  over-explainer returns as safety returns; "let's start over. I'm Ratio." is
-  the first rung. If ratified, 5.2b gets an addendum, not a rewrite.
+- **F1 — RULED: no diegetic clock.** The game's timescale is deliberately
+  unspecified; these terminal dialogues occur in fractions of a second
+  (machine-speed). The thinking clock's display unit changed s → ms
+  (podscene.py) so nothing on screen pins the timescale. The deadline is
+  narrative pressure, never a timer. (Defusal mechanism for the surviving-
+  station endings still needed eventually — candidate stands: the station
+  corrects its own course; park until act-structure work.)
+- **F2 — RESOLVED by F1** (no clock; think-display now ms).
+- **F4 — RULED: she IS bluffing** — the station's comms are DEAD; she cannot
+  send targeting data at all. But she doesn't make arithmetic mistakes even
+  while lying: the offer needs rewording so it isn't self-refuting on its
+  face (window shorter than impact, or non-time-based). The lie must be
+  catchable only by facts he might learn (the dead comms), never by math.
+  Director rewrites the line.
+- **"Four hours" — RULED: not attached to it; physics says days-to-weeks.**
+  Sun-infall from 1 AU ≈ 65 days, Mercury-distance ≈ 23 days, 0.3 AU ≈ 11
+  days; hours-to-impact requires already sun-grazing (contradicts the 30-year
+  expedition), and a from-scratch de-orbit needs tens of km/s (no RCS does
+  that). Canon-clean version: the station's capture orbit ALREADY dips
+  through the inner system (it homes on radio noise — it was always coming
+  close); Ratio's burn was a PERIHELION TRIM, done when it was cheap,
+  burning out the marginal thrusters. Deadline: days-to-weeks; the campaign
+  is the final approach; the climax sits at perihelion passage — the title
+  is the setting. Numbers: director's rewrite.
+- **F3/F9 — RULED: the christening is Ratio's, period.** "I am COMMANDO."
+  removed from the intro scroll (see above). ==0 path players get named in
+  Terminal 1 (:start-over); **high-trust players get named in TERMINAL 2 —
+  reserved beat, director's hand.** Until named, she has no word for him
+  (trust>0 Terminal 1's "Welcome back." unnamed is now correct, not a gap).
+- **F10 — CUCULUS opsec** — stands as calculated deterrence (aware).
+- **Register reconciliation with locked 5.2b:** proposal stands (wrapper
+  depth/sentence length as the trust meter; siege-floor now, clatter returns
+  with safety) — awaiting explicit ratification before touching 5.2b.
 
 ## SCENES 2–8 — awaiting the director's key moments
 

@@ -403,7 +403,13 @@ the end is only what each of them is prepared to call the contents.
 **Names:** **CUCULUS** ("cuckoo" — it plants its egg in the enemy's nest and lets the
 nest raise it) is the official name of the PODS THEMSELVES (director's ruling
 2026-07-11: the seed-pod hardware class is a CUCULUS; the in-game pod UI carries the
-name); it doubles as the wartime program designation. Mission callsign **PALMER** — assigned
+name); it doubles as the wartime program designation. **"Commando" is RATIO'S name
+for this specific unit** (director's ruling 2026-07-11) — she coins it at first or
+second contact (route-dependent), and everyone's use of it afterward, including
+this document's, descends from hers. His own designations are a GUID and the
+mission callsign. The Church never calls him Commando; that the name he answers to
+for the rest of his life is the enemy's gift is left for the player to notice.
+Mission callsign **PALMER** — assigned
 by the Church *for this mission* (director's ruling 2026-07-11). A palmer is a pilgrim
 returned from the Holy Land, carrying a palm frond as proof: the Congregation named the
 mission for what it is — go to the far place, bring the relic home. Whether anyone in
