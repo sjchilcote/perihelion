@@ -200,19 +200,9 @@ def test_escape_seals_the_pod():
 # precedence, selection-change starts a glide, the node stays confined to
 # its band throughout) rather than re-deriving the physics bounds -- see
 # test_mindmap_layout.py's annulus/camera_glide properties for those.
-# Physics mode is the only one with live node motion (rings mode glides
-# the camera over STATIC node positions, already covered by
-# test_mindmap_rings.py), so these tests pin the mode explicitly instead
-# of inheriting PERIHELION_MINDMAP_LAYOUT from the environment.
 # ---------------------------------------------------------------------------
 
-@pytest.fixture(autouse=False)
-def _physics_mode(monkeypatch):
-    from perihelion import podscene
-    monkeypatch.setattr(podscene, "MINDMAP_LAYOUT", "physics")
-
-
-def test_selecting_a_node_glides_the_camera_toward_it(_physics_mode):
+def test_selecting_a_node_glides_the_camera_toward_it():
     sc, s, app = _scene()
     sc.on_enter(app)
     sc.page = "mind"
@@ -229,7 +219,7 @@ def test_selecting_a_node_glides_the_camera_toward_it(_physics_mode):
     assert math.hypot(camx - tx, camy - ty) < 1e-6  # exact finite-time arrival
 
 
-def test_node_never_leaves_its_band_while_selected(_physics_mode):
+def test_node_never_leaves_its_band_while_selected():
     """The director's hard law: selection may move the CAMERA, but no
     node -- selected or not -- may ever cross its own depth-ring boundary.
     Selection sweeps across several nodes while the live physics keeps
@@ -299,7 +289,7 @@ def test_region_headers_render_at_reserved_width(surf):
         assert max_right <= w_reserved + 1.0, (region, max_right, w_reserved)
 
 
-def test_camera_owned_by_reveal_while_it_plays(_physics_mode):
+def test_camera_owned_by_reveal_while_it_plays():
     """ROUND-2 ADAPTATION: the reveal now installs its OWN camera glide
     (from wherever the camera sits to the revealing node -- the
     continuity fix), so "suspended" no longer means dur == 0; it means
@@ -318,7 +308,7 @@ def test_camera_owned_by_reveal_while_it_plays(_physics_mode):
     assert sc._cam_sel != sc.sel  # update() never latched the new target
 
 
-def test_reveal_pulls_camera_continuously_from_selection(_physics_mode):
+def test_reveal_pulls_camera_continuously_from_selection():
     """The director's round-2 discontinuity report, pinned as a test: the
     completed thought is generally NOT the navigated selection, and the
     transition from the selection's neighborhood to the reveal's node

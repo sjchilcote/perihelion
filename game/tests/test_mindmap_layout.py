@@ -794,11 +794,7 @@ def test_live_relax_deterministic():
 # ---------------------------------------------------------------------------
 # the camera glide (director's hybridization: selection moves the CAMERA
 # to frame the selected node's ring, never the node itself -- see
-# podscene.py's usage). Promoted here from mindmap_rings.py (its original
-# home for the rings-mode A/B variant) so BOTH layout variants share the
-# exact same math; mindmap_rings.camera_glide re-exports this same
-# function (see test_mindmap_rings.py for those same properties exercised
-# through that name).
+# podscene.py's usage).
 # ---------------------------------------------------------------------------
 
 def test_camera_glide_exact_arrival_and_static_after():

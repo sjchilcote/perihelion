@@ -24,29 +24,16 @@ pygame drawing. No image assets are required for any of it.
 from __future__ import annotations
 
 import math
-import os
 import zlib
 from pathlib import Path
 from random import Random
 
 import pygame
 
-from . import mindmap, mindmap_rings
+from . import mindmap
 from .menus import Scene, get_font, _wrap
 from .render import ui
 from .sim import DT, SHOP
-
-# ---------------------------------------------------------------------------
-# MIND page layout A/B (director-directed): PERIHELION_MINDMAP_LAYOUT
-# selects between variant B (default, "physics" -- mindmap.py's force-
-# relaxation settle; nodes are hard-confined to their own depth-ring
-# annulus and chaotically jitter within it, camera glides to the selected
-# node's ring) and variant A ("rings" -- mindmap_rings.py's static
-# concentric-ring layout, camera glides to node instead, nodes never
-# move). Every rings-mode branch below is additive/guarded so the physics
-# path (and its own concurrent edits elsewhere in this file) is untouched
-# when the env var is unset or "physics".
-MINDMAP_LAYOUT = os.environ.get("PERIHELION_MINDMAP_LAYOUT", "physics")
 
 # ---------------------------------------------------------------------------
 # official designations (director-directed). CUCULUS is the seed pods'
@@ -58,8 +45,7 @@ MINDMAP_LAYOUT = os.environ.get("PERIHELION_MINDMAP_LAYOUT", "physics")
 # constant by directive so any restyling stays a one-line change.
 POD_UNIT_NAME = "CUCULUS"
 MIND_TAB_LABEL = "ENCARTA"   # director-confirmed final tab label
-CAM_GLIDE_DUR = 0.6     # camera glide duration (seconds), both layout modes
-NODE_GROW_DUR = 0.6     # rings-mode node grow/fade-in duration (seconds)
+CAM_GLIDE_DUR = 0.6     # camera glide duration (seconds)
 
 # ---------------------------------------------------------------------------
 # palette (TESTATOR_DESIGN_LANGUAGE.md): bone for the memorial elements,
@@ -222,23 +208,12 @@ class PodScene(Scene):
         self.flash = 0.0  # >0 bought, <0 refused
         self._hero_cache: dict[str, "pygame.Surface | None"] = {}
         # mind
-        self._layout_mode = MINDMAP_LAYOUT
-        if self._layout_mode == "rings":
-            self.layout = mindmap_rings.positions()
-            self._labels = mindmap_rings.ring_labels(layout=mindmap_rings.ring_layout())
-            self._label_offset = {nid: (info["center"][0] - self.layout[nid][0],
-                                        info["center"][1] - self.layout[nid][1])
-                                  for nid, info in self._labels.items()}
-        else:
-            self.layout = mindmap.layout()
-            # physics mode has NO baked global label layout any more
-            # (director's round-2 clarification: the camera is LOCAL --
-            # labels are placed per-frame around the camera by
-            # mindmap.local_label_layout, LOD-faded with distance, and
-            # dropped -- never exiled -- when they cannot sit adjacent)
-            self._labels = {}
-            self._label_offset = {}
-            self._frame_labels: dict[str, dict] = {}
+        self.layout = mindmap.layout()
+        # NO baked global label layout (director's round-2 clarification:
+        # the camera is LOCAL -- labels are placed per-frame around the
+        # camera by mindmap.local_label_layout, LOD-faded with distance,
+        # and dropped -- never exiled -- when they cannot sit adjacent)
+        self._frame_labels: dict[str, dict] = {}
         self.sel: str | None = None
         self.reveal: dict | None = None
         self._overlay: "pygame.Surface | None" = None
@@ -252,21 +227,15 @@ class PodScene(Scene):
         # so the graph's chaotic-within-bands jitter is always the real
         # physics settling, not a canned animation. Suspended (positions
         # held at rest) whenever a baked settle or the reveal animation owns
-        # the camera -- see _node_pos()/update(). Unused in rings mode
-        # (nodes never move -- see `_cam`/`_grow_t0` instead).
+        # the camera -- see _node_pos()/update().
         self._phys_state = mindmap.live_rest_state()
         self._phys_accum = 0.0
         # the camera (director-directed: selection moves the CAMERA to
-        # frame the selected node's ring, never the node itself -- this
-        # used to be rings-mode-only machinery; physics mode now shares it
-        # instead of writing a second glide, see mindmap.camera_glide) and
-        # the per-node reveal-grow timestamps (rings mode only: new nodes
-        # fade/grow in AT their static position instead of a baked settle
-        # trajectory -- see `_finish_reveal`/`_draw_node`).
+        # frame the selected node's ring, never the node itself -- see
+        # mindmap.camera_glide).
         cam0 = self.layout.get(self.sel, (0.0, 0.0))
         self._cam = {"from": cam0, "to": cam0, "t0": 0.0, "dur": 0.0}
         self._cam_sel: str | None = None
-        self._grow_t0: dict[str, float] = {}
         # (subset, t_end): labels for these nodes stay hidden until t_end,
         # then fade in over _LABEL_FADE_IN -- set by a subset settle
         self._label_fade: tuple[set[str], float] | None = None
@@ -276,13 +245,13 @@ class PodScene(Scene):
     def on_enter(self, app) -> None:
         self.session.pod_heal()  # entering the pod heals (design brief)
         self._ensure_selection()
-        # both layout modes: open with the camera ALREADY centered on the
-        # selection (a 0-duration glide) instead of animating in from the
-        # world origin -- only a later selection CHANGE glides.
+        # open with the camera ALREADY centered on the selection (a
+        # 0-duration glide) instead of animating in from the world origin
+        # -- only a later selection CHANGE glides.
         p = self.layout.get(self.sel, (0.0, 0.0))
         self._cam = {"from": p, "to": p, "t0": self.t, "dur": 0.0}
         self._cam_sel = self.sel
-        if self._layout_mode != "rings" and self.page == "mind":
+        if self.page == "mind":
             self._start_settle()
         if self.session.think_done and self.reveal is None:
             self.page = "mind"
@@ -309,11 +278,6 @@ class PodScene(Scene):
             self._label_fade = (set(subset), self.t + _SETTLE_DUR)
 
     def _node_pos(self, nid: str) -> tuple[float, float]:
-        if self._layout_mode == "rings":
-            # rings mode: nodes NEVER move at rest -- the static layout
-            # position is always exactly right, every frame. Selection is
-            # expressed by the CAMERA moving (see _to_screen), not the node.
-            return self.layout.get(nid, (0.0, 0.0))
         s = self._settle
         if s is not None and (s["subset"] is None or nid in s["subset"]):
             frames = s["frames"]
@@ -356,8 +320,6 @@ class PodScene(Scene):
     # ------------------------------------------------------------------
 
     def _update_physics(self, dt: float) -> None:
-        if self._layout_mode == "rings":
-            return  # rings mode has no live physics -- see _cam instead
         if self._settle is not None or self.reveal is not None:
             # reveal/settle precedence: park the physics at a fresh rest
             # state (asleep=False, quiet=0 -- re-verified, not assumed) so
@@ -410,43 +372,12 @@ class PodScene(Scene):
         self.sel = next(iter(sorted(vis)), None)
 
     def _cam_pos(self) -> tuple[float, float]:
-        """The camera's current position (world space for rings mode,
-        unit space for physics mode) via `mindmap.camera_glide` (pure
-        function, tested independent of pygame -- see
-        test_mindmap_layout.py/test_mindmap_rings.py). Shared by both
-        layout variants: selection glides the camera to the selected
-        node/its ring in both, not just rings mode."""
+        """The camera's current position (unit space) via
+        `mindmap.camera_glide` (pure function, tested independent of
+        pygame -- see test_mindmap_layout.py): selection glides the
+        camera to the selected node's ring."""
         c = self._cam
         return mindmap.camera_glide(self.t, c["t0"], c["dur"], c["from"], c["to"])
-
-    def _to_screen_rings(self, surf, x: float, y: float) -> tuple[int, int]:
-        """rings mode's view transform: the CAMERA glides to the selected
-        node (director's brief, verbatim) -- nodes never move, so unlike
-        the physics variant's `_to_screen` there is no per-node position
-        math here, only where the world sits under the screen center.
-        Resolution-independent the same way the physics transform is
-        (scaled by actual surf width against the reference frame
-        mindmap.py's px constants are authored against)."""
-        w, h = surf.get_size()
-        scale = w / mindmap.CANVAS_W
-        zoom = 1.0
-        r = self.reveal
-        if r is not None:
-            u = min(1.0, r["t"] / REVEAL_GLIDE)
-            u = u * u * (3 - 2 * u)
-            if r["kind"] == "corrupt" and r["t"] > REVEAL_GLIDE:
-                v = r["t"] - REVEAL_GLIDE
-                u += math.exp(-2.2 * v) * math.sin(9.0 * v) * 0.10
-            zoom = 1.0 + 0.9 * u
-        sx = sy = scale * zoom
-        cam_x, cam_y = self._cam_pos()
-        px = w * 0.5 + (x - cam_x) * sx
-        py = h * 0.46 + (y - cam_y) * sy
-        if r is not None and r["kind"] == "corrupt" and REVEAL_GLIDE < r["t"] < REVEAL_UNFURL:
-            amp = ui(2) * math.exp(-(r["t"] - REVEAL_GLIDE))
-            px += math.sin(r["t"] * 37.0) * amp
-            py += math.cos(r["t"] * 41.0) * amp
-        return int(px), int(py)
 
     def _zoom(self) -> float:
         """The physics-mode camera's current magnification: LOCAL_ZOOM at
@@ -469,8 +400,6 @@ class PodScene(Scene):
         return z
 
     def _to_screen(self, surf, x: float, y: float) -> tuple[int, int]:
-        if self._layout_mode == "rings":
-            return self._to_screen_rings(surf, x, y)
         w, h = surf.get_size()
         # single source of truth with mindmap.py's canonical canvas (the
         # local-label PBT proves geometry against these same fractions).
@@ -622,14 +551,6 @@ class PodScene(Scene):
             self._ducked = False
         if self.session.think_done:  # a queue of thoughts: next reveal
             self._start_reveal(app)
-        elif self._layout_mode == "rings":
-            self._ensure_selection()
-            # rings mode: new nodes are ALREADY at their static ring
-            # position (never moved -- there is no neighborhood to make
-            # room for); they just grow/fade in there, tracked by when
-            # each one first became visible (_draw_node reads this).
-            for nid in r["new"]:
-                self._grow_t0[nid] = self.t
         else:
             self._ensure_selection()
             # the newly revealed neighborhood relaxes live to make room:
@@ -1035,27 +956,16 @@ class PodScene(Scene):
         for region, info in mindmap.region_header_layout().items():
             if not any(tbl[nid]["region"] == region for nid in vis):
                 continue
-            if self._layout_mode == "rings":
-                # rings-mode world coords aren't unit-bounded: anchor just
-                # beyond the farthest visible node in this region instead
-                a = math.radians(mindmap._REGION_ANGLE_DEG.get(region, 0.0))
-                maxr = max(math.hypot(*self.layout[nid]) for nid in vis
-                           if tbl[nid]["region"] == region)
-                cxp, cyp = self._to_screen(surf, (maxr + ui(40)) * math.cos(a),
-                                           (maxr + ui(40)) * math.sin(a))
-            else:
-                ux, uy = info["center_unit"]
-                cxp, cyp = self._to_screen(surf, ux, uy)
-            alpha = 1.0
-            if self._layout_mode != "rings":
-                # local camera: headers obey the same LOD fade as labels,
-                # so a half-clipped sector name never lingers at a screen
-                # edge as stray letters -- territory names surface as the
-                # camera actually travels into their sector
-                alpha = mindmap.label_view_alpha(
-                    info["center_unit"], self._cam_pos(), self._zoom())
-                if alpha <= 0.0:
-                    continue
+            ux, uy = info["center_unit"]
+            cxp, cyp = self._to_screen(surf, ux, uy)
+            # local camera: headers obey the same LOD fade as labels, so a
+            # half-clipped sector name never lingers at a screen edge as
+            # stray letters -- territory names surface as the camera
+            # actually travels into their sector
+            alpha = mindmap.label_view_alpha(
+                info["center_unit"], self._cam_pos(), self._zoom())
+            if alpha <= 0.0:
+                continue
             wpx, _ = mindmap.region_header_size_px(info["label"])
             col = tuple(int(c * 0.60) for c in REGION_COLOR[region])
             if alpha < 1.0:
@@ -1081,7 +991,7 @@ class PodScene(Scene):
         # bands + edges live on one SRCALPHA underlay so both can whisper
         # (true alpha) instead of shouting solid lines across the map
         under = pygame.Surface((w, h), pygame.SRCALPHA)
-        if self._layout_mode != "rings" and r is None:
+        if r is None:
             self._draw_bands(under, surf)
 
         sel_edges: list[tuple[str, str]] = []
@@ -1104,17 +1014,16 @@ class PodScene(Scene):
 
         self._draw_region_headers(surf, vis)
 
-        # per-frame LOCAL label placement (physics mode): labels live only
-        # near the camera (LOD -- distant nodes are unlabeled points), sit
-        # adjacent to their nodes, and are dropped rather than exiled when
-        # they cannot fit. World-px placement is camera-PAN-invariant, so
+        # per-frame LOCAL label placement: labels live only near the
+        # camera (LOD -- distant nodes are unlabeled points), sit adjacent
+        # to their nodes, and are dropped rather than exiled when they
+        # cannot fit. World-px placement is camera-PAN-invariant, so
         # anchors hold steady through a glide; recomputed every frame
         # because node positions (settle/live jitter) and the zoom
         # (reveal) are themselves per-frame.
-        if self._layout_mode != "rings":
-            self._frame_labels = mindmap.local_label_layout(
-                {nid: self._node_pos(nid) for nid in vis},
-                self._cam_pos(), zoom=self._zoom(), sel=self.sel)
+        self._frame_labels = mindmap.local_label_layout(
+            {nid: self._node_pos(nid) for nid in vis},
+            self._cam_pos(), zoom=self._zoom(), sel=self.sel)
 
         # nodes
         for nid in sorted(vis):
@@ -1139,16 +1048,6 @@ class PodScene(Scene):
         nx, ny = self._node_pos(nid)
         x, y = self._to_screen(surf, nx, ny)
         rad = ui(6) + (ui(2) if not n["prereqs"] else 0)
-        # rings mode: reveal is a grow/fade IN PLACE (the node's position
-        # never moves -- see mindmap_rings.py's docstring) instead of the
-        # physics variant's baked settle trajectory. Finite duration,
-        # clamps to exactly 1.0 and stays there -- bitwise-static once done.
-        grow = 1.0
-        if self._layout_mode == "rings":
-            t0 = self._grow_t0.get(nid)
-            if t0 is not None:
-                grow = max(0.0, min(1.0, (self.t - t0) / NODE_GROW_DUR))
-                rad = max(1, int(rad * (0.15 + 0.85 * grow)))
         rcol = REGION_COLOR[n["region"]]
         owned = nid in s.mind
         queued = nid in s.think_done
@@ -1185,14 +1084,13 @@ class PodScene(Scene):
             for k in range(3):
                 a = a0 + k * 2 * math.pi / 3
                 pygame.draw.arc(surf, col, rect, a, a + 1.1, max(1, ui(1)))
-        # labels: physics mode places them per-frame around the LOCAL
-        # camera (mindmap.local_label_layout -- PBT-proven non-occluding
-        # and node-adjacent within the legibility radius; distant nodes
-        # are honest unlabeled points). Rings mode keeps its baked ring
-        # label geometry. During the reveal, non-focus labels dim to
-        # near-invisible during the glide/ignite (nothing legible sits on
-        # top of the animation art) and the revealing node draws no
-        # ordinary label at all (the animation IS its name-card).
+        # labels are placed per-frame around the LOCAL camera
+        # (mindmap.local_label_layout -- PBT-proven non-occluding and
+        # node-adjacent within the legibility radius; distant nodes are
+        # honest unlabeled points). During the reveal, non-focus labels
+        # dim to near-invisible during the glide/ignite (nothing legible
+        # sits on top of the animation art) and the revealing node draws
+        # no ordinary label at all (the animation IS its name-card).
         r = self.reveal
         if r is not None and nid == r["node"]:
             return
@@ -1211,32 +1109,20 @@ class PodScene(Scene):
             alpha = int(alpha * min(1.0, (self.t - fade[1]) / _LABEL_FADE_IN))
             if alpha <= 0:
                 return
-        if self._layout_mode == "rings" and grow < 1.0:
-            alpha = int(alpha * grow)
-            if alpha <= 0:
-                return
         k = self._mind_scale(surf)
-        if self._layout_mode == "rings":
-            off = self._label_offset.get(nid)
-            if off is None:
-                return
-            lx, ly = self._to_screen(surf, nx + off[0], ny + off[1])
-            info = self._labels.get(nid, {})
-            font_px = info.get("font_px", 16)
-        else:
-            info = self._frame_labels.get(nid)
-            if info is None:
-                return  # beyond the legibility radius, or dropped: a dot
-            alpha = int(alpha * info["alpha"])
-            if alpha <= 0:
-                return
-            # "off" is world px == canonical-canvas screen px: scale by k
-            # only (zoom is already inside the world-px frame), anchored
-            # on the node's own screen position so the label rides every
-            # camera/zoom move rigidly with its node
-            lx = x + int(round(info["off"][0] * k))
-            ly = y + int(round(info["off"][1] * k))
-            font_px = 16
+        info = self._frame_labels.get(nid)
+        if info is None:
+            return  # beyond the legibility radius, or dropped: a dot
+        alpha = int(alpha * info["alpha"])
+        if alpha <= 0:
+            return
+        # "off" is world px == canonical-canvas screen px: scale by k only
+        # (zoom is already inside the world-px frame), anchored on the
+        # node's own screen position so the label rides every camera/zoom
+        # move rigidly with its node
+        lx = x + int(round(info["off"][0] * k))
+        ly = y + int(round(info["off"][1] * k))
+        font_px = 16
         col = BONE if nid == self.sel else (GOLD if queued else (
             132, 140, 136) if not owned else tuple(min(255, c + 40) for c in rcol))
         # rendered at the exact target size (Plex Sans stays crisp at any
@@ -1246,14 +1132,6 @@ class PodScene(Scene):
         if alpha < 255:
             img = img.copy()
             img.set_alpha(alpha)
-        if self._layout_mode == "rings" and info.get("leader") and r is None:
-            # an escalated label (leader-line placement, per the layout's
-            # own escalation ladder): a thin tick from the node's rim to
-            # the nearest point on the label's box, not its center -- the
-            # old center-anchored line ran under the glyphs themselves
-            tx = max(lx - img.get_width() / 2, min(float(x), lx + img.get_width() / 2))
-            ty = max(ly - img.get_height() / 2, min(float(y), ly + img.get_height() / 2))
-            pygame.draw.line(surf, (92, 104, 96), (x, y + rad), (int(tx), int(ty)), 1)
         surf.blit(img, (lx - img.get_width() // 2, ly - img.get_height() // 2))
 
     def _draw_detail(self, surf) -> None:

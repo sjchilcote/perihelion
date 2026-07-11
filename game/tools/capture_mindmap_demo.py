@@ -40,7 +40,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import pygame  # noqa: E402
 
-from perihelion import mindmap, podscene  # noqa: E402
+from perihelion import mindmap  # noqa: E402
 from perihelion.levels import LevelBuilder  # noqa: E402
 from perihelion.podscene import PodScene  # noqa: E402
 from perihelion.render import INTERNAL_H, INTERNAL_W, ui  # noqa: E402
@@ -78,7 +78,6 @@ def _level():
 
 
 def main() -> None:
-    podscene.MINDMAP_LAYOUT = "physics"
     pygame.init()
     pygame.display.set_mode((INTERNAL_W, INTERNAL_H))
     surf = pygame.Surface((INTERNAL_W, INTERNAL_H))

@@ -1415,19 +1415,16 @@ def relax(seed: dict[str, tuple[float, float]],
 
 
 # ---------------------------------------------------------------------------
-# camera glide (promoted here from mindmap_rings.py, its original home, so
-# BOTH mind-map layout variants can share it: podscene's physics mode now
-# also expresses selection by gliding the CAMERA to the selected node --
-# director's hybridization, superseding the old "yank node to center" pin
-# -- rather than writing a second glide function. A pure function of (t,
+# camera glide: podscene's physics mode expresses selection by gliding
+# the CAMERA to the selected node -- director's hybridization,
+# superseding the old "yank node to center" pin. A pure function of (t,
 # t0, dur, endpoints) -- no wall-clock, no pygame -- so both podscene.py
-# and the test suites drive the exact same math. Smoothstep easing gives
+# and the test suite drive the exact same math. Smoothstep easing gives
 # the "critically damped" FEEL (ease in, ease out, no ringing) while
 # guaranteeing an EXACT finite-time arrival (u clamps to 1.0 and the
 # result becomes bitwise `p_to` from then on) -- a literal damped-spring
 # ODE integration only approaches its target asymptotically and would
-# never satisfy "then bitwise-static frames". mindmap_rings.py re-exports
-# this name for backward compatibility.
+# never satisfy "then bitwise-static frames".
 # ---------------------------------------------------------------------------
 
 def camera_glide(t: float, t0: float, dur: float,
