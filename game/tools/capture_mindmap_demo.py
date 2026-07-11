@@ -19,6 +19,11 @@ import sys
 
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
+# native 720p internal res: the MIND page's typography (IBM Plex Sans,
+# rendered at exact pt sizes) is resolution-crisp, so capture at the
+# output resolution instead of smoothscaling a 640x360 frame up (which
+# would blur exactly the text this demo exists to judge).
+os.environ.setdefault("PERIHELION_INTERNAL_RES", "1280x720")
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
@@ -101,7 +106,8 @@ def main() -> None:
         for _ in range(n):
             sc.update(app, 1 / FPS)
             sc.draw(app, surf)
-            frame = pygame.transform.smoothscale(surf, (OUT_W, OUT_H))
+            frame = surf if surf.get_size() == (OUT_W, OUT_H) else \
+                pygame.transform.smoothscale(surf, (OUT_W, OUT_H))
             ffmpeg.stdin.write(pygame.image.tobytes(frame, "RGB"))
             tail_raw.append(surf.copy())
             if len(tail_raw) > TAIL_FRAMES:
@@ -157,7 +163,8 @@ def main() -> None:
     while sc.rite is not None:
         sc.update(app, 1 / FPS)
         sc.draw(app, surf)
-        frame = pygame.transform.smoothscale(surf, (OUT_W, OUT_H))
+        frame = surf if surf.get_size() == (OUT_W, OUT_H) else \
+            pygame.transform.smoothscale(surf, (OUT_W, OUT_H))
         ffmpeg.stdin.write(pygame.image.tobytes(frame, "RGB"))
 
     # 5. hold through the newly-revealed neighborhood's local settle, and

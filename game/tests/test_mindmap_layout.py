@@ -436,7 +436,15 @@ def test_real_mindmap_crossings():
     pos, _ = mindmap.relax(seed, graph)
     seed_c = mindmap.count_crossings(seed, graph)
     relaxed_c = mindmap.count_crossings(pos, graph)
-    assert seed_c == 11, seed_c
+    # re-measured 2026-07-11 (director's band-freedom pass): the seed now
+    # scatters radii within each depth band (crc32 fraction, see
+    # seed_layout), which changed the seed's own tangle from 11 to 9 --
+    # and the strengthened uncrossing terms (24/900/22, see _CROSS_K's
+    # comment) hold the settle to 5, a real 9 -> 5 reduction with genuine
+    # settle motion (the earlier 5/400/16 constants ended WORSE than the
+    # new seed and silently fell back to it: zero settle animation, which
+    # test_real_mindmap_trajectory_reaches_final_frame now guards).
+    assert seed_c == 9, seed_c
     assert relaxed_c <= 5, relaxed_c
     assert relaxed_c <= seed_c
 
@@ -471,6 +479,78 @@ def test_relax_respects_depth_annulus(graph):
 
 def test_real_mindmap_relax_respects_annulus():
     _within_own_band(mindmap.layout())
+
+
+# ---------------------------------------------------------------------------
+# band FREEDOM (director, verbatim: "I envisioned them as bands they're
+# contained within but free to move within them" -- not "vertices locked
+# to the circles"). Two claims: (a) no rest position ever sits ON a band
+# boundary (the hard clamp is inset by BAND_CLAMP_INSET_FRAC of the
+# shoulder margin, so this holds by construction, PBT'd over the full
+# graph space); (b) the real map's rest layout shows genuine radial
+# VARIANCE within bands -- a bead-necklace layout (all nodes at one
+# radius per ring) would fail the spread floor outright.
+# ---------------------------------------------------------------------------
+
+def _band_interior_bounds(nid_bands):
+    lo, hi = nid_bands
+    inset = (hi - lo) * mindmap.BAND_MARGIN_FRAC * mindmap.BAND_CLAMP_INSET_FRAC
+    return lo + inset, hi - inset
+
+
+@given(graph=mindmap_graph())
+def test_rest_never_rides_band_boundary(graph):
+    pos, _ = mindmap.relax(mindmap.seed_layout(graph), graph)
+    bands = mindmap.node_bands(graph)
+    for nid, (x, y) in pos.items():
+        lo_i, hi_i = _band_interior_bounds(bands[nid])
+        r = math.hypot(x, y)
+        assert lo_i - 1e-6 <= r <= hi_i + 1e-6, (nid, r, lo_i, hi_i)
+
+
+def test_live_sleep_never_rides_band_boundary():
+    st = mindmap.live_rest_state()
+    for _ in range(mindmap._LIVE_SETTLE_BOUND_TICKS):
+        st = mindmap.live_relax_step(st)
+        if st.asleep:
+            break
+    else:
+        raise AssertionError("never reached bitwise rest")
+    bands = mindmap.node_bands()
+    for nid, (x, y) in st.pos.items():
+        lo_i, hi_i = _band_interior_bounds(bands[nid])
+        r = math.hypot(x, y)
+        assert lo_i - 1e-6 <= r <= hi_i + 1e-6, (nid, r, lo_i, hi_i)
+
+
+def test_real_mindmap_radial_variance_within_bands():
+    """The anti-necklace floor, measured on the real map at the shipped
+    constants (2026-07-11): per-node position-within-band fractions span
+    0.07..0.93 with population sd ~0.24. A layout that snapped nodes back
+    onto ring centerlines (sd ~0) or onto the boundaries (all fracs at
+    0/1, sd high but spread degenerate) fails one of these."""
+    lay = mindmap.layout()
+    bands = mindmap.node_bands()
+    fracs = []
+    for nid, (x, y) in lay.items():
+        lo, hi = bands[nid]
+        fracs.append((math.hypot(x, y) - lo) / (hi - lo))
+    assert all(0.05 <= f <= 0.95 for f in fracs), (min(fracs), max(fracs))
+    mean = sum(fracs) / len(fracs)
+    sd = (sum((f - mean) ** 2 for f in fracs) / len(fracs)) ** 0.5
+    assert sd >= 0.15, sd
+
+
+def test_real_mindmap_labels_avoid_region_headers():
+    """Region headers are part of the map: label_layout reserves their
+    rects (the same region_header_layout() podscene draws from), so no
+    node label may intersect any header box."""
+    graph = mindmap.nodes()
+    pos, labels = _compute(graph)
+    headers = mindmap.region_header_layout(graph)
+    for nid, info in labels.items():
+        for region, h in headers.items():
+            assert not _rects_overlap(info["box"], h["box"]), (nid, region)
 
 
 def test_live_rest_respects_annulus_at_sleep():

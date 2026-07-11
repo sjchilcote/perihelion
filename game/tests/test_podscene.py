@@ -253,6 +253,49 @@ def test_node_never_leaves_its_band_while_selected(_physics_mode):
             assert lo - 1e-6 <= r <= hi + 1e-6, (nid, r, lo, hi)
 
 
+def test_label_renders_fit_canonical_boxes(surf):
+    """The bridge between mindmap.py's pygame-free label geometry (the
+    measured Plex advance table) and the ACTUAL renderer: every real-map
+    label, rendered exactly the way podscene renders it (same face, same
+    pt formula), must fit inside its canonical layout box scaled to the
+    surface -- at the default internal width and at 2x (1280) -- otherwise
+    the non-occlusion proof would be about boxes the renderer ignores.
+    1px slack per axis for integer rounding of the blit rect."""
+    from perihelion.podscene import _label_img, label_pt
+    lay = mindmap.layout()
+    labels = mindmap.label_layout(lay)
+    tbl = mindmap.nodes()
+    for k in (1.0, 2.0):  # 640-wide and 1280-wide surfaces
+        for nid, info in labels.items():
+            l, t, r, b = info["box"]
+            font_px = info["font_px"]
+            img = _label_img(tbl[nid]["label"], label_pt(font_px, k),
+                             (200, 200, 200))
+            assert img.get_width() <= (r - l) * k + 1.0, (
+                nid, k, img.get_width(), (r - l) * k)
+            assert img.get_height() <= (b - t) * k + 1.0, (
+                nid, k, img.get_height(), (b - t) * k)
+
+
+def test_region_headers_render_at_reserved_width(surf):
+    """The header draw (per-char, letterspaced) must stay inside the
+    width region_header_size_px reserved for it -- sum the same advances
+    the draw steps by and compare against a real render of each glyph."""
+    from perihelion.podscene import _label_img
+    for region, info in mindmap.region_header_layout().items():
+        label = info["label"]
+        w_reserved, h_reserved = mindmap.region_header_size_px(label)
+        scale = mindmap.HEADER_CELL_PX / mindmap.LABEL_H_PX
+        pt = mindmap.LABEL_FONT_PT * scale
+        x = 0.0
+        max_right = 0.0
+        for ch in label:
+            img = _label_img(ch, pt, (200, 200, 200), "medium")
+            max_right = max(max_right, x + img.get_width())
+            x += mindmap.text_width_px(ch, "medium") * scale + mindmap.HEADER_TRACK_PX
+        assert max_right <= w_reserved + 1.0, (region, max_right, w_reserved)
+
+
 def test_camera_suspended_during_rite(_physics_mode):
     sc, s, app = _scene(think_done=["vocation-just-war"])
     sc.on_enter(app)

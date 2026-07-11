@@ -79,6 +79,68 @@ REGION_COLOR = {
 
 HERO_DIR = Path(__file__).resolve().parent / "assets" / "hero"
 
+# ---------------------------------------------------------------------------
+# the mind map's typeface (director-directed): Fixedsys Excelsior is the
+# terminal/HUD voice and scales badly; the MIND page -- the Commando's
+# inner space -- speaks a minimalistic sans-serif instead (IBM Plex Sans,
+# OFL, bundled in assets/fonts/ with its license). Canonical label
+# geometry lives in mindmap.py (measured advance table); this is just the
+# rendering side, scaled by the actual surface width against
+# mindmap.CANVAS_W so labels stay crisp at ANY internal resolution
+# (rendered at the exact target pt, never smoothscaled bitmap mush).
+# ---------------------------------------------------------------------------
+
+_MIND_FONT_DIR = Path(__file__).resolve().parent / "assets" / "fonts"
+_MIND_FONT_FILES = {"regular": "IBMPlexSans-Regular.ttf",
+                    "medium": "IBMPlexSans-Medium.ttf",
+                    "semibold": "IBMPlexSans-SemiBold.ttf"}
+_MIND_FONT_CACHE: dict[tuple[str, int], "pygame.font.Font"] = {}
+
+
+def mind_font(pt: float, face: str = "regular") -> "pygame.font.Font":
+    pt_i = max(5, int(round(pt)))
+    key = (face, pt_i)
+    f = _MIND_FONT_CACHE.get(key)
+    if f is None:
+        if not pygame.font.get_init():
+            pygame.font.init()
+        path = _MIND_FONT_DIR / _MIND_FONT_FILES[face]
+        if path.exists():
+            f = pygame.font.Font(str(path), pt_i)
+        else:  # guaranteed-present fallback chain, never a silent default
+            fb = (pygame.font.match_font("ibmplexsans")
+                  or pygame.font.match_font("dejavusans"))
+            f = pygame.font.Font(fb, pt_i) if fb else pygame.font.Font(None, pt_i)
+        _MIND_FONT_CACHE[key] = f
+    return f
+
+
+def label_pt(font_px: float, k: float) -> int:
+    """The pt size a node label with canonical cell `font_px` renders at
+    on a surface scaled `k` from the canonical canvas. FLOORED, not
+    rounded: rounding up can render ~11% wider than the canonical box
+    (measured, pt 6.75 -> 7), while flooring keeps the worst real-map
+    overshoot under 3% -- absorbed by label_size_px's width slack."""
+    return max(5, int(math.floor(mindmap.LABEL_FONT_PT
+                                 * (font_px / mindmap.LABEL_H_PX) * k)))
+
+
+_LABEL_IMG_CACHE: dict[tuple, "pygame.Surface"] = {}
+
+
+def _label_img(text: str, pt: float, color: tuple,
+               face: str = "regular") -> "pygame.Surface":
+    """Cached antialiased text render (the mind map re-draws every label
+    every frame; the text/size/color set is tiny and stable)."""
+    key = (text, max(5, int(round(pt))), color, face)
+    img = _LABEL_IMG_CACHE.get(key)
+    if img is None:
+        img = mind_font(pt, face).render(text, True, color)
+        if len(_LABEL_IMG_CACHE) > 4096:  # safety valve, never in practice
+            _LABEL_IMG_CACHE.clear()
+        _LABEL_IMG_CACHE[key] = img
+    return img
+
 # one line of register per fabricator item, for the hero panel
 ITEM_DESC = {
     "chassis": "A hull racked in advance. Dying prints you at the "
@@ -120,6 +182,7 @@ def _node_rng(node_id: str, salt: str = "") -> Random:
 
 _SETTLE_TAIL_FRAMES = 14
 _SETTLE_DUR = 0.7  # seconds
+_LABEL_FADE_IN = 0.35  # seconds: subset-settle labels fade in after rest
 
 _traj_cache: list[dict[str, tuple[float, float]]] | None = None
 
@@ -208,6 +271,9 @@ class PodScene(Scene):
         self._cam = {"from": cam0, "to": cam0, "t0": 0.0, "dur": 0.0}
         self._cam_sel: str | None = None
         self._reveal: dict[str, float] = {}
+        # (subset, t_end): labels for these nodes stay hidden until t_end,
+        # then fade in over _LABEL_FADE_IN -- set by a subset settle
+        self._label_fade: tuple[set[str], float] | None = None
 
     # ------------------------------------------------------------------
 
@@ -239,6 +305,12 @@ class PodScene(Scene):
             return
         tail = traj[-_SETTLE_TAIL_FRAMES:] if len(traj) > _SETTLE_TAIL_FRAMES else traj
         self._settle = dict(frames=tail, t0=self.t, dur=_SETTLE_DUR, subset=subset)
+        if subset:
+            # labels of the settling neighborhood hold their tongue until
+            # the motion stops, then fade in (a moving node under a
+            # static-box label reads as the label colliding with the map;
+            # the box non-occlusion proof only holds at rest)
+            self._label_fade = (set(subset), self.t + _SETTLE_DUR)
 
     def _node_pos(self, nid: str) -> tuple[float, float]:
         if self._layout_mode == "rings":
@@ -384,8 +456,11 @@ class PodScene(Scene):
         if self._layout_mode == "rings":
             return self._to_screen_rings(surf, x, y)
         w, h = surf.get_size()
-        sx, sy = w * 0.40, h * 0.365  # elliptical: the screen is wide
-        cx, cy = w * 0.5, h * 0.46
+        # single source of truth with mindmap.py's canonical canvas (the
+        # label-layout PBT proves geometry against these same fractions)
+        sx = w * mindmap.SX_FRAC   # elliptical: the screen is wide
+        sy = h * mindmap.SY_FRAC
+        cx, cy = w * mindmap.CX_FRAC, h * mindmap.CY_FRAC
         if self.rite is not None:
             r = self.rite
             u = min(1.0, r["t"] / RITE_GLIDE)
@@ -398,8 +473,8 @@ class PodScene(Scene):
             z = 1.0 + 0.9 * u
             sx, sy = sx * z, sy * z
             # glide the view center onto the node (node -> screen center)
-            cx = w * 0.5 - nx * sx * u
-            cy = h * 0.46 - ny * sy * u
+            cx = w * mindmap.CX_FRAC - nx * sx * u
+            cy = h * mindmap.CY_FRAC - ny * sy * u
             if r["kind"] == "corrupt" and RITE_GLIDE < r["t"] < RITE_UNFURL:
                 amp = ui(2) * math.exp(-(r["t"] - RITE_GLIDE))
                 cx += math.sin(r["t"] * 37.0) * amp
@@ -561,6 +636,8 @@ class PodScene(Scene):
             self.flash = min(0.0, self.flash + dt)
         if self._settle is not None and self.t - self._settle["t0"] >= self._settle["dur"]:
             self._settle = None
+        if self._label_fade is not None and self.t >= self._label_fade[1] + _LABEL_FADE_IN:
+            self._label_fade = None
         self._update_physics(dt)
         if self.sel != self._cam_sel and self.rite is None and self._settle is None:
             # selection changed (anywhere -- nav, rite start, fog lifting):
@@ -663,9 +740,9 @@ class PodScene(Scene):
         if self.rite is not None:
             hint = "" if self.rite["t"] < RITE_IGNITE else "any key: conclude the rite"
         elif self.page == "fabricator":
-            hint = "W/S: select    ENTER: fabricate    TAB: mind    ESC/E: seal the pod"
+            hint = "W/S: select   ENTER: fabricate   TAB: mind   ESC: seal the pod"
         else:
-            hint = "arrows: walk the map    ENTER: think about it    TAB: fabricator    ESC/E: seal the pod"
+            hint = "arrows: walk   ENTER: think   TAB: fabricator   ESC: seal the pod"
         if hint:
             img = get_font(10).render(hint, True, (110, 120, 115))
             surf.blit(img, (w // 2 - img.get_width() // 2, h - ui(14)))
@@ -859,6 +936,99 @@ class PodScene(Scene):
     # MIND page
     # ------------------------------------------------------------------
 
+    def _mind_scale(self, surf) -> float:
+        """Canvas -> surface scale for the MIND page's own typography and
+        margins (mindmap.py's canonical 640x360 canvas is the reference;
+        the aspect ratio is fixed, so one factor serves both axes)."""
+        return surf.get_width() / mindmap.CANVAS_W
+
+    def _map_clip(self, surf) -> "pygame.Rect":
+        """The strip the map may draw into: below the tab header, above
+        the detail panel/footer -- the same margins label_layout reserves
+        (mindmap.HEADER_MARGIN_PX / FOOTER_MARGIN_PX), so even mid-glide
+        or mid-rite nothing ever bleeds onto chrome."""
+        w, h = surf.get_size()
+        ky = h / mindmap.CANVAS_H
+        top = int(round(mindmap.HEADER_MARGIN_PX * ky))
+        bot = h - int(round(mindmap.FOOTER_MARGIN_PX * ky))
+        return pygame.Rect(0, top, w, max(1, bot - top))
+
+    def _draw_bands(self, under, surf) -> None:
+        """The depth-annulus bands themselves (director: nodes live IN
+        bands, so the player must see bands, not bare circles): alternate
+        depths get a whisper of fill, the selected node's own band gets a
+        touch more, and every boundary keeps a thin stroke. All radii come
+        from the SAME depth_bands()/ring_boundary_radii() the containment
+        clamps to -- what is drawn IS the constraint."""
+        maxd = max(mindmap.depths().values())
+        bands = mindmap.depth_bands(maxd)
+        ccx, ccy = self._to_screen(surf, 0.0, 0.0)
+        sel_d = mindmap.depths().get(self.sel, -1)
+
+        def radii(rr: float) -> tuple[int, int]:
+            ex, _ = self._to_screen(surf, rr, 0.0)
+            _, ey = self._to_screen(surf, 0.0, rr)
+            return abs(ex - ccx), abs(ey - ccy)
+
+        for d in range(maxd, -1, -1):
+            alpha = 13 if d % 2 else 0
+            if d == sel_d:
+                alpha += 10
+            if alpha <= 0:
+                continue
+            lo, hi = bands[d]
+            rxo, ryo = radii(hi)
+            rxi, ryi = radii(lo)
+            if rxo <= 1 or ryo <= 1:
+                continue
+            pygame.draw.ellipse(under, (104, 138, 118, alpha),
+                                (ccx - rxo, ccy - ryo, 2 * rxo, 2 * ryo))
+            if lo > 0 and rxi > 1 and ryi > 1:
+                # punch the interior back to transparent (pygame.draw
+                # writes raw RGBA on SRCALPHA surfaces -- no blending)
+                pygame.draw.ellipse(under, (0, 0, 0, 0),
+                                    (ccx - rxi, ccy - ryi, 2 * rxi, 2 * ryi))
+        for rr in mindmap.ring_boundary_radii(maxd):
+            rx, ry = radii(rr)
+            if rx > 1 and ry > 1:
+                pygame.draw.ellipse(under, (86, 108, 96, 34),
+                                    (ccx - rx, ccy - ry, 2 * rx, 2 * ry),
+                                    max(1, ui(1)))
+
+    def _draw_region_headers(self, surf, vis: set[str]) -> None:
+        """Sector names, letterspaced Plex Medium in the region's own hue,
+        dimmed -- placed by mindmap.region_header_layout() (the SAME rects
+        label_layout reserves, so node labels never sit on them) and moved
+        rigidly with the map by _to_screen (no screen clamping: if the
+        camera glides a header off-strip, the clip simply crops it)."""
+        k = self._mind_scale(surf)
+        tbl = mindmap.nodes()
+        scale = mindmap.HEADER_CELL_PX / mindmap.LABEL_H_PX
+        pt = mindmap.LABEL_FONT_PT * scale * k
+        for region, info in mindmap.region_header_layout().items():
+            if not any(tbl[nid]["region"] == region for nid in vis):
+                continue
+            if self._layout_mode == "rings":
+                # rings-mode world coords aren't unit-bounded: anchor just
+                # beyond the farthest visible node in this region instead
+                a = math.radians(mindmap._REGION_ANGLE_DEG.get(region, 0.0))
+                maxr = max(math.hypot(*self.layout[nid]) for nid in vis
+                           if tbl[nid]["region"] == region)
+                cxp, cyp = self._to_screen(surf, (maxr + ui(40)) * math.cos(a),
+                                           (maxr + ui(40)) * math.sin(a))
+            else:
+                ux, uy = info["center_unit"]
+                cxp, cyp = self._to_screen(surf, ux, uy)
+            wpx, _ = mindmap.region_header_size_px(info["label"])
+            col = tuple(int(c * 0.60) for c in REGION_COLOR[region])
+            x = cxp - wpx * k / 2.0 + 3.0 * k  # optical center in the
+            # reserved box (whose width carries a 6px ink-overhang pad)
+            for ch in info["label"]:
+                img = _label_img(ch, pt, col, "medium")
+                surf.blit(img, (int(x), int(cyp - img.get_height() / 2)))
+                x += (mindmap.text_width_px(ch, "medium") * scale
+                      + mindmap.HEADER_TRACK_PX) * k
+
     def _draw_mind(self, surf) -> None:
         w, h = surf.get_size()
         s = self.session
@@ -866,56 +1036,34 @@ class PodScene(Scene):
         over = self._ensure_overlay((w, h))
         r = self.rite
 
-        # depth-ring boundaries (director's hybridization: "nodes can't
-        # cross the concentric ring boundaries" -- physics mode only,
-        # drawn from the SAME radii mindmap.py's annulus containment
-        # clamps every node to, single source of truth via
-        # ring_boundary_radii()). Drawn first so every node/edge/label
-        # sits above them.
+        prev_clip = surf.get_clip()
+        surf.set_clip(self._map_clip(surf))
+
+        # bands + edges live on one SRCALPHA underlay so both can whisper
+        # (true alpha) instead of shouting solid lines across the map
+        under = pygame.Surface((w, h), pygame.SRCALPHA)
         if self._layout_mode != "rings" and r is None:
-            maxd = max(mindmap.depths().values())
-            ccx, ccy = self._to_screen(surf, 0.0, 0.0)
-            for rr in mindmap.ring_boundary_radii(maxd):
-                ex, _ = self._to_screen(surf, rr, 0.0)
-                _, ey = self._to_screen(surf, 0.0, rr)
-                rx, ry = abs(ex - ccx), abs(ey - ccy)
-                if rx > 1 and ry > 1:
-                    pygame.draw.ellipse(surf, (26, 32, 30),
-                                        (ccx - rx, ccy - ry, 2 * rx, 2 * ry),
-                                        max(1, ui(1)))
+            self._draw_bands(under, surf)
 
-        # region territory: each region names its own compass sector
-        for region in mindmap.REGION_ORDER:
-            region_vis = [nid for nid in vis if mindmap.nodes()[nid]["region"] == region]
-            if not region_vis:
-                continue
-            a = math.radians(mindmap._REGION_ANGLE_DEG[region])
-            if self._layout_mode == "rings":
-                # world coords aren't unit-bounded like the physics
-                # variant's -1..1 disc -- anchor just beyond the
-                # farthest currently-visible node in this region instead
-                # of a fixed unit-space radius.
-                maxr = max(math.hypot(*self.layout[nid]) for nid in region_vis)
-                lx, ly = self._to_screen(surf, (maxr + ui(40)) * math.cos(a),
-                                         (maxr + ui(40)) * math.sin(a))
-            else:
-                lx, ly = self._to_screen(surf, 1.16 * math.cos(a),
-                                         1.16 * math.sin(a))
-            img = get_font(10).render(mindmap.REGION_LABELS[region], True,
-                                      tuple(c // 2 for c in REGION_COLOR[region]))
-            w, h = surf.get_size()
-            bx = max(ui(4), min(w - img.get_width() - ui(4),
-                                lx - img.get_width() // 2))
-            by = max(ui(34), min(h - ui(96), ly - ui(6)))
-            surf.blit(img, (bx, by))
-
-        # edges
+        sel_edges: list[tuple[str, str]] = []
         for a, b in self._edges(vis):
+            if r is None and self.sel in (a, b):
+                sel_edges.append((a, b))
+                continue  # drawn after, brighter, over the rest
             ax, ay = self._to_screen(surf, *self._node_pos(a))
             bx, by = self._to_screen(surf, *self._node_pos(b))
             both = a in s.mind and b in s.mind
-            col = (70, 86, 78) if both else (44, 52, 50)
-            pygame.draw.line(surf, col, (ax, ay), (bx, by), max(1, ui(1)))
+            col = (112, 138, 122, 128) if both else (98, 110, 105, 76)
+            pygame.draw.line(under, col, (ax, ay), (bx, by), max(1, ui(1)))
+        for a, b in sel_edges:
+            # the selected node's own connections carry the emphasis
+            ax, ay = self._to_screen(surf, *self._node_pos(a))
+            bx, by = self._to_screen(surf, *self._node_pos(b))
+            pygame.draw.line(under, (*VERDIGRIS, 185), (ax, ay), (bx, by),
+                             max(1, ui(1)))
+        surf.blit(under, (0, 0))
+
+        self._draw_region_headers(surf, vis)
 
         # nodes
         for nid in sorted(vis):
@@ -929,6 +1077,7 @@ class PodScene(Scene):
             over.fill((0, 0, 0, dim))
             self._draw_rite(surf, over)
         surf.blit(over, (0, 0))
+        surf.set_clip(prev_clip)
 
         if r is None:
             self._draw_detail(surf)
@@ -1004,6 +1153,13 @@ class PodScene(Scene):
                 alpha = int(255 * min(1.0, (r["t"] - RITE_UNFURL) / 0.6))
             if alpha <= 0:
                 return
+        fade = self._label_fade
+        if fade is not None and nid in fade[0]:
+            if self.t < fade[1]:
+                return  # node still settling: no label over the motion
+            alpha = int(alpha * min(1.0, (self.t - fade[1]) / _LABEL_FADE_IN))
+            if alpha <= 0:
+                return
         if self._layout_mode == "rings" and grow < 1.0:
             alpha = int(alpha * grow)
             if alpha <= 0:
@@ -1016,18 +1172,32 @@ class PodScene(Scene):
         font_px = info.get("font_px", 16)
         col = BONE if nid == self.sel else (GOLD if queued else (
             132, 140, 136) if not owned else tuple(min(255, c + 40) for c in rcol))
-        img = get_font(9).render(n["label"], True, col)
-        if font_px < 16:
-            k = font_px / 16.0
-            img = pygame.transform.smoothscale(
-                img, (max(1, int(img.get_width() * k)), max(1, int(img.get_height() * k))))
+        # rendered at the exact target size (Plex Sans stays crisp at any
+        # pt; never bitmap-smoothscale mush), scaled with the surface so
+        # labels hold their screen fraction at any internal resolution
+        k = self._mind_scale(surf)
+        img = _label_img(n["label"], label_pt(font_px, k), col)
         if alpha < 255:
             img = img.copy()
             img.set_alpha(alpha)
+        if nid == self.sel and r is None and alpha == 255:
+            # the selected node's name-card: a whisper of backing plate,
+            # strictly inside the label's own proven-clear box, so the
+            # smallest label on screen still reads as the focused one
+            plate = pygame.Rect(lx - img.get_width() // 2 - ui(2),
+                                ly - img.get_height() // 2 - ui(1),
+                                img.get_width() + ui(4),
+                                img.get_height() + ui(2))
+            pygame.draw.rect(surf, (16, 20, 19), plate)
+            pygame.draw.rect(surf, (52, 66, 58), plate, 1)
         if info.get("leader") and r is None:
             # an escalated label (leader-line placement, per the layout's
-            # own escalation ladder): a thin tick names which node it is
-            pygame.draw.line(surf, (74, 80, 76), (x, y + rad), (lx, ly), 1)
+            # own escalation ladder): a thin tick from the node's rim to
+            # the nearest point on the label's box, not its center -- the
+            # old center-anchored line ran under the glyphs themselves
+            tx = max(lx - img.get_width() / 2, min(float(x), lx + img.get_width() / 2))
+            ty = max(ly - img.get_height() / 2, min(float(y), ly + img.get_height() / 2))
+            pygame.draw.line(surf, (92, 104, 96), (x, y + rad), (int(tx), int(ty)), 1)
         surf.blit(img, (lx - img.get_width() // 2, ly - img.get_height() // 2))
 
     def _draw_detail(self, surf) -> None:
@@ -1036,15 +1206,18 @@ class PodScene(Scene):
         if self.sel is None:
             return
         n = mindmap.nodes()[self.sel]
+        k = self._mind_scale(surf)
         band_h = ui(58)
         y0 = h - band_h - ui(18)
         pygame.draw.rect(surf, (10, 11, 14), (0, y0, w, band_h))
         pygame.draw.line(surf, (40, 46, 44), (0, y0), (w, y0), 1)
-        f = get_font(12)
         rcol = REGION_COLOR[n["region"]]
-        surf.blit(f.render(n["label"].upper(), True, BONE), (ui(16), y0 + ui(5)))
-        tag = get_font(10).render(mindmap.REGION_LABELS[n["region"]], True, rcol)
-        surf.blit(tag, (ui(16), y0 + ui(22)))
+        # the detail panel speaks the map's own voice (Plex), not the
+        # terminal's: it is part of the mind page, not the HUD
+        title = _label_img(n["label"].upper(), 11.5 * k, BONE, "semibold")
+        surf.blit(title, (ui(16), y0 + ui(5)))
+        tag = _label_img(mindmap.REGION_LABELS[n["region"]], 9 * k, rcol, "medium")
+        surf.blit(tag, (ui(16), y0 + ui(23)))
         # status: what thinking here costs / has cost
         nid = self.sel
         if nid in s.mind:
@@ -1061,13 +1234,26 @@ class PodScene(Scene):
                 status = f"PARKED AT {100 * have // need}% of {secs}s"
             else:
                 status = f"THINK TIME: {secs}s IN THE FIELD"
-        img = get_font(10).render(status, True, VERDIGRIS)
-        surf.blit(img, (ui(16), y0 + ui(38)))
-        bx = ui(250)
-        bf = get_font(10)
-        for i, line in enumerate(_wrap(n.get("brief", ""), 48)[:3]):
-            surf.blit(bf.render(line, True, (150, 148, 140)),
-                      (bx, y0 + ui(6) + i * ui(14)))
+        surf.blit(_label_img(status, 9 * k, VERDIGRIS, "medium"),
+                  (ui(16), y0 + ui(38)))
+        bx = max(ui(268), ui(20) + title.get_width())
+        bf = mind_font(10 * k)
+        max_w = w - bx - ui(16)
+        words = n.get("brief", "").split()
+        lines: list[str] = []
+        cur = ""
+        for word in words:
+            cand = (cur + " " + word).strip()
+            if cur and bf.size(cand)[0] > max_w:
+                lines.append(cur)
+                cur = word
+            else:
+                cur = cand
+        if cur:
+            lines.append(cur)
+        for i, line in enumerate(lines[:3]):
+            surf.blit(_label_img(line, 10 * k, (150, 148, 140)),
+                      (bx, y0 + ui(6) + i * ui(15)))
 
     # ------------------------------------------------------------------
     # the three rite grammars

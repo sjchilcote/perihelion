@@ -269,7 +269,10 @@ def test_real_mindmap_crossings():
     seed = mindmap.seed_layout(graph)
     seed_c = mindmap.count_crossings(seed, graph)
     rings_c = mr.count_crossings(mr.ring_layout(graph), graph)
-    assert seed_c == 11, seed_c
+    # 11 -> 9: the physics variant's seed now scatters radii within each
+    # depth band (mindmap.seed_layout, director's band-freedom pass), which
+    # changed the seed's own crossing count; ring_layout() is untouched.
+    assert seed_c == 9, seed_c
     assert rings_c <= 8, rings_c
     assert rings_c < seed_c
 

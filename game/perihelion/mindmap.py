@@ -147,6 +147,7 @@ def seed_layout(graph: dict[str, dict] | None = None) -> dict[str, tuple[float, 
     tbl = graph if graph is not None else nodes()
     dep = _depths_of(tbl)
     maxd = max(dep.values()) or 1
+    bands = depth_bands(max(dep.values()))
     groups: dict[tuple[str, int], list[str]] = {}
     for nid in sorted(tbl):
         groups.setdefault((tbl[nid]["region"], dep[nid]), []).append(nid)
@@ -154,9 +155,18 @@ def seed_layout(graph: dict[str, dict] | None = None) -> dict[str, tuple[float, 
     span = math.radians(2 * _SECTOR_HALF_DEG)
     for (region, d_), ids in groups.items():
         base = math.radians(_REGION_ANGLE_DEG.get(region, 0.0))
-        r = _ring_radius(d_, maxd)
+        lo, hi = bands[d_]
+        # radial scatter WITHIN the band (director: nodes are contained in
+        # bands, free within them -- not beads locked onto a circle): a
+        # deterministic per-node fraction (crc32, like the rite ornament
+        # -- no process-salted hash()) spreads seed radii across the
+        # band's interior, clear of both boundaries by BAND_MARGIN_FRAC so
+        # the seed already shows the radial variance the rest layout keeps.
+        m = (hi - lo) * BAND_MARGIN_FRAC
         for i, nid in enumerate(ids):
             a = base + span * ((i + 1) / (len(ids) + 1) - 0.5)
+            f = (zlib.crc32(nid.encode()) % 4096) / 4095.0
+            r = (lo + m) + f * ((hi - m) - (lo + m))
             pos[nid] = (r * math.cos(a), r * math.sin(a))
     return pos
 
@@ -270,10 +280,13 @@ def layout_steps(graph: dict[str, dict] | None = None,
 # podscene._to_screen is a uniform per-axis scale of this canvas, so
 # non-occlusion proven here holds at any internal resolution).
 CANVAS_W, CANVAS_H = 640.0, 360.0
-# unit -> canvas-px screen mapping (mirrors podscene.PodScene._to_screen's
-# non-rite case exactly, so layout geometry matches what's drawn).
-SX_FRAC, SY_FRAC = 0.40, 0.365
-CX_FRAC, CY_FRAC = 0.5, 0.46
+# unit -> canvas-px screen mapping (podscene.PodScene._to_screen reads
+# these directly, so layout geometry matches what's drawn). SY/CY are
+# chosen so the whole node ellipse (radius _BOUNDS_R) sits between the
+# tab-header strip and the detail panel: no node ever renders under
+# either piece of chrome even before podscene's clip rect is applied.
+SX_FRAC, SY_FRAC = 0.44, 0.32
+CX_FRAC, CY_FRAC = 0.5, 0.42
 
 # reserved chrome strip at the top of the canvas (podscene's FABRICATOR/MIND
 # tab header + underline lives in canvas y in [10, 30]): label_layout()'s
@@ -283,23 +296,88 @@ CX_FRAC, CY_FRAC = 0.5, 0.46
 # below the header without touching the (already-proven) left/right/bottom
 # containment.
 HEADER_MARGIN_PX = 34.0
+# ...and the BOTTOM: the detail panel (58px band + 18px inset) plus the
+# footer help strip own the bottom of the canvas -- labels may never be
+# placed under them (podscene additionally clips the whole map draw to
+# the same strip, so even mid-glide nothing bleeds onto chrome).
+FOOTER_MARGIN_PX = 78.0
 
 NODE_R_PX = 6.0
 NODE_R_ROOT_BONUS_PX = 2.0
 LABEL_GAP_PX = 6.0          # node rim -> label top, matches podscene's ui(6)
-LABEL_CHAR_W_PX = 8.0       # FSEX300 bitmap font is monospace: 8px @ 16px
-LABEL_H_PX = 16.0           # cell height at the size podscene labels use
+LABEL_CHAR_W_PX = 8.0       # fallback advance for glyphs missing from the
+                            # measured metrics table (below) -- deliberately
+                            # the widest plausible advance, never a shortfall
+LABEL_H_PX = 16.0           # canonical label cell height in canvas px --
+                            # IBM Plex Sans Regular at pt 12 renders exactly
+                            # this cell (asserted by the metrics generator)
 LABEL_PAD_PX = 2.0          # breathing room around label glyph boxes
+
+# the mind map's own typeface (director-directed: Fixedsys Excelsior is
+# the terminal/HUD voice and scales badly; the map -- the Commando's inner
+# space -- speaks a minimalistic sans-serif instead). Bundled OFL faces in
+# assets/fonts/; per-character advances measured once by
+# tools/gen_mindmap_font_metrics.py into data/mindmap_font_metrics.json so
+# this module's label geometry stays exact AND pygame-free.
+LABEL_FONT_PT = 12           # pt size whose pygame cell height == LABEL_H_PX
+
+_FONT_METRICS: dict | None = None
+
+
+def _font_metrics() -> dict:
+    global _FONT_METRICS
+    if _FONT_METRICS is None:
+        with open(Path(__file__).parent / "data" / "mindmap_font_metrics.json",
+                  encoding="utf-8") as f:
+            _FONT_METRICS = json.load(f)
+    return _FONT_METRICS
+
+
+def text_width_px(text: str, face: str = "regular") -> float:
+    """Exact canvas-px width of `text` at the canonical label size
+    (LABEL_H_PX cell): the sum of the measured per-glyph advances.
+    Kerning in the real renderer only ever tightens (Plex's pair kerning
+    is negative), so this is width-exact-or-conservative, verified against
+    real pygame renders by test_podscene.py."""
+    adv = _font_metrics()[face]
+    return sum(adv.get(ch, LABEL_CHAR_W_PX) for ch in text)
+
+
+_LABEL_W_SLACK = 1.04  # canonical boxes are 4% wider than the advance sum:
+                       # the renderer floors its pt size (podscene.label_pt)
+                       # and hinted advances at the floored size can round
+                       # a hair wide of the linear scale -- measured worst
+                       # case 2.78% across the real map at 1x/2x/3x.
 
 RELAX_ITERS = 220
 _REPEL_K = 900.0
 _LABEL_REPEL_K = 900.0
 _SPRING_K = 0.06
-_EDGE_LEN_PX = 46.0
+_EDGE_LEN_PX = 56.0         # longer prereq springs = the hub breathes;
+                             # 46px packed the owned cluster so tight the
+                             # label search exiled half a dozen labels to
+                             # long leader lines (measured, first Plex pass)
 _REGION_K = 0.020
 _BOUNDS_R = 0.985           # unit-space containment radius (ellipse)
 _BOUNDS_K = 6.0
-_BAND_K = 10.0               # depth-annulus soft restoring force stiffness
+BAND_CLAMP_INSET_FRAC = 0.35  # fraction of the shoulder margin the HARD
+                              # clamp itself is inset from the boundary:
+                              # the projection target is strictly inside
+                              # the band, so no rest position can ever sit
+                              # exactly ON a drawn boundary circle (the
+                              # bead-necklace read) -- the containment
+                              # guarantee (within [lo, hi]) only tightens.
+BAND_MARGIN_FRAC = 0.20      # fraction of a band's radial width treated as
+                              # a soft shoulder at EACH boundary: the soft
+                              # band force below engages inside this margin
+                              # (not only past the boundary), so nodes at
+                              # rest sit visibly WITHIN their band instead
+                              # of riding the drawn boundary circle pinned
+                              # by the hard clamp (measured before this
+                              # existed: 12 of the real map's 33 nodes
+                              # rested at EXACTLY r == lo or r == hi -- the
+                              # "bead necklace" the director rejected).
+_BAND_K = 12.0               # depth-annulus soft restoring force stiffness
                               # (see _force_step) -- stronger than _BOUNDS_K
                               # since the band boundary is now the map's
                               # real organizing constraint (director's
@@ -319,9 +397,21 @@ _BAND_K = 10.0               # depth-annulus soft restoring force stiffness
 #      corrective displacement pulling their midpoints apart. This is what
 #      closes the cases (1) can't reach: two edges crossing far from every
 #      third node.
-_EDGE_REPEL_R_PX = 16.0     # node<->edge influence radius
-_EDGE_REPEL_K = 400.0
-_CROSS_K = 5.0               # per-iteration midpoint-separation displacement
+_EDGE_REPEL_R_PX = 22.0     # node<->edge influence radius
+_EDGE_REPEL_K = 900.0
+_CROSS_K = 24.0              # per-iteration midpoint-separation displacement
+                             # (raised with the scattered in-band seed: the
+                             # seed now starts near-planar, so the settle
+                             # must hold that line against the springs --
+                             # measured on the real map: 5/400/16 ended the
+                             # main schedule at 13-18 crossings and fell
+                             # back to the seed (no settle motion at all);
+                             # 24/900/22 settles to 5 with a full real
+                             # settle. This balance is knife-edged: the
+                             # trajectory test (steps[0] != steps[-1])
+                             # exists precisely to catch a silent
+                             # fall-back-to-seed regression when anything
+                             # in the force field is touched)
 # fixed extra budget for the uncrossing-polish closer (only spent when the
 # main schedule ends up with MORE crossings than the seed it started
 # from -- see relax()). Small and local: this is a repair pass, not a
@@ -357,10 +447,12 @@ def node_radius_px(n: dict) -> float:
 
 def label_size_px(label: str) -> tuple[float, float]:
     """(w, h) of a node's label glyph box at the font podscene renders
-    node labels with. FSEX300 is a fixed-width bitmap font (verified:
-    8px/glyph at the 16px cell podscene's get_font(9) snaps to), so this
-    is exact, not an estimate -- no pygame/display dependency needed."""
-    return (LABEL_CHAR_W_PX * max(1, len(label)), LABEL_H_PX)
+    node labels with (IBM Plex Sans Regular, canonical LABEL_H_PX cell).
+    Proportional widths from the measured advance table -- exact, not an
+    estimate, and still pygame-free (the measuring happened once, in
+    tools/gen_mindmap_font_metrics.py)."""
+    return (max(LABEL_CHAR_W_PX, text_width_px(label) * _LABEL_W_SLACK),
+            LABEL_H_PX)
 
 
 def _edge_list(graph: dict[str, dict]) -> list[tuple[str, str]]:
@@ -452,11 +544,13 @@ def _build_system(tbl: dict[str, dict]) -> dict:
     bands = depth_bands(maxd)
     band_lo = np.array([bands[dep[nid]][0] for nid in ids], dtype=np.float64)
     band_hi = np.array([bands[dep[nid]][1] for nid in ids], dtype=np.float64)
+    band_m = (band_hi - band_lo) * BAND_MARGIN_FRAC
     return dict(ids=ids, idx=idx, n=n, R=R, LW=LW, LH=LH, region_angle=region_angle,
                 ei=ei, ej=ej, pair_a=pair_a, pair_b=pair_b, node_ix=node_ix,
                 tie_dx=np.cos(tiebreak_ang), tie_dy=np.sin(tiebreak_ang),
                 off_diag=off_diag, cx=cx, cy=cy, bx=bx, by=by,
-                bx0=bx0, by0=by0, band_lo=band_lo, band_hi=band_hi)
+                bx0=bx0, by0=by0, band_lo=band_lo, band_hi=band_hi,
+                band_m=band_m)
 
 
 _SYSTEM_CACHE: dict[int, dict] = {}
@@ -513,7 +607,9 @@ def _hard_contain_bands(P, sysd) -> None:
     import numpy as np
     cx, cy = sysd["cx"], sysd["cy"]
     bx0, by0 = sysd["bx0"], sysd["by0"]
-    lo, hi = sysd["band_lo"], sysd["band_hi"]
+    inset = sysd["band_m"] * BAND_CLAMP_INSET_FRAC
+    lo = sysd["band_lo"] + inset
+    hi = sysd["band_hi"] - inset
     dxn, dyn = (P[:, 0] - cx) / bx0, (P[:, 1] - cy) / by0
     r = np.sqrt(dxn * dxn + dyn * dyn)
     tie = r < 1e-9
@@ -733,16 +829,20 @@ def _force_step(P, sysd):
     F[:, 0] += tx * rk
     F[:, 1] += ty * rk
 
-    # depth-annulus band: soft radial restoring force, active only NEAR/
-    # PAST a node's own band boundary (zero strictly inside it, so the
-    # chaotic tangential motion within the band is undamped by this term)
-    # -- the complement to _hard_contain_bands' unconditional clamp, here
-    # so a boundary-riding node settles instead of visibly grinding
-    # against the hard projection every tick.
+    # depth-annulus band: soft radial restoring force with a SHOULDER --
+    # it engages a BAND_MARGIN_FRAC-wide margin INSIDE each boundary (zero
+    # only in the band's interior core, so the chaotic tangential motion
+    # within the band is undamped by this term). The shoulder is what
+    # keeps rest positions visibly inside the band instead of pinned on
+    # the drawn boundary circle by the hard clamp (the director's "bands
+    # they're contained within but free to move within" -- a node pushed
+    # outward by repulsion now settles where repulsion balances the
+    # shoulder, strictly inside, rather than grinding on the projection).
+    band_m = sysd["band_m"]
     bdx, bdy = (P[:, 0] - cx) / bx0, (P[:, 1] - cy) / by0
     br = np.sqrt(np.maximum(bdx * bdx + bdy * bdy, 1e-12))
-    under = np.maximum(band_lo - br, 0.0)
-    over_b = np.maximum(br - band_hi, 0.0)
+    under = np.maximum((band_lo + band_m) - br, 0.0)
+    over_b = np.maximum(br - (band_hi - band_m), 0.0)
     ddb = np.sqrt(np.maximum((P[:, 0] - cx) ** 2 + (P[:, 1] - cy) ** 2, 1e-12))
     bpush = (under - over_b) * _BAND_K
     F[:, 0] += (P[:, 0] - cx) / ddb * bpush
@@ -1222,8 +1322,9 @@ def relax(seed: dict[str, tuple[float, float]],
             # hard clamp below either)
             bdx, bdy = (P[:, 0] - cx) / bx0, (P[:, 1] - cy) / by0
             br = np.sqrt(np.maximum(bdx * bdx + bdy * bdy, 1e-12))
-            under = np.maximum(band_lo - br, 0.0)
-            over_b = np.maximum(br - band_hi, 0.0)
+            band_m = sysd["band_m"]
+            under = np.maximum((band_lo + band_m) - br, 0.0)
+            over_b = np.maximum(br - (band_hi - band_m), 0.0)
             bpush = (under - over_b) * _BAND_K
             F[:, 0] += (P[:, 0] - cx) / dd * bpush
             F[:, 1] += (P[:, 1] - cy) / dd * bpush
@@ -1293,14 +1394,78 @@ def camera_glide(t: float, t0: float, dur: float,
 # result is identical every run.
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# region headers: each region names its own compass sector. Placed HERE
+# (not ad hoc in podscene) so label_layout can reserve their rectangles --
+# region headers are part of the map and node labels must never sit on
+# them. The anchor is a unit-space point (so podscene's camera transform
+# moves headers rigidly with the nodes -- no screen-space clamping that
+# would slide a header over the graph mid-glide), pre-clamped in CANVAS
+# space at rest so every header starts inside the safe strip.
+# ---------------------------------------------------------------------------
+
+HEADER_CELL_PX = 13.0        # canvas-px cell height for region headers
+HEADER_TRACK_PX = 2.0        # extra letterspacing per glyph, canvas px
+_HEADER_RADIUS = 1.10        # unit-space anchor radius (outside the node
+                             # ellipse; the per-axis clamp below pulls the
+                             # N/S headers back inside the safe strip)
+
+
+def region_header_size_px(label: str) -> tuple[float, float]:
+    """(w, h) canvas px of a region header (Medium face, HEADER_CELL_PX
+    cell, HEADER_TRACK_PX letterspacing) -- shared by the reservation
+    below and podscene's draw so they can never disagree."""
+    scale = HEADER_CELL_PX / LABEL_H_PX
+    w = text_width_px(label, "medium") * scale
+    w += HEADER_TRACK_PX * max(0, len(label) - 1)
+    # +6px: a rendered glyph's ink box can overhang its advance by a
+    # couple px (side bearings/antialiasing) -- reserve for it so the
+    # drawn header never exceeds the rect labels were laid out against
+    return (w + 6.0, HEADER_CELL_PX)
+
+
+def region_header_layout(graph: dict[str, dict] | None = None) -> dict[str, dict]:
+    """region -> {"box": (l, t, r, b) canvas px, "center_unit": (x, y),
+    "label": str}. Deterministic, pure geometry."""
+    tbl = graph if graph is not None else nodes()
+    regions = sorted({n["region"] for n in tbl.values()},
+                     key=lambda r: (REGION_ORDER.index(r)
+                                    if r in REGION_ORDER else 99, r))
+    out: dict[str, dict] = {}
+    for i, region in enumerate(regions):
+        label = REGION_LABELS.get(region, region.upper())
+        if region in _REGION_ANGLE_DEG:
+            a = math.radians(_REGION_ANGLE_DEG[region])
+        else:  # synthetic graphs: spread evenly, deterministically
+            a = 2 * math.pi * i / max(1, len(regions)) - math.pi / 2
+        w, h = region_header_size_px(label)
+        px, py = _to_px((_HEADER_RADIUS * math.cos(a),
+                         _HEADER_RADIUS * math.sin(a)))
+        # clamp the whole box into the safe strip, in canvas space
+        px = min(max(px, 4.0 + w / 2), CANVAS_W - 4.0 - w / 2)
+        py = min(max(py, HEADER_MARGIN_PX + 2.0 + h / 2),
+                 CANVAS_H - FOOTER_MARGIN_PX - 2.0 - h / 2)
+        box = (px - w / 2, py - h / 2, px + w / 2, py + h / 2)
+        out[region] = {"box": box, "center_unit": _to_unit((px, py)),
+                       "label": label}
+    return out
+
+
 _ANCHOR_ANGLES_DEG = [90, 270, 0, 180, 45, 135, 225, 315,
                       67, 112, 22, 157, 202, 337, 247, 292]
-_ANCHOR_RADII_PX = [0.0, 4.0, 10.0, 18.0, 28.0, 40.0, 55.0, 75.0, 100.0, 130.0, 180.0]
+_ANCHOR_RADII_PX = [0.0, 4.0, 10.0, 18.0, 28.0, 40.0, 55.0, 75.0, 100.0,
+                    130.0, 180.0, 230.0]
 # the ring search tries these large-to-small; the raster escalation (below)
 # additionally has _RASTER_FONT_SCALES beyond this floor for the rare
 # pathological graphs (many long identical labels crammed into one region)
 # where even a canvas-wide scan needs a smaller footprint to fit at all.
-_FONT_SCALES = [1.0, 0.875, 0.75, 0.625, 0.5]  # 16 -> 8px floor
+_FONT_SCALES = [0.8125, 0.6875, 0.5625, 0.5]  # 13 -> 8px floor: graph labels
+                                          # are annotations, not headlines
+                                          # -- 13px cells leave the canvas
+                                          # ~35% label-covered instead of
+                                          # ~50%, which is what lets the
+                                          # placement ladder keep labels
+                                          # NEXT TO their nodes
 _RASTER_FONT_SCALES = [0.5, 0.375, 0.28125, 0.1875]  # 8 -> 3px last resort
 _GOLDEN_ANGLE = math.radians(137.50776405)
 
@@ -1318,7 +1483,10 @@ def label_layout(positions: dict[str, tuple[float, float]],
     node_px = {nid: _to_px(positions[nid]) for nid in positions}
     rad = {nid: node_radius_px(tbl[nid]) if nid in tbl else NODE_R_PX
            for nid in positions}
-    placed: list[tuple[float, float, float, float]] = []
+    # region headers are part of the map: reserve their rectangles up
+    # front so no node label is ever placed over a sector's name.
+    placed: list[tuple[float, float, float, float]] = [
+        info["box"] for info in region_header_layout(tbl).values()]
     out: dict[str, dict] = {}
     # a few px of safety margin: the canonical box math assumes an exact
     # 8px/glyph advance, but the actual renderer (podscene) draws at
@@ -1328,7 +1496,7 @@ def label_layout(positions: dict[str, tuple[float, float]],
     # screen edge.
     _EDGE_MARGIN = 4.0
     canvas_rect = (_EDGE_MARGIN, HEADER_MARGIN_PX,
-                  CANVAS_W - _EDGE_MARGIN, CANVAS_H - _EDGE_MARGIN)
+                  CANVAS_W - _EDGE_MARGIN, CANVAS_H - FOOTER_MARGIN_PX)
 
     def overlaps_any(rect) -> bool:
         l, t, r, b = rect
@@ -1351,23 +1519,34 @@ def label_layout(positions: dict[str, tuple[float, float]],
         r = rad[nid]
         label = tbl[nid]["label"] if nid in tbl else nid
         chosen = None
-        for scale in _FONT_SCALES:
-            w = LABEL_CHAR_W_PX * scale * max(1, len(label))
+        # escalation ladder ordered by a COST over (distance, shrink):
+        # a slightly smaller label NEAR its node beats a full-size label
+        # exiled half a canvas away (measured on the first Plex render:
+        # the old scale-major order sent half a dozen full-size labels
+        # 100-180px from their nodes on invisible leader lines -- orphan
+        # text is a worse failure than a 12px label). Deterministic: the
+        # ladder is a fixed sort of a fixed list.
+        ladder = sorted(
+            ((radius + (1.0 - scale) * 120.0, ri, si)
+             for si, scale in enumerate(_FONT_SCALES)
+             for ri, radius in enumerate(_ANCHOR_RADII_PX)),
+            key=lambda c: (c[0], c[1], c[2]))
+        for _, ri, si in ladder:
+            scale = _FONT_SCALES[si]
+            radius = _ANCHOR_RADII_PX[ri]
+            w = label_size_px(label)[0] * scale
             h = LABEL_H_PX * scale
-            for ri, radius in enumerate(_ANCHOR_RADII_PX):
-                angles = [90] if ri == 0 else _ANCHOR_ANGLES_DEG
-                for ang_deg in angles:
-                    ang = math.radians(ang_deg)
-                    gap = LABEL_GAP_PX + radius
-                    acx = x + math.cos(ang) * (r + gap)
-                    acy = y + math.sin(ang) * (r + gap) + h / 2 * (1 if ang_deg == 90 else 0)
-                    left = acx - w / 2 - LABEL_PAD_PX
-                    top = acy - h / 2 - LABEL_PAD_PX
-                    rect = (left, top, left + w + 2 * LABEL_PAD_PX, top + h + 2 * LABEL_PAD_PX)
-                    if not overlaps_any(rect):
-                        chosen = (rect, scale, ri > 0)
-                        break
-                if chosen:
+            angles = [90, 270] if ri == 0 else _ANCHOR_ANGLES_DEG
+            for ang_deg in angles:
+                ang = math.radians(ang_deg)
+                gap = LABEL_GAP_PX + radius
+                acx = x + math.cos(ang) * (r + gap)
+                acy = y + math.sin(ang) * (r + gap) + h / 2 * (1 if ang_deg == 90 else 0)
+                left = acx - w / 2 - LABEL_PAD_PX
+                top = acy - h / 2 - LABEL_PAD_PX
+                rect = (left, top, left + w + 2 * LABEL_PAD_PX, top + h + 2 * LABEL_PAD_PX)
+                if not overlaps_any(rect):
+                    chosen = (rect, scale, ri > 0)
                     break
             if chosen:
                 break
@@ -1384,7 +1563,7 @@ def label_layout(positions: dict[str, tuple[float, float]],
             # this must always terminate in a real, checked, non-
             # overlapping box, never an unchecked clamp.
             for scale in _RASTER_FONT_SCALES:
-                w = LABEL_CHAR_W_PX * scale * max(1, len(label))
+                w = label_size_px(label)[0] * scale
                 h = LABEL_H_PX * scale
                 step_x, step_y = max(1.0, w / 10), max(1.0, h / 4)
                 candidates = []
