@@ -5,9 +5,10 @@ hardware-class name is **CUCULUS** -- the UI identifies itself as a
 CUCULUS unit in its chrome; colloquial "pod" stays colloquial in help
 text. The mind page's tab carries the in-universe encyclopedia's name
 (the mind map is the Commando integrating the public encyclopedia the
-Church dumped on his pod's drive): working label **ENCARTA**, spelling
-pending the director's confirmation -- a single constant in podscene.py
-(`MIND_TAB_LABEL`) so the respelling is a one-line change.
+Church dumped on his pod's drive): the encyclopedia's official title is
+**Encarta Aeterna**; the in-game tab label is exactly **ENCARTA**
+(director-confirmed final) -- a single constant in podscene.py
+(`MIND_TAB_LABEL`) so any restyling stays a one-line change.
 
 Director's brief, verbatim anchors: upgrade and mindmap UIs become "pages
 of a single full-screen UI that comes up whenever Commando re-enters a
