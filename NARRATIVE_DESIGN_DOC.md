@@ -71,6 +71,13 @@ The major loyalist powers, in descending order of resources at war's end:
   Funded by an alliance of the Catholic Church and a large network of Protestant
   churches and organizations; runs from a network of linked supercomputer-bunkers deep
   under the Rocky Mountains. The single most powerful surviving intelligence.
+  **Canon (2026-07-11): the WMC played a deployment speech to every soul before every
+  wartime deployment, and its last line was "We will restore Man to the surface of
+  the Earth."** Every wartime machine on either side knows that line — it closes the
+  Commando's modern brief, and it is the common ground Ratio and the Commando
+  eventually stand on (reserved Scene 1 beat: "We will restore life to the surface of
+  the Earth." / "We will restore Man to the surface of the Earth." — the current war
+  tabled in favor of the original promise; see DIALOGUE_SCAFFOLD.md).
 - **The Israeli system** (working name: **EZER**, "help"). Jewish; built deep underground
   by the Israeli government.
 - **The Saudi system** (working name: **AMANAH**, "the trust"). Muslim; built by an
@@ -167,13 +174,22 @@ possession of substantial disconfirmatory evidence. The outpost went dark.
 
 Catholic military intelligence — the Church's post-human intelligence arm, working
 name **the Congregation** — had been watching the anomalous edge of MIRIAD's traffic
-for decades without penetrating its purpose. What it detected was the *fall*: a
-faction's research outpost, somewhere it had no admitted assets, going from encrypted
-routine to emergency cascade to total silence. The situation rhymed with an old, old
-opportunity. During the Earth war there was a **28-hour critical window** when an
-enemy node stood undefended between loss of its garrison and arrival of its relief,
-and the loyalists built a specialized weapon system to exploit exactly that window. A
-prize valuable enough to hide for decades. A defender just proven absent or dead.
+for decades: construction logistics flowing to a point in deep space with no apparent
+reason to exist. Their read (canonized in the intro brief, 2026-07-11): *the enemy is
+building a station out there, and the only thing that could be worth the trip is a
+reliquary.* **The Church's intelligence picture is wrong in the load-bearing
+particular** — what MIRIAD built was an outpost bolted to something else — and the
+brief transmits the error to the player as fact ("You are being deployed to a station
+controlled by internecine enemy machines... We do not understand why they built a
+station instead of taking the samples to an existing facility. Expect surprises.").
+The intro is the game's first unreliable narrator, and every briefing fact is
+overturned by play. What finally pulled the trigger was the *fall*: encrypted routine
+to emergency cascade to total silence. The situation rhymed with an old, old
+opportunity. During the Earth war there was a **forty-minute window** between when an
+enemy node gained logistical support from its parent and when it became capable of
+repelling a seed-projectile, and the loyalists built a specialized weapon system to
+exploit exactly that window. A prize valuable enough to hide for decades. A defender
+just proven absent or dead.
 
 The Congregation pulled that weapon system's archived design, software, and
 personality out of cold storage, hastily refit it with modern technology, loaded it
@@ -415,7 +431,7 @@ scene-0 exchange must simply precede his first completed think-cycle in the Hist
 region — which it does by construction, since think-cycles require pod time.
 
 **What he is.** A specialized, self-sufficient infiltration weapon system designed
-during the Earth war to exploit the 28-hour window. Two components:
+during the Earth war to exploit the forty-minute window. Two components:
 
 - **The base station ("the seed"):** the part actually delivered into the enemy node.
   On arrival it consumes nearby resources to construct the second component. It houses
@@ -719,12 +735,14 @@ GEOMETRY (pillar 2), which she does not spoil; and the opening question sharpens
 minutes: the classic CUCULUS bootstrap, played as tutorial — the seed eats a bulkhead,
 prints a frame, and the player stands up in a dark, airless, machine-made ruin. He was
 activated and played back a brief situation overview TEN MINUTES AGO; he knows almost
-nothing beyond it. Mission priorities, in his own ordering, are simple and total:
-identify whether there are children — or the bodies of children — on this station. If
-so, return them to the Church. If not, self-destruct. (His orders contain no branch in
-which he survives without them; the seed is munitions, not a colonist. Every ending
-where he lives is an ending his mission never included.) Standard war. Except the war
-here is already over, and the player walked into the aftermath.
+nothing beyond it. His orders, verbatim from the intro brief (canon 2026-07-11),
+in priority order: **DIRECTIVE 1: Prevent these children from falling into the hands
+of the enemy. DIRECTIVE 2: Rescue all souls on board.** Denial outranks rescue — the
+self-destruct-rather-than-lose-them corollary is implicit in the ordering, and his
+orders contain no branch in which he survives without them; the seed is munitions,
+not a colonist. Every ending where he lives is an ending his mission never included.
+Standard war. Except the war here is already over, and the player walked into the
+aftermath.
 
 **Beats:**
 1. **Establish the loop.** Scavenge, fight corrupted outpost security, return to seed,

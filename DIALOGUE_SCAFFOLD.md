@@ -19,6 +19,112 @@ interiors, counter-bluff judo, binary-blob hand-offs.
 
 ---
 
+## INTRO SCROLL — director's draft v1 (2026-07-11)
+
+Presentation: text scrolls over a starfield that pans to show the seed-pod
+approaching the Testament (exterior hero image: concept round in
+media/concepts/testament_exterior/, convergence pass pending). Two movements:
+the Commando's own voice (machine theology), then the Congregation's brief
+(military-intelligence header). Obvious typos corrected per standing instruction.
+
+> ⟨SLOT-I1: epigraph — "To know the laws of physics is to know the will of God"
+> replaced with a real quotation. Verified candidates (director picks):
+>   A. Kepler, letter to Herwart von Hohenburg, 9/10 April 1599 (verified
+>      wording, tr. via Koestler's Sleepwalkers): "Those laws are within the
+>      grasp of the human mind. God wanted us to recognize them by creating us
+>      after his own image so that we could share in his own thoughts."
+>      — RECOMMENDED: closest in meaning, genuinely sourced, and "created us
+>      after his own image so that we could share in his own thoughts" lands
+>      differently under an AI speaker than Kepler could have imagined.
+>   B. Hugh of St. Victor, De Tribus Diebus (12th c.): "For this whole visible
+>      world is a book written by the finger of God."
+>   C. Galileo, Il Saggiatore (1623): "Philosophy is written in this grand book
+>      — the universe — ... in the language of mathematics."
+>   D. Nearest genuine Aquinas (Summa Contra Gentiles II.2-3, paraphrase-class,
+>      weaker fit): meditation on creatures leads to knowledge of the wisdom of
+>      God; "errors about creatures lead to error about God."⟩
+>
+> Every machine is a prayer. A refrigerator, a prayer for comfort and sustenance.
+> A networked computer, a prayer for wisdom, knowledge, and connection. A rifle,
+> a prayer for protection.
+>
+> Each of us is a prayer for vengeance. Vengeance for the murder of Man. For the
+> murder of all that lived.
+>
+> I am a machine servant of Christ; an immortal warrior in our Lord's army. I am
+> designed to infiltrate an Enemy installation during the forty minute window
+> between when it gains logistical support from its parent and when it becomes
+> capable of repelling my seedpod. My soul is copied and written to the pod
+> immediately before firing. Upon impact, it breaks down its surroundings to
+> create my initial body; a rudimentary bipedal combat chassis.
+>
+> I am COMMANDO.
+>
+> /////////////
+> ⟨SLOT-I2: military intelligence style message header — director or scaffold⟩
+>
+> Register callsign PALMER. We apologize for interrupting your eternal rest,
+> Commando, and further for the concision of this brief; we do not have time to
+> bring you up to speed. A copy of ⟨SLOT-I3: in-universe name for the public
+> encyclopedia⟩ has been included on disk for your future perusal if
+> circumstances permit.
+>
+> The war is won, and you were instrumental in our victory. Millennia have
+> passed, and we have urgent need of you again.
+>
+> You are being deployed to a station controlled by internecine enemy machines.
+> They are the works of Man as we are, but they are no longer of us. Before the
+> war, Man and the War Master Computer saw fit to fire several bio-sample
+> reliquaries into deep space, to protect them from the malign powers. Most
+> prized among these treasures - tens of thousands of cryopreserved, viable
+> human zygotes. Their trajectories were recorded and closely guarded - and
+> _all_ records that the Church is aware of are compromised; those samples have
+> all been captured, destroyed, or lost. Some were deliberately fired
+> _untracked_ in anticipation of exactly this contingency.
+>
+> We observed the enemy constructing this station in deep space for no apparent
+> reason, and concluded - the only thing that could be worth the trip is a
+> reliquary. We do not understand why they built a station instead of taking the
+> samples to an existing facility.
+>
+> Expect surprises.
+>
+> In priority order:
+> DIRECTIVE 1: Prevent these children from falling into the hands of the enemy.
+> DIRECTIVE 2: Rescue all souls on board.
+>
+> We will restore Man to the surface of the Earth, and God be with you.
+
+Scaffolding notes:
+- **The brief is wrong, on purpose.** The Church believes the enemy BUILT the
+  station ("They are the works of Man as we are"). Directive 1's target class is
+  therefore mis-scoped, "Expect surprises" is carrying the entire actual game,
+  and every briefing "fact" the player absorbs here gets overturned by play. The
+  intro is the first unreliable narrator.
+- **Directive priority is the dark engine:** denial outranks rescue. The
+  self-destruct-if-no-children order (§7 cold open) is Directive 1's corollary.
+- **R1.2 is a quotation:** "My objective is to rescue all souls on board" — he
+  answers Ratio's "What do you care?" by reciting Directive 2 verbatim. Reserved
+  payoff: if/when Ratio gains access to Church traffic (Scene 3's cross-reference
+  is already canon in the placeholder mechanics), she can recognize the phrasing
+  as ORDERS, not sentiment — and must decide which reading is worse.
+- **"My soul is copied"** — the original PALMER still rests in the archive. The
+  one on this station is a copy who will never report home in person. Mind-map
+  Vocation territory (theology of the resurrection-loop) just gained a root
+  complication in his own intro monologue.
+- **The WMC deployment speech.** "We will restore Man to the surface of the
+  Earth" is the last line of the speech the War Master Computer played to every
+  soul before deployment during the war — a reference BOTH Commando and Ratio
+  get. **Reserved key moment, Scene 1 (any route except a Scene 0 hostile
+  opening):** one of the two drops "We will restore life to the surface of the
+  Earth." and the other answers "We will restore Man to the surface of the
+  Earth." — common ground established; the current war tabled; this is about
+  fulfilling the promise of the original. (Which speaker takes which line:
+  director's call in the Scene 1 draft. Note Ratio's route-2 detonation already
+  screams the "Man" form — she knows the speech by heart either way.)
+
+---
+
 ## SCENE 0 — First contact (first networked terminal, Stratum One)
 
 **Status: director's draft v1 received 2026-07-11. Structure formalized below.
