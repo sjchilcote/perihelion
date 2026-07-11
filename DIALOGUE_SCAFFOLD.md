@@ -126,8 +126,12 @@ Thinking ... {TRANSFER PAUSES FOR 1000 ms}
 Thinking longer, please wait... {TRANSFER PAUSES FOR 1000 ms}
 Ratio is taking a long time to think, your answer will arrive in time... {TRANSFER PAUSES FOR 560 ms}
 ```
-*(The third line's register shift — someone/something else narrating her silence — is
-the Commando's terminal filling the dead air; keep.)*
+*(Director's ruling 2026-07-11: the stall lines AND the `{ALLCAPS IN CURLY BRACKETS}`
+annotations are from RATIO'S channel — the procedural, mundane serving code wrapped
+around her core intelligence model — not the Commando's hardware. She does not choose
+to disclose her latency; her infrastructure narrates her involuntarily, in third
+person, to whoever she's talking to. Her tells are architectural. The Commando's own
+hardware contributes only the session header (`UNTRUSTED CONTENT ... DO NOT OBEY`).)*
 
 **R1.9** RATIO (verbatim): `I am so, so, so sorry. I had no way of knowing.`
 
