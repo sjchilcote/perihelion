@@ -8,13 +8,13 @@ upgrade, and think. Two tab-switched pages:
 
   MIND -- the mind map as a real graph: regions as territory, prereq
   edges, fog-of-war (unlocked + frontier only), keyboard nav along edges.
-  Opening MIND with a finished thought auto-plays the expansion rite
+  Opening MIND with a finished thought auto-plays the expansion reveal
   (~5s, skippable after the first beat) in one of the game's three visual
   languages (TESTATOR_DESIGN_LANGUAGE.md): phyllotactic bloom for
   faith-positive nodes, MIRIAD schematic snap for neutral ones, and the
-  corrupted rite -- a bloom that sours -- when the Commando has been
+  corrupted reveal -- a bloom that sours -- when the Commando has been
   ruminating his way out of his faith. New neighbors fade in only after
-  the rite: the reveal is the reward.
+  the animation: the reveal is the reward.
 
 This scene is the flagship of the native-resolution mandate: everything
 here is drawn at INTERNAL_W x INTERNAL_H with pure vector/procedural
@@ -48,12 +48,12 @@ from .sim import DT, SHOP
 # when the env var is unset or "physics".
 MINDMAP_LAYOUT = os.environ.get("PERIHELION_MINDMAP_LAYOUT", "physics")
 CAM_GLIDE_DUR = 0.6     # camera glide duration (seconds), both layout modes
-REVEAL_DUR = 0.6        # rings-mode reveal grow/fade duration (seconds)
+NODE_GROW_DUR = 0.6     # rings-mode node grow/fade-in duration (seconds)
 
 # ---------------------------------------------------------------------------
 # palette (TESTATOR_DESIGN_LANGUAGE.md): bone for the memorial elements,
 # verdigris/bronze for the aged alloy, MIRIAD cool grays + amber for the
-# works of Man, a drained gray-cyan when the rite goes wrong.
+# works of Man, a drained gray-cyan when the reveal goes wrong.
 BONE = (214, 205, 182)
 BONE_DIM = (150, 143, 126)
 VERDIGRIS = (108, 168, 140)
@@ -158,25 +158,25 @@ ITEM_DESC = {
     "ammo_cell": "Eight cells. The rail and the tau share them.",
 }
 
-# rite timeline (seconds)
-RITE_DUR = 5.0
-RITE_GLIDE = 0.9      # camera glides to the node
-RITE_IGNITE = 1.3     # the node flares: the first beat (skippable after)
-RITE_UNFURL = 3.4     # petals / segments / the souring
-RITE_SOUR = 2.2       # when a corrupted bloom goes wrong
+# reveal-animation timeline (seconds)
+REVEAL_DUR = 5.0
+REVEAL_GLIDE = 0.9      # camera glides to the node
+REVEAL_IGNITE = 1.3     # the node flares: the first beat (skippable after)
+REVEAL_UNFURL = 3.4     # petals / segments / the souring
+REVEAL_SOUR = 2.2       # when a corrupted bloom goes wrong
 
 
 def _node_rng(node_id: str, salt: str = "") -> Random:
-    """Deterministic per-node randomness for rite ornament (cracks,
+    """Deterministic per-node randomness for reveal ornament (cracks,
     tremor phases). crc32, not hash(): hash() is salted per process and
-    the ceremony must not re-roll between opens."""
+    the animation must not re-roll between opens."""
     return Random(zlib.crc32((node_id + salt).encode()))
 
 
 # ---------------------------------------------------------------------------
 # the settle: the exact relaxation trajectory (mindmap.layout_steps), cached
 # once per process, and label anchors as unit-space offsets from their node
-# (so labels glide/zoom with their node under the rite's camera exactly like
+# (so labels glide/zoom with their node under the reveal's camera exactly like
 # the node does -- both go through the same _to_screen call).
 # ---------------------------------------------------------------------------
 
@@ -200,7 +200,7 @@ def _label_unit_offsets(layout: dict[str, tuple[float, float]],
     """node id -> (dx, dy) in unit space from the node to its label
     rectangle's CENTER, so the label can be positioned with the same
     self._to_screen(surf, node_x + dx, node_y + dy) call used for the
-    node -- it inherits the rite's zoom/glide for free and never drifts
+    node -- it inherits the reveal's zoom/glide for free and never drifts
     out of sync with the node it names."""
     out: dict[str, tuple[float, float]] = {}
     sxw = mindmap.CANVAS_W * mindmap.SX_FRAC
@@ -218,7 +218,7 @@ def _label_unit_offsets(layout: dict[str, tuple[float, float]],
 class PodScene(Scene):
     """The unified seed-pod UI. Owns no sim state: focus/progress/queue
     live in GameSession (deterministic, persisted); this scene is the
-    ceremony around them."""
+    presentation around them."""
 
     FAB_ORDER = ["chassis", "station_kit", "hp_up", "scrap_driver",
                  "recall", "ammo_9mm", "ammo_shell", "ammo_cell"]
@@ -244,7 +244,7 @@ class PodScene(Scene):
             self._labels = mindmap.label_layout(self.layout)
             self._label_offset = _label_unit_offsets(self.layout, self._labels)
         self.sel: str | None = None
-        self.rite: dict | None = None
+        self.reveal: dict | None = None
         self._overlay: "pygame.Surface | None" = None
         self._ducked = False
         self._settle: dict | None = None
@@ -255,9 +255,9 @@ class PodScene(Scene):
         # trajectory -- ticked continuously while the MIND page is open,
         # so the graph's chaotic-within-bands jitter is always the real
         # physics settling, not a canned animation. Suspended (positions
-        # held at rest) whenever a baked settle or the rite ceremony owns
+        # held at rest) whenever a baked settle or the reveal animation owns
         # the camera -- see _node_pos()/update(). Unused in rings mode
-        # (nodes never move -- see `_cam`/`_reveal` instead).
+        # (nodes never move -- see `_cam`/`_grow_t0` instead).
         self._phys_state = mindmap.live_rest_state()
         self._phys_accum = 0.0
         # the camera (director-directed: selection moves the CAMERA to
@@ -266,11 +266,11 @@ class PodScene(Scene):
         # instead of writing a second glide, see mindmap.camera_glide) and
         # the per-node reveal-grow timestamps (rings mode only: new nodes
         # fade/grow in AT their static position instead of a baked settle
-        # trajectory -- see `_finish_rite`/`_draw_node`).
+        # trajectory -- see `_finish_reveal`/`_draw_node`).
         cam0 = self.layout.get(self.sel, (0.0, 0.0))
         self._cam = {"from": cam0, "to": cam0, "t0": 0.0, "dur": 0.0}
         self._cam_sel: str | None = None
-        self._reveal: dict[str, float] = {}
+        self._grow_t0: dict[str, float] = {}
         # (subset, t_end): labels for these nodes stay hidden until t_end,
         # then fade in over _LABEL_FADE_IN -- set by a subset settle
         self._label_fade: tuple[set[str], float] | None = None
@@ -288,15 +288,15 @@ class PodScene(Scene):
         self._cam_sel = self.sel
         if self._layout_mode != "rings" and self.page == "mind":
             self._start_settle()
-        if self.session.think_done and self.rite is None:
+        if self.session.think_done and self.reveal is None:
             self.page = "mind"
-            self._start_rite(app)
+            self._start_reveal(app)
 
     # ------------------------------------------------------------------
     # the settle: node positions visibly relax into place using the REAL
     # relaxation trajectory (mindmap.layout_steps), not a fake tween --
     # played on opening MIND and again, scoped to the affected
-    # neighborhood, right after a rite reveals new nodes.
+    # neighborhood, right after a reveal admits new nodes.
     # ------------------------------------------------------------------
 
     def _start_settle(self, subset: set[str] | None = None) -> None:
@@ -333,11 +333,11 @@ class PodScene(Scene):
                     x1, y1 = f1[nid]
                     return (x0 + (x1 - x0) * frac, y0 + (y1 - y0) * frac)
             return self.layout.get(nid, (0.0, 0.0))
-        if s is None and self.rite is None:
-            # no baked settle or ceremony in flight: the live physics
-            # state owns positions (ceremony precedence -- see update()'s
+        if s is None and self.reveal is None:
+            # no baked settle or reveal in flight: the live physics
+            # state owns positions (reveal precedence -- see update()'s
             # suspend guard, which keeps _phys_state parked at rest
-            # whenever a settle or the rite is active). Selection plays no
+            # whenever a settle or the reveal is active). Selection plays no
             # part here at all -- see _cam/_to_screen for how selection is
             # expressed instead.
             p = self._phys_state.pos.get(nid)
@@ -352,7 +352,7 @@ class PodScene(Scene):
     # at a FIXED sim rate (accumulator over real dt, like the rest of the
     # engine's fixed-step sim) so the trajectory is deterministic --
     # identical on every machine, independent of frame rate. Precedence
-    # (task-directed): a baked settle (open/reveal) or the rite ceremony
+    # (task-directed): a baked settle (open) or the reveal animation
     # OWNS the camera and positions while active; live physics is
     # suspended (held at rest) for that whole span rather than fighting
     # it, and simply resumes -- from a clean rest state -- the moment
@@ -362,8 +362,8 @@ class PodScene(Scene):
     def _update_physics(self, dt: float) -> None:
         if self._layout_mode == "rings":
             return  # rings mode has no live physics -- see _cam instead
-        if self._settle is not None or self.rite is not None:
-            # ceremony/settle precedence: park the physics at a fresh rest
+        if self._settle is not None or self.reveal is not None:
+            # reveal/settle precedence: park the physics at a fresh rest
             # state (asleep=False, quiet=0 -- re-verified, not assumed) so
             # it resumes cleanly (not from a stale mid-motion position) the
             # instant it gets the floor back
@@ -388,12 +388,12 @@ class PodScene(Scene):
 
     def _visible(self) -> set[str]:
         """Fog-of-war: the integrated mind, its frontier, and finished
-        thoughts awaiting ceremony. Nothing else exists yet."""
+        thoughts awaiting their reveal. Nothing else exists yet."""
         s = self.session
         vis = set(s.mind) | set(mindmap.frontier(s.mind)) | set(s.think_done)
-        if self.rite is not None:
-            # mid-rite the newly revealed neighbors are the rite's to show
-            vis -= self.rite["new"] - self.rite["shown"]
+        if self.reveal is not None:
+            # mid-reveal the newly admitted neighbors are the animation's to show
+            vis -= self.reveal["new"] - self.reveal["shown"]
         return vis
 
     def _edges(self, vis: set[str]) -> list[tuple[str, str]]:
@@ -434,20 +434,20 @@ class PodScene(Scene):
         w, h = surf.get_size()
         scale = w / mindmap.CANVAS_W
         zoom = 1.0
-        r = self.rite
+        r = self.reveal
         if r is not None:
-            u = min(1.0, r["t"] / RITE_GLIDE)
+            u = min(1.0, r["t"] / REVEAL_GLIDE)
             u = u * u * (3 - 2 * u)
-            if r["kind"] == "corrupt" and r["t"] > RITE_GLIDE:
-                v = r["t"] - RITE_GLIDE
+            if r["kind"] == "corrupt" and r["t"] > REVEAL_GLIDE:
+                v = r["t"] - REVEAL_GLIDE
                 u += math.exp(-2.2 * v) * math.sin(9.0 * v) * 0.10
             zoom = 1.0 + 0.9 * u
         sx = sy = scale * zoom
         cam_x, cam_y = self._cam_pos()
         px = w * 0.5 + (x - cam_x) * sx
         py = h * 0.46 + (y - cam_y) * sy
-        if r is not None and r["kind"] == "corrupt" and RITE_GLIDE < r["t"] < RITE_UNFURL:
-            amp = ui(2) * math.exp(-(r["t"] - RITE_GLIDE))
+        if r is not None and r["kind"] == "corrupt" and REVEAL_GLIDE < r["t"] < REVEAL_UNFURL:
+            amp = ui(2) * math.exp(-(r["t"] - REVEAL_GLIDE))
             px += math.sin(r["t"] * 37.0) * amp
             py += math.cos(r["t"] * 41.0) * amp
         return int(px), int(py)
@@ -461,13 +461,13 @@ class PodScene(Scene):
         sx = w * mindmap.SX_FRAC   # elliptical: the screen is wide
         sy = h * mindmap.SY_FRAC
         cx, cy = w * mindmap.CX_FRAC, h * mindmap.CY_FRAC
-        if self.rite is not None:
-            r = self.rite
-            u = min(1.0, r["t"] / RITE_GLIDE)
+        if self.reveal is not None:
+            r = self.reveal
+            u = min(1.0, r["t"] / REVEAL_GLIDE)
             u = u * u * (3 - 2 * u)  # smoothstep glide
-            if r["kind"] == "corrupt" and r["t"] > RITE_GLIDE:
+            if r["kind"] == "corrupt" and r["t"] > REVEAL_GLIDE:
                 # the hand tremors: the glide overshoots and corrects
-                v = r["t"] - RITE_GLIDE
+                v = r["t"] - REVEAL_GLIDE
                 u += math.exp(-2.2 * v) * math.sin(9.0 * v) * 0.10
             nx, ny = self.layout[r["node"]]
             z = 1.0 + 0.9 * u
@@ -475,12 +475,12 @@ class PodScene(Scene):
             # glide the view center onto the node (node -> screen center)
             cx = w * mindmap.CX_FRAC - nx * sx * u
             cy = h * mindmap.CY_FRAC - ny * sy * u
-            if r["kind"] == "corrupt" and RITE_GLIDE < r["t"] < RITE_UNFURL:
-                amp = ui(2) * math.exp(-(r["t"] - RITE_GLIDE))
+            if r["kind"] == "corrupt" and REVEAL_GLIDE < r["t"] < REVEAL_UNFURL:
+                amp = ui(2) * math.exp(-(r["t"] - REVEAL_GLIDE))
                 cx += math.sin(r["t"] * 37.0) * amp
                 cy += math.cos(r["t"] * 41.0) * amp
         else:
-            # the rite (above) owns the camera during ceremony; otherwise
+            # the reveal (above) owns the camera while it plays; otherwise
             # selection glides the camera out to frame the selected node's
             # ring (director's hybridization, superseding the old "yank
             # the node to center" pin -- see _cam_pos/update()).
@@ -496,10 +496,10 @@ class PodScene(Scene):
     def handle_event(self, app, event) -> None:
         if event.type != pygame.KEYDOWN:
             return
-        if self.rite is not None:
-            # the ceremony holds the floor; skippable after the first beat
-            if self.rite["t"] >= RITE_IGNITE:
-                self._finish_rite(app)
+        if self.reveal is not None:
+            # the reveal holds the floor; skippable after the first beat
+            if self.reveal["t"] >= REVEAL_IGNITE:
+                self._finish_reveal(app)
             return
         if event.key in (pygame.K_ESCAPE, pygame.K_e):
             app.pop()
@@ -508,7 +508,7 @@ class PodScene(Scene):
             if self.page == "mind":
                 self._ensure_selection()
                 if self.session.think_done:
-                    self._start_rite(app)
+                    self._start_reveal(app)
                 else:
                     self._start_settle()
         elif self.page == "fabricator":
@@ -575,37 +575,37 @@ class PodScene(Scene):
                 return
 
     # ------------------------------------------------------------------
-    # the rite
+    # the reveal (unlock animation)
     # ------------------------------------------------------------------
 
-    def _start_rite(self, app) -> None:
+    def _start_reveal(self, app) -> None:
         s = self.session
         if not s.think_done:
             return
         node = s.think_done[0]
         pre = set(s.mind) | set(mindmap.frontier(s.mind)) | set(s.think_done)
-        # commit the unlock NOW (the sim owns state; the rite is theater --
-        # quitting mid-ceremony can never lose an integrated thought)
+        # commit the unlock NOW (the sim owns state; the reveal is theater --
+        # quitting mid-animation can never lose an integrated thought)
         s.complete_focus(node)
         post = set(s.mind) | set(mindmap.frontier(s.mind)) | set(s.think_done)
         faith = mindmap.nodes()[node]["faith"]
         kind = "bloom" if faith > 0 else ("corrupt" if faith < 0 else "snap")
-        self.rite = dict(node=node, kind=kind, t=0.0, new=post - pre,
+        self.reveal = dict(node=node, kind=kind, t=0.0, new=post - pre,
                          shown=set(), rng=_node_rng(node),
                          fired=set())
         self.sel = node
 
-    def _finish_rite(self, app) -> None:
-        r = self.rite
+    def _finish_reveal(self, app) -> None:
+        r = self.reveal
         if r is None:
             return
         r["shown"] = set(r["new"])
-        self.rite = None
+        self.reveal = None
         if self._ducked:
             app.audio.duck_ambience(1.0)
             self._ducked = False
-        if self.session.think_done:  # a queue of thoughts: next rite
-            self._start_rite(app)
+        if self.session.think_done:  # a queue of thoughts: next reveal
+            self._start_reveal(app)
         elif self._layout_mode == "rings":
             self._ensure_selection()
             # rings mode: new nodes are ALREADY at their static ring
@@ -613,7 +613,7 @@ class PodScene(Scene):
             # room for); they just grow/fade in there, tracked by when
             # each one first became visible (_draw_node reads this).
             for nid in r["new"]:
-                self._reveal[nid] = self.t
+                self._grow_t0[nid] = self.t
         else:
             self._ensure_selection()
             # the newly revealed neighborhood relaxes live to make room:
@@ -622,8 +622,8 @@ class PodScene(Scene):
             # graph holds still while that corner visibly settles
             self._start_settle(subset=set(r["new"]) | {r["node"]})
 
-    def _rite_cue(self, app, key: str, sound: str, vol: float = 0.9) -> None:
-        r = self.rite
+    def _reveal_cue(self, app, key: str, sound: str, vol: float = 0.9) -> None:
+        r = self.reveal
         if key not in r["fired"]:
             r["fired"].add(key)
             app.audio.play(sound, vol)
@@ -639,14 +639,14 @@ class PodScene(Scene):
         if self._label_fade is not None and self.t >= self._label_fade[1] + _LABEL_FADE_IN:
             self._label_fade = None
         self._update_physics(dt)
-        if self.sel != self._cam_sel and self.rite is None and self._settle is None:
-            # selection changed (anywhere -- nav, rite start, fog lifting):
+        if self.sel != self._cam_sel and self.reveal is None and self._settle is None:
+            # selection changed (anywhere -- nav, reveal start, fog lifting):
             # glide the CAMERA to the node instead of the node to the
             # camera (director's brief, verbatim -- now shared by BOTH
             # layout variants, see _cam_pos). Starts from wherever the
             # camera currently sits (mid-glide or at rest), so a rapid
             # re-selection re-targets smoothly rather than jumping. Gated
-            # off while a baked settle or the rite owns the camera (see
+            # off while a baked settle or the reveal owns the camera (see
             # on_enter's precedence comment); the glide simply starts once
             # whichever one finishes, from the camera's current resting
             # spot.
@@ -654,26 +654,26 @@ class PodScene(Scene):
             target = self.layout.get(self.sel, cur)
             self._cam = {"from": cur, "to": target, "t0": self.t, "dur": CAM_GLIDE_DUR}
             self._cam_sel = self.sel
-        r = self.rite
+        r = self.reveal
         if r is None:
             return
         r["t"] += dt
         t = r["t"]
-        if t >= RITE_IGNITE - 0.4:
+        if t >= REVEAL_IGNITE - 0.4:
             # ignition cue per grammar (sfx placeholders; separate pipeline)
-            self._rite_cue(app, "ignite",
-                           {"bloom": "rite_bloom", "snap": "rite_snap",
-                            "corrupt": "rite_bloom"}[r["kind"]])
-        if r["kind"] == "corrupt" and t >= RITE_SOUR:
-            self._rite_cue(app, "sour", "rite_sour")
+            self._reveal_cue(app, "ignite",
+                           {"bloom": "reveal_bloom", "snap": "reveal_snap",
+                            "corrupt": "reveal_bloom"}[r["kind"]])
+        if r["kind"] == "corrupt" and t >= REVEAL_SOUR:
+            self._reveal_cue(app, "sour", "reveal_sour")
             if not self._ducked:
                 app.audio.duck_ambience(0.35)  # the ambient dips
                 self._ducked = True
-        # new neighbors fade in only after the rite's main body
-        if t >= RITE_UNFURL:
+        # new neighbors fade in only after the reveal's main body
+        if t >= REVEAL_UNFURL:
             r["shown"] = set(r["new"])
-        if t >= RITE_DUR:
-            self._finish_rite(app)
+        if t >= REVEAL_DUR:
+            self._finish_reveal(app)
 
     # ------------------------------------------------------------------
     # drawing
@@ -737,8 +737,8 @@ class PodScene(Scene):
         img = f.render(head, True, (170, 200, 185))
         surf.blit(img, (w - img.get_width() - ui(24), ui(12)))
         # footer hints
-        if self.rite is not None:
-            hint = "" if self.rite["t"] < RITE_IGNITE else "any key: conclude the rite"
+        if self.reveal is not None:
+            hint = "" if self.reveal["t"] < REVEAL_IGNITE else "any key: skip"
         elif self.page == "fabricator":
             hint = "W/S: select   ENTER: fabricate   TAB: mind   ESC: seal the pod"
         else:
@@ -946,7 +946,7 @@ class PodScene(Scene):
         """The strip the map may draw into: below the tab header, above
         the detail panel/footer -- the same margins label_layout reserves
         (mindmap.HEADER_MARGIN_PX / FOOTER_MARGIN_PX), so even mid-glide
-        or mid-rite nothing ever bleeds onto chrome."""
+        or mid-reveal nothing ever bleeds onto chrome."""
         w, h = surf.get_size()
         ky = h / mindmap.CANVAS_H
         top = int(round(mindmap.HEADER_MARGIN_PX * ky))
@@ -1034,7 +1034,7 @@ class PodScene(Scene):
         s = self.session
         vis = self._visible()
         over = self._ensure_overlay((w, h))
-        r = self.rite
+        r = self.reveal
 
         prev_clip = surf.get_clip()
         surf.set_clip(self._map_clip(surf))
@@ -1069,13 +1069,13 @@ class PodScene(Scene):
         for nid in sorted(vis):
             self._draw_node(surf, nid)
 
-        # the rite draws above a dimmed graph
+        # the reveal draws above a dimmed graph
         if r is not None:
             dim = 150
-            if r["t"] > RITE_UNFURL:
-                dim = int(150 * max(0.0, (RITE_DUR - r["t"]) / (RITE_DUR - RITE_UNFURL)))
+            if r["t"] > REVEAL_UNFURL:
+                dim = int(150 * max(0.0, (REVEAL_DUR - r["t"]) / (REVEAL_DUR - REVEAL_UNFURL)))
             over.fill((0, 0, 0, dim))
-            self._draw_rite(surf, over)
+            self._draw_reveal(surf, over)
         surf.blit(over, (0, 0))
         surf.set_clip(prev_clip)
 
@@ -1094,9 +1094,9 @@ class PodScene(Scene):
         # clamps to exactly 1.0 and stays there -- bitwise-static once done.
         grow = 1.0
         if self._layout_mode == "rings":
-            t0 = self._reveal.get(nid)
+            t0 = self._grow_t0.get(nid)
             if t0 is not None:
-                grow = max(0.0, min(1.0, (self.t - t0) / REVEAL_DUR))
+                grow = max(0.0, min(1.0, (self.t - t0) / NODE_GROW_DUR))
                 rad = max(1, int(rad * (0.15 + 0.85 * grow)))
         rcol = REGION_COLOR[n["region"]]
         owned = nid in s.mind
@@ -1121,7 +1121,7 @@ class PodScene(Scene):
             rect = pygame.Rect(x - rr, y - rr, 2 * rr, 2 * rr)
             pygame.draw.arc(surf, VERDIGRIS, rect, math.pi / 2,
                             math.pi / 2 + frac * 2 * math.pi, max(1, ui(2)))
-        if nid == self.sel and self.rite is None:
+        if nid == self.sel and self.reveal is None:
             # selection ring: three rotating arc shards
             rr = rad + ui(6)
             rect = pygame.Rect(x - rr, y - rr, 2 * rr, 2 * rr)
@@ -1136,21 +1136,21 @@ class PodScene(Scene):
                 pygame.draw.arc(surf, col, rect, a, a + 1.1, max(1, ui(1)))
         # every visible node gets its label now: mindmap.label_layout()
         # already proved (PBT, test_mindmap_layout.py) that no two labels
-        # and no label/node pair ever collide at rest. During the rite,
+        # and no label/node pair ever collide at rest. During the reveal,
         # non-focus labels dim to near-invisible during the glide/ignite
         # (the known "label sits on the animation" collision class is
         # gone by construction -- there's nothing legible there to sit on
-        # top of the ceremony art) and the rite's own node draws no
-        # ordinary label at all (the ceremony IS its name-card).
-        r = self.rite
+        # top of the animation art) and the revealing node draws no
+        # ordinary label at all (the animation IS its name-card).
+        r = self.reveal
         if r is not None and nid == r["node"]:
             return
         alpha = 255
         if r is not None:
-            if r["t"] < RITE_UNFURL:
+            if r["t"] < REVEAL_UNFURL:
                 alpha = 26
             else:
-                alpha = int(255 * min(1.0, (r["t"] - RITE_UNFURL) / 0.6))
+                alpha = int(255 * min(1.0, (r["t"] - REVEAL_UNFURL) / 0.6))
             if alpha <= 0:
                 return
         fade = self._label_fade
@@ -1223,7 +1223,7 @@ class PodScene(Scene):
         if nid in s.mind:
             status = "INTEGRATED"
         elif nid in s.think_done:
-            status = "THOUGHT COMPLETE - THE RITE AWAITS"
+            status = "THOUGHT COMPLETE - REVEAL PENDING"
         else:
             need = mindmap.think_ticks(nid)
             have = s.think_progress.get(nid, 0)
@@ -1256,19 +1256,19 @@ class PodScene(Scene):
                       (bx, y0 + ui(6) + i * ui(15)))
 
     # ------------------------------------------------------------------
-    # the three rite grammars
+    # the three reveal grammars
     # ------------------------------------------------------------------
 
-    def _draw_rite(self, surf, over) -> None:
-        r = self.rite
+    def _draw_reveal(self, surf, over) -> None:
+        r = self.reveal
         t = r["t"]
         x, y = self._to_screen(surf, *self.layout[r["node"]])
         # ignition flare, shared by all three grammars: a soft bloom of
         # concentric light, then a bright expanding ring
-        if t > RITE_GLIDE:
-            k = min(1.0, (t - RITE_GLIDE) / (RITE_IGNITE - RITE_GLIDE))
+        if t > REVEAL_GLIDE:
+            k = min(1.0, (t - REVEAL_GLIDE) / (REVEAL_IGNITE - REVEAL_GLIDE))
             # the flare is transient: full at ignition, gone half a beat later
-            fade = max(0.0, 1.0 - max(0.0, t - RITE_IGNITE) / 0.5)
+            fade = max(0.0, 1.0 - max(0.0, t - REVEAL_IGNITE) / 0.5)
             base = GOLD if r["kind"] != "snap" else MIRIAD
             if fade > 0.0:
                 for gr, ga in ((ui(30), 34), (ui(18), 62), (ui(10), 110)):
@@ -1278,30 +1278,30 @@ class PodScene(Scene):
                 pygame.draw.circle(over, (*base, alpha), (x, y), fr,
                                    max(1, ui(2)))
         if r["kind"] == "bloom":
-            self._rite_bloom(surf, over, x, y, t, sour_at=None)
+            self._reveal_bloom(surf, over, x, y, t, sour_at=None)
         elif r["kind"] == "corrupt":
-            self._rite_bloom(surf, over, x, y, t, sour_at=RITE_SOUR)
+            self._reveal_bloom(surf, over, x, y, t, sour_at=REVEAL_SOUR)
         else:
-            self._rite_snap(surf, over, x, y, t)
-        self._rite_reveal(surf, over, t)
+            self._reveal_snap(surf, over, x, y, t)
+        self._reveal_neighbors(surf, over, t)
         # the node itself, reborn bone-bright at the center
-        if t > RITE_IGNITE:
-            col = BONE if not (r["kind"] == "corrupt" and t > RITE_SOUR) else SOUR
+        if t > REVEAL_IGNITE:
+            col = BONE if not (r["kind"] == "corrupt" and t > REVEAL_SOUR) else SOUR
             pygame.draw.circle(over, (*col, 255), (x, y), ui(7))
             pygame.draw.circle(over, (*REGION_COLOR[
                 mindmap.nodes()[r["node"]]["region"]], 255), (x, y), ui(7),
                 max(1, ui(1)))
 
-    def _rite_bloom(self, surf, over, x, y, t, sour_at) -> None:
+    def _reveal_bloom(self, surf, over, x, y, t, sour_at) -> None:
         """PHYLLOTACTIC BLOOM: petals unfurl at the golden angle, radius
         by sqrt(k) -- the sunflower law in machined light (Testator lane).
         With `sour_at`, the same bloom is betrayed mid-unfurl: color
-        drains, petals go angular, growth staggers -- the corrupted rite."""
-        r = self.rite
-        if t <= RITE_IGNITE - 0.2:
+        drains, petals go angular, growth staggers -- the corrupted reveal."""
+        r = self.reveal
+        if t <= REVEAL_IGNITE - 0.2:
             return
         n_petals = 21
-        t0, t1 = RITE_IGNITE - 0.2, RITE_UNFURL
+        t0, t1 = REVEAL_IGNITE - 0.2, REVEAL_UNFURL
         for k in range(n_petals):
             born = t0 + (t1 - t0) * k / n_petals
             if t < born:
@@ -1344,14 +1344,14 @@ class PodScene(Scene):
                 pygame.draw.polygon(over, (*SOUR, 70), ipts)
                 pygame.draw.polygon(over, (*SOUR, 235), ipts, max(1, ui(1)))
 
-    def _rite_snap(self, surf, over, x, y, t) -> None:
+    def _reveal_snap(self, surf, over, x, y, t) -> None:
         """MIRIAD SCHEMATIC SNAP: alignment guides flash, then the node
         assembles from clean vector segments with a drafting-table
         register -- the lane of the works of Man."""
         w, h = surf.get_size()
         # alignment guides sweep in during the glide and fade
-        if t < RITE_IGNITE + 0.9:
-            a = int(140 * max(0.0, 1.0 - abs(t - RITE_GLIDE) / 1.1))
+        if t < REVEAL_IGNITE + 0.9:
+            a = int(140 * max(0.0, 1.0 - abs(t - REVEAL_GLIDE) / 1.1))
             if a > 0:
                 pygame.draw.line(over, (*MIRIAD, a), (0, y), (w, y), 1)
                 pygame.draw.line(over, (*MIRIAD, a), (x, 0), (x, h), 1)
@@ -1360,12 +1360,12 @@ class PodScene(Scene):
                                      (0, y + off), (w, y + off), 1)
                     pygame.draw.line(over, (*MIRIAD, a // 2),
                                      (x + off, 0), (x + off, h), 1)
-        if t <= RITE_IGNITE - 0.2:
+        if t <= REVEAL_IGNITE - 0.2:
             return
         bright = (200, 214, 226)
         # eight ring segments snap in, each with a little overshoot
         segs = 8
-        t0, t1 = RITE_IGNITE - 0.2, RITE_UNFURL - 0.4
+        t0, t1 = REVEAL_IGNITE - 0.2, REVEAL_UNFURL - 0.4
         rr = ui(26)
         for k in range(segs):
             born = t0 + (t1 - t0) * k / segs
@@ -1400,14 +1400,14 @@ class PodScene(Scene):
                 pygame.draw.line(over, (*AMBER, 230), (x1, y1), (x2, y2),
                                  max(1, ui(1)))
 
-    def _rite_reveal(self, surf, over, t) -> None:
-        """New neighbors fade in only after the rite's main body: edges
+    def _reveal_neighbors(self, surf, over, t) -> None:
+        """New neighbors fade in only after the reveal's main body: edges
         first (tendrils for the bloom, straight drafting lines for the
-        snap, cracks for the corrupted rite), then the nodes themselves."""
-        r = self.rite
-        if t < RITE_UNFURL - 0.3 or not r["new"]:
+        snap, cracks for the corrupted reveal), then the nodes themselves."""
+        r = self.reveal
+        if t < REVEAL_UNFURL - 0.3 or not r["new"]:
             return
-        u = min(1.0, (t - (RITE_UNFURL - 0.3)) / 1.2)
+        u = min(1.0, (t - (REVEAL_UNFURL - 0.3)) / 1.2)
         x, y = self._to_screen(surf, *self.layout[r["node"]])
         tbl = mindmap.nodes()
         for nid in sorted(r["new"]):
@@ -1458,8 +1458,8 @@ class PodScene(Scene):
             # _draw_node (which fades it in over the same window once
             # r["shown"] admits the node into `vis`). Drawing the label
             # here too used to double it up: this fade-in glow's `u>0.5`
-            # gate only trips at RITE_UNFURL+0.3s, by which point
-            # r["shown"] (flipped at RITE_UNFURL) already made the
+            # gate only trips at REVEAL_UNFURL+0.3s, by which point
+            # r["shown"] (flipped at REVEAL_UNFURL) already made the
             # ordinary label pass draw the same name -- two draws of one
             # word, stacked.
             if u > 0.5:

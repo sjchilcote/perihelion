@@ -3,7 +3,7 @@ room in his soul to metabolize. Expansion costs TIME, not components
 (SEEDPOD_UI_DESIGN.md, director-directed): at the seed pod you choose ONE
 frontier concept to think about; progress accrues in sim ticks during
 normal field play (menus never tick), and the node unfolds -- with
-ceremony -- when you next open the pod after the thought completes. Every
+a full reveal animation -- when you next open the pod after the thought completes. Every
 mechanical node is also a philosophical position, and faith/apostasy is
 computed from the investment pattern, never shown as a meter.
 
@@ -158,7 +158,7 @@ def seed_layout(graph: dict[str, dict] | None = None) -> dict[str, tuple[float, 
         lo, hi = bands[d_]
         # radial scatter WITHIN the band (director: nodes are contained in
         # bands, free within them -- not beads locked onto a circle): a
-        # deterministic per-node fraction (crc32, like the rite ornament
+        # deterministic per-node fraction (crc32, like the reveal ornament
         # -- no process-salted hash()) spreads seed radii across the
         # band's interior, clear of both boundaries by BAND_MARGIN_FRAC so
         # the seed already shows the radial variance the rest layout keeps.
@@ -897,7 +897,7 @@ def _force_step(P, sysd):
 # velocities snap to exactly (0, 0) and the tick becomes a no-op -- positions
 # are the same dict, unchanged, forever, until something perturbs the force
 # field enough to cross the wake threshold again (the caller resetting to a
-# fresh `live_rest_state()` on page open / rite reveal is the only such
+# fresh `live_rest_state()` on page open / node reveal is the only such
 # perturbation left now that selection no longer touches the force field).
 #
 # Every node carries a permanent spring back to its OWN `layout()` position
@@ -998,7 +998,7 @@ class LiveState:
 
 
 def live_rest_state(graph: dict[str, dict] | None = None) -> LiveState:
-    """The state a page-open (or a settle/rite finishing and handing the
+    """The state a page-open (or a settle/reveal finishing and handing the
     floor back) resets to: every node at its own `layout()` position, at
     rest (zero velocity), not yet proven asleep (`quiet=0`) -- the first few
     ticks re-verify quiescence for real rather than assuming the rest
@@ -1076,7 +1076,7 @@ def live_relax_step(state: LiveState,
     positions, discarding whatever infinitesimal candidate move the
     physics would otherwise have made) until something perturbs the field
     past the threshold -- the caller resetting to `live_rest_state()` on
-    page open / rite reveal."""
+    page open / node reveal."""
     import numpy as np
 
     tbl = graph if graph is not None else nodes()
@@ -1476,7 +1476,7 @@ def label_layout(positions: dict[str, tuple[float, float]],
     """node id -> {"box": (left, top, right, bottom) in canvas px,
     "font_px": int, "leader": bool}. `leader=True` marks a label that had
     to escalate past its default south anchor (podscene draws a thin
-    leader tick for those, same grammar as the rite's tendrils/cracks)."""
+    leader tick for those, same grammar as the reveal's tendrils/cracks)."""
     tbl = graph if graph is not None else nodes()
     ids = sorted(positions, key=lambda nid: (
         -len(tbl[nid].get("prereqs", [])) if nid in tbl else 0, nid))

@@ -7,8 +7,8 @@ components — "it should be a separate resource. Maybe just _time_": you
 pick what the Commando thinks about in the background, it fills as a
 timer runs, and the node expands (neighbors appearing) when you next open
 the UI after completion. "Make it a show — expanding a new mind map node
-is a big deal, it should have some ceremony, some juice — and maybe
-corrupt the ceremony a little if it's a faith-reducing node, Commando has
+is a big deal, it should have some presentation, some juice — and maybe
+corrupt the animation a little if it's a faith-reducing node, Commando has
 been _ruminating_ and losing his faith."
 
 Also ruled: enemies stay stylized sensor traces (rendering constraint
@@ -52,10 +52,10 @@ tab-switched:
   field emits a quiet fx cue ("a thought has finished") but the unlock
   itself waits for the pod.
 
-## The ceremony
+## The reveal (unlock animation)
 
 On opening MIND with a completed focus: the page auto-plays the
-expansion rite (~5s, skippable after first beat). The grammar follows the
+expansion reveal (~5s, skippable after first beat). The grammar follows the
 authorship lanes (TESTATOR_DESIGN_LANGUAGE.md) — the UI itself speaks the
 game's three languages:
 
@@ -67,19 +67,19 @@ game's three languages:
   clean vector parts — alignment guides flash, segments snap in, a
   drafting-table register; crisp industrial cue. The lane of the works
   of Man.
-- FAITH-REDUCING nodes: CORRUPTED RITE. The bloom starts, then goes
+- FAITH-REDUCING nodes: CORRUPTED BLOOM. The bloom starts, then goes
   wrong — color drains mid-unfurl, petals go angular, the glide
   overshoots and corrects like a hand tremor, new edges arrive as
   cracks rather than growths; the cue sours, the ambient dips. The
   Commando has been RUMINATING. Small, wrong, unmistakable.
 
-New neighbors fade in only after the rite — the reveal is the reward.
+New neighbors fade in only after the animation — the reveal is the reward.
 
 ## Cut/changed from current build
 
 - ShopScene + MindMapScene (text columns) are replaced by the pod scene.
 - sim.buy_node (component-priced) is replaced by sim.set_focus /
-  tick-accrual / sim.complete_focus (called by the ceremony; fx via the
+  tick-accrual / sim.complete_focus (called by the reveal; fx via the
   _park_oob contract). Economy tests update to the time model.
 - mindmap.json price fields become think-times (converted, not deleted —
   data field semantics documented in mindmap.py).
@@ -87,5 +87,5 @@ New neighbors fade in only after the rite — the reveal is the reward.
 ## Later (slots reserved, not built now)
 
 - Hero art generation for Testator equipment via the image pipeline.
-- Ceremony sfx through the Gemini sfx pipeline (three cues).
+- Reveal sfx through the Gemini sfx pipeline (three cues).
 - Mind-map region "territory" backgrounds per authorship lane.

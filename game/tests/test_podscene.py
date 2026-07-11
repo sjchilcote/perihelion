@@ -1,5 +1,5 @@
 """The seed-pod UI (SEEDPOD_UI_DESIGN.md): page drawing, the expansion
-rite's lifecycle (commit-at-start, skip gating, queue chaining), fog of
+reveal's lifecycle (commit-at-start, skip gating, queue chaining), fog of
 war, and keyboard navigation -- headless, dummy video driver."""
 
 import math
@@ -111,60 +111,60 @@ def test_fog_of_war_shows_unlocked_plus_frontier_only():
     assert "vocation-protected-revival" not in vis  # deep fog
 
 
-def test_rite_commits_unlock_at_start_and_reveals_after(surf):
+def test_reveal_commits_unlock_at_start_and_admits_neighbors(surf):
     sc, s, app = _scene(think_done=["vocation-just-war"])
-    sc.on_enter(app)  # a finished thought: the pod opens on MIND, mid-rite
-    assert sc.page == "mind" and sc.rite is not None
-    assert "vocation-just-war" in s.mind  # committed at rite start
+    sc.on_enter(app)  # a finished thought: the pod opens on MIND, mid-reveal
+    assert sc.page == "mind" and sc.reveal is not None
+    assert "vocation-just-war" in s.mind  # committed at reveal start
     assert not s.think_done
-    # new neighbors are held back until the rite's reveal
+    # new neighbors are held back until the reveal's neighbor fade-in
     assert "vocation-doctrine-of-restraint" not in sc._visible()
     _run(sc, app, 4.0)
     sc.draw(app, surf)
     assert "vocation-doctrine-of-restraint" in sc._visible()
     _run(sc, app, 1.5)
-    assert sc.rite is None  # the rite concluded on its own
+    assert sc.reveal is None  # the reveal concluded on its own
     assert app.audio.played  # the ignition cue fired
 
 
-def test_rite_skippable_only_after_first_beat():
+def test_reveal_skippable_only_after_first_beat():
     sc, s, app = _scene(think_done=["vocation-just-war"])
     sc.on_enter(app)
     ev = pygame.event.Event(pygame.KEYDOWN, key=pygame.K_SPACE)
     sc.handle_event(app, ev)
-    assert sc.rite is not None  # too early: the first beat must play
+    assert sc.reveal is not None  # too early: the first beat must play
     _run(sc, app, 1.5)
     sc.handle_event(app, ev)
-    assert sc.rite is None  # skipped after the beat
+    assert sc.reveal is None  # skipped after the beat
     assert "vocation-just-war" in s.mind
 
 
-def test_rite_queue_chains():
+def test_reveal_queue_chains():
     sc, s, app = _scene(
         think_done=["vocation-just-war", "history-the-long-peace"])
     sc.on_enter(app)
-    first = sc.rite["node"]
+    first = sc.reveal["node"]
     _run(sc, app, 1.5)
     sc.handle_event(app, pygame.event.Event(pygame.KEYDOWN, key=pygame.K_SPACE))
-    assert sc.rite is not None and sc.rite["node"] != first  # the next rite
+    assert sc.reveal is not None and sc.reveal["node"] != first  # the next reveal
     _run(sc, app, 1.5)
     sc.handle_event(app, pygame.event.Event(pygame.KEYDOWN, key=pygame.K_SPACE))
-    assert sc.rite is None
+    assert sc.reveal is None
     assert {"vocation-just-war", "history-the-long-peace"} <= s.mind
 
 
-def test_corrupted_rite_dips_ambience_and_restores():
+def test_corrupted_reveal_dips_ambience_and_restores():
     node = "void-arithmetic-of-futility"
     pre = mindmap.nodes()[node]["prereqs"]
     assert mindmap.nodes()[node]["faith"] < 0
     sc, s, app = _scene(mind=pre, think_done=[node])
     sc.on_enter(app)
-    assert sc.rite["kind"] == "corrupt"
+    assert sc.reveal["kind"] == "corrupt"
     _run(sc, app, 2.6)
     assert app.audio.duck < 1.0  # the ambient dips as the bloom sours
-    assert "rite_sour" in app.audio.played
+    assert "reveal_sour" in app.audio.played
     _run(sc, app, 3.0)
-    assert sc.rite is None and app.audio.duck == 1.0  # restored
+    assert sc.reveal is None and app.audio.duck == 1.0  # restored
 
 
 def test_enter_sets_focus_and_nav_walks_edges():
@@ -196,7 +196,7 @@ def test_escape_seals_the_pod():
 # "yanked to the center...drifted back...when released" pin): selection
 # now moves podscene's CAMERA to frame the selected node's ring, never the
 # node itself -- no node is ever exempt from its own depth-annulus band,
-# selected or not. These tests exercise the WIRING (page/settle/rite
+# selected or not. These tests exercise the WIRING (page/settle/reveal
 # precedence, selection-change starts a glide, the node stays confined to
 # its band throughout) rather than re-deriving the physics bounds -- see
 # test_mindmap_layout.py's annulus/camera_glide properties for those.
@@ -296,15 +296,15 @@ def test_region_headers_render_at_reserved_width(surf):
         assert max_right <= w_reserved + 1.0, (region, max_right, w_reserved)
 
 
-def test_camera_suspended_during_rite(_physics_mode):
+def test_camera_suspended_during_reveal(_physics_mode):
     sc, s, app = _scene(think_done=["vocation-just-war"])
     sc.on_enter(app)
-    assert sc.rite is not None
+    assert sc.reveal is not None
     # force a selection the camera has NOT yet glided to, simulating a
-    # mid-ceremony change -- the rite's own camera math (_to_screen) owns
+    # mid-animation change -- the reveal's own camera math (_to_screen) owns
     # the view regardless, so this must never start a selection glide
     sc.sel = next(nid for nid in sc._visible() if nid != sc._cam_sel)
-    for _ in range(120):  # 2s mid-ceremony
+    for _ in range(120):  # 2s mid-reveal
         sc.update(app, 1 / 60)
     assert sc._cam["dur"] == 0.0  # no glide ever started
     assert sc._cam_sel != sc.sel  # update() never latched the new target

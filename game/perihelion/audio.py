@@ -38,7 +38,7 @@ class Audio:
 
         self._ambience_name: str | None = None
         self._ambience_channel = None
-        self._ambience_duck = 1.0  # rite grammar: the corrupted rite dips it
+        self._ambience_duck = 1.0  # reveal grammar: the corrupted reveal dips it
         self._heartbeat_active = False
         self._heartbeat_channel = None
 
@@ -143,7 +143,7 @@ class Audio:
 
     def duck_ambience(self, frac: float) -> None:
         """Scale the running ambience loop (1.0 = normal). The corrupted
-        expansion rite dips the room while the bloom sours."""
+        expansion reveal dips the room while the bloom sours."""
         self._ambience_duck = max(0.0, min(1.0, frac))
         if self._ambience_channel is not None:
             self._ambience_channel.set_volume(

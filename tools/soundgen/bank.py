@@ -1466,11 +1466,11 @@ def gen_radio_blip() -> np.ndarray:
 
 
 # ==========================================================================
-# seed-pod ceremony rites (SEEDPOD_UI_DESIGN.md three-grammar ceremony)
+# seed-pod node reveals (SEEDPOD_UI_DESIGN.md three-grammar reveal)
 # ==========================================================================
 
-def gen_rite_bloom() -> np.ndarray:
-    """The pod's faith-affirming rite: a phyllotactic bloom. Partials enter
+def gen_reveal_bloom() -> np.ndarray:
+    """The pod's faith-affirming reveal: a phyllotactic bloom. Partials enter
     staggered by the golden angle (137.5deg) mapped into both a pitch offset
     and an entrance-time offset, so the ear gets a spiralling, unfolding
     structure -- organic-mathematical, not a chord stab. Warm sub pad
@@ -1507,8 +1507,8 @@ def gen_rite_bloom() -> np.ndarray:
     return finish(x, fade_s=0.28, pad_s=0.06)
 
 
-def gen_rite_snap() -> np.ndarray:
-    """The pod's neutral rite: a MIRIAD schematic assembling on a drafting
+def gen_reveal_snap() -> np.ndarray:
+    """The pod's neutral reveal: a MIRIAD schematic assembling on a drafting
     table -- crisp, industrial, precise. A short sequence of distinct
     metallic clicks (each brighter than the last, as if lines are being
     drawn/snapped into place), then a clean two-tone confirmation chirp.
@@ -1543,13 +1543,13 @@ def gen_rite_snap() -> np.ndarray:
     return finish(x, fade_s=0.03, pad_s=0.02)
 
 
-def gen_rite_sour() -> np.ndarray:
-    """The pod's faith-reducing rite: the bloom cue starting, then souring.
-    Same golden-angle phyllotactic partial structure as rite_bloom (so it
-    reads as the SAME rite going wrong, not a different sound), but each
+def gen_reveal_sour() -> np.ndarray:
+    """The pod's faith-reducing reveal: the bloom cue starting, then souring.
+    Same golden-angle phyllotactic partial structure as reveal_bloom (so it
+    reads as the SAME bloom going wrong, not a different sound), but each
     partial drifts downward/detunes over its own sustain, and a slow gated
     dissonant noise swell rises underneath -- rumination curdling, faith
-    draining out of the ceremony as it plays."""
+    draining out of the bloom as it plays."""
     seed = _seed("ritesour")
     rng = np.random.default_rng(seed)
     dur = 1.15
@@ -2067,9 +2067,9 @@ _ENTRIES = [
     ("terminal_open", "CRT power hum blip", 0.15, 0.28, "ui", gen_terminal_open, ("peak", PEAK_UI)),
     ("terminal_type", "single keyboard key tick", 0.015, 0.05, "ui", gen_terminal_type, ("peak", PEAK_UI)),
     ("radio_blip", "short filtered static burst plus tone, radio voice cue", 0.10, 0.20, "ui", gen_radio_blip, ("peak", PEAK_UI)),
-    ("rite_bloom", "a phyllotactic bloom for the pod's faith-affirming rite: reverent, warm, organic-mathematical -- staggered golden-angle partials spiralling in over a warm sub pad, soft-clip warmth, a touch of devotional reverb, not a bright UI chime", 1.6, 2.0, "ui", gen_rite_bloom, ("peak", PEAK_UI)),
-    ("rite_snap", "a MIRIAD schematic assembling for the pod's neutral rite: crisp, industrial, drafting-table -- a short sequence of distinct brightening metallic clicks then a clean two-tone confirmation chirp, dry and precise, no low-end warmth", 0.45, 0.75, "ui", gen_rite_snap, ("peak", PEAK_UI)),
-    ("rite_sour", "the corrupted rite: the bloom cue starting then souring -- the same phyllotactic partial structure as rite_bloom but each partial detunes/drifts downward as it sustains, with a slow gated dissonant noise swell rising underneath -- rumination curdling, faith draining out mid-ceremony", 1.0, 1.4, "ui", gen_rite_sour, ("peak", PEAK_UI)),
+    ("reveal_bloom", "a phyllotactic bloom for the pod's faith-affirming node reveal: reverent, warm, organic-mathematical -- staggered golden-angle partials spiralling in over a warm sub pad, soft-clip warmth, a touch of devotional reverb, not a bright UI chime", 1.6, 2.0, "ui", gen_reveal_bloom, ("peak", PEAK_UI)),
+    ("reveal_snap", "a MIRIAD schematic assembling for the pod's neutral node reveal: crisp, industrial, drafting-table -- a short sequence of distinct brightening metallic clicks then a clean two-tone confirmation chirp, dry and precise, no low-end warmth", 0.45, 0.75, "ui", gen_reveal_snap, ("peak", PEAK_UI)),
+    ("reveal_sour", "the corrupted reveal: the bloom cue starting then souring -- the same phyllotactic partial structure as reveal_bloom but each partial detunes/drifts downward as it sustains, with a slow gated dissonant noise swell rising underneath -- rumination curdling, faith draining out mid-bloom", 1.0, 1.4, "ui", gen_reveal_sour, ("peak", PEAK_UI)),
     ("think_complete", "quiet in-field cue that a thought has finished: a single subtle, dark, short two-partial chime, non-intrusive -- must still read faintly when heard mid-combat, not a bright UI ding", 0.15, 0.30, "ui", gen_think_complete, ("peak", PEAK_UI - 3.0)),
     ("door_unlock", "heavy mechanical servo clunk unlocking a door", 0.25, 0.40, "door", gen_door_unlock, ("peak", PEAK_IMPACT)),
     ("seed_plant", "a station kit anchoring into deck plate: heavy mechanical thunk of anchor bolts driving home, then a rising power-up bloom as the station wakes", 0.70, 1.10, "door", gen_seed_plant, ("peak", PEAK_IMPACT)),

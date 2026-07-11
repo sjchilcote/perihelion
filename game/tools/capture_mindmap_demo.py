@@ -6,7 +6,7 @@ graph settles, the player walks the selection (now: the CAMERA glides out
 across depth-ring boundaries to a deep node and back, while the nodes
 themselves visibly, chaotically jitter WITHIN their own bands -- the
 director's "bank-switching, limited main memory" hybridization), a queued
-thought's rite plays, and the newly-revealed neighborhood settles.
+thought's reveal plays, and the newly-revealed neighborhood settles.
 
 Run from the repo root:
     uv run --project game python game/tools/capture_mindmap_demo.py
@@ -116,7 +116,7 @@ def main() -> None:
     # 1. open MIND, let the baked settle finish
     sc.page = "mind"
     sc.on_enter(app)
-    assert sc.rite is None
+    assert sc.reveal is None
     tick(90)  # 1.5s: settle (0.7s) + a beat holding still, bands visible
 
     # 2. walk the selection DEEP across several ring boundaries -- the
@@ -156,11 +156,11 @@ def main() -> None:
 
     tick(90)  # 1.5s holding on the shallow node
 
-    # 4. queue a thought's completion and play the real rite
+    # 4. queue a thought's completion and play the real reveal
     frontier_pick = sorted(mindmap.frontier(set(s.mind)))[0]
     s.think_done.append(frontier_pick)
-    sc._start_rite(app)
-    while sc.rite is not None:
+    sc._start_reveal(app)
+    while sc.reveal is not None:
         sc.update(app, 1 / FPS)
         sc.draw(app, surf)
         frame = surf if surf.get_size() == (OUT_W, OUT_H) else \

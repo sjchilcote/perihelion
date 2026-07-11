@@ -243,7 +243,7 @@ class GameSession:
         # thinking-as-time (SEEDPOD_UI_DESIGN.md): the ONE focus node the
         # Commando ruminates on in the field; per-node accrued ticks
         # (switching focus never loses thought); and the queue of finished
-        # thoughts awaiting their unfolding ceremony at the pod. All three
+        # thoughts awaiting their unfolding reveal at the pod. All three
         # survive death, chassis reprint, and cold restore -- the mind
         # survives the body by construction. Dying costs loot, never thought.
         self.think_focus: str | None = st.get("think_focus")
@@ -1752,7 +1752,7 @@ class GameSession:
         focus parks the old node's progress -- thought is never lost."""
         from . import mindmap
         if node_id in self.think_done:
-            return False  # already finished; awaits its ceremony
+            return False  # already finished; awaits its reveal
         if not mindmap.available(self.mind, node_id):
             return False
         if self.think_focus == node_id:
@@ -1767,7 +1767,7 @@ class GameSession:
         """One field tick of background rumination on the focus node.
         Runs ONLY from tick() (menus don't tick -- thinking happens out
         there, under fire, diegetically). Completion emits a quiet field
-        cue; the unlock itself waits for the pod ceremony."""
+        cue; the unlock itself waits for the pod reveal."""
         if self.think_focus is None:
             return
         from . import mindmap
@@ -1782,7 +1782,7 @@ class GameSession:
             self.fx.append(("thought_done", nid))
 
     def complete_focus(self, node_id: str) -> bool:
-        """The pod ceremony calls this at the rite's ignition: fold a
+        """The pod reveal calls this at its ignition: fold a
         finished thought into the mind and wire its effects. This -- not
         field completion -- is the moment of unlock (the reveal is the
         reward)."""

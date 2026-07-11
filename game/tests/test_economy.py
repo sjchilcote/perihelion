@@ -227,7 +227,7 @@ def test_thinking_accrues_in_field_and_unlock_waits_for_pod():
     assert s.think_focus is None
     assert nid not in s.mind  # field completion is a cue, not the unlock
     assert ("thought_done", nid) in s.fx  # the quiet field cue fired
-    # the pod ceremony performs the unlock
+    # the pod reveal performs the unlock
     assert s.complete_focus(nid)
     assert nid in s.mind and not s.think_done
     assert s.faith == mindmap.nodes()[nid]["faith"]
@@ -245,7 +245,7 @@ def test_dead_frames_do_not_think():
     assert s.think_progress["vocation-just-war"] == p
 
 
-def test_ceremony_unlock_reveals_neighbors():
+def test_reveal_unlock_admits_neighbors():
     from perihelion import mindmap
     s = _session()
     assert "vocation-doctrine-of-restraint" not in mindmap.frontier(s.mind)
