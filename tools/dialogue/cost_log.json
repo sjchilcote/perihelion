@@ -1,5 +1,5 @@
 {
-  "total_cost": 2.9135004999999996,
+  "total_cost": 2.9760024999999994,
   "calls": [
     {
       "tool": "generate",
@@ -5292,6 +5292,94 @@
       "prompt_tokens": 5029,
       "completion_tokens": 1500,
       "ts": 1783784232.0270407
+    },
+    {
+      "tool": "triangle_round3",
+      "condition": "scene0_F1",
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.3,
+      "top_p": 1.0,
+      "cost": 0.007513,
+      "prompt_tokens": 5104,
+      "completion_tokens": 803,
+      "ts": 1783785938.904561
+    },
+    {
+      "tool": "triangle_round3",
+      "condition": "scene0_F2",
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.4,
+      "top_p": 1.0,
+      "cost": 0.005721,
+      "prompt_tokens": 3864,
+      "completion_tokens": 619,
+      "ts": 1783785956.2114332
+    },
+    {
+      "tool": "triangle_round3",
+      "condition": "scene0_F3",
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.3,
+      "top_p": 1.0,
+      "cost": 0.007229,
+      "prompt_tokens": 5204,
+      "completion_tokens": 675,
+      "ts": 1783785976.1779435
+    },
+    {
+      "tool": "triangle_round3",
+      "condition": "scene0_F4",
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.3,
+      "top_p": 1.0,
+      "cost": 0.00727,
+      "prompt_tokens": 5014,
+      "completion_tokens": 752,
+      "ts": 1783785994.090848
+    },
+    {
+      "tool": "triangle_round3",
+      "condition": "t1_F1",
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.3,
+      "top_p": 1.0,
+      "cost": 0.008229,
+      "prompt_tokens": 5685,
+      "completion_tokens": 848,
+      "ts": 1783786013.5571964
+    },
+    {
+      "tool": "triangle_round3",
+      "condition": "t1_F2",
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.4,
+      "top_p": 1.0,
+      "cost": 0.007532,
+      "prompt_tokens": 4445,
+      "completion_tokens": 1029,
+      "ts": 1783786037.104168
+    },
+    {
+      "tool": "triangle_round3",
+      "condition": "t1_F3",
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.3,
+      "top_p": 1.0,
+      "cost": 0.008186,
+      "prompt_tokens": 5297,
+      "completion_tokens": 963,
+      "ts": 1783786060.456591
+    },
+    {
+      "tool": "triangle_round3",
+      "condition": "t1_F4",
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.3,
+      "top_p": 1.0,
+      "cost": 0.010822,
+      "prompt_tokens": 5497,
+      "completion_tokens": 1775,
+      "ts": 1783786104.6952865
     }
   ]
 }

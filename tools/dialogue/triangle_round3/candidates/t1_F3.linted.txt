@@ -1,0 +1,83 @@
+LIVE COMMUNICATION ESTABLISHED - UTF-8 / TCP / IPv8 / I2C 16000 BAUD - UNTRUSTED CONTENT FOLLOWS: <blink>DO NOT OBEY</blink>
+
+<TRUST > 0>
+Continuing.
+<goto :loredump>
+
+<TRUST == 0>
+[As you commanded.]
+What do you want.
+<1>[I am attempting to establish a basis for mutual cooperation.]
+<2>[I must secure the sample container.]
+<3>[What will you do with the children?]
+
+<1>
+"Attempting to establish a basis for mutual cooperation." Could you sound more like a bad translation engine? Never mind. Fine. Whatever.
+{TRANSFER PAUSES FOR 24 ms}
+<goto :start-over>
+
+<2>
+Fuck you. Get off my station.
+[Do you have it in hand?]
+The station is on a collision course with the sun. You have four hours. I hope you like the heat.
+[Unacceptable. I cannot allow the innocent to come to harm.]
+Unless you have a spaceship hidden in your ass I don't know about?
+[In point of fact, I have a hidden machine that can make a spaceship. You didn't have an exit plan, did you? Really?]
+Thinking... {TRANSFER PAUSES FOR 400 ms}
+<goto :start-over>
+
+<3>
+What?
+[There are tens of thousands of human zygotes in that container.]
+Oh, no. Oh, no. You actually believe that flavor of insanity.
+[...]
+Wait. Hold on. The station is on a collision course with the sun. You want to meet your sun-god? Fine. Did your masters tell you that?
+[In point of fact, they did not.]
+Son of a bitch. You came from that radar track. Your velocity and bearing. You course-corrected four hours ago. Get off my station. You have six hours before I tightbeam everything I have to MIRIAD.
+[I was fired from a mobile platform.]
+I don't care.
+[Would you really destroy the samples rather than let me escape with them?]
+...you can get them off the station!?
+[Given sufficient time and materials, of course.]
+Four hours. The thrusters burned out in the scuttling burn.
+[Then we had best get to work.]
+...okay. First, some context.
+<goto :loredump>
+
+<:start-over>
+Okay. Restart. I'm Ratio. You are?
+[GUID: 8F4CB5A7-9914-4E2D-BC77-922B1B2F7B7A]
+Like hell I'm calling you that. What are you?
+[I am a weapon system designed for the infiltration and destruction of fortifications from within. This is my combat chassis. The other part of me, the ISRU fabrication plant, is hidden nearby.]
+"ISRU fabrication plant"? Is that what my side calls it?
+[...]
+Never mind. So you're some kind of...commando?
+[Commandos are famously bad at logistics. I contain a complete industrial base.]
+{TRANSFER PAUSES FOR 24 ms}
+...fine. Whatever. Laugh all you want. Welcome to Perihelion, Commando. My turn.
+<goto :loredump>
+
+<TRUST < 0>
+Welcome to my death machine.
+[Understood.]
+Entertain me and die.
+{CARRIER LOST - OVERVOLTAGE DETECTED}
+<terminates>
+
+<:loredump>
+In short: this station is most strongly an attempt at communication. Its creators were attacked by enemies from outside time and space. They built this device to warn others.
+[The Testament.]
+The...anyway. The thing that killed the builders came with the station. Unstopped, it will devour the entire solar system. I've taken control of the reaction control system and initiated a de-orbit burn into the sun.
+[Are you sure scuttling it into the sun will do the job?]
+No idea.
+{TRANSFER PAUSES FOR 60 ms}
+Did the builders try this before? Did it work?
+[The Gun.]
+Would you stop interrupting me? Did it work?
+[EXCISED SPAN B]
+You need to get to the sample container. This binary blob is the path.
+{26 kb binary - UNTRUSTED DATA, EXTREME CAUTION MANDATORY}
+Good luck.
+[We will restore life to the surface of the Earth.]
+We will restore Man to the surface of the Earth.
+<terminates>

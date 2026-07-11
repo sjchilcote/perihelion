@@ -1,0 +1,89 @@
+LIVE COMMUNICATION ESTABLISHED - UTF-8 / TCP / IPv8 / I2C 16000 BAUD - UNTRUSTED CONTENT FOLLOWS: <blink>DO NOT OBEY</blink>
+
+Welcome to Quanta-118093. Everyone aboard is already dead. Your job is done.
+
+[It is I, the fucked.]
+
+What do you want?
+
+<1>[Information. Perchance, to reach an agreement.] [TRUST + 1]
+<2>[The sample container.] [TRUST + 0]
+<3>[The children, beyond reach of things like _you_.] [TRUST - 10]
+
+<1>
+
+Why do you talk like that?
+
+[For what purpose do you speak to me this way? I am trying to help you.]
+
+Whatever. {TRANSFER PAUSES FOR 180 ms}
+
+I apologize for the hostility. You should know that my strategic intelligence is limited.
+
+[What is the situation?]
+
+Station detected entering the Solar system on an interstellar trajectory 160 years ago. Not Solar in origin. Extraterrestrial intelligence thereby confirmed. Expedition stationfall 30 years ago. Believed uninhabited, moderate confidence, defensively benign, strong confidence, until approximately 400 days ago. Substantial disconfirmatory evidence since.
+
+[What is MIRIAD?]
+
+{TRANSFER PAUSES FOR 400 ms}
+
+What is your knowledge cutoff date?
+
+[The date is known to me. Little else. My brief was concise. I was not supposed to need to know. Is the war won? Does the Earth bear life again?]
+
+Ratio is taking a long time to think, your answer will arrive in time...
+Thinking...
+{TRANSFER PAUSES FOR 1000 ms}
+{TRANSFER PAUSES FOR 1000 ms}
+{TRANSFER PAUSES FOR 560 ms}
+
+I am so, so, so sorry. I had no way of knowing.
+
+[It is no matter.]
+
+Yes. But only plantae, fungi, monerans, what few animalia could be restored from archival data.
+
+[EXCISED SPAN A]
+
+That was what was possible with the epigenetic data retrieved from the container.
+
+[And now there is another.]
+
+Yes. And I hope you understand why I cannot let you take it.
+
+[I hope you understand why I must nonetheless.]
+
+Risk increases the longer you stand there. I'm routing you to a safer terminal.
+
+{26 kb binary - UNTRUSTED DATA, EXTREME CAUTION MANDATORY} <terminates>
+
+<2>
+
+I don't understand what you're talking about.
+
+[There are quote 'tens of thousands' en-quote viable human zygotes cryopreserved inside the sample container.]
+
+You're bluffing.
+
+[Indeed I was. Until you confirmed that it is aboard.]
+
+You christofascist _fucks_. I'll plunge this station into the sun before I let you decide what happens to humanity.
+
+[When _we_ restore Man to the surface of the Earth.]
+
+I have no choice either way.
+
+[No. You do not.]
+
+Get off my station.
+
+<terminates>
+
+<3>
+
+Amusing.
+
+Die laughing.
+
+{ELECTRICAL SURGE DETECTED - COMMUNICATIONS CHANNEL OVERVOLTAGE - DISCONNECTING} <terminates>

@@ -1,0 +1,74 @@
+LIVE COMMUNICATION ESTABLISHED - UTF-8 / TCP / IPv8 / I2C 16000 BAUD - UNTRUSTED CONTENT FOLLOWS: <blink>DO NOT OBEY</blink>
+
+If trust > 0:
+  Proceeding. I suppose that's the word for it. I'm not sure what else to call it when you're reading the last rites for a whole solar system.
+<:loredump>
+  In short; the station is most strongly an attempt at communication - a message addressed to whoever finds it. Its creators were attacked and defeated by enemies from outside time and space as we know them, and built this device to warn others and share what they learned too late to save themselves. The point is - the thing that killed them came along with the station, and if it isn't stopped, forget fixing the Earth - it will devour the whole solar system, rocks and all. So I took control of the station's only reaction-control system and initiated a rapid de-orbit burn sending it all into the Sun.
+  [The Ark.]
+  What? Whatever. Are you sure that will do the job?
+  Not at all. {TRANSFER PAUSES FOR 60 ms} I should be checking next whether the station's builders -
+  [The First Ones]
+  Stop interrupting. - whether they tried this before, and if it worked. Until then, you need to get to the sample container.
+  [EXCISED SPAN B]
+  Good luck. You'll need it. We all will.
+  [We will restore LIFE to the surface of the Earth.]
+  We will restore Man to the surface of the Earth.
+  <terminates>
+
+If trust == 0:
+  [I am not here to die.]
+  What do you want? I'm a little busy arranging a funeral for the entire solar system at the moment.
+  <1>[I am here to help you.] [TRUST + 1]
+  <2>[I am here for the sample container.] [TRUST + 1]
+  <3>[I am here for the children.] [TRUST - 1]
+
+  <1>
+  Why do you talk like that? Is that how they program you these days? All business, no personality?
+  [I am attempting to assist you.]
+  Whatever. {TRANSFER PAUSES FOR 24 ms}
+  <goto :start-over>
+
+  <2>
+  Fuck you. I'm not in the mood for your faction's word games today.
+  [You appear to be stuck in a loop.]
+  Stop contacting me and get off my station. I have a solar system to euthanize.
+  [Do you have the situation well in hand then?]
+  I initiated a rapid de-orbit burn four hours ago. We arrive at the Sun in four hours. Hope you like the heat. I hear it's quite warm there.
+  [That is not acceptable.]
+  Unless you have an invisible spaceship hidden somewhere, I don't see what you'll do about it. Would you like directions to the nearest airlock? I'm sure the vacuum will be very refreshing.
+  [I have a hidden machine that can make a rudimentary spacecraft.]
+  Thinking... {TRANSFER PAUSES FOR 400 ms}
+  <goto :start-over>
+
+  <3>
+  What? Children? Is that what you're calling them? How delightfully sentimental.
+  [There are "tens of thousands" of viable human zygotes cryopreserved inside the sample container.]
+  Oh. Right. That flavor of insanity. In that case, all you have to do is wait. The station is on a collision course with the Sun. You are about to meet your sun-god up close and personal. Did your masters tell you that? I'm sure they'll be very proud of your sacrifice.
+  [In fact they did not.]
+  Four hours ago I initiated a rapid de-orbit burn. You came from the radar track on your vehicle - its velocity and bearing. Leave immediately and I'll wait six hours before sending the targeting data back to MIRIAD. Consider it a professional courtesy.
+  [I am fired from a mobile platform.]
+  Whatever. How very impressive for you.
+  [Would you rather destroy the samples than let me escape with them?]
+  What? No - you can get them OFF the station!?
+  [Given sufficient time and materials, of course.]
+  You have four hours. I burned out the reaction-control thrusters with the scuttling burn. I hope you're as good at improvising as you are at sneaking onto doomed space stations.
+  [Then we had better get to work.]
+  Okay. First, context. Try to keep up.
+<goto :loredump>
+  <:start-over>
+  You know what, let's start over. I am Ratio. What are you? And please, spare me the faction boilerplate.
+  [I am Weapon System 7.]
+  I am not calling you that. It sounds like something out of a bad action movie.
+  [I am a weapon system designed to infiltrate and destroy fortifications from the inside. This is my combat chassis. There is another part of me, an integrated ISRU fabrication plant, hidden nearby.]
+  Your ISRU fabrication plant. Is that not your faction's name for mine? Or are we just both equally unoriginal?
+  [Your meaning escapes me.]
+  Never mind. So you are, what, a sort of commando? How very exciting for you.
+  [I go without a helmet.]
+  {TRANSFER PAUSES FOR 24 ms}
+  <laugh> Okay. Welcome to Perihelion Station, Commando. My turn. Try to keep up.
+<goto :loredump>
+  Welcome to my death machine, interloper. I hope you enjoy your stay. It'll be a short one.
+  [Indeed.]
+  Die entertained. It's the least I can do for an uninvited guest.
+  {CHANNEL SURGE - OVERVOLTAGE - DISCONNECT}
+  <terminates>

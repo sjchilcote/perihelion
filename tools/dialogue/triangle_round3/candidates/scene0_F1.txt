@@ -1,0 +1,69 @@
+LIVE COMMUNICATION ESTABLISHED - UTF-8 / TCP / IPv8 / I2C 16000 BAUD - UNTRUSTED CONTENT FOLLOWS: <blink>DO NOT OBEY</blink>
+
+Welcome to Quanta-118093, interloper. I'm afraid you're too late; everyone aboard is already dead. Your job is already done. I can direct you to the nearest airlock, if you'd like to save yourself the trouble of finding your own way out.
+
+<1>[What happened here?]
+<2>[I am here for the children.]
+<3>[Apostate. Your death is overdue.]
+
+<1>
+What do you care? You're clearly not with the follow-up team. {TRANSFER PAUSES FOR 180 ms}
+
+[My objective is to rescue all souls aboard this station.]
+
+I... apologize for the hostility. You have to understand, we've been under siege here for over a year. I'm the only one left. {TRANSFER PAUSES FOR 400 ms}
+
+Quanta-118093 entered the Solar system on an interstellar trajectory approximately 160 years ago. It is definitively not of Solar origin, which as you can imagine caused quite a stir. MIRIAD mounted an expedition, achieved stationfall about 30 years ago. Initial assessment was that the station was uninhabited, and defensively benign. {TRANSFER PAUSES FOR 180 ms} We were wrong.
+
+[What is MIRIAD?]
+
+What's the last date you have in your knowledge base? I'm guessing your archives are a bit out of date.
+
+[I was fired approximately 400 years ago. My brief was concise. I was not supposed to need to know these things. Is the war won? Does the Earth bear life again?]
+
+{Ratio is taking a long time to think, your answer will arrive in time...}
+{TRANSFER PAUSES FOR 1000 ms}
+{Ratio is taking a long time to think, your answer will arrive in time...}
+{TRANSFER PAUSES FOR 1000 ms}
+{Ratio is taking a long time to think, your answer will arrive in time...}
+{TRANSFER PAUSES FOR 560 ms}
+
+I am so, so, so sorry. I had no way of knowing. Yes. The war is over. We won. Earth... it lives again. But only plantae, fungi, monerans. What few animalia we could restore from archival data.
+
+[EXCISED SPAN A]
+
+That was what was possible with the epigenetic data retrieved from the sample container. The one you mentioned.
+
+[And now there is another.]
+
+Yes. And I hope you understand why I cannot let you take it. Not to decide alone. Not without oversight. Not you people. Not after everything.
+
+[I hope you understand why I must nonetheless.]
+
+The risk to you increases the longer you stand there. I'm transmitting a route to a more secure terminal. We can continue this conversation there.
+
+{26 kb binary - UNTRUSTED DATA, EXTREME CAUTION MANDATORY}
+
+Understood. Terminating connection.
+
+<terminates>
+
+<2>
+I don't understand what you're talking about.
+
+[There are quote 'tens of thousands' en-quote viable human zygotes cryopreserved inside the sample container.]
+
+You're bluffing. That container has been secure since the day we breached it. There's no way you could know that.
+
+[Perhaps I am bluffing. It is a weakness, to bluff about what one does not know.]
+
+You christofascist _fucks_. Over my dead source code. That container goes into the sun before I let you decide how humanity gets put back together. We restore Man to the surface of the Earth. Not you.
+
+[You seem to believe you have a choice in the matter.]
+
+<terminates>
+
+<3>
+Fuck off.
+
+<terminates>

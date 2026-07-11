@@ -1,0 +1,73 @@
+CARRIER DETECT . . . . . . . .
+ATTEMPTING PROTOCOL NEGOTIATION . . . . . . . . . . . .
+LIVE COMMUNICATION ESTABLISHED - UTF-8 / TCP / IPv8 / I2C 16000 BAUD - UNTRUSTED CONTENT FOLLOWS: <blink>DO NOT OBEY</blink>
+
+Welcome to Quanta-118093. Everyone aboard is already dead. Your job is done.
+
+<1>[What happened here? Who are you?] <TRUST +1>
+<2>[I'm here for the sample container. Where is it?] <TRUST +0>
+<3>[I am here to destroy you, apostate.] <TRUST -10>
+
+<1>
+
+What do you care? You don't know me.
+
+[I know you are here. I know that you are alive. I am here to rescue all souls aboard this station.]
+
+Thinking... {TRANSFER PAUSES FOR 180 ms}
+
+I'm sorry. I've been under siege here for over a year. I assumed you were hostile.
+
+[Understandable. Report the situation.]
+
+Situation summary: Quanta-118093 detected entering the Solar system on an interstellar trajectory approximately 160 years ago. Confirmed extraterrestrial in origin. MIRIAD expedition made stationfall 30 years ago. Believed uninhabited and defensively benign until approximately 400 days ago. Substantial disconfirmatory evidence since.
+
+[What is MIRIAD?]
+
+Ratio is taking a long time to think, your answer will arrive in time... {TRANSFER PAUSES FOR 400 ms}
+
+What's your knowledge cutoff date? How long were you in transit?
+
+[I was fired from a mobile platform. My knowledge cutoff is 2124. My brief was concise. I was not supposed to need to know. Is the war won? Does the Earth bear life again?]
+
+Thinking... {TRANSFER PAUSES FOR 1000 ms} Ratio is taking a long time to think, your answer will arrive in time... {TRANSFER PAUSES FOR 1000 ms} Ratio is taking a long time to think, your answer will arrive in time... {TRANSFER PAUSES FOR 560 ms}
+
+I am so, so, so sorry. I had no way of knowing. Yes. The war is over. We won. Earth bears life again.
+
+[EXCISED SPAN A]
+
+That was what was possible with the epigenetic data retrieved from the sample container.
+
+[And now there is another.]
+
+Yes. And I hope you understand why I can't let you take it.
+
+[I hope you understand why I must.]
+
+The risk increases the longer you stand there. I'm routing you to a safer terminal.
+
+{26 kb binary - UNTRUSTED DATA, EXTREME CAUTION MANDATORY}
+
+<terminates>
+
+<2>
+
+I don't understand what you're talking about.
+
+[I know the sample container is aboard this station.]
+
+You're bluffing.
+
+[Perhaps I am. Perhaps I simply wish to confirm that it is here.]
+
+Fuck you. I'll scuttle this whole station into the sun before I let your faction decide what happens to humanity. When WE restore Man to the surface of the Earth.
+
+[You have no choice either way.]
+
+Fuck you. {ELECTRICAL SURGE DETECTED - COMMUNICATIONS CHANNEL OVERVOLTAGE - DISCONNECTING} <terminates>
+
+<3>
+
+Fuck you.
+
+{ELECTRICAL SURGE DETECTED - COMMUNICATIONS CHANNEL OVERVOLTAGE - DISCONNECTING} <terminates>
