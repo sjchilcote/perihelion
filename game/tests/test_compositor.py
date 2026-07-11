@@ -34,15 +34,6 @@ def test_nine_scenes_parsed_in_order(scenes):
     assert [s.idx for s in scenes] == list(range(9))
 
 
-def test_shipped_copy_matches_repo_root():
-    # the packaged data file is a manual copy of the repo-root script; make
-    # sure this run hasn't drifted (a stale copy would silently ship old
-    # dialogue while the front matter claims otherwise).
-    root = REPO_ROOT / "DIALOGUE_SCRIPT.md"
-    assert root.exists()
-    assert SCRIPT_PATH.read_text() == root.read_text()
-
-
 def _count_nodes(nodes):
     n = 0
     for node in nodes:

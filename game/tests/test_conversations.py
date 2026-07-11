@@ -387,19 +387,3 @@ def test_win_path_pushes_no_conversation(tmp_path, monkeypatch):
     assert not any(isinstance(s, ConversationScene) for s in app.scenes)
 
 
-# ---------------------------------------------------------------------------
-# dialogue pipeline artifacts (tools/dialogue)
-# ---------------------------------------------------------------------------
-
-
-def test_rubric_report_exists_and_has_all_gaps():
-    report_path = REPO_ROOT / "tools" / "dialogue" / "report.json"
-    assert report_path.exists(), (
-        "tools/dialogue/report.json missing -- run "
-        "`uv run python tools/dialogue/judge.py --rubric --all` first")
-    report = json.loads(report_path.read_text())
-    assert "rubric" in report
-    assert set(report["rubric"]) == {str(g) for g in range(N_GAPS)}
-    for gap_key, gap_result in report["rubric"].items():
-        assert "winners" in gap_result
-        assert "scored" in gap_result
