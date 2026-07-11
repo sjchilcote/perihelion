@@ -41,6 +41,22 @@ class TerminalSpec:
 
 
 @dataclass
+class LightSpec:
+    """A light as a world object (not a screen-space glow). `kind` is
+    "static" (geometry-fixed, cached at level load — dock lamps, hydro grow
+    strips) or "attached" (recomputed every frame — the player's own light,
+    a carried lantern). `radius` is in room-local world units; `intensity`
+    scales the additive contribution before falloff. `color` is (r,g,b)
+    0..255."""
+    room: int
+    pos: tuple[float, float]  # room-local (post-centroid)
+    color: tuple[int, int, int]
+    intensity: float
+    radius: float
+    kind: str = "static"  # "static" | "attached"
+
+
+@dataclass
 class RadioLine:
     trigger: str  # "start" | "enter_room:<idx>" | "kills:<n>" | "pickup:<key>" | "exit"
     text: str
@@ -82,6 +98,7 @@ class Level:
     intro: str
     radio: list[RadioLine]
     terminals: list[TerminalSpec]
+    lights: list[LightSpec]
     ambience: str
     # Per-room descent scalar 0..1 (how deep into the station this room
     # sits). In streamed campaigns WorldStreamer owns this list: chunk k of
@@ -189,6 +206,17 @@ def level_from_dict(data: dict) -> Level:
         TerminalSpec(t["room"], local(t["room"], t["pos"]), t["text"])
         for t in lore.get("terminals", [])
     ]
+    lights = [
+        LightSpec(
+            room=int(lt["room"]),
+            pos=local(int(lt["room"]), lt["pos"]),
+            color=tuple(lt.get("color", (255, 220, 170))),
+            intensity=float(lt.get("intensity", 1.0)),
+            radius=float(lt.get("radius", 140.0)),
+            kind=str(lt.get("kind", "static")),
+        )
+        for lt in data.get("lights", [])
+    ]
     return Level(
         name=data.get("name", "?"),
         tier=tier,
@@ -215,6 +243,7 @@ def level_from_dict(data: dict) -> Level:
         intro=lore.get("intro", ""),
         radio=radio,
         terminals=terminals,
+        lights=lights,
         ambience=data.get("ambience", "amb_drone_early"),
     )
 
@@ -248,6 +277,7 @@ class LevelBuilder:
             "player": None,
             "exit": None,
             "lore": {"intro": "", "radio": [], "terminals": []},
+            "lights": [],
         }
 
     def room(self, verts, detail_seed: int | None = None,
@@ -484,6 +514,16 @@ class LevelBuilder:
         self.data["lore"]["terminals"].append(
             {"room": room, "pos": list(pos), "text": text}
         )
+
+    def light(self, room: int, pos, color=(255, 220, 170), intensity: float = 1.0,
+              radius: float = 140.0, kind: str = "static"):
+        """A world light: a real object the visibility engine casts from,
+        not a screen-space glow. `kind` "static" is cached at level load;
+        "attached" (e.g. a carried light) is recomputed every frame."""
+        self.data.setdefault("lights", []).append({
+            "room": room, "pos": list(pos), "color": list(color),
+            "intensity": intensity, "radius": radius, "kind": kind,
+        })
 
     def build(self) -> Level:
         if self.data["player"] is None:

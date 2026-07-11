@@ -186,16 +186,68 @@ bit-identical run. This is the AI-testability keystone.
 
 ### 3.2 Rendering (immediate-mode, lo-fi)
 
-Internal resolution **480×270**, integer-scaled ×3 to 1440×810 window with nearest
-neighbor — chunky Teleglitch grit and a hard perf ceiling. Per DrawInstance,
-back-to-front: floor = flat dark polygon (`clip_screen`) + room detail primitives
-(static per-room grime: lines, plates, stains in local coords) clipped via engine
-and drawn as vector strokes; walls = thick bright segments on the visible span;
-depth dimming per instance; entities as rotated polygon sprites (engine-clipped
+Internal resolution **480×270** (`PERIHELION_INTERNAL_RES` can override; current
+build default is 640×360), integer-scaled to window with nearest neighbor —
+chunky Teleglitch grit and a hard perf ceiling. Per DrawInstance, back-to-front:
+floor = flat dark polygon (`clip_screen`) + room detail primitives (static
+per-room grime: lines, plates, stains in local coords) clipped via engine and
+drawn as vector strokes; walls = thick bright segments on the visible span;
+a player-centered screen-space darkness field (see 3.2a) replaced the old
+per-instance depth dimming; entities as rotated polygon sprites (engine-clipped
 when straddling a portal). The same entity legitimately renders in several
 instances at once — that's the game. Post: vignette, scanline flicker on damage,
 screenshake applied to the final blit offset. No per-frame surface allocation
 anywhere.
+
+### 3.2a Lighting
+
+Lights are real world objects, not a screen-space glow: a level's `lights` list
+(`LightSpec` — room, local pos, color, intensity, radius, kind `static`|
+`attached`) is authored the same way as entities/terminals. Illumination is
+literally the engine's own visibility pass run a second time, from the light's
+apex instead of the camera's: `perihelion.lighting.compute_light_instances`
+calls `necore.visible_set(light.room, cam, light.pos, ...)` and recovers each
+reached room's own local lit polygon plus the light's virtual local position
+there by inverting the returned transform — no engine (Rust) changes were
+needed, `visible_set` already returns everything required. Shadow is simply
+absence of wedge.
+
+Static lights (fixed geometry + fixed position) are cached once at level load,
+keyed **per room**, not per portal-chain: because a room's own local geometry
+is chain-independent (ENGINE_INVARIANTS R1, root-frame invariance), a cached
+wedge computed from the light's own visibility pass is valid for ANY camera
+instance of that room forever — the "per-room caching, exact rather than
+approximate" case the design allows for when chain-relative keying is
+intractable. `attached` lights (the player's own light) recompute every frame.
+
+Per frame, `render.py:_draw_world_lights` looks up each visible camera
+instance's room in the lighting system, transforms the cached local wedge to
+screen space via that instance's own transform, gates it against the camera's
+own visible-region polygon (`necore.clip_polygon`), and additively blits a
+polygon-clipped radial falloff (`a = clamp(1 - dist/radius, 0, 1); a*a` — the
+same smooth-to-zero kernel `OP_GLOW`/`_bake_glows` already use) — punching
+through the darkness field exactly like the existing muzzle/screen glows, but
+shaped by real occlusion instead of a fixed-radius disc. Because this
+compositing happens on the already-assembled pixel surface, it runs
+identically for both render backends with no new raster op or parity surface
+to maintain.
+
+**One-bounce light (future work, design only):** a cheap approximation of
+indirect/bounce light is to treat each STATIC light's own cached lit wall
+segments as secondary emitters: for every wall edge a static light's wedge
+directly illuminates, cache a low-intensity "bounce light" whose apex sits on
+that segment (offset slightly off the wall along its inward normal), color
+tinted toward the floor/wall material, intensity a fixed fraction (~8–15%) of
+the incident light's own falloff at that point, and radius scaled down
+sharply (a bounce shouldn't reach as far as its source). Because this is
+computed from data the static cache already holds (the lit wall spans),
+it is itself cacheable at level-load time with zero extra runtime visibility
+queries beyond the one pass needed to build each new bounce emitter's own
+wedge — the cost is proportional to (lit wall segments) not (frames), so it
+stays within the existing static budget. This is flagged as future work, not
+implemented in this pass: it roughly doubles the static cache's visibility-
+query count and needs its own falloff/color tuning pass to avoid muddying the
+handcrafted palette work, and was out of scope for the lighting rewrite itself.
 
 ### 3.3 Combat (Teleglitch DNA)
 
@@ -234,8 +286,9 @@ says "non-Euclidean"; Ratio's growing unease says it for us.
 ### 3.7 Levels (format v2)
 
 JSON: `{name, tier, rooms: [{id, verts, edges: {idx: {room, edge} | {room, edge,
-xform}}, entities: [{type, pos, props}], detail_seed}], player_spawn, lore,
-music}`. Campaign manifest orders levels along the §8.1 escalation curve. Authored
+xform}}, entities: [{type, pos, props}], detail_seed}], lights: [{room, pos,
+color, intensity, radius, kind}], player_spawn, lore, music}`. Campaign
+manifest orders levels along the §8.1 escalation curve. Authored
 via `perihelion.editor` + generator helpers (corridor, loop, Möbius pair, mirror
 room, hypercube, Cayley graph, de Bruijn).
 

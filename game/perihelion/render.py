@@ -1618,6 +1618,10 @@ class Renderer:
             surf.fill((0, 0, 0))
             ow_polys = self._draw_world_pygame(surf, instances)
             self._apply_darkness(surf, ow_polys)
+        # world lights (levels.LightSpec): real objects the visibility
+        # engine cast from at level-load/frame time, occlusion-correct,
+        # punching through the dark exactly like the glows below
+        self._draw_world_lights(surf, session, instances)
         # light sources punch through the dark: muzzle glows and bolts
         for sx, sy, radius, clip_screen in self._deferred_glows:
             self._blit_glow(surf, sx, sy, radius, clip_screen)
@@ -1930,6 +1934,157 @@ class Renderer:
         field.blit(neg, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
         field.blit(inv_cut, (0, 0), special_flags=pygame.BLEND_RGB_ADD)
         surf.blit(field, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
+
+    # ------------------------------------------------------------------
+    # world lights (levels.LightSpec) -- ENGINE_DESIGN.md Lighting section
+    # ------------------------------------------------------------------
+
+    def _draw_world_lights(self, surf, session, instances) -> None:
+        """For each camera instance, look up the LightingSystem's cached
+        (static) or freshly recomputed (attached) wedges reaching that
+        room, and additively blit each one with polygon-gated radial
+        falloff -- punching through the darkness field exactly like the
+        muzzle/screen glows, but shaped by real occlusion (the wedge the
+        light's OWN visibility pass returned) instead of a fixed disc.
+        Shadow is simply the absence of wedge: nothing draws there."""
+        lighting = getattr(session, "lighting", None)
+        if lighting is None or not lighting.lights:
+            return
+        lookup = lighting.frame_lookup(session.sim)
+        if not lookup:
+            return
+        # Group every gated wedge by (light, screen apex, screen radius):
+        # the same physical light frequently produces several abutting
+        # polygons at the same apex (a wedge split across the doorway the
+        # camera also looks through, or duplicate reach-paths to one
+        # room). Filling the whole group as a UNION into one white mask
+        # before the single tint+gradient+add pass means shared polygon
+        # boundaries saturate at white instead of double-adding -- the
+        # C-blit equivalent of the strict pixel-center ownership a
+        # per-pixel coverage test would give. Distinct non-Euclidean
+        # appearances of a light (different screen apex) stay separate
+        # groups and legitimately add.
+        groups: dict = {}
+        for room, xform, depth, clip_screen, walls, entry_edge, ents in instances:
+            if len(clip_screen) < 3:
+                continue
+            room_lights = lookup.get(room)
+            if not room_lights:
+                continue
+            scale = math.hypot(xform[0], xform[3])
+            if scale <= 1e-9:
+                continue
+            for light_idx, inst in room_lights:
+                poly_screen = [necore.mat_apply(xform, lx, ly)
+                               for lx, ly in inst.clip_local]
+                gated = necore.clip_polygon(poly_screen, clip_screen)
+                if len(gated) < 3:
+                    continue
+                apex_sx, apex_sy = necore.mat_apply(xform, *inst.apex_local)
+                radius_screen = inst.radius_local * scale
+                if radius_screen < 1.0:
+                    continue
+                key = (light_idx, round(apex_sx, 1), round(apex_sy, 1),
+                       round(radius_screen, 1))
+                groups.setdefault(key, []).append(gated)
+        for (light_idx, apex_sx, apex_sy, radius_screen), polys in groups.items():
+            light = lighting.lights[light_idx]
+            self._blit_light(surf, apex_sx, apex_sy, radius_screen,
+                              light.color, light.intensity, polys)
+
+    def _light_gradient(self, radius: float) -> "pygame.Surface":
+        """White radial-falloff sprite of pixel radius `radius`, kernel
+        `a = clamp(1 - dist/r); a*a` -- the SAME curve `OP_GLOW` /
+        `_bake_glows` already use (smooth-to-zero at radius,
+        C1-continuous) rather than a second falloff law. Baked once at a
+        high-res base and smoothscaled per distinct radius; the cache
+        stays tiny because a static light's screen radius is constant
+        while the zoom is (which it always is in play)."""
+        cache = getattr(self, "_light_grad_cache", None)
+        if cache is None:
+            cache = self._light_grad_cache = {}
+            base_r = 256
+            d = base_r * 2
+            yy = (np.arange(d, dtype=np.float32) - base_r + 0.5)[:, None]
+            xx = (np.arange(d, dtype=np.float32) - base_r + 0.5)[None, :]
+            a = np.clip(1.0 - np.hypot(xx, yy) / base_r, 0.0, 1.0)
+            v = (a * a * 255.0).astype(np.uint8)
+            base = pygame.Surface((d, d))
+            pygame.surfarray.blit_array(
+                base, np.repeat(v[:, :, None], 3, axis=2).swapaxes(0, 1))
+            self._light_grad_base = base
+        key = max(2, int(round(radius)))
+        s = cache.get(key)
+        if s is None:
+            s = pygame.transform.smoothscale(self._light_grad_base,
+                                             (key * 2, key * 2))
+            cache[key] = s
+        return s
+
+    def _blit_light(self, surf, cx, cy, radius, color, intensity, gate_polys) -> None:
+        """Additive radial-falloff fill of the UNION of `gate_polys`
+        (already occlusion- and camera-clipped wedges of one light at one
+        screen apex), centered at (cx, cy) in screen space.
+
+        Composited entirely with C-level surface ops (a numpy per-pixel
+        version of the same math cost ~12 ms on the l01 dock view; this
+        form fits the ~3 ms lighting budget): inside the working rect
+        (union bbox x light-disc bbox x screen), scratch = white polygons
+        (union: overlaps/shared edges saturate, never double);
+        scratch *= color*intensity (solid MULT fill); scratch *= radial
+        gradient sprite (MULT); surf += scratch (ADD). Clamping the rect
+        to the disc bbox guarantees the gradient sprite covers every
+        working pixel, so the multiply chain has no uncovered remainder
+        (attenuation past the radius is zero anyway)."""
+        # Reject sub-pixel sliver wedges (a far light grazing along a wall
+        # produces them): pygame.draw.polygon always rasterizes at least
+        # its 1px OUTLINE, so a polygon with near-zero interior would show
+        # as a bright streak where per-pixel-center coverage math (the old
+        # numpy path) correctly showed nothing. Mean width = 2*area/perim.
+        polys = []
+        for poly in gate_polys:
+            area2 = 0.0
+            perim = 0.0
+            n = len(poly)
+            for i in range(n):
+                ax, ay = poly[i]
+                bx, by = poly[(i + 1) % n]
+                area2 += ax * by - bx * ay
+                perim += math.hypot(bx - ax, by - ay)
+            if perim > 1e-9 and abs(area2) / perim >= 0.8:  # width >= ~0.8 px
+                polys.append(poly)
+        if not polys:
+            return
+        xs = [p[0] for poly in polys for p in poly]
+        ys = [p[1] for poly in polys for p in poly]
+        sw, sh = surf.get_size()
+        ir = int(math.ceil(radius))
+        icx, icy = int(round(cx)), int(round(cy))
+        x0 = max(0, int(math.floor(min(xs))), icx - ir)
+        y0 = max(0, int(math.floor(min(ys))), icy - ir)
+        x1 = min(sw, int(math.ceil(max(xs))) + 1, icx + ir)
+        y1 = min(sh, int(math.ceil(max(ys))) + 1, icy + ir)
+        if x1 - x0 <= 0 or y1 - y0 <= 0:
+            return
+        rect = pygame.Rect(x0, y0, x1 - x0, y1 - y0)
+        scratch = getattr(self, "_light_scratch", None)
+        if scratch is None or scratch.get_size() != (sw, sh):
+            scratch = self._light_scratch = pygame.Surface((sw, sh))
+        scratch.set_clip(rect)
+        scratch.fill((0, 0, 0))
+        for poly in polys:
+            pygame.draw.polygon(scratch, (255, 255, 255), poly)
+        tint = (min(255, int(color[0] * intensity)),
+                min(255, int(color[1] * intensity)),
+                min(255, int(color[2] * intensity)))
+        scratch.fill(tint, special_flags=pygame.BLEND_RGB_MULT)
+        grad = self._light_gradient(radius)
+        gr = grad.get_width() // 2
+        scratch.blit(grad, (icx - gr, icy - gr),
+                     special_flags=pygame.BLEND_RGB_MULT)
+        scratch.set_clip(None)
+        surf.blit(scratch, rect.topleft, area=rect,
+                  special_flags=pygame.BLEND_RGB_ADD)
 
     # -- (1) floor ------------------------------------------------------
 

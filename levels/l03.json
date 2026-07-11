@@ -6307,5 +6307,97 @@
    "gate_prompt": "AIRLOCK INERT - SCRUBBER CARTRIDGE REQUIRED",
    "acquire_prompt": "ACQUIRED: SCRUBBER CARTRIDGE"
   }
- }
+ },
+ "lights": [
+  {
+   "room": 0,
+   "pos": [
+    62.5,
+    -233.25317547305485
+   ],
+   "color": [
+    95,
+    190,
+    110
+   ],
+   "intensity": 0.5,
+   "radius": 95,
+   "kind": "static"
+  },
+  {
+   "room": 1,
+   "pos": [
+    170.75317547305482,
+    -170.75317547305485
+   ],
+   "color": [
+    95,
+    190,
+    110
+   ],
+   "intensity": 0.5,
+   "radius": 95,
+   "kind": "static"
+  },
+  {
+   "room": 2,
+   "pos": [
+    233.25317547305482,
+    -62.5
+   ],
+   "color": [
+    95,
+    190,
+    110
+   ],
+   "intensity": 0.5,
+   "radius": 95,
+   "kind": "static"
+  },
+  {
+   "room": 3,
+   "pos": [
+    233.25317547305485,
+    62.49999999999998
+   ],
+   "color": [
+    95,
+    190,
+    110
+   ],
+   "intensity": 0.5,
+   "radius": 95,
+   "kind": "static"
+  },
+  {
+   "room": 4,
+   "pos": [
+    170.75317547305482,
+    170.75317547305482
+   ],
+   "color": [
+    95,
+    190,
+    110
+   ],
+   "intensity": 0.5,
+   "radius": 95,
+   "kind": "static"
+  },
+  {
+   "room": 5,
+   "pos": [
+    62.5,
+    233.25317547305485
+   ],
+   "color": [
+    95,
+    190,
+    110
+   ],
+   "intensity": 0.5,
+   "radius": 95,
+   "kind": "static"
+  }
+ ]
 }

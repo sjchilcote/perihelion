@@ -55,6 +55,25 @@ def pygame_ready():
     pygame.quit()
 
 
+def _douse_player_lamp(session):
+    """Zero the player's attached suit lamp for root-invariance renders.
+
+    This test's premise is that between the two renders the ONLY thing
+    that changes is which room the portal chain calls root -- the ~0.2u
+    camera displacement itself must explain every remaining pixel delta.
+    The attached lamp (sim.py, lighting system) breaks that isolation for
+    a physically honest reason, not a root-keying bug: it is a light
+    SOURCE riding the player, and moving a source 0.2u across a doorway
+    aperture legitimately swings its occlusion wedge (door-jamb shadow
+    rays pivot around the jamb as the apex crosses the plane), stepping
+    pixels near the shadow boundary by the lamp's full intensity. Fixed-
+    source continuity is covered separately (test_lighting_invariants
+    seam-freeness); here we hold the light still so re-rooting is the
+    only variable, per this module's own docstring."""
+    session.player_light.intensity = 0.0
+    return session
+
+
 def _write_gradient_texture(root, level_id: str, room_index: int, w: int, h: int):
     """Spatially-varying synthetic texture (R = x gradient, B = y gradient,
     G flat) -- any offset, flip, or origin bug shows up as a visible color
@@ -199,7 +218,8 @@ def _render_root_and_nonroot(tmp_path, backend, level_fn, level_id, margin_frac=
 
     def _render(px):
         level, r0, r1 = level_fn(px, level_id)
-        session = GameSession(level, seed=1234, screen=(INTERNAL_W, INTERNAL_H))
+        session = _douse_player_lamp(
+            GameSession(level, seed=1234, screen=(INTERNAL_W, INTERNAL_H)))
         ren = Renderer(session, backend=backend, max_depth=1)
         ren._get_detail = lambda room: []  # isolate the floor-texture path
         surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
@@ -267,7 +287,8 @@ def test_flat_floor_is_root_frame_invariant(pygame_ready, tmp_path, backend):
 
     def _render(px):
         level, r0, r1 = level_fn(px, "root_inv_flat")
-        session = GameSession(level, seed=1234, screen=(INTERNAL_W, INTERNAL_H))
+        session = _douse_player_lamp(
+            GameSession(level, seed=1234, screen=(INTERNAL_W, INTERNAL_H)))
         ren = Renderer(session, backend=backend, max_depth=1)
         ren._get_detail = lambda room: []
         surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
@@ -397,7 +418,8 @@ def test_darkness_enabled_multiroom_is_root_frame_invariant(
 
     def _render(px):
         level, rA, rB = _hetero_level(px, "root_inv_hetero")
-        session = GameSession(level, seed=7, screen=(INTERNAL_W, INTERNAL_H))
+        session = _douse_player_lamp(
+            GameSession(level, seed=7, screen=(INTERNAL_W, INTERNAL_H)))
         ren = Renderer(session, backend=backend)  # real max_depth/instances, real darkness
         # Isolate the floor/wall/darkness path from decorative line art
         # (hazard stripes etc): those are drawn via canvas.line/polygon at

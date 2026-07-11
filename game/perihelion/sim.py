@@ -15,6 +15,7 @@ from random import Random
 import necore
 
 from .levels import Level
+from .lighting import LightingSystem
 
 DT = 1.0 / 60.0
 TICK_RATE = 60
@@ -200,6 +201,20 @@ class GameSession:
         s.set_collision_pair(GROUP_EBULLET, GROUP_PLAYER, True)
         # your own rounds CAN come back: mirrors and ricochets are honest
         s.set_collision_pair(GROUP_PBULLET, GROUP_PLAYER, True)
+
+        # --- lighting: world lights, cast via the visibility engine itself
+        # (portals wired above, so static caches see the real chain).
+        # The player carries an attached suit lamp THROUGH the same
+        # system, so their own illumination occludes properly (light
+        # stops at walls / spills through doorways) rather than being a
+        # screen-space disc; the darkness field remains the ambient law.
+        self.lighting = LightingSystem(s, level)
+        from .levels import LightSpec as _LightSpec
+        self.player_light = _LightSpec(
+            room=level.player_room, pos=tuple(level.player_pos),
+            color=(255, 226, 188), intensity=0.22, radius=64.0,
+            kind="attached")
+        self.lighting.lights.append(self.player_light)
 
         # --- doors (pending connections) ---
         self.doors: list[dict] = []
@@ -862,6 +877,11 @@ class GameSession:
                                        text=t.text, read=False))
         for room, spec in level.entities:
             self._spawn_from_spec(room + offset, spec, key_meta=level.key_meta)
+        if level.lights:
+            from dataclasses import replace as _dc_replace
+            shifted = [_dc_replace(lt, room=lt.room + offset) for lt in level.lights]
+            self.level.lights.extend(shifted)
+            self.lighting.add_lights(self.sim, shifted)
         self.level.room_seeds.extend(level.room_seeds)
         for i, k in enumerate(level.room_kinds):
             if k == "otherworld":
@@ -2024,6 +2044,10 @@ class GameSession:
         # the camera apex is the player (strict LOS from the character),
         # clamped into the room so mid-transfer overshoot can't blind it
         px, py = self._clamp_apex(proom, px, py)
+        # keep the attached suit lamp on the player: same clamped apex,
+        # so its visibility cast can never start outside the room either
+        self.player_light.room = proom
+        self.player_light.pos = (px, py)
         return self.sim.visible_set(proom, self.cam, px, py,
                                     float(self.screen_w), float(self.screen_h),
                                     max_depth, max_instances)
