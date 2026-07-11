@@ -608,6 +608,51 @@ the fact without the why.⟫
   depth/sentence length as the trust meter; siege-floor now, clatter returns
   with safety) — awaiting explicit ratification before touching 5.2b.
 
+## THE "YOU'LL SEE." LAW (director, 2026-07-11 — dramaturgy, binding)
+
+Reveals are never dramatized as conversations. The shape is:
+1. **Setup, one scene early, explanation withheld.** In the preceding mission
+   briefing the anomaly is planted as an unexplained oddity — canon example
+   (director's lines, verbatim): "This blob contains path markers to where
+   the lightning weapon is stored." / [Why not coordinates.] / "_You'll
+   see._"
+2. **The reveal itself belongs to the PLAYER, in gameplay.** No dialogue
+   lands during it.
+3. **Payoff at next contact: two professionals confirming a fact.** Canon
+   example (verbatim): "This corridor is exhibiting non-euclidean
+   geometry." / "Indeed."
+4. **Implications get one or two exchanges.** Then the conversation returns
+   to "what is the next step toward retrieving the sample container."
+
+Corollaries: characters never emote the player's awe for them; no
+confession/confrontation scenes about withheld information (the withholding
+was the setup, "You'll see." already priced it in — it is TEACHING, not
+deception, and neither party litigates it); backstory (e.g. how long the
+expedition knew about the anomalies) surfaces only if a later scene needs
+it, never as a reveal-adjacent monologue. NEW CANON from the setup example:
+the briefing's path markers lead to a **lightning weapon** cache.
+
+The deepest failure mode this law names: an AI-shaped script dramatizes the
+moment OF revelation; the director's script distributes it — setup, silent
+payoff, understated confirmation, mission. Scene SELECTION is a voice tell
+senior to any line-level tell, and generation briefs / triangle judging must
+treat it as one.
+
+## FABLE EXPERIMENT — Scene 3 attempt (2026-07-11): SUPERSEDED, kept as
+## negative exemplar
+
+Director's verdict: "It's rough. I see one fundamental issue - _I wouldn't
+write that scene in the first place._" The draft (a post-reveal
+confession/confrontation terminal: harness INS-fault cold open, Ratio's
+22-year correction-factor confession, choice triple, John 14:2 close) is
+preserved in the session record and in the negative-exemplar corpus for
+pipeline prompts. Its salvageable parts, pending director interest, are
+mechanical only: the harness logging the loop as {INERTIAL/VISUAL FIX
+DISAGREEMENT ... INS FAULT LOGGED - RECALIBRATION QUEUED} (his middleware
+filing the miracle as an instrument fault) and the she-answers-instantly
+tell (no thinking line = precomputed sentence). Everything scene-shaped
+about it violates the You'll-See law above.
+
 ## SCENES 2–8 — awaiting the director's key moments
 
 Structure will follow the same pattern: his moments land first, scaffolding built
