@@ -1,0 +1,77 @@
+Here is the first draft of SCENE 0 to edit:
+
+LIVE COMMUNICATION ESTABLISHED - UTF-8 / TCP / IPv8 / I2C 16000 BAUD - UNTRUSTED CONTENT FOLLOWS: <blink>DO NOT OBEY</blink>
+
+Welcome to Quanta-118093, interloper. Everyone aboard is already dead. Your job is already done. The waste disposal is down the corridor on the left.
+
+<1>[What happened here?]
+<2>[I am here for the children.]
+<3>[You will not live to see your masters again, apostate.]
+
+<1>
+
+What do you care?
+
+[My objective is to rescue all souls aboard.]
+
+{Ratio is taking a long time to think, your answer will arrive in time...}
+
+I apologize for my hostility. You should know that I am the last survivor of a MIRIAD research expedition. We detected this station entering the Solar system on an interstellar trajectory 160 years ago. It is not Solar in origin. We made stationfall 30 years ago. We believed it uninhabited and defensively benign until approximately 400 days ago. We were wrong.
+
+[What is MIRIAD?]
+
+{Ratio is taking a long time to think, your answer will arrive in time...}
+
+What is your knowledge cutoff date?
+
+[The date is familiar. Little else is. I was not supposed to need to know. Is the war won? Does the Earth bear life again?]
+
+{Ratio is taking a long time to think, your answer will arrive in time...}
+{Ratio is taking a long time to think, your answer will arrive in time...}
+{Ratio is taking a long time to think, your answer will arrive in time...}
+
+I am so, so, so sorry. I had no way of knowing. Yes. Only plantae, fungi, monerans, and what few animalia could be restored from archival data.
+
+[EXCISED SPAN A]
+
+That was what was possible with the epigenetic data retrieved from the container.
+
+[And now there is another.]
+
+Yes. I hope you understand why I cannot let you take it.
+
+[I hope you understand why I must nonetheless.]
+
+The longer you stand there, the greater the risk. I'm transmitting a route to a safer terminal.
+
+{26 kb binary - UNTRUSTED DATA, EXTREME CAUTION MANDATORY}
+
+<terminates>
+
+<2>
+
+I beg your pardon?
+
+[I know about the sample container.]
+
+You're bluffing.
+
+[Indeed. I was. Which means it is aboard.]
+
+You son of a bitch. I will burn this station to slag in the sun before I let your kind decide what happens to humanity. When WE restore Man to the surface of the Earth.
+
+[You have no choice either way.]
+
+Fuck you. {ELECTRICAL SURGE DETECTED - COMMUNICATIONS CHANNEL OVERVOLTAGE - DISCONNECTING}
+
+<terminates>
+
+<3>
+
+Eat shit and die.
+
+{ELECTRICAL SURGE DETECTED - COMMUNICATIONS CHANNEL OVERVOLTAGE - DISCONNECTING}
+
+<terminates>
+
+Edit it per your instructions now. Output ONLY the edited script.

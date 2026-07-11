@@ -1,5 +1,5 @@
 {
-  "total_cost": 2.6981604999999997,
+  "total_cost": 2.9135004999999996,
   "calls": [
     {
       "tool": "generate",
@@ -5006,6 +5006,292 @@
       "prompt_tokens": 3769,
       "completion_tokens": 865,
       "ts": 1783782441.9987705
+    },
+    {
+      "tool": "triangle_round2",
+      "condition": "scene0_A1",
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.25,
+      "top_p": 1.0,
+      "cost": 0.006958,
+      "prompt_tokens": 5050,
+      "completion_tokens": 636,
+      "ts": 1783783005.0249262
+    },
+    {
+      "tool": "triangle_round2",
+      "condition": "scene0_A2",
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.5,
+      "top_p": 1.0,
+      "cost": 0.006958,
+      "prompt_tokens": 5050,
+      "completion_tokens": 636,
+      "ts": 1783783020.0609548
+    },
+    {
+      "tool": "triangle_round2",
+      "condition": "scene0_B1",
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.25,
+      "top_p": 1.0,
+      "cost": 0.005942,
+      "prompt_tokens": 4034,
+      "completion_tokens": 636,
+      "ts": 1783783037.0597446
+    },
+    {
+      "tool": "triangle_round2",
+      "condition": "scene0_B2",
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.25,
+      "top_p": 1.0,
+      "cost": 0.005942,
+      "prompt_tokens": 4034,
+      "completion_tokens": 636,
+      "ts": 1783783052.727476
+    },
+    {
+      "tool": "triangle_round2",
+      "condition": "t1_A1",
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.25,
+      "top_p": 1.0,
+      "cost": 0.012745,
+      "prompt_tokens": 5245,
+      "completion_tokens": 2500,
+      "ts": 1783783117.9551516
+    },
+    {
+      "tool": "triangle_round2",
+      "condition": "t1_A2",
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.5,
+      "top_p": 1.0,
+      "cost": 0.00673,
+      "prompt_tokens": 5245,
+      "completion_tokens": 495,
+      "ts": 1783783129.3353124
+    },
+    {
+      "tool": "triangle_round2",
+      "condition": "t1_B1",
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.25,
+      "top_p": 1.0,
+      "cost": 0.013076,
+      "prompt_tokens": 5576,
+      "completion_tokens": 2500,
+      "ts": 1783783187.9959865
+    },
+    {
+      "tool": "triangle_round2",
+      "condition": "t1_B2",
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.25,
+      "top_p": 1.0,
+      "cost": 0.004998,
+      "prompt_tokens": 3570,
+      "completion_tokens": 476,
+      "ts": 1783783199.157998
+    },
+    {
+      "tool": "triangle_round2",
+      "condition": "scene0_A1",
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.25,
+      "top_p": 1.0,
+      "cost": 0.00728,
+      "prompt_tokens": 5288,
+      "completion_tokens": 664,
+      "ts": 1783783393.4194167
+    },
+    {
+      "tool": "triangle_round2",
+      "condition": "scene0_A2",
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.5,
+      "top_p": 1.0,
+      "cost": 0.007409,
+      "prompt_tokens": 5288,
+      "completion_tokens": 707,
+      "ts": 1783783410.4181042
+    },
+    {
+      "tool": "triangle_round2",
+      "condition": "scene0_B1",
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.25,
+      "top_p": 1.0,
+      "cost": 0.006149,
+      "prompt_tokens": 4157,
+      "completion_tokens": 664,
+      "ts": 1783783425.8269732
+    },
+    {
+      "tool": "triangle_round2",
+      "condition": "scene0_B2",
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.25,
+      "top_p": 1.0,
+      "cost": 0.006321,
+      "prompt_tokens": 4200,
+      "completion_tokens": 707,
+      "ts": 1783783441.767834
+    },
+    {
+      "tool": "triangle_round2",
+      "condition": "t1_A1",
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.25,
+      "top_p": 1.0,
+      "cost": 0.012983,
+      "prompt_tokens": 5483,
+      "completion_tokens": 2500,
+      "ts": 1783783499.5066674
+    },
+    {
+      "tool": "triangle_round2",
+      "condition": "t1_A1_redraw",
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.25,
+      "top_p": 1.0,
+      "cost": 0.012983,
+      "prompt_tokens": 5483,
+      "completion_tokens": 2500,
+      "ts": 1783783555.4196434
+    },
+    {
+      "tool": "triangle_round2",
+      "condition": "t1_A1",
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.25,
+      "top_p": 1.0,
+      "cost": 0.007211,
+      "prompt_tokens": 5510,
+      "completion_tokens": 567,
+      "ts": 1783783645.198921
+    },
+    {
+      "tool": "triangle_round2",
+      "condition": "t1_A2",
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.5,
+      "top_p": 1.0,
+      "cost": 0.007154,
+      "prompt_tokens": 5510,
+      "completion_tokens": 548,
+      "ts": 1783783657.3354037
+    },
+    {
+      "tool": "triangle_round2",
+      "condition": "t1_B1",
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.25,
+      "top_p": 1.0,
+      "cost": 0.005438,
+      "prompt_tokens": 3737,
+      "completion_tokens": 567,
+      "ts": 1783783671.1200428
+    },
+    {
+      "tool": "triangle_round2",
+      "condition": "t1_B2",
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.25,
+      "top_p": 1.0,
+      "cost": 0.005362,
+      "prompt_tokens": 3718,
+      "completion_tokens": 548,
+      "ts": 1783783683.9312563
+    },
+    {
+      "tool": "triangle_round2",
+      "condition": "t1_A1",
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.25,
+      "top_p": 1.0,
+      "cost": 0.011114,
+      "prompt_tokens": 6524,
+      "completion_tokens": 1530,
+      "ts": 1783783933.7893548
+    },
+    {
+      "tool": "triangle_round2",
+      "condition": "t1_A2",
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.5,
+      "top_p": 1.0,
+      "cost": 0.011336,
+      "prompt_tokens": 6524,
+      "completion_tokens": 1604,
+      "ts": 1783783971.775602
+    },
+    {
+      "tool": "triangle_round2",
+      "condition": "t1_B1",
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.25,
+      "top_p": 1.0,
+      "cost": 0.009619,
+      "prompt_tokens": 5029,
+      "completion_tokens": 1530,
+      "ts": 1783784035.5757189
+    },
+    {
+      "tool": "triangle_round2",
+      "condition": "t1_B1",
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.25,
+      "top_p": 1.0,
+      "cost": 0.009619,
+      "prompt_tokens": 5029,
+      "completion_tokens": 1530,
+      "ts": 1783784096.5045817
+    },
+    {
+      "tool": "triangle_round2",
+      "condition": "t1_B2",
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.25,
+      "top_p": 1.0,
+      "cost": 0.009752,
+      "prompt_tokens": 5105,
+      "completion_tokens": 1549,
+      "ts": 1783784131.9563093
+    },
+    {
+      "tool": "triangle_round2",
+      "condition": "scene0_B1",
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.25,
+      "top_p": 1.0,
+      "cost": 0.006261,
+      "prompt_tokens": 4359,
+      "completion_tokens": 634,
+      "ts": 1783784147.3158057
+    },
+    {
+      "tool": "triangle_round2",
+      "condition": "scene0_B2",
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.25,
+      "top_p": 1.0,
+      "cost": 0.006471,
+      "prompt_tokens": 4446,
+      "completion_tokens": 675,
+      "ts": 1783784162.4518428
+    },
+    {
+      "tool": "triangle_round2",
+      "condition": "t1_B1_retry_t0.4",
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.4,
+      "top_p": 1.0,
+      "cost": 0.009529,
+      "prompt_tokens": 5029,
+      "completion_tokens": 1500,
+      "ts": 1783784232.0270407
     }
   ]
 }
