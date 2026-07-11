@@ -217,6 +217,28 @@ _EDGE_LEN_PX = 46.0
 _REGION_K = 0.020
 _BOUNDS_R = 0.985           # unit-space containment radius (ellipse)
 _BOUNDS_K = 6.0
+# edge-crossing reduction (director-directed follow-up: relaxation alone
+# left the graph "a dense tangle"). Two cooperating terms:
+#  (1) node <-> non-incident-edge repulsion -- a node sitting on or near an
+#      unrelated prereq edge IS visual clutter (near-misses and most actual
+#      crossings both route through this), so it gets pushed off, and the
+#      edge's endpoints get an equal-and-opposite nudge away from the node
+#      (Newton's third law, same shape as the existing label<->node term).
+#  (2) an explicit uncrossing pass -- every iteration, every pair of
+#      non-adjacent prereq edges is tested for a literal segment
+#      intersection (exact, not a proxy), and crossing pairs get a
+#      corrective displacement pulling their midpoints apart. This is what
+#      closes the cases (1) can't reach: two edges crossing far from every
+#      third node.
+_EDGE_REPEL_R_PX = 16.0     # node<->edge influence radius
+_EDGE_REPEL_K = 400.0
+_CROSS_K = 5.0               # per-iteration midpoint-separation displacement
+# fixed extra budget for the uncrossing-polish closer (only spent when the
+# main schedule ends up with MORE crossings than the seed it started
+# from -- see relax()). Small and local: this is a repair pass, not a
+# second settle.
+_UNCROSS_POLISH_ITERS = 40
+_UNCROSS_POLISH_TEMP0 = 12.0
 # Fruchterman-Reingold-style cooling: displacement per node per iteration
 # is capped at a "temperature" that decays linearly to ~0 -- this is what
 # makes the integrator unconditionally stable (raw spring/repulsion forces
@@ -252,6 +274,47 @@ def label_size_px(label: str) -> tuple[float, float]:
     return (LABEL_CHAR_W_PX * max(1, len(label)), LABEL_H_PX)
 
 
+def _edge_list(graph: dict[str, dict]) -> list[tuple[str, str]]:
+    """(prereq_id, node_id) pairs -- the same edge set `relax()` springs
+    and un-crosses, exposed for callers (tests, tuning scripts) that need
+    to reason about the graph independent of a specific layout."""
+    return [(p, nid) for nid in sorted(graph) for p in graph[nid]["prereqs"] if p in graph]
+
+
+def count_crossings(pos: dict[str, tuple[float, float]],
+                     graph: dict[str, dict] | None = None) -> int:
+    """Exact count of prereq-edge pairs that literally cross in screen
+    space, at `pos`. Non-adjacent pairs only (edges sharing an endpoint
+    meet there by construction; that is not a crossing). Plain Python
+    (not the numpy fast path inside relax()'s step_once) -- this is a
+    measurement/verification tool, called once per layout, not once per
+    iteration."""
+    tbl = graph if graph is not None else nodes()
+    edges = _edge_list(tbl)
+    pts = {nid: _to_px(pos[nid]) for nid in pos}
+
+    def xprod(o, a, b):
+        return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+
+    def segs_cross(p1, p2, p3, p4):
+        d1, d2 = xprod(p3, p4, p1), xprod(p3, p4, p2)
+        d3, d4 = xprod(p1, p2, p3), xprod(p1, p2, p4)
+        return d1 * d2 < 0 and d3 * d4 < 0
+
+    count = 0
+    for i in range(len(edges)):
+        a, b = edges[i]
+        if a not in pts or b not in pts:
+            continue
+        for j in range(i + 1, len(edges)):
+            c, d = edges[j]
+            if len({a, b, c, d}) < 4 or c not in pts or d not in pts:
+                continue
+            if segs_cross(pts[a], pts[b], pts[c], pts[d]):
+                count += 1
+    return count
+
+
 def relax(seed: dict[str, tuple[float, float]],
           graph: dict[str, dict] | None = None,
           iters: int = RELAX_ITERS,
@@ -277,6 +340,10 @@ def relax(seed: dict[str, tuple[float, float]],
     idx = {nid: i for i, nid in enumerate(ids)}
 
     P = np.array([_to_px(seed[nid]) for nid in ids], dtype=np.float64)
+    P0 = P.copy()   # the seed, in px -- the crossing-count floor the
+                     # uncrossing-polish fallback below is allowed to fall
+                     # back to; it always exists and is always at least as
+                     # good as itself, so it is the guaranteed worst case.
     R = np.array([node_radius_px(tbl[nid]) for nid in ids], dtype=np.float64)
     LW = np.array([label_size_px(tbl[nid]["label"])[0] for nid in ids], dtype=np.float64)
     LH = np.array([label_size_px(tbl[nid]["label"])[1] for nid in ids], dtype=np.float64)
@@ -286,6 +353,41 @@ def relax(seed: dict[str, tuple[float, float]],
     edges = [(idx[p], idx[nid]) for nid in ids for p in tbl[nid]["prereqs"] if p in tbl]
     ei = np.array([e[0] for e in edges], dtype=np.int64) if edges else np.zeros(0, dtype=np.int64)
     ej = np.array([e[1] for e in edges], dtype=np.int64) if edges else np.zeros(0, dtype=np.int64)
+
+    # non-adjacent edge-pair index arrays for the uncrossing pass, built
+    # once per relax() call (the edge set is fixed for the whole
+    # relaxation): every combination of two distinct edges that share no
+    # endpoint.
+    m = len(ei)
+    if m > 1:
+        pa_all, pb_all = np.triu_indices(m, k=1)
+        shared = ((ei[pa_all] == ei[pb_all]) | (ei[pa_all] == ej[pb_all]) |
+                  (ej[pa_all] == ei[pb_all]) | (ej[pa_all] == ej[pb_all]))
+        pair_a, pair_b = pa_all[~shared], pb_all[~shared]
+    else:
+        pair_a = pair_b = np.zeros(0, dtype=np.int64)
+    node_ix = np.arange(n)
+
+    def crossings_of(P) -> int:
+        """Exact crossing count at P (px space), vectorized over the same
+        non-adjacent edge pairs the uncrossing force uses -- the numpy
+        twin of count_crossings(), used internally every iteration/polish
+        step, so it must be cheap (no dict/id round-trip)."""
+        if not len(pair_a):
+            return 0
+        a1x, a1y = P[ei[pair_a], 0], P[ei[pair_a], 1]
+        a2x, a2y = P[ej[pair_a], 0], P[ej[pair_a], 1]
+        b1x, b1y = P[ei[pair_b], 0], P[ei[pair_b], 1]
+        b2x, b2y = P[ej[pair_b], 0], P[ej[pair_b], 1]
+
+        def xprod(ox, oy, ax, ay, bx, by):
+            return (ax - ox) * (by - oy) - (ay - oy) * (bx - ox)
+
+        d1 = xprod(b1x, b1y, b2x, b2y, a1x, a1y)
+        d2 = xprod(b1x, b1y, b2x, b2y, a2x, a2y)
+        d3 = xprod(a1x, a1y, a2x, a2y, b1x, b1y)
+        d4 = xprod(a1x, a1y, a2x, a2y, b2x, b2y)
+        return int(np.count_nonzero((d1 * d2 < 0) & (d3 * d4 < 0)))
 
     # deterministic microscopic tie-breaker so exactly-coincident seed
     # points (possible when a graph places two nodes in the same
@@ -369,6 +471,68 @@ def relax(seed: dict[str, tuple[float, float]],
             np.add.at(F[:, 0], ei, efx); np.add.at(F[:, 1], ei, efy)
             np.add.at(F[:, 0], ej, -efx); np.add.at(F[:, 1], ej, -efy)
 
+        # node <-> non-incident-edge repulsion: nearest point on every
+        # prereq edge the node is not an endpoint of, pushed apart if
+        # within range (same clamped-projection shape as segment-distance
+        # tests elsewhere in the file).
+        if len(ei):
+            ex1, ey1 = P[ei, 0], P[ei, 1]
+            vx, vy = P[ej, 0] - ex1, P[ej, 1] - ey1
+            vv = np.maximum(vx * vx + vy * vy, 1e-9)
+            wx = P[:, 0][:, None] - ex1[None, :]
+            wy = P[:, 1][:, None] - ey1[None, :]
+            t = np.clip((wx * vx[None, :] + wy * vy[None, :]) / vv[None, :], 0.0, 1.0)
+            qx = ex1[None, :] + t * vx[None, :]
+            qy = ey1[None, :] + t * vy[None, :]
+            dex, dey = P[:, 0][:, None] - qx, P[:, 1][:, None] - qy
+            de = np.sqrt(np.maximum(dex * dex + dey * dey, 1e-12))
+            incident = (node_ix[:, None] == ei[None, :]) | (node_ix[:, None] == ej[None, :])
+            eactive = (~incident) & (de < _EDGE_REPEL_R_PX)
+            eover = np.where(eactive, _EDGE_REPEL_R_PX - de, 0.0)
+            emag = eover * _EDGE_REPEL_K / (de * de + 1.0)
+            pushx = np.where(eactive, dex / de * emag, 0.0)
+            pushy = np.where(eactive, dey / de * emag, 0.0)
+            F[:, 0] += np.sum(pushx, axis=1)
+            F[:, 1] += np.sum(pushy, axis=1)
+            # Newton's third law: the edge's endpoints get an equal and
+            # opposite nudge away from the node, split by the projection
+            # weight (closer endpoint absorbs more of the reaction).
+            np.add.at(F[:, 0], ei, -np.sum(pushx * (1 - t), axis=0))
+            np.add.at(F[:, 1], ei, -np.sum(pushy * (1 - t), axis=0))
+            np.add.at(F[:, 0], ej, -np.sum(pushx * t, axis=0))
+            np.add.at(F[:, 1], ej, -np.sum(pushy * t, axis=0))
+
+        # explicit uncrossing pass: every non-adjacent edge pair tested for
+        # a literal segment intersection (orientation/cross-product test,
+        # exact -- not a distance proxy); crossing pairs get a corrective
+        # displacement pulling their midpoints apart, so the pair actually
+        # un-crosses rather than merely thinning.
+        if len(pair_a):
+            a1x, a1y = P[ei[pair_a], 0], P[ei[pair_a], 1]
+            a2x, a2y = P[ej[pair_a], 0], P[ej[pair_a], 1]
+            b1x, b1y = P[ei[pair_b], 0], P[ei[pair_b], 1]
+            b2x, b2y = P[ej[pair_b], 0], P[ej[pair_b], 1]
+
+            def _xprod(ox, oy, ax, ay, bx, by):
+                return (ax - ox) * (by - oy) - (ay - oy) * (bx - ox)
+
+            d1 = _xprod(b1x, b1y, b2x, b2y, a1x, a1y)
+            d2 = _xprod(b1x, b1y, b2x, b2y, a2x, a2y)
+            d3 = _xprod(a1x, a1y, a2x, a2y, b1x, b1y)
+            d4 = _xprod(a1x, a1y, a2x, a2y, b2x, b2y)
+            crossed = (d1 * d2 < 0) & (d3 * d4 < 0)
+            if np.any(crossed):
+                max_ax, may = (a1x + a2x) / 2, (a1y + a2y) / 2
+                mbx, mby = (b1x + b2x) / 2, (b1y + b2y) / 2
+                cdx, cdy = max_ax - mbx, may - mby
+                cd = np.sqrt(np.maximum(cdx * cdx + cdy * cdy, 1e-12))
+                cix = np.where(crossed, cdx / cd * _CROSS_K, 0.0)
+                ciy = np.where(crossed, cdy / cd * _CROSS_K, 0.0)
+                np.add.at(F[:, 0], ei[pair_a], cix); np.add.at(F[:, 1], ei[pair_a], ciy)
+                np.add.at(F[:, 0], ej[pair_a], cix); np.add.at(F[:, 1], ej[pair_a], ciy)
+                np.add.at(F[:, 0], ei[pair_b], -cix); np.add.at(F[:, 1], ei[pair_b], -ciy)
+                np.add.at(F[:, 0], ej[pair_b], -cix); np.add.at(F[:, 1], ej[pair_b], -ciy)
+
         # weak region-sector angular affinity: territory, not a hard ring
         rdx, rdy = P[:, 0] - cx, P[:, 1] - cy
         rr = np.sqrt(np.maximum(rdx * rdx + rdy * rdy, 1e-12))
@@ -422,6 +586,101 @@ def relax(seed: dict[str, tuple[float, float]],
                 P[:, 1] = cy + (P[:, 1] - cy) * shrink
 
         if record_every > 0 and ((it + 1) % record_every == 0 or it == iters - 1):
+            traj.append(to_frame(P))
+
+    # uncrossing-polish closer: the two crossing-reduction terms above run
+    # the WHOLE relaxation and clear the overwhelming majority of tangles
+    # (proven by the PBT below), but they are one heuristic term inside a
+    # multi-force settle -- nothing stops a spring or a region pull from
+    # re-crossing a pair the uncrossing force had already separated. Rather
+    # than hope the fixed schedule always lands in the graph's favor, close
+    # the gap the same way label_layout closes its own occlusion guarantee
+    # (escalate through cheaper mechanisms, but END on something checked,
+    # never an unchecked claim): if the settled layout has MORE crossings
+    # than the seed it started from, run a small fixed extra budget of
+    # uncrossing-only micro-steps (node-disc repulsion + the crossing
+    # force + bounds, no springs/region -- an isolated local search that
+    # cannot re-introduce the tangle those forces caused), keep the best
+    # (fewest-crossings, ties toward the latest) position seen across it,
+    # and if that still isn't at or below the seed's count, fall back to
+    # the seed itself -- crossings(seed) <= crossings(seed) always holds,
+    # so the property below is true by construction, not by luck.
+    crossings_seed = crossings_of(P0)
+    crossings_now = crossings_of(P)
+    if crossings_now > crossings_seed:
+        def polish_step(P):
+            F = np.zeros((n, 2), dtype=np.float64)
+            DX = P[:, 0][:, None] - P[:, 0][None, :]
+            DY = P[:, 1][:, None] - P[:, 1][None, :]
+            D2 = DX * DX + DY * DY
+            D = np.sqrt(np.maximum(D2, 1e-12))
+            coincide = (D < 1e-6) & off_diag
+            DX = np.where(coincide, tie_dx[:, None] - tie_dx[None, :], DX)
+            DY = np.where(coincide, tie_dy[:, None] - tie_dy[None, :], DY)
+            D2 = np.where(coincide, DX * DX + DY * DY, D2)
+            D = np.sqrt(np.maximum(D2, 1e-12))
+            minsep = R[:, None] + R[None, :] + 10.0
+            active = off_diag & (D < minsep)
+            overlap = np.where(active, minsep - D, 0.0)
+            mag = overlap * _REPEL_K / (D2 + 1.0)
+            F[:, 0] += np.sum(np.where(active, DX / D * mag, 0.0), axis=1)
+            F[:, 1] += np.sum(np.where(active, DY / D * mag, 0.0), axis=1)
+            if len(pair_a):
+                a1x, a1y = P[ei[pair_a], 0], P[ei[pair_a], 1]
+                a2x, a2y = P[ej[pair_a], 0], P[ej[pair_a], 1]
+                b1x, b1y = P[ei[pair_b], 0], P[ei[pair_b], 1]
+                b2x, b2y = P[ej[pair_b], 0], P[ej[pair_b], 1]
+
+                def xprod(ox, oy, ax, ay, bx, by):
+                    return (ax - ox) * (by - oy) - (ay - oy) * (bx - ox)
+
+                d1 = xprod(b1x, b1y, b2x, b2y, a1x, a1y)
+                d2 = xprod(b1x, b1y, b2x, b2y, a2x, a2y)
+                d3 = xprod(a1x, a1y, a2x, a2y, b1x, b1y)
+                d4 = xprod(a1x, a1y, a2x, a2y, b2x, b2y)
+                crossed = (d1 * d2 < 0) & (d3 * d4 < 0)
+                if np.any(crossed):
+                    max_, may = (a1x + a2x) / 2, (a1y + a2y) / 2
+                    mbx, mby = (b1x + b2x) / 2, (b1y + b2y) / 2
+                    cdx, cdy = max_ - mbx, may - mby
+                    cd = np.sqrt(np.maximum(cdx * cdx + cdy * cdy, 1e-12))
+                    cix = np.where(crossed, cdx / cd * _CROSS_K, 0.0)
+                    ciy = np.where(crossed, cdy / cd * _CROSS_K, 0.0)
+                    np.add.at(F[:, 0], ei[pair_a], cix); np.add.at(F[:, 1], ei[pair_a], ciy)
+                    np.add.at(F[:, 0], ej[pair_a], cix); np.add.at(F[:, 1], ej[pair_a], ciy)
+                    np.add.at(F[:, 0], ei[pair_b], -cix); np.add.at(F[:, 1], ei[pair_b], -ciy)
+                    np.add.at(F[:, 0], ej[pair_b], -cix); np.add.at(F[:, 1], ej[pair_b], -ciy)
+            edx2, edy2 = (P[:, 0] - cx) / bx, (P[:, 1] - cy) / by
+            e = edx2 * edx2 + edy2 * edy2
+            outside = e > 1.0
+            over = np.where(outside, np.sqrt(np.maximum(e, 1e-12)) - 1.0, 0.0)
+            dd = np.sqrt(np.maximum((P[:, 0] - cx) ** 2 + (P[:, 1] - cy) ** 2, 1e-12))
+            F[:, 0] -= np.where(outside, (P[:, 0] - cx) / dd * over * _BOUNDS_K, 0.0)
+            F[:, 1] -= np.where(outside, (P[:, 1] - cy) / dd * over * _BOUNDS_K, 0.0)
+            return F
+
+        best_P, best_c = P, crossings_now
+        for pit in range(_UNCROSS_POLISH_ITERS):
+            F = polish_step(P)
+            pcool = 1.0 - pit / max(1, _UNCROSS_POLISH_ITERS - 1)
+            ptemp = _TEMP_MIN_PX + (_UNCROSS_POLISH_TEMP0 - _TEMP_MIN_PX) * pcool
+            pmag = np.sqrt(np.maximum(F[:, 0] ** 2 + F[:, 1] ** 2, 1e-18))
+            pscale = np.minimum(pmag, ptemp) / pmag
+            P = P + F * pscale[:, None]
+            edx3, edy3 = (P[:, 0] - cx) / bx, (P[:, 1] - cy) / by
+            e2 = edx3 * edx3 + edy3 * edy3
+            over_e = e2 > 1.0
+            if np.any(over_e):
+                shrink = np.where(over_e, 1.0 / np.sqrt(np.maximum(e2, 1e-12)), 1.0)
+                P[:, 0] = cx + (P[:, 0] - cx) * shrink
+                P[:, 1] = cy + (P[:, 1] - cy) * shrink
+            c = crossings_of(P)
+            if c <= best_c:
+                best_P, best_c = P.copy(), c
+            if record_every > 0:
+                traj.append(to_frame(P))
+        P = best_P if best_c <= crossings_seed else P0
+        if record_every > 0 and to_frame(P) != traj[-1]:
             traj.append(to_frame(P))
 
     final = to_frame(P)
