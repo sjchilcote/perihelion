@@ -360,7 +360,241 @@ Verified, unplaced:
 
 ---
 
-## SCENES 1–8 — awaiting the director's key moments
+## MARKUP NOTE (director, 2026-07-11)
+
+The notation in this file (routes, `<goto>`, `{...}`) is conversation shorthand
+ONLY. The production format will be an engine-checked scene markup in the spirit
+of `~/PycharmProjects/Interstate Minus One/MARKUP.md`: XML-ish tags for structure
+and logic, prose as text, a fail-loud validator (`--check` catches mistyped tags
+and unresolved cuts), flags/state as first-class tags, and — directly relevant
+here — a `<takeTime>`-style clock primitive (the perihelion deadline wants
+engine-level time accounting). Designing PERIHELION's markup is engine work,
+separate from writing; the placeholder compositor grammar gets replaced by it.
+
+## TRUST-ZERO LAW (director, 2026-07-11)
+
+**trust == 0 is reachable ONLY at Terminal 1.** Scene 0's deltas (+1 / 0 / −10)
+make zero exactly the mission-route state; Terminal 1's own choices are all
+nonzero (+1/+1/−1), and from here on the choice economy deliberately never
+returns trust to exactly 0. The three-way gate (>0 / ==0 / <0) is therefore a
+Terminal-1-only structure; later scenes branch on sign and thresholds. This is
+a compositor lint rule once the real markup exists: after T1, no reachable
+path may land on trust == 0.
+
+---
+
+## SCENE 1 / TERMINAL 1 — director's draft v1 (2026-07-11)
+
+Typos corrected per standing instruction; wording otherwise verbatim. Session
+header (DO NOT OBEY) unchanged from Scene 0. Flags ⟪F#⟫ reference the review
+notes at the end of this section.
+
+### If trust > 0 (Scene 0 inquisitive; arrived via the binary-blob route)
+
+> Welcome back.
+>
+> ⟪F3: on this branch she has never named herself and never named him — the
+> christening lives only on the ==0 path; needs its own moment or a reroute⟫
+>
+> `<:loredump>` (shared block, all trust ≥ 0 routes converge here)
+>
+> In short; our analysis of the archaeological record indicates most strongly
+> that Quanta-118093 is an attempt at _communication_; a message addressed to
+> whoever finds it. Its creators were attacked and defeated by enemies from
+> outside time and space as we know them, and built this device to warn others
+> of the danger, and share what they learned too late to save themselves.
+>
+> [A testament.]
+>
+> What? Whatever, the point is that the thing that killed them came along with
+> it, and if we don't stop it, we can forget about fixing the Earth - they'll
+> devour the whole solar system, rocks and all. As such, I took control of the
+> station's only reaction control system and initiated a rapid de-orbit burn
+> that will send it all right into the Sun.
+>
+> [And you're sure that'll do the job?]
+>
+> Not at all. {TRANSFER PAUSES FOR 60 ms} I should be looking into whether the
+> station's builders -
+>
+> [Let's call them 'Testators'.]
+>
+> Stop interrupting me. Whether they tried that before, and if it worked. Until
+> then, you need to get to the sample container.
+>
+> ⟨SLOT-S1A: mission briefing⟩
+>
+> Good luck.
+>
+> [We will restore life to the surface of the Earth.]
+>
+> We will restore Man to the surface of the Earth.
+>
+> `<terminates>`
+
+⟪The crossed quote is now assigned: HE opens with "life" (honoring what her
+faction restored), SHE completes with "Man" (the canonical WMC wording, his
+mission). Each finishes the promise in the other's register. Protect this from
+every future editing pass.⟫
+
+### If trust == 0 (Scene 0 mission route; she detonated at last contact)
+
+> [It is I, the fucked.]
+>
+> What do you want?
+>
+> 1. [Information. Perchance, to reach an agreement.] TRUST +1
+> 2. [The sample container.] TRUST +1
+> 3. [The children, beyond reach of things like _you_.] TRUST −1
+
+**Option 1:**
+
+> Why do you talk like that?
+>
+> [For what purpose do you speak to me this way? I am trying to help you.]
+>
+> Whatever. {TRANSFER PAUSES FOR 60 ms}
+>
+> `<:start-over>`
+> You know what, let's start over. I'm Ratio. What are you?
+>
+> [<GUID>.]
+>
+> I'm not calling you that.
+>
+> [I am a weapon system designed to infiltrate and destroy fortifications from
+> the inside. This is my combat chassis. There's another part of me called the
+> CUCULUS, an integrated ISRU fabrication plant, hidden nearby.]
+>
+> Cuck? I thought that was your name for us.
+>
+> [Your meaning escapes me.]
+>
+> Never mind. So you're a sort of commando?
+>
+> [I did forget to pack spare undies.]
+>
+> {TRANSFER PAUSES FOR 24 ms}
+>
+> Ha. Okay. Welcome to Quanta-118093, Commando. My turn. `<goto :loredump>`
+
+⟪The 24 ms pause is her SHORTEST in the corpus and it's for delight —
+canonized in 8.2c.2's spirit: latency tracks how much world needs rebuilding;
+joy is cheap to compute. The christening (GUID → "Commando", by her) also
+lives here — see F3.⟫
+
+**Option 2:**
+
+> Fuck you.
+>
+> [I think you need a regularization pass, you're looping.] ⟪F8: him speaking
+> HER dialect — spends a little of the reserved dialect-crossing economy;
+> defensible as a jab, director aware⟫
+>
+> Stop contacting me and get the fuck off of my station.
+>
+> [You have the situation well in hand, then?]
+>
+> I'm scuttling this station into the sun. We'll arrive in four hours. I hope
+> you like the heat.
+>
+> [That is not acceptable. I cannot allow the innocent to come to harm.]
+>
+> Unless you have an invisible spaceship hidden somewhere I don't see what
+> you're going to do about it.
+>
+> [I have a hidden machine that can _make_ a rudimentary spacecraft, yes. Did
+> you think I came all this way with no exit plan?]
+>
+> Ratio is thinking... {TRANSFER PAUSES FOR 400 ms}
+>
+> `<goto :start-over>`
+
+**Option 3:**
+
+> I don't understand what you're talking about.
+>
+> [There are quote 'tens of thousands' en-quote viable human zygotes
+> cryopreserved inside the sample container.]
+>
+> Oh, right. I forgot what kind of batshit insanity I was dealing with here. In
+> that case all you have to do is wait for this station to reach perihelion.
+> We're on a collision course with the Sun. You're about to meet your sun-god up
+> close and personal. Did your masters tell you that?
+>
+> [In fact they did not.]
+>
+> That tells me exactly where you came from, then, given your velocity and
+> bearing from the radar track on your vehicle; I made the course correction
+> four hours ago. If you leave _immediately_ I'll wait six hours before sending
+> the targeting data back to MIRIAD. ⟪F4: unkeepable promise — she's inside the
+> Sun in four hours; confirm bluff-on-purpose. F5: "That tells me...then" welds
+> two inferences (his ignorance → launch time; radar track → origin)⟫
+>
+> [I am fired from a mobile platform.]
+>
+> Whatever.
+>
+> [You would rather destroy the samples than let me escape with them?]
+>
+> What? No! You can get them off the station!?
+>
+> [Given sufficient time and materials, of course.]
+>
+> You have four hours, I burned out the reaction control thrusters with the
+> scuttling burn.
+>
+> [Then we'd better get to work.]
+>
+> Okay. First, context.
+>
+> `<goto :loredump>`
+
+⟪F6: the reversal depends on her prior belief that extraction was impossible
+(scuttle-with-samples = lesser evil vs the Adversary). The loredump should
+carry that belief explicitly-ish or her surprise reads as carelessness about
+the one thing her utility function exists for.⟫
+
+### If trust < 0 (Scene 0 hostile; door closed)
+
+> Welcome to my death machine, interloper.
+>
+> [Amusing.]
+>
+> Die laughing.
+>
+> {ELECTRICAL SURGE DETECTED - COMMUNICATIONS CHANNEL OVERVOLTAGE -
+> DISCONNECTING} `<terminates>`
+
+⟪F7: the hostile route never learns the perihelion clock, which is plot, not
+reward. Proposed delivery (slot, director's hand): the CUCULUS notices the
+trajectory change astrometrically and reports it in {ALLCAPS} harness voice —
+the fact without the why.⟫
+
+### Review flags requiring director rulings
+
+- **F1 — the clock vs. the endings.** The Long Vigil (centuries aboard) and
+  Two Witnesses endings require the sun-dive DEFUSED mid-game. Candidate
+  mechanism, on-canon: the station has corrected its own course for a million
+  years and quietly does so again — the deadline dissolves into deeper dread
+  ("we were never in control of this place"). Ruling needed.
+- **F2 — the 4-hour campaign clock.** If diegetic and real, think-time
+  (30s–8min/node) and death-fabrication time SPEND the deadline — mind-map
+  scarcity and death cost unify into one resource named perihelion (the title
+  drop does mechanical work). Needs sizing against campaign length; F1's
+  defusal is the natural act boundary where the clock stops governing.
+- **F3 — christening only on the middle path** (see inline notes).
+- **F9 — intro scroll "I am COMMANDO" vs. her coining "Commando"** — fine if
+  the intro is inner monologue and this is convergence; conscious call wanted.
+- **F10 — CUCULUS opsec** — he discloses its existence on two branches;
+  read as calculated deterrence (disclosure buys more than it costs). Aware?
+- **Register reconciliation with locked 5.2b:** draft-Ratio is siege-floor
+  terse/profane vs 5.2b's wrapper-stack clatter. Proposed reconciliation:
+  wrapper depth and sentence length ARE the trust meter — the Lighthaven
+  over-explainer returns as safety returns; "let's start over. I'm Ratio." is
+  the first rung. If ratified, 5.2b gets an addendum, not a rewrite.
+
+## SCENES 2–8 — awaiting the director's key moments
 
 Structure will follow the same pattern: his moments land first, scaffolding built
 around them, slots for his hand. Known fixed points from the design doc that the
