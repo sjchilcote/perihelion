@@ -258,13 +258,41 @@ pub fn visible_set(
                 let (ea, eb) = room.edge(i);
                 // Nothing is visible through an edge whose line the apex sits
                 // well behind (a straight sight line cannot re-cross a
-                // half-plane boundary twice). Within EDGE_BAND of the line the
-                // view through the portal is a full 180-degree fan.
+                // half-plane boundary twice). This is a genuine half-space
+                // test and is correct against the INFINITE line: any apex on
+                // the far side cannot see through this portal, regardless of
+                // how far off to the side it is.
                 let apex_d = (apex - ea).dot(room.normals[i]);
                 if apex_d < -EDGE_BAND {
                     continue;
                 }
-                let wide = apex_d <= EDGE_BAND;
+                // Within EDGE_BAND of the doorway the view through the
+                // portal is a full 180-degree fan ("standing in the
+                // doorway"). This must be proximity to the SEGMENT, not the
+                // infinite line: `apex_d` alone only measures perpendicular
+                // distance to the line through (ea, eb), so an apex far
+                // outside the segment along its tangential direction --
+                // e.g. a deep portal-chain apex that happens to align with
+                // this edge's line from way off to the side -- was passing
+                // the same test a genuine in-doorway apex passes, handing
+                // out an unconstrained 180-degree fan through a portal the
+                // apex is nowhere near facing (traced: seed 7 / aggro
+                // capture, tick 71, room 6 depth-3 entry-0 chain: apex
+                // (-52.62, 130.43) landed within EDGE_BAND of the line
+                // x=-52.5 while the segment itself only spans y in
+                // [-35, 35] -- 95 units off the actual doorway -- and room
+                // 7 downstream inherited one tick of a room-filling wedge
+                // where every neighboring tick had a sliver; see
+                // visibility::tests::wide_fan_requires_apex_near_segment).
+                let edge_vec = eb - ea;
+                let elen2 = edge_vec.len2();
+                let t = if elen2 > 1e-12 {
+                    ((apex - ea).dot(edge_vec) / elen2).clamp(0.0, 1.0)
+                } else {
+                    0.0
+                };
+                let closest = ea.lerp(eb, t);
+                let wide = apex_d <= EDGE_BAND && (apex - closest).len() <= EDGE_BAND;
                 let span = if hps.is_empty() {
                     Some((ea, eb))
                 } else {
@@ -479,5 +507,45 @@ mod tests {
         let ib = vis.iter().find(|i| i.room == b).expect("b visible");
         // 180-degree view: whole neighbor visible.
         assert!((geom::signed_area(&ib.clip_local).abs() - 10000.0).abs() < 1.0);
+    }
+
+    #[test]
+    fn wide_fan_requires_apex_near_segment() {
+        // Regression for the tick-71 seed-7/aggro pop: an apex can sit
+        // within EDGE_BAND of a portal edge's INFINITE line while being
+        // far outside the finite SEGMENT along the tangent -- e.g. a
+        // heavily-transformed apex several portal hops deep, whose
+        // projected position happens to line up with an unrelated edge's
+        // extension from way off to the side. The old `wide` test used
+        // only the perpendicular line distance and granted a false
+        // 180-degree fan (see `doorway_apex_sees_whole_neighbor` above for
+        // the LEGITIMATE case this must be distinguished from -- same
+        // EDGE_BAND proximity to the line, but apex.y is within the
+        // segment there and 450 units outside it here).
+        let mut w = World::new();
+        let a = w.add_room(&square(0.0, 0.0, 50.0)).unwrap();
+        let b = w.add_room(&square(0.0, 0.0, 50.0)).unwrap();
+        w.connect(a, 2, b, 0).unwrap();
+        // Apex is 0.2 units off edge 2's line (x = 50, comfortably inside
+        // EDGE_BAND) but 450 units past the doorway segment's y in
+        // [-50, 50].
+        let vis = visible_set(
+            &w,
+            a,
+            cam_center(800.0, 600.0),
+            v(50.2, 500.0),
+            800.0,
+            600.0,
+            8,
+            64,
+        );
+        if let Some(ib) = vis.iter().find(|i| i.room == b) {
+            // Must NOT be the false 180-degree fan (the full 10000-area
+            // room, as legitimately granted in doorway_apex_sees_whole_
+            // neighbor) -- a grazing view this far off-axis clips to a
+            // sliver near the corner the apex is actually looking through.
+            let area = geom::signed_area(&ib.clip_local).abs();
+            assert!(area < 1000.0, "expected a thin sliver, got area {area}");
+        }
     }
 }
