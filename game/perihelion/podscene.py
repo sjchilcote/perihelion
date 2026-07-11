@@ -702,14 +702,18 @@ class PodScene(Scene):
         return self._overlay
 
     def draw(self, app, surf) -> None:
-        self._draw_pod_bg(surf)
+        # ENCARTA suppresses the pod ribs: screen-fixed arcs behind a map
+        # whose own camera-space depth bands are also arcs read as a stuck
+        # second ring system (director, 2026-07-11). The ribs are pod-
+        # interior ambiance and stay on the fabricator page.
+        self._draw_pod_bg(surf, ribs=self.page == "fabricator")
         if self.page == "fabricator":
             self._draw_fabricator(surf)
         else:
             self._draw_mind(surf)
         self._draw_chrome(surf)
 
-    def _draw_pod_bg(self, surf) -> None:
+    def _draw_pod_bg(self, surf, ribs: bool = True) -> None:
         """The inside of the seed: a dark vertical gradient ribbed with
         golden-angle arcs (the pod grew; it was not machined) and a faint
         red-organic pulse low in the shell -- the Commando's own lane."""
@@ -720,6 +724,8 @@ class PodScene(Scene):
                  int(BG_TOP[1] + (BG_BOT[1] - BG_TOP[1]) * k),
                  int(BG_TOP[2] + (BG_BOT[2] - BG_TOP[2]) * k))
             pygame.draw.rect(surf, c, (0, y, w, 2))
+        if not ribs:
+            return
         # pod ribs: concentric arcs from below-screen, golden-ratio gaps
         cx, cy = w // 2, int(h * 1.55)
         r = h * 0.72
@@ -1240,16 +1246,6 @@ class PodScene(Scene):
         if alpha < 255:
             img = img.copy()
             img.set_alpha(alpha)
-        if nid == self.sel and r is None and alpha == 255:
-            # the selected node's name-card: a whisper of backing plate,
-            # strictly inside the label's own proven-clear box, so the
-            # smallest label on screen still reads as the focused one
-            plate = pygame.Rect(lx - img.get_width() // 2 - ui(2),
-                                ly - img.get_height() // 2 - ui(1),
-                                img.get_width() + ui(4),
-                                img.get_height() + ui(2))
-            pygame.draw.rect(surf, (16, 20, 19), plate)
-            pygame.draw.rect(surf, (52, 66, 58), plate, 1)
         if self._layout_mode == "rings" and info.get("leader") and r is None:
             # an escalated label (leader-line placement, per the layout's
             # own escalation ladder): a thin tick from the node's rim to

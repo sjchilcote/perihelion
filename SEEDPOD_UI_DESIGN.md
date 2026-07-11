@@ -10,6 +10,18 @@ Church dumped on his pod's drive): the encyclopedia's official title is
 (director-confirmed final) -- a single constant in podscene.py
 (`MIND_TAB_LABEL`) so any restyling stays a one-line change.
 
+Visual-language law (director, 2026-07-11): the ENCARTA page has a
+DIFFERENT visual language from the rest of the Commando's internal UI
+*because it is a third-party product he is running* -- Encarta Aeterna
+ships with its own typography (the humanist sans) and its own idiom,
+while everything Commando-native speaks terminal Fixedsys. The typeface
+boundary IS a diegetic boundary: chrome (tabs, wallet, nameplate,
+footer hints) belongs to the CUCULUS unit; everything inside the map
+clip belongs to the encyclopedia. Keep the two languages from bleeding
+into each other. The pod ribs stay off the ENCARTA page for the same
+reason (its own camera-space depth bands are the only ring system on
+screen; the ribs are pod-interior ambiance, fabricator page only).
+
 Director's brief, verbatim anchors: upgrade and mindmap UIs become "pages
 of a single full-screen UI that comes up whenever Commando re-enters a
 seed-pod to heal, upgrade, and think." Mind-map expansion does NOT take
