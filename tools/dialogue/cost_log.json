@@ -1,5 +1,5 @@
 {
-  "total_cost": 2.6616234999999993,
+  "total_cost": 2.6981604999999997,
   "calls": [
     {
       "tool": "generate",
@@ -4951,6 +4951,61 @@
         "film_b": 2,
         "control": 4
       }
+    },
+    {
+      "tool": "t1_experiment",
+      "condition": "A_new_prompt_t0.00",
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.0,
+      "top_p": 1.0,
+      "cost": 0.007547,
+      "prompt_tokens": 4757,
+      "completion_tokens": 930,
+      "ts": 1783782353.0287077
+    },
+    {
+      "tool": "t1_experiment",
+      "condition": "B_new_prompt_t0.25",
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.25,
+      "top_p": 1.0,
+      "cost": 0.006701,
+      "prompt_tokens": 4757,
+      "completion_tokens": 648,
+      "ts": 1783782369.3359265
+    },
+    {
+      "tool": "t1_experiment",
+      "condition": "C_new_prompt_t0.50",
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.5,
+      "top_p": 1.0,
+      "cost": 0.008249,
+      "prompt_tokens": 4757,
+      "completion_tokens": 1164,
+      "ts": 1783782398.6800263
+    },
+    {
+      "tool": "t1_experiment",
+      "condition": "D_new_prompt_OLDtemp0.90",
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.9,
+      "top_p": 0.94,
+      "cost": 0.007676,
+      "prompt_tokens": 4757,
+      "completion_tokens": 973,
+      "ts": 1783782421.6553564
+    },
+    {
+      "tool": "t1_experiment",
+      "condition": "E_OLDprompt_newtemp0.25",
+      "model": "nousresearch/hermes-4-405b",
+      "temperature": 0.25,
+      "top_p": 1.0,
+      "cost": 0.006364,
+      "prompt_tokens": 3769,
+      "completion_tokens": 865,
+      "ts": 1783782441.9987705
     }
   ]
 }
