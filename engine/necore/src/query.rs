@@ -339,4 +339,70 @@ mod tests {
         assert_eq!(router.next_edge(&w, rooms[4], rooms[0]), Some(0));
         assert_eq!(router.next_edge(&w, rooms[2], rooms[2]), None);
     }
+
+    // ENGINE_INVARIANTS.md W8/Q3 (wave-1): Router caches a BFS table per
+    // destination, keyed by `world.topology_version` (query.rs
+    // `next_edge`: `if entry.0 != world.topology_version { rebuild }`).
+    // That invalidation mechanism had ZERO test coverage before this: the
+    // only existing router test never mutates topology after building the
+    // router, so a regression that dropped or broke the version check
+    // would pass silently. This is exactly the stale-cache bug shape the
+    // catalog flags: `split_edge` (the runtime portable-hole feature)
+    // mutates topology at runtime, and AI routing depends on
+    // `Router::next_edge`/`hop_distance` staying current.
+    //
+    // Adversarial dimensions: (a) a topology change that shortens an
+    // existing cached route (add_room/connect shortcut), and (b) a
+    // split_edge that shifts the very edge index the cached table names
+    // as the correct hop -- if invalidation didn't fire, the router would
+    // hand back an edge index into the OLD topology, which after the
+    // shift either points at the wrong (or a since-reindexed) edge.
+    //
+    // Verified fail-first: temporarily hardcoded the cache-freshness
+    // check to always reuse the cached entry (`if false { rebuild }`
+    // instead of comparing topology_version) and reran -- both cases
+    // failed (stale hop count / stale edge index), confirming this is
+    // real instrumentation. Reverted before committing.
+    #[test]
+    fn router_cache_invalidates_on_topology_change() {
+        let mut w = World::new();
+        let rooms: Vec<_> = (0..5).map(|_| w.add_room(&square(50.0)).unwrap()).collect();
+        for i in 0..4 {
+            w.connect(rooms[i], 2, rooms[i + 1], 0).unwrap();
+        }
+        let mut router = Router::new();
+        assert_eq!(router.hop_distance(&w, rooms[0], rooms[4]), Some(4));
+        assert_eq!(router.next_edge(&w, rooms[0], rooms[4]), Some(2));
+
+        // A direct shortcut 0<->4 via each room's still-free edge 1.
+        // topology_version bumps; the cached table for dest=rooms[4] must
+        // be rebuilt, not silently reused.
+        w.connect(rooms[0], 1, rooms[4], 1).unwrap();
+        assert_eq!(
+            router.hop_distance(&w, rooms[0], rooms[4]),
+            Some(1),
+            "router served a stale (pre-shortcut) hop count after a topology change"
+        );
+        assert_eq!(
+            router.next_edge(&w, rooms[0], rooms[4]),
+            Some(1),
+            "router served a stale (pre-shortcut) edge after a topology change"
+        );
+
+        // split_edge on a wall NOT on the cached route also bumps
+        // topology_version; the cached table must still be consistent
+        // with a fresh BFS build (same result as a brand-new Router).
+        let mid = w.split_edge(rooms[2], 1, 0.3, 0.6).unwrap();
+        let _ = mid;
+        let mut fresh = Router::new();
+        assert_eq!(
+            router.hop_distance(&w, rooms[3], rooms[0]),
+            fresh.hop_distance(&w, rooms[3], rooms[0]),
+            "cached router disagreed with a freshly-built one after split_edge"
+        );
+        assert_eq!(
+            router.next_edge(&w, rooms[3], rooms[0]),
+            fresh.next_edge(&w, rooms[3], rooms[0])
+        );
+    }
 }

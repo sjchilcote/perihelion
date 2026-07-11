@@ -36,6 +36,71 @@ fn max_len_err(sim: &Sim, room: usize) -> f64 {
         .fold(0.0, f64::max)
 }
 
+// ENGINE_INVARIANTS.md S4 (wave-1): `SoftSystem::on_split` had ZERO test
+// coverage -- exactly the kind of array-shape-realignment bookkeeping the
+// director's directive singles out as silently-corrupting on an untested
+// path. `world::split_edge` (world.rs) inserts TWO new vertices per call
+// (three collinear sub-edges from one wall, per ENGINE_DESIGN.md
+// addenda), but `on_split`'s own doc comment says "a vertex was
+// inserted... edge, edge+1 are the halves" and its body performs exactly
+// ONE `Vec::insert` on `vel` and `rest_len` -- a one-vertex vs two-vertex
+// mismatch between what actually happened to the room and what the soft
+// state thinks happened.
+//
+// This property checks the actual consequence: after `soften` + a real
+// `world.split_edge` + `on_split` (called the way a caller integrating
+// the two features would), do `sr.vel`/`sr.rest_len` stay the same length
+// as `room.verts`? `SoftSystem::step` has its own defensive fallback for
+// exactly this mismatch (re-soften from current geometry, silently
+// dropping velocity/rest-length state) -- so this is not a crash-class
+// bug, but it IS a real, previously undocumented behavior: `on_split` is
+// currently a no-op-shaped stub that does not correctly track
+// `split_edge`'s actual two-vertex insert, so a runtime doorway-split on
+// a soft (Otherworld) wall silently discards in-flight deformation state
+// on the very next `step` rather than continuing it smoothly.
+//
+// This is reported as an OPEN VIOLATION in ENGINE_INVARIANTS.md (not
+// fixed here -- soft.rs/on_split is in-lane but the game does not
+// currently call `split_edge` on a soft room at all, per the game-layer
+// catalog's H3/portable-hole audit, so this is latent, not
+// player-visible today; fixing the split-count would require redesigning
+// on_split's two-vertex case, out of scope for a PBT-enforcement pass).
+#[test]
+fn on_split_array_length_tracks_world_split_edge() {
+    let mut w = World::new();
+    let a = w.add_room(&square(50.0)).unwrap();
+    let mut sim = Sim::new(w);
+    sim.soften_room(a);
+    let n_before = sim.world.rooms[a].verts.len();
+    assert_eq!(sim.soft.rooms[&a].vel.len(), n_before);
+    assert_eq!(sim.soft.rooms[&a].rest_len.len(), n_before);
+
+    // Edge 0 is a free wall (no portal) -- split_edge accepts it.
+    let world = &mut sim.world;
+    world.split_edge(a, 0, 0.3, 0.6).unwrap();
+    let n_after = world.rooms[a].verts.len();
+    assert_eq!(n_after, n_before + 2, "split_edge itself inserts two vertices");
+
+    sim.soft.on_split(&sim.world, a, 0);
+    let sr = &sim.soft.rooms[&a];
+    // THE FINDING: on_split only ever inserts one entry per call, so it
+    // cannot track a two-vertex split; document the actual (mismatched)
+    // outcome precisely rather than asserting the wrong postcondition.
+    assert_eq!(
+        sr.vel.len(),
+        n_before + 1,
+        "on_split's actual insert count (documents the vel/verts mismatch -- see ENGINE_INVARIANTS.md open violations)"
+    );
+    assert_ne!(
+        sr.vel.len(),
+        n_after,
+        "on_split does NOT keep pace with split_edge's two-vertex insert (n_after={}); \
+         SoftSystem::step's defensive re-soften fallback is what actually prevents this \
+         from being a hard array-index panic on the next step",
+        n_after
+    );
+}
+
 #[test]
 fn impulse_deforms_then_lengths_restore() {
     let (mut sim, a, _) = soft_pair();

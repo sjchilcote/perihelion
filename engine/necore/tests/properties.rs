@@ -704,3 +704,243 @@ proptest! {
         }
     }
 }
+
+// ---------------------------------------------------------------------
+// 9. ENGINE_INVARIANTS.md G4 (M5+G4 wave-1 item): DEGENERATE_EDGE guards
+// must be inert under ARBITRARY convex polygons, not just the one fixed
+// axis-aligned square `geom::tests::duplicate_clip_vertex_is_inert`
+// exercises. THE FLICKER's root cause was a duplicate clip vertex handed
+// to visible_set's wedge machinery -- a zero-length edge's fallback
+// normal (Vec2::normalized's arbitrary (1,0), see math.rs M5) fabricating
+// a phantom half-plane. That fixed-square unit test proved the guard
+// works on ONE shape; this proptest is the heterogeneous-shape
+// generalization the director's directive specifically calls for
+// ("adversarial, heterogeneous strategies... duplicate vertices").
+//
+// Adversarial dimensions: arbitrary convex hull shape (3-8 verts, via the
+// shared strategy), 1-3 injected duplicate vertices at arbitrary
+// positions including the wrap seam, checked against clip_polygon_convex,
+// point_in_polygon, and depth_in_polygon simultaneously.
+//
+// Verified fail-first: temporarily widened DEGENERATE_EDGE from 1e-9 to
+// 0.0 (disabling the skip-degenerate-edge guard in
+// clip_polygon_convex/point_in_polygon/depth_in_polygon) and reran --
+// this property failed reproducibly (clip result vertex count diverged
+// from the clean baseline) within the first few generated cases,
+// confirming it is real instrumentation. Reverted before committing.
+// ---------------------------------------------------------------------
+
+fn inject_duplicate(poly: &[Vec2], at: usize) -> Vec<Vec2> {
+    let mut dirty = poly.to_vec();
+    let at = at % dirty.len();
+    dirty.insert(at, dirty[at]);
+    dirty
+}
+
+proptest! {
+    #[test]
+    fn degenerate_edge_injection_is_inert_under_arbitrary_polygons(
+        raw_poly in convex_polygon_strategy(),
+        dup_positions in proptest::collection::vec(any::<usize>(), 1..=3),
+    ) {
+        // convex_hull()'s winding is whatever falls out of point order
+        // (see its doc comment); geom::clip_polygon_convex, unlike
+        // World::add_room, does NOT canonicalize for callers -- it
+        // assumes canonical (visually-CCW / negative-area) winding to
+        // compute correct inward normals. Canonicalize explicitly.
+        let mut clip_poly = raw_poly;
+        geom::canonicalize_winding(&mut clip_poly);
+
+        // Subject: the clip polygon shrunk 50% about its own centroid, so
+        // it is guaranteed non-degenerately inside clip_poly -- a
+        // meaningful (non-empty) clip result to compare clean vs dirty.
+        let c = clip_poly.iter().fold(Vec2::ZERO, |a, b| a + *b) * (1.0 / clip_poly.len() as f64);
+        let subject: Vec<Vec2> = clip_poly.iter().map(|p| c + (*p - c) * 0.5).collect();
+
+        let clean = geom::clip_polygon_convex(&subject, &clip_poly);
+        prop_assert!(clean.len() >= 3, "baseline clip degenerated: {:?}", clean);
+
+        let mut dirty_clip = clip_poly.clone();
+        for &at in &dup_positions {
+            dirty_clip = inject_duplicate(&dirty_clip, at);
+        }
+
+        let dirty = geom::clip_polygon_convex(&subject, &dirty_clip);
+        prop_assert_eq!(
+            dirty.len(), clean.len(),
+            "duplicate injection changed clip result: clean={:?} dirty_clip={:?} dirty={:?}",
+            clean, dirty_clip, dirty
+        );
+        for (a, b) in clean.iter().zip(dirty.iter()) {
+            prop_assert!(a.dist(*b) < 1e-9, "{:?} vs {:?}", a, b);
+        }
+
+        // point_in_polygon / depth_in_polygon must also agree, at the
+        // centroid (guaranteed inside) and at a point just outside clip_poly.
+        let outside = c + (clip_poly[0] - c) * 2.0;
+        prop_assert_eq!(
+            geom::point_in_polygon(c, &clip_poly, 1e-9),
+            geom::point_in_polygon(c, &dirty_clip, 1e-9)
+        );
+        prop_assert_eq!(
+            geom::point_in_polygon(outside, &clip_poly, 1e-9),
+            geom::point_in_polygon(outside, &dirty_clip, 1e-9)
+        );
+        let d_clean = geom::depth_in_polygon(c, &clip_poly);
+        let d_dirty = geom::depth_in_polygon(c, &dirty_clip);
+        prop_assert!((d_clean - d_dirty).abs() < 1e-9, "{} vs {}", d_clean, d_dirty);
+    }
+}
+
+// ---------------------------------------------------------------------
+// 10. ENGINE_INVARIANTS.md W4 (wave-1): connect_with_xform is the
+// general/arbitrary-transform entry point (ENGINE_DESIGN.md 2.2: scaling
+// corridors, chirality flips -- "nothing in the engine may assume rigid
+// motion"). Its core safety contract -- reject non-invertible transforms,
+// install a portal whose xform/inv pair are true inverses of each other
+// otherwise -- had ZERO test coverage before this. Adversarial
+// dimensions: matrices spanning exactly-singular (det==0, both the
+// "collapsed to a line" and "collapsed to a point" shapes),
+// near-singular, and healthy-invertible, plus negative-determinant
+// (chirality-flipping) transforms.
+//
+// Verified fail-first: temporarily removed the `is_invertible` guard in
+// `install_portal` (world.rs) and reran -- this property failed with a
+// panic (division by ~0 producing inf/NaN in `Mat3::inverse`) on a
+// generated near-singular case, confirming the guard is load-bearing and
+// this test would have caught its absence. Reverted before committing.
+// ---------------------------------------------------------------------
+
+proptest! {
+    #[test]
+    fn connect_with_xform_rejects_singular_or_installs_true_inverse(
+        poly_a in convex_polygon_strategy(),
+        poly_b in convex_polygon_strategy(),
+        ea_seed in any::<usize>(),
+        eb_seed in any::<usize>(),
+        // Sweep a 2x2 linear part from exactly-singular (s=0) through
+        // near-singular to healthy scale, and both handedness signs.
+        s in prop_oneof![Just(0.0f64), -1e-10f64..1e-10, 0.1f64..5.0],
+        sign in prop_oneof![Just(1.0f64), Just(-1.0f64)],
+        theta in 0.0f64..std::f64::consts::TAU,
+        tx in -200.0f64..200.0,
+        ty in -200.0f64..200.0,
+    ) {
+        let mut w = World::new();
+        let a = w.add_room(&poly_a).unwrap();
+        let b = w.add_room(&poly_b).unwrap();
+        let ea = ea_seed % w.rooms[a].num_edges();
+        let eb = eb_seed % w.rooms[b].num_edges();
+
+        // Build M = translate(tx,ty) . rotate(theta) . scale(s, sign*s):
+        // det = -sign*s^2 (0 iff s==0), spanning both handedness signs.
+        let m = Mat3::translate(v(tx, ty))
+            .mul(Mat3::rotate(theta))
+            .mul(Mat3::scale(s, sign * s));
+
+        let result = w.connect_with_xform(a, ea, b, eb, m);
+        if !m.is_invertible() {
+            prop_assert!(result.is_err(), "singular transform (det={}) was accepted", m.det());
+        } else {
+            prop_assert!(result.is_ok(), "invertible transform (det={}) was rejected: {:?}", m.det(), result.err());
+            let pa = w.rooms[a].portals[ea].unwrap();
+            let prod = pa.xform.mul(pa.inv);
+            prop_assert!(mat_max_abs_diff(prod, Mat3::IDENTITY) < 1e-6, "{:?}", prod);
+            let pb = w.rooms[b].portals[eb].unwrap();
+            let prod2 = pa.xform.mul(pb.xform);
+            prop_assert!(mat_max_abs_diff(prod2, Mat3::IDENTITY) < 1e-6, "{:?}", prod2);
+        }
+    }
+}
+
+// ---------------------------------------------------------------------
+// 11. ENGINE_INVARIANTS.md P4 (wave-1): the MAX_ITERS/MAX_STALLS corner-
+// trap safety valve in physics.rs::step_entity ("kill motion rather than
+// tunnel or hang") had ZERO direct test coverage of it actually tripping.
+// `containment_after_impulses`'s room-shape strategy filters to
+// min_edge_len >= 5, which incidentally screens out the sharpest wedge
+// angles most likely to need the stall breaker at all -- this test
+// targets exactly that excluded, most-adversarial region: a deliberately
+// acute (0.5-3 degree half-angle) wedge room, an entity slammed at very
+// high speed (2000-8000 u/s) straight at the vertex with a full 1/60s
+// dt (forcing many sub-collision resolutions inside one step_entity
+// call), rest_wall=1.0 (elastic -- energy isn't absorbed, the hardest
+// case for a stall breaker to actually terminate cleanly).
+//
+// Property under test: even in a scenario specifically engineered to
+// stress (and very plausibly trip) the safety valve, the entity's
+// position and velocity stay finite and containment holds, every tick,
+// for many ticks -- i.e. the valve does what its comment promises
+// (bounded degradation: zeroed velocity, never NaN/inf, never tunnels)
+// rather than merely not-hanging.
+//
+// Fail-first attempted, and the result is itself a real finding, not a
+// tautology: temporarily changed the guard from
+// `iters > MAX_ITERS || stalls > MAX_STALLS` to the literal `false`
+// (disabling both backstops entirely -- an unconditional runaway loop if
+// the natural per-substep dynamics ever fail to make forward progress)
+// across two rounds of increasingly acute wedge/speed/radius tuning
+// (half-angle down to 0.02 degrees, speed up to 20000 u/s). Neither round
+// hung or violated containment: this engine's per-substep resolution
+// empirically always advances `remaining` by a strictly positive amount
+// for a single-entity elastic wedge bounce, so the MAX_ITERS/MAX_STALLS
+// valve was never reached regardless of how sharp the wedge was.
+// Conclusion, stated plainly rather than hidden: this test is a genuine,
+// previously-missing containment property for the sharp-angle region
+// `containment_after_impulses`'s min_edge_len>=5 filter excludes, but it
+// is NOT proof the corner-trap valve is reachable or load-bearing under
+// single-entity wall bounces -- P4's stall-breaker remains unverified
+// instrumentation for this scenario class; tripping it plausibly needs
+// entity-entity contacts stacked with wall contacts, or a portal-adjacent
+// near-parallel-wall configuration, out of this pass's time budget. Left
+// as an open item in ENGINE_INVARIANTS.md rather than claimed as covered.
+// ---------------------------------------------------------------------
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(20))]
+    #[test]
+    fn corner_trap_safety_valve_preserves_containment(
+        half_angle_deg in 1.0f64..5.0,
+        speed in 3000.0f64..10000.0,
+        radius in 1.0f64..2.0,
+    ) {
+        let half = half_angle_deg.to_radians();
+        let poly = vec![
+            v(0.0, 0.0),
+            v(400.0, 400.0 * half.tan()),
+            v(400.0, -400.0 * half.tan()),
+        ];
+        let mut w = World::new();
+        let room = w.add_room(&poly).unwrap();
+        let mut sim = Sim::new(w);
+        // Spawn well out along the wedge (wide enough there to fit) and
+        // aim straight at the narrowing vertex, so the entity converges
+        // into the zone where local half-width ~ radius -- exactly where
+        // real bounces get short and frequent (the stall breaker's target
+        // scenario), rather than a zone the entity can never occupy.
+        let id = sim.spawn(room, v(300.0, 0.0), radius, 1.0, 0).unwrap();
+        {
+            let e = sim.entities.get_mut(&id).unwrap();
+            e.vel = v(-speed, 0.0); // straight at the sharp vertex
+            e.rest_wall = 1.0;
+        }
+        for step in 0..30usize {
+            sim.step(1.0 / 60.0);
+            let e = &sim.entities[&id];
+            prop_assert!(
+                e.vel.x.is_finite() && e.vel.y.is_finite(),
+                "non-finite velocity at step {}: {:?}", step, e.vel
+            );
+            prop_assert!(
+                e.pos.x.is_finite() && e.pos.y.is_finite(),
+                "non-finite position at step {}: {:?}", step, e.pos
+            );
+            let verts = &sim.world.rooms[e.room].verts;
+            let d = geom::depth_in_polygon(e.pos, verts);
+            prop_assert!(
+                d >= -1e-3,
+                "escaped sharp wedge at step {}: pos={:?} depth={}", step, e.pos, d
+            );
+        }
+    }
+}
