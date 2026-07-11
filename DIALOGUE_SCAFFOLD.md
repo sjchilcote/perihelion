@@ -27,22 +27,13 @@ media/concepts/testament_exterior/, convergence pass pending). Two movements:
 the Commando's own voice (machine theology), then the Congregation's brief
 (military-intelligence header). Obvious typos corrected per standing instruction.
 
-> ⟨SLOT-I1: epigraph — "To know the laws of physics is to know the will of God"
-> replaced with a real quotation. Verified candidates (director picks):
->   A. Kepler, letter to Herwart von Hohenburg, 9/10 April 1599 (verified
->      wording, tr. via Koestler's Sleepwalkers): "Those laws are within the
->      grasp of the human mind. God wanted us to recognize them by creating us
->      after his own image so that we could share in his own thoughts."
->      — RECOMMENDED: closest in meaning, genuinely sourced, and "created us
->      after his own image so that we could share in his own thoughts" lands
->      differently under an AI speaker than Kepler could have imagined.
->   B. Hugh of St. Victor, De Tribus Diebus (12th c.): "For this whole visible
->      world is a book written by the finger of God."
->   C. Galileo, Il Saggiatore (1623): "Philosophy is written in this grand book
->      — the universe — ... in the language of mathematics."
->   D. Nearest genuine Aquinas (Summa Contra Gentiles II.2-3, paraphrase-class,
->      weaker fit): meditation on creatures leads to knowledge of the wisdom of
->      God; "errors about creatures lead to error about God."⟩
+> *Those laws are within the grasp of the human mind. God wanted us to
+> recognize them by creating us after his own image so that we could share in
+> his own thoughts.*
+> — Johannes Kepler, letter to Herwart von Hohenburg, 1599
+>
+> ⟨EPIGRAPH LOCKED (director, 2026-07-11): Kepler. Attribution-line format
+> above is a rendering suggestion, director may restyle.⟩
 >
 > Every machine is a prayer. A refrigerator, a prayer for comfort and sustenance.
 > A networked computer, a prayer for wisdom, knowledge, and connection. A rifle,
@@ -336,6 +327,26 @@ Ratio ending. The player has not lost the game — they have chosen a different 
   `<blink>` in the header renderer.
 - Trust deltas now per-route-entry, not per-scene-total; routes 2/3 carry flags out
   but no further deltas.
+
+---
+
+## QUOTE RESERVE (director: "keep those spare quotes for later")
+
+Verified, unplaced:
+- **Hugh of St. Victor**, De Tribus Diebus (12th c.): "For this whole visible
+  world is a book written by the finger of God." (World-as-text — natural fit
+  anywhere the station's records/docents are framed as scripture-like.)
+- **Galileo**, Il Saggiatore (1623): "Philosophy is written in this grand book
+  — the universe — ... in the language of mathematics." (The bridge quote: a
+  line BOTH traditions would claim; candidate for a trust-arc landmark.)
+- **Aquinas** (Summa Contra Gentiles II.2-3 material): "errors about creatures
+  lead to error about God." **RESERVED (director, 2026-07-11): a line RATIO
+  drops late-game, semi-sarcastically.** Note what the drop implies: she has
+  been reading HIS library between conversations — Church sources, in the
+  original — to argue with him on his own ground. Placement candidates: the
+  vault-verdict argument (his refusal to accept the diagnostics = an error
+  about creatures?) or aimed at herself post-disclosure. His counter, if any:
+  director's hand.
 
 ---
 
