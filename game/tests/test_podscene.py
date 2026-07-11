@@ -2,6 +2,7 @@
 rite's lifecycle (commit-at-start, skip gating, queue chaining), fog of
 war, and keyboard navigation -- headless, dummy video driver."""
 
+import math
 import os
 
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
@@ -187,3 +188,55 @@ def test_escape_seals_the_pod():
     sc.on_enter(app)
     sc.handle_event(app, pygame.event.Event(pygame.KEYDOWN, key=pygame.K_ESCAPE))
     assert app.popped == 1
+
+
+# ---------------------------------------------------------------------------
+# the selection pin (director-directed: "yanked to the center...drifted
+# back...when released"). Uses the real mindmap-wide live_relax_step, so
+# these test the WIRING (page/settle/rite precedence, selection-change =
+# release) rather than re-deriving the physics bounds -- see
+# test_mindmap_layout.py's test_live_pin_* for the physics guarantees.
+# ---------------------------------------------------------------------------
+
+def test_pin_pulls_selected_node_toward_center():
+    sc, s, app = _scene()
+    sc.on_enter(app)
+    sc.page = "mind"
+    sc._ensure_selection()
+    rest_d = math.hypot(*sc.layout[sc.sel])
+    _run(sc, app, 4.0)  # past the open-settle (0.7s) and well into the pin
+    x, y = sc._node_pos(sc.sel)
+    assert math.hypot(x, y) < rest_d
+
+
+def test_pin_releases_and_drifts_back_on_selection_change():
+    sc, s, app = _scene()
+    sc.on_enter(app)
+    sc.page = "mind"
+    sc._ensure_selection()
+    first = sc.sel
+    _run(sc, app, 4.0)
+    pulled_x, pulled_y = sc._node_pos(first)
+    pulled_d = math.hypot(pulled_x, pulled_y)
+    # walk to a different visible node -- the old one's spring reverts to
+    # its own rest anchor, no special "release" call needed
+    sc._nav(1, 0)
+    assert sc.sel != first
+    _run(sc, app, 4.0)
+    x, y = sc._node_pos(first)
+    rest_x, rest_y = sc.layout[first]
+    assert math.hypot(x - rest_x, y - rest_y) < math.hypot(pulled_x - rest_x, pulled_y - rest_y)
+
+
+def test_pin_suspended_during_rite():
+    sc, s, app = _scene(think_done=["vocation-just-war"])
+    sc.on_enter(app)
+    assert sc.rite is not None
+    node = sc.rite["node"]
+    for _ in range(120):  # 2s mid-ceremony
+        sc.update(app, 1 / 60)
+    # the ceremony owns positions: the pin never engaged, so the rite's
+    # subject is exactly at its static rest position, not yanked
+    x, y = sc._node_pos(node)
+    rx, ry = sc.layout[node]
+    assert (x, y) == (rx, ry)

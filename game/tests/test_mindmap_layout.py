@@ -424,3 +424,95 @@ def test_real_mindmap_crossings():
     assert seed_c == 11, seed_c
     assert relaxed_c <= 1, relaxed_c
     assert relaxed_c <= seed_c
+
+
+# ---------------------------------------------------------------------------
+# the live selection pin (director-directed: "yanked to the center...
+# drifted back...when released" -- podscene.py's per-tick UI feature).
+# live_relax_step() is the ONLINE twin of relax()'s force field: ticked
+# indefinitely at a fixed rate rather than run once over a cooling
+# schedule. These properties were derived from DIRECT MEASUREMENT (see
+# mindmap.py's REST_SPRING_K/PIN_SPRING_K comments), not assumed: an
+# earlier version with no rest-anchor spring measurably did NOT return to
+# `layout()` after release (worst case drifted >150px and stayed there,
+# a different stable configuration) because `layout()` is not a literal
+# zero of the force field -- relax()'s cooling schedule just stops there,
+# it doesn't reach true equilibrium. The rest-anchor spring every node
+# carries is what makes the "must not permanently deform" guarantee real.
+# ---------------------------------------------------------------------------
+
+_PIN_CENTER_BOUND_PX = 90.0   # measured worst case (33-node sweep, 5s): 76.3px,
+                              # against a mean rest-to-center distance of
+                              # ~99px -- a real, non-vacuous "pulled toward
+                              # center" bound, not the literal center (the
+                              # pin is one spring among several; it wins,
+                              # it doesn't obliterate the others).
+_RELEASE_EPSILON_PX = 25.0    # measured worst case (33-node sweep, 5s pin +
+                              # 5s release): 15.9px, converging further
+                              # (asymptotic ~4.9px on longer runs) -- not
+                              # still growing.
+
+
+def _pin_center_px():
+    return (mindmap.CANVAS_W * mindmap.CX_FRAC, mindmap.CANVAS_H * mindmap.CY_FRAC)
+
+
+def test_live_pin_pulls_selected_node_near_center():
+    rest = mindmap.layout()
+    cx, cy = _pin_center_px()
+    worst = 0.0
+    for sel in sorted(rest):
+        pos = dict(rest)
+        for _ in range(300):  # 5s @ 60Hz
+            pos = mindmap.live_relax_step(pos, pin=sel)
+        px, py = mindmap._to_px(pos[sel])
+        worst = max(worst, math.hypot(px - cx, py - cy))
+    assert worst <= _PIN_CENTER_BOUND_PX, worst
+
+
+def test_live_pin_release_returns_near_rest():
+    """The key property: the pin must not PERMANENTLY deform the layout.
+    Pin a node for 5s (deforming its neighborhood), release it, run
+    another 5s, and check every node -- not just the formerly-pinned
+    one -- is back within epsilon of the static rest layout."""
+    rest = mindmap.layout()
+    worst = 0.0
+    for sel in sorted(rest):
+        pos = dict(rest)
+        for _ in range(300):
+            pos = mindmap.live_relax_step(pos, pin=sel)
+        for _ in range(300):
+            pos = mindmap.live_relax_step(pos, pin=None)
+        for nid in rest:
+            rx, ry = mindmap._to_px(rest[nid])
+            x, y = mindmap._to_px(pos[nid])
+            worst = max(worst, math.hypot(x - rx, y - ry))
+    assert worst <= _RELEASE_EPSILON_PX, worst
+
+
+def test_live_pin_idle_no_pin_stays_near_rest():
+    """With no selection pinned at all, the field should not creep away
+    from the layout it is supposedly anchored to (a regression guard for
+    the exact failure an earlier, anchor-less version of this function
+    had: it visibly drifted, unbounded, with zero perturbation)."""
+    rest = mindmap.layout()
+    pos = dict(rest)
+    for _ in range(600):  # 10s with nothing pinned
+        pos = mindmap.live_relax_step(pos, pin=None)
+    worst = 0.0
+    for nid in rest:
+        rx, ry = mindmap._to_px(rest[nid])
+        x, y = mindmap._to_px(pos[nid])
+        worst = max(worst, math.hypot(x - rx, y - ry))
+    assert worst <= _RELEASE_EPSILON_PX, worst
+
+
+def test_live_pin_deterministic():
+    rest = mindmap.layout()
+    sel = sorted(rest)[7]
+    pos1 = pos2 = dict(rest)
+    for _ in range(120):
+        pos1 = mindmap.live_relax_step(pos1, pin=sel)
+    for _ in range(120):
+        pos2 = mindmap.live_relax_step(pos2, pin=sel)
+    assert pos1 == pos2

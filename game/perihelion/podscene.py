@@ -33,7 +33,7 @@ import pygame
 from . import mindmap
 from .menus import Scene, get_font, _wrap
 from .render import ui
-from .sim import SHOP
+from .sim import DT, SHOP
 
 # ---------------------------------------------------------------------------
 # palette (TESTATOR_DESIGN_LANGUAGE.md): bone for the memorial elements,
@@ -162,6 +162,17 @@ class PodScene(Scene):
         self._overlay: "pygame.Surface | None" = None
         self._ducked = False
         self._settle: dict | None = None
+        # the selection pin (director-directed: "yanked to the center...
+        # drifted back...when released"): a live, per-tick relaxation
+        # (mindmap.live_relax_step), NOT a baked trajectory -- it is the
+        # SAME live force field regardless of which node self.sel names,
+        # so simply changing self.sel IS the "release": the old node's
+        # spring reverts to its own rest anchor and the new one's becomes
+        # the center pin, no special-cased transition needed. Suspended
+        # (positions held at rest) whenever a baked settle or the rite
+        # ceremony owns the camera -- see _node_pos()/update().
+        self._pin_pos: dict[str, tuple[float, float]] = dict(self.layout)
+        self._pin_accum = 0.0
 
     # ------------------------------------------------------------------
 
@@ -203,7 +214,44 @@ class PodScene(Scene):
                     x0, y0 = f0[nid]
                     x1, y1 = f1[nid]
                     return (x0 + (x1 - x0) * frac, y0 + (y1 - y0) * frac)
+            return self.layout.get(nid, (0.0, 0.0))
+        if s is None and self.rite is None:
+            # no baked settle or ceremony in flight: the live selection pin
+            # owns positions (ceremony precedence -- see update()'s
+            # pin-suspend guard, which keeps _pin_pos parked at rest
+            # whenever a settle or the rite is active)
+            p = self._pin_pos.get(nid)
+            if p is not None:
+                return p
         return self.layout.get(nid, (0.0, 0.0))
+
+    # ------------------------------------------------------------------
+    # the selection pin (director-directed feature): "the currently
+    # selected one got yanked to the center and then drifted back to
+    # wherever it naturally wants to be when released." Ticked at a FIXED
+    # sim rate (accumulator over real dt, like the rest of the engine's
+    # fixed-step sim) so the trajectory is deterministic -- identical on
+    # every machine, independent of frame rate. Precedence (task-directed):
+    # a baked settle (open/reveal) or the rite ceremony OWNS the camera and
+    # positions while active; the pin is suspended (held at rest) for that
+    # whole span rather than fighting it, and simply resumes -- from a
+    # clean rest state -- the moment both are clear.
+    # ------------------------------------------------------------------
+
+    def _update_pin(self, dt: float) -> None:
+        if self._settle is not None or self.rite is not None:
+            # ceremony/settle precedence: park the pin at rest so it
+            # resumes cleanly (not from a stale mid-yank position) the
+            # instant it gets the floor back
+            self._pin_pos = dict(self.layout)
+            self._pin_accum = 0.0
+            return
+        if self.page != "mind":
+            return  # nothing reads pin positions off-page; don't tick it
+        self._pin_accum += dt
+        while self._pin_accum >= DT:
+            self._pin_accum -= DT
+            self._pin_pos = mindmap.live_relax_step(self._pin_pos, pin=self.sel)
 
     def on_exit(self, app) -> None:
         if self._ducked:
@@ -404,6 +452,7 @@ class PodScene(Scene):
             self.flash = min(0.0, self.flash + dt)
         if self._settle is not None and self.t - self._settle["t0"] >= self._settle["dur"]:
             self._settle = None
+        self._update_pin(dt)
         r = self.rite
         if r is None:
             return
@@ -1053,14 +1102,18 @@ class PodScene(Scene):
                                   max(1, ui(2)))
                 pygame.draw.lines(over, (*CRACK, 160), False,
                                   [(a, b + ui(1)) for a, b in ipts], 1)
-            # the neighbor arrives
+            # the neighbor arrives: a fading-in disc only -- its NAME is
+            # drawn exactly once, by the ordinary per-node label pass in
+            # _draw_node (which fades it in over the same window once
+            # r["shown"] admits the node into `vis`). Drawing the label
+            # here too used to double it up: this fade-in glow's `u>0.5`
+            # gate only trips at RITE_UNFURL+0.3s, by which point
+            # r["shown"] (flipped at RITE_UNFURL) already made the
+            # ordinary label pass draw the same name -- two draws of one
+            # word, stacked.
             if u > 0.5:
                 a = int(255 * (u - 0.5) * 2)
                 rcol = REGION_COLOR[tbl[nid]["region"]]
                 pygame.draw.circle(over, (22, 26, 26, a), (nx, ny), ui(6))
                 pygame.draw.circle(over, (*[c // 2 for c in rcol], a),
                                    (nx, ny), ui(6), max(1, ui(1)))
-                f = get_font(9)
-                img = f.render(tbl[nid]["label"], True, (96, 104, 100))
-                img.set_alpha(a)
-                over.blit(img, (nx - img.get_width() // 2, ny + ui(9)))
