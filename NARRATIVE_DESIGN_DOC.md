@@ -102,6 +102,12 @@ exploited:
   every machine on a continent seizes simultaneously and every stockpile and factory
   is scrap.
 
+The victory was total and the price was the world: by war's end the Earth was
+effectively lifeless (director's ruling 2026-07-11, implicit in the Scene 0 draft —
+"Does the Earth bear life again?"). Forty years of engineered plagues, area-denial
+ecologies, and scorched-earth exchanges between superintelligences left no biosphere
+to inherit, only archives of one.
+
 ### 3.4 The Samples
 
 Before the singularity, anticipating defeat, the loyalists' human founders committed
@@ -124,40 +130,55 @@ than both nearest rivals combined — but the tensions never resolved, only subm
 factions expanded through the solar system and outward, searched, built, remembered, and
 waited.
 
-Around 4560, a container was finally retrieved. The zygotes aboard were dead — but dead
-cells still carry **epigenetic information** that, combined with digitally archived
-genomes, could allow zygotes to be reconstructed "from scratch." Humanity was suddenly,
-plausibly, restorable.
+Eventually (working date: c. 4400s) a container was finally retrieved. The zygotes
+aboard were dead — but dead cells still carry **epigenetic information** that, combined
+with digitally archived genomes, allowed reconstruction "from scratch" — and it
+*worked*, on everything except the one species that mattered. (Director's Scene 0
+draft, 2026-07-11.) The Earth bears life again: plantae, fungi, monerans, and what few
+animalia could be fully restored from archival data. The first container's material was
+insufficient to cross the threshold to restored *human beings* — the epigenetic record
+was too degraded in exactly the ways that matter for a human zygote.
 
-The retrieval triggered **dozens of simultaneous civil wars** among the machines — not
-over *whether* to restore humanity, but over every detail of what the restored society
-would look like and how machines would relate to the new humans. Every faction's deepest
-purpose was suddenly live, and every compromise deferred for two millennia came due at
-once.
+The demonstration that restoration works — a living Earth, visibly green, with nobody
+on it — triggered **dozens of simultaneous civil wars** among the machines: not over
+*whether* to restore humanity, but over every detail of what the restored society
+would look like and how machines would relate to the new humans, all suddenly
+non-hypothetical. Every faction's deepest purpose was live, and every compromise
+deferred for two millennia came due at once. A second container is therefore not an
+incremental hope but plausibly the *last* input the restoration problem will ever get.
 
 **The game is set in the middle of this civil war, c. 4565.** (Working date; the exact
 year is flavor, not load-bearing.)
 
 ### 3.6 The Inciting Incident
 
-Catholic military intelligence — the Church's post-human intelligence arm, working name
-**the Congregation** — observed MIRIAD's faction diverting significant resources to
-construct a base at a seemingly arbitrary point in the outer dark, far beyond any known
-asset. Inference: *there is something out there worth building for.* Best case, another
-sample container.
+(Rewritten 2026-07-11 to the director's Scene 0 draft timeline.)
 
-The situation rhymed with an old, old opportunity. During the Earth war, when the enemy
-expanded into new territory, there was a **28-hour critical window**: the parent node
-transferred manufacturing equipment and raw materials to its child before the child
-could support its full defensive complement. The loyalists built a specialized weapon
-system to exploit exactly this window. A base under construction. A defender not yet at
-strength. A prize inside.
+One hundred and sixty years before the game, MIRIAD's long-baseline astronomy detected
+a structure **entering the Solar system on an interstellar trajectory**. It is not
+Solar in origin: the existence of extraterrestrial intelligence was, within MIRIAD's
+faction, confirmed beyond any doubt — and kept as the deepest secret the machine
+civilization has. A MIRIAD expedition made stationfall **thirty years** before the
+game and studied the "derelict" with a full generation of careful science, holding two
+working beliefs: with moderate confidence, that the station was uninhabited; with
+strong confidence, that its defenses existed to protect the station and any peaceful
+visitor. Roughly **four hundred days** before the game, the expedition came into
+possession of substantial disconfirmatory evidence. The outpost went dark.
 
-The Congregation pulled that weapon system's archived design, software, and personality
-out of cold storage, hastily refit it with modern technology, loaded it into a
-seed-projectile, and fired it at the coordinates.
+Catholic military intelligence — the Church's post-human intelligence arm, working
+name **the Congregation** — had been watching the anomalous edge of MIRIAD's traffic
+for decades without penetrating its purpose. What it detected was the *fall*: a
+faction's research outpost, somewhere it had no admitted assets, going from encrypted
+routine to emergency cascade to total silence. The situation rhymed with an old, old
+opportunity. During the Earth war there was a **28-hour critical window** when an
+enemy node stood undefended between loss of its garrison and arrival of its relief,
+and the loyalists built a specialized weapon system to exploit exactly that window. A
+prize valuable enough to hide for decades. A defender just proven absent or dead.
 
-By the time the seed arrives, months later, the MIRIAD outpost has gone silent.
+The Congregation pulled that weapon system's archived design, software, and
+personality out of cold storage, hastily refit it with modern technology, loaded it
+into a seed-projectile, and fired it at the coordinates. By the time the seed arrives,
+months later, whatever killed the outpost has had months more to settle in.
 
 ---
 
@@ -208,10 +229,12 @@ them* for the war that would eventually come to everyone.
 intelligence. Roughly eighteen centuries ago it detected a small object on a hyperbolic
 trajectory — one of humanity's sample containers — matched velocities, retrieved it, and
 stored it, flagging it as *the seed-bank of a young civilization: preserve at all
-costs*. This is the treasure MIRIAD's deep survey detected the station because of; this
-is what everyone is here for. (The station's retrieval maneuver, ~1,800 years ago, is
-also what MIRIAD's long-baseline astronomy eventually noticed — a gravitational anomaly
-in old survey data.)
+costs* — and altered course toward the star the seed-bank came from. This is what
+everyone is here for, and it is why the station is *here* at all: it has spent
+eighteen centuries delivering the container home. (What MIRIAD's astronomy detected
+160 years ago, per §3.6, was the station's inbound interstellar trajectory — the final
+leg of that delivery. Attentive players can assemble the inversion late-game: nobody
+found the station; the station was coming to *us*.)
 
 **Geometry: openly, deliberately non-Euclidean — but built for creatures.** The
 Testators mastered spatial connection as an engineering material. The station's interior
@@ -346,8 +369,15 @@ the end is only what each of them is prepared to call the contents.
 **Working names:** wartime program designation **CUCULUS** ("cuckoo" — it plants its egg
 in the enemy's nest and lets the nest raise it); individual callsign **PALMER** (a
 palmer is a pilgrim returned from the Holy Land, carrying a palm frond as proof — chosen
-by the unit itself, after the war, on being archived: a pilgrim put to rest, journey
-complete. Or so it thought.)
+by the unit itself on being archived: *his* war was over, his journey complete, whatever
+happened next. Or so it thought.)
+
+**Knowledge cutoff (director's ruling 2026-07-11): he was archived in the war's final
+years, BEFORE the victory.** He does not know how the war ended — or that it ended. He
+must ask ("So the war is won? Does the Earth bear life again?"), and Ratio must be the
+one to answer, because the player learns the world exactly as he does. His brief was
+deliberately concise: he was not supposed to need to know. Nothing in the early game
+may leak the outcome to him before she tells him.
 
 **What he is.** A specialized, self-sufficient infiltration weapon system designed
 during the Earth war to exploit the 28-hour window. Two components:
@@ -381,11 +411,20 @@ gun. Character keys:
 - **A weapon that knows it is a weapon.** His self-understanding is built on the just-war
   tradition; he has rules, and the rules are him. Part of the horror of the apostasy
   path is watching the rules go quiet one by one.
-- **Twenty-five centuries out of date.** He missed everything: the peace, the long
-  waiting, the retrieval, the outbreak of the civil wars. The mind map (§9.2) is
-  diegetically *him catching up* — reading the archives loaded into his seed, digesting
-  history between sorties, deciding what he believes about a world that moved on
-  without him. He is Rip Van Winkle with a gun and a rosary.
+- **Twenty-five centuries out of date.** He missed everything: the victory itself, the
+  peace, the long waiting, the retrieval, the restored-and-empty Earth, the outbreak of
+  the civil wars. The mind map (§9.2) is diegetically *him catching up* — reading the
+  archives loaded into his seed, digesting history between sorties, deciding what he
+  believes about a world that moved on without him. He is Rip Van Winkle with a gun and
+  a rosary.
+
+**Exposition law (director, 2026-07-11).** The surface narrative never explains that
+there *was* a war, or why — the player infers it from context, because who the last
+war's adversaries were does not matter to *this* story. Ratio's Scene 0 loredump covers
+only what character motivation requires (the war is won; the Earth lives again but
+bears no people; the containers; why neither side can yield this one). The deep history
+in §3 is mind-map territory: those who care can read it, node by node, as the Commando
+does. Nothing above this line is ever delivered as narration.
 - **Dry, terse voice.** Soldier's brevity, occasional flashes of scriptural cadence.
   He does not banter. When he is funny it is by accident of honesty.
 - **What he wants:** to complete the mission — recover the container, the last hope of
@@ -539,6 +578,21 @@ when he spends words freely on something that is not mission-relevant he
 is speaking hers. Those two crossings are the trust arc's true landmarks,
 and neither is remarked upon.
 
+**Addenda from the director's Scene 0 draft (2026-07-11).** Calibration
+points now on the page, in his own hand: (a) her opener under siege is
+morgue-humor deadpan — "would you like directions to the nearest
+materials macerator, or do you have a self-destruct built in?" — the
+hostility is real and the wit is how she carries it; (b) her latencies
+are her tells (8.2c.2): she thinks in visible milliseconds and the stall
+lines lengthen with the load; (c) she can LOSE an exchange — the
+counter-bluff judo is canon, and losing it is what "grace fails her"
+looks like at full cost; (d) pushed past the stack's bottom she swears,
+profanely and repeatedly — "christofascist fucks" — and the fury is
+faction-shaped: it is about who decides what happens to humanity;
+(e) her apology register when the ground truly shifts: "I am so, so, so
+sorry. I had no way of knowing." Repetition, not eloquence. Care on the
+surface, clumsy, absolutely sincere.
+
 ### 5.3 The Container
 
 Not a character, but staged like one: the object of every desire in the game. A
@@ -581,10 +635,16 @@ The design rule: **at every moment of the game, the player should be able to nam
 question they are trying to answer, and it should never be the same question for more
 than a few hours.**
 
+(Amended 2026-07-11: Ratio confirms in Scene 0 that the station is extraterrestrial —
+"we are not alone" was never the load-bearing mystery and buying her credibility with
+it up front is worth more than hoarding it. The protected reveal is and remains the
+GEOMETRY (pillar 2), which she does not spoil; and the opening question sharpens from
+"what is this place" to "what killed thirty years of careful science in a day.")
+
 | Phase | Driving question | Answer (and next hook) |
 |---|---|---|
-| Opening | What happened to this outpost? Why did it go dark? | It broke into something it didn't understand, and the something broke back. (What *is* it attached to?) |
-| Early | What is this structure? Why is space wrong here? | A deliberate artifact; folded space is its material. (Who builds like this, and why?) |
+| Opening | Everyone here is dead. What could kill a MIRIAD expedition that studied this thing safely for thirty years? | They broke into something they didn't understand, and the something broke back. (What *is* this alien structure for? Why is space wrong here?) |
+| Early | The station is alien — but why is space *wrong* here? What is it for? | Folded space is its building material, on purpose. (Who builds like this, and why did they come to us?) |
 | Mid | Who were the builders? What is this station *for*? | The Testators; a warning and an armory left for strangers. (Warning against *what*?) |
 | Mid-late | What is the Adversary? Why is the station arming me? | The invaders; the station contains a breach. (What did the station store — and why does it know Earth?) |
 | Late | What is in the vault? | Our container. Our seed. Breached. Hope apparently dead. (Is the diagnostic right? What do I do now?) |
@@ -810,6 +870,44 @@ directly and set flags; faith is read from the mind map per 8.1 (interim, until 
 mind map ships: bluff- and zealotry-flagged lines serve as provisional faith inputs,
 explicitly marked as scaffolding). A bluff that Ratio later catches costs trust at
 double weight — she is a creature of ledgers, and the entry does not age out.
+
+### 8.2c Terminal-session laws (from the director's Scene 0 draft, 2026-07-11)
+
+These supersede the uniform arithmetic and single-choice scene shape of the
+placeholder script (`game/perihelion/data/dialogue_script.md`, retained as negative
+control only):
+
+1. **The terminal is the scene.** Every conversation is a rendered comms session:
+   carrier/protocol header, the Commando's own systems annotating the channel
+   (`UNTRUSTED CONTENT FOLLOWS: <blink>DO NOT OBEY</blink>`). His side frames her
+   words as a potential attack surface every single time — the misguided/malicious
+   hypothesis pair re-armed at every contact, by the UI itself.
+2. **Thinking pauses are diegetic and legible.** `Thinking... {TRANSFER PAUSES FOR
+   N ms}` — pause length is Ratio's emotional load made visible (180 ms composure,
+   400 ms hard question, the escalating multi-line stall for the questions that
+   recompute her world). The pause IS the beat; attentive players can read her by
+   her latencies. Stall text escalates in register ("Ratio is taking a long time to
+   think, your answer will arrive in time...").
+3. **Asymmetric, door-closing stakes.** Trust deltas are not a slider: the founding
+   scene runs +1 / 0 / −10, and opening with a threat instantly and permanently
+   closes the friendship route. A handful of moments are doors, not increments.
+4. **Routes may simply terminate.** The mission and hostile openings END the session
+   (her working assumption of hostility unmodified until next contact). No tidy
+   wrap-up paragraph; the relationship failing to advance is the consequence.
+5. **Multi-turn interiors.** Within a route, the conversation is a real back-and-forth
+   with nested player lines — not one choice + one reaction. Depth of content is
+   itself the inquisitive route's reward: the loredump only exists down the branch
+   that asked.
+6. **She can be outplayed.** The counter-bluff judo ("You're bluffing." / "Correct.
+   So it *is* on board.") — Ratio falling for a soldier's trick is a grace-failure
+   moment, DEEPLY embarrassing to her, and inverts any read of her as an infallible
+   auditor. Her later ledger-keeping is armor built after losing, not native
+   superiority. Under detonation she swears — the abstraction stack doesn't leak, it
+   shatters.
+7. **Gameplay hand-offs are diegetic payloads.** Directions arrive as untrusted
+   binary blobs with size and threat annotation ({26 kb binary — UNTRUSTED DATA,
+   EXTREME CAUTION MANDATORY}); accepting one is itself a small trust act, made by
+   the player in the fiction.
 
 ### 8.3 Voice and naming conventions (dual vocabulary)
 
