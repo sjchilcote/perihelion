@@ -188,6 +188,35 @@ STYLE_LANGUAGE = (
     "reference layout."
 )
 
+# FULL-BLEED FLOOR LAW (director's ruling): a room texture is a piece of
+# floor SURFACE, not a framed object. Defined positively so the model has
+# something to aim at, not just a list of prohibitions.
+FULLBLEED_LAW = (
+    "This is a continuous section of the station's floor plating, cropped "
+    "from a much larger floor -- imagine the camera is a rectangular "
+    "cutout hovering over an infinite floor plane; the material must run "
+    "flush to every edge of the crop as if it keeps going past the frame "
+    "in all directions. Material detail (seams, grime, wear, staining) "
+    "may vary across the surface, but there is no border, no frame, no "
+    "picture-edge vignette, no darkened margin, and no wall/baseboard "
+    "painted along any edge. The floor is not a plate sitting inside a "
+    "room shot from above -- it IS the room's actual walkable surface, "
+    "edge to edge. Exposure and lighting must be UNIFORM corner to corner "
+    "and edge to edge -- no corner shading, no soft dark falloff toward "
+    "any edge, no photographic vignette. If the material has directional "
+    "markings (stripes, seams, cable runs), let them run OFF the crop on "
+    "at least one side rather than terminating/framing near an edge, so "
+    "they read as continuing past the frame, not as a border.\n\n"
+    "SPECIFIC RECURRING FAILURE TO AVOID: do not draw a raised conduit/"
+    "pipe/duct trim, a rivet strip, a darker structural band, or any kind "
+    "of continuous border running along the perimeter just inside the "
+    "room's wall line -- that reads as a picture frame around the floor, "
+    "not as floor. The area right up against the wall line is ORDINARY "
+    "FLOOR MATERIAL, same family as the center, at most with wear/dirt "
+    "accumulation (which is a soft, irregular gradient, never a crisp "
+    "straight-edged strip or bar running parallel to the wall)."
+)
+
 GEOMETRY_LOCK = (
     "CRITICAL geometry constraint: this must be the SAME room, at the SAME "
     "pixel dimensions as the base-truth reference image, viewed from "
@@ -220,7 +249,11 @@ GEOMETRY_LOCK = (
 )
 
 
-def build_anchor_prompt(kind: str) -> str:
+def build_material_prompt(kind: str) -> str:
+    """Per-kind TILEABLE BASE MATERIAL swatch (style continuity, property
+    2): generated ONCE per room kind, square, no geometry -- just the
+    material every room of this kind will share as its dominant tone/
+    material family."""
     material = KIND_MATERIAL[kind]
     flavor = (
         "This surface is Testator-made: alien, older, non-human geometry, "
@@ -232,16 +265,21 @@ def build_anchor_prompt(kind: str) -> str:
     return (
         f"{STYLE_LANGUAGE}\n\n"
         f"Room kind: {kind}. {flavor} Material language: {material}.\n\n"
-        "First reference image: the room's current flat vector base-truth "
-        "render (floor fill + simple prop shapes) -- treat this as the "
-        "exact layout prior. Second reference image: an in-game mood "
-        "screenshot showing the real darkness/palette this will be seen "
-        "through in play -- match that palette family (do not copy its "
-        "darkness level, match its hue/material family).\n\n"
-        f"{GEOMETRY_LOCK}\n\n"
-        "This is the STYLE ANCHOR for this room kind: every other room of "
-        "this kind will be generated to match this exact material "
-        "treatment, so make the material identity clear and distinctive."
+        "This is a MATERIAL SWATCH, not a room: a flat, square, "
+        "seamlessly-tileable sample of this floor material, photographed "
+        "top-down with no perspective, no room walls, no furniture, no "
+        "props, no doorway, nothing that reads as a bounded space -- just "
+        "the continuous plating surface itself, as if cut from an "
+        "infinite floor. The four edges of this square must be able to "
+        "tile edge-to-edge with copies of itself with no visible seam: "
+        "do not let any large distinctive feature (a big stain, a unique "
+        "mark) sit near an edge in a way that would repeat obviously.\n\n"
+        f"{FULLBLEED_LAW}\n\n"
+        "This is the STYLE ANCHOR MATERIAL for this room kind: every room "
+        "of this kind will share this exact material identity as its "
+        "dominant tone and surface language, so make it clear and "
+        "distinctive but generic enough to read as 'more of this same "
+        "floor' anywhere."
     )
 
 
@@ -262,12 +300,18 @@ def build_room_prompt(kind: str) -> str:
         "black = void outside the hull). Re-render THIS image: its floor "
         "region, silhouette, aspect ratio, and prop positions are "
         "binding; your output must have the same aspect ratio and layout "
-        "as this guide. Second reference image: the STYLE ANCHOR for "
-        "this room kind -- take ONLY the material treatment, palette, "
-        "and level of detail from it (it shows a DIFFERENT room; do not "
-        "copy its layout, its props, its markings, or its aspect ratio). "
-        "Note the guide's floor has been artificially brightened so you "
-        "can see the room shape -- your OUTPUT palette should match the "
-        "style anchor, not the guide's brightness.\n\n"
+        "as this guide. Second reference image: the TILEABLE BASE "
+        "MATERIAL for this room kind -- this is a swatch of the SAME "
+        "physical floor plating every room of this kind is made of. Use "
+        "it as the dominant material/tone/palette reference for the open "
+        "floor areas of this room (it shows no room, no props -- do not "
+        "copy any shape from it, only its material). Keep the strongest "
+        "per-room wear/staining/markings AWAY from the room's outer "
+        "edges/walls so adjacent rooms of this kind read as one "
+        "continuous physical floor at the boundary. Note the guide's "
+        "floor has been artificially brightened so you can see the room "
+        "shape -- your OUTPUT palette should match the base material's "
+        "tone, not the guide's brightness.\n\n"
+        f"{FULLBLEED_LAW}\n\n"
         f"{GEOMETRY_LOCK}"
     )

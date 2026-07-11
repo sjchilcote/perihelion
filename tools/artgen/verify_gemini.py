@@ -28,16 +28,17 @@ Image 1: BASE TRUTH -- the flat vector render defining exact required geometry (
 {anchor_line}
 Image {gen_idx}: GENERATED TEXTURE -- candidate bespoke texture for this exact room, meant to be a same-geometry high-fidelity re-render of image 1.
 
-Judge the GENERATED TEXTURE against BASE TRUTH (and the style anchor, if given) on four checks:
+Judge the GENERATED TEXTURE against BASE TRUTH (and the style anchor, if given) on five checks:
 1. geometry_ok: does the room silhouette, every wall line, and every prop's position/footprint match BASE TRUTH almost exactly (allowing for material detail added on top)? This is the critical check -- if walls or props have moved, resized, disappeared, or new ones were invented, this is false. Minor artistic embellishment of a prop's surface detail is fine; moving/resizing/removing it is not.
 2. style_ok: is the material treatment consistent with the style anchor's family (same texture logic, same era, similar level of grime/detail)? If no anchor was given, judge internal consistency instead (true unless obviously broken).
 3. palette_ok: is the palette a muted, desaturated, industrial-horror family (cold grays, rust ochre, dull teal, near-black) -- NOT blown out bright, NOT saturated/cartoonish, NOT pre-darkened to near-black mud?
 4. fidelity_ok: is this genuinely higher visual fidelity than the flat base truth (real material detail, not just a blurry/soft recolor of the same flat shapes)?
+5. fullbleed_ok: is this a piece of continuous floor SURFACE that runs flush to every edge/wall line, with NO painted border, NO picture-frame vignette, NO darkened margin, and NO raised conduit/pipe/duct trim or rivet strip running along the perimeter just inside the walls? A room that reads as "a floor plate sitting inside a frame" rather than "the room's actual floor extending to its walls" fails this check even if geometry is otherwise correct. This is the single most common failure mode -- inspect the full perimeter carefully.
 
 Respond with ONLY a JSON object, no other text:
-{{"geometry_ok": bool, "style_ok": bool, "palette_ok": bool, "fidelity_ok": bool, "verdict": "pass"|"fail", "notes": "one or two sentences, specific, mention any geometry drift precisely"}}
+{{"geometry_ok": bool, "style_ok": bool, "palette_ok": bool, "fidelity_ok": bool, "fullbleed_ok": bool, "verdict": "pass"|"fail", "notes": "one or two sentences, specific, mention any geometry drift or negative-space/border defect precisely"}}
 
-verdict is "pass" only if geometry_ok is true AND at least three of the four checks are true overall."""
+verdict is "pass" only if geometry_ok is true AND fullbleed_ok is true AND at least three of the five checks are true overall."""
 
 
 def _b64_image(path: str | Path) -> str:
