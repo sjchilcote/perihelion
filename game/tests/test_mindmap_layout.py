@@ -372,12 +372,18 @@ def test_crossings_relaxed_never_worse_than_seed(graph):
 
 
 # graphs small/sparse enough that the sector-seeded relaxation reliably
-# finds a near-planar drawing (measured: 500 examples of this exact
-# strategy top out at 16 crossings, mean ~1.2 -- see the task's tuning
-# notes). Real DAGs of this shape (small in-degree, few dozen nodes) are
-# the common case for a mind map; this is the "planar-embeddable in
-# practice" bound the brief asks for.
-_SPARSE_ABS_BOUND = 24  # measured max 16 across 500 examples; headroom, not vacuous
+# finds a near-planar drawing. Bound history: originally 24 (measured max
+# 16 across 500 examples, pre-annulus). Recalibrated 2026-07-11 after the
+# director-ordered depth-annulus containment (5da403b), which by design
+# costs the uncrossing pass some freedom (batch reduction floor 0.35->0.30,
+# reported at the time): fresh 400-example measurement under current
+# physics gives max 17 / mean 1.49, but hypothesis's database holds a
+# discovered worst case of exactly 25. Bound 32 = worst-known + headroom,
+# still sharply falsifiable: the same strategy's SEED layouts run max 53 /
+# mean 7.6, so a layout that stopped uncrossing would still blow through
+# this. The hard guarantee (never worse than seed) is the separate
+# property above and is untouched.
+_SPARSE_ABS_BOUND = 32
 
 
 @given(graph=mindmap_graph(min_nodes=10, max_nodes=18))
