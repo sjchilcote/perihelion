@@ -968,6 +968,43 @@ _SLEEP_SPEED_EPS_PX = 1.5       # px/s of OBSERVED position change
                                  # (disp/dt, see live_relax_step) -- kept
                                  # as a second, independent-units gate on
                                  # the same underlying signal.
+LIVE_LEASH_SCREEN_PX = 40.0     # hard cap on how far the live jitter may
+                                 # carry a node from its own layout() rest,
+                                 # measured in SCREEN px (canvas px * the
+                                 # local camera zoom) so the guarantee the
+                                 # player actually sees is scale-invariant.
+                                 # WHY (measured, 2026-07-11): the live
+                                 # field was tuned at the real map's 33
+                                 # nodes, where the rest spring holds its
+                                 # documented "no permanent deformation"
+                                 # contract with room to spare (drift from
+                                 # layout() stays ~0 -- this leash binds
+                                 # NOTHING there). At the director's target
+                                 # scale it is a different regime: on the
+                                 # 400-node fixture the saturated
+                                 # repulsion/crossing terms overwhelm
+                                 # REST_SPRING_K, the field's true
+                                 # equilibrium sits up to 0.64 UNIT from
+                                 # layout() (~1900 screen px at the scaled
+                                 # zoom -- the camera aims at layout(), so
+                                 # the selection visibly ran off its own
+                                 # framing), and the system never slept.
+                                 # The leash enforces the rest-anchor
+                                 # contract unconditionally: jitter stays
+                                 # jitter at every density, and the camera
+                                 # (which aims at layout()) never loses
+                                 # its subject by more than this. A node
+                                 # against the leash gets wall-contact
+                                 # velocity treatment (outward component
+                                 # killed); NOTE, measured honestly: at
+                                 # saturated density the tangential force
+                                 # residue can keep a leashed node sliding
+                                 # slowly along the leash circle instead
+                                 # of sleeping -- bounded forever, but the
+                                 # bitwise-sleep guarantee is only proven
+                                 # (and only claimed) at the real map's
+                                 # density; the target-scale live regime
+                                 # needs its own tuning round.
 _SLEEP_K_CONSEC = 10            # consecutive ticks under both epsilons
                                  # before the system is declared asleep --
                                  # a single lucky tick near a turning point
@@ -1036,6 +1073,7 @@ def live_relax_step(state: LiveState,
                      sleep_speed_eps: float = _SLEEP_SPEED_EPS_PX,
                      sleep_disp_eps: float = _SLEEP_DISP_EPS_PX,
                      sleep_k_consec: int = _SLEEP_K_CONSEC,
+                     leash_px: float | None = None,
                      ) -> LiveState:
     """One tick (dt = sim.DT, fixed 60Hz) of the online, second-order
     relaxation, starting from `state` (need not be at rest). Every node
@@ -1123,6 +1161,28 @@ def live_relax_step(state: LiveState,
     scale = np.minimum(raw_speed, max_speed) / raw_speed
     V = V * scale[:, None]
     P = P0 + V * _LIVE_DT
+    # the leash (see LIVE_LEASH_SCREEN_PX): project any node carried
+    # farther than the screen-space cap from its own layout() rest back
+    # onto the leash circle -- the rest-anchor contract made
+    # unconditional. Applied BEFORE the band/ellipse clamp so containment
+    # (the strict PBT law) always has the last word.
+    if leash_px is None:
+        leash_px = LIVE_LEASH_SCREEN_PX / local_zoom(tbl)
+    ldx, ldy = P[:, 0] - restP[:, 0], P[:, 1] - restP[:, 1]
+    ldist = np.sqrt(np.maximum(ldx * ldx + ldy * ldy, 1e-24))
+    lover = ldist > leash_px
+    if np.any(lover):
+        shrink = np.where(lover, leash_px / ldist, 1.0)
+        P[:, 0] = restP[:, 0] + ldx * shrink
+        P[:, 1] = restP[:, 1] + ldy * shrink
+        # wall-contact semantics: a leashed node's OUTWARD velocity
+        # component is spent against the constraint (same reasoning as
+        # the sleep latch's ellipse-wall note above)
+        lux, luy = ldx / ldist, ldy / ldist
+        vout = V[:, 0] * lux + V[:, 1] * luy
+        hit = lover & (vout > 0.0)
+        V[:, 0] = np.where(hit, V[:, 0] - vout * lux, V[:, 0])
+        V[:, 1] = np.where(hit, V[:, 1] - vout * luy, V[:, 1])
     _hard_contain(P, sysd)
     disp = np.sqrt(np.sum((P - P0) ** 2, axis=1))
     # "speed" for the sleep decision is the OBSERVED rate of position
@@ -1384,24 +1444,11 @@ def camera_glide(t: float, t0: float, dur: float,
 
 
 # ---------------------------------------------------------------------------
-# label placement: after the graph settles, walk the (path-)relaxed rest
-# positions and assign each label a rectangle guaranteed clear of every
-# node disc and every other label rectangle. The relaxation above already
-# does the heavy lifting; this is the deterministic escalation the
-# director asked for when relaxation alone can't fully clear a pathological
-# cluster -- a greedy radial search over candidate anchors, then (only if
-# that still collides) a shrunk font, in a fixed processing order so the
-# result is identical every run.
-# ---------------------------------------------------------------------------
-
-# ---------------------------------------------------------------------------
-# region headers: each region names its own compass sector. Placed HERE
-# (not ad hoc in podscene) so label_layout can reserve their rectangles --
-# region headers are part of the map and node labels must never sit on
-# them. The anchor is a unit-space point (so podscene's camera transform
-# moves headers rigidly with the nodes -- no screen-space clamping that
-# would slide a header over the graph mid-glide), pre-clamped in CANVAS
-# space at rest so every header starts inside the safe strip.
+# region headers: each region names its own compass sector. The anchor is
+# a unit-space point (so podscene's camera transform moves headers rigidly
+# with the nodes -- no screen-space clamping that would slide a header
+# over the graph mid-glide), pre-clamped in CANVAS space at rest so every
+# header starts inside the safe strip.
 # ---------------------------------------------------------------------------
 
 HEADER_CELL_PX = 13.0        # canvas-px cell height for region headers
@@ -1451,153 +1498,221 @@ def region_header_layout(graph: dict[str, dict] | None = None) -> dict[str, dict
     return out
 
 
-_ANCHOR_ANGLES_DEG = [90, 270, 0, 180, 45, 135, 225, 315,
-                      67, 112, 22, 157, 202, 337, 247, 292]
-_ANCHOR_RADII_PX = [0.0, 4.0, 10.0, 18.0, 28.0, 40.0, 55.0, 75.0, 100.0,
-                    130.0, 180.0, 230.0]
-# the ring search tries these large-to-small; the raster escalation (below)
-# additionally has _RASTER_FONT_SCALES beyond this floor for the rare
-# pathological graphs (many long identical labels crammed into one region)
-# where even a canvas-wide scan needs a smaller footprint to fit at all.
-_FONT_SCALES = [0.8125, 0.6875, 0.5625, 0.5]  # 13 -> 8px floor: graph labels
-                                          # are annotations, not headlines
-                                          # -- 13px cells leave the canvas
-                                          # ~35% label-covered instead of
-                                          # ~50%, which is what lets the
-                                          # placement ladder keep labels
-                                          # NEXT TO their nodes
-_RASTER_FONT_SCALES = [0.5, 0.375, 0.28125, 0.1875]  # 8 -> 3px last resort
 _GOLDEN_ANGLE = math.radians(137.50776405)
 
+# ---------------------------------------------------------------------------
+# LOCAL CAMERA + local label placement (director's round-2 clarification,
+# verbatim: "My vision is for there to be hundreds, maybe _thousands_ of
+# vertices... I never intended for all rings not all vertices within a
+# ring to be visible at once, that's why I specified a moving camera. The
+# dislocated titles can and should thus be eliminated.")
+#
+# The map is now framed as a ZOOMED view of a local neighborhood: podscene
+# multiplies its unit->screen scale by LOCAL_ZOOM and centers the camera
+# on the selection, so only ~a third of the map's extent (roughly two
+# depth bands along any radial line) is on screen at once. Labels follow
+# a level-of-detail law instead of the old global escalation ladder:
+#
+#   * legibility is owed only NEAR the camera -- a label's alpha falls
+#     from 1 to 0 as its node's screen-space (elliptical) distance from
+#     the view center grows past the legibility radius; beyond it a node
+#     is an unlabeled point;
+#   * every label that IS shown sits ADJACENT to its node -- the anchor
+#     search is capped at a few px of rim offset (no exile tiers, no long
+#     leader lines; the old ladder's 230px anchor radii and 3px raster
+#     fonts are deleted, not retained as fallbacks);
+#   * a label that cannot be placed adjacently simply is not shown (its
+#     node stays a dot) -- EXCEPT the selection, which is placed first
+#     and always gets a box (worst case: the plain south anchor, placed
+#     before any competitor exists, backed by podscene's name-card plate);
+#   * placement runs in WORLD px (canvas px * zoom), a camera-PAN-
+#     invariant frame: as the camera glides, pairwise label geometry is
+#     rigid -- anchors cannot flap mid-glide. Only the roster of far,
+#     already-faded competitors changes with the camera, and the
+#     near-first processing order means a far label can never displace a
+#     near one.
+#
+# All geometry here is the same measured Plex advance table the force
+# field uses; pure functions, no pygame, PBT'd in test_mindmap_layout.py.
+# ---------------------------------------------------------------------------
 
-def label_layout(positions: dict[str, tuple[float, float]],
-                  graph: dict[str, dict] | None = None,
-                  ) -> dict[str, dict]:
-    """node id -> {"box": (left, top, right, bottom) in canvas px,
-    "font_px": int, "leader": bool}. `leader=True` marks a label that had
-    to escalate past its default south anchor (podscene draws a thin
-    leader tick for those, same grammar as the reveal's tendrils/cracks)."""
+LOCAL_ZOOM = 3.0             # base world magnification of the MIND camera
+                             # at the REFERENCE density (the real map's 33
+                             # nodes): sized so the visible strip spans ~2
+                             # of the real map's 6 depth bands radially and
+                             # frames a ~5-8 node neighborhood -- "not all
+                             # rings... visible at once" holds by
+                             # construction. See local_zoom() for how this
+                             # scales to the target hundreds/thousands.
+_ZOOM_REF_NODES = 33         # the reference graph size LOCAL_ZOOM is tuned
+                             # against (data/mindmap.json today)
+
+
+def local_zoom(graph: dict[str, dict] | None = None) -> float:
+    """The MIND camera's magnification for `graph`: LOCAL_ZOOM at the
+    reference density, scaled by sqrt(n / 33) as the map grows. The map's
+    unit-space extent is FIXED (the band radii are), so node spacing
+    shrinks like 1/sqrt(n) as vertices are added -- scaling the zoom by
+    sqrt(n) keeps the on-screen neighborhood at a roughly CONSTANT ~5-8
+    vertices whether the mind holds 33 concepts or 2000 (the director's
+    target: "hundreds, maybe thousands of vertices... I never intended
+    for all rings nor all vertices within a ring to be visible at once").
+    Never below LOCAL_ZOOM: a tiny early-game map is framed exactly like
+    today's tuned baseline, not zoomed out to a poster."""
+    n = len(graph if graph is not None else nodes())
+    return max(LOCAL_ZOOM, LOCAL_ZOOM * math.sqrt(n / _ZOOM_REF_NODES))
+LABEL_NEAR_U = 0.42          # elliptical view-space distance (1.0 = the
+                             # visible strip's half-extent) inside which
+                             # labels are fully opaque
+LABEL_FADE_U = 0.80          # ...and beyond which nodes are unlabeled
+                             # points (alpha ramps linearly between; 0.80
+                             # keeps every non-zero-alpha label comfortably
+                             # inside the strip before podscene's chrome
+                             # clip could slice it)
+_LOCAL_ANCHOR_ANGLES_DEG = [90, 270, 0, 180, 45, 135, 225, 315]
+_LOCAL_ANCHOR_RADII_PX = [0.0, 4.0, 10.0, 18.0]   # world px past the rim --
+                                                   # ADJACENT placements only
+LOCAL_LABEL_MAX_GAP_PX = 34.0  # PBT bound: nearest edge of a placed box is
+                               # never farther than this from its node's
+                               # center (rim + gap + max anchor radius,
+                               # with rounding slack)
+
+# the visible strip's half-extents around the camera anchor point, in
+# canvas/screen px -- the ellipse LABEL_*_U is measured against. The
+# camera maps to (CX_FRAC, CY_FRAC) of the surface; the strip podscene
+# clips the map to is [HEADER_MARGIN_PX, CANVAS_H - FOOTER_MARGIN_PX].
+_VIEW_HALF_W = CANVAS_W / 2.0
+_VIEW_HALF_H = min(CANVAS_H * CY_FRAC - HEADER_MARGIN_PX,
+                   (CANVAS_H - FOOTER_MARGIN_PX) - CANVAS_H * CY_FRAC)
+
+
+def _to_world_px(pos: tuple[float, float], zoom: float) -> tuple[float, float]:
+    """Unit space -> world px: the canvas-px frame uniformly magnified by
+    `zoom`. Screen px == world px offset from the camera (podscene's
+    _to_screen applies the same zoom to the same per-axis scales), so
+    label boxes computed here are screen-exact at the canonical canvas."""
+    x, y = pos
+    return (CANVAS_W * CX_FRAC + x * CANVAS_W * SX_FRAC * zoom,
+            CANVAS_H * CY_FRAC + y * CANVAS_H * SY_FRAC * zoom)
+
+
+def label_view_alpha(node_pos: tuple[float, float],
+                     cam: tuple[float, float],
+                     zoom: float = LOCAL_ZOOM) -> float:
+    """The LOD alpha (0..1) of a node's label when the camera sits at
+    `cam` (unit space): 1 inside LABEL_NEAR_U, 0 beyond LABEL_FADE_U,
+    linear between -- measured as elliptical view-space distance so the
+    fade respects the wide screen and the shallow chrome-clipped strip
+    equally."""
+    nx, ny = _to_world_px(node_pos, zoom)
+    cx, cy = _to_world_px(cam, zoom)
+    u = math.hypot((nx - cx) / _VIEW_HALF_W, (ny - cy) / _VIEW_HALF_H)
+    if u <= LABEL_NEAR_U:
+        return 1.0
+    if u >= LABEL_FADE_U:
+        return 0.0
+    return (LABEL_FADE_U - u) / (LABEL_FADE_U - LABEL_NEAR_U)
+
+
+def local_label_layout(positions: dict[str, tuple[float, float]],
+                       cam: tuple[float, float],
+                       graph: dict[str, dict] | None = None,
+                       zoom: float = LOCAL_ZOOM,
+                       sel: str | None = None) -> dict[str, dict]:
+    """Camera-local label placement: node id -> {"off": (dx, dy) world px
+    from the node's center to its label box's center, "box": (l, t, r, b)
+    world px, "alpha": 0..1} for every node whose label is visible at all
+    (alpha > 0, plus `sel` unconditionally). Nodes absent from the result
+    render as unlabeled points.
+
+    Deterministic greedy search, nearest-to-camera first (`sel` always
+    first): each label tries a fixed fan of adjacent anchors and takes the
+    first box that overlaps no already-placed box and no node disc; if
+    none fits the label is dropped -- honest LOD, never an exiled box.
+    `sel` alone escalates past a full miss to the plain south anchor
+    (processed first, so it can only ever overlap node DISCS, never
+    another label -- podscene backs it with the name-card plate)."""
     tbl = graph if graph is not None else nodes()
-    ids = sorted(positions, key=lambda nid: (
-        -len(tbl[nid].get("prereqs", [])) if nid in tbl else 0, nid))
-    node_px = {nid: _to_px(positions[nid]) for nid in positions}
+    # roster: anything with nonzero LOD alpha, plus the selection
+    alpha: dict[str, float] = {}
+    for nid, pos in positions.items():
+        a = label_view_alpha(pos, cam, zoom)
+        if a > 0.0 or nid == sel:
+            alpha[nid] = a
+    if not alpha:
+        return {}
+    world = {nid: _to_world_px(positions[nid], zoom) for nid in positions}
+    cw = _to_world_px(cam, zoom)
     rad = {nid: node_radius_px(tbl[nid]) if nid in tbl else NODE_R_PX
            for nid in positions}
-    # region headers are part of the map: reserve their rectangles up
-    # front so no node label is ever placed over a sector's name.
-    placed: list[tuple[float, float, float, float]] = [
-        info["box"] for info in region_header_layout(tbl).values()]
-    out: dict[str, dict] = {}
-    # a few px of safety margin: the canonical box math assumes an exact
-    # 8px/glyph advance, but the actual renderer (podscene) draws at
-    # get_font(9)'s native cell and smoothscales non-16px labels down,
-    # which can round a pixel or two wider than the canonical box. Margin
-    # here keeps that rounding from ever pushing real pixels past the
-    # screen edge.
-    _EDGE_MARGIN = 4.0
-    canvas_rect = (_EDGE_MARGIN, HEADER_MARGIN_PX,
-                  CANVAS_W - _EDGE_MARGIN, CANVAS_H - FOOTER_MARGIN_PX)
+    # node discs that can possibly collide with a label box near the
+    # camera: prefilter by distance so cost scales with LOCAL density,
+    # not total graph size (the whole point of the local camera).
+    reach = (max(_VIEW_HALF_W, _VIEW_HALF_H) * LABEL_FADE_U
+             + 300.0)  # + max label extent, generous
+    near_discs = [(world[nid][0], world[nid][1], rad[nid] + 1.0)
+                  for nid in positions
+                  if math.hypot(world[nid][0] - cw[0], world[nid][1] - cw[1]) <= reach]
 
-    def overlaps_any(rect) -> bool:
+    def order_key(nid: str):
+        d = math.hypot(world[nid][0] - cw[0], world[nid][1] - cw[1])
+        # bucketed distance: near-first (far labels can never displace
+        # near ones), but stable under sub-bucket camera drift so anchor
+        # choices don't flap between adjacent frames of a glide
+        return (0 if nid == sel else 1, int(d // 24.0), nid)
+
+    placed: list[tuple[float, float, float, float]] = []
+    out: dict[str, dict] = {}
+
+    def collides(rect, *, discs: bool = True) -> bool:
         l, t, r, b = rect
-        if l < canvas_rect[0] or t < canvas_rect[1] or r > canvas_rect[2] or b > canvas_rect[3]:
-            return True
-        for orect in placed:
-            ol, ot, orr, ob = orect
+        for ol, ot, orr, ob in placed:
             if l < orr and r > ol and t < ob and b > ot:
                 return True
-        for onid, (ox, oy) in node_px.items():
-            orr = rad[onid]
-            nx = min(max(ox, l), r)
-            ny = min(max(oy, t), b)
-            if math.hypot(ox - nx, oy - ny) < orr:
-                return True
+        if discs:
+            for ox, oy, orad in near_discs:
+                nx_ = min(max(ox, l), r)
+                ny_ = min(max(oy, t), b)
+                if math.hypot(ox - nx_, oy - ny_) < orad:
+                    return True
         return False
 
-    for nid in ids:
-        x, y = node_px[nid]
+    for nid in sorted(alpha, key=order_key):
+        x, y = world[nid]
         r = rad[nid]
         label = tbl[nid]["label"] if nid in tbl else nid
+        w, h = label_size_px(label)
         chosen = None
-        # escalation ladder ordered by a COST over (distance, shrink):
-        # a slightly smaller label NEAR its node beats a full-size label
-        # exiled half a canvas away (measured on the first Plex render:
-        # the old scale-major order sent half a dozen full-size labels
-        # 100-180px from their nodes on invisible leader lines -- orphan
-        # text is a worse failure than a 12px label). Deterministic: the
-        # ladder is a fixed sort of a fixed list.
-        ladder = sorted(
-            ((radius + (1.0 - scale) * 120.0, ri, si)
-             for si, scale in enumerate(_FONT_SCALES)
-             for ri, radius in enumerate(_ANCHOR_RADII_PX)),
-            key=lambda c: (c[0], c[1], c[2]))
-        for _, ri, si in ladder:
-            scale = _FONT_SCALES[si]
-            radius = _ANCHOR_RADII_PX[ri]
-            w = label_size_px(label)[0] * scale
-            h = LABEL_H_PX * scale
-            angles = [90, 270] if ri == 0 else _ANCHOR_ANGLES_DEG
-            for ang_deg in angles:
+        for radius in _LOCAL_ANCHOR_RADII_PX:
+            for ang_deg in ([90, 270] if radius == 0.0 else _LOCAL_ANCHOR_ANGLES_DEG):
                 ang = math.radians(ang_deg)
                 gap = LABEL_GAP_PX + radius
-                acx = x + math.cos(ang) * (r + gap)
-                acy = y + math.sin(ang) * (r + gap) + h / 2 * (1 if ang_deg == 90 else 0)
-                left = acx - w / 2 - LABEL_PAD_PX
-                top = acy - h / 2 - LABEL_PAD_PX
-                rect = (left, top, left + w + 2 * LABEL_PAD_PX, top + h + 2 * LABEL_PAD_PX)
-                if not overlaps_any(rect):
-                    chosen = (rect, scale, ri > 0)
+                acx = x + math.cos(ang) * (r + gap + (w / 2 if ang_deg in (0, 180) else 0))
+                acy = y + math.sin(ang) * (r + gap + h / 2)
+                rect = (acx - w / 2 - LABEL_PAD_PX, acy - h / 2 - LABEL_PAD_PX,
+                        acx + w / 2 + LABEL_PAD_PX, acy + h / 2 + LABEL_PAD_PX)
+                # own-disc overlap is impossible by anchor construction;
+                # every other disc and every placed box must stay clear
+                if not collides(rect):
+                    chosen = (rect, (acx - x, acy - y))
                     break
             if chosen:
                 break
+        if chosen is None and nid == sel:
+            # the selection is never label-less: plain south anchor,
+            # placed first so no LABEL can conflict -- only a far node's
+            # disc might sit under it, and the name-card plate covers that
+            acx = x
+            acy = y + r + LABEL_GAP_PX + h / 2
+            rect = (acx - w / 2 - LABEL_PAD_PX, acy - h / 2 - LABEL_PAD_PX,
+                    acx + w / 2 + LABEL_PAD_PX, acy + h / 2 + LABEL_PAD_PX)
+            if collides(rect, discs=False):  # pragma: no cover -- sel is
+                raise RuntimeError(          # placed first; unreachable
+                    f"local_label_layout: sel {nid!r} box conflicts with a label")
+            chosen = (rect, (acx - x, acy - y))
         if chosen is None:
-            # the ring search (anchored to the node, so it stays legible as
-            # a label FOR that node) missed: escalate to a guaranteed raster
-            # scan of the whole canvas, deterministic row-major order,
-            # nearest-to-node-first, retried at progressively smaller font
-            # scales and a progressively finer grid step -- a coarse grid
-            # aligned to a single fixed origin can miss real gaps between
-            # irregularly-placed obstacles, so the step shrinks with the
-            # scale until it either fits or hits the resolution floor. The
-            # property this closes is strict -- no occlusion, ever -- so
-            # this must always terminate in a real, checked, non-
-            # overlapping box, never an unchecked clamp.
-            for scale in _RASTER_FONT_SCALES:
-                w = label_size_px(label)[0] * scale
-                h = LABEL_H_PX * scale
-                step_x, step_y = max(1.0, w / 10), max(1.0, h / 4)
-                candidates = []
-                gx = int(CANVAS_W // step_x) + 1
-                gy = int(CANVAS_H // step_y) + 1
-                for iy in range(gy):
-                    top = iy * step_y
-                    if top + h > CANVAS_H:
-                        continue
-                    for ix in range(gx):
-                        left = ix * step_x
-                        if left + w > CANVAS_W:
-                            continue
-                        ccx, ccy = left + w / 2, top + h / 2
-                        candidates.append((math.hypot(ccx - x, ccy - y), iy, ix, left, top))
-                candidates.sort(key=lambda c: (c[0], c[1], c[2]))
-                for _, _, _, left, top in candidates:
-                    rect = (left, top, left + w, top + h)
-                    if not overlaps_any(rect):
-                        chosen = (rect, scale, True)
-                        break
-                if chosen:
-                    break
-            if chosen is None:
-                # every grid cell at every escalation scale is occupied:
-                # truly saturated (more label area than the canvas can
-                # hold even at the smallest legible size). Still
-                # deterministic, still checked -- report where it failed
-                # rather than silently faking a clear box.
-                raise RuntimeError(
-                    f"label_layout: canvas saturated, no clear box for {nid!r} "
-                    f"({len(placed)} labels already placed)")
-        rect, scale, leader = chosen
+            continue  # honest LOD: a dot, not an exiled label
+        rect, off = chosen
         placed.append(rect)
-        out[nid] = {"box": rect, "font_px": max(1, int(round(LABEL_H_PX * scale))),
-                    "leader": leader}
+        out[nid] = {"box": rect, "off": off, "alpha": alpha[nid]}
     return out

@@ -1,8 +1,21 @@
 """PBT harness (director-directed, SEEDPOD_UI_DESIGN.md follow-up): PROVES
-the mind-map relaxation layout never lets a node label collide with
-another label or another node, for generated mind-map-shaped graphs AND
-for the real data/mindmap.json. Also proves determinism (no wall-clock,
-no unseeded randomness) and canvas containment.
+the mind-map layout laws for generated mind-map-shaped graphs AND the
+real data/mindmap.json: determinism (no wall-clock, no unseeded
+randomness), canvas/band containment, crossing reduction, and -- under
+the round-2 LOCAL CAMERA model -- the label laws that replaced the old
+global-canvas ones: within the camera's legibility radius, labels never
+overlap and always sit adjacent to their own node; beyond it, nodes are
+honest unlabeled points; the selection always has a label.
+
+ROUND-2 ADAPTATION NOTE (each documented where it happens): the old
+global label_layout() -- one canvas-wide placement with an escalation
+ladder that could exile a label to a leader line -- was DELETED with the
+director's clarification ("the dislocated titles can and should thus be
+eliminated"), so its PBTs (whole-canvas non-occlusion, canvas bounds on
+label boxes, header-rect reservation) went with it: their premise (all
+labels visible at once on one static canvas) no longer exists. Their
+successors below assert the strictly stronger local law on every placed
+box instead.
 
 Run from the repo root (pytest needs the cwd for other suites' fixtures).
 """
@@ -14,8 +27,10 @@ import random
 
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
+import pytest
 
 from perihelion import mindmap
+from perihelion.testkit.graphs import synthetic_mindmap
 
 EXAMPLES = 200
 
@@ -118,49 +133,48 @@ def _rect_circle_overlap(rect, cx, cy, radius) -> bool:
 def _compute(graph):
     seed = mindmap.seed_layout(graph)
     pos, _ = mindmap.relax(seed, graph)
-    labels = mindmap.label_layout(pos, graph)
-    return pos, labels
+    return pos
+
+
+# a camera the way podscene actually produces one: parked on a node, or
+# anywhere along a glide between two nodes (camera_glide is a convex
+# combination of endpoints, so interpolation covers every real mid-glide
+# position exactly)
+@st.composite
+def _camera(draw, pos):
+    ids = sorted(pos)
+    a = pos[ids[draw(st.integers(0, len(ids) - 1))]]
+    b = pos[ids[draw(st.integers(0, len(ids) - 1))]]
+    t = draw(st.floats(0.0, 1.0, allow_nan=False))
+    return (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t)
+
+
+@st.composite
+def graph_cam_sel(draw):
+    graph = draw(mindmap_graph())
+    pos = _compute(graph)
+    cam = draw(_camera(pos))
+    ids = sorted(graph)
+    sel = ids[draw(st.integers(0, len(ids) - 1))]
+    return graph, pos, cam, sel
 
 
 # ---------------------------------------------------------------------------
-# properties
+# properties: node geometry (unchanged premises from round 1)
 # ---------------------------------------------------------------------------
-
-@given(graph=mindmap_graph())
-def test_no_label_label_overlap(graph):
-    _, labels = _compute(graph)
-    boxes = list(labels.items())
-    for i, (a, la) in enumerate(boxes):
-        for b, lb in boxes[i + 1:]:
-            assert not _rects_overlap(la["box"], lb["box"]), (
-                f"labels overlap: {a} {la['box']} vs {b} {lb['box']}")
-
-
-@given(graph=mindmap_graph())
-def test_no_label_node_overlap(graph):
-    pos, labels = _compute(graph)
-    node_px = {nid: mindmap._to_px(pos[nid]) for nid in graph}
-    rad = {nid: mindmap.node_radius_px(graph[nid]) for nid in graph}
-    for nid, info in labels.items():
-        for onid, (ox, oy) in node_px.items():
-            if onid == nid:
-                continue  # a label may sit against its own node
-            assert not _rect_circle_overlap(info["box"], ox, oy, rad[onid]), (
-                f"label for {nid} overlaps node {onid}")
-
 
 @given(graph=mindmap_graph())
 def test_geometry_within_bounds(graph):
-    pos, labels = _compute(graph)
+    # ROUND-2 ADAPTATION: this property used to also bound label boxes to
+    # the canvas -- labels are now placed in the camera's local frame and
+    # legitimately extend past the canonical canvas (the viewport crops
+    # them); only the NODE containment premise survives, unchanged.
+    pos = _compute(graph)
     for nid, (x, y) in pos.items():
         px, py = mindmap._to_px((x, y))
         r = mindmap.node_radius_px(graph[nid])
         assert -1e-6 <= px - r and px + r <= mindmap.CANVAS_W + 1e-6
         assert -1e-6 <= py - r and py + r <= mindmap.CANVAS_H + 1e-6
-    for nid, info in labels.items():
-        l, t, r, b = info["box"]
-        assert -1e-6 <= l and r <= mindmap.CANVAS_W + 1e-6, (nid, info["box"])
-        assert -1e-6 <= t and b <= mindmap.CANVAS_H + 1e-6, (nid, info["box"])
 
 
 @given(graph=mindmap_graph())
@@ -169,9 +183,116 @@ def test_layout_deterministic(graph):
     pos1, _ = mindmap.relax(seed, graph)
     pos2, _ = mindmap.relax(seed, graph)
     assert pos1 == pos2
-    labels1 = mindmap.label_layout(pos1, graph)
-    labels2 = mindmap.label_layout(pos2, graph)
-    assert labels1 == labels2
+
+
+# ---------------------------------------------------------------------------
+# properties: the LOCAL label laws (director's round-2 clarification --
+# these are the successors of the old whole-canvas non-occlusion PBTs;
+# the law is now scoped to what a local camera can ever show)
+# ---------------------------------------------------------------------------
+
+def _point_rect_dist(px, py, rect):
+    l, t, r, b = rect
+    dx = max(l - px, 0.0, px - r)
+    dy = max(t - py, 0.0, py - b)
+    return math.hypot(dx, dy)
+
+
+@given(gcs=graph_cam_sel())
+def test_local_labels_never_overlap(gcs):
+    """No two boxes the local layout places may intersect -- INCLUDING
+    the selection's guaranteed box. This is the round-2 successor of the
+    old whole-canvas label/label property, now over every camera position
+    a glide can produce, not one static poster."""
+    graph, pos, cam, sel = gcs
+    zoom = mindmap.local_zoom(graph)
+    labels = mindmap.local_label_layout(pos, cam, graph, zoom=zoom, sel=sel)
+    boxes = list(labels.items())
+    for i, (a, la) in enumerate(boxes):
+        for b, lb in boxes[i + 1:]:
+            assert not _rects_overlap(la["box"], lb["box"]), (
+                f"labels overlap: {a} {la['box']} vs {b} {lb['box']}")
+
+
+@given(gcs=graph_cam_sel())
+def test_local_labels_clear_of_node_discs(gcs):
+    """A placed label never covers ANY node disc (its own node's disc is
+    cleared by anchor construction; every other node's by the collision
+    search). The selection's last-resort fallback is exempt from the disc
+    law by design -- podscene backs it with an opaque name-card plate --
+    but never from the label/label law (previous test)."""
+    graph, pos, cam, sel = gcs
+    zoom = mindmap.local_zoom(graph)
+    labels = mindmap.local_label_layout(pos, cam, graph, zoom=zoom, sel=sel)
+    world = {nid: mindmap._to_world_px(pos[nid], zoom) for nid in pos}
+    rad = {nid: mindmap.node_radius_px(graph[nid]) for nid in graph}
+    for nid, info in labels.items():
+        if nid == sel:
+            continue
+        for onid, (ox, oy) in world.items():
+            if onid == nid:
+                continue
+            assert not _rect_circle_overlap(info["box"], ox, oy, rad[onid]), (
+                f"label for {nid} overlaps node {onid}")
+
+
+@given(gcs=graph_cam_sel())
+def test_local_labels_adjacent_to_their_node(gcs):
+    """Every placed box touches its node's vicinity: nearest edge within
+    LOCAL_LABEL_MAX_GAP_PX of the node center. The old escalation
+    ladder's exile tiers (labels 100-230px away on leader lines) are
+    gone; this bound is what "eliminated" means."""
+    graph, pos, cam, sel = gcs
+    zoom = mindmap.local_zoom(graph)
+    labels = mindmap.local_label_layout(pos, cam, graph, zoom=zoom, sel=sel)
+    for nid, info in labels.items():
+        nx, ny = mindmap._to_world_px(pos[nid], zoom)
+        d = _point_rect_dist(nx, ny, info["box"])
+        assert d <= mindmap.LOCAL_LABEL_MAX_GAP_PX, (nid, d)
+
+
+@given(gcs=graph_cam_sel())
+def test_local_labels_lod_law(gcs):
+    """The LOD contract: a non-selected node appears in the layout IFF
+    its view alpha is positive (legibility is owed near the camera and
+    only there -- distant nodes are unlabeled points), each entry carries
+    exactly its label_view_alpha, and the selection is ALWAYS present
+    regardless of distance."""
+    graph, pos, cam, sel = gcs
+    zoom = mindmap.local_zoom(graph)
+    labels = mindmap.local_label_layout(pos, cam, graph, zoom=zoom, sel=sel)
+    assert sel in labels, "the selection must always carry a label"
+    for nid, info in labels.items():
+        assert info["alpha"] == mindmap.label_view_alpha(pos[nid], cam, zoom)
+    for nid in pos:
+        if nid != sel and mindmap.label_view_alpha(pos[nid], cam, zoom) <= 0.0:
+            assert nid not in labels, (nid, "beyond the fade radius")
+
+
+@given(gcs=graph_cam_sel())
+def test_local_labels_deterministic(gcs):
+    graph, pos, cam, sel = gcs
+    zoom = mindmap.local_zoom(graph)
+    a = mindmap.local_label_layout(pos, cam, graph, zoom=zoom, sel=sel)
+    b = mindmap.local_label_layout(pos, cam, graph, zoom=zoom, sel=sel)
+    assert a == b
+
+
+def test_local_zoom_reference_and_scaling():
+    """local_zoom is LOCAL_ZOOM exactly at the real map's density (the
+    tuned baseline must not drift when the scaling law changes) and grows
+    like sqrt(n) so the visible neighborhood stays ~constant-size as the
+    map grows toward the director's hundreds/thousands."""
+    assert mindmap.local_zoom() == mindmap.LOCAL_ZOOM  # real map == baseline
+    g33 = {f"n{i}": {"region": "vocation", "label": "x", "prereqs": []}
+           for i in range(33)}
+    assert mindmap.local_zoom(g33) == mindmap.LOCAL_ZOOM
+    g132 = {f"n{i}": {"region": "vocation", "label": "x", "prereqs": []}
+            for i in range(132)}
+    assert abs(mindmap.local_zoom(g132) - 2 * mindmap.LOCAL_ZOOM) < 1e-9
+    g4 = {f"n{i}": {"region": "vocation", "label": "x", "prereqs": []}
+          for i in range(4)}
+    assert mindmap.local_zoom(g4) == mindmap.LOCAL_ZOOM  # floor, never below
 
 
 def _region_centroids(pos, by_region):
@@ -335,39 +456,56 @@ def test_crossings_batch_substantial_reduction():
 # the real data/mindmap.json as a regression fixture, same properties
 # ---------------------------------------------------------------------------
 
-def test_real_mindmap_no_label_label_overlap():
+def test_real_mindmap_local_labels_every_camera():
+    """ROUND-2 SUCCESSOR of the old real-map label fixtures (whole-canvas
+    non-occlusion + canvas bounds, premises deleted with the global
+    layout): with the camera parked on EVERY node of the real map in
+    turn (each as the selection, exactly what navigation produces), the
+    local label laws hold -- no two boxes overlap, no box covers a
+    foreign disc (sel's plate-backed fallback aside), every box adjacent
+    to its node, the selection always labeled -- and every node within
+    the full-legibility radius actually GETS a label (the real map at
+    real density owes full coverage near the camera; measured 100%
+    across all 33 cameras at the shipped constants)."""
     graph = mindmap.nodes()
-    _, labels = _compute(graph)
-    boxes = list(labels.items())
-    for i, (a, la) in enumerate(boxes):
-        for b, lb in boxes[i + 1:]:
-            assert not _rects_overlap(la["box"], lb["box"]), (a, b)
-
-
-def test_real_mindmap_no_label_node_overlap():
-    graph = mindmap.nodes()
-    pos, labels = _compute(graph)
-    node_px = {nid: mindmap._to_px(pos[nid]) for nid in graph}
+    pos = _compute(graph)
+    zoom = mindmap.local_zoom(graph)
     rad = {nid: mindmap.node_radius_px(graph[nid]) for nid in graph}
-    for nid, info in labels.items():
-        for onid, (ox, oy) in node_px.items():
-            if onid == nid:
-                continue
-            assert not _rect_circle_overlap(info["box"], ox, oy, rad[onid])
+    for camid in sorted(graph):
+        cam = pos[camid]
+        labels = mindmap.local_label_layout(pos, cam, graph, zoom=zoom,
+                                            sel=camid)
+        assert camid in labels
+        boxes = list(labels.items())
+        for i, (a, la) in enumerate(boxes):
+            for b, lb in boxes[i + 1:]:
+                assert not _rects_overlap(la["box"], lb["box"]), (camid, a, b)
+        world = {nid: mindmap._to_world_px(pos[nid], zoom) for nid in pos}
+        for nid, info in labels.items():
+            nx, ny = world[nid]
+            assert _point_rect_dist(nx, ny, info["box"]) <= \
+                mindmap.LOCAL_LABEL_MAX_GAP_PX, (camid, nid)
+            if nid != camid:
+                for onid, (ox, oy) in world.items():
+                    if onid != nid:
+                        assert not _rect_circle_overlap(
+                            info["box"], ox, oy, rad[onid]), (camid, nid, onid)
+        near = [nid for nid in pos
+                if mindmap.label_view_alpha(pos[nid], cam, zoom) >= 1.0]
+        unlabeled_near = [nid for nid in near if nid not in labels]
+        assert not unlabeled_near, (camid, unlabeled_near)
 
 
 def test_real_mindmap_within_bounds():
+    # ROUND-2 ADAPTATION: label boxes are no longer canvas-bounded (the
+    # local camera crops); the node containment premise is unchanged.
     graph = mindmap.nodes()
-    pos, labels = _compute(graph)
+    pos = _compute(graph)
     for nid, (x, y) in pos.items():
         px, py = mindmap._to_px((x, y))
         r = mindmap.node_radius_px(graph[nid])
         assert 0 <= px - r and px + r <= mindmap.CANVAS_W
         assert 0 <= py - r and py + r <= mindmap.CANVAS_H
-    for info in labels.values():
-        l, t, r, b = info["box"]
-        assert 0 <= l and r <= mindmap.CANVAS_W
-        assert 0 <= t and b <= mindmap.CANVAS_H
 
 
 def test_real_mindmap_deterministic():
@@ -541,16 +679,13 @@ def test_real_mindmap_radial_variance_within_bands():
     assert sd >= 0.15, sd
 
 
-def test_real_mindmap_labels_avoid_region_headers():
-    """Region headers are part of the map: label_layout reserves their
-    rects (the same region_header_layout() podscene draws from), so no
-    node label may intersect any header box."""
-    graph = mindmap.nodes()
-    pos, labels = _compute(graph)
-    headers = mindmap.region_header_layout(graph)
-    for nid, info in labels.items():
-        for region, h in headers.items():
-            assert not _rects_overlap(info["box"], h["box"]), (nid, region)
+# ROUND-2 ADAPTATION: test_real_mindmap_labels_avoid_region_headers was
+# deleted with its premise -- the global layout reserved header rects on
+# ONE static canvas; under the local camera, headers are LOD-faded by the
+# same label_view_alpha law as labels (podscene._draw_region_headers), so
+# a header and a label box no longer share a fixed frame to be reserved
+# in. (Headers anchor at unit radius 1.10, outside the node ellipse, so
+# at full alpha they sit beyond any node's adjacent label reach anyway.)
 
 
 def test_live_rest_respects_annulus_at_sleep():
@@ -688,3 +823,133 @@ def test_camera_glide_deterministic():
     a = [mindmap.camera_glide(t / 10.0, 0.0, 0.5, p_from, p_to) for t in range(20)]
     b = [mindmap.camera_glide(t / 10.0, 0.0, 0.5, p_from, p_to) for t in range(20)]
     assert a == b
+
+
+# ---------------------------------------------------------------------------
+# TARGET SCALE (director's round-2 brief: "hundreds, maybe _thousands_ of
+# vertices... I never intended for all rings nor all vertices within a
+# ring to be visible at once"). The real map's 33 nodes are a sparse
+# early-game state; the local-camera framing must be PROVEN at the scale
+# it is designed for. testkit.graphs.synthetic_mindmap is that design
+# fixture: 400 nodes, real depth distribution (maxd 20), realistic label
+# lengths, per-region rooted DAGs -- relaxed ONCE per test session below.
+# ---------------------------------------------------------------------------
+
+_SCALE_N = 400
+
+
+@pytest.fixture(scope="module")
+def scale_fixture():
+    graph = synthetic_mindmap(_SCALE_N)
+    pos, _ = mindmap.relax(mindmap.seed_layout(graph), graph)
+    return graph, pos
+
+
+def test_target_scale_fixture_shape(scale_fixture):
+    """The fixture is actually target-shaped, not a toy: hundreds of
+    nodes, a deep prereq structure (double-digit depth), every region
+    populated -- otherwise the framing claims below prove nothing."""
+    graph, _ = scale_fixture
+    assert len(graph) == _SCALE_N
+    dep = mindmap._depths_of(graph)
+    assert max(dep.values()) >= 10, max(dep.values())
+    regions = {n["region"] for n in graph.values()}
+    assert len(regions) == 4
+
+
+def test_target_scale_bands_hold(scale_fixture):
+    """The depth-annulus containment law survives 400 nodes: every rest
+    position inside its own band (the generic PBT tops out at 60 nodes;
+    this pins the dense regime where hard containment does real work)."""
+    graph, pos = scale_fixture
+    _within_own_band(pos, graph)
+
+
+def test_target_scale_local_framing(scale_fixture):
+    """The round-2 law itself, measured: with the density-scaled zoom
+    (local_zoom(400) ~ 10.4 vs the 33-node baseline 3.0), every sampled
+    camera position frames a LOCAL neighborhood -- never more than 8% of
+    the graph in the viewport (measured max 5%), median a workable
+    handful, and the zoom is genuinely scaled up from the baseline."""
+    graph, pos = scale_fixture
+    zoom = mindmap.local_zoom(graph)
+    assert zoom > 2 * mindmap.LOCAL_ZOOM
+    hw_u = (mindmap.CANVAS_W / 2) / (mindmap.CANVAS_W * mindmap.SX_FRAC * zoom)
+    strip = mindmap.CANVAS_H - mindmap.HEADER_MARGIN_PX - mindmap.FOOTER_MARGIN_PX
+    hh_u = (strip / 2) / (mindmap.CANVAS_H * mindmap.SY_FRAC * zoom)
+    counts = []
+    for camid in sorted(graph)[::20]:
+        cx, cy = pos[camid]
+        counts.append(sum(1 for x, y in pos.values()
+                          if abs(x - cx) <= hw_u and abs(y - cy) <= hh_u))
+    assert max(counts) <= 0.08 * len(graph), (max(counts), len(graph))
+    assert sorted(counts)[len(counts) // 2] >= 3, counts  # territory, not void
+
+
+def test_target_scale_local_labels(scale_fixture):
+    """The label laws at target density, every 20th node as camera+sel:
+    no overlaps, adjacency, selection always labeled, and >= 90% of
+    full-legibility-radius nodes actually labeled (measured 100% at the
+    shipped constants -- density scaling is what makes this possible; at
+    the 33-node baseline zoom this same fixture measured 12-35%)."""
+    graph, pos = scale_fixture
+    zoom = mindmap.local_zoom(graph)
+    for camid in sorted(graph)[::20]:
+        cam = pos[camid]
+        labels = mindmap.local_label_layout(pos, cam, graph, zoom=zoom,
+                                            sel=camid)
+        assert camid in labels
+        boxes = list(labels.items())
+        for i, (a, la) in enumerate(boxes):
+            for b, lb in boxes[i + 1:]:
+                assert not _rects_overlap(la["box"], lb["box"]), (camid, a, b)
+        for nid, info in labels.items():
+            nx, ny = mindmap._to_world_px(pos[nid], zoom)
+            assert _point_rect_dist(nx, ny, info["box"]) <= \
+                mindmap.LOCAL_LABEL_MAX_GAP_PX, (camid, nid)
+        near = [nid for nid in pos
+                if mindmap.label_view_alpha(pos[nid], cam, zoom) >= 1.0]
+        placed = sum(1 for nid in near if nid in labels)
+        assert placed >= 0.9 * len(near), (camid, placed, len(near))
+
+
+def test_target_scale_live_physics_leashed(scale_fixture):
+    """The live-jitter field was tuned at 33 nodes; at target density its
+    raw equilibrium sits up to 0.64 unit from layout() (measured -- the
+    camera, which aims at layout(), would visibly lose its own subject).
+    The leash (mindmap.LIVE_LEASH_SCREEN_PX) is the contract that framing
+    survives ANY density: on every sampled tick, no node is farther from
+    its layout() rest than 1.5x the screen-space cap. The slack over the
+    raw leash exists because the band/ellipse containment deliberately
+    gets the LAST word after it (the annulus law is strict; at this
+    density a band is only ~4 canvas px wide -- comparable to the leash
+    itself -- so its projection can carry a leashed node past the leash
+    circle by a real fraction: measured worst 49.4 screen px over 300
+    ticks vs the 40px cap). Without the leash this measured ~1900 screen
+    px (0.64 unit) -- the framing claim would simply be false. (Bitwise
+    sleep at this saturated density is NOT claimed -- see the leash's
+    comment; bounded forever is the law here.)"""
+    graph, _ = scale_fixture
+    import perihelion.mindmap as mm
+    old_nodes, old_layout = mm._NODES, mm._LAYOUT
+    try:
+        mm._NODES, mm._LAYOUT = graph, None
+        lay = mm.layout()
+        zoom = mm.local_zoom(graph)
+        leash_canvas = mm.LIVE_LEASH_SCREEN_PX / zoom
+        st_ = mm.live_rest_state(graph)
+        sx = mm.CANVAS_W * mm.SX_FRAC
+        sy = mm.CANVAS_H * mm.SY_FRAC
+        for tick in range(120):
+            st_ = mm.live_relax_step(st_, graph)
+            if tick % 20:
+                continue
+            for nid, (x, y) in st_.pos.items():
+                dx = (x - lay[nid][0]) * sx
+                dy = (y - lay[nid][1]) * sy
+                d = math.hypot(dx, dy)
+                assert d <= leash_canvas * 1.5 + 1e-6, (tick, nid, d * zoom)
+    finally:
+        mm._NODES, mm._LAYOUT = old_nodes, old_layout
+        mm._SYSTEM_CACHE.clear()
+        mm._REST_CACHE.clear()

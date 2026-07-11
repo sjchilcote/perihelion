@@ -164,6 +164,8 @@ REVEAL_GLIDE = 0.9      # camera glides to the node
 REVEAL_IGNITE = 1.3     # the node flares: the first beat (skippable after)
 REVEAL_UNFURL = 3.4     # petals / segments / the souring
 REVEAL_SOUR = 2.2       # when a corrupted bloom goes wrong
+REVEAL_ZOOM_IN = 1.35   # extra magnification (on top of mindmap.LOCAL_ZOOM)
+                        # the reveal eases in while it isolates its node
 
 
 def _node_rng(node_id: str, salt: str = "") -> Random:
@@ -175,9 +177,7 @@ def _node_rng(node_id: str, salt: str = "") -> Random:
 
 # ---------------------------------------------------------------------------
 # the settle: the exact relaxation trajectory (mindmap.layout_steps), cached
-# once per process, and label anchors as unit-space offsets from their node
-# (so labels glide/zoom with their node under the reveal's camera exactly like
-# the node does -- both go through the same _to_screen call).
+# once per process.
 # ---------------------------------------------------------------------------
 
 _SETTLE_TAIL_FRAMES = 14
@@ -192,27 +192,6 @@ def _settle_trajectory() -> list[dict[str, tuple[float, float]]]:
     if _traj_cache is None:
         _traj_cache = mindmap.layout_steps(record_every=4)
     return _traj_cache
-
-
-def _label_unit_offsets(layout: dict[str, tuple[float, float]],
-                        labels: dict[str, dict],
-                        ) -> dict[str, tuple[float, float]]:
-    """node id -> (dx, dy) in unit space from the node to its label
-    rectangle's CENTER, so the label can be positioned with the same
-    self._to_screen(surf, node_x + dx, node_y + dy) call used for the
-    node -- it inherits the reveal's zoom/glide for free and never drifts
-    out of sync with the node it names."""
-    out: dict[str, tuple[float, float]] = {}
-    sxw = mindmap.CANVAS_W * mindmap.SX_FRAC
-    syh = mindmap.CANVAS_H * mindmap.SY_FRAC
-    for nid, info in labels.items():
-        if nid not in layout:
-            continue
-        l, t, r, b = info["box"]
-        bcx, bcy = (l + r) / 2, (t + b) / 2
-        npx, npy = mindmap._to_px(layout[nid])
-        out[nid] = ((bcx - npx) / sxw, (bcy - npy) / syh)
-    return out
 
 
 class PodScene(Scene):
@@ -241,8 +220,14 @@ class PodScene(Scene):
                                   for nid, info in self._labels.items()}
         else:
             self.layout = mindmap.layout()
-            self._labels = mindmap.label_layout(self.layout)
-            self._label_offset = _label_unit_offsets(self.layout, self._labels)
+            # physics mode has NO baked global label layout any more
+            # (director's round-2 clarification: the camera is LOCAL --
+            # labels are placed per-frame around the camera by
+            # mindmap.local_label_layout, LOD-faded with distance, and
+            # dropped -- never exiled -- when they cannot sit adjacent)
+            self._labels = {}
+            self._label_offset = {}
+            self._frame_labels: dict[str, dict] = {}
         self.sel: str | None = None
         self.reveal: dict | None = None
         self._overlay: "pygame.Surface | None" = None
@@ -452,41 +437,52 @@ class PodScene(Scene):
             py += math.cos(r["t"] * 41.0) * amp
         return int(px), int(py)
 
+    def _zoom(self) -> float:
+        """The physics-mode camera's current magnification: LOCAL_ZOOM at
+        rest (the local-neighborhood framing -- the whole graph is NEVER
+        in frame, director's round-2 law; density-scaled by
+        mindmap.local_zoom so the framing survives the map growing to
+        hundreds/thousands of vertices), eased up by REVEAL_ZOOM_IN
+        while the reveal isolates its node. Continuous at the reveal's
+        start by construction: u(0) == 0 leaves it exactly local_zoom()."""
+        z = mindmap.local_zoom()
+        r = self.reveal
+        if r is not None:
+            u = min(1.0, r["t"] / REVEAL_GLIDE)
+            u = u * u * (3 - 2 * u)  # smoothstep, same curve as the glide
+            if r["kind"] == "corrupt" and r["t"] > REVEAL_GLIDE:
+                # the hand tremors: the zoom overshoots and corrects
+                v = r["t"] - REVEAL_GLIDE
+                u += math.exp(-2.2 * v) * math.sin(9.0 * v) * 0.10
+            z *= 1.0 + (REVEAL_ZOOM_IN - 1.0) * u
+        return z
+
     def _to_screen(self, surf, x: float, y: float) -> tuple[int, int]:
         if self._layout_mode == "rings":
             return self._to_screen_rings(surf, x, y)
         w, h = surf.get_size()
         # single source of truth with mindmap.py's canonical canvas (the
-        # label-layout PBT proves geometry against these same fractions)
-        sx = w * mindmap.SX_FRAC   # elliptical: the screen is wide
-        sy = h * mindmap.SY_FRAC
-        cx, cy = w * mindmap.CX_FRAC, h * mindmap.CY_FRAC
-        if self.reveal is not None:
-            r = self.reveal
-            u = min(1.0, r["t"] / REVEAL_GLIDE)
-            u = u * u * (3 - 2 * u)  # smoothstep glide
-            if r["kind"] == "corrupt" and r["t"] > REVEAL_GLIDE:
-                # the hand tremors: the glide overshoots and corrects
-                v = r["t"] - REVEAL_GLIDE
-                u += math.exp(-2.2 * v) * math.sin(9.0 * v) * 0.10
-            nx, ny = self.layout[r["node"]]
-            z = 1.0 + 0.9 * u
-            sx, sy = sx * z, sy * z
-            # glide the view center onto the node (node -> screen center)
-            cx = w * mindmap.CX_FRAC - nx * sx * u
-            cy = h * mindmap.CY_FRAC - ny * sy * u
-            if r["kind"] == "corrupt" and REVEAL_GLIDE < r["t"] < REVEAL_UNFURL:
-                amp = ui(2) * math.exp(-(r["t"] - REVEAL_GLIDE))
-                cx += math.sin(r["t"] * 37.0) * amp
-                cy += math.cos(r["t"] * 41.0) * amp
-        else:
-            # the reveal (above) owns the camera while it plays; otherwise
-            # selection glides the camera out to frame the selected node's
-            # ring (director's hybridization, superseding the old "yank
-            # the node to center" pin -- see _cam_pos/update()).
-            camx, camy = self._cam_pos()
-            cx -= camx * sx
-            cy -= camy * sy
+        # local-label PBT proves geometry against these same fractions).
+        # LOCAL camera: the unit->screen scale carries _zoom(), and the
+        # view center always tracks _cam_pos() -- INCLUDING during the
+        # reveal, whose _start_reveal installs an ordinary camera glide
+        # from wherever the camera currently sits to the revealing node.
+        # (The old reveal branch interpolated from a GLOBAL origin-
+        # centered view instead, which cut/snapped whenever the camera
+        # was parked on a selection away from the origin -- the
+        # discontinuity the director flagged in the round-1 video.)
+        zoom = self._zoom()
+        sx = w * mindmap.SX_FRAC * zoom   # elliptical: the screen is wide
+        sy = h * mindmap.SY_FRAC * zoom
+        camx, camy = self._cam_pos()
+        cx = w * mindmap.CX_FRAC - camx * sx
+        cy = h * mindmap.CY_FRAC - camy * sy
+        r = self.reveal
+        if r is not None and r["kind"] == "corrupt" and \
+                REVEAL_GLIDE < r["t"] < REVEAL_UNFURL:
+            amp = ui(2) * math.exp(-(r["t"] - REVEAL_GLIDE))
+            cx += math.sin(r["t"] * 37.0) * amp
+            cy += math.cos(r["t"] * 41.0) * amp
         return int(cx + x * sx), int(cy + y * sy)
 
     # ------------------------------------------------------------------
@@ -594,6 +590,15 @@ class PodScene(Scene):
                          shown=set(), rng=_node_rng(node),
                          fired=set())
         self.sel = node
+        # the reveal PULLS the camera: a continuous glide from wherever
+        # the camera is right now (mid-glide included) to the completed
+        # node, through the same camera machinery every other move uses
+        # -- never a snap to a different framing (the round-1 video's
+        # selection->reveal discontinuity was exactly such a snap).
+        cur = self._cam_pos()
+        self._cam = {"from": cur, "to": self.layout.get(node, cur),
+                     "t0": self.t, "dur": REVEAL_GLIDE}
+        self._cam_sel = node
 
     def _finish_reveal(self, app) -> None:
         r = self.reveal
@@ -1019,8 +1024,20 @@ class PodScene(Scene):
             else:
                 ux, uy = info["center_unit"]
                 cxp, cyp = self._to_screen(surf, ux, uy)
+            alpha = 1.0
+            if self._layout_mode != "rings":
+                # local camera: headers obey the same LOD fade as labels,
+                # so a half-clipped sector name never lingers at a screen
+                # edge as stray letters -- territory names surface as the
+                # camera actually travels into their sector
+                alpha = mindmap.label_view_alpha(
+                    info["center_unit"], self._cam_pos(), self._zoom())
+                if alpha <= 0.0:
+                    continue
             wpx, _ = mindmap.region_header_size_px(info["label"])
             col = tuple(int(c * 0.60) for c in REGION_COLOR[region])
+            if alpha < 1.0:
+                col = tuple(int(c * alpha) for c in col)
             x = cxp - wpx * k / 2.0 + 3.0 * k  # optical center in the
             # reserved box (whose width carries a 6px ink-overhang pad)
             for ch in info["label"]:
@@ -1064,6 +1081,18 @@ class PodScene(Scene):
         surf.blit(under, (0, 0))
 
         self._draw_region_headers(surf, vis)
+
+        # per-frame LOCAL label placement (physics mode): labels live only
+        # near the camera (LOD -- distant nodes are unlabeled points), sit
+        # adjacent to their nodes, and are dropped rather than exiled when
+        # they cannot fit. World-px placement is camera-PAN-invariant, so
+        # anchors hold steady through a glide; recomputed every frame
+        # because node positions (settle/live jitter) and the zoom
+        # (reveal) are themselves per-frame.
+        if self._layout_mode != "rings":
+            self._frame_labels = mindmap.local_label_layout(
+                {nid: self._node_pos(nid) for nid in vis},
+                self._cam_pos(), zoom=self._zoom(), sel=self.sel)
 
         # nodes
         for nid in sorted(vis):
@@ -1134,12 +1163,12 @@ class PodScene(Scene):
             for k in range(3):
                 a = a0 + k * 2 * math.pi / 3
                 pygame.draw.arc(surf, col, rect, a, a + 1.1, max(1, ui(1)))
-        # every visible node gets its label now: mindmap.label_layout()
-        # already proved (PBT, test_mindmap_layout.py) that no two labels
-        # and no label/node pair ever collide at rest. During the reveal,
-        # non-focus labels dim to near-invisible during the glide/ignite
-        # (the known "label sits on the animation" collision class is
-        # gone by construction -- there's nothing legible there to sit on
+        # labels: physics mode places them per-frame around the LOCAL
+        # camera (mindmap.local_label_layout -- PBT-proven non-occluding
+        # and node-adjacent within the legibility radius; distant nodes
+        # are honest unlabeled points). Rings mode keeps its baked ring
+        # label geometry. During the reveal, non-focus labels dim to
+        # near-invisible during the glide/ignite (nothing legible sits on
         # top of the animation art) and the revealing node draws no
         # ordinary label at all (the animation IS its name-card).
         r = self.reveal
@@ -1164,18 +1193,33 @@ class PodScene(Scene):
             alpha = int(alpha * grow)
             if alpha <= 0:
                 return
-        off = self._label_offset.get(nid)
-        if off is None:
-            return
-        lx, ly = self._to_screen(surf, nx + off[0], ny + off[1])
-        info = self._labels.get(nid, {})
-        font_px = info.get("font_px", 16)
+        k = self._mind_scale(surf)
+        if self._layout_mode == "rings":
+            off = self._label_offset.get(nid)
+            if off is None:
+                return
+            lx, ly = self._to_screen(surf, nx + off[0], ny + off[1])
+            info = self._labels.get(nid, {})
+            font_px = info.get("font_px", 16)
+        else:
+            info = self._frame_labels.get(nid)
+            if info is None:
+                return  # beyond the legibility radius, or dropped: a dot
+            alpha = int(alpha * info["alpha"])
+            if alpha <= 0:
+                return
+            # "off" is world px == canonical-canvas screen px: scale by k
+            # only (zoom is already inside the world-px frame), anchored
+            # on the node's own screen position so the label rides every
+            # camera/zoom move rigidly with its node
+            lx = x + int(round(info["off"][0] * k))
+            ly = y + int(round(info["off"][1] * k))
+            font_px = 16
         col = BONE if nid == self.sel else (GOLD if queued else (
             132, 140, 136) if not owned else tuple(min(255, c + 40) for c in rcol))
         # rendered at the exact target size (Plex Sans stays crisp at any
         # pt; never bitmap-smoothscale mush), scaled with the surface so
         # labels hold their screen fraction at any internal resolution
-        k = self._mind_scale(surf)
         img = _label_img(n["label"], label_pt(font_px, k), col)
         if alpha < 255:
             img = img.copy()
@@ -1190,7 +1234,7 @@ class PodScene(Scene):
                                 img.get_height() + ui(2))
             pygame.draw.rect(surf, (16, 20, 19), plate)
             pygame.draw.rect(surf, (52, 66, 58), plate, 1)
-        if info.get("leader") and r is None:
+        if self._layout_mode == "rings" and info.get("leader") and r is None:
             # an escalated label (leader-line placement, per the layout's
             # own escalation ladder): a thin tick from the node's rim to
             # the nearest point on the label's box, not its center -- the

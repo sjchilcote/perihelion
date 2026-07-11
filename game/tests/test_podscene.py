@@ -255,26 +255,29 @@ def test_node_never_leaves_its_band_while_selected(_physics_mode):
 
 def test_label_renders_fit_canonical_boxes(surf):
     """The bridge between mindmap.py's pygame-free label geometry (the
-    measured Plex advance table) and the ACTUAL renderer: every real-map
-    label, rendered exactly the way podscene renders it (same face, same
-    pt formula), must fit inside its canonical layout box scaled to the
+    measured Plex advance table) and the ACTUAL renderer: every label the
+    LOCAL layout places (camera parked on each real-map node in turn),
+    rendered exactly the way podscene renders it (full 16px cell, same
+    face, same pt formula), must fit inside its placed box scaled to the
     surface -- at the default internal width and at 2x (1280) -- otherwise
-    the non-occlusion proof would be about boxes the renderer ignores.
-    1px slack per axis for integer rounding of the blit rect."""
+    the local non-occlusion proof would be about boxes the renderer
+    ignores. 1px slack per axis for integer rounding of the blit rect."""
     from perihelion.podscene import _label_img, label_pt
     lay = mindmap.layout()
-    labels = mindmap.label_layout(lay)
     tbl = mindmap.nodes()
-    for k in (1.0, 2.0):  # 640-wide and 1280-wide surfaces
-        for nid, info in labels.items():
-            l, t, r, b = info["box"]
-            font_px = info["font_px"]
-            img = _label_img(tbl[nid]["label"], label_pt(font_px, k),
-                             (200, 200, 200))
-            assert img.get_width() <= (r - l) * k + 1.0, (
-                nid, k, img.get_width(), (r - l) * k)
-            assert img.get_height() <= (b - t) * k + 1.0, (
-                nid, k, img.get_height(), (b - t) * k)
+    zoom = mindmap.local_zoom()
+    for camid in sorted(lay)[::4]:
+        labels = mindmap.local_label_layout(lay, lay[camid], zoom=zoom,
+                                            sel=camid)
+        for k in (1.0, 2.0):  # 640-wide and 1280-wide surfaces
+            for nid, info in labels.items():
+                l, t, r, b = info["box"]
+                img = _label_img(tbl[nid]["label"], label_pt(16, k),
+                                 (200, 200, 200))
+                assert img.get_width() <= (r - l) * k + 1.0, (
+                    nid, k, img.get_width(), (r - l) * k)
+                assert img.get_height() <= (b - t) * k + 1.0, (
+                    nid, k, img.get_height(), (b - t) * k)
 
 
 def test_region_headers_render_at_reserved_width(surf):
@@ -296,15 +299,61 @@ def test_region_headers_render_at_reserved_width(surf):
         assert max_right <= w_reserved + 1.0, (region, max_right, w_reserved)
 
 
-def test_camera_suspended_during_reveal(_physics_mode):
+def test_camera_owned_by_reveal_while_it_plays(_physics_mode):
+    """ROUND-2 ADAPTATION: the reveal now installs its OWN camera glide
+    (from wherever the camera sits to the revealing node -- the
+    continuity fix), so "suspended" no longer means dur == 0; it means
+    the reveal's target is never stolen: a mid-animation selection
+    change must not re-aim the camera away from the revealing node."""
     sc, s, app = _scene(think_done=["vocation-just-war"])
     sc.on_enter(app)
     assert sc.reveal is not None
-    # force a selection the camera has NOT yet glided to, simulating a
-    # mid-animation change -- the reveal's own camera math (_to_screen) owns
-    # the view regardless, so this must never start a selection glide
+    node = sc.reveal["node"]
+    assert sc._cam["to"] == sc.layout[node]  # aimed at the revealing node
     sc.sel = next(nid for nid in sc._visible() if nid != sc._cam_sel)
     for _ in range(120):  # 2s mid-reveal
         sc.update(app, 1 / 60)
-    assert sc._cam["dur"] == 0.0  # no glide ever started
+    assert sc.reveal is not None
+    assert sc._cam["to"] == sc.layout[node]  # target never stolen
     assert sc._cam_sel != sc.sel  # update() never latched the new target
+
+
+def test_reveal_pulls_camera_continuously_from_selection(_physics_mode):
+    """The director's round-2 discontinuity report, pinned as a test: the
+    completed thought is generally NOT the navigated selection, and the
+    transition from the selection's neighborhood to the reveal's node
+    must be a continuous glide -- no snap, no cut. The OLD code
+    interpolated the reveal camera from a GLOBAL origin-centered framing,
+    which snapped by hundreds of px the moment the reveal started; this
+    asserts the reveal starts bitwise-where-the-camera-was and moves only
+    a few px in its first tick."""
+    sc, s, app = _scene()
+    sc.on_enter(app)
+    sc.page = "mind"
+    sc._ensure_selection()
+    _run(sc, app, 1.2)  # past the open settle
+    node = sorted(mindmap.frontier(set(s.mind)))[0]
+    # park the camera on the visible node FARTHEST from the completing one
+    tx, ty = sc.layout[node]
+    far = max(sc._visible(),
+              key=lambda nid: math.hypot(sc.layout[nid][0] - tx,
+                                         sc.layout[nid][1] - ty))
+    sc.sel = far
+    sc.update(app, 1 / 60)
+    _run(sc, app, CAM_GLIDE_DUR + 0.3)  # camera arrives on `far`
+    cam0 = sc._cam_pos()
+    zoom0 = sc._zoom()
+    probe0 = sc._to_screen(pygame.Surface((640, 360)), tx, ty)
+    s.think_done.append(node)
+    sc._start_reveal(app)
+    from perihelion.podscene import REVEAL_GLIDE
+    assert sc._cam["from"] == cam0          # starts where the camera IS
+    assert sc._cam["dur"] == REVEAL_GLIDE   # ...and GLIDES, never snaps
+    assert sc._cam_pos() == cam0            # t == t0: not moved yet
+    assert sc._zoom() == zoom0              # zoom ramps from the baseline
+    probe1 = sc._to_screen(pygame.Surface((640, 360)), tx, ty)
+    assert probe0 == probe1                 # the frame is bitwise continuous
+    sc.update(app, 1 / 60)                  # one 60Hz tick into the glide
+    probe2 = sc._to_screen(pygame.Surface((640, 360)), tx, ty)
+    d = math.hypot(probe2[0] - probe1[0], probe2[1] - probe1[1])
+    assert d < 25.0, d  # eased first step; the old snap here was 100s of px
