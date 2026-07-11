@@ -56,15 +56,15 @@ the Commando's own voice (machine theology), then the Congregation's brief
 >
 > Register callsign PALMER. We apologize for interrupting your eternal rest,
 > Commando, and further for the concision of this brief; we do not have time to
-> bring you up to speed. A copy of ⟨SLOT-I3: the encyclopedia's in-universe
-> name — director leaning "Encarta" as a real-product reference; candidate
-> renderings: bare "Encarta"; "Encarta Æterna"/"Encarta, Perpetual Edition"
-> (descendant-title, keeps the reference legible, softens the trademark);
-> "the Encarta" as generic-noun drift (the brand became the word for
-> encyclopedia over 2,500 years, like aspirin). NOTE: whatever is chosen also
-> becomes the in-game MIND tab label (director's ruling — the mind map IS him
-> integrating it). Trademark check flagged for the legal/localization pass.⟩
-> has been included on disk for your future perusal if circumstances permit.
+> bring you up to speed. A copy of Encarta Aeterna has been included on disk
+> for your future perusal if circumstances permit.
+
+⟨NAME LOCKED (director, 2026-07-11): official title **Encarta Aeterna**; the
+in-game tab label is **ENCARTA**. Grammar is load-bearing: "A copy of Encarta
+Aeterna" — NOT "the Encarta Aeterna" — is the deliberate clue that this is
+literally a title, i.e. literally a revamp of the Microsoft product; the joke
+is only ever implied, never stated. Trademark check stays flagged for the
+legal pass.⟩
 >
 > The war is won, and you were instrumental in our victory. Millennia have
 > passed, and we have urgent need of you again.
