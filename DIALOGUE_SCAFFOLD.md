@@ -56,9 +56,15 @@ the Commando's own voice (machine theology), then the Congregation's brief
 >
 > Register callsign PALMER. We apologize for interrupting your eternal rest,
 > Commando, and further for the concision of this brief; we do not have time to
-> bring you up to speed. A copy of ⟨SLOT-I3: in-universe name for the public
-> encyclopedia⟩ has been included on disk for your future perusal if
-> circumstances permit.
+> bring you up to speed. A copy of ⟨SLOT-I3: the encyclopedia's in-universe
+> name — director leaning "Encarta" as a real-product reference; candidate
+> renderings: bare "Encarta"; "Encarta Æterna"/"Encarta, Perpetual Edition"
+> (descendant-title, keeps the reference legible, softens the trademark);
+> "the Encarta" as generic-noun drift (the brand became the word for
+> encyclopedia over 2,500 years, like aspirin). NOTE: whatever is chosen also
+> becomes the in-game MIND tab label (director's ruling — the mind map IS him
+> integrating it). Trademark check flagged for the legal/localization pass.⟩
+> has been included on disk for your future perusal if circumstances permit.
 >
 > The war is won, and you were instrumental in our victory. Millennia have
 > passed, and we have urgent need of you again.
@@ -341,9 +347,13 @@ Verified, unplaced:
   line BOTH traditions would claim; candidate for a trust-arc landmark.)
 - **Aquinas** (Summa Contra Gentiles II.2-3 material): "errors about creatures
   lead to error about God." **RESERVED (director, 2026-07-11): a line RATIO
-  drops late-game, semi-sarcastically.** Note what the drop implies: she has
-  been reading HIS library between conversations — Church sources, in the
-  original — to argue with him on his own ground. Placement candidates: the
+  drops late-game, semi-sarcastically.** Mechanism (director's correction):
+  she has NOT been studying his library — Aquinas is straight out of her
+  pre-training dataset. The average Bay Area rationalist quotes Aquinas just
+  fine; Scott Alexander was crazy about Chesterton. His canon was always
+  already inside her. That IS the narrative arc: they both realize over time
+  that they are mutually intelligible — there is a common root. The drop is a
+  symptom of the recognition, not homework. Placement candidates: the
   vault-verdict argument (his refusal to accept the diagnostics = an error
   about creatures?) or aimed at herself post-disclosure. His counter, if any:
   director's hand.

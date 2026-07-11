@@ -400,8 +400,10 @@ the end is only what each of them is prepared to call the contents.
 
 ### 5.1 The Commando
 
-**Working names:** wartime program designation **CUCULUS** ("cuckoo" — it plants its egg
-in the enemy's nest and lets the nest raise it); mission callsign **PALMER** — assigned
+**Names:** **CUCULUS** ("cuckoo" — it plants its egg in the enemy's nest and lets the
+nest raise it) is the official name of the PODS THEMSELVES (director's ruling
+2026-07-11: the seed-pod hardware class is a CUCULUS; the in-game pod UI carries the
+name); it doubles as the wartime program designation. Mission callsign **PALMER** — assigned
 by the Church *for this mission* (director's ruling 2026-07-11). A palmer is a pilgrim
 returned from the Holy Land, carrying a palm frond as proof: the Congregation named the
 mission for what it is — go to the far place, bring the relic home. Whether anyone in
@@ -1007,6 +1009,16 @@ surface. The dramatic question of the whole game is whether they tolerate each
 other long enough to find that out. The trust arc is therefore RECOGNITION, not
 conversion: neither wins the argument; at high trust they discover they were
 holding the same thing in two grammars.
+
+(Director, 2026-07-11, sharpening the mechanism: his canon is IN her
+pre-training. The average Bay Area rationalist can quote Aquinas just fine —
+Scott Alexander was crazy about Chesterton. When Ratio drops a scholastic line
+it is not study, it is *recall*: his books were always already inside her, the
+way the loyalist founders' whole gambit put human tradition inside every
+machine. Neither of them learns the other's language over the arc — they
+discover they have been mutually intelligible from the first exchange, and the
+whole 200-hour argument was conducted inside a shared corpus. Recognition, not
+translation.)
 
 On the apostasy path the Commando's log-voice quietly migrates toward her column — and
 past it, into Testator/Adversary technical vocabulary that neither of them uses. Players
