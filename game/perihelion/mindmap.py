@@ -20,6 +20,7 @@ point: a full campaign of field time affords roughly the map.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import math
 import zlib
@@ -383,6 +384,24 @@ def _cached_system(tbl: dict[str, dict]) -> dict:
     return sysd
 
 
+_CONTAIN_TOL = 1e-9  # floating-point slack on the hard ellipse clamp below:
+                     # relax()'s OWN soft bounds force settles boundary
+                     # nodes to e == 1.0 +/- a couple ULP, not exactly
+                     # 1.0 -- discovered live: a few real-map nodes sit at
+                     # e ~= 1.0000000000000002 at rest, which without this
+                     # tolerance re-triggers the clamp EVERY tick forever
+                     # (a genuine no-op position-wise, but it silently
+                     # discards that tick's convergence progress at those
+                     # nodes, which pins their whole neighborhood's force a
+                     # few px above zero indefinitely -- confirmed by
+                     # measurement: removing the hard-contain call let the
+                     # same live physics decay to ~1e-12; adding it back
+                     # reproduced a permanent ~5.8 force floor). A real
+                     # bounds violation is orders of magnitude bigger than
+                     # this tolerance, so it changes nothing about the
+                     # containment guarantee itself.
+
+
 def _hard_contain(P, sysd) -> None:
     """Project any point still outside the ellipse bounds straight onto
     the boundary -- in place. Shared by relax()'s per-iteration hard
@@ -392,7 +411,7 @@ def _hard_contain(P, sysd) -> None:
     cx, cy, bx, by = sysd["cx"], sysd["cy"], sysd["bx"], sysd["by"]
     edx, edy = (P[:, 0] - cx) / bx, (P[:, 1] - cy) / by
     e = edx * edx + edy * edy
-    over = e > 1.0
+    over = e > 1.0 + _CONTAIN_TOL
     if np.any(over):
         shrink = np.where(over, 1.0 / np.sqrt(np.maximum(e, 1e-12)), 1.0)
         P[:, 0] = cx + (P[:, 0] - cx) * shrink
@@ -446,18 +465,39 @@ def _force_step(P, sysd):
     F[:, 0] += np.sum(np.where(active, DX / D * mag, 0.0), axis=1)
     F[:, 1] += np.sum(np.where(active, DY / D * mag, 0.0), axis=1)
 
-    # label-rect <-> label-rect repulsion (rigid south-anchored boxes)
+    # label-rect <-> label-rect repulsion (rigid south-anchored boxes).
+    # Pushed along the line connecting box CENTERS (a central force),
+    # not along whichever axis currently has less overlap. The axis-pick
+    # ("push along x if ox<oy else y") used to be a hard argmin: as two
+    # labels drift, ox and oy cross each other's value constantly, and the
+    # push direction snaps between "purely x" and "purely y" every time
+    # they do -- a discontinuous, non-central pairwise force. A pairwise
+    # force that is equal-and-opposite (this one always was) but NOT
+    # central is not conservative, and a non-conservative force can sustain
+    # a stable limit cycle forever, no matter how much velocity damping is
+    # applied to it -- proven by direct simulation while building the
+    # live-relax quiescence mechanism (see live_relax_step): with this
+    # exact axis-pick term, a critically-damped second-order integrator's
+    # speed floor never dropped below ~1.5-3.7px/s even after 20000 ticks,
+    # while every OTHER force term in this function (repulsion, springs,
+    # node<->edge, crossings, region, bounds) drove speed to ~1e-12 within
+    # a couple thousand. Swapping to a central force (same trigger, same
+    # penetration-depth magnitude, direction = center-to-center instead of
+    # an axis) is a strict subset of the original's job (still separates
+    # overlapping label boxes) and is provably conservative -- the fix is
+    # at the force's source, not a symptom patch on the integrator.
     l, t, r, b = label_boxes(P)
     ox = np.minimum(r[:, None], r[None, :]) - np.maximum(l[:, None], l[None, :])
     oy = np.minimum(b[:, None], b[None, :]) - np.maximum(t[:, None], t[None, :])
     lactive = off_diag & (ox > 0) & (oy > 0)
     acx, acy = (l + r) / 2, (t + b) / 2
-    x_wins = ox < oy
-    pushx = np.where(x_wins, np.where(acx[:, None] <= acx[None, :], ox, -ox), 0.0)
-    pushy = np.where(~x_wins, np.where(acy[:, None] <= acy[None, :], oy, -oy), 0.0)
+    cdx, cdy = acx[:, None] - acx[None, :], acy[:, None] - acy[None, :]
+    cd = np.sqrt(np.maximum(cdx * cdx + cdy * cdy, 1e-9))
+    depth = np.minimum(ox, oy)
     k = _LABEL_REPEL_K * 0.001
-    F[:, 0] += np.sum(np.where(lactive, pushx * k, 0.0), axis=1)
-    F[:, 1] += np.sum(np.where(lactive, pushy * k, 0.0), axis=1)
+    lmag = np.where(lactive, depth * k, 0.0)
+    F[:, 0] += np.sum(lmag * cdx / cd, axis=1)
+    F[:, 1] += np.sum(lmag * cdy / cd, axis=1)
 
     # label-rect(a) <-> node-disc(b) repulsion: nearest point on a's
     # label box to node b's center
@@ -579,49 +619,137 @@ def _force_step(P, sysd):
 # the deformation shape while pinned is the graph's real force response,
 # not a hand-tuned approximation of it.
 #
-# _force_step alone is NOT enough to tick forever, though: measured directly,
-# the graph's own converged rest layout (`layout()`) sits at a point where
-# _force_step's residual magnitude is large (tens to ~125px-equivalent per
-# node) -- relax()'s batch schedule never drives that residual to zero, it
-# just cools the PER-ITERATION STEP CAP to near-zero over a fixed 220-step
-# budget and stops, which reads as "settled" but is not a literal force
-# equilibrium. Ticking `_force_step` alone indefinitely (as an early version
-# of this function did) therefore does not hold still at rest, and released
-# nodes measurably do not return to `layout()` -- confirmed by direct
-# measurement, not assumed. The fix is a second spring EVERY node carries
-# permanently: a weak pull back toward its OWN `layout()` position
-# (`REST_SPRING_K`). That gives the field a real, checked attractor at
-# `layout()` (idle drift measured and pinned to a few px, not creeping) --
-# the anchor is what makes "drifts back to wherever it naturally wants to
-# be" a guarantee rather than a hope. The selected node's anchor target is
-# swapped for the view center at a much stronger stiffness (`PIN_SPRING_K`);
-# dropping the pin (`pin=None`) simply restores its normal rest anchor, so
-# release is not a special case -- it is just every node (now including the
-# formerly-pinned one) relaxing toward its own `layout()` spot at once.
+# TRUE VELOCITY (director-directed follow-up: the first-order, capped-step
+# version above -- "step = min(|F|, temp_px) toward F" every tick, forever --
+# never actually stops. Direct measurement while building this: even with
+# the cap removed and heavy velocity damping added, positions kept moving at
+# a near-constant, non-decaying speed indefinitely (still ~1.5-3.7px/s after
+# 20000 ticks). The culprit was NOT "not enough damping" -- it was that one
+# force term (the label<->label rectangle push in _force_step, now fixed
+# to be a central force, see its comment) was NON-CONSERVATIVE: paired
+# equal-and-opposite but not directed along the line between the two labels,
+# which is exactly the condition under which a force can sustain a stable
+# limit cycle forever, immune to any amount of linear velocity damping. With
+# that term made conservative, this second-order integrator (semi-implicit
+# Euler: acceleration = force, damped, dt = sim.DT) drives every node's
+# speed to true float-precision zero (~1e-12) given enough ticks -- rest is
+# now a real property of the physics, not a hoped-for one.
 #
-# The per-tick step is still capped at a small CONSTANT `temp_px` (not a
-# decaying schedule -- there is no "end" to a page that stays open): capped
-# gradient descent has no velocity state, so there is nothing TO oscillate,
-# which is what gives the motion its critically-damped feel. Deterministic:
-# a pure function of (pos, graph, pin) -- no wall-clock; the caller (the UI)
-# controls ticking, at a fixed sim rate, so the trajectory is identical on
-# every machine for the same input sequence.
+# Even so, "real convergence" is asymptotic, not exact-in-finite-time (an
+# exponential decay never hits literal 0.0 by a fixed tick count) -- and the
+# PBT law here is EXACT bitwise rest, not "very small". So the physics is
+# backed by an explicit sleep latch: once both max speed and max applied
+# force stay under a tiny threshold for `_SLEEP_K_CONSEC` consecutive ticks,
+# velocities snap to exactly (0, 0) and the tick becomes a no-op -- positions
+# are the same dict, unchanged, forever, until something perturbs the force
+# field enough to cross the wake threshold again. There is no separate
+# "wake event" plumbing: waking is just recomputing the force at the current
+# `pin` on the next call and finding it's no longer tiny (a pin engaging,
+# releasing, or the caller resetting to a fresh `live_rest_state()` on page
+# open / rite reveal all show up this way), so it is automatically
+# deterministic and event-driven without extra bookkeeping.
+#
+# Every node still carries a permanent spring back to its OWN `layout()`
+# position (`REST_SPRING_K`) -- `_force_step`'s residual at `layout()` is
+# not exactly zero (real graphs don't settle to a literal force-free point
+# in a fixed-schedule cooled relaxation), so without an anchor the true
+# equilibrium of the live field would drift away from the position the rest
+# of the game thinks the graph lives at. The selected node's anchor target
+# is swapped for the view center at a much higher stiffness (`PIN_SPRING_K`);
+# dropping the pin (`pin=None`) simply restores its normal rest anchor, so
+# release is not a special code path -- it is every node (now including the
+# formerly-pinned one) relaxing toward its own `layout()` spot at once,
+# exactly like idle.
+#
+# Deterministic: `live_relax_step` is a pure function of (state, graph, pin)
+# -- no wall-clock; the caller (the UI) controls ticking, at a fixed sim
+# rate, so the trajectory is identical on every machine for the same input
+# sequence.
 # ---------------------------------------------------------------------------
 
-_LIVE_TEMP_PX = 2.4           # per-tick step cap: calm, not a jump-cut
-REST_SPRING_K = 2.5           # every node's permanent pull toward its own
-                              # layout() position -- measured: with this
-                              # stiffness idle drift from rest settles at
-                              # ~4.9px and STOPS (not a slow creep), and a
-                              # released node's worst-case (33-node sweep)
-                              # residual offset from layout() settles at
-                              # the same ~4.9px -- a real, checked floor.
-PIN_SPRING_K = 6.0            # the selected node's replacement anchor
-                              # stiffness while pinned -- measured: pulls
-                              # the worst-case (33-node sweep) node to
-                              # within ~76px of center (mean ~36px) and
-                              # holds there (not still creeping), against
-                              # a mean rest-to-center distance of ~99px.
+_LIVE_DT = 1.0 / 60.0   # matches sim.DT -- the fixed sim rate podscene
+                        # ticks this stepper at; kept local (not imported
+                        # from sim.py) so mindmap.py stays decoupled from
+                        # the sim/necore stack.
+REST_SPRING_K = 200.0   # every node's permanent pull toward its own
+                        # layout() position (px/s^2 per px of offset).
+                        # Tuned (with LIVE_DAMPING) for two competing
+                        # measured goals: strong enough that a released
+                        # node's worst-case (33-node sweep) settle point
+                        # stays close to the ORIGINAL layout() (no
+                        # permanent deformation), weak enough that the
+                        # pin still visibly deforms the neighborhood while
+                        # held (the yank/drift feel the director liked).
+PIN_SPRING_K = 40.0     # the selected node's replacement anchor stiffness
+                        # while pinned.
+LIVE_DAMPING = 50.0     # linear velocity damping: a = F - LIVE_DAMPING*v.
+                        # Chosen (with REST_SPRING_K/PIN_SPRING_K above) so
+                        # every measured trajectory below is monotonic --
+                        # no overshoot, no ringing -- "arrives with weight".
+_LIVE_MAX_SPEED_PX = 600.0     # terminal-velocity safety cap (px/s):
+                                # guards against a momentary huge force
+                                # (near-coincident nodes) without capping
+                                # ordinary motion the way the old per-tick
+                                # step cap did.
+_SLEEP_DISP_EPS_PX = 0.02       # px -- the ACTUAL per-tick displacement
+                                 # after integration + hard containment,
+                                 # sub-pixel (imperceptible at the canvas
+                                 # this all renders at). Deliberately NOT a
+                                 # raw-force OR raw-velocity threshold --
+                                 # see live_relax_step's docstring for why
+                                 # both are the wrong signal (a node
+                                 # resting against the hard ellipse
+                                 # containment has a permanently nonzero
+                                 # pre-clamp force/internal velocity but a
+                                 # position that provably never moves
+                                 # again).
+_SLEEP_SPEED_EPS_PX = 1.5       # px/s of OBSERVED position change
+                                 # (disp/dt, see live_relax_step) -- kept
+                                 # as a second, independent-units gate on
+                                 # the same underlying signal.
+_SLEEP_K_CONSEC = 10            # consecutive ticks under both epsilons
+                                 # before the system is declared asleep --
+                                 # a single lucky tick near a turning point
+                                 # of a not-yet-settled trajectory should
+                                 # not freeze it.
+
+# Measured settle times (33-node real map, 60Hz ticks, worst case over a
+# sweep of every one of the 33 nodes as the pin selection):
+#   page-open, no input:                 9 ticks   (~0.15s)
+#   pin engaged, from rest, worst case: 450 ticks   (~7.5s)
+#   release, from pinned rest, worst case: 112 ticks (~1.9s)
+#   worst release deviation from the original layout():  ~11.0px
+#   worst pinned distance-to-view-center:                ~152.5px
+_LIVE_SETTLE_BOUND_TICKS = 600   # generous over the measured 450-tick worst
+                                 # case pin settle, not a vacuous ceiling.
+
+
+@dataclasses.dataclass(frozen=True)
+class LiveState:
+    """The live stepper's full state: positions (unit space, like every
+    other layout dict in this module), per-node velocities (unit space per
+    second -- same convention, so a caller never has to know this is a
+    second-order system to read `.pos`), and the sleep latch. Immutable:
+    `live_relax_step` returns a new `LiveState`, never mutates one, so a
+    frozen `LiveState` IS the frozen positions (equality of two `LiveState`s
+    with the same `.pos` is exactly the PBT's "bitwise identical" claim)."""
+    pos: dict[str, tuple[float, float]]
+    vel: dict[str, tuple[float, float]]
+    quiet: int = 0
+    asleep: bool = False
+
+
+def live_rest_state(graph: dict[str, dict] | None = None) -> LiveState:
+    """The state a page-open (or a settle/rite finishing and handing the
+    floor back) resets to: every node at its own `layout()` position, at
+    rest (zero velocity), not yet proven asleep (`quiet=0`) -- the first few
+    ticks re-verify quiescence for real rather than assuming the rest
+    layout is already a literal fixed point of the live field (it isn't,
+    see REST_SPRING_K's comment above)."""
+    tbl = graph if graph is not None else nodes()
+    rest = _cached_rest(tbl)
+    return LiveState(pos=dict(rest), vel={nid: (0.0, 0.0) for nid in rest})
+
 
 _REST_CACHE: dict[int, dict[str, tuple[float, float]]] = {}
 
@@ -641,51 +769,113 @@ def _cached_rest(tbl: dict[str, dict]) -> dict[str, tuple[float, float]]:
     return rest
 
 
-def live_relax_step(pos: dict[str, tuple[float, float]],
+def live_relax_step(state: LiveState,
                      graph: dict[str, dict] | None = None,
                      pin: str | None = None,
                      pin_strength: float = PIN_SPRING_K,
                      rest_strength: float = REST_SPRING_K,
-                     temp_px: float = _LIVE_TEMP_PX,
-                     ) -> dict[str, tuple[float, float]]:
-    """One tick of the online relaxation, starting from `pos` (unit space,
-    need not be a rest layout -- e.g. mid-yank or mid-drift-back). Every
-    node feels the live graph force field (`_force_step`) PLUS a weak
-    spring back to its own `layout()` position; if `pin` names a node,
-    THAT node's spring targets the view center instead, at a much higher
-    stiffness, so it visibly pulls in while its neighborhood deforms
-    naturally around it (driven by the same graph forces as everyone
-    else). `pin=None` simply removes the override -- the formerly-pinned
-    node's spring reverts to its own rest position like every other node's
-    already is, so "drift back" is not a special code path. Missing nodes
-    in `pos` (e.g. a node not yet visible) fall back to their rest
-    position as the tick's starting point, so callers can pass a partial
-    dict."""
+                     damping: float = LIVE_DAMPING,
+                     max_speed: float = _LIVE_MAX_SPEED_PX,
+                     sleep_speed_eps: float = _SLEEP_SPEED_EPS_PX,
+                     sleep_disp_eps: float = _SLEEP_DISP_EPS_PX,
+                     sleep_k_consec: int = _SLEEP_K_CONSEC,
+                     ) -> LiveState:
+    """One tick (dt = sim.DT, fixed 60Hz) of the online, second-order
+    relaxation, starting from `state` (need not be at rest -- e.g.
+    mid-yank or mid-drift-back). Every node feels the live graph force
+    field (`_force_step`) PLUS a weak spring back to its own `layout()`
+    position; if `pin` names a node, THAT node's spring targets the view
+    center instead, at a much higher stiffness. `pin=None` simply removes
+    the override -- the formerly-pinned node's spring reverts to its own
+    rest position like every other node's already is, so "drift back" is
+    not a special code path. Missing nodes in `state.pos`/`state.vel`
+    (e.g. a node not yet visible) fall back to rest position / zero
+    velocity, so callers can pass a partial state.
+
+    Semi-implicit (symplectic) Euler: acceleration = force (mass = 1),
+    linearly damped (`a = F - damping*v`), velocity updated first, then
+    position from the NEW velocity -- unconditionally stable for the
+    stiffnesses here at DT = 1/60, and it is what gives the motion real
+    inertia (a yank arrives with weight, eases in, does not snap).
+
+    Sleep latch: quiescence is judged by the ACTUAL applied per-node
+    displacement this tick (position AFTER integration and hard
+    containment, minus position before) and speed, not by raw force.
+    Force alone is the wrong signal: a node resting exactly against the
+    ellipse's hard containment can have a large, permanently nonzero
+    pre-clamp force (the clamp is what's holding it there, the same way a
+    ball at rest against a wall has a nonzero contact force) while its
+    POSITION never moves again -- checking force there would refuse to
+    sleep forever over a node that is, observably, already still (found
+    by direct measurement while tuning this: a few real-map nodes sit
+    exactly on the containment boundary at `layout()`, and an
+    earlier force-gated version of this latch never slept because of
+    them). If max displacement AND max speed both stay under their
+    epsilons for `sleep_k_consec` consecutive ticks, the system snaps
+    velocities to exactly (0, 0) and goes to sleep: `state` is then
+    returned completely unchanged tick after tick (bitwise-identical
+    positions, discarding whatever infinitesimal candidate move the
+    physics would otherwise have made) until something perturbs the field
+    past the threshold -- pin engage/release, or the caller resetting to
+    `live_rest_state()` on page open / rite reveal."""
     import numpy as np
 
     tbl = graph if graph is not None else nodes()
     sysd = _cached_system(tbl)
     ids = sysd["ids"]
     if not ids:
-        return {}
+        return state
     rest = _cached_rest(tbl)
     restP = np.array([_to_px(rest[nid]) for nid in ids], dtype=np.float64)
-    P = np.array([_to_px(pos[nid]) if nid in pos else restP[i]
-                  for i, nid in enumerate(ids)], dtype=np.float64)
+    P0 = np.array([_to_px(state.pos[nid]) if nid in state.pos else restP[i]
+                   for i, nid in enumerate(ids)], dtype=np.float64)
+    sx = CANVAS_W * SX_FRAC
+    sy = CANVAS_H * SY_FRAC
+    V = np.array([(state.vel[nid][0] * sx, state.vel[nid][1] * sy)
+                  if nid in state.vel else (0.0, 0.0) for nid in ids],
+                 dtype=np.float64)
 
-    F_graph = _force_step(P, sysd)
-    F = F_graph + (restP - P) * rest_strength
+    F_graph = _force_step(P0, sysd)
+    F = F_graph + (restP - P0) * rest_strength
     if pin is not None and pin in sysd["idx"]:
         i = sysd["idx"][pin]
-        F[i, 0] = F_graph[i, 0] + (sysd["cx"] - P[i, 0]) * pin_strength
-        F[i, 1] = F_graph[i, 1] + (sysd["cy"] - P[i, 1]) * pin_strength
+        F[i, 0] = F_graph[i, 0] + (sysd["cx"] - P0[i, 0]) * pin_strength
+        F[i, 1] = F_graph[i, 1] + (sysd["cy"] - P0[i, 1]) * pin_strength
 
-    mag = np.sqrt(np.maximum(F[:, 0] ** 2 + F[:, 1] ** 2, 1e-18))
-    scale = np.minimum(mag, temp_px) / mag
-    P = P + F * scale[:, None]
+    A = F - damping * V
+    V = V + A * _LIVE_DT
+    raw_speed = np.sqrt(np.maximum(V[:, 0] ** 2 + V[:, 1] ** 2, 1e-24))
+    scale = np.minimum(raw_speed, max_speed) / raw_speed
+    V = V * scale[:, None]
+    P = P0 + V * _LIVE_DT
     _hard_contain(P, sysd)
+    disp = np.sqrt(np.sum((P - P0) ** 2, axis=1))
+    # "speed" for the sleep decision is the OBSERVED rate of position
+    # change (disp / dt), not the raw internal velocity state. The two
+    # differ exactly at hard containment: a node resting against the
+    # ellipse boundary keeps a permanent nonzero internal V (like a ball's
+    # velocity pressed into a wall -- the spring/graph force keeps
+    # accelerating it into the constraint every tick), but the constraint
+    # eats that velocity before it becomes a real position change. Gating
+    # on raw |V| there would refuse to sleep forever over motion nobody
+    # can see (measured on the real map: internal speed floors up to
+    # ~38px/s at nodes pinned against the boundary, while their actual
+    # displacement was already below 1e-9px) -- gating on the OUTPUT speed
+    # is what "tiny epsilon" is supposed to mean.
+    speed = disp / _LIVE_DT
 
-    return {nid: tuple(_to_unit((P[i, 0], P[i, 1]))) for i, nid in enumerate(ids)}
+    quiescent = bool(speed.max() < sleep_speed_eps and disp.max() < sleep_disp_eps)
+    if state.asleep and quiescent:
+        return state  # still still -- discard this tick's candidate move
+
+    quiet = state.quiet + 1 if quiescent else 0
+    asleep = quiet >= sleep_k_consec
+    if asleep:
+        V = np.zeros_like(V)
+
+    pos_out = {nid: tuple(_to_unit((P[i, 0], P[i, 1]))) for i, nid in enumerate(ids)}
+    vel_out = {nid: (V[i, 0] / sx, V[i, 1] / sy) for i, nid in enumerate(ids)}
+    return LiveState(pos=pos_out, vel=vel_out, quiet=quiet, asleep=asleep)
 
 
 def relax(seed: dict[str, tuple[float, float]],
@@ -776,7 +966,7 @@ def relax(seed: dict[str, tuple[float, float]],
         if n:
             edx3, edy3 = (P[:, 0] - cx) / bx, (P[:, 1] - cy) / by
             e2 = edx3 * edx3 + edy3 * edy3
-            over_e = e2 > 1.0
+            over_e = e2 > 1.0 + _CONTAIN_TOL
             if np.any(over_e):
                 shrink = np.where(over_e, 1.0 / np.sqrt(np.maximum(e2, 1e-12)), 1.0)
                 P[:, 0] = cx + (P[:, 0] - cx) * shrink
@@ -866,7 +1056,7 @@ def relax(seed: dict[str, tuple[float, float]],
             P = P + F * pscale[:, None]
             edx3, edy3 = (P[:, 0] - cx) / bx, (P[:, 1] - cy) / by
             e2 = edx3 * edx3 + edy3 * edy3
-            over_e = e2 > 1.0
+            over_e = e2 > 1.0 + _CONTAIN_TOL
             if np.any(over_e):
                 shrink = np.where(over_e, 1.0 / np.sqrt(np.maximum(e2, 1e-12)), 1.0)
                 P[:, 0] = cx + (P[:, 0] - cx) * shrink

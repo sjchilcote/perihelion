@@ -171,7 +171,7 @@ class PodScene(Scene):
         # the center pin, no special-cased transition needed. Suspended
         # (positions held at rest) whenever a baked settle or the rite
         # ceremony owns the camera -- see _node_pos()/update().
-        self._pin_pos: dict[str, tuple[float, float]] = dict(self.layout)
+        self._pin_state = mindmap.live_rest_state()
         self._pin_accum = 0.0
 
     # ------------------------------------------------------------------
@@ -218,9 +218,9 @@ class PodScene(Scene):
         if s is None and self.rite is None:
             # no baked settle or ceremony in flight: the live selection pin
             # owns positions (ceremony precedence -- see update()'s
-            # pin-suspend guard, which keeps _pin_pos parked at rest
+            # pin-suspend guard, which keeps _pin_state parked at rest
             # whenever a settle or the rite is active)
-            p = self._pin_pos.get(nid)
+            p = self._pin_state.pos.get(nid)
             if p is not None:
                 return p
         return self.layout.get(nid, (0.0, 0.0))
@@ -240,10 +240,11 @@ class PodScene(Scene):
 
     def _update_pin(self, dt: float) -> None:
         if self._settle is not None or self.rite is not None:
-            # ceremony/settle precedence: park the pin at rest so it
-            # resumes cleanly (not from a stale mid-yank position) the
+            # ceremony/settle precedence: park the pin at a fresh rest
+            # state (asleep=False, quiet=0 -- re-verified, not assumed) so
+            # it resumes cleanly (not from a stale mid-yank position) the
             # instant it gets the floor back
-            self._pin_pos = dict(self.layout)
+            self._pin_state = mindmap.live_rest_state()
             self._pin_accum = 0.0
             return
         if self.page != "mind":
@@ -251,7 +252,7 @@ class PodScene(Scene):
         self._pin_accum += dt
         while self._pin_accum >= DT:
             self._pin_accum -= DT
-            self._pin_pos = mindmap.live_relax_step(self._pin_pos, pin=self.sel)
+            self._pin_state = mindmap.live_relax_step(self._pin_state, pin=self.sel)
 
     def on_exit(self, app) -> None:
         if self._ducked:
