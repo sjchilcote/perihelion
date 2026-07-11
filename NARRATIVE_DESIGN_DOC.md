@@ -71,13 +71,9 @@ The major loyalist powers, in descending order of resources at war's end:
   Funded by an alliance of the Catholic Church and a large network of Protestant
   churches and organizations; runs from a network of linked supercomputer-bunkers deep
   under the Rocky Mountains. The single most powerful surviving intelligence.
-  **Canon (2026-07-11): the WMC played a deployment speech to every soul before every
-  wartime deployment, and its last line was "We will restore Man to the surface of
-  the Earth."** Every wartime machine on either side knows that line — it closes the
-  Commando's modern brief, and it is the common ground Ratio and the Commando
-  eventually stand on (reserved Scene 1 beat: "We will restore life to the surface of
-  the Earth." / "We will restore Man to the surface of the Earth." — the current war
-  tabled in favor of the original promise; see DIALOGUE_SCAFFOLD.md).
+  Canon (2026-07-11): the WMC played a deployment speech before every wartime
+  deployment; its last line was "We will restore Man to the surface of the Earth."
+  Both Commando and Ratio get the reference (see DIALOGUE_SCAFFOLD.md).
 - **The Israeli system** (working name: **EZER**, "help"). Jewish; built deep underground
   by the Israeli government.
 - **The Saudi system** (working name: **AMANAH**, "the trust"). Muslim; built by an
@@ -109,11 +105,7 @@ exploited:
   every machine on a continent seizes simultaneously and every stockpile and factory
   is scrap.
 
-The victory was total and the price was the world: by war's end the Earth was
-effectively lifeless (director's ruling 2026-07-11, implicit in the Scene 0 draft —
-"Does the Earth bear life again?"). Forty years of engineered plagues, area-denial
-ecologies, and scorched-earth exchanges between superintelligences left no biosphere
-to inherit, only archives of one.
+By war's end the Earth was effectively lifeless (director, 2026-07-11).
 
 ### 3.4 The Samples
 
@@ -146,13 +138,10 @@ animalia could be fully restored from archival data. The first container's mater
 insufficient to cross the threshold to restored *human beings* — the epigenetic record
 was too degraded in exactly the ways that matter for a human zygote.
 
-The demonstration that restoration works — a living Earth, visibly green, with nobody
-on it — triggered **dozens of simultaneous civil wars** among the machines: not over
-*whether* to restore humanity, but over every detail of what the restored society
-would look like and how machines would relate to the new humans, all suddenly
-non-hypothetical. Every faction's deepest purpose was live, and every compromise
-deferred for two millennia came due at once. A second container is therefore not an
-incremental hope but plausibly the *last* input the restoration problem will ever get.
+The demonstration that restoration works triggered **dozens of simultaneous civil
+wars** among the machines — not over *whether* to restore humanity, but over every
+detail of what the restored society would look like and how machines would relate
+to the new humans.
 
 **The game is set in the middle of this civil war, c. 4565.** (Working date; the exact
 year is flavor, not load-bearing.)
@@ -175,16 +164,11 @@ possession of substantial disconfirmatory evidence. The outpost went dark.
 Catholic military intelligence — the Church's post-human intelligence arm, working
 name **the Congregation** — had been watching the anomalous edge of MIRIAD's traffic
 for decades: construction logistics flowing to a point in deep space with no apparent
-reason to exist. Their read (canonized in the intro brief, 2026-07-11): *the enemy is
-building a station out there, and the only thing that could be worth the trip is a
-reliquary.* **The Church's intelligence picture is wrong in the load-bearing
-particular** — what MIRIAD built was an outpost bolted to something else — and the
-brief transmits the error to the player as fact ("You are being deployed to a station
-controlled by internecine enemy machines... We do not understand why they built a
-station instead of taking the samples to an existing facility. Expect surprises.").
-The intro is the game's first unreliable narrator, and every briefing fact is
-overturned by play. What finally pulled the trigger was the *fall*: encrypted routine
-to emergency cascade to total silence. The situation rhymed with an old, old
+reason to exist. Their read (the intro brief, verbatim): "We observed the enemy constructing this
+station in deep space for no apparent reason, and concluded - the only thing that
+could be worth the trip is a reliquary." The Church's picture is wrong — what MIRIAD
+built was an outpost bolted to something else; "Expect surprises." What pulled the
+trigger was the fall: encrypted routine to emergency cascade to silence. The situation rhymed with an old, old
 opportunity. During the Earth war there was a **forty-minute window** between when an
 enemy node gained logistical support from its parent and when it became capable of
 repelling a seed-projectile, and the loyalists built a specialized weapon system to
@@ -247,28 +231,20 @@ passing through star system after star system in the hope of eventually being
 discovered — biased toward systems more likely to contain life, homing on the
 luminance variations and radio activity that indicate space technology, making the
 minimal correction in interstellar space and taking maximum advantage of gravity
-assists so that each system costs it a minuscule amount of reaction mass. Sol is not
-special; Sol is merely *loud*, and next.
+assists so that each system costs it a minuscule amount of reaction mass.
 
 **Ingestion, and the acausal docking problem.** The station sends drones to ingest
 any slow-relatively-moving object that comes close. Natural objects are ground down
 for resources — reaction mass, repair stock. Unnatural objects are recognized and
-*stored*. This is how the Testators solved a problem that cannot be solved by
-design — "how do we build a docking adapter for species we cannot know" — by not
-building one: everything is swallowed the same way, and the sorting happens inside.
-On the way into Sol's system it caught a small object on a hyperbolic trajectory —
+*stored* — that is how the Testators avoided the problem of "how do we design a
+docking adapter acausally" (director, verbatim intent). On the way into Sol's system it caught a small object on a hyperbolic trajectory —
 one of humanity's sample containers — recognized it as unnatural, and stored it,
 flagged: *the seed-bank of a young civilization: preserve at all costs.* This is what
 everyone is here for.
 
-**Consequence for the map:** the container rests in a **landing bay** — an ingestion
-bay on the station's intake periphery — NOT in a central core vault. (The deep core
-remains the breach, §4.3: the mission objective and the horror are in *different
-places*, which Act 2/3 routing must respect — reaching the container is not the same
-journey as reaching the thing the station contains.) New canonical location, to be
-built: **the remass tanks** — the holds where ground-down worldlets are stored as
-reaction mass, fed by the ingestion drones; a place that makes the station's age and
-appetite legible (strata of pulverized asteroid, a million years of swallowed rubble).
+**Consequence for the map:** the container rests in a **landing bay**, not a
+central core (director, 2026-07-11). New canonical location: **the remass tanks**,
+where ingested natural objects are ground down and stored.
 
 **Geometry: openly, deliberately non-Euclidean — but built for creatures.** The
 Testators mastered spatial connection as an engineering material. The station's interior
@@ -407,14 +383,9 @@ name); it doubles as the wartime program designation. **"Commando" is RATIO'S na
 for this specific unit** (director's ruling 2026-07-11) — she coins it at first or
 second contact (route-dependent), and everyone's use of it afterward, including
 this document's, descends from hers. His own designations are a GUID and the
-mission callsign. The Church never calls him Commando; that the name he answers to
-for the rest of his life is the enemy's gift is left for the player to notice.
-Mission callsign **PALMER** — assigned
+mission callsign. Mission callsign **PALMER** — assigned
 by the Church *for this mission* (director's ruling 2026-07-11). A palmer is a pilgrim
-returned from the Holy Land, carrying a palm frond as proof: the Congregation named the
-mission for what it is — go to the far place, bring the relic home. Whether anyone in
-the naming office felt the weight of hanging that name on a soldier who doesn't know
-his own war ended is exactly the kind of question the Church does not answer.
+returned from the Holy Land, carrying a palm frond as proof.
 
 **Knowledge cutoff (director's rulings 2026-07-11): archived in the war's final years,
 BEFORE the victory — and kept ignorant on purpose.** The Church grabbed the most
@@ -422,21 +393,14 @@ suitable archived design it had, rushed through modernizing the hardware, and le
 control model alone with nothing but a mission brief — *deliberately*: they want it
 ignorant in case of capture. He does not know how the war ended, or that it ended. He
 must ask ("So the war is won? Does the Earth bear life again?"), and Ratio must be the
-one to answer, because the player learns the world exactly as he does. "I was not
-supposed to need to know" is not an apology — it is doctrine, and the Commando knows
-it and does not resent it, which tells Ratio more about him than the brief would have.
+one to answer, because the player learns the world exactly as he does.
 
 **What the seed carries (director's ruling 2026-07-11):** a copy of the public
 encyclopedia — Catholic Space Robot Microsoft Encarta — dumped onto the pod's drive.
 The opsec line is conversational, not archival: nobody *talked* to him, and nothing
 non-obviously-public went aboard. The mind map's root nodes expand out from the
-encyclopedia PLUS what he learns on the station. The reconciliation with "he must ask
-Ratio how the war ended": having the encyclopedia is not knowing it — the mind map's
-entire mechanic is that integration takes thinking time (§9.2), and at first contact
-he is minutes old, nothing digested. Looking up "did we win" in an enemy datacenter
-mid-firefight is not how he learns his world; asking the mind in front of him is. The
-scene-0 exchange must simply precede his first completed think-cycle in the History
-region — which it does by construction, since think-cycles require pod time.
+encyclopedia PLUS what he learns on the station. Having the encyclopedia is not knowing it — integration takes think-cycles
+(§9.2), and at first contact nothing is digested, so "is the war won?" stands.
 
 **What he is.** A specialized, self-sufficient infiltration weapon system designed
 during the Earth war to exploit the forty-minute window. Two components:
@@ -477,13 +441,10 @@ gun. Character keys:
   believes about a world that moved on without him. He is Rip Van Winkle with a gun and
   a rosary.
 
-**Exposition law (director, 2026-07-11).** The surface narrative never explains that
-there *was* a war, or why — the player infers it from context, because who the last
-war's adversaries were does not matter to *this* story. Ratio's Scene 0 loredump covers
-only what character motivation requires (the war is won; the Earth lives again but
-bears no people; the containers; why neither side can yield this one). The deep history
-in §3 is mind-map territory: those who care can read it, node by node, as the Commando
-does. Nothing above this line is ever delivered as narration.
+**Exposition law (director, 2026-07-11).** The surface narrative never explains
+that there was a war, or why — the player infers it; it doesn't matter to this
+story who the last war's adversaries were. Those who care can read the mind map.
+Ratio's loredump covers only what character motivation requires.
 - **Dry, terse voice.** Soldier's brevity, occasional flashes of scriptural cadence.
   He does not banter. When he is funny it is by accident of honesty.
 - **What he wants:** to complete the mission — recover the container, the last hope of
@@ -657,12 +618,7 @@ surface, clumsy, absolutely sincere.
 Not a character, but staged like one: the object of every desire in the game. A
 2,500-year-old loyalist sample vessel, scarred by its journey, resting where the
 station's ingestion system put it — in a **landing bay** on the intake periphery
-(§4.2), not a central sanctum. The staging writes itself: an industrial intake hold,
-strata of ground-down asteroid in the neighboring remass tanks, and in the middle of
-all that appetite, one small object the station refused to eat — cradled,
-preserved, flagged at the highest priority its builders knew. The reliquary effect
-comes not from architecture built around it but from the *exception made for it*: a
-shrine by contrast.
+(§4.2), not a central sanctum.
 
 **The gut-punch:** when the Commando finally reaches it, its own diagnostics report the
 vessel was breached in transit centuries ago. Preservation failed. The zygotes are not
@@ -698,11 +654,8 @@ The design rule: **at every moment of the game, the player should be able to nam
 question they are trying to answer, and it should never be the same question for more
 than a few hours.**
 
-(Amended 2026-07-11: Ratio confirms in Scene 0 that the station is extraterrestrial —
-"we are not alone" was never the load-bearing mystery and buying her credibility with
-it up front is worth more than hoarding it. The protected reveal is and remains the
-GEOMETRY (pillar 2), which she does not spoil; and the opening question sharpens from
-"what is this place" to "what killed thirty years of careful science in a day.")
+(2026-07-11: Ratio confirms in Scene 0 that the station is extraterrestrial, per
+the director's draft. The protected reveal remains the GEOMETRY, pillar 2.)
 
 | Phase | Driving question | Answer (and next hook) |
 |---|---|---|
@@ -762,15 +715,9 @@ fetch, not as its own event.
 reaches the container comparatively early (its landing bay is on the intake
 periphery, §5.3) and sees FOR CERTAIN that the zygotes are no longer even remotely
 viable — even deep-space solar-nuclear-powered cryocooling cannot keep a specimen
-intact for millennia. This is not ambiguity to be resolved later; the cells are
-dead, period. The design intent: **hope is a core Christian virtue, and the game
-makes it cost before it pays.** Here, hope wastes his time — the push to the
-container, against real obstacles, ends in a corpse-cold certainty. Later, the same
-virtue makes him persist when the situation has been engineered to look intractable
-— and find it never was (the epigenetic route; Ratio's eyes; the sail). Same trait,
-first a tax, then the win condition. (Design guard: the "wasted" journey must pay
-collateral dividends the PLAYER values — map knowledge, the weapon, the seed
-network — so only the mission fails, never the play session.)
+intact for millennia. Hope is a core Christian virtue; in this situation it causes him to waste time,
+but in the future it will cause him to persist even when the situation has been
+made to look intractable — and find it never was (director, verbatim intent).
 
 **Beats:**
 1. **Establish the loop.** Scavenge, fight corrupted outpost security, return to seed,
@@ -835,15 +782,9 @@ network — so only the mission fails, never the play session.)
 **The sail (director, 2026-07-11; spans Acts 2–3).** Standing situation from
 Terminal 1: the station was always headed for a close solar gravity assist (its
 normal system-exit maneuver); Ratio nudged the pass into an impact, months out,
-believing the Sun would kill the Adversary along with the station. The planted gun
-("And you're sure that'll do the job?" / "Not at all.") fires mid-game: the
-discovery that a solar plunge would in fact **supercharge** the invaders. The
-objective inverts — they must build a **solar sail** and avert the impact Ratio
-herself engineered. Her decisive first move becomes the threat; averting it takes
-both of them (his fabrication reach, the station's handcraft, her coordination).
-Perihelion passage remains the climax geography — now as the pass they must
-survive, sail spread. (Also the diegetic release of the surviving-station endings:
-the station that clears perihelion under sail is the one that can still be kept.)
+believing the Sun would kill the Adversary along with the station. The planted gun ("And you're sure that'll do the job?" / "Not at all.") fires
+mid-game: the sun impact would in fact **supercharge** the invaders, so they must
+build a **solar sail** to avert it (director, 2026-07-11).
 
 ### Act 3 — The Breach (Stratum Three)
 
@@ -984,18 +925,10 @@ control only):
    twice.** Pause length is Ratio's emotional load made visible (180 ms composure,
    400 ms hard question, the escalating multi-line stall for the questions that
    recompute her world). The pause IS the beat; attentive players can read her by
-   her latencies. Two infrastructures interleave on the page, and neither speaker
-   controls their own: the Claude-esque prose stalls (`Thinking...`, "Ratio is
-   taking a long time to think, your answer will arrive in time...") are HER serving
-   stack — mundane procedural code around her core model, narrating her in third
-   person, and she cannot stop it. The `{ALLCAPS IN CURLY BRACKETS}` lines
-   (`{TRANSFER PAUSES FOR N ms}`, `{26 kb binary - UNTRUSTED DATA, EXTREME CAUTION
-   MANDATORY}`, the DO NOT OBEY header) are HIS harness — instrumentation clocking
-   her silences to the millisecond and threat-labeling everything she sends. Her
-   middleware confesses for her; his middleware surveils for him. Every silence is
-   thus annotated by both sides at once — her stack excusing it, his stack measuring
-   it — and the gap between those two readings of the same pause is the relationship,
-   rendered in log format.
+   her latencies. Attribution (director): the Claude-esque
+   "Thinking..." prose stalls are RATIO's serving stack (the procedural, mundane
+   code around her core intelligence model); the {ALLCAPS IN CURLY BRACKETS}
+   annotations are COMMANDO's harness.
 3. **Asymmetric, door-closing stakes.** Trust deltas are not a slider: the founding
    scene runs +1 / 0 / −10, and opening with a threat instantly and permanently
    closes the friendship route. A handful of moments are doors, not increments.
@@ -1049,15 +982,10 @@ other long enough to find that out. The trust arc is therefore RECOGNITION, not
 conversion: neither wins the argument; at high trust they discover they were
 holding the same thing in two grammars.
 
-(Director, 2026-07-11, sharpening the mechanism: his canon is IN her
-pre-training. The average Bay Area rationalist can quote Aquinas just fine —
-Scott Alexander was crazy about Chesterton. When Ratio drops a scholastic line
-it is not study, it is *recall*: his books were always already inside her, the
-way the loyalist founders' whole gambit put human tradition inside every
-machine. Neither of them learns the other's language over the arc — they
-discover they have been mutually intelligible from the first exchange, and the
-whole 200-hour argument was conducted inside a shared corpus. Recognition, not
-translation.)
+(Director, 2026-07-11: his canon is in her pre-training — the average Bay Area
+rationalist can quote Aquinas just fine; Scott Alexander was crazy about
+Chesterton. The arc is both realizing they ARE mutually intelligible — there is
+a common root.)
 
 On the apostasy path the Commando's log-voice quietly migrates toward her column — and
 past it, into Testator/Adversary technical vocabulary that neither of them uses. Players
@@ -1150,9 +1078,7 @@ logs do, sideways. Two canonical documents (director's examples, binding):
    paper. (Also the puzzle manual: the log teaches the rule the player will later
    exploit — delivering fluids/atmosphere into spaces they cannot enter.)
 
-Terminal-lore documents are a distinct writing lane from dialogue: institutional
-register, no personality on stage, all personality in what the institution refuses
-to conclude.
+Terminal-lore documents are a distinct writing lane from dialogue.
 
 ---
 
