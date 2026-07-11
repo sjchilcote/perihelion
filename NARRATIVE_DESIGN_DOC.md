@@ -752,6 +752,26 @@ not a colonist. Every ending where he lives is an ending his mission never inclu
 Standard war. Except the war here is already over, and the player walked into the
 aftermath.
 
+**Mission chain (director, 2026-07-11):** Terminal 0's mission is simply *reach
+Terminal 1*. Terminal 1's mission is *retrieve a weapon* (the lightning weapon, via
+path markers, "You'll see.") — the deliberate Marathon homage: Bigger Guns Nearby.
+The early game is fetch-shaped on purpose; the geometry reveal happens INSIDE the
+fetch, not as its own event.
+
+**The early container beat and the hope arc (director, 2026-07-11):** the Commando
+reaches the container comparatively early (its landing bay is on the intake
+periphery, §5.3) and sees FOR CERTAIN that the zygotes are no longer even remotely
+viable — even deep-space solar-nuclear-powered cryocooling cannot keep a specimen
+intact for millennia. This is not ambiguity to be resolved later; the cells are
+dead, period. The design intent: **hope is a core Christian virtue, and the game
+makes it cost before it pays.** Here, hope wastes his time — the push to the
+container, against real obstacles, ends in a corpse-cold certainty. Later, the same
+virtue makes him persist when the situation has been engineered to look intractable
+— and find it never was (the epigenetic route; Ratio's eyes; the sail). Same trait,
+first a tax, then the win condition. (Design guard: the "wasted" journey must pay
+collateral dividends the PLAYER values — map knowledge, the weapon, the seed
+network — so only the mission fails, never the play session.)
+
 **Beats:**
 1. **Establish the loop.** Scavenge, fight corrupted outpost security, return to seed,
    fabricate, die at least once (the first revival is a scripted-adjacent moment: the
@@ -1107,6 +1127,32 @@ Priority order when dressing rooms: (1) the outpost's fall, (2) the Testators' s
 (3) the geometry-doubt seeds of §6, (4) faction-war context. Every log has a speaker,
 every speaker has at most one register, and Ratio reacts to the player recovering
 staff-mind cores by name.
+
+### 9.6 Non-dialogue terminals carry the mechanics (director, 2026-07-11)
+
+Explaining the non-Euclidean mechanics is DELEGATED to non-dialogue terminals,
+Marathon-style: dry technical documents whose implications the attentive player
+assembles (the model: why Durandal's rampancy stalled is buried in the implications
+of two unrelated technical papers — one on the Marathon's door system, one on
+rampancy mechanics). Ratio and the Commando never lecture geometry; researchers'
+logs do, sideways. Two canonical documents (director's examples, binding):
+
+1. **The wall-breach series.** Experiment logs on attempts to cut/drill/blast
+   through the station's interior walls. Every attempt fails, and the
+   instrumentation says why in a sentence no one in the log accepts: **there is no
+   other side.** (This is also the mechanical law: walls are never breachable,
+   the room-graph's edges are the only topology there is — sequence-breaking by
+   digging is impossible IN CANON, not just in code.)
+2. **The bucket log.** A fluid container carried through a unidirectional edge
+   disgorges its contents at the far end of the edge's one-way partner: if a→b and
+   c→b, a bucket passing c→b pours out into a — *the rest of the bucket isn't
+   there.* Written up as a materials-handling incident report, not a physics
+   paper. (Also the puzzle manual: the log teaches the rule the player will later
+   exploit — delivering fluids/atmosphere into spaces they cannot enter.)
+
+Terminal-lore documents are a distinct writing lane from dialogue: institutional
+register, no personality on stage, all personality in what the institution refuses
+to conclude.
 
 ---
 
