@@ -5,7 +5,7 @@ CONVERSATIONS is keyed by the 0-based index of the level just completed --
 the nine gaps between the ten campaign levels, so keys 0..8. Each value is
 an ordered list of turns; speakers are "RATIO" and "COMMANDO".
 ConversationScene (convscene.py) plays one conversation; App pushes it from
-advance_level, above the next level's IntroCard, so it runs first.
+advance_level, above the next level's GameScene, so it runs first.
 
 Most turns are (speaker, text). Four gaps (0, 4, 6, 8 -- first terms, the
 data-share reaction, Osei, and the disclosure answer: the bible's

@@ -1,5 +1,5 @@
-"""Scene stack widgets: title/menu screens, intro cards, pause/death/win, and
-the terminal overlay widget (TerminalOverlay) that GameScene drives.
+"""Scene stack widgets: title/menu screens, pause/death/win, and the
+terminal overlay widget (TerminalOverlay) that GameScene drives.
 
 `Scene` is the interface `App` drives: only the top of the stack receives
 input/update/draw, which is also how pausing works for free -- GameScene
@@ -319,57 +319,6 @@ class SettingsScene(Scene):
         for i, line in enumerate(lines):
             surf.blit(mf.render(line, True, (180, 180, 180)),
                       (ui(40), ui(60) + i * ui(18)))
-
-
-class IntroCard(Scene):
-    CHARS_PER_SEC = 28.0
-
-    def __init__(self, name: str, text: str, tier: int = 1):
-        self.name = name
-        self.text = text
-        self.tier = tier
-        self.t = 0.0
-        self.shown_chars = 0
-        self._overlay: "pygame.Surface | None" = None
-
-    def _ensure_overlay(self, size):
-        if self._overlay is None or self._overlay.get_size() != size:
-            self._overlay = pygame.Surface(size, pygame.SRCALPHA)
-            self._overlay.fill((0, 0, 0, 100))
-        return self._overlay
-
-    def update(self, app, dt: float) -> None:
-        self.t += dt
-        self.shown_chars = min(len(self.text), int(self.t * self.CHARS_PER_SEC))
-
-    def handle_event(self, app, event) -> None:
-        if event.type in (pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN):
-            if self.shown_chars < len(self.text):
-                self.shown_chars = len(self.text)
-                # keep in sync so the next update() doesn't rewind the reveal
-                self.t = len(self.text) / self.CHARS_PER_SEC
-            else:
-                app.pop()
-
-    def draw(self, app, surf) -> None:
-        w, h = surf.get_size()
-        tier = max(1, min(4, self.tier))
-        bg = _load_bg(f"intro_t{tier}.png")
-        if bg is not None:
-            _blit_bg(surf, bg, (w, h))
-            surf.blit(self._ensure_overlay((w, h)), (0, 0))
-        else:
-            surf.fill((4, 4, 6))
-        img = get_font(20).render(self.name, True, (220, 220, 225))
-        surf.blit(img, (w // 2 - img.get_width() // 2, ui(50)))
-        bf = get_font(11)
-        y = ui(90)
-        for line in _wrap(self.text[: self.shown_chars], 58):
-            surf.blit(bf.render(line, True, (172, 172, 178)), (ui(30), y))
-            y += ui(14)
-        if self.shown_chars >= len(self.text):
-            hint = get_font(10).render("press any key", True, (110, 110, 115))
-            surf.blit(hint, (w // 2 - hint.get_width() // 2, h - ui(22)))
 
 
 class PauseScene(Scene):

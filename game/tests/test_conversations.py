@@ -1,8 +1,8 @@
 """Between-sortie conversations: data integrity (including CHOICE turns and
 the gap-8 trust-gated variant), ConversationScene headless drive-through
 (typewriter path and scripted choice path), the App-level campaign wiring
-(conversation pushed above the IntroCard on advance_level; win path
-untouched), and the dialogue-pipeline rubric report.
+(conversation pushed above the just-loaded GameScene on advance_level; win
+path untouched), and the dialogue-pipeline rubric report.
 """
 
 from __future__ import annotations
@@ -364,13 +364,12 @@ def test_advance_level_pushes_conversation_above_intro(tmp_path, monkeypatch):
     # gap 0 == Scene 0 of DIALOGUE_SCRIPT.md, composited fresh (0 trust, no
     # flags) -- matches what conversation_for hands back for a new game.
     assert app.scenes[-1].lines == _conv_for(0, 0, []).lines
-    assert isinstance(app.scenes[-2], menus.IntroCard)
-    assert isinstance(app.scenes[-3], GameScene)
+    assert isinstance(app.scenes[-2], GameScene)
 
-    # skipping the conversation reveals the intro card underneath
+    # skipping the conversation reveals gameplay underneath
     esc = pygame.event.Event(pygame.KEYDOWN, key=pygame.K_ESCAPE)
     app.scenes[-1].handle_event(app, esc)
-    assert isinstance(app.scenes[-1], menus.IntroCard)
+    assert isinstance(app.scenes[-1], GameScene)
 
 
 def test_win_path_pushes_no_conversation(tmp_path, monkeypatch):

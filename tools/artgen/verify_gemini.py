@@ -24,12 +24,12 @@ VERIFY_MODEL = "google/gemini-3.5-flash"
 PROMPT_TEMPLATE = """You are the art-QA reviewer for a game texture pipeline.
 
 Room kind: {kind}
-Image 1: BASE TRUTH -- the flat vector render defining exact required geometry (room silhouette, wall lines, prop positions). Pixels outside the room polygon are pure black.
+Image 1: BASE TRUTH -- the flat vector render defining exact required geometry (room silhouette, wall lines only). Deliberately shows NO crates, consoles, pipes, vents, chevrons, or any other prop/object -- those are separate physical objects the live game draws on top of the floor every frame, not part of the floor texture. Pixels outside the room polygon are pure black.
 {anchor_line}
-Image {gen_idx}: GENERATED TEXTURE -- candidate bespoke texture for this exact room, meant to be a same-geometry high-fidelity re-render of image 1.
+Image {gen_idx}: GENERATED TEXTURE -- candidate bespoke texture for this exact room, meant to be a same-geometry high-fidelity re-render of image 1's floor material only.
 
 Judge the GENERATED TEXTURE against BASE TRUTH (and the style anchor, if given) on five checks:
-1. geometry_ok: does the room silhouette, every wall line, and every prop's position/footprint match BASE TRUTH almost exactly (allowing for material detail added on top)? This is the critical check -- if walls or props have moved, resized, disappeared, or new ones were invented, this is false. Minor artistic embellishment of a prop's surface detail is fine; moving/resizing/removing it is not.
+1. geometry_ok: does the room silhouette and every wall line match BASE TRUTH almost exactly, AND is the generated texture free of any invented crate, console, pipe, vent, arrow/chevron, valve wheel, sign, or other discrete object/prop illustration (irregular wear/staining/grime is fine and expected; a painted OBJECT is not)? This is the critical check -- if walls have moved/resized, or if ANY prop-like object appears anywhere (even one that plausibly "belongs" in this room kind), this is false.
 2. style_ok: is the material treatment consistent with the style anchor's family (same texture logic, same era, similar level of grime/detail)? If no anchor was given, judge internal consistency instead (true unless obviously broken).
 3. palette_ok: is the palette a muted, desaturated, industrial-horror family (cold grays, rust ochre, dull teal, near-black) -- NOT blown out bright, NOT saturated/cartoonish, NOT pre-darkened to near-black mud?
 4. fidelity_ok: is this genuinely higher visual fidelity than the flat base truth (real material detail, not just a blurry/soft recolor of the same flat shapes)?

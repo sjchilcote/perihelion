@@ -21,6 +21,8 @@ can be graded toward one shared tone family (style continuity).
 """
 from __future__ import annotations
 
+import math
+
 import numpy as np
 from PIL import Image, ImageFilter
 
@@ -191,6 +193,260 @@ def verify_tiling(im: Image.Image, band_px: int = 6,
 
 
 # ---------------------------------------------------------------------------
+# outer-black-margin normalization
+# ---------------------------------------------------------------------------
+
+def crop_outer_black_margin(im: Image.Image, black_thresh: float = 14.0,
+                             row_frac: float = 0.985,
+                             max_margin_frac: float = 0.08) -> Image.Image:
+    """The image model systematically renders the room inset by a few
+    pixels-to-percent of pure-black margin even when told the floor runs
+    flush to the crop (observed on most attempts of the 2026-07-11 sample
+    run: correct room, correct material, killed by a uniform black gutter).
+    Crop any FULLY-black outer rows/cols (>= row_frac of the row/col below
+    black_thresh), capped at max_margin_frac of each dimension per side --
+    a margin bigger than that is a real layout failure (e.g. the model
+    painted the whole neighbor composite) and must NOT be rescued; the
+    image is returned unchanged and the downstream full-bleed gate fails
+    it honestly. NOTE: rooms whose polygon does not fill its bounding box
+    (oblique silhouettes) legitimately have black in the corner regions of
+    outer rows/cols -- row_frac only trips on rows/cols that are black
+    virtually edge-to-edge, which a diagonal silhouette's bounding rows
+    are not."""
+    gray = np.asarray(im.convert("L")).astype(np.float32)
+    h, w = gray.shape
+    dark_row = (gray < black_thresh).mean(axis=1) >= row_frac
+    dark_col = (gray < black_thresh).mean(axis=0) >= row_frac
+
+    def run_len(flags) -> int:
+        n = 0
+        for f in flags:
+            if not f:
+                break
+            n += 1
+        return n
+
+    top, bottom = run_len(dark_row), run_len(dark_row[::-1])
+    left, right = run_len(dark_col), run_len(dark_col[::-1])
+    max_h, max_w = int(h * max_margin_frac), int(w * max_margin_frac)
+    if top > max_h or bottom > max_h or left > max_w or right > max_w:
+        return im  # too big to be a gutter -- genuine layout failure
+    if top == 0 and bottom == 0 and left == 0 and right == 0:
+        return im
+    return im.crop((left, top, w - right, h - bottom))
+
+
+# ---------------------------------------------------------------------------
+# repetition gate (director's ruling, 2026-07-11: "tiles repeat visibly
+# in-room" -- the 2x2 seam check above only proves the tile edges match,
+# it says nothing about whether a distinctive feature inside the tile
+# recurs obviously at the tile period once the material is laid across a
+# whole room). Autocorrelation of the finished texture: a strong off-center
+# peak at a lag other than (0,0) means the image correlates strongly with
+# a shifted copy of itself -- i.e. it looks like a stamped repeat.
+# ---------------------------------------------------------------------------
+
+def verify_no_repetition(im: Image.Image, mask: np.ndarray | None = None,
+                          min_lag_frac: float = 0.12,
+                          peak_ratio_thresh: float = 0.28) -> dict:
+    """Detect visible in-room tiling repetition via 2D autocorrelation.
+    `min_lag_frac` excludes a central disk (self-similarity at near-zero
+    lag is trivial/expected) of that fraction of the smaller image
+    dimension; any autocorrelation peak OUTSIDE that disk, normalized to
+    the zero-lag peak, above `peak_ratio_thresh` means a distinctive
+    feature recurs periodically -- exactly what 'the arrow repeats every
+    tile' looks like mathematically. Runs on grayscale, optionally
+    restricted to `mask` (mean-subtracted only over the masked region;
+    outside-mask pixels are zeroed so the analytic void doesn't
+    self-correlate as a giant fake peak)."""
+    gray = np.asarray(im.convert("L")).astype(np.float64)
+    h, w = gray.shape
+    if mask is not None:
+        if mask.shape != gray.shape:
+            raise ValueError(f"mask shape {mask.shape} != image shape {gray.shape}")
+        vals = gray[mask]
+        mean = float(vals.mean()) if vals.size else 0.0
+        centered = np.zeros_like(gray)
+        centered[mask] = gray[mask] - mean
+    else:
+        centered = gray - gray.mean()
+
+    # FFT-based autocorrelation (Wiener-Khinchin), zero-padded to avoid
+    # circular wraparound contaminating the "off-center peak" reading with
+    # a spurious wrap-seam correlation.
+    ph, pw = 2 * h, 2 * w
+    F = np.fft.rfft2(centered, s=(ph, pw))
+    ac = np.fft.irfft2(F * np.conj(F), s=(ph, pw))
+    ac = np.fft.fftshift(ac)
+    cy, cx = ph // 2, pw // 2
+    zero_lag = ac[cy, cx]
+    if zero_lag <= 1e-6:
+        return dict(ok=True, reason="flat/empty region, nothing to correlate",
+                    peak_ratio=None)
+
+    min_lag_px = int(min_lag_frac * min(h, w))
+    yy, xx = np.mgrid[0:ph, 0:pw]
+    dist = np.sqrt((yy - cy) ** 2 + (xx - cx) ** 2)
+    search = dist > min_lag_px
+    if not search.any():
+        return dict(ok=True, reason="region too small to judge", peak_ratio=None)
+
+    peak = float(ac[search].max())
+    peak_ratio = peak / float(zero_lag)
+    peak_idx = np.unravel_index(np.argmax(np.where(search, ac, -np.inf)), ac.shape)
+    peak_lag = (int(peak_idx[1] - cx), int(peak_idx[0] - cy))
+    ok = peak_ratio < peak_ratio_thresh
+    return dict(ok=ok, peak_ratio=peak_ratio, peak_lag=peak_lag,
+                min_lag_px=min_lag_px, thresh=peak_ratio_thresh)
+
+
+# ---------------------------------------------------------------------------
+# shape-conformance gate (director's ruling, 2026-07-11: "it still doesn't
+# match the shape of the rooms" -- confirmed on l03/room_0, a true
+# quadrilateral with no right angles, whose shipped texture has a dead
+# axis-aligned plate grid). Sobel gradient-orientation histogram in a band
+# near each wall edge; the dominant structure orientation in that band
+# should track the wall's own angle, not stay locked to 0/90 degrees.
+# ---------------------------------------------------------------------------
+
+def _sobel(gray: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    kx = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=np.float64)
+    ky = kx.T
+    pad = np.pad(gray, 1, mode="edge")
+    gx = np.zeros_like(gray)
+    gy = np.zeros_like(gray)
+    for dy in range(3):
+        for dx in range(3):
+            if kx[dy, dx]:
+                gx += kx[dy, dx] * pad[dy:dy + gray.shape[0], dx:dx + gray.shape[1]]
+            if ky[dy, dx]:
+                gy += ky[dy, dx] * pad[dy:dy + gray.shape[0], dx:dx + gray.shape[1]]
+    return gx, gy
+
+
+def _band_mask_for_edge(shape, a, b, band_px: int) -> np.ndarray:
+    """Boolean mask of pixels within `band_px` of segment a-b."""
+    h, w = shape
+    yy, xx = np.mgrid[0:h, 0:w].astype(np.float64)
+    ax, ay = a
+    bx, by = b
+    dx, dy = bx - ax, by - ay
+    seg_len2 = dx * dx + dy * dy
+    if seg_len2 < 1e-6:
+        return np.zeros(shape, dtype=bool)
+    t = ((xx - ax) * dx + (yy - ay) * dy) / seg_len2
+    t = np.clip(t, 0.0, 1.0)
+    projx, projy = ax + t * dx, ay + t * dy
+    dist = np.sqrt((xx - projx) ** 2 + (yy - projy) ** 2)
+    return dist <= band_px
+
+
+def verify_shape_conformance(im: Image.Image, mask: np.ndarray,
+                              wall_edges: list[tuple[tuple[float, float], tuple[float, float]]],
+                              band_px: int = 40, angle_tol_deg: float = 12.0,
+                              min_grad_px: int = 60) -> dict:
+    """For each wall edge segment (pixel-space endpoints), measure whether
+    the texture's DOMINANT linear structure in a `band_px` band along that
+    wall aligns with the wall, mod 90 degrees: a rectilinear plate install
+    against a wall legitimately shows BOTH wall-parallel seams and
+    wall-perpendicular plate joints, so conforming structure is anything
+    at 0 or 90 degrees to the wall, and NON-conforming structure is
+    oblique to it (a horizontal/vertical grid stamped over a 15-degree
+    wall reads as 15-degree error, mod 90). Per edge: build a smoothed
+    energy-weighted orientation histogram (90 one-degree bins, circular
+    mod 90) of strong-gradient pixels and take the PEAK bin's folded
+    angular distance from the wall angle. Overall ok if the energy-
+    weighted mean of per-edge peak errors is within `angle_tol_deg`.
+
+    REBUILT 2026-07-11 (fix round): the previous per-pixel energy-weighted
+    MEAN of min(d, 90-d) conflated "lots of isotropic micro-texture" with
+    "oblique grid" -- it only worked while baked props contributed extra
+    hard 0/90 edges near the walls, and once the base truth became floor-
+    only (props removed per the director's texture-concept correction) it
+    rejected personally-verified clean axis-aligned candidates at 16-20
+    deg purely because treadplate diamonds/scratches dominate the top-20%
+    gradient energy (a uniform angle spread means ~22.5 deg no matter how
+    perfect the seams are). The histogram PEAK measures where structure
+    CONCENTRATES, which micro-texture (spread over all angles) cannot
+    shift. CALIBRATED 2026-07-11 on known-answer fixtures: old shipped
+    l07/room_7 (director-photographed f52 shape defect -- must FAIL,
+    measures 25.2) vs personally-reviewed clean candidates
+    l01_room117_p1_a3 / l05_room004_p1_a1 / l01_room002_p2_a1 (must PASS,
+    measure 0.5-1.0). tol 12 splits with margin on both sides. The mod-90
+    fold (kept from the previous version) is what makes the metric
+    measure obliqueness rather than which of the two legitimate seam
+    families dominates."""
+    gray = np.asarray(im.convert("L")).astype(np.float64)
+    if mask.shape != gray.shape:
+        raise ValueError(f"mask shape {mask.shape} != image shape {gray.shape}")
+    gx, gy = _sobel(gray)
+    mag = np.sqrt(gx ** 2 + gy ** 2)
+
+    per_edge = []
+    errs = []
+    weights = []
+    for a, b in wall_edges:
+        wall_ang = math.degrees(math.atan2(b[1] - a[1], b[0] - a[0])) % 90.0
+        band = _band_mask_for_edge(gray.shape, a, b, band_px) & mask
+        if band.sum() < min_grad_px:
+            per_edge.append(dict(wall_angle=wall_ang, err=None, reason="band too small"))
+            continue
+        band_mag = mag[band]
+        thresh = np.percentile(band_mag, 80)
+        strong = band_mag > thresh
+        if strong.sum() < 8:
+            per_edge.append(dict(wall_angle=wall_ang, err=None, reason="too little structure"))
+            continue
+        gxs, gys = gx[band][strong], gy[band][strong]
+        w = band_mag[strong]
+        # seam orientation = gradient direction + 90, folded mod 90
+        seam_ang = (np.degrees(np.arctan2(gys, gxs)) + 90.0) % 90.0
+        hist, _ = np.histogram(seam_ang, bins=90, range=(0.0, 90.0), weights=w)
+        # circular smoothing (mod 90), +-2 deg triangular kernel
+        kern = np.array([1, 2, 3, 2, 1], dtype=np.float64)
+        pad = np.concatenate([hist[-2:], hist, hist[:2]])
+        smooth = np.convolve(pad, kern, mode="same")[2:-2]
+        peak_ang = float(np.argmax(smooth)) + 0.5
+        d = abs(peak_ang - wall_ang)
+        err = min(d, 90.0 - d)
+        per_edge.append(dict(wall_angle=wall_ang, peak_angle=peak_ang,
+                             err=err, n=int(strong.sum())))
+        errs.append(err)
+        weights.append(float(w.sum()))
+
+    if not errs:
+        return dict(ok=True, reason="no wall edges had enough structure to judge",
+                    mean_err=None, per_edge=per_edge)
+    mean_err = float(np.average(errs, weights=weights))
+    ok = mean_err <= angle_tol_deg
+    return dict(ok=ok, mean_err=mean_err, angle_tol_deg=angle_tol_deg,
+                per_edge=per_edge)
+
+
+def verify_no_guide_ink(im: Image.Image, mask: np.ndarray,
+                         frac_thresh: float = 0.0015) -> dict:
+    """Catch the geometry guide's annotation colors leaking into the
+    output: the model occasionally renders the guide's saturated CYAN wall
+    lines / MAGENTA doorway marks as literal paint on the floor (caught
+    2026-07-11: pink doorway rectangles rendered into l05/room_4). The
+    game's palette is deliberately desaturated (STYLE_LANGUAGE), so ANY
+    concentration of saturated cyan/magenta inside the floor polygon is
+    guide-ink leakage, not legitimate material."""
+    rgb = np.asarray(im.convert("RGB")).astype(np.float32)
+    r, g, b = rgb[..., 0], rgb[..., 1], rgb[..., 2]
+    mx = rgb.max(axis=2)
+    mn = rgb.min(axis=2)
+    sat = (mx - mn) / np.maximum(mx, 1e-6)
+    cyan = (sat > 0.45) & (mx > 90) & (b > r * 1.25) & (g > r * 1.25)
+    magenta = (sat > 0.45) & (mx > 90) & (r > g * 1.3) & (b > g * 1.3)
+    leak = (cyan | magenta) & mask
+    frac = float(leak.mean() if mask.any() else 0.0)
+    in_frac = float(leak[mask].mean()) if mask.any() else 0.0
+    ok = in_frac <= frac_thresh
+    return dict(ok=ok, leak_frac=in_frac, frac_thresh=frac_thresh, _frac_of_image=frac)
+
+
+# ---------------------------------------------------------------------------
 # per-kind luminance/chroma window (style continuity, property 2)
 # ---------------------------------------------------------------------------
 
@@ -237,3 +493,48 @@ def grade_toward(im: Image.Image, mask: np.ndarray, window: dict,
         out[..., i][mask] = arr[..., i][mask] * gain
     out = np.clip(out, 0, 255).astype(np.uint8)
     return Image.fromarray(out, mode="RGB")
+
+
+# ---------------------------------------------------------------------------
+# detail-budget gate (director's ruling, 2026-07-11 fix round: shipped
+# rooms read "a little visually noisy"). Instrument findings on the 8
+# then-accepted rooms + their approved kind material swatches: intensity
+# ENTROPY does not discriminate (rooms 5.2-6.8 bits vs swatches 5.4-6.8 --
+# the style itself is entropy-rich), but mean Sobel gradient energy
+# RELATIVE TO THE KIND'S OWN APPROVED SWATCH does: most rooms sat at
+# 0.95-1.16x their swatch while the one room that visibly read as noisy
+# (l07/room_2, otherworld) measured 1.43x. A room floor lives UNDER the
+# game's live props/decals/lighting and should be QUIETER than its raw
+# swatch, never busier -- the swatch shows the material at its most
+# weathered. Threshold 1.25x: passes the 7 personally-verified calm rooms
+# with margin, fails the visibly noisy one. Entropy is still measured and
+# reported for the record.
+# ---------------------------------------------------------------------------
+
+def verify_detail_budget(im: Image.Image, mask: np.ndarray,
+                          material_im: Image.Image,
+                          ratio_thresh: float = 1.25) -> dict:
+    """Mean Sobel gradient magnitude inside `mask`, relative to the kind's
+    approved material swatch. ok iff room_grad <= ratio_thresh * swatch
+    grad. Also reports the Shannon entropy of the masked intensity
+    histogram (informational -- see block comment)."""
+    gray = np.asarray(im.convert("L")).astype(np.float64)
+    if mask.shape != gray.shape:
+        raise ValueError(f"mask shape {mask.shape} != image shape {gray.shape}")
+    gx, gy = _sobel(gray)
+    room_grad = float(np.sqrt(gx ** 2 + gy ** 2)[mask].mean())
+
+    mgray = np.asarray(material_im.convert("L")).astype(np.float64)
+    mgx, mgy = _sobel(mgray)
+    mat_grad = float(np.sqrt(mgx ** 2 + mgy ** 2).mean())
+
+    vals = gray[mask].astype(int)
+    hist = np.bincount(vals, minlength=256).astype(np.float64)
+    hist /= max(1.0, hist.sum())
+    nz = hist[hist > 0]
+    entropy = float(-(nz * np.log2(nz)).sum()) if nz.size else 0.0
+
+    ratio = room_grad / max(1e-6, mat_grad)
+    return dict(ok=ratio <= ratio_thresh, grad_ratio_vs_material=ratio,
+                room_grad=room_grad, material_grad=mat_grad,
+                entropy_bits=entropy, ratio_thresh=ratio_thresh)

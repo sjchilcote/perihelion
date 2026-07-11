@@ -62,7 +62,32 @@ def render_room(renderer: Renderer, room_idx: int, px_per_unit: float) -> "pygam
     canvas = _PygameCanvas(surf)
     # depth=0: no fog/darkness dimming -- the flat authored appearance
     renderer._draw_floor(canvas, room_idx, 0, room_screen)
-    renderer._draw_detail(canvas, room_idx, xform, room_screen, 0)
+    # _draw_detail (PROPS: crates, consoles, vent grates, pipe runs, floor
+    # chevrons -- every "line"/"polyline"/"poly"/"dot" prim) is DELIBERATELY
+    # NOT called here (2026-07-11 fix-round, director's correction: "the
+    # props should not be baked in either -- comprehend the concept of a
+    # texture"). A texture is the tileable floor MATERIAL, not an
+    # illustration of scene content. Renderer._draw_world (render.py
+    # ~line 1663-1664) draws _draw_floor then _draw_detail UNCONDITIONALLY
+    # every frame, textured room or not -- every prop (crate, console,
+    # chevron, pipe run) is ALREADY drawn live, every frame, by the game's
+    # real vector prop layer regardless of what the floor texture shows.
+    # Baking a painted illustration of the same crate/chevron/pipe into the
+    # floor art is not "informing the material," it's re-illustrating scene
+    # content the engine already owns -- redundant at best (a solid prop
+    # fully covers its baked echo) and a visible doubled/ghosted mark at
+    # worst (a thin line prim does not). The base truth here is FLOOR FILL
+    # ONLY; wall/doorway geometry still reaches the model via make_guide's
+    # explicit cyan wall-line overlay, and per-kind wear concentration
+    # still reaches it via the FLOORPLAN_NOTE text prompt injection
+    # (pilot_texture_lib.py) -- neither depends on this render.
+    # Deliberate, LABELED prop-to-paint substitution ("draw a hydroponics
+    # rack where this box is") is a real, sound technique the director
+    # named as the correct way to let specific props steer the paint job --
+    # it is NOT implemented by this pipeline yet; a future round should add
+    # it explicitly (per-prop-kind prompt clauses tied to prop screen
+    # position), not by re-adding the whole detail render as an implicit
+    # "copy this" reference.
     return surf
 
 

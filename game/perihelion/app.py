@@ -166,7 +166,6 @@ def build_debug_level() -> Level:
     b.entity(r1, "mite", (350, 60))
     b.entity(r1, "ammo_9mm", (400, 100))
     b.entity(r2, "medkit", (650, 80))
-    b.intro("Diagnostic corridor. Not part of the station.\nProbably.")
     b.terminal(r1, (330, 40), "LOG 44: measured the corridor twice.\nGot two answers. Filed the longer one.")
     return b.build()
 
@@ -537,7 +536,6 @@ class App:
         self.game = game
         self.scenes = [game]
         game.on_enter(self)
-        self.push(menus.IntroCard(level.name, level.intro, level.tier))
 
     def start_new_game(self, plus: bool = False) -> None:
         self.current_level_index = 0
@@ -581,7 +579,6 @@ class App:
         self.game = game
         self.scenes = [game]
         game.on_enter(self)
-        self.push(menus.IntroCard(level.name, level.intro, level.tier))
 
     def start_level_index(self, idx: int) -> None:
         state = self.save_data.get("states", {}).get(str(idx))
@@ -594,8 +591,6 @@ class App:
         game = GameScene(level, seed, player_state=carried_state, level_path=path, difficulty=self.settings.get('difficulty', 'normal'))
         self.game = game
         self.replace(game)
-        if not self.dummy and level.intro:
-            self.push(menus.IntroCard(level.name, level.intro, level.tier))
 
     def reprint(self) -> None:
         """Death recovery. A racked chassis prints at the nearest seed with
@@ -637,10 +632,9 @@ class App:
         self.current_level_index = idx
         self._load_and_play(idx, carried_state=carried_state)
         # Between-sortie conversation (bible: "the frame is in transit; the
-        # minds talk"), pushed above the IntroCard so it plays first. Only
+        # minds talk"), pushed above the just-loaded GameScene. Only
         # campaign advancement lands here -- starting a level from the
-        # select menu never replays the gap conversation. Skipped headless,
-        # matching the IntroCard convention above.
+        # select menu never replays the gap conversation. Skipped headless.
         if not self.dummy:
             self._push_gap_conversation(idx - 1)
 
@@ -738,14 +732,6 @@ class App:
                     scene_kind = type(top).__name__
                     self._autoplay_wait = getattr(self, "_autoplay_wait", 0) + 1
                     dwell = 90
-                    if scene_kind == "IntroCard":
-                        # any keypress mid-typewriter completes the text and
-                        # the NEXT pops — never send keys while it types, or
-                        # a same-frame followup key cuts the card mid-word
-                        if top.shown_chars < len(top.text):
-                            self._autoplay_wait = 0
-                        else:
-                            dwell = 150  # reading beat once fully typed
                     if self._autoplay_wait > dwell:
                         self._autoplay_wait = 0
                         top.handle_event(self, pygame.event.Event(
@@ -757,7 +743,7 @@ class App:
                                 # rather than skipping the scene
                                 top.handle_event(self, pygame.event.Event(
                                     pygame.KEYDOWN, key=pygame.K_1, unicode="1"))
-                            elif scene_kind != "IntroCard":
+                            else:
                                 top.handle_event(self, pygame.event.Event(
                                     pygame.KEYDOWN, key=pygame.K_ESCAPE))
 

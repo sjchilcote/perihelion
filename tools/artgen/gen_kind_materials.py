@@ -26,7 +26,9 @@ from PIL import Image
 
 from tools.artgen.gen import generate_image
 from tools.artgen.pilot_texture_lib import KIND_MATERIAL, SCRATCH, build_material_prompt
-from tools.artgen.texture_checks import make_tileable, region_tone, verify_fullbleed, verify_tiling
+from tools.artgen.texture_checks import (
+    make_tileable, region_tone, verify_fullbleed, verify_no_repetition, verify_tiling,
+)
 
 MATERIALS_DIR = SCRATCH / "materials"
 WINDOWS_PATH = Path(__file__).resolve().parent / "kind_windows.json"
@@ -58,12 +60,20 @@ def gen_one_kind(kind: str) -> dict:
 
         fb = verify_fullbleed(tiled_im)
         tv = verify_tiling(tiled_im)
-        ok = fb["ok"] and tv["ok"]
+        rp = verify_no_repetition(tiled_im)
+        ok = fb["ok"] and tv["ok"] and rp["ok"]
         fail_reason = "" if ok else (
             (f"border/vignette detected (darken_ratio={fb.get('darken_ratio')}, "
              f"grad_ratio={fb.get('grad_ratio')}). " if not fb["ok"] else "")
             + (f"visible tile seam (ratio_v={tv['ratio_v']:.2f}, "
                f"ratio_h={tv['ratio_h']:.2f})." if not tv["ok"] else "")
+            + (f"repeating distinctive feature detected (autocorrelation "
+               f"peak_ratio={rp.get('peak_ratio'):.2f} at lag {rp.get('peak_lag')}, "
+               "thresh 0.28) -- likely baked text/arrow/logo-like mark that "
+               "will repeat obviously once this material tiles across a "
+               "room. Remove any readable text, arrow, or single "
+               "distinctive stamped feature; keep marks small and "
+               "irregular." if not rp["ok"] else "")
         )
         out_path = MATERIALS_DIR / f"{kind}.png"
         # severity score: 0 if ok, else how far over threshold (lower is
@@ -73,9 +83,10 @@ def gen_one_kind(kind: str) -> dict:
             max(0.0, fb.get("darken_ratio") or 0 - 1.0)
             + max(0.0, fb.get("grad_ratio") or 0 - 1.0)
             + max(0.0, tv["ratio_v"] - 1.0) + max(0.0, tv["ratio_h"] - 1.0)
+            + max(0.0, (rp.get("peak_ratio") or 0) - rp.get("thresh", 0.28))
         )
         cand = dict(kind=kind, attempt=attempt, cost=gr["cost"], ok=ok,
-                    fullbleed=fb, tiling=tv, fail_reason=fail_reason,
+                    fullbleed=fb, tiling=tv, repetition=rp, fail_reason=fail_reason,
                     path=str(out_path), severity=severity)
         if best is None or ok and not best["ok"] or (
                 ok == best["ok"] and severity < best["severity"]):

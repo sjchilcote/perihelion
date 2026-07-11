@@ -1,5 +1,5 @@
 """ConversationScene: full-screen tight-beam dialogue played between
-campaign levels, above the next level's IntroCard on the scene stack.
+campaign levels, above the next level's GameScene on the scene stack.
 
 Styled after menus.TerminalOverlay (dark panel, thin border, phosphor
 green) with the Commando's lines in bone-amber so the two voices read at a
