@@ -35,42 +35,6 @@
       "mean_b": 86.42054748535156
     }
   },
-  "l01/room_002": {
-    "key": "l01/room_002",
-    "status": "accepted",
-    "attempt": 1,
-    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l01/room_2.png",
-    "cost": 0.07508300000000001,
-    "verdicts": [
-      {
-        "geometry_ok": true,
-        "style_ok": true,
-        "palette_ok": true,
-        "fidelity_ok": true,
-        "verdict": "pass",
-        "notes": "Excellent detail. The crate placements in the top-left and bottom-right corners align perfectly with the base truth layout, and the rust styling seamlessly matches the anchor.",
-        "_cost": 0.0062355,
-        "_raw": "```json\n{\"geometry_ok\": true, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"verdict\": \"pass\", \"notes\": \"Excellent detail. The crate placements in the top-left and bottom-right corners align perfectly with the base truth layout, and the rust styling seamlessly matches the anchor.\"}\n```",
-        "_fullbleed": {
-          "ok": true,
-          "edge_mean": 79.8702392578125,
-          "center_mean": 89.52682495117188,
-          "darken_ratio": 1.1209034276483003,
-          "edge_grad": 10.450723648071289,
-          "center_grad": 8.827018737792969,
-          "grad_ratio": 1.18394714665399,
-          "border_darkening": false,
-          "border_structure": false
-        }
-      }
-    ],
-    "tone_after": {
-      "mean_l": 90.09893798828125,
-      "mean_r": 90.79702758789062,
-      "mean_g": 90.37421417236328,
-      "mean_b": 85.31646728515625
-    }
-  },
   "l01/room_056": {
     "key": "l01/room_056",
     "status": "accepted",
@@ -207,57 +171,6 @@
       "mean_r": 84.27591705322266,
       "mean_g": 84.11235046386719,
       "mean_b": 75.69609069824219
-    }
-  },
-  "l01/room_117": {
-    "key": "l01/room_117",
-    "status": "accepted",
-    "attempt": 2,
-    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l01/room_117.png",
-    "cost": 0.1445735,
-    "verdicts": [
-      {
-        "verdict": "fail",
-        "notes": "programmatic full-bleed check rejected: border/vignette painted inside the polygon (darken_ratio=2.715416179700362, grad_ratio=1.324375992241003). The floor material must run flush to the room's true wall line with no darkened margin or drawn border.",
-        "_fullbleed": {
-          "ok": false,
-          "edge_mean": 30.81377601623535,
-          "center_mean": 83.67222595214844,
-          "darken_ratio": 2.715416179700362,
-          "edge_grad": 8.311637878417969,
-          "center_grad": 6.275889873504639,
-          "grad_ratio": 1.324375992241003,
-          "border_darkening": true,
-          "border_structure": false
-        }
-      },
-      {
-        "geometry_ok": true,
-        "style_ok": true,
-        "palette_ok": true,
-        "fidelity_ok": true,
-        "verdict": "pass",
-        "notes": "Excellent work. The crate shapes, sizes, and position rotations perfectly match the BASE TRUTH footprints, and the grungy industrial-horror detailing aligns seamlessly with the style anchor.",
-        "_cost": 0.0063135,
-        "_raw": "```json\n{\"geometry_ok\": true, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"verdict\": \"pass\", \"notes\": \"Excellent work. The crate shapes, sizes, and position rotations perfectly match the BASE TRUTH footprints, and the grungy industrial-horror detailing aligns seamlessly with the style anchor.\"}\n```",
-        "_fullbleed": {
-          "ok": true,
-          "edge_mean": 86.73299407958984,
-          "center_mean": 73.44588470458984,
-          "darken_ratio": 0.8468044425768677,
-          "edge_grad": 8.677995681762695,
-          "center_grad": 8.767627716064453,
-          "grad_ratio": 0.9897769342854819,
-          "border_darkening": false,
-          "border_structure": false
-        }
-      }
-    ],
-    "tone_after": {
-      "mean_l": 78.4720230102539,
-      "mean_r": 78.72225189208984,
-      "mean_g": 79.06458282470703,
-      "mean_b": 71.86538696289062
     }
   },
   "l01/room_113": {
@@ -1808,42 +1721,6 @@
       "mean_r": 96.85669708251953,
       "mean_g": 104.4256591796875,
       "mean_b": 98.955810546875
-    }
-  },
-  "l05/room_007": {
-    "key": "l05/room_007",
-    "status": "accepted",
-    "attempt": 1,
-    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l05/room_7.png",
-    "cost": 0.07580350000000001,
-    "verdicts": [
-      {
-        "geometry_ok": true,
-        "style_ok": true,
-        "palette_ok": true,
-        "fidelity_ok": true,
-        "verdict": "pass",
-        "notes": "The generated texture aligns beautifully with the base truth geometry, capturing all floor lines, structural segments, and prop positions. The material execution matches the style anchor perfectly.",
-        "_cost": 0.0063045,
-        "_raw": "```json\n{\"geometry_ok\": true, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"verdict\": \"pass\", \"notes\": \"The generated texture aligns beautifully with the base truth geometry, capturing all floor lines, structural segments, and prop positions. The material execution matches the style anchor perfectly.\"}\n```",
-        "_fullbleed": {
-          "ok": true,
-          "edge_mean": 54.676822662353516,
-          "center_mean": 68.90928649902344,
-          "darken_ratio": 1.2603015892960687,
-          "edge_grad": 7.278541564941406,
-          "center_grad": 10.556766510009766,
-          "grad_ratio": 0.6894669459668359,
-          "border_darkening": false,
-          "border_structure": false
-        }
-      }
-    ],
-    "tone_after": {
-      "mean_l": 66.60435485839844,
-      "mean_r": 67.62918853759766,
-      "mean_g": 66.91915130615234,
-      "mean_b": 60.46835708618164
     }
   },
   "l06/room_101": {
@@ -3864,43 +3741,6 @@
       "mean_b": 94.80770874023438
     }
   },
-  "l03/room_005": {
-    "key": "l03/room_005",
-    "status": "accepted",
-    "attempt": 1,
-    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_5.png",
-    "cost": 0.075518,
-    "verdicts": [
-      {
-        "geometry_ok": true,
-        "style_ok": true,
-        "palette_ok": true,
-        "fidelity_ok": true,
-        "fullbleed_ok": true,
-        "verdict": "pass",
-        "notes": "Excellent generation. The wall-aligned consoles, central console, and small floor device perfectly match the base truth positions while beautifully inheriting the rusty, grimy industrial textures of the style anchor.",
-        "_cost": 0.006618,
-        "_raw": "```json\n{\"geometry_ok\": true, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": true, \"verdict\": \"pass\", \"notes\": \"Excellent generation. The wall-aligned consoles, central console, and small floor device perfectly match the base truth positions while beautifully inheriting the rusty, grimy industrial textures of the style anchor.\"}\n```",
-        "_fullbleed": {
-          "ok": true,
-          "edge_mean": 89.50537109375,
-          "center_mean": 95.07371520996094,
-          "darken_ratio": 1.062212401872269,
-          "edge_grad": 14.945682525634766,
-          "center_grad": 10.862614631652832,
-          "grad_ratio": 1.375882605840051,
-          "border_darkening": false,
-          "border_structure": false
-        }
-      }
-    ],
-    "tone_after": {
-      "mean_l": 93.61672973632812,
-      "mean_r": 89.08941650390625,
-      "mean_g": 95.53668975830078,
-      "mean_b": 87.92903900146484
-    }
-  },
   "l03/room_003": {
     "key": "l03/room_003",
     "status": "accepted",
@@ -4188,58 +4028,6 @@
           "center_grad": 8.913633346557617,
           "grad_ratio": 0.7991148031877185,
           "border_darkening": true,
-          "border_structure": false
-        }
-      }
-    ],
-    "removed_stale_texture": false
-  },
-  "l01/room_116": {
-    "key": "l01/room_116",
-    "status": "dropped",
-    "cost": 0.15115299999999998,
-    "verdicts": [
-      {
-        "geometry_ok": true,
-        "style_ok": true,
-        "palette_ok": true,
-        "fidelity_ok": true,
-        "fullbleed_ok": false,
-        "verdict": "fail",
-        "notes": "The generated texture has strong, raised trim/conduit lines running along the lower perimeter and right wall lines just inside the boundary, which violates the fullbleed requirement.",
-        "_cost": 0.006726,
-        "_raw": "```json\n{\n  \"geometry_ok\": true,\n  \"style_ok\": true,\n  \"palette_ok\": true,\n  \"fidelity_ok\": true,\n  \"fullbleed_ok\": false,\n  \"verdict\": \"fail\",\n  \"notes\": \"The generated texture has strong, raised trim/conduit lines running along the lower perimeter and right wall lines just inside the boundary, which violates the fullbleed requirement.\"\n}\n```",
-        "_fullbleed": {
-          "ok": true,
-          "edge_mean": 66.00965118408203,
-          "center_mean": 76.21170043945312,
-          "darken_ratio": 1.1545539034423997,
-          "edge_grad": 8.070304870605469,
-          "center_grad": 9.268407821655273,
-          "grad_ratio": 0.8707326032578666,
-          "border_darkening": false,
-          "border_structure": false
-        }
-      },
-      {
-        "geometry_ok": false,
-        "style_ok": true,
-        "palette_ok": true,
-        "fidelity_ok": true,
-        "fullbleed_ok": true,
-        "verdict": "fail",
-        "notes": "The generated texture invented two extra crates on the right edge that do not exist in the base truth layout, and stacked several extra crates on top of the mid-left group.",
-        "_cost": 0.0066,
-        "_raw": "```json\n{\"geometry_ok\": false, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": true, \"verdict\": \"fail\", \"notes\": \"The generated texture invented two extra crates on the right edge that do not exist in the base truth layout, and stacked several extra crates on top of the mid-left group.\"}\n```",
-        "_fullbleed": {
-          "ok": true,
-          "edge_mean": 87.06163024902344,
-          "center_mean": 78.7547378540039,
-          "darken_ratio": 0.9045860688427356,
-          "edge_grad": 8.874686241149902,
-          "center_grad": 7.935821533203125,
-          "grad_ratio": 1.118307185213101,
-          "border_darkening": false,
           "border_structure": false
         }
       }
@@ -5796,58 +5584,6 @@
     ],
     "removed_stale_texture": false
   },
-  "l03/room_000": {
-    "key": "l03/room_000",
-    "status": "dropped",
-    "cost": 0.15154600000000001,
-    "verdicts": [
-      {
-        "geometry_ok": false,
-        "style_ok": true,
-        "palette_ok": true,
-        "fidelity_ok": true,
-        "fullbleed_ok": true,
-        "verdict": "fail",
-        "notes": "Three new console or tank props were invented along the left border where none existed in the base truth, and the central desk prop was heavily embellished with extra assets.",
-        "_cost": 0.006573,
-        "_raw": "```json\n{\"geometry_ok\": false, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": true, \"verdict\": \"fail\", \"notes\": \"Three new console or tank props were invented along the left border where none existed in the base truth, and the central desk prop was heavily embellished with extra assets.\"}\n```",
-        "_fullbleed": {
-          "ok": true,
-          "edge_mean": 95.05210876464844,
-          "center_mean": 92.9699478149414,
-          "darken_ratio": 0.9780945317598106,
-          "edge_grad": 13.252242088317871,
-          "center_grad": 10.779214859008789,
-          "grad_ratio": 1.2294255436649206,
-          "border_darkening": false,
-          "border_structure": false
-        }
-      },
-      {
-        "geometry_ok": true,
-        "style_ok": true,
-        "palette_ok": true,
-        "fidelity_ok": true,
-        "fullbleed_ok": false,
-        "verdict": "fail",
-        "notes": "The generated texture has a prominent frame-like border bevel running entirely around the inner perimeter of the room polygon, which creates a picture-frame effect rather than a flush floor-to-wall transition.",
-        "_cost": 0.006645,
-        "_raw": "```json\n{\"geometry_ok\": true, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": false, \"verdict\": \"fail\", \"notes\": \"The generated texture has a prominent frame-like border bevel running entirely around the inner perimeter of the room polygon, which creates a picture-frame effect rather than a flush floor-to-wall transition.\"}\n```",
-        "_fullbleed": {
-          "ok": true,
-          "edge_mean": 80.08303833007812,
-          "center_mean": 93.86036682128906,
-          "darken_ratio": 1.1720380342517094,
-          "edge_grad": 15.971744537353516,
-          "center_grad": 10.415413856506348,
-          "grad_ratio": 1.533471905907629,
-          "border_darkening": false,
-          "border_structure": false
-        }
-      }
-    ],
-    "removed_stale_texture": false
-  },
   "l05/room_006": {
     "key": "l05/room_006",
     "status": "accepted",
@@ -5883,58 +5619,6 @@
       "mean_r": 79.87613677978516,
       "mean_g": 79.8033676147461,
       "mean_b": 71.04138946533203
-    }
-  },
-  "l05/room_005": {
-    "key": "l05/room_005",
-    "status": "accepted",
-    "attempt": 2,
-    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l05/room_5.png",
-    "cost": 0.145057,
-    "verdicts": [
-      {
-        "verdict": "fail",
-        "notes": "programmatic full-bleed check rejected: border/vignette/invented-void detected inside the polygon (darken_ratio=2.259767631099519, grad_ratio=1.0031792133676185). The floor material must run flush to the room's true wall line with no darkened margin or drawn border.",
-        "_fullbleed": {
-          "ok": false,
-          "edge_mean": 35.89545822143555,
-          "center_mean": 81.11539459228516,
-          "darken_ratio": 2.259767631099519,
-          "edge_grad": 7.097176551818848,
-          "center_grad": 7.0746846199035645,
-          "grad_ratio": 1.0031792133676185,
-          "border_darkening": true,
-          "border_structure": false
-        }
-      },
-      {
-        "geometry_ok": true,
-        "style_ok": true,
-        "palette_ok": true,
-        "fidelity_ok": true,
-        "fullbleed_ok": true,
-        "verdict": "pass",
-        "notes": "Excellent generation. All lockers, center detritus, and debris piles are placed exactly according to the base truth vectors, and the floor panel texture seamlessly extends full-bleed across the canvas to match the style anchor.",
-        "_cost": 0.006651,
-        "_raw": "```json\n{\"geometry_ok\": true, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": true, \"verdict\": \"pass\", \"notes\": \"Excellent generation. All lockers, center detritus, and debris piles are placed exactly according to the base truth vectors, and the floor panel texture seamlessly extends full-bleed across the canvas to match the style anchor.\"}\n```",
-        "_fullbleed": {
-          "ok": true,
-          "edge_mean": 68.92382049560547,
-          "center_mean": 68.61862182617188,
-          "darken_ratio": 0.9955719420769333,
-          "edge_grad": 7.8554558753967285,
-          "center_grad": 6.401979923248291,
-          "grad_ratio": 1.2270353811748538,
-          "border_darkening": false,
-          "border_structure": false
-        }
-      }
-    ],
-    "tone_after": {
-      "mean_l": 79.88060760498047,
-      "mean_r": 80.50995635986328,
-      "mean_g": 80.50420379638672,
-      "mean_b": 71.8502197265625
     }
   },
   "l05/room_004": {
@@ -8339,5 +8023,289 @@
       "mean_g": 76.6722412109375,
       "mean_b": 68.5870590209961
     }
+  },
+  "l03/room_000": {
+    "key": "l03/room_000",
+    "status": "accepted",
+    "attempt": 1,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_0.png",
+    "cost": 0.0759655,
+    "verdicts": [
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "The generated texture matches the base truth geometry perfectly while rendering the hydro room aesthetic and props with great fidelity. The texturing runs cleanly to the edges without any false borders or volumetric framing.",
+        "_cost": 0.006618,
+        "_raw": "```json\n{\"geometry_ok\": true, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": true, \"verdict\": \"pass\", \"notes\": \"The generated texture matches the base truth geometry perfectly while rendering the hydro room aesthetic and props with great fidelity. The texturing runs cleanly to the edges without any false borders or volumetric framing.\"}\n```",
+        "_fullbleed": {
+          "ok": true,
+          "edge_mean": 95.20977783203125,
+          "center_mean": 95.21546173095703,
+          "darken_ratio": 1.0000596986890968,
+          "edge_grad": 13.667637825012207,
+          "center_grad": 10.656338691711426,
+          "grad_ratio": 1.2825829039802377,
+          "border_darkening": false,
+          "border_structure": false
+        }
+      }
+    ],
+    "tone_after": {
+      "mean_l": 96.31389617919922,
+      "mean_r": 91.257080078125,
+      "mean_g": 98.56073760986328,
+      "mean_b": 88.94746398925781
+    }
+  },
+  "l03/room_005": {
+    "key": "l03/room_005",
+    "status": "accepted",
+    "attempt": 1,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_5.png",
+    "cost": 0.075669,
+    "verdicts": [
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "Excellent generation. The room geometry and the layout of the hydroponic planter tubs exactly match the base truth, with stylistic material details and overgrown foliage beautifully integrated directly from the style anchor. There is no perimeter framing or border.",
+        "_cost": 0.006681,
+        "_raw": "```json\n{\"geometry_ok\": true, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": true, \"verdict\": \"pass\", \"notes\": \"Excellent generation. The room geometry and the layout of the hydroponic planter tubs exactly match the base truth, with stylistic material details and overgrown foliage beautifully integrated directly from the style anchor. There is no perimeter framing or border.\"}\n```",
+        "_fullbleed": {
+          "ok": true,
+          "edge_mean": 95.05863952636719,
+          "center_mean": 95.01526641845703,
+          "darken_ratio": 0.9995437226103144,
+          "edge_grad": 17.18892478942871,
+          "center_grad": 10.339061737060547,
+          "grad_ratio": 1.6625226956344317,
+          "border_darkening": false,
+          "border_structure": false
+        }
+      }
+    ],
+    "tone_after": {
+      "mean_l": 95.33934020996094,
+      "mean_r": 90.94257354736328,
+      "mean_g": 97.35820770263672,
+      "mean_b": 88.28755950927734
+    }
+  },
+  "l01/room_116": {
+    "key": "l01/room_116",
+    "status": "dropped",
+    "cost": 0.137904,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "programmatic full-bleed check rejected: border/vignette/invented-void detected inside the polygon (darken_ratio=1.676013075055492, grad_ratio=0.606737305842858). The floor material must run flush to the room's true wall line with no darkened margin or drawn border.",
+        "_fullbleed": {
+          "ok": false,
+          "edge_mean": 39.2128791809082,
+          "center_mean": 65.72129821777344,
+          "darken_ratio": 1.676013075055492,
+          "edge_grad": 5.852879047393799,
+          "center_grad": 9.646479606628418,
+          "grad_ratio": 0.606737305842858,
+          "border_darkening": true,
+          "border_structure": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "programmatic full-bleed check rejected: border/vignette/invented-void detected inside the polygon (darken_ratio=152.03105988387208, grad_ratio=0.04001614322178909). The near-black region right at the polygon edge is almost certainly INVENTED GEOMETRY: you likely rendered a notch, chamfered corner, or extra wall/void that is NOT in the geometry guide's actual silhouette (the guide's true outline -- often a plain rectangle -- is binding; do not add bevelled/octagonal corners or any boundary detail not present in image 1).",
+        "_fullbleed": {
+          "ok": false,
+          "edge_mean": 0.49520015716552734,
+          "center_mean": 75.28580474853516,
+          "darken_ratio": 152.03105988387208,
+          "edge_grad": 0.39051589369773865,
+          "center_grad": 9.75895881652832,
+          "grad_ratio": 0.04001614322178909,
+          "border_darkening": true,
+          "border_structure": false
+        }
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l01/room_117": {
+    "key": "l01/room_117",
+    "status": "accepted",
+    "attempt": 2,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l01/room_117.png",
+    "cost": 0.145059,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "programmatic full-bleed check rejected: border/vignette/invented-void detected inside the polygon (darken_ratio=6.29560150545153, grad_ratio=0.7256805898369021). The near-black region right at the polygon edge is almost certainly INVENTED GEOMETRY: you likely rendered a notch, chamfered corner, or extra wall/void that is NOT in the geometry guide's actual silhouette (the guide's true outline -- often a plain rectangle -- is binding; do not add bevelled/octagonal corners or any boundary detail not present in image 1).",
+        "_fullbleed": {
+          "ok": false,
+          "edge_mean": 10.657423973083496,
+          "center_mean": 67.09489440917969,
+          "darken_ratio": 6.29560150545153,
+          "edge_grad": 6.657468318939209,
+          "center_grad": 9.174102783203125,
+          "grad_ratio": 0.7256805898369021,
+          "border_darkening": true,
+          "border_structure": false
+        }
+      },
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "Excellent work. The crate shapes and floor layout perfectly match the vector layout, and the texture fills the frame appropriately out to all edges without any artificial vignetting or borders.",
+        "_cost": 0.006735,
+        "_raw": "```json\n{\n  \"geometry_ok\": true,\n  \"style_ok\": true,\n  \"palette_ok\": true,\n  \"fidelity_ok\": true,\n  \"fullbleed_ok\": true,\n  \"verdict\": \"pass\",\n  \"notes\": \"Excellent work. The crate shapes and floor layout perfectly match the vector layout, and the texture fills the frame appropriately out to all edges without any artificial vignetting or borders.\"\n}\n```",
+        "_fullbleed": {
+          "ok": true,
+          "edge_mean": 87.60232543945312,
+          "center_mean": 77.65392303466797,
+          "darken_ratio": 0.8864367771645394,
+          "edge_grad": 8.890730857849121,
+          "center_grad": 9.4379243850708,
+          "grad_ratio": 0.9420218360631023,
+          "border_darkening": false,
+          "border_structure": false
+        }
+      }
+    ],
+    "tone_after": {
+      "mean_l": 81.40860748291016,
+      "mean_r": 81.3619384765625,
+      "mean_g": 82.03978729248047,
+      "mean_b": 75.29369354248047
+    }
+  },
+  "l05/room_007": {
+    "key": "l05/room_007",
+    "status": "dropped",
+    "cost": 0.1451655,
+    "verdicts": [
+      {
+        "geometry_ok": false,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "fail",
+        "notes": "The generated texture introduces new pink geometric shapes and lines/markings at the bottom-center and left-middle that do not exist in the base truth map, failing the critical geometry layout check.",
+        "_cost": 0.006645,
+        "_raw": "```json\n{\"geometry_ok\": false, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": true, \"verdict\": \"fail\", \"notes\": \"The generated texture introduces new pink geometric shapes and lines/markings at the bottom-center and left-middle that do not exist in the base truth map, failing the critical geometry layout check.\"}\n```",
+        "_fullbleed": {
+          "ok": true,
+          "edge_mean": 72.31739044189453,
+          "center_mean": 68.50068664550781,
+          "darken_ratio": 0.9472228771936487,
+          "edge_grad": 9.010783195495605,
+          "center_grad": 11.801239013671875,
+          "grad_ratio": 0.7635455213691127,
+          "border_darkening": false,
+          "border_structure": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "programmatic full-bleed check rejected: border/vignette/invented-void detected inside the polygon (darken_ratio=1.54623303950179, grad_ratio=0.5684711612926091). The floor material must run flush to the room's true wall line with no darkened margin or drawn border.",
+        "_fullbleed": {
+          "ok": false,
+          "edge_mean": 38.03901672363281,
+          "center_mean": 58.81718444824219,
+          "darken_ratio": 1.54623303950179,
+          "edge_grad": 6.179992198944092,
+          "center_grad": 10.87125015258789,
+          "grad_ratio": 0.5684711612926091,
+          "border_darkening": true,
+          "border_structure": false
+        }
+      }
+    ],
+    "removed_stale_texture": true
+  },
+  "l01/room_002": {
+    "key": "l01/room_002",
+    "status": "accepted",
+    "attempt": 1,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l01/room_2.png",
+    "cost": 0.075405,
+    "verdicts": [
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "Geometry matches the base truth perfectly with props aligned to their exact footprints, and the material style seamlessly extends full-bleed to the edges.",
+        "_cost": 0.006459,
+        "_raw": "```json\n{\"geometry_ok\": true, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": true, \"verdict\": \"pass\", \"notes\": \"Geometry matches the base truth perfectly with props aligned to their exact footprints, and the material style seamlessly extends full-bleed to the edges.\"}\n```",
+        "_fullbleed": {
+          "ok": true,
+          "edge_mean": 91.72698974609375,
+          "center_mean": 88.60779571533203,
+          "darken_ratio": 0.9659948065515302,
+          "edge_grad": 10.510062217712402,
+          "center_grad": 9.108596801757812,
+          "grad_ratio": 1.1538618347541885,
+          "border_darkening": false,
+          "border_structure": false
+        }
+      }
+    ],
+    "tone_after": {
+      "mean_l": 91.93745422363281,
+      "mean_r": 91.80628967285156,
+      "mean_g": 92.54106903076172,
+      "mean_b": 86.34451293945312
+    }
+  },
+  "l05/room_005": {
+    "key": "l05/room_005",
+    "status": "dropped",
+    "cost": 0.13849250000000002,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "programmatic full-bleed check rejected: border/vignette/invented-void detected inside the polygon (darken_ratio=1.7159898703723337, grad_ratio=1.4828905719899728). The floor material must run flush to the room's true wall line with no darkened margin or drawn border.",
+        "_fullbleed": {
+          "ok": false,
+          "edge_mean": 46.45138931274414,
+          "center_mean": 79.71011352539062,
+          "darken_ratio": 1.7159898703723337,
+          "edge_grad": 9.604033470153809,
+          "center_grad": 6.4765625,
+          "grad_ratio": 1.4828905719899728,
+          "border_darkening": true,
+          "border_structure": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "programmatic full-bleed check rejected: border/vignette/invented-void detected inside the polygon (darken_ratio=3.0344002757309823, grad_ratio=1.1674116662630256). The floor material must run flush to the room's true wall line with no darkened margin or drawn border.",
+        "_fullbleed": {
+          "ok": false,
+          "edge_mean": 27.442811965942383,
+          "center_mean": 83.27247619628906,
+          "darken_ratio": 3.0344002757309823,
+          "edge_grad": 8.414865493774414,
+          "center_grad": 7.208138942718506,
+          "grad_ratio": 1.1674116662630256,
+          "border_darkening": true,
+          "border_structure": false
+        }
+      }
+    ],
+    "removed_stale_texture": true
   }
 }
