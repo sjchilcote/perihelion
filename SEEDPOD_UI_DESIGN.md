@@ -1,5 +1,14 @@
 # SEED-POD UI (director-directed design, 2026-07-10)
 
+Naming (director-directed, 2026-07-11): the seed pods' official
+hardware-class name is **CUCULUS** -- the UI identifies itself as a
+CUCULUS unit in its chrome; colloquial "pod" stays colloquial in help
+text. The mind page's tab carries the in-universe encyclopedia's name
+(the mind map is the Commando integrating the public encyclopedia the
+Church dumped on his pod's drive): working label **ENCARTA**, spelling
+pending the director's confirmation -- a single constant in podscene.py
+(`MIND_TAB_LABEL`) so the respelling is a one-line change.
+
 Director's brief, verbatim anchors: upgrade and mindmap UIs become "pages
 of a single full-screen UI that comes up whenever Commando re-enters a
 seed-pod to heal, upgrade, and think." Mind-map expansion does NOT take

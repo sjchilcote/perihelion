@@ -47,6 +47,17 @@ from .sim import DT, SHOP
 # path (and its own concurrent edits elsewhere in this file) is untouched
 # when the env var is unset or "physics".
 MINDMAP_LAYOUT = os.environ.get("PERIHELION_MINDMAP_LAYOUT", "physics")
+
+# ---------------------------------------------------------------------------
+# official designations (director-directed). CUCULUS is the seed pods'
+# hardware-class name -- the UI identifies itself formally in the chrome
+# while colloquial "pod" stays colloquial in help text. The mind page's
+# tab carries the in-universe encyclopedia's name (the map IS the
+# Commando integrating the public encyclopedia the Church dumped on his
+# pod's drive): working spelling below, single constant so the
+# director's final styling is a one-line change.
+POD_UNIT_NAME = "CUCULUS"
+MIND_TAB_LABEL = "ENCARTA"   # working label, spelling pending director
 CAM_GLIDE_DUR = 0.6     # camera glide duration (seconds), both layout modes
 NODE_GROW_DUR = 0.6     # rings-mode node grow/fade-in duration (seconds)
 
@@ -726,7 +737,7 @@ class PodScene(Scene):
         s = self.session
         f = get_font(12)
         # tabs
-        tabs = [("FABRICATOR", "fabricator"), ("MIND", "mind")]
+        tabs = [("FABRICATOR", "fabricator"), (MIND_TAB_LABEL, "mind")]
         x = ui(24)
         for label, key in tabs:
             active = self.page == key
@@ -737,6 +748,10 @@ class PodScene(Scene):
                 pygame.draw.line(surf, VERDIGRIS, (x, ui(30)),
                                  (x + img.get_width(), ui(30)), max(1, ui(1)))
             x += img.get_width() + ui(26)
+        # the unit's nameplate, centered in the free chrome between the
+        # tabs and the wallet: the hardware class knows its own name
+        plate = get_font(10).render(POD_UNIT_NAME + " UNIT", True, (86, 99, 92))
+        surf.blit(plate, (w // 2 - plate.get_width() // 2, ui(14)))
         # wallet, right-aligned
         head = f"{s.components}c   {s.chassis} CHASSIS   {s.station_kits} KITS"
         img = f.render(head, True, (170, 200, 185))
@@ -745,7 +760,8 @@ class PodScene(Scene):
         if self.reveal is not None:
             hint = "" if self.reveal["t"] < REVEAL_IGNITE else "any key: skip"
         elif self.page == "fabricator":
-            hint = "W/S: select   ENTER: fabricate   TAB: mind   ESC: seal the pod"
+            hint = ("W/S: select   ENTER: fabricate   TAB: "
+                    f"{MIND_TAB_LABEL.lower()}   ESC: seal the pod")
         else:
             hint = "arrows: walk   ENTER: think   TAB: fabricator   ESC: seal the pod"
         if hint:
