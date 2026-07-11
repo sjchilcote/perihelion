@@ -298,3 +298,145 @@ def test_flat_floor_is_root_frame_invariant(pygame_ready, tmp_path, backend):
     assert d <= 3, (
         f"flat floor color diverged by {d} between root={color_root} and "
         f"non-root={color_nonroot}")
+
+
+# ---------------------------------------------------------------------------
+# Heterogeneity: darkness ENABLED, DIFFERENT room kinds/palettes, a THIRD
+# uninvolved room in view -- the coverage the original invariant above
+# didn't have (its `_get_detail = lambda room: []` monkeypatch and
+# `max_depth=1` isolate exactly one room's flat/textured floor from the
+# real multi-room darkness composite). This is the director's report,
+# reproduced and disproven/proven directly: crossing a doorway between two
+# DIFFERENT-kind rooms while a third, farther room stays on screen the
+# whole time must not move that third room's pixels AT ALL -- re-rooting
+# is bookkeeping, the darkness field is screen-space/player-centered (not
+# root-keyed), and every per-room color parameter in render.py (_dim,
+# _floor_dim, _room_tint) is a hardcoded no-op. See the manual
+# investigation in tools' scratch notes: an instrumented seed-7 AggroBot
+# run through levels/l10.json's real octagonal 'core' room (room 7) across
+# 9 genuine root-crossings showed zero anomalous jump on 8/9, and the one
+# jump that coincided with a crossing had the identical single-tick
+# decay signature (R-channel spike, G/B flat) as two OTHER jumps that
+# occurred with NO root change at all -- a muzzle-flash artifact, not a
+# lighting-pipeline defect.
+def _hetero_level(px, level_id):
+    """corridor(A) -[doorway]- core(B): DIFFERENT kinds/palettes either
+    side of the shared doorway (the director's report was specifically
+    about the room the camera crosses INTO becoming a different kind).
+    For px < 0 the player is in A (root=A); px > 0 crosses into B
+    (root=B). Both A and B stay on screen, at comparable distance, in
+    both renders -- so their far (non-doorway) walls are a clean root vs
+    non-root probe for each kind."""
+    b = LevelBuilder(level_id, 1)
+    rA = b.rect(0, 0, 260, 150, kind="corridor")
+    rB = b.rect(260, 0, 200, 150, kind="core")
+    b.connect_pts(rA, (260, 75), rB, (260, 75))
+    room = rA if px < 0 else rB
+    # hug the shared doorway (both rooms meet at authoring x=260) so the
+    # player's own on-screen marker never lands on the far-side probe
+    # region this test samples
+    b.player(room, (260.0 + px, 75.0))
+    level = b.build()
+    level.level_id = level_id
+    return level, rA, rB
+
+
+def _sample_room_screen_grid(session, ren, arr, room_idx, local_margin=20.0):
+    """{recovered_local_point (rounded): rendered_rgb} for `room_idx`,
+    sampled on a coarse SCREEN-space grid inside its clip polygon and
+    mapped back to the room's own local frame via `necore.mat_inv` --
+    orientation-agnostic (unlike forward-mapping hand-picked local
+    points, which requires knowing the portal xform's rotation in
+    advance) and valid for any content, not just bespoke textures.
+
+    Trimming by a SCREEN-space bbox percentage (as the texture test
+    above does) doesn't evenly trim in local space when the room isn't
+    axis-aligned to the screen -- corners can survive the screen margin
+    and land right on the wall-outline rim, a rasterization-quantization
+    artifact of two nearly-adjacent projections, not a color bug. So trim
+    in LOCAL space instead, against the room's own authored verts."""
+    verts = session.level.room_verts[room_idx]
+    vxs = [v[0] for v in verts]
+    vys = [v[1] for v in verts]
+    lo_lx, hi_lx = min(vxs) + local_margin, max(vxs) - local_margin
+    lo_ly, hi_ly = min(vys) + local_margin, max(vys) - local_margin
+    instances = session.visible(ren.max_depth, ren.max_instances)
+    out = {}
+    for room, xform, depth, clip_screen, walls, entry_edge, ents in instances:
+        if room != room_idx or len(clip_screen) < 3:
+            continue
+        im0, im1, im2, im3, im4, im5, _, _, _ = necore.mat_inv(xform)
+        xs = [p[0] for p in clip_screen]
+        ys = [p[1] for p in clip_screen]
+        lo_x, hi_x = max(0, int(min(xs))), min(INTERNAL_W - 1, int(max(xs)))
+        lo_y, hi_y = max(0, int(min(ys))), min(INTERNAL_H - 1, int(max(ys)))
+        for sx in range(lo_x, hi_x, 3):
+            for sy in range(lo_y, hi_y, 3):
+                if not _point_in_poly(sx + 0.5, sy + 0.5, clip_screen):
+                    continue
+                lx = im0 * (sx + 0.5) + im1 * (sy + 0.5) + im2
+                ly = im3 * (sx + 0.5) + im4 * (sy + 0.5) + im5
+                if not (lo_lx < lx < hi_lx and lo_ly < ly < hi_ly):
+                    continue
+                out[(round(lx), round(ly))] = tuple(
+                    int(c) for c in arr[sx, sy])
+    return out
+
+
+@pytest.mark.parametrize("backend", ["pygame", "rust"])
+def test_darkness_enabled_multiroom_is_root_frame_invariant(
+        pygame_ready, tmp_path, backend):
+    """The director's report, directly reproduced: crossing a doorway
+    between two DIFFERENT-kind rooms (corridor -> core) must not step
+    EITHER room's rendered pixels beyond what the ~0.2-unit camera
+    displacement itself explains -- with the real darkness pipeline
+    running (no isolation, no monkeypatched detail, no max_depth=1
+    truncation, no homogeneous-kind blind spot)."""
+    import perihelion.render as render_mod
+    render_mod.TEXTURE_DIR = tmp_path  # no bespoke textures for this level
+
+    def _render(px):
+        level, rA, rB = _hetero_level(px, "root_inv_hetero")
+        session = GameSession(level, seed=7, screen=(INTERNAL_W, INTERNAL_H))
+        ren = Renderer(session, backend=backend)  # real max_depth/instances, real darkness
+        # Isolate the floor/wall/darkness path from decorative line art
+        # (hazard stripes etc): those are drawn via canvas.line/polygon at
+        # pixel-rounded coordinates, so a hair's difference in camera pose
+        # legitimately shifts which side of a stripe edge a given screen
+        # pixel rounds to -- real antialiasing noise (the existing
+        # texture test's rim-margin problem, generalized to dense
+        # procedural geometry), not a lighting-pipeline defect. The
+        # darkness/palette machinery this test targets runs unmodified.
+        ren._get_detail = lambda room: []
+        surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
+        session.tick(InputFrame())
+        ren.consume_fx(session.fx)
+        ren.draw(surf)
+        arr = pygame.surfarray.pixels3d(surf).copy()
+        return (_sample_room_screen_grid(session, ren, arr, rA),
+                _sample_room_screen_grid(session, ren, arr, rB),
+                session.player_room())
+
+    map_a_root, map_b_root, root_a = _render(-0.1)   # player in A -> A is root
+    map_a_non, map_b_non, root_b = _render(0.1)      # crossed into B -> B is root
+    assert root_a != root_b, "test setup didn't actually flip which room is root"
+
+    worst, worst_key, worst_room = 0, None, None
+    n_common = 0
+    for room_name, map_root, map_non in (
+            ("A/corridor", map_a_root, map_a_non),
+            ("B/core", map_b_root, map_b_non)):
+        common = set(map_root) & set(map_non)
+        n_common += len(common)
+        for k in common:
+            cr, cn = map_root[k], map_non[k]
+            d = max(abs(cr[c] - cn[c]) for c in range(3))
+            if d > worst:
+                worst, worst_key, worst_room = d, k, room_name
+
+    assert n_common > 50, "too few sample points landed on screen in both renders"
+    assert worst <= 3, (
+        f"room {worst_room} diverged by {worst} (channel max) at local "
+        f"point {worst_key} purely from re-rooting -- some lighting/"
+        f"palette parameter is keyed on root identity instead of being "
+        f"purely spatial")
