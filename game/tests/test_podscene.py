@@ -196,9 +196,18 @@ def test_escape_seals_the_pod():
 # these test the WIRING (page/settle/rite precedence, selection-change =
 # release) rather than re-deriving the physics bounds -- see
 # test_mindmap_layout.py's test_live_pin_* for the physics guarantees.
+# The pin exists only in physics mode (rings mode glides the camera and
+# never moves a node), so these tests pin the mode explicitly instead of
+# inheriting PERIHELION_MINDMAP_LAYOUT from the environment.
 # ---------------------------------------------------------------------------
 
-def test_pin_pulls_selected_node_toward_center():
+@pytest.fixture(autouse=False)
+def _physics_mode(monkeypatch):
+    from perihelion import podscene
+    monkeypatch.setattr(podscene, "MINDMAP_LAYOUT", "physics")
+
+
+def test_pin_pulls_selected_node_toward_center(_physics_mode):
     sc, s, app = _scene()
     sc.on_enter(app)
     sc.page = "mind"
@@ -209,7 +218,7 @@ def test_pin_pulls_selected_node_toward_center():
     assert math.hypot(x, y) < rest_d
 
 
-def test_pin_releases_and_drifts_back_on_selection_change():
+def test_pin_releases_and_drifts_back_on_selection_change(_physics_mode):
     sc, s, app = _scene()
     sc.on_enter(app)
     sc.page = "mind"
@@ -228,7 +237,7 @@ def test_pin_releases_and_drifts_back_on_selection_change():
     assert math.hypot(x - rest_x, y - rest_y) < math.hypot(pulled_x - rest_x, pulled_y - rest_y)
 
 
-def test_pin_suspended_during_rite():
+def test_pin_suspended_during_rite(_physics_mode):
     sc, s, app = _scene(think_done=["vocation-just-war"])
     sc.on_enter(app)
     assert sc.rite is not None
