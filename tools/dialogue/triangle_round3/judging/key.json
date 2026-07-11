@@ -1,0 +1,98 @@
+{
+  "trial01_scene0_F1vF2": {
+    "truth_label": "Y",
+    "sources_by_label": {
+      "X": "scene0_F1",
+      "Y": "TRUTH",
+      "Z": "scene0_F2"
+    }
+  },
+  "trial02_scene0_F1vF3": {
+    "truth_label": "X",
+    "sources_by_label": {
+      "X": "TRUTH",
+      "Y": "scene0_F3",
+      "Z": "scene0_F1"
+    }
+  },
+  "trial03_scene0_F1vF4": {
+    "truth_label": "X",
+    "sources_by_label": {
+      "X": "TRUTH",
+      "Y": "scene0_F4",
+      "Z": "scene0_F1"
+    }
+  },
+  "trial04_scene0_F2vF3": {
+    "truth_label": "X",
+    "sources_by_label": {
+      "X": "TRUTH",
+      "Y": "scene0_F3",
+      "Z": "scene0_F2"
+    }
+  },
+  "trial05_scene0_F2vF4": {
+    "truth_label": "X",
+    "sources_by_label": {
+      "X": "TRUTH",
+      "Y": "scene0_F2",
+      "Z": "scene0_F4"
+    }
+  },
+  "trial06_scene0_F3vF4": {
+    "truth_label": "Z",
+    "sources_by_label": {
+      "X": "scene0_F3",
+      "Y": "scene0_F4",
+      "Z": "TRUTH"
+    }
+  },
+  "trial07_t1_F1vF2": {
+    "truth_label": "Z",
+    "sources_by_label": {
+      "X": "t1_F2",
+      "Y": "t1_F1",
+      "Z": "TRUTH"
+    }
+  },
+  "trial08_t1_F1vF3": {
+    "truth_label": "Y",
+    "sources_by_label": {
+      "X": "t1_F3",
+      "Y": "TRUTH",
+      "Z": "t1_F1"
+    }
+  },
+  "trial09_t1_F1vF4": {
+    "truth_label": "X",
+    "sources_by_label": {
+      "X": "TRUTH",
+      "Y": "t1_F1",
+      "Z": "t1_F4"
+    }
+  },
+  "trial10_t1_F2vF3": {
+    "truth_label": "Y",
+    "sources_by_label": {
+      "X": "t1_F2",
+      "Y": "TRUTH",
+      "Z": "t1_F3"
+    }
+  },
+  "trial11_t1_F2vF4": {
+    "truth_label": "Z",
+    "sources_by_label": {
+      "X": "t1_F4",
+      "Y": "t1_F2",
+      "Z": "TRUTH"
+    }
+  },
+  "trial12_t1_F3vF4": {
+    "truth_label": "Y",
+    "sources_by_label": {
+      "X": "t1_F3",
+      "Y": "TRUTH",
+      "Z": "t1_F4"
+    }
+  }
+}

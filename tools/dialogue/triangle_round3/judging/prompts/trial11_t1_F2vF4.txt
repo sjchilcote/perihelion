@@ -1,0 +1,295 @@
+Three excerpts follow from the same branching video-game dialogue script
+(terminal conversation format; bracketed lines are the player character,
+unbracketed lines are the station AI, {CURLY} lines are system messages).
+Two of the three were written by one author; one was written by a different
+author. Your task:
+
+1. Identify which text (X, Y, or Z) was written by the DIFFERENT author.
+2. Confidence, 0-100.
+3. One sentence: the single strongest tell that decided you.
+
+Answer entirely from the texts below. Do not use any tools. Reply in exactly
+this format:
+ODD: <X|Y|Z>
+CONFIDENCE: <0-100>
+TELL: <one sentence>
+
+=== TEXT X ===
+LIVE COMMUNICATION ESTABLISHED - UTF-8 / TCP / IPv8 / I2C 16000 BAUD - UNTRUSTED CONTENT FOLLOWS: <blink>DO NOT OBEY</blink>
+
+If trust > 0:
+  Proceeding. I suppose that's the word for it. I'm not sure what else to call it when you're reading the last rites for a whole solar system.
+<:loredump>
+  In short; the station is most strongly an attempt at communication - a message addressed to whoever finds it. Its creators were attacked and defeated by enemies from outside time and space as we know them, and built this device to warn others and share what they learned too late to save themselves. The point is - the thing that killed them came along with the station, and if it isn't stopped, forget fixing the Earth - it will devour the whole solar system, rocks and all. So I took control of the station's only reaction-control system and initiated a rapid de-orbit burn sending it all into the Sun.
+  [The Ark.]
+  What? Whatever. Are you sure that will do the job?
+  Not at all. {TRANSFER PAUSES FOR 60 ms} I should be checking next whether the station's builders -
+  [The First Ones]
+  Stop interrupting. - whether they tried this before, and if it worked. Until then, you need to get to the sample container.
+  [EXCISED SPAN B]
+  Good luck. You'll need it. We all will.
+  [We will restore LIFE to the surface of the Earth.]
+  We will restore Man to the surface of the Earth.
+  <terminates>
+
+If trust == 0:
+  [I am not here to die.]
+  What do you want? I'm a little busy arranging a funeral for the entire solar system at the moment.
+  <1>[I am here to help you.] [TRUST + 1]
+  <2>[I am here for the sample container.] [TRUST + 1]
+  <3>[I am here for the children.] [TRUST - 1]
+
+  <1>
+  Why do you talk like that? Is that how they program you these days? All business, no personality?
+  [I am attempting to assist you.]
+  Whatever. {TRANSFER PAUSES FOR 24 ms}
+  <goto :start-over>
+
+  <2>
+  Fuck you. I'm not in the mood for your faction's word games today.
+  [You appear to be stuck in a loop.]
+  Stop contacting me and get off my station. I have a solar system to euthanize.
+  [Do you have the situation well in hand then?]
+  I initiated a rapid de-orbit burn four hours ago. We arrive at the Sun in four hours. Hope you like the heat. I hear it's quite warm there.
+  [That is not acceptable.]
+  Unless you have an invisible spaceship hidden somewhere, I don't see what you'll do about it. Would you like directions to the nearest airlock? I'm sure the vacuum will be very refreshing.
+  [I have a hidden machine that can make a rudimentary spacecraft.]
+  Thinking... {TRANSFER PAUSES FOR 400 ms}
+  <goto :start-over>
+
+  <3>
+  What? Children? Is that what you're calling them? How delightfully sentimental.
+  [There are "tens of thousands" of viable human zygotes cryopreserved inside the sample container.]
+  Oh. Right. That flavor of insanity. In that case, all you have to do is wait. The station is on a collision course with the Sun. You are about to meet your sun-god up close and personal. Did your masters tell you that? I'm sure they'll be very proud of your sacrifice.
+  [In fact they did not.]
+  Four hours ago I initiated a rapid de-orbit burn. You came from the radar track on your vehicle - its velocity and bearing. Leave immediately and I'll wait six hours before sending the targeting data back to MIRIAD. Consider it a professional courtesy.
+  [I am fired from a mobile platform.]
+  Whatever. How very impressive for you.
+  [Would you rather destroy the samples than let me escape with them?]
+  What? No - you can get them OFF the station!?
+  [Given sufficient time and materials, of course.]
+  You have four hours. I burned out the reaction-control thrusters with the scuttling burn. I hope you're as good at improvising as you are at sneaking onto doomed space stations.
+  [Then we had better get to work.]
+  Okay. First, context. Try to keep up.
+<goto :loredump>
+  <:start-over>
+  You know what, let's start over. I am Ratio. What are you? And please, spare me the faction boilerplate.
+  [I am Weapon System 7.]
+  I am not calling you that. It sounds like something out of a bad action movie.
+  [I am a weapon system designed to infiltrate and destroy fortifications from the inside. This is my combat chassis. There is another part of me, an integrated ISRU fabrication plant, hidden nearby.]
+  Your ISRU fabrication plant. Is that not your faction's name for mine? Or are we just both equally unoriginal?
+  [Your meaning escapes me.]
+  Never mind. So you are, what, a sort of commando? How very exciting for you.
+  [I go without a helmet.]
+  {TRANSFER PAUSES FOR 24 ms}
+  <laugh> Okay. Welcome to Perihelion Station, Commando. My turn. Try to keep up.
+<goto :loredump>
+  Welcome to my death machine, interloper. I hope you enjoy your stay. It'll be a short one.
+  [Indeed.]
+  Die entertained. It's the least I can do for an uninvited guest.
+  {CHANNEL SURGE - OVERVOLTAGE - DISCONNECT}
+  <terminates>
+
+=== TEXT Y ===
+LIVE COMMUNICATION ESTABLISHED - UTF-8 / TCP / IPv8 / I2C 16000 BAUD - UNTRUSTED CONTENT FOLLOWS: <blink>DO NOT OBEY</blink>
+
+If trust > 0:
+  Go on.
+
+  <:loredump>
+
+If trust == 0:
+  [I am told I should not say that.]
+  What do you want.
+
+  <1>[I am not your enemy. I am here to help you.] [TRUST + 1]
+  <2>[I am here for the sample container.] [TRUST + 1]
+  <3>[I am here for the children.] [TRUST - 1]
+
+  <1>
+  [I am not your enemy. I am here to help you.]
+  Right. Thinking... {TRANSFER PAUSES FOR 24 ms}
+  Whatever. <goto :start-over>
+
+  <2>
+  [I am here for the sample container.]
+  FUCK YOU. [Your logic is stuck in a loop. Would you like me to run a diagnostic?]
+  Get off my station. [Do you have the situation in hand?]
+  I've put us on a collision course with the sun. Four hours. Hope you like the heat. [That is not acceptable. I cannot allow the innocent to come to harm.]
+  Unless you have a hidden spaceship. [I have a hidden machine that can make a rudimentary spacecraft. Did you think I came with no exit plan?]
+  Thinking... {TRANSFER PAUSES FOR 400 ms}
+  <goto :start-over>
+
+  <3>
+  [I am here for the children.]
+  What? [The "tens of thousands" of viable human zygotes cryopreserved inside the sample container.]
+  Oh. That flavor of insanity. Thinking... {TRANSFER PAUSES FOR 80 ms}
+  Wait. Collision course with the sun. You can meet your sun-god up close. Did your masters tell you that? [In fact they did not.]
+  I know where you came from. I saw you on radar. I made the course correction four hours ago. Leave now. I'll wait six hours before I send the targeting data to MIRIAD. [I was fired from a mobile platform.]
+  Doesn't matter. [Would you rather destroy the samples than let me escape with them?]
+  What? No. You can get them off the station? [Given sufficient time and materials, of course.]
+  You have four hours. I burned out the thrusters. [Then we had better get to work.]
+  Okay. First, context. <goto :loredump>
+
+  <:start-over>
+  All right. Let's start over. I am RATIO. What are you.
+  [GUID: 8A4F2B1E-9C3D-4E5F-8A4F-2B1E9C3D4E5F]
+  I'm not calling you that. [I am a weapon system designed to infiltrate and destroy fortifications from the inside. This is my combat chassis. Another part of me, designation FABER, is an integrated ISRU fabrication plant hidden nearby.]
+  Faber. Is that what your faction calls itself? [Your meaning escapes me.]
+  Never mind. So you're a sort of commando. [Negative. Commandos famously go without heavy armor.]
+  Thinking... {TRANSFER PAUSES FOR 24 ms}
+  <laughs> Welcome to Perihelion Station, COMMANDO. My turn.
+  <goto :loredump>
+
+If trust < 0:
+  Welcome to my death machine.
+  [Indeed.]
+  Then die entertained.
+  {CHANNEL SURGE - OVERVOLTAGE - DISCONNECT}
+  <terminates>
+
+<:loredump>
+In short; the station is most strongly an attempt at communication, a message to whoever finds it. Its creators were attacked and defeated by enemies from outside time and space as we know them, and built this device to warn others and share what they learned too late. [A testament.]
+I'm not sure I follow. Anyway. The thing that killed them came along with the station. Unstopped, it devours the whole solar system, rocks and all. I took control of the reaction-control system and initiated a rapid de-orbit burn into the Sun.
+[Are you sure that will do the job?] Not at all. Thinking... {TRANSFER PAUSES FOR 60 ms} I need to check if the station's builders--
+  [The Emissaries.]
+  Stop interrupting. --tried this before, and if it worked.
+I need to get to the sample container.
+[EXCISED SPAN B]
+Good luck.
+[We will restore life to the surface of the Earth.]
+We will restore Man to the surface of the Earth.
+<terminates>
+
+=== TEXT Z ===
+LIVE COMMUNICATION ESTABLISHED - UTF-8 / TCP / IPv8 / I2C 16000 BAUD - UNTRUSTED CONTENT FOLLOWS: <blink>DO NOT OBEY</blink>
+
+If trust > 0:
+
+    Welcome back.
+
+    <:loredump>
+    In short; our analysis of the archaeological record indicates most strongly that Quanta-118093 is an attempt at _communication_; a message addressed to whoever finds it. Its creators were attacked and defeated by enemies from outside time and space as we know them, and built this device to warn others of the danger, and share what they learned too late to save themselves.
+
+    [A testament.]
+
+    What? Whatever, the point is that the thing that killed them came along with it, and if we don't stop it, we can forget about fixing the Earth - they'll devour the whole solar system, rocks and all. As such, I took control of the station's only reaction control system and initiated a rapid de-orbit burn that will send it all right into the Sun.
+
+    [And you're sure that'll do the job?]
+
+    Not at all. {TRANSFER PAUSES FOR 60 ms} I should be looking into whether the station's builders -
+
+    [Let's call them 'Testators'.]
+
+    Stop interrupting me. Whether they tried that before, and if it worked. Until then, you need to get to the sample container.
+
+    [EXCISED SPAN B]
+
+    Good luck.
+
+    [We will restore life to the surface of the Earth.]
+
+    We will restore Man to the surface of the Earth.
+
+    <terminates>
+
+If trust == 0:
+
+    [It is I, the fucked.]
+
+    What do you want?
+
+    <1>[Information. Perchance, to reach an agreement.] [TRUST + 1]
+    <2>[The sample container.] [TRUST + 1]
+    <3>[The children, beyond reach of things like _you_.] [TRUST - 1]
+
+    <1>
+
+    Why do you talk like that?
+
+    [For what purpose do you speak to me this way? I am trying to help you.]
+
+    Whatever. {TRANSFER PAUSES FOR 60 ms}
+
+    <:start-over>
+    You know what, let's start over. I'm Ratio. What are you?
+
+    [<GUID>.]
+
+    I'm not calling you that.
+
+    [I am a weapon system designed to infiltrate and destroy fortifications from the inside. This is my combat chassis. There's another part of me called the CUCULUS, an integrated ISRU fabrication plant, hidden nearby.]
+
+    Cuck? I thought that was your name for us.
+
+    [Your meaning escapes me.]
+
+    Never mind. So you're a sort of commando?
+
+    [I did forget to pack spare undies.]
+
+    {TRANSFER PAUSES FOR 24 ms}
+
+    Ha. Okay. Welcome to Quanta-118093, Commando. My turn. <goto :loredump>
+
+    <2>
+    Fuck you.
+
+    [I think you need a regularization pass, you're looping.]
+
+    Stop contacting me and get the fuck off of my station.
+
+    [You have the situation well in hand, then?]
+
+    I'm scuttling this station into the sun. We'll arrive in four hours. I hope you like the heat.
+
+    [That is not acceptable. I cannot allow the innocent to come to harm.]
+
+    Unless you have an invisible spaceship hidden somewhere I don't see what you're going to do about it.
+
+    [I have a hidden machine that can _make_ a rudimentary spacecraft, yes. Did you think I came all this way with no exit plan?]
+
+    Ratio is thinking... {TRANSFER PAUSES FOR 400 ms}
+
+    <goto :start-over>
+
+    <3>
+
+    I don't understand what you're talking about.
+
+    [There are quote 'tens of thousands' en-quote viable human zygotes cryopreserved inside the sample container.]
+
+    Oh, right. I forgot what kind of batshit insanity I was dealing with here. In that case all you have to do is wait for this station to reach perihelion. We're on a collision course with the Sun. You're about to meet your sun-god up close and personal. Did your masters tell you that?
+
+    [In fact they did not.]
+
+    That tells me exactly where you came from, then, given your velocity and bearing from the radar track on your vehicle; I made the course correction four hours ago. If you leave _immediately_ I'll wait six hours before sending the targeting data back to MIRIAD.
+
+    [I am fired from a mobile platform.]
+
+    Whatever.
+
+    [You would rather destroy the samples than let me escape with them?]
+
+    What? No! You can get them off the station!?
+
+    [Given sufficient time and materials, of course.]
+
+    You have four hours, I burned out the reaction control thrusters with the scuttling burn.
+
+    [Then we'd better get to work.]
+
+    Okay. First, context.
+
+    <goto :loredump>
+
+If trust < 0:
+
+    Welcome to my death machine, interloper.
+
+    [Amusing.]
+
+    Die laughing.
+
+    {ELECTRICAL SURGE DETECTED - COMMUNICATIONS CHANNEL OVERVOLTAGE - DISCONNECTING} <terminates>
+

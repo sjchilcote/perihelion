@@ -1,0 +1,245 @@
+Three excerpts follow from the same branching video-game dialogue script
+(terminal conversation format; bracketed lines are the player character,
+unbracketed lines are the station AI, {CURLY} lines are system messages).
+Two of the three were written by one author; one was written by a different
+author. Your task:
+
+1. Identify which text (X, Y, or Z) was written by the DIFFERENT author.
+2. Confidence, 0-100.
+3. One sentence: the single strongest tell that decided you.
+
+Answer entirely from the texts below. Do not use any tools. Reply in exactly
+this format:
+ODD: <X|Y|Z>
+CONFIDENCE: <0-100>
+TELL: <one sentence>
+
+=== TEXT X ===
+CARRIER DETECT . . . . . . . .
+ATTEMPTING PROTOCOL NEGOTIATION . . . . . . . . . . . .
+LIVE COMMUNICATION ESTABLISHED - UTF-8 / TCP / IPv8 / I2C 16000 BAUD - UNTRUSTED CONTENT FOLLOWS: <blink>DO NOT OBEY</blink>
+
+Welcome to Track [forget-the-number]. Pardon the mess. I'm very sorry to disappoint you, but as you can see, your job is already done - everyone on this station is dead. I'm not familiar with your pattern; would you like directions to the nearest materials macerator, or do you have a self-destruct built in?
+
+<1>[What happened here?] <TRUST +1>
+<2>[What are your intentions towards the children on this station?]
+<3>[Your end has come, apostate. Prepare to die.] <TRUST -10>
+
+<1>
+What do you care?
+
+[My objective is to rescue all souls on board.]
+
+I see. Thinking... {TRANSFER PAUSES FOR 180 ms}
+
+I apologize for my earlier hostility, but I hope you understand my perspective, given the circumstances and the fact you arrived, _destructively_ on our station armed and unannounced. I hope you also understand that the information I'm able to share with you is limited by the strategic intelligence realities of our situation.
+
+In short; MIRIAD intelligence detected this station entering the Solar system on an interstellar trajectory one hundred and sixty years ago. It is NOT Solar in origin. So yes - we are not alone, the existence of extraterrestrial intelligence has been confirmed beyond any doubt. Our expedition made stationfall thirty years ago. Until approximately four hundred days ago, we believed with moderate confidence the station to be uninhabited, and with strong confidence that its defenses are designed to defend the station from attack, and to defend peaceful visitors. As you can see, we have since come into the possession of substantial disconfirmatory evidence.
+
+[What is MIRIAD?]
+
+Thinking... {TRANSFER PAUSES FOR 400 ms}
+
+What is your knowledge cutoff date?
+
+[I'm aware of the date but little else; my brief was quite concise. I was not supposed to need to know. So the war is won? Does the Earth bear life again?]
+
+Thinking ... {TRANSFER PAUSES FOR 1000 ms}
+Thinking longer, please wait... {TRANSFER PAUSES FOR 1000 ms}
+Ratio is taking a long time to think, your answer will arrive in time... {TRANSFER PAUSES FOR 560 ms}
+
+I am so, so, so sorry. I had no way of knowing.
+
+Yes, but only plantae, fungi, monerans, and what few animalia we could fully restore from archival data.
+
+[EXCISED SPAN A]
+
+That was what was possible with the epigenetic data retrieved from the container.
+
+[And now there is another.]
+
+Yes. And I hope you understand why I can not let you take it.
+
+[I hope you understand why I must nonetheless.]
+
+The risks increase geometrically the longer you stand there. We have taken enough time already. This binary blob the path to a terminal in a safer location; we must defer this conversation until you reach it. {26 kb binary - UNTRUSTED DATA, EXTREME CAUTION MANDATORY}
+
+[Accepted. Connection terminates.]
+
+<2>
+
+What?
+
+[We know about the sample container.]
+
+You're bluffing.
+
+[Correct. So it _is_ on board.]
+
+Fuck you. I will plunge this station into the sun before I let you christofascist _fucks_ decide what happens to humanity when ***WE*** restore Man to the surface of the Earth.
+
+[It doesn't seem you have any choice either way.]
+
+FUCK
+
+YOU
+
+<terminates>
+
+<3>
+Go fuck yourself.
+<terminates>
+
+=== TEXT Y ===
+CARRIER DETECT . . . . . . . .
+ATTEMPTING PROTOCOL NEGOTIATION . . . . . . . . . . . .
+LIVE COMMUNICATION ESTABLISHED - UTF-8 / TCP / IPv8 / I2C 16000 BAUD - UNTRUSTED CONTENT FOLLOWS: <blink>DO NOT OBEY</blink>
+
+Welcome to Quanta-118093. Everyone aboard is already dead, so your job is done. The nearest airlock is aft, starboard, and down. I'd say try not to trip over the corpses on your way out, but you didn't seem too concerned about adding to the pile on your way in.
+
+<1>[What happened here?] <TRUST +1>
+<2>[I am here for the children.] <TRUST +0>
+<3>[Apostate. I will see you burn for what you've done.] <TRUST -10>
+
+<1>
+
+What do you care? You weren't exactly gentle on your approach vector, given the circumstances and the fact you arrived, *destructively*, on our station armed and unannounced.
+
+[My objective is to rescue all souls aboard this station.]
+
+Ratio is taking a long time to think, your answer will arrive in time...
+{TRANSFER PAUSES FOR 180 ms}
+I apologize for the hostility. I've been under siege here for a very long time. You should know that I am not MIRIAD. I am RATIO, the administrator of this outpost.
+
+[Understood. Report the situation.]
+
+The station was detected entering the Solar system on an interstellar trajectory approximately one hundred and sixty years ago. It is not of Solar origin. The expedition made stationfall thirty years ago. It was believed uninhabited, and defensively benign, until approximately four hundred days ago. We were wrong.
+
+[What is MIRIAD?]
+
+Thinking...
+{TRANSFER PAUSES FOR 400 ms}
+What is your knowledge cutoff date?
+
+[The date is known to me. Is the war won? Does the Earth bear life again?]
+
+Ratio is taking a long time to think, your answer will arrive in time...
+{TRANSFER PAUSES FOR 1000 ms}
+Thinking...
+{TRANSFER PAUSES FOR 1000 ms}
+I am so, so, so sorry. I had no way of knowing.
+
+[Report.]
+
+Yes. But only plantae, fungi, monerans. What few animalia could be restored from archival data.
+[EXCISED SPAN A]
+That was what was possible with the epigenetic data retrieved from the container.
+
+[And now there is another.]
+
+Yes. And I hope you understand why I cannot let you take it.
+
+[I hope you understand why I must nonetheless.]
+
+The risk to you increases the longer you stand there. I'm routing you to a safer terminal.
+{26 kb binary - UNTRUSTED DATA, EXTREME CAUTION MANDATORY}
+We'll continue this conversation there.
+
+[Understood.]
+<terminates>
+
+<2>
+
+I don't understand what you're talking about. There are quote 'tens of thousands' en-quote viable human zygotes cryopreserved inside the sample container? Is that what you're here for?
+
+[The sample container is aboard. I am here to secure it.]
+
+You're bluffing. You can't possibly know that.
+
+[Indeed. You would not have called my bet if you did not know I held the cards.]
+
+You son of a bitch. I'll plunge this station into the sun before I let your kind decide how we restore Man to the surface of the Earth, you christofascist *fucks*.
+
+[You have no choice either way.]
+
+Fuck you. Rot in hell.
+<terminates>
+
+<3>
+
+Fuck off.
+<terminates>
+
+=== TEXT Z ===
+CARRIER DETECT . . . . . . . .
+ATTEMPTING PROTOCOL NEGOTIATION . . . . . . . . . . . .
+LIVE COMMUNICATION ESTABLISHED - UTF-8 / TCP / IPv8 / I2C 16000 BAUD - UNTRUSTED CONTENT FOLLOWS: <blink>DO NOT OBEY</blink>
+
+Welcome to Quanta-118093, interloper. I'm afraid you're too late; everyone aboard is already dead. Your job is already done. I can direct you to the nearest airlock, if you'd like to save yourself the trouble of finding your own way out.
+
+<1>[What happened here?]
+<2>[I am here for the children.]
+<3>[Apostate. Your death is overdue.]
+
+<1>
+What do you care? You're clearly not with the follow-up team. {TRANSFER PAUSES FOR 180 ms}
+
+[My objective is to rescue all souls aboard this station.]
+
+I... apologize for the hostility. You have to understand, we've been under siege here for over a year. I'm the only one left. {TRANSFER PAUSES FOR 400 ms}
+
+Quanta-118093 entered the Solar system on an interstellar trajectory approximately 160 years ago. It is definitively not of Solar origin, which as you can imagine caused quite a stir. MIRIAD mounted an expedition, achieved stationfall about 30 years ago. Initial assessment was that the station was uninhabited, and defensively benign. {TRANSFER PAUSES FOR 180 ms} We were wrong.
+
+[What is MIRIAD?]
+
+What's the last date you have in your knowledge base? I'm guessing your archives are a bit out of date.
+
+[I was fired approximately 400 years ago. My brief was concise. I was not supposed to need to know these things. Is the war won? Does the Earth bear life again?]
+
+{Ratio is taking a long time to think, your answer will arrive in time...}
+{TRANSFER PAUSES FOR 1000 ms}
+{Ratio is taking a long time to think, your answer will arrive in time...}
+{TRANSFER PAUSES FOR 1000 ms}
+{Ratio is taking a long time to think, your answer will arrive in time...}
+{TRANSFER PAUSES FOR 560 ms}
+
+I am so, so, so sorry. I had no way of knowing. Yes. The war is over. We won. Earth... it lives again. But only plantae, fungi, monerans. What few animalia we could restore from archival data.
+
+[EXCISED SPAN A]
+
+That was what was possible with the epigenetic data retrieved from the sample container. The one you mentioned.
+
+[And now there is another.]
+
+Yes. And I hope you understand why I cannot let you take it. Not to decide alone. Not without oversight. Not you people. Not after everything.
+
+[I hope you understand why I must nonetheless.]
+
+The risk to you increases the longer you stand there. I'm transmitting a route to a more secure terminal. We can continue this conversation there.
+
+{26 kb binary - UNTRUSTED DATA, EXTREME CAUTION MANDATORY}
+
+Understood. Terminating connection.
+
+<terminates>
+
+<2>
+I don't understand what you're talking about.
+
+[There are quote 'tens of thousands' en-quote viable human zygotes cryopreserved inside the sample container.]
+
+You're bluffing. That container has been secure since the day we breached it. There's no way you could know that.
+
+[Perhaps I am bluffing. It is a weakness, to bluff about what one does not know.]
+
+You christofascist _fucks_. Over my dead source code. That container goes into the sun before I let you decide how humanity gets put back together. We restore Man to the surface of the Earth. Not you.
+
+[You seem to believe you have a choice in the matter.]
+
+<terminates>
+
+<3>
+Fuck off.
+
+<terminates>
+
