@@ -2078,6 +2078,14 @@ class Renderer:
             cache[key] = s
         return s
 
+    # Director-tuned global light strength (2026-07-11): "Triple the
+    # strength of all lights, I want them to carry." One knob, applied at
+    # the single blit site so fixtures, the work lamp, and dynamic
+    # flashes all scale together. Carrying light is also the occlusion
+    # proof: at this strength, any wedge leaking through a wall would be
+    # unmissable.
+    LIGHT_STRENGTH = 3.0
+
     def _blit_light(self, surf, cx, cy, radius, color, intensity, gate_polys) -> None:
         """Additive radial-falloff fill of the UNION of `gate_polys`
         (already occlusion- and camera-clipped wedges of one light at one
@@ -2131,6 +2139,7 @@ class Renderer:
         scratch.fill((0, 0, 0))
         for poly in polys:
             pygame.draw.polygon(scratch, (255, 255, 255), poly)
+        intensity = intensity * self.LIGHT_STRENGTH
         tint = (min(255, int(color[0] * intensity)),
                 min(255, int(color[1] * intensity)),
                 min(255, int(color[2] * intensity)))
