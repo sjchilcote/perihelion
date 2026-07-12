@@ -192,14 +192,28 @@ chunky Teleglitch grit and a hard perf ceiling. Per DrawInstance, back-to-front:
 floor = flat dark polygon (`clip_screen`) + room detail primitives (static
 per-room grime: lines, plates, stains in local coords) clipped via engine and
 drawn as vector strokes; walls = thick bright segments on the visible span;
-a player-centered screen-space darkness field (see 3.2a) replaced the old
-per-instance depth dimming; entities as rotated polygon sprites (engine-clipped
-when straddling a portal). The same entity legitimately renders in several
-instances at once — that's the game. Post: vignette, scanline flicker on damage,
-screenshake applied to the final blit offset. No per-frame surface allocation
-anywhere.
+world illumination is the lightmap (see 3.2a) — **zero ambient**, no
+screen-space darkness field; entities as rotated polygon sprites (engine-
+clipped when straddling a portal), composited ON TOP of the lightmap multiply,
+unaffected by it (3.2a). The same entity legitimately renders in several
+instances at once — that's the game. Post: vignette, scanline flicker on
+damage, screenshake applied to the final blit offset. No per-frame surface
+allocation anywhere.
 
 ### 3.2a Lighting
+
+**Zero ambient (the director's order, 2026-07-11):** the world layer's ONLY
+illumination is the lightmap described below. There is no screen-space
+darkness field, warm or otherwise — the earlier player-centered radial
+vignette (`_apply_darkness`'s `0.72*max(w,h)` falloff) is gone, along with the
+"additive glow on top of an already-lit scene" compositing it implied. A
+world-layer pixel no enabled light reaches renders BLACK. Unless a level
+places a specific fixture, the frame's own attached work lamp is the only
+light that always exists (`sim.py`'s `player_light`, intensity 0.95/radius 85,
+tuned as the SOLE source rather than an addition on top of ambient).
+Otherworld rooms keep their pre-existing, unrelated identity (the floor IS the
+light source, self-luminous, sculpted by an inverted cold-distance field) —
+untouched by this order.
 
 Lights are real world objects, not a screen-space glow: a level's `lights` list
 (`LightSpec` — room, local pos, color, intensity, radius, kind `static`|
@@ -210,7 +224,8 @@ calls `necore.visible_set(light.room, cam, light.pos, ...)` and recovers each
 reached room's own local lit polygon plus the light's virtual local position
 there by inverting the returned transform — no engine (Rust) changes were
 needed, `visible_set` already returns everything required. Shadow is simply
-absence of wedge.
+absence of wedge, and since the lightmap is black by default, absence of
+wedge IS absence of illumination.
 
 Static lights (fixed geometry + fixed position) are cached once at level load,
 keyed **per room**, not per portal-chain: because a room's own local geometry
@@ -220,17 +235,32 @@ instance of that room forever — the "per-room caching, exact rather than
 approximate" case the design allows for when chain-relative keying is
 intractable. `attached` lights (the player's own light) recompute every frame.
 
-Per frame, `render.py:_draw_world_lights` looks up each visible camera
-instance's room in the lighting system, transforms the cached local wedge to
-screen space via that instance's own transform, gates it against the camera's
-own visible-region polygon (`necore.clip_polygon`), and additively blits a
-polygon-clipped radial falloff (`a = clamp(1 - dist/radius, 0, 1); a*a` — the
-same smooth-to-zero kernel `OP_GLOW`/`_bake_glows` already use) — punching
-through the darkness field exactly like the existing muzzle/screen glows, but
-shaped by real occlusion instead of a fixed-radius disc. Because this
-compositing happens on the already-assembled pixel surface, it runs
-identically for both render backends with no new raster op or parity surface
-to maintain.
+Per frame, `render.py:_build_lightmap` accumulates EVERY source of
+illumination — static/attached world lights (`_draw_world_lights`, which looks
+up each visible camera instance's room in the lighting system, transforms the
+cached local wedge to screen space via that instance's own transform, gates it
+against the camera's own visible-region polygon via `necore.clip_polygon`, and
+additively blits a polygon-clipped radial falloff — `a = clamp(1 - dist/
+radius, 0, 1); a*a`, the same smooth-to-zero kernel `OP_GLOW`/`_bake_glows`
+already use), plus this frame's dynamic point lights (muzzle flashes, bolts,
+lit screens/terminals) — into ONE black-by-default lightmap surface. `draw()`
+then multiplies the drawn world layer by that lightmap instead of adding
+glows on top of an already-lit scene: the lightmap literally IS the world's
+illumination, shaped by real occlusion instead of a fixed-radius disc. The
+entity plane (enemies/pickups/player/effects — "stylized sensor traces": the
+frame SEES them by sensor, not by light, per TESTATOR_DESIGN_LANGUAGE) is
+composited AFTER that multiply, unaffected by it, so it stays visible in the
+dark; pickups get the same treatment as enemies (a salvage signature reads on
+the same sensor overlay a hostile does).
+
+The rust backend does the equivalent multiply natively: `necore.Raster`
+exposes `set_lightmap` (an RGB byte buffer, same shape `_build_lightmap`
+produces), and `compose()`'s fixed order runs the lightmap multiply on the
+WORLD plane BEFORE the entity coverage fold — reordered from the pre-zero-
+ambient code, which folded entities in first and would otherwise darken them
+along with the floor. Because compositing still happens on the already-
+assembled pixel surface (Python builds the lightmap once per frame for both
+backends), no additional parity surface is introduced beyond that reorder.
 
 **One-bounce light (future work, design only):** a cheap approximation of
 indirect/bounce light is to treat each STATIC light's own cached lit wall

@@ -547,9 +547,20 @@ impl Raster {
         self.r.begin(bg_rgba);
     }
 
-    /// Darkness multiply on/off (off = debug full-bright).
+    /// Darkness (lightmap) multiply on/off (off = debug full-bright).
     fn set_darkness(&mut self, on: bool) {
         self.r.set_darkness(on);
+    }
+
+    /// Upload this frame's lightmap: RGB8, row-major, `data` a `w*h*3`-byte
+    /// buffer (bytes / bytearray / numpy uint8 array) sized to the raster's
+    /// own (width, height) -- the world's SOLE illumination when darkness
+    /// is on (zero ambient; see raster.rs module docs). Call once per
+    /// frame, before `finish`/`finish_into`; skip the call for an all-black
+    /// (unlit) world -- `begin()` already reset the map to zero.
+    fn set_lightmap(&mut self, py: Python<'_>, data: PyBuffer<u8>) -> PyResult<()> {
+        let bytes = data.to_vec(py)?;
+        self.r.set_lightmap(&bytes).map_err(raster_err)
     }
 
     /// Register an instance's convex screen-space clip polygon — either a

@@ -6320,8 +6320,8 @@
     190,
     110
    ],
-   "intensity": 0.5,
-   "radius": 95,
+   "intensity": 0.95,
+   "radius": 109.2,
    "kind": "static"
   },
   {
@@ -6335,8 +6335,8 @@
     190,
     110
    ],
-   "intensity": 0.5,
-   "radius": 95,
+   "intensity": 0.95,
+   "radius": 109.2,
    "kind": "static"
   },
   {
@@ -6350,8 +6350,8 @@
     190,
     110
    ],
-   "intensity": 0.5,
-   "radius": 95,
+   "intensity": 0.95,
+   "radius": 109.2,
    "kind": "static"
   },
   {
@@ -6365,8 +6365,8 @@
     190,
     110
    ],
-   "intensity": 0.5,
-   "radius": 95,
+   "intensity": 0.95,
+   "radius": 109.2,
    "kind": "static"
   },
   {
@@ -6380,8 +6380,8 @@
     190,
     110
    ],
-   "intensity": 0.5,
-   "radius": 95,
+   "intensity": 0.95,
+   "radius": 109.2,
    "kind": "static"
   },
   {
@@ -6395,8 +6395,8 @@
     190,
     110
    ],
-   "intensity": 0.5,
-   "radius": 95,
+   "intensity": 0.95,
+   "radius": 109.2,
    "kind": "static"
   }
  ]

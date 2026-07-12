@@ -207,12 +207,18 @@ class GameSession:
         # The player's FRAME carries an attached work lamp THROUGH the same
         # system, so their own illumination occludes properly (light
         # stops at walls / spills through doorways) rather than being a
-        # screen-space disc; the darkness field remains the ambient law.
+        # screen-space disc. Zero ambient (the director's order): unless a
+        # level places a specific fixture, this lamp is the ONLY light
+        # that always exists. Intensity/radius tuned as the SOLE source of
+        # illumination, not an addition on top of a screen-space ambient
+        # field -- the old 0.22/64 pair was calibrated for the latter and
+        # left the player's own pool nearly invisible once ambient was
+        # removed.
         self.lighting = LightingSystem(s, level)
         from .levels import LightSpec as _LightSpec
         self.player_light = _LightSpec(
             room=level.player_room, pos=tuple(level.player_pos),
-            color=(255, 226, 188), intensity=0.22, radius=64.0,
+            color=(255, 226, 188), intensity=0.95, radius=85.0,
             kind="attached")
         self.lighting.lights.append(self.player_light)
 

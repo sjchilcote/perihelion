@@ -347,7 +347,15 @@ def _hetero_level(px, level_id):
     For px < 0 the player is in A (root=A); px > 0 crosses into B
     (root=B). Both A and B stay on screen, at comparable distance, in
     both renders -- so their far (non-doorway) walls are a clean root vs
-    non-root probe for each kind."""
+    non-root probe for each kind.
+
+    Two STATIC lights (one per room, each centered on its own far wall)
+    flood both rooms -- with zero ambient (the director's order), an
+    unlit room renders flat black regardless of root, which would make
+    this test's pixel comparison trivial (all-zero vs all-zero always
+    "invariant", testing nothing). Static lights don't move between the
+    two renders, so they don't break the isolation `_douse_player_lamp`
+    protects -- only the attached, player-riding lamp does that."""
     b = LevelBuilder(level_id, 1)
     rA = b.rect(0, 0, 260, 150, kind="corridor")
     rB = b.rect(260, 0, 200, 150, kind="core")
@@ -357,6 +365,14 @@ def _hetero_level(px, level_id):
     # player's own on-screen marker never lands on the far-side probe
     # region this test samples
     b.player(room, (260.0 + px, 75.0))
+    # Deliberately soft (large radius, modest intensity): the a^2 falloff
+    # kernel's per-pixel gradient is gentler at large radius, keeping this
+    # test's ~0.2u camera-pose sensitivity in the same ballpark the old
+    # vignette field had (its own falloff denominator spans the whole
+    # screen). A tight/bright light would amplify ordinary sub-pixel
+    # gradient-sprite rounding into a false positive here.
+    b.light(rA, (30.0, 75.0), color=(255, 255, 255), intensity=0.9, radius=900.0)
+    b.light(rB, (420.0, 75.0), color=(255, 255, 255), intensity=0.9, radius=900.0)
     level = b.build()
     level.level_id = level_id
     return level, rA, rB
@@ -410,9 +426,12 @@ def test_darkness_enabled_multiroom_is_root_frame_invariant(
     """The director's report, directly reproduced: crossing a doorway
     between two DIFFERENT-kind rooms (corridor -> core) must not step
     EITHER room's rendered pixels beyond what the ~0.2-unit camera
-    displacement itself explains -- with the real darkness pipeline
+    displacement itself explains -- with the real lighting pipeline
     running (no isolation, no monkeypatched detail, no max_depth=1
-    truncation, no homogeneous-kind blind spot)."""
+    truncation, no homogeneous-kind blind spot). `_hetero_level` floods
+    both rooms with a STATIC light each so there is real illuminated
+    content to compare under zero ambient (an unlit room would otherwise
+    render flat black in both renders, trivially "invariant")."""
     import perihelion.render as render_mod
     render_mod.TEXTURE_DIR = tmp_path  # no bespoke textures for this level
 

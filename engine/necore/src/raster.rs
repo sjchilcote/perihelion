@@ -10,16 +10,20 @@
 //! Layer model (fixed compositing order in [`Raster::finish_into`]):
 //!   1. WORLD commands, submission order, opaque writes.
 //!   2. ENTITY commands, submission order, into a separate RGBA plane.
-//!   3. Coverage fold: entity.a = min(entity.a, coverage) then alpha-over
-//!      onto world. Alpha is binary, so "over" is a select — this is the
-//!      no-seams invariant: entities draw whole and are cut only where the
-//!      rendered world itself ends.
-//!   4. Darkness multiply: `(c * m + 255) >> 8` per channel with a LUT baked
-//!      at construction. (pygame-ce 2.5.7 BLEND_RGB_MULT is `(s*d + 255) >> 8`
-//!      — the scalar macro and the SIMD blitters agree; verified empirically:
-//!      255*255 -> 255, 1*1 -> 1.)
+//!   3. Lightmap multiply on the WORLD plane only: `(c * m + 255) >> 8` per
+//!      channel against a per-frame lightmap uploaded by `set_lightmap`
+//!      (black -- all zero -- by default each `begin()`, matching pygame's
+//!      BLEND_RGB_MULT). Zero ambient, per the director's order: a world
+//!      pixel no uploaded light reaches renders BLACK. This runs BEFORE the
+//!      entity fold so entities are never multiplied by it.
+//!   4. Coverage fold: entity.a = min(entity.a, coverage) then alpha-over
+//!      onto the (already lightmap-multiplied) world. Alpha is binary, so
+//!      "over" is a select — this is the no-seams invariant: entities draw
+//!      whole and are cut only where the rendered world itself ends. Doing
+//!      this AFTER step 3 is what keeps entities ("stylized sensor traces")
+//!      visible in the dark: the frame sees them by sensor, not by light.
 //!   5. OVERLAY commands, submission order: glows are saturating additive,
-//!      everything else is a plain opaque draw (post-darkness, unattenuated).
+//!      everything else is a plain opaque draw (post-multiply, unattenuated).
 //!
 //! Coordinates cross the API as floats; they are transformed in f64 (same
 //! math as `necore.mat_apply`) and rounded to pixels with round-half-to-even,
@@ -963,8 +967,11 @@ pub struct Raster {
     entity: Vec<u8>,
     /// u8 coverage plane: union of the instance clip polygons.
     coverage: Vec<u8>,
-    /// Baked darkness LUT, 3 bytes per pixel (R, G, B multipliers).
-    dark: Vec<u8>,
+    /// Per-frame lightmap, 3 bytes per pixel (R, G, B multipliers),
+    /// uploaded by `set_lightmap`; reset to all-zero (black -- zero
+    /// ambient) at the top of every `begin()`. This is the world's SOLE
+    /// illumination when `darkness_on`, not a screen-space vignette.
+    lightmap: Vec<u8>,
     darkness_on: bool,
     /// Set by the first compose since `begin`. Compositing is destructive
     /// (entity fold + darkness multiply mutate the world plane), so it runs
@@ -980,36 +987,19 @@ pub struct Raster {
 }
 
 impl Raster {
-    /// Fixed-size rasterizer. The darkness LUT replicates render.py
-    /// `_apply_darkness` including its float32 numpy pipeline:
-    /// `d = clip(sqrt((x-cx)^2 + (y-cy)^2) / (0.72*max(w,h)), 0, 1)`,
-    /// `k = smoothstep(d)`, warm coefficients R 0.42 / G 0.55 / B 0.60.
+    /// Fixed-size rasterizer. `lightmap` starts all-zero (black): with no
+    /// `set_lightmap` upload, a `darkness_on` frame renders the world plane
+    /// pure black, which is correct -- zero ambient, no light reached it.
     pub fn new(w: usize, h: usize) -> Raster {
         assert!(w > 0 && h > 0, "raster dimensions must be positive");
         let npx = w * h;
-        let mut dark = Vec::with_capacity(npx * 3);
-        let cx = (w as f64 / 2.0) as f32;
-        let cy = (h as f64 / 2.0) as f32;
-        let denom = (0.72 * w.max(h) as f64) as f32;
-        let (kr, kg, kb) = (0.42_f64 as f32, 0.55_f64 as f32, 0.60_f64 as f32);
-        for y in 0..h {
-            for x in 0..w {
-                let dx = x as f32 - cx;
-                let dy = y as f32 - cy;
-                let d = ((dx * dx + dy * dy).sqrt() / denom).clamp(0.0, 1.0);
-                let k = d * d * (3.0 - 2.0 * d);
-                dark.push((255.0 * (1.0 - kr * k)) as u8);
-                dark.push((255.0 * (1.0 - kg * k)) as u8);
-                dark.push((255.0 * (1.0 - kb * k)) as u8);
-            }
-        }
         Raster {
             w: w as i32,
             h: h as i32,
             world: vec![0; npx * 4],
             entity: vec![0; npx * 4],
             coverage: vec![0; npx],
-            dark,
+            lightmap: vec![0; npx * 3],
             darkness_on: true,
             composed: false,
             clips: Vec::new(),
@@ -1053,6 +1043,7 @@ impl Raster {
         }
         self.entity.fill(0);
         self.coverage.fill(0);
+        self.lightmap.fill(0);  // zero ambient by default every frame
         self.clips.clear();
         self.xforms.clear();
         self.overlay.clear();
@@ -1061,6 +1052,23 @@ impl Raster {
 
     pub fn set_darkness(&mut self, on: bool) {
         self.darkness_on = on;
+    }
+
+    /// Upload this frame's lightmap: RGB8, row-major, `rgb.len() ==
+    /// w*h*3` -- one multiplier triple per pixel, the world's SOLE
+    /// illumination when `darkness_on` (see module docs). Call once per
+    /// frame, before `finish`/`finish_into`; a frame with no call keeps
+    /// the all-zero (black) map `begin()` reset it to.
+    pub fn set_lightmap(&mut self, rgb: &[u8]) -> Result<(), RasterError> {
+        let want = self.lightmap.len();
+        if rgb.len() != want {
+            return err(format!(
+                "set_lightmap: data is {} bytes, need {want} (w*h*3, RGB8)",
+                rgb.len()
+            ));
+        }
+        self.lightmap.copy_from_slice(rgb);
+        Ok(())
     }
 
     /// Register an instance's convex screen-space clip polygon (flat
@@ -1516,7 +1524,23 @@ impl Raster {
             return;
         }
         self.composed = true;
-        // (3) coverage fold + alpha-over. Both planes hold binary alpha, so
+        // (3) lightmap multiply on the WORLD plane ONLY: (c*m + 255) >> 8,
+        // BLEND_RGB_MULT parity. Runs BEFORE the entity fold so entities
+        // are never darkened by it -- zero ambient for world geometry,
+        // entities stay the always-visible sensor-trace layer.
+        if self.darkness_on {
+            for (px, m) in self
+                .world
+                .chunks_exact_mut(4)
+                .zip(self.lightmap.chunks_exact(3))
+            {
+                for ch in 0..3 {
+                    px[ch] = ((px[ch] as u32 * m[ch] as u32 + 255) >> 8) as u8;
+                }
+            }
+        }
+
+        // (4) coverage fold + alpha-over. Both planes hold binary alpha, so
         // min() then over is a per-pixel select — bit-exact vs pygame's
         // BLEND_RGBA_MIN + straight blit.
         for (i, (px, &cov)) in self
@@ -1527,19 +1551,6 @@ impl Raster {
         {
             if px[3].min(cov) == 255 {
                 self.world[i * 4..i * 4 + 3].copy_from_slice(&px[..3]);
-            }
-        }
-
-        // (4) darkness multiply: (c*m + 255) >> 8, BLEND_RGB_MULT parity.
-        if self.darkness_on {
-            for (px, m) in self
-                .world
-                .chunks_exact_mut(4)
-                .zip(self.dark.chunks_exact(3))
-            {
-                for ch in 0..3 {
-                    px[ch] = ((px[ch] as u32 * m[ch] as u32 + 255) >> 8) as u8;
-                }
             }
         }
 
@@ -2341,40 +2352,66 @@ mod tests {
     }
 
     #[test]
-    fn darkness_multiplies_with_pygame_mult_rounding() {
-        let mut r = Raster::new(64, 64);
-        let lut_center = r.dark[(32 * 64 + 32) * 3];
-        let lut_corner = [r.dark[0], r.dark[1], r.dark[2]];
-        r.begin(0xFFFF_FFFF); // white world
+    fn zero_ambient_black_when_no_lightmap_uploaded() {
+        // The director's law, literal: a world-layer pixel no enabled
+        // light reaches renders BLACK. No `set_lightmap` call this frame
+        // -> `begin()`'s all-zero reset stands -> white world goes to
+        // (0,0,0) under the multiply, textured or flat (this is a flat
+        // white world fill; texture fills go through the same `self.world`
+        // plane and multiply, so the property covers both).
+        let mut r = Raster::new(8, 8);
+        r.begin(0xFFFF_FFFF); // white world, darkness_on defaults true
         let buf = r.finish();
-        // dead center: d == 0 -> m == 255 -> white stays white.
-        assert_eq!(lut_center, 255);
-        assert_eq!(buf[(32 * 64 + 32) * 4], 255);
-        // White input reproduces the LUT exactly under (c*m + 255) >> 8;
-        // the truncating (c*m) >> 8 would give m - 1 — this pins the
-        // pygame-ce BLEND_RGB_MULT rounding (verified empirically).
-        assert_eq!(&buf[0..3], &lut_corner);
-        // corner darkens, red survives longest (warm edges)
-        let c0 = &buf[0..3];
-        assert!(c0[0] < 255 && c0[1] < c0[0] && c0[2] <= c0[1]);
+        assert_eq!(&buf[0..3], &[0, 0, 0], "unlit pixel must be pure black");
+        assert_eq!(&buf[(4 * 8 + 4) * 4..(4 * 8 + 4) * 4 + 3], &[0, 0, 0]);
     }
 
     #[test]
-    fn darkness_lut_matches_numpy_reference() {
-        // Reference values computed with the exact numpy float32 pipeline of
-        // render.py _apply_darkness for a 640x360 frame. Note the (639,359)
-        // corner differs from (0,0) by one green level — a float32 artifact
-        // the LUT must reproduce, which pins the f32 order of operations.
-        let r = Raster::new(640, 360);
-        let lut = |x: usize, y: usize| {
-            let o = (y * 640 + x) * 3;
-            (r.dark[o], r.dark[o + 1], r.dark[o + 2])
-        };
-        assert_eq!(lut(0, 0), (159, 129, 118));
-        assert_eq!(lut(320, 180), (255, 255, 255));
-        assert_eq!(lut(0, 180), (171, 146, 136));
-        assert_eq!(lut(639, 359), (159, 130, 118));
-        assert_eq!(lut(100, 50), (192, 173, 166));
+    fn lightmap_multiplies_with_pygame_mult_rounding() {
+        let mut r = Raster::new(4, 4);
+        let npx = 16;
+        // non-uniform per-frame lightmap: one bright pixel (255 -> stays
+        // white), one dim pixel (128), the rest black.
+        let mut lm = vec![0u8; npx * 3];
+        lm[(0 * 4 + 0) * 3..(0 * 4 + 0) * 3 + 3].copy_from_slice(&[255, 255, 255]);
+        lm[(0 * 4 + 1) * 3..(0 * 4 + 1) * 3 + 3].copy_from_slice(&[128, 128, 128]);
+        r.begin(0xFFFF_FFFF); // white world
+        r.set_lightmap(&lm).unwrap();
+        let buf = r.finish();
+        // (0,0): m=255 -> white stays white, pinning (c*m+255)>>8 (the
+        // truncating (c*m)>>8 would give 254, not 255).
+        assert_eq!(&buf[0..3], &[255, 255, 255]);
+        // (1,0): m=128 -> (255*128+255)>>8 == 128.
+        let o = 1 * 4;
+        assert_eq!(&buf[o..o + 3], &[128, 128, 128]);
+        // (2,0): untouched lightmap byte -> stays black, zero ambient.
+        let o2 = 2 * 4;
+        assert_eq!(&buf[o2..o2 + 3], &[0, 0, 0]);
+    }
+
+    #[test]
+    fn set_lightmap_rejects_wrong_length() {
+        let mut r = Raster::new(4, 4);
+        r.begin(0xFFFF_FFFF);
+        assert!(r.set_lightmap(&[0u8; 3]).is_err());
+    }
+
+    #[test]
+    fn entities_survive_zero_ambient_lightmap_multiply() {
+        // Entities ("stylized sensor traces") must stay visible when the
+        // world around them is unlit: the lightmap multiply (step 3) must
+        // run BEFORE the entity coverage fold (step 4), never after.
+        let mut r = Raster::new(6, 6);
+        r.begin(0x0000_00FF); // black world, no lightmap uploaded (unlit)
+        let poly = [0.0, 0.0, 6.0, 0.0, 6.0, 6.0, 0.0, 6.0];
+        let ci = r.add_clip(&poly, true).unwrap();
+        // one whole-canvas ENTITY quad, full white, binary alpha
+        let f = pack_flags(LAYER_ENTITY, CLIPMODE_NONE, false, false, 0);
+        draw_one(&mut r, OP_POLY_FILL, f, IDX_NONE, IDX_NONE, WHITE, &poly);
+        let _ = ci;
+        let buf = r.finish();
+        assert_eq!(&buf[(3 * 6 + 3) * 4..(3 * 6 + 3) * 4 + 3], &[255, 255, 255],
+                   "entity pixel must stay full-bright though the world is unlit");
     }
 
     #[test]

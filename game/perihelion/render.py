@@ -1398,6 +1398,7 @@ class Renderer:
         self._floor_color_cache: dict[int, tuple] = {}
         self._wall_color_cache: dict[int, tuple] = {}
         self._inv_darkness: "pygame.Surface | None" = None
+        self._lightmap: "pygame.Surface | None" = None
         self._ow_field: "pygame.Surface | None" = None
         self._ow_mask: "pygame.Surface | None" = None
         self._detail_cache: dict[int, list] = {}
@@ -1418,7 +1419,6 @@ class Renderer:
 
         self._bake_glows()
         self._bake_vignette()
-        self._darkness: "pygame.Surface | None" = None
         self._deferred_glows: list = []
         self._deferred_bolts: list = []
         self._deferred_screen_glows: list = []
@@ -1601,6 +1601,21 @@ class Renderer:
     # ------------------------------------------------------------------
 
     def draw(self, surf: "pygame.Surface", debug: bool = False) -> None:
+        """Zero ambient (the director's order): the world layer's ONLY
+        illumination is the per-frame lightmap -- static/attached world
+        lights plus this frame's dynamic point lights (muzzle flashes,
+        bolts, lit screens) accumulated additively into one black-by-
+        default buffer, then multiplied straight onto the drawn world. A
+        pixel no enabled light reaches stays (0, 0, 0). The entity plane
+        (enemies/pickups/player/effects -- "stylized sensor traces": the
+        frame SEES them by sensor, not by light) is composited ON TOP of
+        that multiply, unaffected by it, so it stays visible in the dark.
+
+        Otherworld rooms keep their own established identity (the floor
+        IS the light source, self-luminous, sculpted by the inverted
+        cold-distance field) -- untouched by this order, which is about
+        eliminating a screen-space AMBIENT field for ordinary rooms, not
+        otherworld's already-diegetic self-illumination."""
         session = self.session
         self._deferred_glows = []
         self._deferred_bolts = []
@@ -1610,31 +1625,39 @@ class Renderer:
             # no surf.fill: the composed frame blit covers every pixel
             ow_polys = self._draw_world_rust(surf, instances)
             if ow_polys:
-                # raster came back full-bright; composite both darkness
-                # fields (warm + inverted) through the otherworld mask here
-                self._apply_darkness(surf, ow_polys)
-            # else: the raster's darkness LUT already multiplied the frame
+                # raster came back full-bright (world+entities, unmultiplied):
+                # composite both darkness fields (now: lightmap + inverted
+                # otherworld field) through the otherworld mask here
+                lightmap = self._build_lightmap(surf.get_size(), session, instances)
+                self._apply_darkness(surf, ow_polys, lightmap)
+            # else: the raster already multiplied world-by-lightmap and
+            # folded entities in unmultiplied on top (see _draw_world_rust)
         else:
             surf.fill((0, 0, 0))
             ow_polys = self._draw_world_pygame(surf, instances)
-            self._apply_darkness(surf, ow_polys)
-        # world lights (levels.LightSpec): real objects the visibility
-        # engine cast from at level-load/frame time, occlusion-correct,
-        # punching through the dark exactly like the glows below
-        self._draw_world_lights(surf, session, instances)
-        # light sources punch through the dark: muzzle glows and bolts
-        for sx, sy, radius, clip_screen in self._deferred_glows:
-            self._blit_glow(surf, sx, sy, radius, clip_screen)
-        # lit instruments (lab consoles, wall terminals) punch through too —
-        # a screen glowing in the dark is exactly what makes a room read as
-        # inhabited/functional rather than merely lit for the player's sake
-        for sx, sy, radius, clip_screen in self._deferred_screen_glows:
-            self._blit_screen_glow(surf, sx, sy, radius, clip_screen)
+            lightmap = self._build_lightmap(surf.get_size(), session, instances)
+            if ow_polys:
+                # Otherworld coverage keeps its pre-existing, untouched
+                # compositing: entities bake in BEFORE the field multiply,
+                # same as the rust backend's raster (darkness off entirely
+                # for this frame, entities folded in unmultiplied, then
+                # Python's _apply_darkness multiplies the WHOLE blitted
+                # frame). Parity, not a new sensor-trace exemption here --
+                # that exemption is specifically the zero-ambient default-
+                # world case below, which otherworld is out of scope for.
+                surf.blit(self._ent_layer, (0, 0))
+                self._apply_darkness(surf, ow_polys, lightmap)
+            else:
+                surf.blit(lightmap, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
+                # entities drawn full-bright ON TOP of the multiply --
+                # sensor traces read by instrument, not by light
+                surf.blit(self._ent_layer, (0, 0))
+        # dynamic FX that remain visible dynamic overlays regardless of
+        # light (their glow already fed the lightmap above; this is just
+        # the bright core/tracer itself, same footing as the entity layer)
         for color, pieces, glow in self._deferred_bolts:
             for piece in pieces:
                 pygame.draw.lines(surf, color, False, _pts(piece), 1)
-            if glow is not None:
-                self._blit_glow(surf, *glow)
         self._draw_post(surf)
         if debug:
             self._draw_debug(surf, instances)
@@ -1678,7 +1701,9 @@ class Renderer:
             self._draw_effects(ent, room, xform, clip_screen)
         self._ent_layer.blit(self._cov_mask, (0, 0),
                              special_flags=pygame.BLEND_RGBA_MIN)
-        surf.blit(self._ent_layer, (0, 0))
+        # NOT blitted onto surf here: entities are the sensor-trace layer,
+        # composited by `draw()` AFTER the lightmap multiply so they stay
+        # visible in the dark. `self._ent_layer` is the return channel.
         return ow_polys
 
     # ------------------------------------------------------------------
@@ -1823,7 +1848,8 @@ class Renderer:
                 pieces.append(("blob", blob_c, blob_f, clip_idx, xform_idx))
             if glows:
                 # same gating + deferral _draw_detail does on the pygame
-                # path; the glow itself blits post-darkness in Python
+                # path; the glow itself feeds the lightmap in Python
+                # (_build_lightmap), same as world lights and muzzle FX
                 scale = None
                 for gx, gy, grad in glows:
                     sx, sy = necore.mat_apply(xform, gx, gy)
@@ -1865,26 +1891,40 @@ class Renderer:
             chunks_f.append(dyn_f[f_at:])
         if chunks_c:
             r.draw(np.concatenate(chunks_c), np.concatenate(chunks_f))
-        # Non-otherworld frames take the raster's own darkness LUT (same
-        # formula and multiply rounding as _apply_darkness); otherworld
+        # Non-otherworld frames: upload this frame's lightmap (static/
+        # attached world lights + dynamic muzzle/bolt/screen glows, same
+        # accumulation `_build_lightmap` does for the pygame backend) and
+        # let the raster multiply world-by-lightmap BEFORE folding the
+        # entity plane in unmultiplied (raster.rs `compose()` order:
+        # darkness/lightmap first, entity fold second) -- zero ambient,
+        # entities stay the always-visible sensor-trace layer. Otherworld
         # coverage needs the inverse-field compositing that lives in
-        # Python, so those frames come back full-bright.
+        # Python, so those frames come back full-bright (world+entities,
+        # unmultiplied) for `_apply_darkness` to composite.
+        if not ow_polys:
+            lightmap = self._build_lightmap(surf.get_size(), session, instances)
+            r.set_lightmap(pygame.image.tobytes(lightmap, "RGB"))
         r.set_darkness(not ow_polys)
         r.finish_into(self._framebuf)
         surf.blit(self._frame, (0, 0))
         return ow_polys
 
-    def _apply_darkness(self, surf, ow_polys=None) -> None:
-        """Player-centered radial falloff, multiply-composited over the whole
-        world after it draws at uniform brightness. Smooth across portals by
-        construction: the field lives in screen space, not room space.
+    def _apply_darkness(self, surf, ow_polys, lightmap) -> None:
+        """Composite this frame's illumination field onto `surf`.
 
-        Otherworld regions invert the rule: the dark pools NEAR you and the
-        distance faintly luminesces - your presence stops mattering to the
-        light. Same multiply mechanism, reversed field, cold instead of
-        warm, blended only inside otherworld coverage."""
+        Ordinary (non-otherworld) coverage: zero ambient, by the director's
+        order -- straight multiply by `lightmap` (built by `_build_lightmap`;
+        (0, 0, 0) where no enabled light reaches). No screen-space vignette
+        remains; the lightmap alone decides what the world layer shows.
+
+        Otherworld regions keep their pre-existing, still-ratified identity:
+        the floor IS the light source (self-luminous), sculpted by an
+        inverted cold-distance field -- dark pools NEAR you, faint luminesce
+        at distance, your presence stops mattering to the light. That field
+        is untouched by this order and blends only inside otherworld
+        coverage; ordinary coverage there still gets the lightmap."""
         size = surf.get_size()
-        if self._darkness is None or self._darkness.get_size() != size:
+        if self._inv_darkness is None or self._inv_darkness.get_size() != size:
             import numpy as np
             w, h = size
             yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
@@ -1892,14 +1932,6 @@ class Renderer:
             d = np.sqrt((xx - cx) ** 2 + (yy - cy) ** 2)
             d = np.clip(d / (0.72 * max(w, h)), 0.0, 1.0)
             k = d * d * (3.0 - 2.0 * d)  # smoothstep
-            arr = np.empty((h, w, 3), dtype=np.uint8)
-            # warm-dark edges: red survives longest (the sun is always there)
-            arr[..., 0] = (255 * (1.0 - 0.42 * k)).astype(np.uint8)
-            arr[..., 1] = (255 * (1.0 - 0.55 * k)).astype(np.uint8)
-            arr[..., 2] = (255 * (1.0 - 0.60 * k)).astype(np.uint8)
-            dark = pygame.Surface(size)
-            pygame.surfarray.blit_array(dark, arr.swapaxes(0, 1))
-            self._darkness = dark
             ik = 1.0 - k  # inverted: bright far, dim near
             iarr = np.empty((h, w, 3), dtype=np.uint8)
             # cold: green survives longest out there
@@ -1910,13 +1942,14 @@ class Renderer:
             pygame.surfarray.blit_array(idark, iarr.swapaxes(0, 1))
             self._inv_darkness = idark
         if not ow_polys:
-            surf.blit(self._darkness, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
+            surf.blit(lightmap, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
             return
-        # composite the two fields through the otherworld mask
+        # composite the two fields (lightmap / inverted-otherworld) through
+        # the otherworld mask
         if self._ow_field is None or self._ow_field.get_size() != size:
             self._ow_field = pygame.Surface(size)
         field = self._ow_field
-        field.blit(self._darkness, (0, 0))
+        field.blit(lightmap, (0, 0))
         if self._ow_mask is None or self._ow_mask.get_size() != size:
             self._ow_mask = pygame.Surface(size)
         mask = self._ow_mask
@@ -1924,7 +1957,7 @@ class Renderer:
         for poly in ow_polys:
             if len(poly) >= 3:
                 pygame.draw.polygon(mask, (255, 255, 255), _pts(poly))
-        # field = dark*(1-m) + inv*m  via masked blits
+        # field = lightmap*(1-m) + inv*m  via masked blits
         inv_cut = self._inv_darkness.copy()
         inv_cut.blit(mask, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
         neg = mask.copy()
@@ -1935,6 +1968,28 @@ class Renderer:
         field.blit(inv_cut, (0, 0), special_flags=pygame.BLEND_RGB_ADD)
         surf.blit(field, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
 
+    def _build_lightmap(self, size, session, instances) -> "pygame.Surface":
+        """Black-by-default per-frame lightmap: every source of world
+        illumination -- static/attached `levels.LightSpec` world lights,
+        muzzle flashes, lightning bolts, lit screens/terminals -- accumulate
+        additively into it exactly once. `draw()` then multiplies the world
+        layer by this map instead of adding glows on top of an already-lit
+        scene: the lightmap literally IS the world's illumination. A pixel
+        no enabled light reaches stays (0, 0, 0)."""
+        lm = self._lightmap
+        if lm is None or lm.get_size() != size:
+            lm = self._lightmap = pygame.Surface(size)
+        lm.fill((0, 0, 0))
+        self._draw_world_lights(lm, session, instances)
+        for sx, sy, radius, clip_screen in self._deferred_glows:
+            self._blit_glow(lm, sx, sy, radius, clip_screen)
+        for sx, sy, radius, clip_screen in self._deferred_screen_glows:
+            self._blit_screen_glow(lm, sx, sy, radius, clip_screen)
+        for _color, _pieces, glow in self._deferred_bolts:
+            if glow is not None:
+                self._blit_glow(lm, *glow)
+        return lm
+
     # ------------------------------------------------------------------
     # world lights (levels.LightSpec) -- ENGINE_DESIGN.md Lighting section
     # ------------------------------------------------------------------
@@ -1943,10 +1998,12 @@ class Renderer:
         """For each camera instance, look up the LightingSystem's cached
         (static) or freshly recomputed (attached) wedges reaching that
         room, and additively blit each one with polygon-gated radial
-        falloff -- punching through the darkness field exactly like the
-        muzzle/screen glows, but shaped by real occlusion (the wedge the
+        falloff into `surf` -- the lightmap being accumulated (see
+        `_build_lightmap`), shaped by real occlusion (the wedge the
         light's OWN visibility pass returned) instead of a fixed disc.
-        Shadow is simply the absence of wedge: nothing draws there."""
+        Shadow is simply the absence of wedge: nothing draws there, and
+        since the lightmap is black by default, absence of wedge IS
+        absence of illumination."""
         lighting = getattr(session, "lighting", None)
         if lighting is None or not lighting.lights:
             return
@@ -2343,8 +2400,8 @@ class Renderer:
                     if len(seg) >= 2:
                         canvas.lines(color, False, _pts(seg), width)
             elif kind == "screenglow":
-                # ("screenglow", x, y, radius) -- registered for the
-                # post-darkness punch-through pass, like flashes/bolts
+                # ("screenglow", x, y, radius) -- registered as a lightmap
+                # contribution, like flashes/bolts (_build_lightmap)
                 _, x, y, radius = prim
                 sx, sy = necore.mat_apply(xform, x, y)
                 if _point_in_poly(sx, sy, clip_screen):

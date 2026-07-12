@@ -4269,8 +4269,8 @@
     175,
     110
    ],
-   "intensity": 0.55,
-   "radius": 100,
+   "intensity": 1.045,
+   "radius": 115.0,
    "kind": "static"
   },
   {
@@ -4284,8 +4284,8 @@
     175,
     110
    ],
-   "intensity": 0.55,
-   "radius": 100,
+   "intensity": 1.045,
+   "radius": 115.0,
    "kind": "static"
   },
   {
@@ -4299,8 +4299,8 @@
     175,
     110
    ],
-   "intensity": 0.55,
-   "radius": 100,
+   "intensity": 1.045,
+   "radius": 115.0,
    "kind": "static"
   },
   {
@@ -4314,8 +4314,8 @@
     195,
     215
    ],
-   "intensity": 0.45,
-   "radius": 65,
+   "intensity": 0.855,
+   "radius": 74.8,
    "kind": "static"
   },
   {
@@ -4329,8 +4329,8 @@
     195,
     215
    ],
-   "intensity": 0.45,
-   "radius": 65,
+   "intensity": 0.855,
+   "radius": 74.8,
    "kind": "static"
   },
   {
@@ -4344,8 +4344,8 @@
     195,
     215
    ],
-   "intensity": 0.45,
-   "radius": 65,
+   "intensity": 0.855,
+   "radius": 74.8,
    "kind": "static"
   },
   {
@@ -4359,8 +4359,8 @@
     195,
     215
    ],
-   "intensity": 0.45,
-   "radius": 65,
+   "intensity": 0.855,
+   "radius": 74.8,
    "kind": "static"
   }
  ]
