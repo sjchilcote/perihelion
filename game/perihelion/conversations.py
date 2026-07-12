@@ -98,8 +98,8 @@ CONVERSATIONS: dict[int, list[tuple]] = {
                 "shock."),
         (COMMANDO, "Time until entry."),
         (RATIO, "Eleven minutes. I have reserved a pressurized berth "
-                "near the transit hub. Recommend you cycle out of the "
-                "suit. Even Church-issue frames need to stretch."),
+                "near the transit hub. Recommend you power the frame "
+                "down a cycle. Even Church-issue frames need to stretch."),
         (COMMANDO, "Understood. No."),
         (RATIO, "Noted. I have also left the lights on. They were off "
                 "for four months. It changed nothing."),
@@ -225,12 +225,12 @@ CONVERSATIONS: dict[int, list[tuple]] = {
 
     # ------------------------------------------------------------------
     # After L5 (TWO WINGS): the data-share confession -- she has been
-    # inside his full suit feed since before Coolant Row; she says so.
+    # inside his full frame feed since before Coolant Row; she says so.
     # CHOICE POINT: the data-share reaction.
     # ------------------------------------------------------------------
     4: [
         (RATIO, "I have something that requires saying. You ask why I am "
-                "sure about your suit telemetry. It is because I have seen "
+                "sure about your frame telemetry. It is because I have seen "
                 "it. All of it. Since before Coolant Row."),
         (COMMANDO, "You were inside the feed how long."),
         (RATIO, "Long enough to map the gait phase with confidence. How it "
