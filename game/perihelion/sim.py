@@ -204,7 +204,7 @@ class GameSession:
 
         # --- lighting: world lights, cast via the visibility engine itself
         # (portals wired above, so static caches see the real chain).
-        # The player carries an attached suit lamp THROUGH the same
+        # The player's FRAME carries an attached work lamp THROUGH the same
         # system, so their own illumination occludes properly (light
         # stops at walls / spills through doorways) rather than being a
         # screen-space disc; the darkness field remains the ambient law.
@@ -2044,7 +2044,7 @@ class GameSession:
         # the camera apex is the player (strict LOS from the character),
         # clamped into the room so mid-transfer overshoot can't blind it
         px, py = self._clamp_apex(proom, px, py)
-        # keep the attached suit lamp on the player: same clamped apex,
+        # keep the frame's attached work lamp on the player: same clamped apex,
         # so its visibility cast can never start outside the room either
         self.player_light.room = proom
         self.player_light.pos = (px, py)

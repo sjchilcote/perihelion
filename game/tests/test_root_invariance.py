@@ -56,7 +56,7 @@ def pygame_ready():
 
 
 def _douse_player_lamp(session):
-    """Zero the player's attached suit lamp for root-invariance renders.
+    """Zero the frame's attached work lamp for root-invariance renders.
 
     This test's premise is that between the two renders the ONLY thing
     that changes is which room the portal chain calls root -- the ~0.2u
