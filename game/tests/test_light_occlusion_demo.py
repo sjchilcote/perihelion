@@ -60,6 +60,11 @@ def _run_to_marks(marks_needed: set[str]):
     level, meta = locc.build_world()
     session = GameSession(level, seed=11, screen=(INTERNAL_W, INTERNAL_H))
     ren = Renderer(session)
+    # bright floor albedo, same as the capture: under zero ambient the
+    # lightmap MULTIPLIES the world, so the floor color caps every lit
+    # pixel -- the default debug-world floor (26,26,33) would make even a
+    # saturated wedge read black (see the demo's brightness-chain note)
+    locc.apply_demo_floor(ren, level)
     surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
     script = locc.build_script()
     still_ticks = {t: name for name, t in script.marks.items()}
@@ -106,6 +111,14 @@ def test_shot_contrast(mark):
     lit = [_brightness(surf, sxy) for _label, sxy, expect in probes if expect == "lit"]
     dark = [_brightness(surf, sxy) for _label, sxy, expect in probes if expect == "dark"]
     assert lit and dark
-    assert max(dark) < 12.0, f"{mark}: a 'dark' probe read {max(dark):.1f} (light bleed?)"
+    # absolute gates (director's order after capture 1: 88x ratios of
+    # near-nothing certified an all-but-black frame) -- lit must be
+    # unmistakably bright, dark must be essentially black; the ratio
+    # remains as a third, redundant check.
+    assert min(lit) >= locc.LIT_MIN, (
+        f"{mark}: a 'lit' probe read {min(lit):.1f}, "
+        f"want >= {locc.LIT_MIN} (metric-passes-eye-fails guard)")
+    assert max(dark) <= locc.DARK_MAX, (
+        f"{mark}: a 'dark' probe read {max(dark):.1f} (light bleed?)")
     ratio = min(lit) / max(0.5, max(dark))
     assert ratio >= 10.0, f"{mark}: contrast ratio {ratio:.1f}x, want >= 10x"

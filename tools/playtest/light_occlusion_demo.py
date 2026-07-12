@@ -101,6 +101,28 @@ def slit_wall_run(x0: float, x1: float, y: float, centers: list[float],
 # world
 # ---------------------------------------------------------------------
 
+# THE BRIGHTNESS CHAIN (director's "metric passes, eye fails" catch, round
+# 2 of this demo): under zero ambient the lightmap MULTIPLIES the world
+# layer, so a pixel's final value is floor_albedo * lightmap / 255. The
+# campaign's l01 dock reads bright because its rooms carry bespoke floor
+# TEXTURES with albedo ~100-150; a LevelBuilder debug world falls back to
+# the flat corridor floor color (26, 26, 33) -- which caps EVERY lit pixel
+# at 26/255 no matter how strong the light is. The first capture's 88x
+# contrast ratios were ratios of near-nothing. The demo therefore sets a
+# bright flat floor albedo on its own rooms (the demo's parameter, not the
+# global palette), sized so a saturated lightmap reads near-white.
+DEMO_FLOOR_ALBEDO = (228, 230, 236)
+
+
+def apply_demo_floor(ren: Renderer, level) -> None:
+    """Pre-fill the renderer's per-room floor-color cache with the demo's
+    bright albedo (both backends read _floor_color through this cache).
+    Applies to every room -- the demo world has no textured rooms, so
+    nothing legitimate is overridden."""
+    for room in range(len(level.room_verts)):
+        ren._floor_color_cache[room] = DEMO_FLOOR_ALBEDO
+
+
 def build_world():
     b = LevelBuilder("light-occlusion-proof", tier=1, ambience="amb_drone_early")
     meta: dict = {}
@@ -157,8 +179,23 @@ def build_world():
     door(b, rC, (100, 220), rM, (100, 220))
     door(b, rD, (20, 280), rM, (20, 280))
     door(b, rE, (140, 280), rM, (140, 280))
-    b.light(rD, (-40, 280), color=(255, 165, 55), intensity=2.0, radius=220)
-    b.light(rE, (200, 280), color=(55, 225, 150), intensity=2.0, radius=220)
+    # COLOR-PRESERVING intensity: _blit_light's tint is
+    # min(255, channel * intensity * LIGHT_STRENGTH) PER CHANNEL, so any
+    # intensity above 1/LIGHT_STRENGTH clamps a colored light's dominant
+    # channels flat and whitens the hue (the first capture's "amber" was
+    # (255,165,55)*6.0 -> every channel clamped -> pure white). At exactly
+    # 1/3 the tint IS the authored color. Brightness then comes from the
+    # gradient term alone -- so these fixtures sit CLOSE to their doorways
+    # (short throw, high a^2 at the probes) with a wide radius.
+    # Throw distances also set each wedge's fan half-angle
+    # (atan(12/throw)): amber at 40u and verdigris at 60u keep both fans
+    # narrow enough that M's north-west corner (the dead_corner probe) has
+    # line-of-sight to NEITHER door aperture -- moving verdigris closer
+    # (tried at 25u) fanned its wedge ~180 degrees and legitimately lit
+    # that corner. Radii compensate for the throw so the lit probes still
+    # clear the absolute gate.
+    b.light(rD, (-20, 280), color=(255, 180, 80), intensity=1 / 3.0, radius=500)
+    b.light(rE, (200, 280), color=(80, 235, 170), intensity=1 / 3.0, radius=600)
 
     # -- corridor down to the slit wall, shot 5 ---------------------------
     vCORR = [(68, 340), (68, 380), (92, 380), (92, 340)]
@@ -184,7 +221,7 @@ def build_world():
     rSL = b.room(vSL, detail_seed=9, kind="corridor")
     for c in slit_centers:
         door(b, rSD, (c, 500), rSL, (c, 500))
-    b.light(rSL, (90, 560), color=(255, 245, 230), intensity=2.2, radius=320)
+    b.light(rSL, (90, 560), color=(255, 245, 230), intensity=2.2, radius=700)
 
     # -- non-Euclidean stub + rotated portal, shot 6 -----------------------
     # a corridor stub off SLIT_DARK's west wall; its FAR (untouched) edge
@@ -203,7 +240,10 @@ def build_world():
     vNE = [(1000, 1000), (1000, 1120), (1120, 1120), (1120, 1000)]
     rNE = b.room(vNE, detail_seed=11, kind="corridor")
     eb_ne = 0  # (1000,1000)-(1000,1120): untouched west edge
-    b.light(rNE, (1060, 1060), color=(150, 180, 255), intensity=2.2, radius=220)
+    # hue-preserving 1/3 intensity (see the D/E fixtures' note) -- the cold
+    # blue is the point of this room reading as somewhere ELSE
+    b.light(rNE, (1060, 1060), color=(150, 180, 255), intensity=1 / 3.0,
+            radius=500)
 
     theta = math.pi / 2.0
     # local (centroid-relative) coords: D_stub is 80x24, centroid (-120,440)
@@ -359,6 +399,13 @@ def build_script() -> Script:
 # screen space -- see the note in main() where they're transformed).
 # ---------------------------------------------------------------------
 
+# Absolute luminance gates (mean RGB over the probe box, 0-255), applied
+# to frames decoded from the ENCODED mp4. Ratios alone are insufficient
+# by order: capture 1 passed 88x ratios on frames whose "lit" side peaked
+# barely above black.
+LIT_MIN = 110.0
+DARK_MAX = 8.0
+
 PROBES: dict[str, list[tuple[str, str, float, float, str]]] = {
     "shot1_start": [
         ("inside_cone", "rB", 60.0, 8.0, "lit"),
@@ -467,6 +514,7 @@ def main() -> int:
     level, meta = build_world()
     session = GameSession(level, seed=11, screen=(INTERNAL_W, INTERNAL_H))
     ren = Renderer(session)
+    apply_demo_floor(ren, level)
     surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
     script = build_script()
 
@@ -555,11 +603,19 @@ def main() -> int:
                   f"rgb={rgb} mean={brightness:5.1f} expect={expect}")
             if expect == "lit":
                 lit_vals.append(brightness)
+                # ABSOLUTE gate (director's order after capture 1: ratios
+                # alone certified an all-but-black frame): a lit probe
+                # must be unmistakably bright in the encoded video, not
+                # merely brighter than the void next to it.
+                if brightness < LIT_MIN:
+                    print(f"    !! {label} expected LIT >= {LIT_MIN} but "
+                          f"measured {brightness:.1f} -- too dim to read")
+                    fail = True
             else:
                 dark_vals.append(brightness)
-                if brightness > 12.0:
-                    print(f"    !! {label} expected DARK but measured "
-                          f"{brightness:.1f} -- possible light bleed")
+                if brightness > DARK_MAX:
+                    print(f"    !! {label} expected DARK <= {DARK_MAX} but "
+                          f"measured {brightness:.1f} -- possible light bleed")
                     fail = True
         if lit_vals and dark_vals:
             ratio = min(lit_vals) / max(0.5, max(dark_vals))
