@@ -420,6 +420,145 @@ def _sample_room_screen_grid(session, ren, arr, room_idx, local_margin=20.0):
     return out
 
 
+# ---------------------------------------------------------------------------
+# Jamb-wall reveal: the director-pinpointed l01 room-57/110 crossing,
+# reproduced from first principles instead of replayed from a captured seed.
+#
+# `GameSession._clamp_apex` pulls the visibility apex to at least
+# `_APEX_EPS` (0.75 world units) inside the CURRENT room's polygon, on every
+# edge -- including the one you're about to walk through. That means the
+# apex handed to `necore.visible_set` is pinned at exactly `_APEX_EPS` from
+# the doorway line for every tick right up to the crossing; it never gets
+# any closer, no matter how close the real player is. If the engine's own
+# `visibility::EDGE_BAND` (the distance inside which a portal traversal
+# widens into an unclipped 180-degree fan, "standing in the doorway") is not
+# STRICTLY GREATER than `_APEX_EPS`, that fan can never trigger pre-crossing:
+# the non-root render stays a narrow perspective wedge that clips away
+# anything collinear with the portal line -- concretely, a doorway's own
+# jamb walls, authored as separate collinear edges either side of the door
+# span (exactly l01's room 110, the "octagonal-medallion room": west wall
+# vertices (-70,-70),(-70,-30),(-70,40),(-70,70), the door being the middle
+# span). Those jamb walls (and the floor band behind them) then pop from
+# absent to fully lit in the single tick the room re-roots: the root-
+# crossing "line color" flicker the director pinpointed frame-by-frame in
+# the campaign video.
+def _jamb_level(level_id: str):
+    """rA (a plain corridor, l01 room 57's shape) <-door-> rB (a room whose
+    far wall is split jamb/door/jamb, l01 room 110's shape)."""
+    b = LevelBuilder(level_id, 1)
+    rA = b.room([(-60.0, -35.0), (-60.0, 35.0), (60.0, 35.0), (60.0, -35.0)],
+                kind="corridor")
+    rB = b.room([(-70.0, -70.0), (-70.0, -30.0), (-70.0, 40.0), (-70.0, 70.0),
+                 (70.0, 70.0), (70.0, -70.0)], kind="transit")
+    b.connect_pts(rA, (60.0, 0.0), rB, (-70.0, 5.0))
+    b.player(rA, (0.0, 0.0))
+    b.exit(rB, (0.0, 0.0))
+    level = b.build()
+    level.level_id = level_id
+    return level, rA, rB
+
+
+def _jamb_walls(session, room_idx):
+    """{edge endpoints (room-local, rounded)} -> is_portal, for every wall
+    segment the CURRENT visible_set call returns for `room_idx` -- the raw
+    per-instance wall list `_draw_walls` draws from (see render.py)."""
+    out = {}
+    for room, xform, depth, clip, walls, entry, ents in session.visible():
+        if room != room_idx:
+            continue
+        inv = necore.mat_inv(xform)
+        for x1, y1, x2, y2, is_portal in walls:
+            a = tuple(round(c, 1) for c in necore.mat_apply(inv, x1, y1))
+            b_ = tuple(round(c, 1) for c in necore.mat_apply(inv, x2, y2))
+            out[(a, b_)] = is_portal
+    return out
+
+
+@pytest.mark.parametrize("dist", [0.75, 0.5, 0.26, 0.05])
+def test_jamb_walls_visible_before_crossing_within_apex_clamp_margin(
+        pygame_ready, dist):
+    """For every physical distance-to-door the apex clamp can produce
+    exactly this pinned band (0 < dist <= _APEX_EPS), the non-root render of
+    the room behind the door must already show BOTH jamb walls -- the same
+    thing root shows. A `dist` where a jamb edge is still missing is the
+    root-crossing pop, caught before it ever needs a captured campaign
+    recording to find."""
+    level, rA, rB = _jamb_level("root_inv_jamb")
+    session = GameSession(level, seed=1, screen=(INTERNAL_W, INTERNAL_H))
+    session.player_light.intensity = 0.0
+    # Position directly via the physics entity (not level.player_pos +a
+    # fresh tick): spawning within a wall's push-out margin triggers the
+    # engine's own spawn-clear physics, which relocates the entity on its
+    # first step -- exactly the kind of confound this test must not have.
+    session.sim.set_pos(session.pid, 60.0 - dist, 0.0)
+    session.sim.set_vel(session.pid, 0.0, 0.0)
+    assert session.player_room() == rA, "test setup crossed early"
+    assert dist <= session._APEX_EPS, "test setup outside the clamp-pinned band"
+
+    walls = _jamb_walls(session, rB)
+    jamb_edges = [
+        ((-70.0, -70.0), (-70.0, -30.0)),
+        ((-70.0, 40.0), (-70.0, 70.0)),
+    ]
+    missing = [e for e in jamb_edges if e not in walls and
+               tuple(reversed(e)) not in walls]
+    assert not missing, (
+        f"at dist={dist} (<= _APEX_EPS={session._APEX_EPS}) from the "
+        f"doorway, room {rB}'s jamb wall(s) {missing} are absent from the "
+        f"non-root wall list -- they will pop into existence the instant "
+        f"the room re-roots instead of already matching root's view")
+
+
+def test_jamb_wall_reveal_is_continuous_across_the_actual_crossing(
+        pygame_ready):
+    """The continuity property: walk straight through the doorway one tick
+    at a time (real ticks, real camera follow, real portal transfer -- not
+    a hand-placed pose) and confirm room rB's wall list never changes
+    between two consecutive ticks except at most by ordinary sub-unit
+    camera motion. A single-tick jamb reveal coincident with the root flip
+    is exactly the bug; this fails on it without needing any captured
+    seed/recording."""
+    level, rA, rB = _jamb_level("root_inv_jamb_walk")
+    level.player_room = rA
+    level.player_pos = (-58.0, 0.0)
+    session = GameSession(level, seed=1, screen=(INTERNAL_W, INTERNAL_H))
+    session.player_light.intensity = 0.0
+
+    prev_walls = None
+    crossed = False
+    for _ in range(600):
+        # A gentle approach (small per-tick input, not full-speed): at full
+        # player speed the per-tick displacement can exceed the apex-clamp
+        # margin outright and vault over the "always within band" window in
+        # a single step -- a separate, step-size-dependent risk this fix
+        # does not cover (see report). This property targets the bug that
+        # was actually observed: an apex that DOES get a tick inside the
+        # band before the transfer, which this slow approach guarantees.
+        session.tick(InputFrame(mx=0.15, my=0.0))
+        room = session.player_room()
+        walls = _jamb_walls(session, rB)
+        if room == rB and prev_walls is not None:
+            # the crossing tick itself: rB's wall list the tick before
+            # (non-root) must already match the tick after (root) -- no
+            # segment may appear or vanish coincident with the root flip.
+            missing_now = set(prev_walls) - set(walls)
+            appeared_now = set(walls) - set(prev_walls)
+            assert not appeared_now, (
+                f"wall segment(s) {appeared_now} appeared in room {rB} the "
+                f"exact tick root flipped to it -- the root-crossing pop")
+            assert not missing_now, (
+                f"wall segment(s) {missing_now} vanished from room {rB} "
+                f"the exact tick root flipped away from a chain reaching it")
+            crossed = True
+            break
+        prev_walls = walls
+    assert crossed, "test setup never crossed into rB"
+    final_walls = _jamb_walls(session, rB)
+    assert len(final_walls) == 6, (
+        f"room {rB} should show all 6 authored wall/portal segments once "
+        f"root, got {len(final_walls)}: {final_walls}")
+
+
 @pytest.mark.parametrize("backend", ["pygame", "rust"])
 def test_darkness_enabled_multiroom_is_root_frame_invariant(
         pygame_ready, tmp_path, backend):

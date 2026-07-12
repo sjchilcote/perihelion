@@ -25,7 +25,33 @@ pub struct Frustum {
 /// Distance band around a portal line inside which the view is treated as a
 /// full 180-degree fan. Sub-pixel at gameplay zoom; keeps mid-doorway frames
 /// seamless instead of dropping the neighbor for one frame.
-pub const EDGE_BAND: f64 = 0.5;
+///
+/// MUST STRICTLY EXCEED `sim.py`'s `GameSession._APEX_EPS` (0.75): the
+/// camera/light apex the Python side hands to `visible_set` is never the
+/// raw physical position, it is `_clamp_apex`'s output, pulled at least
+/// `_APEX_EPS` inside the current room's polygon on every edge (that
+/// margin exists to dodge a DIFFERENT bug -- the apex landing marginally
+/// outside the room on transfer overshoot and hard-culling the portal
+/// behind it, "THE FLICKER"). Concretely: walking straight at a doorway,
+/// the apex handed to this traversal is pinned at exactly `_APEX_EPS`
+/// from the portal line for every tick right up to the crossing -- it
+/// never gets closer, no matter how close the real player gets. If
+/// EDGE_BAND <= _APEX_EPS, `wide` (the smooth 180-degree convergence this
+/// module promises "instead of dropping the neighbor for one frame") can
+/// NEVER trigger on the approach: the non-root render stays a narrow
+/// perspective wedge that clips away everything collinear with the
+/// portal line (a doorway's own jamb walls, which run along that same
+/// line) right up until the physics engine re-roots on the SAME tick the
+/// player's collision volume crosses the threshold -- at which point the
+/// new-root instance is unclipped and shows the jambs whole. One tick,
+/// jamb walls (and the floor band they'd been occluding) pop from absent
+/// to fully lit: the root-crossing "line color" flicker (see
+/// game/tests/test_root_invariance.py's real-level jamb-reveal case).
+/// Keeping EDGE_BAND comfortably above _APEX_EPS guarantees the clamped
+/// apex is always already inside the wide band by the time the room
+/// becomes reachable, so the pre-crossing render has already converged to
+/// what root will show -- no pop left to have.
+pub const EDGE_BAND: f64 = 1.0;
 
 impl Frustum {
     pub fn half_planes(&self, world: &World, room: RoomId) -> Vec<HalfPlane> {

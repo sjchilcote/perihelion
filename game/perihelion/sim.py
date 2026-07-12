@@ -2012,9 +2012,20 @@ class GameSession:
     # queries for renderer / bots / tests
     # ------------------------------------------------------------------
 
-    # Apex clamp margin: must exceed the engine's EDGE_BAND (0.5) so the
-    # "apex behind the portal line" hard cull can never fire from transfer
-    # overshoot (see visible()).
+    # Apex clamp margin: keeps the visibility apex a comfortable positive
+    # distance inside the current room's polygon (any positive value clears
+    # the "apex behind the portal line" hard cull from transfer overshoot;
+    # see visible()). MUST STAY STRICTLY LESS than the engine's own
+    # visibility::EDGE_BAND (currently 1.0, engine/necore/src/visibility.rs)
+    # -- that constant's job is to widen a near-doorway sightline into a
+    # full 180-degree fan BEFORE the room re-roots, so the pre-crossing
+    # render already matches what root will show. If this margin ever grew
+    # to meet or exceed EDGE_BAND, the clamped apex would sit pinned
+    # exactly on/outside that band on every approach tick, `wide` could
+    # never trigger pre-crossing, and doorway jamb walls (collinear with
+    # the portal line, clipped away by the resulting narrow wedge) would
+    # pop from absent to fully lit in the single tick the room re-roots --
+    # this was a real, shipped bug; see game/tests/test_root_invariance.py.
     _APEX_EPS = 0.75
 
     def _clamp_apex(self, room: int, px: float, py: float):
