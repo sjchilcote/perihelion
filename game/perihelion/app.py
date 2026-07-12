@@ -665,15 +665,13 @@ class App:
         self._persist_save()
 
     def _add_flags(self, flags: list) -> None:
-        """Flags set by a gap conversation (script_compositor), persisted
-        with the save. Also mirrors the faith-scaffold subset into
-        save_data["faith_flags"] -- read-only provisional faith input per
-        DIALOGUE_SCRIPT.md's front matter; the mind map owns real faith."""
-        from .script_compositor import FAITH_SCAFFOLD_FLAGS
+        """Flags set by a gap conversation, persisted with the save. The
+        faith-scaffold mirror died with the placeholder compositor (the
+        mind map owns real faith; the director's script loader will define
+        any successor flag taxonomy)."""
         current = set(self.save_data.get("flags", []))
         current.update(flags)
         self.save_data["flags"] = sorted(current)
-        self.save_data["faith_flags"] = sorted(current & FAITH_SCAFFOLD_FLAGS)
         self._persist_save()
 
     def take_screenshot(self) -> None:
