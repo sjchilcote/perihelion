@@ -6024,5 +6024,337 @@
    }
   ]
  },
- "alert_hops": 1
+ "alert_hops": 1,
+ "lights": [
+  {
+   "room": 92,
+   "pos": [
+    -3655,
+    -45
+   ],
+   "color": [
+    235,
+    175,
+    110
+   ],
+   "intensity": 1.0,
+   "radius": 120,
+   "kind": "static"
+  },
+  {
+   "room": 96,
+   "pos": [
+    -3295,
+    -45
+   ],
+   "color": [
+    235,
+    175,
+    110
+   ],
+   "intensity": 0.95,
+   "radius": 120,
+   "kind": "static"
+  },
+  {
+   "room": 98,
+   "pos": [
+    -3115,
+    -45
+   ],
+   "color": [
+    235,
+    175,
+    110
+   ],
+   "intensity": 0.95,
+   "radius": 120,
+   "kind": "static"
+  },
+  {
+   "room": 114,
+   "pos": [
+    -3115,
+    45
+   ],
+   "color": [
+    150,
+    190,
+    235
+   ],
+   "intensity": 0.85,
+   "radius": 110,
+   "kind": "static"
+  },
+  {
+   "room": 130,
+   "pos": [
+    -2755,
+    225
+   ],
+   "color": [
+    235,
+    175,
+    110
+   ],
+   "intensity": 0.95,
+   "radius": 120,
+   "kind": "static"
+  },
+  {
+   "room": 145,
+   "pos": [
+    -2665,
+    315
+   ],
+   "color": [
+    235,
+    175,
+    110
+   ],
+   "intensity": 0.95,
+   "radius": 120,
+   "kind": "static"
+  },
+  {
+   "room": 149,
+   "pos": [
+    -2305,
+    315
+   ],
+   "color": [
+    235,
+    175,
+    110
+   ],
+   "intensity": 0.95,
+   "radius": 120,
+   "kind": "static"
+  },
+  {
+   "room": 133,
+   "pos": [
+    -2125,
+    225
+   ],
+   "color": [
+    150,
+    190,
+    235
+   ],
+   "intensity": 0.85,
+   "radius": 110,
+   "kind": "static"
+  },
+  {
+   "room": 141,
+   "pos": [
+    -1405,
+    225
+   ],
+   "color": [
+    235,
+    175,
+    110
+   ],
+   "intensity": 0.95,
+   "radius": 120,
+   "kind": "static"
+  },
+  {
+   "room": 124,
+   "pos": [
+    -1225,
+    135
+   ],
+   "color": [
+    150,
+    190,
+    235
+   ],
+   "intensity": 0.85,
+   "radius": 110,
+   "kind": "static"
+  },
+  {
+   "room": 109,
+   "pos": [
+    -1045,
+    -45
+   ],
+   "color": [
+    150,
+    190,
+    235
+   ],
+   "intensity": 0.9,
+   "radius": 120,
+   "kind": "static"
+  },
+  {
+   "room": 110,
+   "pos": [
+    -955,
+    -45
+   ],
+   "color": [
+    180,
+    210,
+    255
+   ],
+   "intensity": 1.1,
+   "radius": 145,
+   "kind": "static"
+  },
+  {
+   "room": 1,
+   "pos": [
+    130,
+    225.2
+   ],
+   "color": [
+    90,
+    220,
+    160
+   ],
+   "intensity": 1.0,
+   "radius": 140,
+   "kind": "static"
+  },
+  {
+   "room": 4,
+   "pos": [
+    -130,
+    -225.2
+   ],
+   "color": [
+    255,
+    240,
+    215
+   ],
+   "intensity": 0.95,
+   "radius": 125,
+   "kind": "static"
+  },
+  {
+   "room": 6,
+   "pos": [
+    -130,
+    225.2
+   ],
+   "color": [
+    255,
+    240,
+    215
+   ],
+   "intensity": 0.95,
+   "radius": 125,
+   "kind": "static"
+  },
+  {
+   "room": 2,
+   "pos": [
+    260,
+    0
+   ],
+   "color": [
+    90,
+    220,
+    160
+   ],
+   "intensity": 0.85,
+   "radius": 115,
+   "kind": "static"
+  },
+  {
+   "room": 3,
+   "pos": [
+    130,
+    -225.2
+   ],
+   "color": [
+    90,
+    220,
+    160
+   ],
+   "intensity": 0.85,
+   "radius": 115,
+   "kind": "static"
+  },
+  {
+   "room": 0,
+   "pos": [
+    0,
+    0
+   ],
+   "color": [
+    255,
+    240,
+    215
+   ],
+   "intensity": 1.1,
+   "radius": 155,
+   "kind": "static"
+  },
+  {
+   "room": 10,
+   "pos": [
+    -2170,
+    450
+   ],
+   "color": [
+    235,
+    175,
+    110
+   ],
+   "intensity": 0.9,
+   "radius": 130,
+   "kind": "static"
+  },
+  {
+   "room": 81,
+   "pos": [
+    -3655,
+    -135
+   ],
+   "color": [
+    235,
+    175,
+    110
+   ],
+   "intensity": 0.8,
+   "radius": 105,
+   "kind": "static"
+  },
+  {
+   "room": 111,
+   "pos": [
+    -3655,
+    45
+   ],
+   "color": [
+    235,
+    175,
+    110
+   ],
+   "intensity": 0.8,
+   "radius": 105,
+   "kind": "static"
+  },
+  {
+   "room": 73,
+   "pos": [
+    -1405,
+    -328.0
+   ],
+   "color": [
+    90,
+    220,
+    160
+   ],
+   "intensity": 0.8,
+   "radius": 110,
+   "kind": "static"
+  }
+ ]
 }

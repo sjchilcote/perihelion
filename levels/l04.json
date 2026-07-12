@@ -4562,5 +4562,397 @@
    "gate_prompt": "BOLT ENGAGED - SURGEON'S CARDKEY REQUIRED",
    "acquire_prompt": "ACQUIRED: SURGEON'S CARDKEY"
   }
- }
+ },
+ "lights": [
+  {
+   "room": 42,
+   "pos": [
+    -115.0,
+    255.0
+   ],
+   "color": [
+    150,
+    190,
+    235
+   ],
+   "intensity": 0.42,
+   "radius": 80.0,
+   "kind": "static"
+  },
+  {
+   "room": 43,
+   "pos": [
+    -35.0,
+    255.0
+   ],
+   "color": [
+    255,
+    240,
+    215
+   ],
+   "intensity": 1.3,
+   "radius": 80.0,
+   "kind": "static"
+  },
+  {
+   "room": 0,
+   "pos": [
+    35.0,
+    255.0
+   ],
+   "color": [
+    255,
+    190,
+    90
+   ],
+   "intensity": 0.4,
+   "radius": 65.0,
+   "kind": "static"
+  },
+  {
+   "room": 1,
+   "pos": [
+    115.0,
+    255.0
+   ],
+   "color": [
+    255,
+    240,
+    215
+   ],
+   "intensity": 1.2,
+   "radius": 80.0,
+   "kind": "static"
+  },
+  {
+   "room": 2,
+   "pos": [
+    207.0,
+    255.0
+   ],
+   "color": [
+    255,
+    190,
+    90
+   ],
+   "intensity": 0.4,
+   "radius": 75.0,
+   "kind": "static"
+  },
+  {
+   "room": 3,
+   "pos": [
+    295.0,
+    255.0
+   ],
+   "color": [
+    255,
+    240,
+    215
+   ],
+   "intensity": 1.2,
+   "radius": 75.0,
+   "kind": "static"
+  },
+  {
+   "room": 5,
+   "pos": [
+    475.0,
+    255.0
+   ],
+   "color": [
+    255,
+    240,
+    215
+   ],
+   "intensity": 1.2,
+   "radius": 80.0,
+   "kind": "static"
+  },
+  {
+   "room": 6,
+   "pos": [
+    565.0,
+    255.0
+   ],
+   "color": [
+    255,
+    190,
+    90
+   ],
+   "intensity": 0.4,
+   "radius": 75.0,
+   "kind": "static"
+  },
+  {
+   "room": 7,
+   "pos": [
+    655.0,
+    255.0
+   ],
+   "color": [
+    255,
+    240,
+    215
+   ],
+   "intensity": 1.2,
+   "radius": 80.0,
+   "kind": "static"
+  },
+  {
+   "room": 8,
+   "pos": [
+    730.0,
+    255.0
+   ],
+   "color": [
+    255,
+    190,
+    90
+   ],
+   "intensity": 0.3,
+   "radius": 55.0,
+   "kind": "static"
+  },
+  {
+   "room": 129,
+   "pos": [
+    802.0,
+    385.0
+   ],
+   "color": [
+    150,
+    190,
+    235
+   ],
+   "intensity": 0.45,
+   "radius": 75.0,
+   "kind": "static"
+  },
+  {
+   "room": 130,
+   "pos": [
+    887.0,
+    385.0
+   ],
+   "color": [
+    255,
+    245,
+    225
+   ],
+   "intensity": 1.8,
+   "radius": 100.0,
+   "kind": "static"
+  },
+  {
+   "room": 19,
+   "pos": [
+    115.0,
+    75.0
+   ],
+   "color": [
+    120,
+    200,
+    220
+   ],
+   "intensity": 0.42,
+   "radius": 45.0,
+   "kind": "static"
+  },
+  {
+   "room": 20,
+   "pos": [
+    115.0,
+    125.0
+   ],
+   "color": [
+    120,
+    200,
+    220
+   ],
+   "intensity": 0.4,
+   "radius": 45.0,
+   "kind": "static"
+  },
+  {
+   "room": 21,
+   "pos": [
+    115.0,
+    175.0
+   ],
+   "color": [
+    120,
+    200,
+    220
+   ],
+   "intensity": 0.42,
+   "radius": 45.0,
+   "kind": "static"
+  },
+  {
+   "room": 46,
+   "pos": [
+    -115.0,
+    45.0
+   ],
+   "color": [
+    150,
+    190,
+    235
+   ],
+   "intensity": 0.5,
+   "radius": 60.0,
+   "kind": "static"
+  },
+  {
+   "room": 83,
+   "pos": [
+    655.0,
+    645.0
+   ],
+   "color": [
+    90,
+    220,
+    160
+   ],
+   "intensity": 0.5,
+   "radius": 55.0,
+   "kind": "static"
+  },
+  {
+   "room": 56,
+   "pos": [
+    380.0,
+    437.0
+   ],
+   "color": [
+    255,
+    240,
+    215
+   ],
+   "intensity": 0.9,
+   "radius": 60.0,
+   "kind": "static"
+  },
+  {
+   "room": 57,
+   "pos": [
+    380.0,
+    512.0
+   ],
+   "color": [
+    255,
+    240,
+    215
+   ],
+   "intensity": 0.9,
+   "radius": 65.0,
+   "kind": "static"
+  },
+  {
+   "room": 60,
+   "pos": [
+    322.0,
+    590.0
+   ],
+   "color": [
+    255,
+    235,
+    210
+   ],
+   "intensity": 0.6,
+   "radius": 50.0,
+   "kind": "static"
+  },
+  {
+   "room": 78,
+   "pos": [
+    655.0,
+    450.0
+   ],
+   "color": [
+    255,
+    235,
+    210
+   ],
+   "intensity": 0.6,
+   "radius": 50.0,
+   "kind": "static"
+  },
+  {
+   "room": 54,
+   "pos": [
+    -115.0,
+    350.0
+   ],
+   "color": [
+    255,
+    220,
+    190
+   ],
+   "intensity": 0.6,
+   "radius": 55.0,
+   "kind": "static"
+  },
+  {
+   "room": 99,
+   "pos": [
+    125.0,
+    -270.0
+   ],
+   "color": [
+    255,
+    220,
+    190
+   ],
+   "intensity": 0.6,
+   "radius": 55.0,
+   "kind": "static"
+  },
+  {
+   "room": 72,
+   "pos": [
+    80.0,
+    670.0
+   ],
+   "color": [
+    255,
+    190,
+    90
+   ],
+   "intensity": 0.45,
+   "radius": 50.0,
+   "kind": "static"
+  },
+  {
+   "room": 31,
+   "pos": [
+    655.0,
+    75.0
+   ],
+   "color": [
+    150,
+    190,
+    235
+   ],
+   "intensity": 0.5,
+   "radius": 45.0,
+   "kind": "static"
+  },
+  {
+   "room": 13,
+   "pos": [
+    385.0,
+    -55.0
+   ],
+   "color": [
+    150,
+    190,
+    235
+   ],
+   "intensity": 0.5,
+   "radius": 55.0,
+   "kind": "static"
+  }
+ ]
 }

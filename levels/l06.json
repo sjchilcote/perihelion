@@ -6132,5 +6132,337 @@
    "gate_prompt": "BOLT THROWN - DISCHARGE HANDLE REQUIRED",
    "acquire_prompt": "ACQUIRED: DISCHARGE HANDLE"
   }
- }
+ },
+ "lights": [
+  {
+   "room": 0,
+   "pos": [
+    70,
+    70
+   ],
+   "color": [
+    255,
+    240,
+    215
+   ],
+   "intensity": 1.0,
+   "radius": 130,
+   "kind": "static"
+  },
+  {
+   "room": 0,
+   "pos": [
+    15,
+    70
+   ],
+   "color": [
+    255,
+    240,
+    215
+   ],
+   "intensity": 0.55,
+   "radius": 70,
+   "kind": "static"
+  },
+  {
+   "room": 0,
+   "pos": [
+    70,
+    15
+   ],
+   "color": [
+    255,
+    240,
+    215
+   ],
+   "intensity": 0.55,
+   "radius": 70,
+   "kind": "static"
+  },
+  {
+   "room": 2,
+   "pos": [
+    230,
+    -15
+   ],
+   "color": [
+    150,
+    190,
+    235
+   ],
+   "intensity": 1.0,
+   "radius": 120,
+   "kind": "static"
+  },
+  {
+   "room": 99,
+   "pos": [
+    365,
+    -15
+   ],
+   "color": [
+    150,
+    190,
+    235
+   ],
+   "intensity": 0.9,
+   "radius": 110,
+   "kind": "static"
+  },
+  {
+   "room": 101,
+   "pos": [
+    387,
+    75
+   ],
+   "color": [
+    120,
+    200,
+    220
+   ],
+   "intensity": 0.65,
+   "radius": 90,
+   "kind": "static"
+  },
+  {
+   "room": 115,
+   "pos": [
+    455,
+    75
+   ],
+   "color": [
+    120,
+    200,
+    220
+   ],
+   "intensity": 1.05,
+   "radius": 140,
+   "kind": "static"
+  },
+  {
+   "room": 173,
+   "pos": [
+    530,
+    70
+   ],
+   "color": [
+    120,
+    200,
+    220
+   ],
+   "intensity": 0.75,
+   "radius": 100,
+   "kind": "static"
+  },
+  {
+   "room": 170,
+   "pos": [
+    680,
+    70
+   ],
+   "color": [
+    150,
+    190,
+    235
+   ],
+   "intensity": 0.65,
+   "radius": 90,
+   "kind": "static"
+  },
+  {
+   "room": 171,
+   "pos": [
+    680,
+    -105
+   ],
+   "color": [
+    225,
+    175,
+    175
+   ],
+   "intensity": 0.5,
+   "radius": 80,
+   "kind": "static"
+  },
+  {
+   "room": 171,
+   "pos": [
+    575,
+    -50
+   ],
+   "color": [
+    225,
+    175,
+    175
+   ],
+   "intensity": 0.45,
+   "radius": 75,
+   "kind": "static"
+  },
+  {
+   "room": 172,
+   "pos": [
+    930,
+    70
+   ],
+   "color": [
+    255,
+    235,
+    210
+   ],
+   "intensity": 1.5,
+   "radius": 170,
+   "kind": "static"
+  },
+  {
+   "room": 172,
+   "pos": [
+    890,
+    35
+   ],
+   "color": [
+    225,
+    175,
+    175
+   ],
+   "intensity": 0.5,
+   "radius": 75,
+   "kind": "static"
+  },
+  {
+   "room": 172,
+   "pos": [
+    890,
+    105
+   ],
+   "color": [
+    225,
+    175,
+    175
+   ],
+   "intensity": 0.5,
+   "radius": 75,
+   "kind": "static"
+  },
+  {
+   "room": 83,
+   "pos": [
+    185,
+    345
+   ],
+   "color": [
+    255,
+    240,
+    215
+   ],
+   "intensity": 1.0,
+   "radius": 120,
+   "kind": "static"
+  },
+  {
+   "room": 72,
+   "pos": [
+    95,
+    345
+   ],
+   "color": [
+    255,
+    240,
+    215
+   ],
+   "intensity": 0.8,
+   "radius": 100,
+   "kind": "static"
+  },
+  {
+   "room": 4,
+   "pos": [
+    185,
+    435
+   ],
+   "color": [
+    255,
+    240,
+    215
+   ],
+   "intensity": 0.75,
+   "radius": 95,
+   "kind": "static"
+  },
+  {
+   "room": 5,
+   "pos": [
+    185,
+    525
+   ],
+   "color": [
+    255,
+    240,
+    215
+   ],
+   "intensity": 0.45,
+   "radius": 75,
+   "kind": "static"
+  },
+  {
+   "room": 1,
+   "pos": [
+    230,
+    -105
+   ],
+   "color": [
+    150,
+    190,
+    235
+   ],
+   "intensity": 0.55,
+   "radius": 80,
+   "kind": "static"
+  },
+  {
+   "room": 84,
+   "pos": [
+    185,
+    615
+   ],
+   "color": [
+    255,
+    240,
+    215
+   ],
+   "intensity": 0.45,
+   "radius": 75,
+   "kind": "static"
+  },
+  {
+   "room": 46,
+   "pos": [
+    -175,
+    345
+   ],
+   "color": [
+    150,
+    190,
+    235
+   ],
+   "intensity": 0.55,
+   "radius": 80,
+   "kind": "static"
+  },
+  {
+   "room": 134,
+   "pos": [
+    635,
+    -465
+   ],
+   "color": [
+    255,
+    240,
+    215
+   ],
+   "intensity": 0.45,
+   "radius": 75,
+   "kind": "static"
+  }
+ ]
 }

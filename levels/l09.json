@@ -8733,5 +8733,517 @@
    "gate_prompt": "APERTURE SHUT - DOCENT'S TOKEN REQUIRED",
    "acquire_prompt": "ACQUIRED: DOCENT'S TOKEN"
   }
- }
+ },
+ "lights": [
+  {
+   "room": 0,
+   "pos": [
+    -2632.5,
+    100.0
+   ],
+   "color": [
+    255,
+    190,
+    90
+   ],
+   "intensity": 0.9,
+   "radius": 148.5,
+   "kind": "static"
+  },
+  {
+   "room": 9,
+   "pos": [
+    -2498.3333333333335,
+    360.0
+   ],
+   "color": [
+    150,
+    190,
+    235
+   ],
+   "intensity": 0.55,
+   "radius": 141.8,
+   "kind": "static"
+  },
+  {
+   "room": 24,
+   "pos": [
+    -2500.0,
+    490.0
+   ],
+   "color": [
+    235,
+    175,
+    110
+   ],
+   "intensity": 0.45,
+   "radius": 80.0,
+   "kind": "static"
+  },
+  {
+   "room": 20,
+   "pos": [
+    -2606.6666666666665,
+    796.6666666666666
+   ],
+   "color": [
+    235,
+    175,
+    110
+   ],
+   "intensity": 0.6,
+   "radius": 115.5,
+   "kind": "static"
+  },
+  {
+   "room": 119,
+   "pos": [
+    -2610.0,
+    933.3333333333334
+   ],
+   "color": [
+    200,
+    225,
+    240
+   ],
+   "intensity": 0.95,
+   "radius": 110.0,
+   "kind": "static"
+  },
+  {
+   "room": 121,
+   "pos": [
+    -2393.3333333333335,
+    950.0
+   ],
+   "color": [
+    150,
+    190,
+    235
+   ],
+   "intensity": 0.55,
+   "radius": 100.0,
+   "kind": "static"
+  },
+  {
+   "room": 112,
+   "pos": [
+    -1954.5714285714287,
+    1028.0
+   ],
+   "color": [
+    235,
+    175,
+    110
+   ],
+   "intensity": 0.4,
+   "radius": 76.0,
+   "kind": "static"
+  },
+  {
+   "room": 94,
+   "pos": [
+    -1862.5,
+    1207.5
+   ],
+   "color": [
+    255,
+    240,
+    215
+   ],
+   "intensity": 0.75,
+   "radius": 141.8,
+   "kind": "static"
+  },
+  {
+   "room": 96,
+   "pos": [
+    -1598.3333333333333,
+    1228.3333333333333
+   ],
+   "color": [
+    235,
+    175,
+    110
+   ],
+   "intensity": 0.45,
+   "radius": 128.2,
+   "kind": "static"
+  },
+  {
+   "room": 134,
+   "pos": [
+    -1472.5,
+    1460.0
+   ],
+   "color": [
+    235,
+    90,
+    70
+   ],
+   "intensity": 0.5,
+   "radius": 88.0,
+   "kind": "static"
+  },
+  {
+   "room": 170,
+   "pos": [
+    -720.0,
+    970.0
+   ],
+   "color": [
+    120,
+    200,
+    220
+   ],
+   "intensity": 0.45,
+   "radius": 76.0,
+   "kind": "static"
+  },
+  {
+   "room": 178,
+   "pos": [
+    -691.6666666666666,
+    637.3333333333334
+   ],
+   "color": [
+    90,
+    220,
+    160
+   ],
+   "intensity": 0.6,
+   "radius": 131.2,
+   "kind": "static"
+  },
+  {
+   "room": 186,
+   "pos": [
+    -715.0,
+    900.0
+   ],
+   "color": [
+    90,
+    220,
+    160
+   ],
+   "intensity": 0.55,
+   "radius": 125.0,
+   "kind": "static"
+  },
+  {
+   "room": 193,
+   "pos": [
+    -610.0,
+    632.0
+   ],
+   "color": [
+    255,
+    240,
+    215
+   ],
+   "intensity": 0.4,
+   "radius": 76.0,
+   "kind": "static"
+  },
+  {
+   "room": 194,
+   "pos": [
+    -535.0,
+    632.3333333333334
+   ],
+   "color": [
+    90,
+    220,
+    160
+   ],
+   "intensity": 0.65,
+   "radius": 110.2,
+   "kind": "static"
+  },
+  {
+   "room": 200,
+   "pos": [
+    -518.3333333333334,
+    855.0
+   ],
+   "color": [
+    255,
+    240,
+    215
+   ],
+   "intensity": 0.6,
+   "radius": 105.0,
+   "kind": "static"
+  },
+  {
+   "room": 214,
+   "pos": [
+    -235.0,
+    1080.0
+   ],
+   "color": [
+    120,
+    200,
+    220
+   ],
+   "intensity": 0.4,
+   "radius": 76.0,
+   "kind": "static"
+  },
+  {
+   "room": 236,
+   "pos": [
+    -222.66666666666666,
+    1577.7777777777778
+   ],
+   "color": [
+    255,
+    240,
+    230
+   ],
+   "intensity": 1.1,
+   "radius": 220.0,
+   "kind": "static"
+  },
+  {
+   "room": 237,
+   "pos": [
+    100.0,
+    100.0
+   ],
+   "color": [
+    235,
+    175,
+    110
+   ],
+   "intensity": 0.38,
+   "radius": 200.0,
+   "kind": "static"
+  },
+  {
+   "room": 238,
+   "pos": [
+    500.0,
+    100.0
+   ],
+   "color": [
+    90,
+    220,
+    160
+   ],
+   "intensity": 0.38,
+   "radius": 200.0,
+   "kind": "static"
+  },
+  {
+   "room": 239,
+   "pos": [
+    900.0,
+    100.0
+   ],
+   "color": [
+    150,
+    190,
+    235
+   ],
+   "intensity": 0.45,
+   "radius": 230.0,
+   "kind": "static"
+  },
+  {
+   "room": 240,
+   "pos": [
+    1300.0,
+    100.0
+   ],
+   "color": [
+    235,
+    175,
+    110
+   ],
+   "intensity": 0.38,
+   "radius": 200.0,
+   "kind": "static"
+  },
+  {
+   "room": 241,
+   "pos": [
+    100.0,
+    500.0
+   ],
+   "color": [
+    90,
+    220,
+    160
+   ],
+   "intensity": 0.38,
+   "radius": 200.0,
+   "kind": "static"
+  },
+  {
+   "room": 242,
+   "pos": [
+    500.0,
+    500.0
+   ],
+   "color": [
+    150,
+    190,
+    235
+   ],
+   "intensity": 0.45,
+   "radius": 230.0,
+   "kind": "static"
+  },
+  {
+   "room": 243,
+   "pos": [
+    900.0,
+    500.0
+   ],
+   "color": [
+    235,
+    175,
+    110
+   ],
+   "intensity": 0.38,
+   "radius": 200.0,
+   "kind": "static"
+  },
+  {
+   "room": 244,
+   "pos": [
+    1300.0,
+    500.0
+   ],
+   "color": [
+    90,
+    220,
+    160
+   ],
+   "intensity": 0.45,
+   "radius": 230.0,
+   "kind": "static"
+  },
+  {
+   "room": 245,
+   "pos": [
+    100.0,
+    900.0
+   ],
+   "color": [
+    150,
+    190,
+    235
+   ],
+   "intensity": 0.38,
+   "radius": 200.0,
+   "kind": "static"
+  },
+  {
+   "room": 246,
+   "pos": [
+    500.0,
+    900.0
+   ],
+   "color": [
+    235,
+    175,
+    110
+   ],
+   "intensity": 0.38,
+   "radius": 200.0,
+   "kind": "static"
+  },
+  {
+   "room": 247,
+   "pos": [
+    900.0,
+    900.0
+   ],
+   "color": [
+    90,
+    220,
+    160
+   ],
+   "intensity": 0.45,
+   "radius": 230.0,
+   "kind": "static"
+  },
+  {
+   "room": 248,
+   "pos": [
+    1300.0,
+    900.0
+   ],
+   "color": [
+    150,
+    190,
+    235
+   ],
+   "intensity": 0.45,
+   "radius": 230.0,
+   "kind": "static"
+  },
+  {
+   "room": 249,
+   "pos": [
+    100.0,
+    1300.0
+   ],
+   "color": [
+    235,
+    175,
+    110
+   ],
+   "intensity": 0.38,
+   "radius": 200.0,
+   "kind": "static"
+  },
+  {
+   "room": 250,
+   "pos": [
+    500.0,
+    1300.0
+   ],
+   "color": [
+    90,
+    220,
+    160
+   ],
+   "intensity": 0.38,
+   "radius": 200.0,
+   "kind": "static"
+  },
+  {
+   "room": 251,
+   "pos": [
+    900.0,
+    1300.0
+   ],
+   "color": [
+    150,
+    190,
+    235
+   ],
+   "intensity": 0.38,
+   "radius": 200.0,
+   "kind": "static"
+  },
+  {
+   "room": 252,
+   "pos": [
+    1300.0,
+    1300.0
+   ],
+   "color": [
+    235,
+    90,
+    70
+   ],
+   "intensity": 0.65,
+   "radius": 240.0,
+   "kind": "static"
+  }
+ ]
 }

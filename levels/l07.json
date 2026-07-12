@@ -7949,5 +7949,397 @@
    "gate_prompt": "STACK GATE SEALED - REGISTRAR'S STAMP REQUIRED",
    "acquire_prompt": "ACQUIRED: REGISTRAR'S STAMP"
   }
- }
+ },
+ "lights": [
+  {
+   "room": 0,
+   "pos": [
+    80,
+    70
+   ],
+   "color": [
+    235,
+    175,
+    110
+   ],
+   "intensity": 1.05,
+   "radius": 135,
+   "kind": "static"
+  },
+  {
+   "room": 1,
+   "pos": [
+    410,
+    70
+   ],
+   "color": [
+    255,
+    240,
+    215
+   ],
+   "intensity": 1.0,
+   "radius": 120,
+   "kind": "static"
+  },
+  {
+   "room": 2,
+   "pos": [
+    760,
+    370
+   ],
+   "color": [
+    90,
+    220,
+    160
+   ],
+   "intensity": 0.95,
+   "radius": 150,
+   "kind": "static"
+  },
+  {
+   "room": 3,
+   "pos": [
+    820,
+    -230
+   ],
+   "color": [
+    210,
+    70,
+    90
+   ],
+   "intensity": 0.95,
+   "radius": 150,
+   "kind": "static"
+  },
+  {
+   "room": 4,
+   "pos": [
+    800,
+    -345
+   ],
+   "color": [
+    255,
+    240,
+    215
+   ],
+   "intensity": 0.95,
+   "radius": 110,
+   "kind": "static"
+  },
+  {
+   "room": 5,
+   "pos": [
+    1250,
+    70
+   ],
+   "color": [
+    150,
+    190,
+    235
+   ],
+   "intensity": 0.9,
+   "radius": 120,
+   "kind": "static"
+  },
+  {
+   "room": 13,
+   "pos": [
+    1815,
+    350
+   ],
+   "color": [
+    150,
+    190,
+    235
+   ],
+   "intensity": 0.9,
+   "radius": 130,
+   "kind": "static"
+  },
+  {
+   "room": 214,
+   "pos": [
+    3060,
+    360
+   ],
+   "color": [
+    150,
+    190,
+    235
+   ],
+   "intensity": 0.9,
+   "radius": 130,
+   "kind": "static"
+  },
+  {
+   "room": 6,
+   "pos": [
+    1345,
+    70
+   ],
+   "color": [
+    235,
+    175,
+    110
+   ],
+   "intensity": 1.0,
+   "radius": 125,
+   "kind": "static"
+  },
+  {
+   "room": 10,
+   "pos": [
+    1455,
+    380
+   ],
+   "color": [
+    235,
+    175,
+    110
+   ],
+   "intensity": 1.0,
+   "radius": 125,
+   "kind": "static"
+  },
+  {
+   "room": 12,
+   "pos": [
+    1648.8,
+    382.0
+   ],
+   "color": [
+    235,
+    175,
+    110
+   ],
+   "intensity": 1.0,
+   "radius": 125,
+   "kind": "static"
+  },
+  {
+   "room": 48,
+   "pos": [
+    1265,
+    2635
+   ],
+   "color": [
+    235,
+    175,
+    110
+   ],
+   "intensity": 1.0,
+   "radius": 125,
+   "kind": "static"
+  },
+  {
+   "room": 52,
+   "pos": [
+    1785,
+    2635
+   ],
+   "color": [
+    235,
+    175,
+    110
+   ],
+   "intensity": 1.0,
+   "radius": 125,
+   "kind": "static"
+  },
+  {
+   "room": 56,
+   "pos": [
+    2302.8,
+    2633.6
+   ],
+   "color": [
+    235,
+    175,
+    110
+   ],
+   "intensity": 1.0,
+   "radius": 125,
+   "kind": "static"
+  },
+  {
+   "room": 207,
+   "pos": [
+    2650,
+    70
+   ],
+   "color": [
+    235,
+    175,
+    110
+   ],
+   "intensity": 1.0,
+   "radius": 125,
+   "kind": "static"
+  },
+  {
+   "room": 211,
+   "pos": [
+    2845,
+    260
+   ],
+   "color": [
+    235,
+    175,
+    110
+   ],
+   "intensity": 1.0,
+   "radius": 125,
+   "kind": "static"
+  },
+  {
+   "room": 213,
+   "pos": [
+    2940,
+    360
+   ],
+   "color": [
+    235,
+    175,
+    110
+   ],
+   "intensity": 1.0,
+   "radius": 125,
+   "kind": "static"
+  },
+  {
+   "room": 218,
+   "pos": [
+    3650,
+    770
+   ],
+   "color": [
+    235,
+    175,
+    110
+   ],
+   "intensity": 1.0,
+   "radius": 125,
+   "kind": "static"
+  },
+  {
+   "room": 222,
+   "pos": [
+    3845,
+    590
+   ],
+   "color": [
+    235,
+    175,
+    110
+   ],
+   "intensity": 1.0,
+   "radius": 125,
+   "kind": "static"
+  },
+  {
+   "room": 204,
+   "pos": [
+    950,
+    2635
+   ],
+   "color": [
+    255,
+    240,
+    215
+   ],
+   "intensity": 0.9,
+   "radius": 110,
+   "kind": "static"
+  },
+  {
+   "room": 206,
+   "pos": [
+    1150,
+    2635
+   ],
+   "color": [
+    255,
+    240,
+    215
+   ],
+   "intensity": 0.9,
+   "radius": 110,
+   "kind": "static"
+  },
+  {
+   "room": 223,
+   "pos": [
+    3820,
+    320
+   ],
+   "color": [
+    255,
+    240,
+    215
+   ],
+   "intensity": 0.9,
+   "radius": 110,
+   "kind": "static"
+  },
+  {
+   "room": 225,
+   "pos": [
+    3821.3,
+    468.8
+   ],
+   "color": [
+    255,
+    240,
+    215
+   ],
+   "intensity": 0.9,
+   "radius": 110,
+   "kind": "static"
+  },
+  {
+   "room": 207,
+   "pos": [
+    2620,
+    70
+   ],
+   "color": [
+    150,
+    110,
+    220
+   ],
+   "intensity": 0.95,
+   "radius": 135,
+   "kind": "static"
+  },
+  {
+   "room": 214,
+   "pos": [
+    3100,
+    375
+   ],
+   "color": [
+    150,
+    110,
+    220
+   ],
+   "intensity": 0.85,
+   "radius": 120,
+   "kind": "static"
+  },
+  {
+   "room": 218,
+   "pos": [
+    3620,
+    760
+   ],
+   "color": [
+    150,
+    110,
+    220
+   ],
+   "intensity": 0.95,
+   "radius": 135,
+   "kind": "static"
+  }
+ ]
 }
