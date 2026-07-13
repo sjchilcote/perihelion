@@ -83,10 +83,6 @@ def _mix_music(mix: np.ndarray, events: list, duration_s: float) -> None:
         return
     # music runs from level start (prayer) even if no state change was
     # ever logged — an all-calm capture still carries the prayer bed
-    import sys as _sys
-    _sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "game"))
-    from perihelion.music import GAINS, RISER_MAX
-
     stems = {}
     for name in ("prayer", "contempt", "stalwart", "riser"):
         p = MUSIC_BANK / f"{name}.wav"
@@ -100,34 +96,42 @@ def _mix_music(mix: np.ndarray, events: list, duration_s: float) -> None:
 
     t0 = 0.0
     n_total = len(mix)
-    # gain timelines, stepwise
-    state_evs = [e for e in mevents if e["kind"] == "music_state"]
+    # continuous-value timelines, stepwise at logged (bar-quantized) taps
+    IDX = {"prayer": 0, "contempt": 1, "stalwart": 2}
+    val_evs = [e for e in mevents if e["kind"] == "music_vals"]
+    vals_tl = [(t0, (1.0, 0.0, 0.0))] + \
+        [(e["t"], tuple(float(v) for v in e["name"].split(",")))
+         for e in val_evs]
     riser_evs = [e for e in mevents if e["kind"] == "music_riser"]
-    state_tl = [(t0, "prayer")] + [(e["t"], e["name"]) for e in state_evs]
     riser_tl = [(t0, 0.0)] + [(e["t"], float(e["name"])) for e in riser_evs]
 
+    BAR = 240.0 / 140.0
+    fade_n = int(1.5 * BAR * RATE)       # falls fade ~1.5 bars (director's
+    #                                      transition ruling); rises step
     for name, snd in stems.items():
         L = len(snd)
-        tl = riser_tl if name == "riser" else state_tl
+        tl = riser_tl if name == "riser" else vals_tl
+        env = np.zeros(n_total, dtype=np.float32)
         for i, (ts, val) in enumerate(tl):
             te = tl[i + 1][0] if i + 1 < len(tl) else duration_s
-            g = (val * RISER_MAX) if name == "riser" \
-                else GAINS[val].get(name, 0.0)
-            if g <= 0.0:
-                continue
+            g = (val * 0.85) if name == "riser" else val[IDX[name]]
             s0, s1 = int(ts * RATE), min(int(te * RATE), n_total)
-            if s1 <= s0:
-                continue
-            # loop-continuous phase relative to music start
-            phase = int((ts - t0) * RATE) % L
-            pos = s0
-            while pos < s1:
-                n = min(L - phase, s1 - pos)
-                seg = snd[phase:phase + n] * (g * 0.8)
-                mix[pos:pos + n, 0] += seg
-                mix[pos:pos + n, 1] += seg
-                pos += n
-                phase = 0
+            if s1 > s0:
+                env[s0:s1] = g
+        # derivative-aware smoothing: rises instant, falls ramped
+        out_env = env.copy()
+        cur = env[0] if len(env) else 0.0
+        step = 1.0 / fade_n
+        for i in range(1, n_total):
+            tgt = env[i]
+            cur = tgt if tgt >= cur else max(tgt, cur - step)
+            out_env[i] = cur
+        if not out_env.any():
+            continue
+        looped = np.tile(snd, int(np.ceil(n_total / L)))[:n_total]
+        seg = looped * out_env * 0.8
+        mix[:, 0] += seg
+        mix[:, 1] += seg
     # stings
     sting_p = MUSIC_BANK / "sting.wav"
     if sting_p.exists():

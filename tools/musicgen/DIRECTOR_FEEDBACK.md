@@ -180,6 +180,43 @@ drives its level/rate; release = cadence hit + bus drop. Prime uses: a
 dormant flicker nearby (the player can't see it — the music can), lockdown
 waves building to breach, the drop into a hub fight.
 
+## The engine architecture ruling (2026-07-13, verbatim)
+
+> "there shouldn't be a state machine - PRAYER, CONTEMPT, DEFIANCE are
+> _values_ from 0-1 determined by a battery of heuristics, and that
+> triple, plus current level, current weapon, list of enemies currently
+> with agro - those are the inputs to the engine."
+
+- The triple is CONTINUOUS. Blends (his 04-track reading: STALWART+
+  CONTEMPT at 0:30) fall out for free; discrete states were my
+  simplification, now dead.
+- **Snap-to-vocabulary law** (his correction when I renamed on the spot):
+  "snap the things I say to the established vocabulary unless I directly
+  tell you we need to change the word we're using." The third value
+  remains STALWART ("defiance" in that message was casual phrasing, not a
+  rename). Applies globally: casual synonyms in his messages map onto the
+  established terms.
+- Engine inputs, complete list: (prayer, contempt, defiance) + current
+  level + current weapon + list of enemies currently with aggro.
+  Level → rhythm; weapon → lead; aggro composition → basslines (his
+  original dynamic spec, now formalized as the input tuple).
+- Musical APPLICATION can still quantize to bars and prefer binary
+  walls/vacuums (album grammar) — but the underlying values ride
+  continuously.
+
+Follow-up ruling (same day, verbatim):
+> "the other thing about the state machine was there were no transitions -
+> a bell rings, then is cut off immediately. A percussion loop starts,
+> then stops. The music system needs to be looking at the _derivative_ of
+> each value as well and appropriately fading instruments in and out,
+> switching melodies and instruments, and inserting transitions, with
+> musical timing."
+
+- Derivative-aware application: fast rise = wall + sting (album grammar);
+  falls FADE over bars, never hard-cut; one-shots (bells, stings) always
+  ring to completion; melody/instrument switches land on musical
+  boundaries with transition material, not splices.
+
 ## The gauntlet law (2026-07-13)
 
 > "What's in 'dynamic_music_demo_2026-07-13' is complete and utter garbage

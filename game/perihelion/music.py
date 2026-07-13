@@ -1,31 +1,33 @@
 """Dynamic music — the Commando's emotional state, illustrated.
 
-The states are EMOTIONAL, not threat meters (tools/musicgen/
-DIRECTOR_FEEDBACK.md, the emotional spec):
+NOT a state machine (director's architecture ruling, 2026-07-13):
+PRAYER, CONTEMPT, STALWART are continuous VALUES in [0,1], each computed
+by a battery of heuristics, and the engine's inputs are exactly:
 
-  PRAYER   — calm: praying, contemplating, processing — over a pulse that
-             never stops (the mission's urgency).
-  CONTEMPT — weak enemies: confident, dismissive groove; the chant does
-             not pause for trash.
+    (prayer, contempt, stalwart) + current level + current weapon
+    + the list of enemies currently with aggro
+
+Level selects the rhythm bed, weapon selects the lead voice, the aggro
+list selects bassline cells (the director's dynamic spec); the triple
+drives stem gains. Blends are native — 04's STALWART+CONTEMPT moment is
+just (0.7, 0.6, ...) — and the emotional spec still holds:
+
+  PRAYER   — praying/contemplating/processing, but the urgency pulse
+             never fully stops (floor never reaches zero).
+  CONTEMPT — mowing down weak enemies: confident dismissive groove; the
+             chant does not pause for trash.
   STALWART — overwhelming odds: the prayer for vengeance; the harmonic
              floor holds; the cantus firmus persists through the peak.
 
-Mechanism is deliberately DOOM-simple (GORDON_METHOD.md §7, pyweek-28
-lineage): four always-looping stems (prayer/contempt/stalwart/riser) with
-bar-quantized BINARY gain moves (walls and vacuums, not crossfades —
-ALBUM_TECHNIQUES.md §5), one sting one-shot on hard entries, and the
-Shepard riser whose tension releases on gameplay's schedule (a dormant
-flicker the player can't see; the music can).
+Musical APPLICATION stays album-grammar (bar-quantized gain moves; large
+value jumps land as walls/vacuums; a sting marks hard rises), but the
+values themselves ride continuously every tick. The Shepard riser follows
+TENSION (dormant flickers the sensors barely show) and releases with a
+sting the instant the threat commits — tension resolving on gameplay's
+schedule.
 
-The classifier models how the Commando READS the fight (weight class, HP,
-his own room vs elsewhere) — many weak enemies is still CONTEMPT
-(director: "the classifier rides a line, not discrete buckets"; state
-blends are expressed by stem layering, chant continuity preserved).
-
-All decisions are functions of sim state on the sim's tick clock —
-deterministic given a recording, and logged through the same audio tap
-stream events.jsonl carries, so tools/playtest/mkvideo.py can rebuild the
-exact music mix offline for captures (headless runs have no live mixer).
+Deterministic given a recording; logged through the audio tap stream so
+tools/playtest/mkvideo.py rebuilds the exact mix offline.
 """
 from __future__ import annotations
 
@@ -34,165 +36,185 @@ from pathlib import Path
 
 BANK_DIR = Path(__file__).resolve().parent / "assets/music/hymn01"
 BPM = 140.0
-BAR_S = 240.0 / BPM                       # 4 beats
+BAR_S = 240.0 / BPM
 TICKS_PER_S = 60.0
 
-# How the Commando reads each enemy kind (weight class, not body count).
+# Heuristic battery weights ------------------------------------------------
 THREAT_WEIGHT = {
     "mite": 0.6, "husk": 1.0, "spitter": 2.0, "shrieker": 2.5,
-    "brute": 4.0, "warden": 5.0, "flicker": 3.0,   # flicker counts once REVEALED
+    "brute": 4.0, "warden": 5.0, "flicker": 3.0,
 }
-OTHER_ROOM_FACTOR = 0.35                  # awake threats elsewhere weigh less
-
-STALWART_AT = 8.0                         # weighted threat that reads "test"
-STALWART_HURT_AT = 3.0                    # ...or this much while badly hurt
-HURT_HP = 35.0
-DOWNSHIFT_CLEAN_BARS = 2                  # hysteresis: calm must hold
-
-# Stem gain tables per state (binary moves; chant continuity built in:
-# prayer never fully leaves under contempt — the chants persist).
-GAINS = {
-    "prayer":   {"prayer": 1.0, "contempt": 0.0, "stalwart": 0.0},
-    "contempt": {"prayer": 0.25, "contempt": 1.0, "stalwart": 0.0},
-    "stalwart": {"prayer": 0.0, "contempt": 0.35, "stalwart": 1.0},
-}
-RISER_MAX = 0.85
+WEAK_KINDS = {"mite", "husk"}
+OTHER_ROOM_FACTOR = 0.35
+STALWART_KNEE = 8.0          # weighted threat where stalwart ~ 0.63
+HURT_HP = 40.0
+PRAYER_FLOOR = 0.12          # the urgency pulse never fully stops
+STING_RISE = 0.35            # a value jump this big in one bar = a wall
 
 
-def classify(session) -> tuple[str, float]:
-    """(state, tension) from sim state. Pure; unit-tested.
+def read_inputs(session) -> dict:
+    """The engine's complete input tuple, from live sim state.
 
-    tension drives the riser: dormant lurking flickers near the player —
-    danger the sensors barely show. Revealed/attacking flickers are
-    ordinary threat instead."""
+    aggro = enemies whose AI is actively engaged (not idle/waking/lurk).
+    """
     proom = session.player_room()
-    threat = 0.0
+    aggro = []
     tension = 0.0
     for eid, e in session.enemies.items():
         kind = e.get("kind")
-        w = THREAT_WEIGHT.get(kind, 1.0)
+        state = e.get("state", "idle")
+        if kind == "flicker" and state == "lurk":
+            try:
+                if session.sim.get_room(eid) == proom:
+                    tension = min(1.0, tension + 0.5)
+            except Exception:
+                pass
+            continue
+        if state in ("idle", "waking"):
+            continue
         try:
             room = session.sim.get_room(eid)
         except Exception:
             continue
-        state = e.get("state", "idle")
-        if kind == "flicker" and state == "lurk":
-            if room == proom:
-                tension = min(1.0, tension + 0.5)
-            return_state = None  # lurking flickers add tension, not threat
-            continue
-        if state in ("idle", "waking"):
-            continue
-        threat += w if room == proom else w * OTHER_ROOM_FACTOR
-    hp = getattr(session, "hp", 100.0)
-    if threat >= STALWART_AT or (hp < HURT_HP and threat >= STALWART_HURT_AT):
-        return "stalwart", tension
-    if threat > 0.0:
-        return "contempt", tension
-    return "prayer", tension
+        aggro.append((kind, room == proom))
+    return dict(
+        level=getattr(session, "level_name", "?"),
+        weapon=getattr(session, "weapon", None) or
+               getattr(session, "current_weapon", "?"),
+        aggro=aggro,
+        hp=getattr(session, "hp", 100.0),
+        tension=tension,
+    )
+
+
+def values(inputs: dict) -> tuple[float, float, float]:
+    """(prayer, contempt, stalwart), each 0-1, from the heuristic battery.
+
+    - stalwart rises with WEIGHTED threat (soft knee at STALWART_KNEE),
+      amplified when hurt: the odds as the Commando reads them.
+    - contempt rises with engaged WEAK enemies while stalwart stays low
+      and he is healthy: trash being mowed, pride and impatience.
+    - prayer is the room left by the fight, never below PRAYER_FLOOR:
+      contemplation with the mission clock always running.
+    """
+    import math
+    threat = 0.0        # engagement pressure (everything counts)
+    test_threat = 0.0   # what reads as the Test (weak kinds discounted:
+    #                     a swarm of trash is work, not a trial)
+    weak_n = 0
+    for kind, same_room in inputs["aggro"]:
+        w = THREAT_WEIGHT.get(kind, 1.0)
+        rf = 1.0 if same_room else OTHER_ROOM_FACTOR
+        threat += w * rf
+        test_threat += w * rf * (0.25 if kind in WEAK_KINDS else 1.0)
+        if kind in WEAK_KINDS and same_room:
+            weak_n += 1
+    hp = inputs["hp"]
+    hurt = max(0.0, (HURT_HP - hp) / HURT_HP)
+    stalwart = 1.0 - math.exp(-(test_threat * (1.0 + 1.2 * hurt))
+                              / STALWART_KNEE)
+    contempt = (1.0 - math.exp(-weak_n / 2.5)) * (1.0 - stalwart) \
+        * (0.5 + 0.5 * min(1.0, hp / 100.0))
+    engaged = min(1.0, threat / 2.0)
+    prayer = max(PRAYER_FLOOR, 1.0 - engaged)
+    return (round(prayer, 3), round(contempt, 3), round(stalwart, 3))
 
 
 class MusicSystem:
-    """Bar clock + stem channels + the state machine. App-layer only."""
+    """Continuous-value engine + bar-quantized musical application."""
 
     def __init__(self, audio_bank, enabled: bool = True):
-        self.bank = audio_bank                    # perihelion.audio.AudioBank
+        self.bank = audio_bank
         self.enabled = enabled and BANK_DIR.exists()
-        self.state = "prayer"
-        self.tension = 0.0
-        self._pending: str | None = None
-        self._calm_bars = 0
+        self.vals = (1.0, 0.0, 0.0)
+        self.inputs: dict = {}
+        self._applied = (1.0, 0.0, 0.0)
         self._last_bar = -1
         self._channels = {}
-        self._sounds = {}
         self._sting = None
         self._started = False
-        self._gains = dict(GAINS["prayer"])
         self._riser_gain = 0.0
+        self._live: dict = {}
 
-    # -- mixer plumbing ------------------------------------------------
+    # -- mixer plumbing --------------------------------------------------
     def _ensure_started(self):
         if self._started or not self.enabled:
             return
         self._started = True
         if not getattr(self.bank, "_ready", False):
-            return                                 # headless: log-only
+            return
         import pygame
         try:
-            for i, name in enumerate(("prayer", "contempt", "stalwart",
-                                      "riser")):
-                snd = pygame.mixer.Sound(str(BANK_DIR / f"{name}.wav"))
-                ch = pygame.mixer.Channel(4 + i)   # SFX use low channels
+            for i, name in enumerate(("prayer", "contempt", "stalwart", "riser")):
+                fn = BANK_DIR / f"{name}.wav"
+                snd = pygame.mixer.Sound(str(fn))
+                ch = pygame.mixer.Channel(4 + i)
                 ch.play(snd, loops=-1)
                 ch.set_volume(0.0)
-                self._sounds[name] = snd
                 self._channels[name] = ch
             self._sting = pygame.mixer.Sound(str(BANK_DIR / "sting.wav"))
-        except Exception as exc:                   # never kill the game loop
+        except Exception as exc:
             print(f"[music] start failed, logging only: {exc}",
                   file=sys.stderr)
             self._channels = {}
 
-    def _apply_gains(self):
+    def _apply(self, dt: float = 1.0 / 60.0):
+        """Derivative-aware gain application (director's transition ruling):
+        RISES land as walls (immediate — the album's binary entry), FALLS
+        fade with musical timing (~1.5 bars to silence) so nothing is cut
+        off mid-ring. self._applied holds bar-quantized TARGETS; _live
+        holds what the channels actually sit at this frame."""
+        p, c, d = self._applied
+        targets = {"prayer": p, "contempt": c, "stalwart": d,
+                   "riser": self._riser_gain * 0.85}
+        fall_rate = dt / (1.5 * BAR_S)             # full fade ~1.5 bars
         master = getattr(self.bank, "master", 1.0)
-        for name, ch in self._channels.items():
-            g = self._riser_gain * RISER_MAX if name == "riser" \
-                else self._gains.get(name, 0.0)
-            ch.set_volume(max(0.0, min(1.0, g * 0.8 * master)))
+        for name in ("prayer", "contempt", "stalwart", "riser"):
+            cur = self._live.get(name, targets[name])
+            tgt = targets[name]
+            if tgt >= cur:
+                cur = tgt                          # rise = wall
+            else:
+                cur = max(tgt, cur - fall_rate)    # fall = musical fade
+            self._live[name] = cur
+            ch = self._channels.get(name)
+            if ch is not None:
+                ch.set_volume(max(0.0, min(1.0, cur * 0.8 * master)))
 
     def _tap(self, kind: str, detail: str, vol: float):
         tap = getattr(self.bank, "tap", None)
         if tap is not None:
             tap(kind, detail, vol, 0.5)
 
-    # -- per-tick update -----------------------------------------------
+    # -- per-tick update --------------------------------------------------
     def update(self, session):
         if not self.enabled:
             return
         self._ensure_started()
-        want, tension = classify(session)
-        self.tension = tension
+        self.inputs = read_inputs(session)
+        self.vals = values(self.inputs)
+        tension = self.inputs["tension"]
 
-        # riser follows tension immediately (it's the unseen threat), and
-        # releases with a sting the instant the threat commits
         if tension > self._riser_gain + 1e-6:
             self._riser_gain = tension
             self._tap("music_riser", f"{tension:.2f}", tension)
         elif tension <= 1e-6 and self._riser_gain > 1e-6:
             self._riser_gain = 0.0
             self._tap("music_riser", "0.00", 0.0)
-            if self.state != "prayer" or want != "prayer":
-                self._sting_now()
+            self._sting_now()                      # release on the pounce
 
         bar = int((session.tick_count / TICKS_PER_S) / BAR_S)
-        new_bar = bar != self._last_bar
-        self._last_bar = bar
-
-        if want != self.state:
-            up = (("prayer", "contempt", "stalwart").index(want)
-                  > ("prayer", "contempt", "stalwart").index(self.state))
-            if up:
-                self._pending = want
-                self._calm_bars = 0
-            else:
-                # downshift needs clean bars (hysteresis), counted at bars
-                if new_bar:
-                    self._calm_bars += 1
-                    if self._calm_bars >= DOWNSHIFT_CLEAN_BARS:
-                        self._pending = want
-        else:
-            self._calm_bars = 0
-
-        if new_bar and self._pending:
-            prev = self.state
-            self.state = self._pending
-            self._pending = None
-            self._gains = dict(GAINS[self.state])
-            if ("prayer", "contempt", "stalwart").index(self.state) > \
-                    ("prayer", "contempt", "stalwart").index(prev):
-                self._sting_now()                  # entry is a WALL
-            self._tap("music_state", self.state, 1.0)
-        self._apply_gains()
+        if bar != self._last_bar:
+            self._last_bar = bar
+            prev = self._applied
+            self._applied = self.vals
+            if (self.vals[2] - prev[2] >= STING_RISE or
+                    self.vals[1] - prev[1] >= STING_RISE):
+                self._sting_now()                  # hard rise = a wall
+            if self._applied != prev:
+                p, c, d = self._applied
+                self._tap("music_vals", f"{p:.3f},{c:.3f},{d:.3f}", 1.0)
+        self._apply()
 
     def _sting_now(self):
         self._tap("music_sting", "sting", 1.0)

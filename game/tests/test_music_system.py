@@ -1,20 +1,21 @@
-"""Dynamic music system — classifier + state machine properties.
+"""Dynamic music engine — continuous-value properties.
 
-Fail-first evidence (2026-07-13, recorded here per the fail-first law):
-- bar-quantization: with `new_bar` forced True every update (mutation),
-  test_state_changes_only_at_bar_boundaries fails (state flips mid-bar).
-- hysteresis: with DOWNSHIFT_CLEAN_BARS mutated to 0, the flap test fails
-  (state chatters on alternating threat).
-- contempt-not-stalwart: with THREAT weights mutated so husk=2.0, the
-  weak-swarm test fails (a trash mob would read as the Test).
-All mutations reverted; tests green against the real module.
+Architecture per the director's ruling: NOT a state machine. PRAYER,
+CONTEMPT, STALWART are 0-1 values from a heuristic battery; engine inputs
+are the triple + level + weapon + aggro list.
+
+Fail-first evidence (2026-07-13, per the fail-first law):
+- bar quantization: mutating update() to apply values every tick makes
+  test_application_only_at_bar_boundaries fail (verified, reverted).
+- weak-swarm law: mutating WEAK husks' weight to 2.0 makes
+  test_weak_swarm_is_contempt_not_stalwart fail (verified, reverted).
 """
 from __future__ import annotations
 
 from types import SimpleNamespace
 
-from perihelion.music import (MusicSystem, classify, GAINS,
-                              DOWNSHIFT_CLEAN_BARS, BAR_S, TICKS_PER_S)
+from perihelion.music import (MusicSystem, values, read_inputs,
+                              PRAYER_FLOOR, BAR_S, TICKS_PER_S, STING_RISE)
 
 
 class FakeSim:
@@ -39,110 +40,117 @@ def awake(kind):
     return dict(kind=kind, state="hunt", trace_intensity=1.0)
 
 
-# --- classifier -------------------------------------------------------
+def vals_for(enemies, rooms, hp=100.0):
+    return values(read_inputs(make_session(enemies, rooms, hp=hp)))
+
+
+# --- the heuristic battery ---------------------------------------------
+
+def test_empty_room_is_full_prayer():
+    p, c, s = vals_for({}, {})
+    assert p == 1.0 and c == 0.0 and s < 0.15
+
 
 def test_weak_swarm_is_contempt_not_stalwart():
-    # six husks in the player's room: trash, not the Test (emotional spec:
-    # "many weak enemies is still CONTEMPT")
     enemies = {i: awake("husk") for i in range(6)}
     rooms = {i: 0 for i in range(6)}
-    state, _ = classify(make_session(enemies, rooms))
-    assert state == "contempt"
+    p, c, s = vals_for(enemies, rooms)
+    assert c > 0.5, "mowing trash must read as contempt"
+    assert s < 0.6, "trash is not the Test"
+    assert c > s
 
 
-def test_heavies_are_stalwart():
+def test_heavies_raise_stalwart():
     enemies = {1: awake("brute"), 2: awake("brute"), 3: awake("warden")}
     rooms = {1: 0, 2: 0, 3: 0}
-    state, _ = classify(make_session(enemies, rooms))
-    assert state == "stalwart"
+    p, c, s = vals_for(enemies, rooms)
+    assert s > 0.7
+    assert s > c
 
 
-def test_hurt_and_pressed_is_stalwart():
-    enemies = {1: awake("brute")}
-    rooms = {1: 0}
-    state, _ = classify(make_session(enemies, rooms, hp=20.0))
-    assert state == "stalwart"
+def test_stalwart_monotone_in_threat():
+    rooms = {1: 0, 2: 0, 3: 0}
+    _, _, s1 = vals_for({1: awake("brute")}, rooms)
+    _, _, s2 = vals_for({1: awake("brute"), 2: awake("brute")}, rooms)
+    _, _, s3 = vals_for({1: awake("brute"), 2: awake("brute"),
+                         3: awake("warden")}, rooms)
+    assert s1 < s2 < s3
 
 
-def test_idle_enemies_are_prayer():
-    enemies = {1: dict(kind="brute", state="idle"),
-               2: dict(kind="husk", state="waking")}
+def test_hurt_amplifies_stalwart():
+    enemies = {1: awake("brute"), 2: awake("spitter")}
     rooms = {1: 0, 2: 0}
-    state, tension = classify(make_session(enemies, rooms))
-    assert state == "prayer" and tension == 0.0
+    _, _, s_healthy = vals_for(enemies, rooms, hp=100)
+    _, _, s_hurt = vals_for(enemies, rooms, hp=20)
+    assert s_hurt > s_healthy
 
 
-def test_lurking_flicker_is_tension_not_threat():
+def test_blends_are_native():
+    # a mixed pack: heavies AND trash -> both values live at once
+    enemies = {1: awake("brute"), 2: awake("brute"),
+               3: awake("husk"), 4: awake("husk"), 5: awake("husk")}
+    rooms = {i: 0 for i in enemies}
+    p, c, s = vals_for(enemies, rooms)
+    assert s > 0.4 and c > 0.05, "blend must be expressible"
+
+
+def test_prayer_floor_never_breaks():
+    enemies = {i: awake("warden") for i in range(8)}
+    rooms = {i: 0 for i in range(8)}
+    p, _, _ = vals_for(enemies, rooms, hp=5)
+    assert p == PRAYER_FLOOR, "the urgency pulse never fully stops"
+
+
+def test_lurking_flicker_is_tension_not_aggro():
     enemies = {1: dict(kind="flicker", state="lurk")}
     rooms = {1: 0}
-    state, tension = classify(make_session(enemies, rooms))
-    assert state == "prayer"
-    assert tension > 0.0
+    inp = read_inputs(make_session(enemies, rooms))
+    assert inp["aggro"] == []
+    assert inp["tension"] > 0.0
 
 
-def test_other_room_threat_discounted():
-    # one brute in another room: awake but elsewhere -> contempt-level
-    enemies = {1: awake("brute"), 2: awake("brute"), 3: awake("brute")}
-    rooms = {1: 5, 2: 5, 3: 5}
-    state, _ = classify(make_session(enemies, rooms))
-    assert state == "contempt"
+def test_engine_inputs_complete():
+    # the director's input tuple: triple + level + weapon + aggro list
+    s = make_session({1: awake("husk")}, {1: 0})
+    s.level_name = "l08"
+    s.weapon = "shotgun"
+    inp = read_inputs(s)
+    assert inp["level"] == "l08"
+    assert inp["weapon"] == "shotgun"
+    assert inp["aggro"] == [("husk", True)]
 
 
-# --- state machine ----------------------------------------------------
+# --- musical application ------------------------------------------------
 
 def ticks_per_bar():
     return int(BAR_S * TICKS_PER_S) + 1
 
 
-def run_updates(ms, sessions):
-    for s in sessions:
-        ms.update(s)
-
-
-def test_state_changes_only_at_bar_boundaries():
+def test_application_only_at_bar_boundaries():
     ms = MusicSystem(audio_bank=SimpleNamespace(_ready=False, tap=None),
                      enabled=True)
-    calm = make_session({}, {}, tick=1)
-    ms.update(calm)
-    assert ms.state == "prayer"
-    # threat appears mid-bar: state must NOT flip until the next bar tick
+    ms.update(make_session({}, {}, tick=1))
+    assert ms._applied[0] == 1.0
     heavy = {1: awake("brute"), 2: awake("brute"), 3: awake("warden")}
     rooms = {1: 0, 2: 0, 3: 0}
-    mid = make_session(heavy, rooms, tick=2)
-    ms.update(mid)
-    assert ms.state == "prayer"          # pending, not applied
-    nxt = make_session(heavy, rooms, tick=ticks_per_bar())
-    ms.update(nxt)
-    assert ms.state == "stalwart"        # applied at the bar line
+    ms.update(make_session(heavy, rooms, tick=2))
+    assert ms.vals[2] > 0.7                  # the VALUE rides immediately
+    assert ms._applied[2] < 0.15             # the MUSIC waits for the bar
+    ms.update(make_session(heavy, rooms, tick=ticks_per_bar()))
+    assert ms._applied[2] > 0.7              # applied at the bar line
 
 
-def test_downshift_needs_clean_bars():
-    ms = MusicSystem(audio_bank=SimpleNamespace(_ready=False, tap=None),
-                     enabled=True)
+def test_hard_rise_stings():
+    taps = []
+    bank = SimpleNamespace(_ready=False,
+                           tap=lambda k, d, v, p: taps.append((k, d)))
+    ms = MusicSystem(audio_bank=bank, enabled=True)
+    ms.update(make_session({}, {}, tick=1))
     heavy = {1: awake("brute"), 2: awake("brute"), 3: awake("warden")}
     rooms = {1: 0, 2: 0, 3: 0}
-    t = 1
-    ms.update(make_session(heavy, rooms, tick=t))
-    t = ticks_per_bar()
-    ms.update(make_session(heavy, rooms, tick=t))
-    assert ms.state == "stalwart"
-    # threat gone: one bar of calm is NOT enough
-    t += ticks_per_bar()
-    ms.update(make_session({}, {}, tick=t))
-    assert ms.state == "stalwart"
-    for _ in range(DOWNSHIFT_CLEAN_BARS + 1):
-        t += ticks_per_bar()
-        ms.update(make_session({}, {}, tick=t))
-    assert ms.state == "prayer"
-
-
-def test_chant_continuity_gains():
-    # the chants persist under contempt (director: "without losing the
-    # chants"); prayer stem keeps nonzero gain in the contempt table
-    assert GAINS["contempt"]["prayer"] > 0.0
-    # and the cantus firmus survives the peak: contempt layer stays under
-    # stalwart rather than everything-but-one-stem going silent
-    assert GAINS["stalwart"]["contempt"] > 0.0
+    ms.update(make_session(heavy, rooms, tick=ticks_per_bar()))
+    assert any(k == "music_sting" for k, _ in taps)
+    assert any(k == "music_vals" for k, _ in taps)
 
 
 def test_riser_releases_with_sting():
@@ -154,8 +162,6 @@ def test_riser_releases_with_sting():
     rooms = {1: 0}
     ms.update(make_session(lurk, rooms, tick=1))
     assert ms._riser_gain > 0.0
-    # the flicker commits: lurking ends, threat appears -> riser drops,
-    # sting fires
     pounce = {1: dict(kind="flicker", state="hunt")}
     ms.update(make_session(pounce, rooms, tick=2))
     assert ms._riser_gain == 0.0
@@ -168,13 +174,12 @@ def test_deterministic_tap_log():
         bank = SimpleNamespace(_ready=False,
                                tap=lambda k, d, v, p: taps.append((k, d, v)))
         ms = MusicSystem(audio_bank=bank, enabled=True)
-        heavy = {1: awake("brute"), 2: awake("brute"), 3: awake("warden")}
-        rooms = {1: 0, 2: 0, 3: 0}
+        heavy = {1: awake("brute"), 2: awake("warden")}
+        rooms = {1: 0, 2: 0}
         t = 0
         for step in range(6):
             t += ticks_per_bar() if step % 2 else 7
-            s = make_session(heavy if step in (1, 2, 3) else {}, rooms,
-                             tick=t)
-            ms.update(s)
+            ms.update(make_session(heavy if step in (1, 2, 3) else {},
+                                   rooms, tick=t))
         return taps
     assert run() == run()
