@@ -122,20 +122,37 @@ def _snap_to_mode(semitone: int, mode: str, prefer_stable: bool) -> int:
     return pool[0]
 
 
-def build_phrase(motif, n_bars: int, mode: str, register_offset: int = 0):
+def build_phrase(motif, n_bars: int, mode: str, register_offset: int = 0,
+                  cadence_degree: int = 0):
     """Build one antecedent OR consequent phrase (n_bars long) from a seed
     motif, applying development per MELODY_CRAFT.md rule: a motif may
     repeat verbatim at most 2 times consecutively; every repeat after that
-    gets a transformation. Strong beats (every 4th step, i.e. beat starts)
-    snap to stable scale degrees; weak beats snap to the nearest scale tone
-    (passing/neighbor use, still modally coherent instead of arbitrary).
-    Returns a list of (semitone_from_root, duration_steps) events, None
-    semitone = rest, covering exactly n_bars * BAR_STEPS steps."""
+    gets a transformation.
+
+    `cadence_degree`: which stable scale degree (semitone offset from the
+    mode's final) the phrase's last note resolves to -- 0 (the root) for a
+    consequent/full-cadence phrase, or the mode's 5th (an open/half-cadence
+    landing) for an antecedent, so the two phrases are actually
+    distinguishable as question/answer instead of both resolving to the
+    tonic (a real bug an external code-reasoning consult caught: forcing
+    `snapped = 0` unconditionally made every phrase -- antecedent or
+    consequent -- cadence identically).
+
+    Directorial + consult-diagnosed fix: the motif's FIRST statement is
+    never snapped/mutated -- it's played exactly as captured from the chant
+    source. Per-note "harmony-aware" snapping to the nearest stable degree
+    was silently rewriting the Dies Irae incipit's own intervals (F E F D
+    could become G E G D), which is not "harmonizing a chant," it's
+    damaging the chant before the melody has stated it once. Snapping now
+    only applies to the DEVELOPED repeats (transposed/inverted variants),
+    where nudging onto a stable degree is a legitimate voice-leading choice
+    rather than corrupting the source quotation."""
     total_steps = n_bars * BAR_STEPS
     events = []
     step = 0
     repeat_count = 0
     cur_motif = list(motif)
+    is_first_statement = True
     variant_cycle = ["sequence_up", "sequence_down", "invert", "fragment_head"]
     variant_i = 0
     while step < total_steps:
@@ -146,15 +163,19 @@ def build_phrase(motif, n_bars: int, mode: str, register_offset: int = 0):
         for i, semi in enumerate(cur_motif):
             if step >= total_steps:
                 break
-            strong_beat = (step % 4 == 0)
             cadence_note = is_final_cell and (i == len(cur_motif) - 1)
-            snapped = _snap_to_mode(semi, mode, prefer_stable=strong_beat or cadence_note)
             dur = MOTIF_DUR_STEPS
             if cadence_note:
                 dur = min(4, total_steps - step)
-                snapped = 0  # resolve to the root -- authentic cadence
+                snapped = cadence_degree
+            elif is_first_statement:
+                snapped = semi  # literal chant quotation, unsnapped
+            else:
+                strong_beat = (step % 4 == 0)
+                snapped = _snap_to_mode(semi, mode, prefer_stable=strong_beat)
             events.append((snapped + register_offset, dur))
             step += dur
+        is_first_statement = False
         if is_final_cell:
             break
         repeat_count += 1
@@ -182,11 +203,15 @@ def build_period(motif, mode: str, phrase_bars: int = 4,
     """Antecedent + consequent period (MELODY_CRAFT.md sec 1): the
     consequent restates the motif's opening (parallel period) then diverges
     via retrograde so the ear reads the restart as intentional composition,
-    not a raw loop, while still resolving more conclusively than the
-    antecedent (which cadences on the stable-but-not-always-root degree the
-    snap function nearest to; the consequent's forced final cell always
-    resolves to the root)."""
-    antecedent = build_phrase(motif, phrase_bars, mode, register_offset)
+    not a raw loop. The antecedent now cadences on the mode's 5th (an open,
+    half-cadence "question" landing) while the consequent cadences on the
+    root (a full, resolved "answer") -- both used to force `snapped = 0`
+    unconditionally, so a question phrase and an answer phrase were
+    indistinguishable by ear; fixed after an external code-reasoning
+    consult (analysis/soundtrack_gap_consult/) traced this exact bug."""
+    fifth_semi = MODES[mode][4]
+    antecedent = build_phrase(motif, phrase_bars, mode, register_offset,
+                               cadence_degree=fifth_semi)
     consequent_seed = retrograde(motif) if len(motif) > 2 else motif
     # parallel-period restart: reuse the original opening 2 notes, then the
     # retrograde tail -- "same opening idea, diverge to resolve differently"
