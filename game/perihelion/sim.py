@@ -428,18 +428,84 @@ class GameSession:
             f"ACQUIRED: {self.ACQUIRE_LABELS.get(item, item.upper())}")
 
     def _set_cam(self, m) -> None:
-        """All camera writes come through here: `_cam_smooth` keeps the
-        exact float matrix (the follow integrates on it), while the
-        rendered `cam` snaps its translation to whole internal pixels.
-        Unsnapped, sub-pixel camera dither (the exponential follow
-        oscillating against collision push-out) flips every 1-px prop
-        outline between pixel rows frame to frame -- world-wide decor
-        flicker, the campaign-video finding."""
+        """HARD camera reset -- spawn, seed-recall, chassis-reprint. Not
+        used for the ordinary per-tick follow or the portal re-base; see
+        `_cam_step_follow` and `_cam_rebase` for those.
+
+        `_cam_smooth` keeps the exact float matrix (nothing ever
+        integrates on the rendered copy). The rendered `cam` snaps its
+        translation to whole internal pixels: unsnapped, sub-pixel
+        camera dither (the exponential follow oscillating against
+        collision push-out) flips every 1-px prop outline between pixel
+        rows frame to frame -- world-wide decor flicker, the
+        campaign-video finding. Because this is a hard cut (no prior
+        rendered frame to stay continuous with), snapping fresh here is
+        fine.
+
+        NOTE: this per-call independent re-round is exactly what used to
+        also run at every portal transfer, and *that* was the bug --
+        re-rounding a re-based translation can disagree with the
+        previous frame's rounding by up to 0.5 rendered px, stepping the
+        whole frame by a HALF-pixel for one tick (every 1px seam/grate
+        line in view re-rasterizes, then snaps back). Transfers now go
+        through `_cam_rebase`, which never re-rounds."""
         self._cam_smooth = m
         mm = list(m)
         mm[2] = float(round(mm[2]))
         mm[5] = float(round(mm[5]))
         self.cam = tuple(mm)
+
+    def _cam_step_follow(self, smooth_new) -> None:
+        """Ordinary per-tick camera update. Advances the rendered `cam`
+        toward `smooth_new` by an INTEGER screen-pixel translation step:
+        round of the whole un-stepped screen-space error
+        (t_smooth - t_cam) -- a stateful integer-stepping follower, not
+        a per-tick re-derivation from absolute position. The sub-pixel
+        remainder needs no separate accumulator: `cam` itself carries
+        it (the error left after a step is <= 0.5px and is re-measured
+        against the live matrices next tick, so it self-corrects). An
+        explicit remainder accumulator ADDED to this error would count
+        the same lag twice and turn smooth-camera micro-oscillation
+        into a visible +/-1px per-tick dither -- verified empirically
+        on seed-7 l01 ticks 215-227 during the fix.
+
+        This makes the pixel snap base-independent: every consecutive-
+        tick screen delta of `cam` is a whole-pixel translation,
+        transfer ticks included (see `_cam_rebase`), so there is no
+        tick at which the rendered mapping can step by a fractional
+        pixel. `cam`'s linear (rotation/zoom) part always equals
+        `_cam_smooth`'s -- only translation is ever stepped
+        independently, only in whole pixels, and
+        |t_cam - t_smooth| <= 0.5px holds after every follow step."""
+        stx = float(round(smooth_new[2] - self.cam[2]))
+        sty = float(round(smooth_new[5] - self.cam[5]))
+        self.cam = necore.mat_mul(necore.mat_translate(stx, sty), self.cam)
+        self._cam_smooth = smooth_new
+
+    def _cam_rebase(self, m9) -> None:
+        """Portal re-base: re-express BOTH camera matrices in the new
+        room's local frame by right-multiplying with inv(m9). This is
+        exact on the composed world->screen mapping -- true "zero
+        visible change by construction", unlike re-snapping the
+        rendered copy independently (the root cause this replaces: a
+        zoom-scaled world offset carried a fractional part through the
+        old rounding, disagreeing with the previous frame's rounding by
+        up to 0.5px for exactly one tick).
+
+        The rendered-vs-smooth sub-pixel lag carries across exactly,
+        not approximately: for two matrices sharing a linear part L
+        with translations t1, t2, right-multiplying both by the same
+        B=(Lb,tb) gives translations L*tb+t1 and L*tb+t2 -- their
+        difference t1-t2 is unchanged by the multiplication. `cam` and
+        `_cam_smooth` always share a linear part (only
+        `_cam_step_follow`'s whole-pixel steps and this rebase ever
+        touch either matrix, and both keep the linear parts equal by
+        construction), so the lag `_cam_step_follow` measures next tick
+        survives the rebase with no correction needed -- even through a
+        rotating portal."""
+        inv9 = necore.mat_inv(m9)
+        self._cam_smooth = necore.mat_mul(self._cam_smooth, inv9)
+        self.cam = necore.mat_mul(self.cam, inv9)
 
     def player_pos(self):
         _, px, py, *_ = self.sim.get(self.pid)
@@ -539,15 +605,17 @@ class GameSession:
         self.lightning_charge = min(LIGHTNING_RECHARGE_TICKS, self.lightning_charge + 1)
 
         # camera follow (after physics; transfers already re-based the
-        # matrix). Integrates on the SMOOTH matrix; the rendered cam is
-        # the pixel-snapped copy (_set_cam).
+        # matrix via _cam_rebase). Integrates on the SMOOTH matrix; the
+        # rendered cam is stepped toward it by whole pixels only, see
+        # _cam_step_follow.
         px2, py2 = self.player_pos()
         spx, spy = necore.mat_apply(self._cam_smooth, px2, py2)
         k = min(1.0, 7.0 * DT)
-        self._set_cam(necore.mat_mul(
+        smooth_new = necore.mat_mul(
             necore.mat_translate((self.screen_w / 2 - spx) * k,
                                  (self.screen_h / 2 - spy) * k),
-            self._cam_smooth))
+            self._cam_smooth)
+        self._cam_step_follow(smooth_new)
 
     # ------------------------------------------------------------------
 
@@ -566,8 +634,20 @@ class GameSession:
             w = WEAPON_ORDER[inp.weapon - 1]
             if w in self.weapons:
                 self.weapon = w
-        # aim
-        inv = necore.mat_inv(self.cam)
+        # aim: maps through the SMOOTH camera, not the whole-pixel
+        # rendered one. Historically this used `self.cam` (the snapped
+        # copy), which coupled gameplay to render-side rounding; the
+        # 2026-07-12 half-pixel-transfer fix switched it to the exact
+        # matrix so the sim's evolution, given the same InputFrame
+        # stream, is independent of how `cam` snaps. This is a one-time
+        # sub-pixel behavior change: seeded bot recordings made before
+        # the fix diverge from re-runs (seed-7 l01 first sfx-event delta
+        # at ~t=7.4s) -- accepted, since replays store InputFrames and
+        # re-derive everything, and no golden replay fixtures exist
+        # in-tree. (Bots also read `session.cam` when composing inputs,
+        # so seeded bot runs would have shifted under any camera change
+        # regardless of this choice.)
+        inv = necore.mat_inv(self._cam_smooth)
         awx, awy = necore.mat_apply(inv, inp.ax, inp.ay)
         _, px, py, vx, vy, _, _ = s.get(self.pid)
         dx, dy = awx - px, awy - py
@@ -1350,8 +1430,10 @@ class GameSession:
                     if self.cloister and to_room == self.cloister["sanctum"]:
                         self._rotate_cloister()
                     # camera re-base: zero visible change by construction
-                    self._set_cam(necore.mat_mul(
-                        self._cam_smooth, necore.mat_inv(m9)))
+                    # (exact right-multiply of BOTH matrices -- see
+                    # _cam_rebase; no re-rounding, so this can no longer
+                    # disagree with the previous frame's pixel snap)
+                    self._cam_rebase(m9)
                     self.metrics["transfers"] += 1
                     self.metrics["rooms_visited"].add(to_room)
             elif tag == "wall":
