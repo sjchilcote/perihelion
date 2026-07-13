@@ -441,19 +441,18 @@ def lead_note(semi_from_d3: float, dur_s: float, vel: float) -> np.ndarray:
 
 
 def lead_phrase(events, register_semi: float, vel: float = 1.0) -> np.ndarray:
+    """v4: one continuous Surge PERFORMANCE (legato, portamento, real MIDI
+    velocity from contour, humanized onsets) instead of pasted one-shots —
+    the panel's 'stiff, fully quantized, zero velocity variation' fix."""
+    y = surge_bank.render_phrase(
+        "lead_saw", events, STEP, base_midi=50 + int(register_semi),
+        rng=np.random.default_rng(int(RNG.integers(1 << 31))))
+    y = sy.highpass(y, 150) * vel
     total = sum(d for _, d in events)
-    out = np.zeros(int(total * STEP * SR) + SR)
-    semis = [s for s, _ in events if s is not None]
-    apex, lo = max(semis), min(semis)
-    t = 0
-    for s, d in events:
-        if s is not None:
-            g = (0.78 + 0.22 * ((s - lo) / (apex - lo))) if apex > lo else 1.0
-            note = lead_note(register_semi + s, d * STEP * 0.96,
-                             vel=vel * g * (1 + RNG.normal(0, 0.04)))
-            place(out, note, t * STEP)
-        t += d
-    return out
+    n = int(total * STEP * SR) + SR
+    if len(y) < n:
+        y = np.pad(y, (0, n - len(y)))
+    return y[:n]
 
 
 def shepard_riser(dur_s: float, layers: int = 6, base_hz: float = 55.0,
@@ -578,6 +577,10 @@ def render() -> dict:
                           bar * BAR + (half * 8 + e8 * 2) * STEP)
         return out
     place(stems["bass"], bass_line(hymn_bars), S_HYMN[0] * BAR)
+    combat_drone = surge_bank.render_notes("drone", [38, 50],
+                                           hymn_bars * BAR * 0.6, tail_s=1.0)
+    place(stems["bed"], loop_to(combat_drone,
+          int(hymn_bars * BAR * SR), fade_s=0.3) * 0.5, S_HYMN[0] * BAR)
     place(stems["bass"], bass_line(cl_bars := S_CLIMAX[1] - S_CLIMAX[0]),
           S_CLIMAX[0] * BAR)
     wall_hymn = power_chords(hymn_bars, 0.9)
@@ -593,7 +596,9 @@ def render() -> dict:
             i0 = int((bar * BAR + pos * STEP) * SR)
             i1 = i0 + int(7.6 * STEP * SR)
             gate[i0:i1] = 1.0
-    wall_hymn = wall_hymn + 0.55 * buzz * gate
+    grind = sy.highpass(sy.lowpass(buzz, 4500), 2000)
+    buzz_carved = buzz - 0.8 * grind             # the chug owns that band
+    wall_hymn = wall_hymn + 0.5 * buzz_carved * gate
     wmask = np.ones(len(wall_hymn))
     for blk in (1, 3):
         i0 = int(blk * 4 * BAR * SR); i1 = int((blk + 1) * 4 * BAR * SR)
@@ -729,9 +734,9 @@ def render() -> dict:
 
     # ALBUM STAGE (ALBUM_TECHNIQUES §1-4):
     # pump — everything breathes with the kick (3-4 dB duck)
-    for k in ("wall", "bed", "chant", "organum"):
+    for k in ("wall", "bed", "chant", "organum", "bass", "riff"):
         stems[k] = gc.sidechain_duck(stems[k], stems["kick"],
-                                     amount=0.35, release_s=0.12)
+                                     amount=0.45, release_s=0.11)
     # drum-bus digital decay — bitcrush the DRUMS specifically
     drums = stems["kick"] + stems["hats"]
     drums = 0.85 * drums + 0.15 * sy.bitcrush(drums, bits=12.0, rate_divisor=2)

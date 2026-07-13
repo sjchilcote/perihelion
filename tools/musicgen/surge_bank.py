@@ -48,9 +48,13 @@ PATCHES = {
     "lead_saw": dict(
         a_osc_1_type="Classic", a_osc_1_shape=0.0,
         a_osc_1_unison_voices="7 voices", a_osc_1_unison_detune="32.00 cents",
-        a_filter_1_type="LP 24 dB", a_filter_1_cutoff=68.0,
-        a_filter_1_resonance=0.12,
-        a_waveshaper_type="Soft", a_waveshaper_drive=6.0,
+        a_filter_1_type="LP 24 dB", a_filter_1_cutoff=52.0,
+        a_filter_1_resonance=0.16,
+        # the panel's unanimous fix: MOVEMENT — filter EG sweep + vibrato
+        a_filter_1_feg_mod_amount="33.98 semitones",
+        a_lfo_1_rate="5.436 Hz", a_lfo_1_amplitude=0.06,
+        a_portamento="24.3 ms",
+        a_waveshaper_type="Hard", a_waveshaper_drive=11.0,
         a_amp_eg_attack="12.0 ms", a_amp_eg_release="251.0 ms",
     ),
     # The growling FM bass: FM2 osc, short bite, dark filter.
@@ -89,12 +93,54 @@ def render_notes(patch: str, notes, dur_s: float, sr: int = SR,
     _set(p, **PATCHES[patch])
     msgs = []
     for n in notes:
-        msgs.append(Message("note_on", note=int(n), velocity=velocity,
+        msgs.append(Message("note_on", note=int(n),
+                            velocity=int(max(1, min(127, velocity))),
                             time=0.0))
     for n in notes:
         msgs.append(Message("note_off", note=int(n), velocity=0,
                             time=dur_s))
     audio = p(msgs, duration=dur_s + tail_s, sample_rate=sr)
+    return audio.mean(axis=0) if audio.ndim == 2 else audio
+
+
+def render_phrase(patch: str, events, step_s: float, sr: int = SR,
+                  base_midi: int = 50, humanize_s: float = 0.008,
+                  vel_map=None, rng=None) -> np.ndarray:
+    """Render a PHRASE as one continuous MIDI performance — legato inside
+    the plugin (portamento works, envelopes connect), per-note VELOCITY
+    from the phrase contour, humanized timing. events = (semi|None,
+    steps). The panel's tells ('stiff, fully quantized, zero velocity
+    variation') die here, at the performance layer."""
+    import numpy as _np
+    from mido import Message
+    rng = rng or _np.random.default_rng(0)
+    p = _plugin()
+    _set(p, **PATCHES[patch])
+    msgs = []
+    t = 0.0
+    semis = [sv for sv, _ in events if sv is not None]
+    apex, lo = (max(semis), min(semis)) if semis else (0, 0)
+    total = sum(d for _, d in events) * step_s
+    for sv, d in events:
+        dur = d * step_s
+        if sv is not None:
+            j = float(rng.normal(0, humanize_s))
+            v = 96
+            if vel_map is not None:
+                v = vel_map(sv)
+            elif apex > lo:
+                v = int(84 + 34 * (sv - lo) / (apex - lo)
+                        + rng.normal(0, 4))
+            on_t = max(0.0, t + j)
+            off_t = max(on_t + 0.01, t + dur * 0.94 + j)
+            msgs.append(Message("note_on", note=int(base_midi + sv),
+                                velocity=int(max(1, min(127, v))),
+                                time=on_t))
+            msgs.append(Message("note_off", note=int(base_midi + sv),
+                                velocity=0, time=off_t))
+        t += dur
+    msgs.sort(key=lambda m: m.time)
+    audio = p(msgs, duration=total + 0.5, sample_rate=sr)
     return audio.mean(axis=0) if audio.ndim == 2 else audio
 
 
