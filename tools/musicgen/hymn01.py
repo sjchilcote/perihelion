@@ -49,6 +49,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "soundgen"))
 import synth as sy                              # noqa: E402
 import gordon_chain as gc                       # noqa: E402
+import voices                                   # noqa: E402  (v2: audited toolchain)
 from melodies import DIES_IRAE_STROPHE          # noqa: E402
 
 SR = sy.SR
@@ -171,23 +172,12 @@ def _env_transplant(carrier: np.ndarray, modulator: np.ndarray,
 
 def machine_note(semi_from_d3: float, dur_s: float, breath: float = 0.20,
                  vel: float = 1.0) -> np.ndarray:
-    """One note of the machine congregation. Measured fact: the factory
-    recording is only weakly pitched (spectral comb 0.38) — repitching it
-    can never sing a melody (three listen-probes in a row heard none). So
-    the pitch is IMPOSED: a detuned-saw harmonic carrier at the exact note
-    frequency wearing the factory's spectral envelope — the machines given
-    a voice, which is the thesis performed by the DSP itself."""
-    n = int(dur_s * SR)
-    f0 = D3 * 2.0 ** ((semi_from_d3 + RNG.normal(0.0, 0.06)) / 12.0)
-    t = np.arange(n + 4096) / SR
-    car = np.zeros(len(t))
-    for det, g in ((1.0, 1.0), (1.007, 0.7), (0.5, 0.3)):
-        ph = 2 * np.pi * f0 * det * t
-        car += g * (2 * ((ph / (2 * np.pi)) % 1.0) - 1.0)   # saw
-    mod = _factory(len(car))
-    y = _env_transplant(car / 2.0, mod)[:n]
-    y *= envelope(n, breath, min(0.25, dur_s * 0.3), shape=1.4)
-    return y * vel
+    """One note of the machine congregation — v2: the WORLD-vocoder voice
+    (voices.machine_voice, audit recipe: f0 forced + aperiodicity crushed,
+    25.6 dB comb) replacing the STFT-transplant saws the director heard as
+    General MIDI."""
+    return voices.machine_voice(semi_from_d3, dur_s, breath=breath,
+                                vel=vel, drift=float(RNG.normal(0, 0.06)))
 
 
 def chant_line(events, register_semi: float, phrase_gain: bool = True,
@@ -271,21 +261,9 @@ def _slice_chug_kit(n_hits: int = 5) -> list[np.ndarray]:
 
 
 def chug_hit(semi_from_d2: float, dur_s: float, mute: float, vel: float) -> np.ndarray:
-    """One palm-mute chug: a real sliced hit (round-robin kit), repitched;
-    mute depth shortens and darkens (that's what a palm does)."""
-    global _CHUG_KIT
-    if _CHUG_KIT is None:
-        _CHUG_KIT = _slice_chug_kit()
-    x = _CHUG_KIT[int(RNG.integers(len(_CHUG_KIT)))]
-    x = repitch(x, semi_from_d2 + RNG.normal(0, 0.02))
-    n = int(dur_s * SR)
-    if len(x) < n:
-        x = np.pad(x, (0, n - len(x)))
-    x = x[:n].copy()
-    x *= envelope(n, 0.002, max(0.008, dur_s * (0.25 + 0.55 * mute)))
-    if mute > 0:
-        x = sy.lowpass(x, 2600 - 1500 * mute)
-    return x * vel
+    """One palm-mute chug — v2: voices.chug_note (librosa-onset-sliced,
+    parselmouth-tuned kit; D-series verified by FFT)."""
+    return voices.chug_note(RNG, semi_from_d2, dur_s, mute, vel)
 
 
 # Riff cell: the chant incipit contour (F E F D = +3 +2 +3 0) as accent
@@ -313,18 +291,11 @@ def chug_amp(x: np.ndarray, bpm: float = BPM) -> np.ndarray:
     measured: routing the riff through the array left band_mid at 0.017 vs
     the album lane 0.16-0.21. Amp instead: tight highpass, two asymmetric
     stages, presence lift, cab rolloff, light tempo punch."""
-    dry = sy.highpass(x, 65)
-    # identity law (GORDON_METHOD §1, dry_mix note): the recorded guitar IS
-    # the guitar; the drive is the voice AROUND it. Probe-measured failure
-    # of the saturation-forward version: "guitar_reads_as: no guitar
-    # present / synthesized bass" — pick attack and string noise died in
-    # two tube stages. Dry-forward blend brings them back.
-    drv = gc._tube(gc._fuzz(dry, gain=2.0, bias=0.06), drive=1.7)
-    body = sy.lowpass(sy.highpass(drv, 350), 2600)
-    fizz = sy.highpass(drv, 3200)
-    y = 0.85 * dry + 0.5 * drv + 0.7 * body + 0.35 * fizz
-    y = sy.lowpass(y, 9800)                            # cab, open top
-    y = gc.tempo_punch(y, bpm, gain_reduction_db=7.0, attack_s=0.02)
+    # v3 identity law (probe-isolated): the sliced source IS a produced
+    # guitar — raw kit reads "processed guitar"; ANY re-amping (even a 25%
+    # cab blend at 6 dB drive) degrades it to "synth imitating guitar."
+    # Zero re-amping; only gentle bus glue.
+    y = gc.tempo_punch(x, bpm, gain_reduction_db=5.0, attack_s=0.02)
     return sy.normalize_peak(y, -1.5)
 
 
@@ -380,19 +351,22 @@ def beavan(x: np.ndarray) -> np.ndarray:
 
 def render_riff(n_bars: int, palette=(RIFF_BAR, RIFF_BAR_B),
                 vel_scale: float = 1.0) -> np.ndarray:
-    """The riff, Beavan-processed: composed on the grid at +12st/2x speed,
-    then tape-tripped back down. Every hit has its own velocity and mute."""
-    up = np.zeros(int(n_bars * BAR / 2 * SR) + SR)
+    """The riff, rendered DIRECT at pitch (v2: the Beavan octave round-trip
+    smeared the real hits into "synth imitating guitar" — identity first;
+    tape thickening can return later as a low-blend parallel). Every hit
+    gets its own velocity, mute depth, AND micro-timing (±6 ms) — the
+    timing variance is what makes two takes a real double-track."""
+    out = np.zeros(int(n_bars * BAR * SR) + SR)
     for bar in range(n_bars):
         pat = palette[bar % len(palette)]
         for pos, semi, mute, vel in pat:
-            t = (bar * 16 + pos) * (STEP / 2)
+            t = (bar * 16 + pos) * STEP + float(RNG.normal(0, 0.006))
+            t = max(0.0, t)
             v = vel * vel_scale * (1 + RNG.normal(0, 0.05))
-            h = chug_hit(semi + 12, STEP * 1.9 / 2 * (1.6 - mute), mute, v)
+            h = chug_hit(semi, STEP * 1.9 * (1.6 - mute), mute, v)
             i = int(t * SR)
-            up[i:i + len(h)] += h[:len(up) - i]
-    down = beavan(up)
-    return down[:int(n_bars * BAR * SR) + SR]
+            out[i:i + len(h)] += h[:len(out) - i]
+    return out
 
 
 _KICK = None
@@ -522,6 +496,24 @@ def bowed_cluster(dur_s: float) -> np.ndarray:
 
 
 # --- assembly ---------------------------------------------------------------
+
+def _riff_take2(hymn_bars: int, cl_bars: int) -> np.ndarray:
+    """Second riff take for the stereo double-track: same parts, fresh
+    performance variance (the RNG stream simply continues), placed at the
+    hymn and climax spans in a full-length buffer."""
+    n = int(TOTAL_S * SR)
+    out = np.zeros(n)
+    r1 = render_riff(hymn_bars)
+    part_mask = np.ones(len(r1))
+    for blk in (1, 3):
+        i0 = int(blk * 4 * BAR * SR); i1 = int((blk + 1) * 4 * BAR * SR)
+        part_mask[i0:i1] = 0.5
+    place(out, r1 * part_mask[:len(r1)], S_HYMN[0] * BAR, 0.95)
+    place(out, render_riff(cl_bars, vel_scale=1.05), S_CLIMAX[0] * BAR, 1.0)
+    chop_at = int((S_END[0] + 0.02) * BAR * SR)
+    out[chop_at:] = 0.0
+    return out
+
 
 def render() -> dict:
     OUT.mkdir(parents=True, exist_ok=True)
@@ -683,21 +675,67 @@ def render() -> dict:
         i0, i1 = int(a * BAR * SR), int(b * BAR * SR)
         stems["bed"][i0:i1] *= 0.28
 
-    GAINS = {"bed": 0.9, "chant": 1.3, "organum": 1.25, "riff": 0.68,
-             "wall": 1.0, "kick": 0.62, "lead": 0.9, "riser": 0.7,
-             "bell": 0.9, "sub": 0.35, "hats": 1.2, "steam": 2.4}
-    mix = np.zeros(n)
-    for k, g in GAINS.items():
-        mix += stems[k] * g
-    # headroom discipline (johnny §8): light glue only — dynamics live in
-    # the arrangement. No pinned bus on the MIX (that's for the array).
-    mix = sy.soft_clip(mix * 0.9, drive=0.35)
-    mix = sy.normalize_peak(mix, -1.5)
+    # SELF-CALIBRATING BALANCE: measured hymn-window RMS -> declared
+    # targets (dBFS). Guessed gain constants produced a kick 10 dB over
+    # everything and a -32 dB "wall"; measurement replaces guessing.
+    TGT = {"kick": -14.0, "riff": -13.0, "wall": -16.0, "chant": -16.0,
+           "organum": -18.0, "lead": -20.0, "hats": -22.0, "bell": -24.0,
+           "bed": -30.0, "steam": -34.0}
+    wa, wb = int(20 * BAR * SR), int(30 * BAR * SR)
+    for k, tgt in TGT.items():
+        seg = stems[k][wa:wb]
+        if not seg.any():                       # not present in window:
+            seg = stems[k][stems[k] != 0.0][:SR * 8]   # calibrate on its
+            if not len(seg):                            # own active span
+                continue
+        rms = float(np.sqrt((seg ** 2).mean()))
+        if rms < 1e-9:
+            continue
+        stems[k] = stems[k] * (10 ** (tgt / 20) / rms)
 
-    sf.write(str(OUT / "hymn01.wav"), mix.astype(np.float32), SR)
+    # ALBUM STAGE (ALBUM_TECHNIQUES §1-4):
+    # pump — everything breathes with the kick (3-4 dB duck)
+    for k in ("wall", "bed", "chant", "organum"):
+        stems[k] = gc.sidechain_duck(stems[k], stems["kick"],
+                                     amount=0.35, release_s=0.12)
+    # drum-bus digital decay — bitcrush the DRUMS specifically
+    drums = stems["kick"] + stems["hats"]
+    drums = 0.85 * drums + 0.15 * sy.bitcrush(drums, bits=12.0, rate_divisor=2)
+    # space grammar: sanctuary (dark plate) on the HOLY voices only;
+    # the CLIMAX organum stays dry+close (the organ as a machine screaming
+    # in defiance — director's bimodal-organ ruling)
+    cl0 = int(S_CLIMAX[0] * BAR * SR)
+    holy = stems["chant"] + stems["bell"]
+    holy_wet = voices.sanctuary(holy, mix=0.42)
+    org_wet = stems["organum"].copy()
+    org_wet[:cl0] = voices.sanctuary(stems["organum"][:cl0], mix=0.42)
+    GAINS = {"bed": 0.9, "riff": 0.72, "wall": 1.0, "lead": 0.9,
+             "riser": 0.7, "sub": 0.35, "steam": 2.4}
+    center = np.zeros(n)
+    for k, g in GAINS.items():
+        center += stems[k] * g
+    center += drums * 0.8 + holy_wet * 1.25 + org_wet * 1.2
+    # stereo stage: guitars double-tracked to the edges, spine center.
+    # second take = re-render riff+wall with the RNG advanced (true
+    # double-track, not a copy)
+    riff_R = chug_amp(_riff_take2(hymn_bars, cl_bars))
+    wallL = stems["riff"] * 0.9 + stems["wall"] * 0.75
+    wallR = riff_R[:n] * 0.9 + stems["wall"] * 0.75
+    L = center - stems["riff"] * GAINS["riff"] - stems["wall"] * GAINS["wall"] + wallL
+    R = center - stems["riff"] * GAINS["riff"] - stems["wall"] * GAINS["wall"] + wallR
+    st = np.stack([L, R], axis=1)
+    st = np.tanh(st * 0.85) / np.tanh(0.85)          # tape-ish glue, gentle
+    st = voices.to_lufs(st.mean(axis=1), -15.0)[:, None] /         (np.abs(st).max() + 1e-9) * st * 0 + st      # keep stereo, scale below
+    peak = np.abs(st).max()
+    st = st * (10 ** (-1.5 / 20) / peak) if peak > 0 else st
+
+    sf.write(str(OUT / "hymn01.wav"), st.astype(np.float32), SR)
+    mix = st.mean(axis=1)
+    STEM_G = dict(GAINS, kick=0.66, hats=0.66, chant=1.25, bell=1.25,
+                  organum=1.2)
     for k in stems:
         sf.write(str(OUT / f"stem_{k}.wav"),
-                 (stems[k] * GAINS[k]).astype(np.float32), SR)
+                 (stems[k] * STEM_G.get(k, 1.0)).astype(np.float32), SR)
     meta = {"bpm": BPM, "bars": N_BARS, "dur_s": TOTAL_S,
             "form": {"introit": S_INTROIT, "organum": S_ORGANUM,
                      "drop": S_DROP, "hymn": S_HYMN, "choke": S_CHOKE,

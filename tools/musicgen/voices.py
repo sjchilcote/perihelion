@@ -72,11 +72,12 @@ def _chug_kit() -> tuple:
         picks.append(int(i))
     kit = []
     for i in picks[:12]:
-        seg = raw[i:i + int(0.32 * sr)].copy()
-        if len(seg) < int(0.15 * sr):
+        seg = raw[i:i + int(0.85 * sr)].copy()       # natural decay window
+        if len(seg) < int(0.3 * sr):
             continue
-        seg *= np.linspace(1, 0, len(seg)) ** 0.15   # natural-ish tail trim
-        snd = parselmouth.Sound(seg, sampling_frequency=sr)
+        f = int(0.08 * sr)                            # tail-only fade
+        seg[-f:] *= np.linspace(1, 0, f)
+        snd = parselmouth.Sound(seg[:int(0.3 * sr)], sampling_frequency=sr)
         pitch = snd.to_pitch(pitch_floor=55, pitch_ceiling=220)
         f0s = pitch.selected_array["frequency"]
         f0s = f0s[f0s > 0]
@@ -87,8 +88,14 @@ def _chug_kit() -> tuple:
         off -= 12 * round(off / 12)                  # nearest octave of D
         if abs(off) > 3.5:                           # not a D-family hit
             continue
-        import librosa.effects
-        tuned = librosa.effects.pitch_shift(seg, sr=sr, n_steps=off)
+        # SAMPLER-STYLE resample repitch (speed+pitch together): keeps the
+        # pick transient character a phase vocoder smears into "square-wave
+        # synth" (probe-measured). Length change is fine for one-shots.
+        from fractions import Fraction
+        from scipy.signal import resample_poly
+        ratio = 2.0 ** (-off / 12.0)
+        fr = Fraction(ratio).limit_denominator(300)
+        tuned = resample_poly(seg, fr.denominator, fr.numerator)
         kit.append(tuned / (np.abs(tuned).max() + 1e-9))
     if len(kit) < 3:
         raise RuntimeError(f"chug kit too small: {len(kit)} tuned slices")
@@ -128,10 +135,13 @@ def chug_note(rng: np.random.Generator, semi: float, dur_s: float,
     fade = max(1, int(min(0.02, dur_s * 0.1) * SR))
     seg[-fade:] *= np.linspace(1, 0, fade)
     if mute > 0:
-        seg = sy.lowpass(seg, 3000 - 1800 * mute)
-        body = int(n * (0.35 + 0.4 * (1 - mute)))
+        # a real palm mute is SHORT but keeps its midrange grind — the
+        # earlier 1250 Hz lowpass turned mutes into "bass synth pulses"
+        # (probe-measured). Gentle tilt only, aggressive shortening.
+        seg = sy.lowpass(seg, 5200 - 1700 * mute)
+        body = int(n * (0.30 + 0.35 * (1 - mute)))
         env = np.ones(n)
-        env[body:] *= np.exp(-np.linspace(0, 5 * mute + 1, n - body))
+        env[body:] *= np.exp(-np.linspace(0, 6 * mute + 1, n - body))
         seg *= env
     return seg * vel
 
