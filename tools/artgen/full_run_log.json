@@ -75,5 +75,16 @@
     "n_mask_omitted": 0,
     "run_cost": 1.8837005,
     "elapsed_sec": 128.87313079833984
+  },
+  {
+    "level": "l02",
+    "n_rooms": 143,
+    "n_processed": 143,
+    "n_accepted": 26,
+    "n_bare": 117,
+    "n_masked": 26,
+    "n_mask_omitted": 0,
+    "run_cost": 30.123501499999996,
+    "elapsed_sec": 1503.7314364910126
   }
 ]
