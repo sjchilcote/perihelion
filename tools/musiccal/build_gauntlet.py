@@ -310,6 +310,10 @@ def main(argv=None) -> int:
     ap.add_argument("--density", type=float, default=1.0,
                      help="enemy-count scale factor applied per segment")
     ap.add_argument("--out", type=Path, default=OUT_DEFAULT)
+    ap.add_argument("--meta-out", type=Path, default=None,
+                     help="defaults to tools/musiccal/gauntlet_meta.json; override "
+                          "for auxiliary builds (e.g. full-density) so they don't "
+                          "clobber the tuned level's metadata")
     args = ap.parse_args(argv)
 
     b, stats = build(args.density)
@@ -325,13 +329,14 @@ def main(argv=None) -> int:
     args.out.parent.mkdir(parents=True, exist_ok=True)
     save_level(final, args.out)
 
-    meta_path = Path(__file__).resolve().parent / "gauntlet_meta.json"
+    meta_path = args.meta_out or (Path(__file__).resolve().parent / "gauntlet_meta.json")
     meta = dict(density=stats["density"], total_enemies=stats["total_enemies"],
                per_segment=stats["per_segment"], n_rooms=stats["n_rooms"],
                player_room=stats["player_room"], exit_room=stats["exit_room"],
                level_path=str(args.out.relative_to(ROOT)) if args.out.is_absolute()
                else str(args.out),
                zones={str(k): v for k, v in stats["zones"].items()})
+    meta_path.parent.mkdir(parents=True, exist_ok=True)
     meta_path.write_text(json.dumps(meta, indent=1))
 
     print(f"{args.out}: {lvl.name!r} rooms={len(lvl.room_verts)} "
