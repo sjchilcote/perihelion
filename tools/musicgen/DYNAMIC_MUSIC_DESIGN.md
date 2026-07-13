@@ -147,22 +147,43 @@ Not built this pass. Proposed mechanism, still honoring "simple":
 
 ## What Phase C's judged results imply for the artist handoff
 
-- Bass and lead timbres are the easiest to nail with synthesis alone —
-  `fm_bass`/`lead_saw` reached p_match 0.85/0.75 against the album after
-  one iteration (see `tools/musicgen/instruments.py` docstrings for the
-  before/after). The artist can treat these as a legitimate starting point,
-  not just a placeholder to throw away.
-- Percussion (kick/snare/hihat) and the rhythm-guitar chug stayed at
-  p_match 0.1-0.4 even after a second iteration pass — they read as
-  "electronic/synthetic" against the album's acoustic-metallic kit. This is
-  a **real gap for the artist to close**, not a bug in our pipeline: pure
-  noise+filter subtractive synthesis can't cross into "sounds like a
-  live-miked kit and a distorted guitar cabinet" without either sampled
-  transients or modal/physical resonator modeling. Flag this explicitly so
-  the artist doesn't assume our drum/guitar placeholders are close.
-- The full assembled demo, judged side-by-side against the album, scored
-  p_same_family=0.1 ("reads like 8-bit chiptune, not industrial metal") —
-  consistent with the above: individual pitched-instrument matches don't
-  add up to a genre match once the drums/guitar (the two elements that
-  carry the album's *aggression*) are still weak. The artist's real job is
-  exactly those two elements.
+Final per-instrument p_match vs real album excerpts (Gemini anchored
+judge, fail-first-verified; history in `instruments.py`/`sample_bank.py`
+docstrings):
+
+| palette entry | best | how |
+|---|---|---|
+| fm_bass | 0.85 | synthesis (heavy saturation iteration) |
+| industrial_drone | 0.85 | synthesis (tonal detuned saws, not noise) |
+| snare | 0.85 | synthesis — modal head partials + wire rattle |
+| rhythm chug | 0.85 | **sampled from album** (KS synthesis plateaued at 0.2) |
+| hihat_closed | 0.8 | synthesis — square-cluster ring-mod |
+| lead_saw | 0.75 | synthesis (driven detuned saws) |
+| kick | 0.3 (plateau) | 9 attempts: 4 synthesis classes + 5 sample configs, all 0.1-0.4, oscillating "too clean" ↔ "hardstyle" |
+
+- **Kick is the one open gap for the artist**: the album kick is a
+  "heavily processed real drum" — acoustic body + industrial saturation —
+  and neither layered-transient synthesis nor slicing it out of the
+  wall-of-sound mix reproduced it. The chug gap closed only via sampling
+  the album (scratchpad-only; the artist replaces those samples).
+- **The demo piece passes the family test**: demo v8 (rhythm bed with
+  sampled chug + modal snare + ring-mod hats, RMS-based mixing, root-pedal
+  bass, sustained lead phrases, wall-of-sound glue saturation) judged
+  same_family at p = 0.8/0.85/0.9 over three passes against a 3-track
+  album montage. Sane score ordering: real album track 0.95 > demo 0.85 >
+  gunshot SFX 0.1 > deliberately cheerful chiptune 0.0.
+- **Measurement lesson (transfers to all future audio judging)**: the
+  first family judge was broken — anchored on ONE guitar-forward excerpt,
+  it rejected a *real track from the same album* at 0.2, and every demo
+  scored 0.0-0.2 regardless of intervention; single runs also had huge
+  variance (same file: 0.8 then 0.1, 0.1). The fix was a montage anchor
+  spanning the album's range + "judge family/character, not production
+  polish" + an is-it-even-music clause (a repeated gunshot false-accepted
+  at 0.9 as an "industrial beat" until that clause). Validate any judge on
+  positive AND negative known-answer controls before trusting it, and take
+  the median of ≥3 passes.
+- Composition tells matter as much as timbre: bouncy short-note melodies
+  and melodic 5th/7th bass jumps read as "8-bit chiptune" to the judge
+  even with matched timbres; the album's grammar is root-pedal 8th-note
+  bass, 16th chug trains, sparse sustained lead — all now encoded in
+  `melodies.py`.

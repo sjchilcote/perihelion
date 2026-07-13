@@ -17,8 +17,12 @@ def main(argv=None) -> None:
                         help="hard mode: tougher, meaner enemies")
     parser.add_argument("--fps", action="store_true", help="show the fps overlay")
     parser.add_argument("--autoplay", action="store_true", help=argparse.SUPPRESS)
-    parser.add_argument("--bot", choices=["aggro", "explorer", "pacifist"],
+    parser.add_argument("--bot", choices=["aggro", "explorer", "pacifist", "human"],
                         default=None, help=argparse.SUPPRESS)
+    parser.add_argument("--bot-skill", type=float, default=None,
+                        help=argparse.SUPPRESS)
+    parser.add_argument("--tactician", action="store_true",
+                        help=argparse.SUPPRESS)
     parser.add_argument("--record", type=str, default=None, metavar="DIR",
                         help=argparse.SUPPRESS)
     parser.add_argument("--record-every", type=int, default=2,

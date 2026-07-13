@@ -349,11 +349,21 @@ class App:
         self._recompute_layout()
 
         self.bot = None
+        self.bot_tactician = None
         if getattr(args, "bot", None):
             from .testkit.bots import AggroBot, ExplorerBot, PacifistBot
-            cls = {"aggro": AggroBot, "explorer": ExplorerBot,
-                   "pacifist": PacifistBot}[args.bot]
-            self.bot = cls(self.rng_seed)
+            if args.bot == "human":
+                from .testkit.humanbot import DEFAULT_SKILL, HumanBot
+                skill = getattr(args, "bot_skill", None)
+                self.bot = HumanBot(self.rng_seed,
+                                     skill=skill if skill is not None else DEFAULT_SKILL)
+                if getattr(args, "tactician", False):
+                    from .testkit.tactician import Tactician
+                    self.bot_tactician = Tactician(self.bot, self.rng_seed)
+            else:
+                cls = {"aggro": AggroBot, "explorer": ExplorerBot,
+                       "pacifist": PacifistBot}[args.bot]
+                self.bot = cls(self.rng_seed)
 
         # frame + audio-event recording: lockstep one sim tick per drawn
         # frame; audio taps are timestamped on the drawn-frame clock so an
@@ -765,9 +775,20 @@ class App:
                   f"{self._rec['dir']}", file=sys.stderr)
         self._persist_save()
 
+    def _log_bot_event(self, kind: str, payload: dict) -> None:
+        if self._rec is None:
+            return
+        self._rec["events"].write(json.dumps(
+            dict(t=self._rec["frames"] / 60.0, kind=kind, **payload)) + "\n")
+
     def _tick_game(self, game: GameScene) -> None:
         if self.bot is not None:
             snap = game.session.snapshot()
+            if self.bot_tactician is not None:
+                record = self.bot_tactician.maybe_consult(
+                    snap, game.session, snap["tick"])
+                if record is not None:
+                    self._log_bot_event("tactician_consult", record)
             inp = self.bot.step(snap, game.session)
             # bots don't seek terminals; read any we brush past so recorded
             # runs still show terminal text and relay conversations

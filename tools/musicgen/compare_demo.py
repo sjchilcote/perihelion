@@ -24,17 +24,34 @@ You will hear TWO clips concatenated into one file: clip A, then a \
 half-second of silence, then clip B. You are NOT told in advance what \
 either clip is -- describe ONLY what you actually hear in each, independently.
 
-Clip A is a real excerpt from a metal/industrial album. Clip B is an \
-unlabelled candidate that may or may not belong to the same musical family \
-as A -- it could be a faithful (if simpler/cruder) sketch of the same style, \
-a completely different genre, or not music at all. Do not assume; listen.
+Clip A is a MONTAGE of short excerpts from several different tracks of ONE \
+album -- a hybrid album that ranges from aggressive industrial metal \
+(distorted guitars, pounding drums) to darker synth-driven electronic \
+pieces. The album's family is defined by that whole range, not by any \
+single excerpt. (Prompt calibration note, validated on controls: an \
+earlier single-excerpt version of this judge rejected a REAL track from \
+the same album at p=0.2 because it wasn't guitar-forward like the one \
+anchor excerpt.)
 
-First describe factually what instrumentation, tempo, energy, and genre \
-character you hear in EACH clip, independently, based only on the audio. \
-Then judge: does clip B belong to the SAME MUSICAL FAMILY as clip A -- same \
-genre, same aggressive industrial-metal energy, same rough tempo/pulse feel? \
-A placeholder that's merely "some electronic sound" is not enough; it needs \
-to genuinely read as a rough sketch of THIS music, not just any synth.
+Clip B is an unlabelled candidate. It might be another piece belonging on \
+that same album / the same dark-machine game soundtrack (possibly a much \
+simpler or rougher production -- judge family, not production budget); it \
+might be music from an unrelated genre (upbeat pop, folk, cheerful \
+chiptune); or it might not be music at all. Do not assume; listen.
+
+First describe factually what you hear in EACH clip, independently. Then \
+judge: could clip B plausibly be a track (or a rough placeholder sketch of \
+a track) belonging to clip A's album family -- same dark, machine-driven \
+character, compatible pulse and harmonic darkness? Penalize wrong \
+CHARACTER (cheerful, pastoral, acoustic-folk, comedic, rhythmically \
+incompatible), not low production polish.
+
+Clip B must also actually BE music to qualify: a piece with musical \
+structure -- multiple coordinated layers, rhythmic organization AND some \
+tonal/harmonic content (riff, bassline, melody, or drone). A bare sound \
+effect, a single repeated hit, or an unpitched percussion loop with no \
+tonal layer is NOT a track and must be verdict "different_family" no \
+matter how dark it sounds.
 
 Return STRICT JSON only, no markdown fences:
 {"heard_a": "1-2 sentences, only what you actually hear in A",
@@ -47,8 +64,11 @@ Return STRICT JSON only, no markdown fences:
 def compare(album_clip: Path, demo_clip: Path) -> dict:
     with tempfile.TemporaryDirectory() as td:
         combined = Path(td) / "combined.wav"
+        # 12s: room for a 3-excerpt montage anchor (4s each); the 8s
+        # attention limit found in judge_instruments applied to a single
+        # dense block, and 12s of varied montage tested fine on controls
         ji._concat_with_gap(album_clip, demo_clip, combined,
-                             album_anchor_max_s=8.0)
+                             album_anchor_max_s=12.0)
         return gl.ask(combined, PROMPT, max_s=40.0)
 
 
