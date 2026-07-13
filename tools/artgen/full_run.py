@@ -48,7 +48,7 @@ sys.path.insert(0, str(HERE.parents[1]))
 from tools.artgen.gen import generate_image
 from tools.artgen.verify_gemini import verify_texture
 from tools.artgen.box_conditioning import (
-    boxes_prompt_note, draw_labeled_boxes, verify_item_placement,
+    compute_item_boxes, text_zones_note, verify_item_placement,
 )
 from tools.artgen.decal_plan import build_level_decal_plan, decal_prompt_note
 from tools.artgen.pilot_texture_lib import (
@@ -143,17 +143,25 @@ def process_room(stem: str, idx: int, kind: str, progress: dict) -> dict:
         raise RuntimeError(f"no material swatch for kind={kind!r} at {material_path}; "
                             "run tools.artgen.gen_kind_materials first")
 
-    boxed_guide_path = GEN_SCRATCH / "guides" / f"{stem}_room{idx:03d}.png"
-    boxed_guide_path.parent.mkdir(parents=True, exist_ok=True)
-    _, boxes = draw_labeled_boxes(guide_path, stem, idx, kind, boxed_guide_path)
+    # TEXT-ZONE conditioning (variant B, 2026-07-13): the reference guide
+    # stays CLEAN -- no drawn boxes, no labels -- and item placement
+    # travels via prompt text only. Measured basis: drawn-box variants
+    # went 0/4 (orange boxes, original smoke test) and 0/15 (magenta/neon
+    # boxes inset+clipped, follow-up batch); rejected outputs show the
+    # model painting the annotation rectangles literally and inventing
+    # matching border trim on unboxed edges (see gen_rooms_full/
+    # l01_room006_a1.png). The box geometry is still computed identically
+    # for the gates, item-placement crops, and walk-mask derivation.
+    boxes = compute_item_boxes(guide_path, stem, idx, kind)
+    _gw, _gh = Image.open(guide_path).size
+    b_note = text_zones_note(boxes, _gw, _gh)
 
     decal_plan = build_level_decal_plan(stem)
     d_note = decal_prompt_note(decal_plan["marks"], stem, idx)
-    b_note = boxes_prompt_note(boxes)
 
     neighbor_path = NEIGHBOR_DIR / stem / f"room_{idx:03d}.png"
     neighbor_path = build_neighbor_composite(stem, idx, neighbor_path)
-    reference_images = [str(boxed_guide_path), str(material_path)]
+    reference_images = [str(guide_path), str(material_path)]
     if neighbor_path is not None:
         reference_images.append(str(neighbor_path))
     prompt = build_room_prompt(kind, has_neighbor_composite=neighbor_path is not None,
@@ -163,9 +171,7 @@ def process_room(stem: str, idx: int, kind: str, progress: dict) -> dict:
     mask = _sized_mask(stem, idx, tex_w, tex_h)
     wall_edges = wall_edges_px(stem, idx)
 
-    guide_im = Image.open(boxed_guide_path)
-    gw, gh = guide_im.size
-    sx, sy = tex_w / gw, tex_h / gh
+    sx, sy = tex_w / _gw, tex_h / _gh
     scaled_boxes = [
         dict(b, box=(int(b["box"][0] * sx), int(b["box"][1] * sy),
                       int(b["box"][2] * sx), int(b["box"][3] * sy)))
@@ -196,7 +202,7 @@ def process_room(stem: str, idx: int, kind: str, progress: dict) -> dict:
         raw_im = crop_outer_black_margin(raw_im)
         raw_resized = raw_im.resize((tex_w, tex_h), Image.LANCZOS)
 
-        fb = verify_fullbleed(raw_resized, mask, darken_thresh=1.55)
+        fb = verify_fullbleed(raw_resized, mask, darken_thresh=1.55, boxes=scaled_boxes)
         if not fb["ok"]:
             verdicts.append({"verdict": "fail", "notes":
                               f"programmatic full-bleed rejected (darken_ratio="

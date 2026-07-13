@@ -109,7 +109,7 @@ def run_room(stem: str, room_idx: int, kind_override: str | None = None) -> dict
         scaled_boxes.append(dict(b, box=(int(x0 * sx), int(y0 * sy), int(x1 * sx), int(y1 * sy))))
 
     gates = {}
-    gates["fullbleed"] = verify_fullbleed(raw_resized, mask, darken_thresh=1.55)
+    gates["fullbleed"] = verify_fullbleed(raw_resized, mask, darken_thresh=1.55, boxes=scaled_boxes)
     gates["interior_void"] = verify_no_interior_void(raw_resized, mask)
     gates["guide_ink"] = verify_no_guide_ink(raw_resized, mask)
     gates["detail_budget"] = verify_detail_budget(

@@ -29,7 +29,8 @@ import necore
 
 from .levels import LightSpec
 
-__all__ = ["LightInstance", "compute_light_instances", "LightingSystem"]
+__all__ = ["LightInstance", "compute_light_instances", "LightingSystem",
+           "terrain_shadow_polys", "light_level_at"]
 
 
 @dataclass(frozen=True)
@@ -40,6 +41,143 @@ class LightInstance:
     clip_local: tuple[tuple[float, float], ...]
     apex_local: tuple[float, float]  # the light's virtual position, R-local units
     radius_local: float              # light.radius converted to R-local units
+    # Walk-mask terrain shadows this light casts INTO this room-local
+    # instance, room-local coords, one convex-ish polygon per occluding
+    # rect (see `_shadow_poly_for_rect`). Empty for a room with no
+    # terrain. Computed once here (same call site the static cache
+    # already runs through) so the shadow geometry rides the SAME
+    # per-room cache static lights already get -- no extra cost per
+    # frame for fixtures, only the worklight (attached, recomputed every
+    # tick anyway) pays this every frame.
+    shadow_local: tuple[tuple[tuple[float, float], ...], ...] = ()
+
+
+# --- terrain shadow geometry (director's directive, 2026-07-13: walk-mask
+# terrain blocks lamp light, never player vision) -----------------------
+#
+# Standard 2D point-light shadowcasting against an axis-aligned rect
+# occluder: walk the rect's 4 corners (consistent CCW winding), classify
+# each edge as "front" (the apex is outside/left of it, i.e. that face is
+# lit) or "back" (occluded, facing away from the light) via the edge's
+# cross-product sign, then trace the contiguous run of BACK edges -- its
+# two endpoints are exactly the silhouette vertices a general (non-axis-
+# aligned-apex) shadow needs, and any interior back vertices keep the
+# umbra hugging the rect's true silhouette instead of a straight (and
+# sometimes wrong, for a diagonal view) chord between the two extremes.
+# The two silhouette vertices are then projected away from the apex out
+# to `reach` (well beyond the light's radius) to close the shadow
+# polygon. This mirrors the geometry `query::terrain_light_segments`
+# exposes (rect edges as segments) but works from the rect corners
+# directly since that's what `Sim.room_terrain` already returns.
+
+def _rect_corners(lo: tuple[float, float], hi: tuple[float, float]
+                   ) -> list[tuple[float, float]]:
+    return [(lo[0], lo[1]), (hi[0], lo[1]), (hi[0], hi[1]), (lo[0], hi[1])]
+
+
+def _project_away(apex: tuple[float, float], pt: tuple[float, float],
+                   dist: float) -> tuple[float, float]:
+    dx, dy = pt[0] - apex[0], pt[1] - apex[1]
+    d = math.hypot(dx, dy)
+    if d < 1e-9:
+        return pt
+    k = dist / d
+    return (apex[0] + dx * k, apex[1] + dy * k)
+
+
+def _shadow_poly_for_rect(apex: tuple[float, float],
+                           corners: list[tuple[float, float]],
+                           reach: float) -> list[tuple[float, float]] | None:
+    """One shadow polygon for a single convex (rect) occluder as seen from
+    `apex`, or None if the apex is degenerate (on an edge/colinear with
+    the whole rect -- no clean silhouette, treated as no occlusion rather
+    than guessing). See module-level note above for the algorithm."""
+    n = len(corners)
+    front = []
+    for i in range(n):
+        a, b = corners[i], corners[(i + 1) % n]
+        ex, ey = b[0] - a[0], b[1] - a[1]
+        ax, ay = apex[0] - a[0], apex[1] - a[1]
+        front.append((ex * ay - ey * ax) > 0)
+    if all(front) or not any(front):
+        return None
+    start = next(i for i in range(n) if not front[i])
+    while not front[(start - 1) % n]:
+        start -= 1
+    seq = [corners[start % n]]
+    i = start
+    steps = 0
+    while not front[i % n] and steps < n:
+        i += 1
+        seq.append(corners[i % n])
+        steps += 1
+    c1, c2 = seq[0], seq[-1]
+    far1 = _project_away(apex, c1, reach)
+    far2 = _project_away(apex, c2, reach)
+    return seq + [far2, far1]
+
+
+def terrain_shadow_polys(sim, room: int, apex_local: tuple[float, float],
+                          reach: float) -> tuple[tuple[tuple[float, float], ...], ...]:
+    """Shadow polygons (room-local) that walk-mask terrain in `room` casts
+    from a light at `apex_local`, each extended `reach` units past the
+    apex (comfortably beyond any light's radius -- callers pass a multiple
+    of `radius_local`). Empty for a terrain-free room (the common case, one
+    `Sim.room_terrain` call)."""
+    try:
+        rects = sim.room_terrain(room)
+    except Exception:
+        return ()
+    polys = []
+    for lox, loy, hix, hiy in rects:
+        corners = _rect_corners((lox, loy), (hix, hiy))
+        poly = _shadow_poly_for_rect(apex_local, corners, reach)
+        if poly is not None:
+            polys.append(tuple(poly))
+    return tuple(polys)
+
+
+def _point_in_polygon(pt: tuple[float, float],
+                       poly: tuple[tuple[float, float], ...]) -> bool:
+    """Standard ray-casting point-in-polygon (even-odd rule); good enough
+    for the shadow polygons above (simple, non-self-intersecting)."""
+    x, y = pt
+    inside = False
+    n = len(poly)
+    for i in range(n):
+        x1, y1 = poly[i]
+        x2, y2 = poly[(i + 1) % n]
+        if (y1 > y) != (y2 > y):
+            xin = x1 + (y - y1) * (x2 - x1) / (y2 - y1 + 1e-300)
+            if x < xin:
+                inside = not inside
+    return inside
+
+
+def light_level_at(light_map: dict[int, list[tuple[int, "LightInstance"]]],
+                    lights: list, room: int, x: float, y: float) -> float:
+    """How lit is room-local point `(x, y)` in `room`, 0 (dark) .. 1 (full),
+    per the LURK/AMBUSH AI's "how lit is this spot" query. `light_map` is a
+    `LightingSystem.frame_lookup()` result (computed ONCE per tick by the
+    caller, not per query -- see `sim.py`'s `_enemy_ai`, which only pays
+    for this at all when a LURK-capable enemy is present). Sums each
+    reaching light's falloff kernel (same `(1-dist/r)^2` law `_blit_light`
+    uses) unless the point falls inside that light's terrain shadow, then
+    clamps to [0, 1]."""
+    total = 0.0
+    for light_idx, inst in light_map.get(room, ()):
+        if inst.room != room:
+            continue
+        if any(_point_in_polygon((x, y), poly) for poly in inst.shadow_local):
+            continue
+        dx, dy = x - inst.apex_local[0], y - inst.apex_local[1]
+        dist = math.hypot(dx, dy)
+        a = max(0.0, min(1.0, 1.0 - dist / max(1e-6, inst.radius_local)))
+        if a <= 0.0:
+            continue
+        intensity = lights[light_idx].intensity if light_idx < len(lights) else 1.0
+        total += a * a * intensity
+    return max(0.0, min(1.0, total))
 
 
 def compute_light_instances(sim, light: LightSpec, max_depth: int = 6,
@@ -78,7 +216,15 @@ def compute_light_instances(sim, light: LightSpec, max_depth: int = 6,
             continue
         clip_local = tuple(necore.mat_apply(inv, px, py) for px, py in clip_screen)
         apex_local = necore.mat_apply(inv, apex_screen[0], apex_screen[1])
-        out.append(LightInstance(room, clip_local, apex_local, radius / scale))
+        radius_local = radius / scale
+        # Walk-mask terrain shadows (director's directive, 2026-07-13):
+        # reach well past the light's own radius so the shadow polygon's
+        # far edge is never the thing that clips it short -- the actual
+        # falloff/gate clipping happens downstream (radial kernel, camera
+        # clip polygon), this only needs to fully cover the dark region.
+        shadow_local = terrain_shadow_polys(sim, room, apex_local, radius_local * 4.0)
+        out.append(LightInstance(room, clip_local, apex_local, radius_local,
+                                  shadow_local))
     return out
 
 

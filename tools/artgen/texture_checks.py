@@ -49,13 +49,41 @@ def _erode_mask(mask: np.ndarray, px: int) -> np.ndarray:
     return out[pad:pad + h, pad:pad + w]
 
 
+def _dilate_mask(mask: np.ndarray, px: int) -> np.ndarray:
+    """Grow a boolean mask by `px` pixels (max-filter dilation)."""
+    if px <= 0:
+        return mask
+    h, w = mask.shape
+    pad = px + 1
+    padded = np.zeros((h + 2 * pad, w + 2 * pad), dtype=bool)
+    padded[pad:pad + h, pad:pad + w] = mask
+    im = Image.fromarray((padded.astype(np.uint8) * 255), mode="L")
+    im = im.filter(ImageFilter.MaxFilter(2 * px + 1))
+    out = np.asarray(im) > 127
+    return out[pad:pad + h, pad:pad + w]
+
+
 def verify_fullbleed(im: Image.Image, mask: np.ndarray | None = None,
                       band_px: int = 12, darken_thresh: float = 1.30,
-                      struct_thresh: float = 1.7) -> dict:
+                      struct_thresh: float = 1.7,
+                      boxes: list | None = None) -> dict:
     """Compare a band near the polygon boundary (or image edge, if
     mask=None) to the polygon interior. `ok=False` means a painted
     frame/vignette/wall-band was detected: reject before Gemini judging.
-    """
+
+    `boxes` (optional, list of dicts with pixel-space `box` = (x0,y0,x1,y1),
+    same convention as verify_detail_budget) excludes the box-conditioning
+    item footprints from the edge band before judging. Root-caused
+    2026-07-13: nearly every KIND_ITEM_TEMPLATE entry is a wall-hugging
+    strip (PIPE RUN, HAZARD LANE, COT BAY, CABINET ROW, WALL TROUGH, ...)
+    that spans a full edge right where this gate samples -- legitimate
+    requested equipment there is geometrically identical to the painted
+    "frame/vignette" this gate exists to catch, so box-conditioned rooms
+    were programmatically full-bleed-rejected at a high rate for content
+    the pipeline itself asked for. Excluding box footprints (dilated a
+    few px) restores the gate's original intent: catch borders that run
+    the WHOLE boundary uninvited, not requested equipment in a labeled
+    zone."""
     gray = np.asarray(im.convert("L")).astype(np.float32)
     h, w = gray.shape
     if mask is None:
@@ -66,6 +94,18 @@ def verify_fullbleed(im: Image.Image, mask: np.ndarray | None = None,
     inner = _erode_mask(mask, band_px)
     edge_band = mask & ~inner
     center = _erode_mask(mask, band_px * 3)
+
+    if boxes:
+        excl = np.zeros((h, w), dtype=bool)
+        for b in boxes:
+            x0, y0, x1, y1 = b["box"]
+            x0, y0 = max(0, x0), max(0, y0)
+            x1, y1 = min(w, x1), min(h, y1)
+            if x1 > x0 and y1 > y0:
+                excl[y0:y1, x0:x1] = True
+        if excl.any():
+            excl = _dilate_mask(excl, 4)
+            edge_band = edge_band & ~excl
 
     if edge_band.sum() < 40 or center.sum() < 40:
         return dict(ok=True, reason="region too small to judge (thin polygon)",
@@ -429,15 +469,28 @@ def verify_no_guide_ink(im: Image.Image, mask: np.ndarray,
     output: the model occasionally renders the guide's saturated CYAN wall
     lines / MAGENTA doorway marks as literal paint on the floor (caught
     2026-07-11: pink doorway rectangles rendered into l05/room_4). Also
-    catches the labeled-box conditioning's ORANGE (MIRIAD) / bronze-green
-    (TESTATOR) box outlines leaking the same way -- confirmed 2026-07-13 on
-    the box-conditioning calibration batch (tools/artgen/calibrate_v3.py):
-    l03/room_0's texture shipped with a literal orange rectangle outline
-    painted around the requested center-trough box, which this gate
-    previously could not see because it only ever checked cyan/magenta.
-    The game's palette is deliberately desaturated (STYLE_LANGUAGE), so ANY
-    concentration of saturated cyan/magenta/orange/bronze-green inside the
-    floor polygon is guide-ink leakage, not legitimate material."""
+    catches the labeled-box conditioning's MIRIAD/TESTATOR box outlines
+    leaking the same way -- confirmed 2026-07-13 on the box-conditioning
+    calibration batch (tools/artgen/calibrate_v3.py): l03/room_0's texture
+    shipped with a literal box outline painted around the requested
+    center-trough box.
+
+    Gate-sanity finding (2026-07-13): the ORIGINAL annotation colors
+    (MIRIAD orange, TESTATOR bronze-verdigris) were deliberately chosen to
+    MATCH the game's own material palette (hazard-stripe orange, Testator
+    verdigris corrosion) "so the annotation itself signals lane at a
+    glance" -- which made leaked ink indistinguishable from legitimate
+    material. Verified false-positive on OLD, already-shipped,
+    human/Gemini-accepted textures with zero box conditioning (l01/room_0,
+    l01/room_2, pre-51d09a7): the orange channel fired at 0.28%/0.46%
+    (thresh 0.15%) on ordinary rust/hazard staining. box_conditioning.py's
+    LANE_COLOR now uses hot magenta (MIRIAD) / neon green (TESTATOR),
+    colors that occur nowhere in this game's deliberately desaturated
+    palette (STYLE_LANGUAGE), so any detected pixel is unambiguous
+    annotation leakage rather than a collision with real material. The
+    orange channel is retained at a stricter (rarer, more saturated)
+    threshold only as a legacy backstop for any pre-existing orange-boxed
+    assets still in flight; it is not used for new annotation."""
     rgb = np.asarray(im.convert("RGB")).astype(np.float32)
     r, g, b = rgb[..., 0], rgb[..., 1], rgb[..., 2]
     mx = rgb.max(axis=2)
@@ -445,12 +498,11 @@ def verify_no_guide_ink(im: Image.Image, mask: np.ndarray,
     sat = (mx - mn) / np.maximum(mx, 1e-6)
     cyan = (sat > 0.45) & (mx > 90) & (b > r * 1.25) & (g > r * 1.25)
     magenta = (sat > 0.45) & (mx > 90) & (r > g * 1.3) & (b > g * 1.3)
-    # box_conditioning.LANE_COLOR: MIRIAD (255,140,20) orange, TESTATOR
-    # (120,200,160) bronze-green. Orange: strong R, mid G, low B, R>>B.
-    orange = (sat > 0.45) & (mx > 90) & (r > b * 1.8) & (r > g * 1.15) & (g > b * 1.3)
-    # bronze-green: G and B close and both clearly above R, moderate sat.
-    bronze_green = (sat > 0.25) & (mx > 90) & (g > r * 1.15) & (b > r * 1.05) & (abs(g - b) < 40)
-    leak = (cyan | magenta | orange | bronze_green) & mask
+    # neon-green (box_conditioning.LANE_COLOR TESTATOR = (0,255,90)):
+    # G dominant, both R and B far below G -- does not match muted
+    # bronze-verdigris corrosion (which has G and B close together).
+    neon_green = (sat > 0.55) & (mx > 90) & (g > r * 1.8) & (g > b * 1.8)
+    leak = (cyan | magenta | neon_green) & mask
     frac = float(leak.mean() if mask.any() else 0.0)
     in_frac = float(leak[mask].mean()) if mask.any() else 0.0
     ok = in_frac <= frac_thresh

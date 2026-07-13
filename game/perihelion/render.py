@@ -2069,12 +2069,27 @@ class Renderer:
                 radius_screen = inst.radius_local * scale
                 if radius_screen < 1.0:
                     continue
+                # Walk-mask terrain shadows: transform+clip the same way as
+                # the gate polygon (identical xform/clip_screen), then punch
+                # them out of the union fill in `_blit_light` -- terrain
+                # blocks lamp light exactly like a wall, but NEVER touches
+                # `visibility.rs`/the entity sensor plane, so an enemy
+                # standing in one of these shadows stays fully visible
+                # (composited after the lightmap multiply, see `draw()`).
+                shadow_gated = []
+                for spoly in inst.shadow_local:
+                    spoly_screen = [necore.mat_apply(xform, lx, ly)
+                                     for lx, ly in spoly]
+                    sc = necore.clip_polygon(spoly_screen, clip_screen)
+                    if len(sc) >= 3:
+                        shadow_gated.append(sc)
                 buckets = groups_by_light.setdefault(light_idx, [])
                 for g in buckets:
                     if (abs(g["apex_sx"] - apex_sx) <= GROUP_TOL_PX
                             and abs(g["apex_sy"] - apex_sy) <= GROUP_TOL_PX
                             and abs(g["radius_screen"] - radius_screen) <= GROUP_TOL_PX):
                         g["polys"].append(gated)
+                        g["shadow_polys"].extend(shadow_gated)
                         # running mean keeps the cluster's reference point
                         # centered as more near-identical instances join,
                         # instead of freezing on the first one seen.
@@ -2087,13 +2102,14 @@ class Renderer:
                 else:
                     buckets.append({"apex_sx": apex_sx, "apex_sy": apex_sy,
                                      "radius_screen": radius_screen,
-                                     "polys": [gated], "n": 1})
+                                     "polys": [gated],
+                                     "shadow_polys": list(shadow_gated), "n": 1})
         for light_idx, buckets in groups_by_light.items():
             light = lighting.lights[light_idx]
             for g in buckets:
                 self._blit_light(surf, g["apex_sx"], g["apex_sy"],
                                   g["radius_screen"], light.color,
-                                  light.intensity, g["polys"])
+                                  light.intensity, g["polys"], g["shadow_polys"])
 
     def _light_gradient(self, radius: float) -> "pygame.Surface":
         """White radial-falloff sprite of pixel radius `radius`, kernel
@@ -2132,7 +2148,8 @@ class Renderer:
     # unmissable.
     LIGHT_STRENGTH = 3.0
 
-    def _blit_light(self, surf, cx, cy, radius, color, intensity, gate_polys) -> None:
+    def _blit_light(self, surf, cx, cy, radius, color, intensity, gate_polys,
+                     shadow_polys=()) -> None:
         """Additive radial-falloff fill of the UNION of `gate_polys`
         (already occlusion- and camera-clipped wedges of one light at one
         screen apex), centered at (cx, cy) in screen space.
@@ -2203,6 +2220,17 @@ class Renderer:
         scratch.fill((0, 0, 0))
         for poly in polys:
             pygame.draw.polygon(scratch, (255, 255, 255), poly)
+        # Walk-mask terrain shadows: subtract (punch black) from the just-
+        # filled union BEFORE the tint/gradient multiply below, so a
+        # shadowed pixel ends up multiplied to black same as one outside
+        # every gate polygon entirely -- "clip/subtract before the union
+        # fill" from the director's spec, done at the same raster-op level
+        # the union fill itself already uses (Sutherland-Hodgman gave us
+        # polygon intersection, not boolean difference, so this is the
+        # pixel-level equivalent).
+        for poly in shadow_polys:
+            if len(poly) >= 3:
+                pygame.draw.polygon(scratch, (0, 0, 0), poly)
         intensity = intensity * self.LIGHT_STRENGTH
         tint = (min(255, int(color[0] * intensity)),
                 min(255, int(color[1] * intensity)),
