@@ -50,6 +50,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "soundgen"))
 import synth as sy                              # noqa: E402
 import gordon_chain as gc                       # noqa: E402
 import voices                                   # noqa: E402  (v2: audited toolchain)
+import surge_bank                               # noqa: E402  (v3: real synth palette)
 from melodies import DIES_IRAE_STROPHE          # noqa: E402
 
 SR = sy.SR
@@ -428,16 +429,15 @@ def morph(a: np.ndarray, b: np.ndarray, alpha: float = 0.55) -> np.ndarray:
 
 
 def lead_note(semi_from_d3: float, dur_s: float, vel: float) -> np.ndarray:
-    """Lead voice: a sustained chug tone morphed toward the machine choir —
-    the signature-tone move aimed at our own congregation."""
+    """Lead voice — v3: the album's actual lead (Surge XT 7-voice detuned
+    saw, probe: 'bright, buzzy... slight vibrato'). MIDI from D3=50."""
+    y = surge_bank.render_notes("lead_saw", [50 + int(round(semi_from_d3))],
+                                dur_s, tail_s=0.25)
     n = int(dur_s * SR)
-    g = chug_hit(semi_from_d3 - 12 + 12, dur_s * 1.1, mute=0.0, vel=1.0)
-    g = loop_to(g, n + 2048, fade_s=0.03)
-    c = machine_note(semi_from_d3, dur_s * 1.1, breath=0.02, vel=1.0)
-    c = loop_to(c, n + 2048, fade_s=0.05)
-    y = morph(g, c, alpha=0.55)[:n]
-    y *= envelope(n, 0.012, min(0.2, dur_s * 0.35))
-    return sy.highpass(y, 160) * vel
+    if len(y) < n:
+        y = np.pad(y, (0, n - len(y)))
+    y = y[:n + int(0.2 * SR)] if len(y) > n else y
+    return sy.highpass(y, 150) * vel
 
 
 def lead_phrase(events, register_semi: float, vel: float = 1.0) -> np.ndarray:
@@ -520,7 +520,7 @@ def render() -> dict:
     n = int(TOTAL_S * SR)
     stems = {k: np.zeros(n) for k in
              ("bed", "chant", "organum", "riff", "wall", "kick", "lead",
-              "riser", "bell", "sub", "hats", "steam")}
+              "riser", "bell", "sub", "hats", "steam", "bass")}
 
     # BED: the hum — feedback bus idling at D + low cluster from ORGANUM on
     bed_src = machine_note(0, TOTAL_S, breath=1.5, vel=0.4)
@@ -562,7 +562,38 @@ def render() -> dict:
     kick = kick_track(hymn_bars, KICK_HYMN)
     place(stems["kick"], kick, S_HYMN[0] * BAR, 0.85)
     place(stems["hats"], machine_hats(hymn_bars, 0.5), S_HYMN[0] * BAR)
+    # BASS (the album lists a dedicated bass in nearly every block; the
+    # piece lacked one entirely): growling FM root 8ths, following the
+    # riff's two-bar harmonic rhythm (D | C->D).
+    def bass_line(n_bars):
+        out = np.zeros(int(n_bars * BAR * SR) + SR)
+        for bar in range(n_bars):
+            roots = [0, 0] if bar % 2 == 0 else [-2, 0]
+            for half, root in enumerate(roots):
+                for e8 in range(4):
+                    v = (0.95 if e8 == 0 else 0.75) * (1 + RNG.normal(0, 0.05))
+                    note = surge_bank.render_notes(
+                        "fm_bass", [38 + root], STEP * 1.7, tail_s=0.05)
+                    place(out, note * v,
+                          bar * BAR + (half * 8 + e8 * 2) * STEP)
+        return out
+    place(stems["bass"], bass_line(hymn_bars), S_HYMN[0] * BAR)
+    place(stems["bass"], bass_line(cl_bars := S_CLIMAX[1] - S_CLIMAX[0]),
+          S_CLIMAX[0] * BAR)
     wall_hymn = power_chords(hymn_bars, 0.9)
+    # the album's wall is a guitar/synth HYBRID ("rhythm guitar / low
+    # synth hybrid"): blend the gated buzzsaw under the chug chords
+    buzz_notes = surge_bank.render_notes("buzzsaw_wall", [38, 45],
+                                         2 * BAR * hymn_bars / 2, tail_s=0.1)
+    buzz = loop_to(buzz_notes, len(wall_hymn), fade_s=0.05)
+    gate = np.zeros(len(wall_hymn))
+    for bar in range(hymn_bars):
+        for pos, root in ([(0, 0), (8, 0)] if bar % 2 == 0 else
+                          [(0, -2), (8, 0)]):
+            i0 = int((bar * BAR + pos * STEP) * SR)
+            i1 = i0 + int(7.6 * STEP * SR)
+            gate[i0:i1] = 1.0
+    wall_hymn = wall_hymn + 0.55 * buzz * gate
     wmask = np.ones(len(wall_hymn))
     for blk in (1, 3):
         i0 = int(blk * 4 * BAR * SR); i1 = int((blk + 1) * 4 * BAR * SR)
@@ -625,9 +656,12 @@ def render() -> dict:
     cf2 = [(s, d * 2) for s, d in DIES_IRAE_STROPHE]
     place(stems["organum"], organum_lines(cf2, 12) * 0.5,
           (S_CLIMAX[0] + 0.5) * BAR)
-    place(stems["lead"],
-          lead_phrase(LEAD_ANTECEDENT + LEAD_CONSEQUENT, 24, vel=0.75),
-          (S_CLIMAX[0] + 4) * BAR)
+    # STALWART melodic law (director, on Styx): "the saw lead moves
+    # _slowly_, but unstoppably, with breaks for chanting" — the
+    # counter-motif in 2x augmentation, long values, one apex.
+    slow = [(sv, d * 2) for sv, d in LEAD_ANTECEDENT]
+    place(stems["lead"], lead_phrase(slow, 24, vel=0.8),
+          (S_CLIMAX[0] + 2) * BAR)
     place(stems["sub"], drop_sub, S_CLIMAX[0] * BAR, 0.8)
 
     # END: hard chop mid-bar (johnny craft law: cold mixouts chop
@@ -680,7 +714,7 @@ def render() -> dict:
     # everything and a -32 dB "wall"; measurement replaces guessing.
     TGT = {"kick": -14.0, "riff": -13.0, "wall": -16.0, "chant": -16.0,
            "organum": -18.0, "lead": -20.0, "hats": -22.0, "bell": -24.0,
-           "bed": -30.0, "steam": -34.0}
+           "bed": -30.0, "steam": -34.0, "bass": -16.0}
     wa, wb = int(20 * BAR * SR), int(30 * BAR * SR)
     for k, tgt in TGT.items():
         seg = stems[k][wa:wb]
