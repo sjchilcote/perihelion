@@ -37,7 +37,8 @@ import parts                                  # noqa: E402
 import voices                                 # noqa: E402
 from parts import SR, place                   # noqa: E402
 from melodies import (DIES_IRAE_STROPHE, VICTIMAE_MOTIF,      # noqa: E402
-                      DIES_IRAE_MOTIF, sequence, invert, fragment)
+                      DIES_IRAE_MOTIF, sequence, invert, fragment,
+                      retrograde)
 from melody_check import score_melody, comb_prominence        # noqa: E402
 
 SCRATCH = voices.SCRATCH
@@ -161,37 +162,58 @@ def compile_track(tid: int, verbose=True) -> dict:
 
     kick_sample = voices._mono(voices.SCRATCH / "freesound/kick_metal_trim.wav")[0]
 
-    # ---- MELODY FIRST ----------------------------------------------------
+    # ---- MELODY FIRST — CONTINUITY LAW -------------------------------
+    # Measured against the album: its lead/choir is voiced ~84% of the
+    # time; v1 of this compiler stated each theme once per block and went
+    # silent (melodia 0.2-0.53 vs album 0.84). A block is now FILLED with
+    # a phrase CHAIN — statement, development (sequence/inversion/
+    # fragment answers), restatement — breath gaps only.
     mel = np.zeros(n)
     melody_spans = []          # (t0, events, reg) for the meter
     ev = assets["melody"]
-    ev_steps = sum(d for _, d in ev)
     reg = assets["melody_reg"] + cfg["mode_reg"]
+
+    def phrase_chain(base_ev, role: str, need_steps: int):
+        """Chain phrases (with development) to fill ~need_steps."""
+        motif_sem = [sv for sv, _ in base_ev if sv is not None]
+        out = []
+        variants = [base_ev,
+                    [(sv, d) for sv, d in base_ev],
+                    motif_events(sequence(motif_sem, 2), 4, 8),
+                    motif_events(fragment(motif_sem, max(3, len(motif_sem)//2)), 4, 10),
+                    motif_events(sequence(motif_sem, -2), 4, 8),
+                    base_ev]
+        if role == "juggernaut":
+            variants = [[(sv, d * 2) for sv, d in base_ev]] * 3
+        elif role == "break":
+            variants = [motif_events(fragment(motif_sem, 4), 6, 14),
+                        [(None, 8)],
+                        motif_events(fragment(motif_sem, 3), 8, 16)]
+        i, total = 0, 0
+        while total < need_steps:
+            v = variants[i % len(variants)]
+            out.extend(v)
+            out.append((None, 4))          # the breath
+            total = sum(d for _, d in out)
+            i += 1
+        return out
+
+    block_steps = bars_per_block * 16
     for blk, (p, c, s) in enumerate(wps):
         t0 = blk * bars_per_block * bar_s
-        if p >= 0.8 and blk == 0:
-            # plain statement, chant register (the prayer open)
-            line = parts.render_lead(rng, ev, step_s, reg, assets["lead"])
-            place(mel, line * 0.9, t0 + 0.5 * bar_s)
-            melody_spans.append((t0 + 0.5 * bar_s, ev, reg))
-        elif s >= 0.8:
-            # juggernaut: augmented, slow, unstoppable — and SOARING: the
-            # album's lead rides OVER the wall, so the melody gets its
-            # stalwart level here, not equality with the bed
-            slow = [(sv, d * 2) for sv, d in ev][:max(4, len(ev) // 2)]
-            line = parts.render_lead(rng, slow, step_s, reg, assets["lead"])
-            place(mel, line * 1.35, t0)
-            melody_spans.append((t0, slow, reg))
+        if s >= 0.8:
+            role, lvl, off = "juggernaut", 1.35, 0.0
+        elif p >= 0.8:
+            role, lvl, off = "statement", 0.9, 0.5 * bar_s
         elif c >= 0.5 or s >= 0.4:
-            line = parts.render_lead(rng, ev, step_s, reg, assets["lead"])
-            place(mel, line * 0.95, t0)
-            melody_spans.append((t0, ev, reg))
+            role, lvl, off = "drive", 1.0, 0.0
         else:
-            # break/rest: fragment, sparse
-            frag = ev[:max(3, len(ev) // 3)]
-            line = parts.render_lead(rng, frag, step_s, reg, assets["lead"])
-            place(mel, line * 0.8, t0 + bar_s)
-            melody_spans.append((t0 + bar_s, frag, reg))
+            role, lvl, off = "break", 0.8, bar_s
+        chain = phrase_chain(ev, role,
+                             block_steps - int(off / step_s) - 8)
+        line = parts.render_lead(rng, chain, step_s, reg, assets["lead"])
+        place(mel, line * lvl, t0 + off)
+        melody_spans.append((t0 + off, chain, reg))
 
     def meter(mix_arr):
         scores = []
