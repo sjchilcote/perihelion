@@ -28,7 +28,19 @@ VST = Path("/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshoo
            "/vst3/Surge XT.vst3")
 
 
-@lru_cache(maxsize=1)
+@lru_cache(maxsize=8)
+def _plugin_for(patch: str):
+    """One dedicated Surge instance per patch, params set ONCE. Switching
+    patches on a shared instance corrupted the first phrase render after
+    an FM2->Classic osc-type change (measured: conformance 0.0 with
+    correct-looking params); per-patch instances remove switching
+    entirely."""
+    import pedalboard
+    p = pedalboard.load_plugin(str(VST))
+    _set(p, **PATCHES[patch])
+    return p
+
+
 def _plugin():
     import pedalboard
     return pedalboard.load_plugin(str(VST))
@@ -89,8 +101,8 @@ def render_notes(patch: str, notes, dur_s: float, sr: int = SR,
                  tail_s: float = 0.4, velocity: int = 110) -> np.ndarray:
     """Render simultaneous MIDI notes with a patch. notes = midi numbers."""
     from mido import Message
-    p = _plugin()
-    _set(p, **PATCHES[patch])
+    p = _plugin_for(patch)
+    p.reset()
     msgs = []
     for n in notes:
         msgs.append(Message("note_on", note=int(n),
@@ -114,8 +126,8 @@ def render_phrase(patch: str, events, step_s: float, sr: int = SR,
     import numpy as _np
     from mido import Message
     rng = rng or _np.random.default_rng(0)
-    p = _plugin()
-    _set(p, **PATCHES[patch])
+    p = _plugin_for(patch)
+    p.reset()
     msgs = []
     t = 0.0
     semis = [sv for sv, _ in events if sv is not None]
