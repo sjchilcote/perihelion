@@ -31,5 +31,27 @@
     "n_mask_omitted": 0,
     "run_cost": 0.5593600000000001,
     "elapsed_sec": 50.24737048149109
+  },
+  {
+    "level": "l01",
+    "n_rooms": 10,
+    "n_processed": 10,
+    "n_accepted": 0,
+    "n_bare": 10,
+    "n_masked": 0,
+    "n_mask_omitted": 0,
+    "run_cost": 2.1415955,
+    "elapsed_sec": 129.30162525177002
+  },
+  {
+    "level": "l01",
+    "n_rooms": 10,
+    "n_processed": 10,
+    "n_accepted": 7,
+    "n_bare": 3,
+    "n_masked": 7,
+    "n_mask_omitted": 0,
+    "run_cost": 2.438392,
+    "elapsed_sec": 143.4503574371338
   }
 ]

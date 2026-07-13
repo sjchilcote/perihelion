@@ -133,6 +133,39 @@ def room_key(stem: str, idx: int) -> str:
     return f"{stem}/room_{idx:03d}"
 
 
+def _stage2_prompt(kind: str, b_note: str, d_note: str) -> str:
+    """Stage-2 (equipment add) prompt: an image-to-image edit of the
+    ACCEPTED stage-1 floor. The floor is already right -- the only job is
+    adding the requested items without disturbing anything else."""
+    from tools.artgen.pilot_texture_lib import KIND_MATERIAL, STYLE_LANGUAGE
+    return (
+        f"{STYLE_LANGUAGE}\n\n"
+        f"Room kind: {kind}. Material language: {KIND_MATERIAL[kind]}.\n\n"
+        "First reference image: the FINISHED, APPROVED floor texture for "
+        "this room (top-down orthographic; pure black = void outside the "
+        "room, never floor). Your output IS this exact image with "
+        "specific equipment added -- an edit, not a re-imagining. "
+        "Reproduce the reference pixel-faithfully everywhere no item is "
+        "requested: same framing and aspect ratio, same room silhouette "
+        "(every black void pixel stays black void), same plate seams, "
+        "same stains, same palette, same lighting. Do not add any "
+        "border, frame, trim, vignette, or wall band. Do not redraw or "
+        "'improve' the floor.\n\n"
+        "Second reference image: the tileable base material for this "
+        "room kind, for matching the equipment's material/palette to the "
+        "floor it sits on.\n\n"
+        f"{b_note}\n\n"
+        + (f"{d_note}\n\n" if d_note else "") +
+        "Each item is painted top-down, seated naturally on the existing "
+        "floor plating with a soft contact shadow -- solid physical "
+        "equipment seen from directly above, not a diagram, not an "
+        "outline, not a label. NOTHING else changes: outside the stated "
+        "footprints" + (" and the one permitted wayfinding mark" if d_note else "") +
+        ", your output must be indistinguishable from the first "
+        "reference image."
+    )
+
+
 def process_room(stem: str, idx: int, kind: str, progress: dict) -> dict:
     key = room_key(stem, idx)
     guide_path = GUIDE_DIR / stem / f"room_{idx:03d}.png"
@@ -143,15 +176,27 @@ def process_room(stem: str, idx: int, kind: str, progress: dict) -> dict:
         raise RuntimeError(f"no material swatch for kind={kind!r} at {material_path}; "
                             "run tools.artgen.gen_kind_materials first")
 
-    # TEXT-ZONE conditioning (variant B, 2026-07-13): the reference guide
-    # stays CLEAN -- no drawn boxes, no labels -- and item placement
-    # travels via prompt text only. Measured basis: drawn-box variants
-    # went 0/4 (orange boxes, original smoke test) and 0/15 (magenta/neon
-    # boxes inset+clipped, follow-up batch); rejected outputs show the
-    # model painting the annotation rectangles literally and inventing
-    # matching border trim on unboxed edges (see gen_rooms_full/
-    # l01_room006_a1.png). The box geometry is still computed identically
-    # for the gates, item-placement crops, and walk-mask derivation.
+    # TWO-STAGE pipeline (variant C, 2026-07-13). Measured basis for
+    # abandoning single-shot equipment conditioning entirely:
+    #   - drawn boxes (orange):            0/4  accept (original smoke test)
+    #   - drawn boxes (magenta, inset+clipped): 0/15 accept
+    #   - text-zone prompt, clean guide:   0/10 accept
+    # The text-zone rejects LOOK right (correct layout, equipment in
+    # place -- see gen_rooms_full/l01_room001_a3.png) but the model
+    # renders its own slightly-off silhouette, leaving black void
+    # slivers inside the true polygon near edges (alignment overlay:
+    # scratchpad/align_check_room001.png) -- the equipment ask pushes the
+    # model into scene-composition mode and it stops matching the guide
+    # pixel-for-pixel. The OLD floor-only prompt held the silhouette at
+    # ~57% accept, so: STAGE 1 generates the bare floor exactly as the
+    # proven pipeline did (floor-only prompt, floor-only gates); STAGE 2
+    # is an image-to-image call on the ACCEPTED stage-1 floor that adds
+    # the equipment at the text-zone footprints -- the silhouette is
+    # already correct in the input, so stage 2 only has to not break it.
+    # If stage 2 exhausts its attempts, the accepted stage-1 floor ships
+    # alone (never a stage-2 reject): floor-only is a fully-gated real
+    # texture, and with no painted equipment the walk-mask is the plain
+    # room polygon.
     boxes = compute_item_boxes(guide_path, stem, idx, kind)
     _gw, _gh = Image.open(guide_path).size
     b_note = text_zones_note(boxes, _gw, _gh)
@@ -164,8 +209,11 @@ def process_room(stem: str, idx: int, kind: str, progress: dict) -> dict:
     reference_images = [str(guide_path), str(material_path)]
     if neighbor_path is not None:
         reference_images.append(str(neighbor_path))
+    # Stage-1 prompt = the proven floor-only pipeline's prompt: no
+    # equipment note, no decal note (decals ride in stage 2 where the
+    # judge is told about them).
     prompt = build_room_prompt(kind, has_neighbor_composite=neighbor_path is not None,
-                                box_note=b_note, decal_note=d_note)
+                                box_note="", decal_note="")
 
     tex_w, tex_h = _tex_size(stem, idx)
     mask = _sized_mask(stem, idx, tex_w, tex_h)
@@ -181,8 +229,11 @@ def process_room(stem: str, idx: int, kind: str, progress: dict) -> dict:
     total_cost = 0.0
     verdicts = []
     GEN_SCRATCH.mkdir(parents=True, exist_ok=True)
-    accepted_final = None
 
+    # ------------------------------------------------------------------
+    # STAGE 1: bare floor, exactly the proven floor-only pipeline.
+    # ------------------------------------------------------------------
+    stage1_resized = None
     for attempt in (1, 2, 3):
         gen_out = GEN_SCRATCH / f"{stem}_room{idx:03d}_a{attempt}.png"
         this_prompt = prompt
@@ -202,47 +253,46 @@ def process_room(stem: str, idx: int, kind: str, progress: dict) -> dict:
         raw_im = crop_outer_black_margin(raw_im)
         raw_resized = raw_im.resize((tex_w, tex_h), Image.LANCZOS)
 
-        fb = verify_fullbleed(raw_resized, mask, darken_thresh=1.55, boxes=scaled_boxes)
+        # Floor-only gate stack: no boxes anywhere (there is no equipment
+        # yet, so a border band near a wall is never "requested item").
+        fb = verify_fullbleed(raw_resized, mask, darken_thresh=1.55)
         if not fb["ok"]:
             verdicts.append({"verdict": "fail", "notes":
-                              f"programmatic full-bleed rejected (darken_ratio="
+                              f"stage1 full-bleed rejected (darken_ratio="
                               f"{fb.get('darken_ratio')}, grad_ratio={fb.get('grad_ratio')})."})
             continue
 
         iv = verify_no_interior_void(raw_resized, mask)
         if not iv["ok"]:
             verdicts.append({"verdict": "fail", "notes":
-                              f"programmatic interior-void rejected: "
+                              f"stage1 interior-void rejected: "
                               f"{iv['black_frac']:.1%} painted near-black."})
             continue
 
         sc = verify_shape_conformance(raw_resized, mask, wall_edges)
         if not sc["ok"]:
             verdicts.append({"verdict": "fail", "notes":
-                              f"programmatic shape-conformance rejected: "
+                              f"stage1 shape-conformance rejected: "
                               f"mean angle error {sc.get('mean_err'):.1f} deg."})
             continue
 
         gi = verify_no_guide_ink(raw_resized, mask)
         if not gi["ok"]:
             verdicts.append({"verdict": "fail", "notes":
-                              f"programmatic guide-ink rejected: "
+                              f"stage1 guide-ink rejected: "
                               f"{gi['leak_frac']:.2%} saturated ink."})
             continue
 
-        db = verify_detail_budget(raw_resized, mask, Image.open(material_path).convert("RGB"),
-                                   boxes=scaled_boxes)
+        db = verify_detail_budget(raw_resized, mask, Image.open(material_path).convert("RGB"))
         if not db["ok"]:
             verdicts.append({"verdict": "fail", "notes":
-                              f"programmatic detail-budget rejected: "
-                              f"bg_ratio={db.get('background_grad_ratio', db['grad_ratio_vs_material']):.2f} "
-                              f"eq_ratio={db.get('equipment_grad_ratio')}.",
+                              f"stage1 detail-budget rejected: "
+                              f"ratio={db['grad_ratio_vs_material']:.2f}.",
                               "_detail_budget": db})
             continue
 
         try:
-            v = verify_texture(guide_path, gen_out, kind, anchor_path=material_path,
-                                allowed_items=[b["label"] for b in boxes])
+            v = verify_texture(guide_path, gen_out, kind, anchor_path=material_path)
             total_cost += v.get("_cost", 0.0)
         except Exception as exc:  # noqa: BLE001
             v = {"verdict": "fail", "notes": f"verify error: {exc}"}
@@ -250,28 +300,11 @@ def process_room(stem: str, idx: int, kind: str, progress: dict) -> dict:
             verdicts.append(v)
             continue
 
-        out_final = GEN_SCRATCH / "final" / f"{stem}_room{idx:03d}.png"
-        out_final.parent.mkdir(parents=True, exist_ok=True)
-        final_im = apply_mask(raw_resized, mask)
-        final_im.save(out_final)
-
-        try:
-            item_gate = verify_item_placement(out_final, scaled_boxes, kind)
-            total_cost += item_gate.get("_cost", 0.0)
-        except Exception as exc:  # noqa: BLE001
-            item_gate = {"all_present": False, "results": [], "_cost": 0.0,
-                         "_error": str(exc)}
-        if not item_gate.get("all_present", True):
-            verdicts.append({"verdict": "fail",
-                              "notes": f"item-placement gate rejected: {item_gate.get('results')}",
-                              "_item_placement": item_gate})
-            continue
-
-        accepted_final = out_final
+        stage1_resized = raw_resized
         verdicts.append(v)
         break
 
-    if accepted_final is None:
+    if stage1_resized is None:
         stale = texture_out_path(stem, idx)
         removed_stale = stale.is_file()
         if removed_stale:
@@ -285,10 +318,115 @@ def process_room(stem: str, idx: int, kind: str, progress: dict) -> dict:
         _save_progress(progress)
         return result
 
+    # ------------------------------------------------------------------
+    # STAGE 2: image-to-image equipment add on the accepted floor.
+    # ------------------------------------------------------------------
+    stage1_final = apply_mask(stage1_resized, mask)
+    stage1_path = GEN_SCRATCH / f"{stem}_room{idx:03d}_stage1.png"
+    stage1_final.save(stage1_path)
+
+    stage2_resized = None
+    if scaled_boxes or d_note:
+        s2_prompt = _stage2_prompt(kind, b_note, d_note)
+        for attempt in (1, 2):
+            s2_out = GEN_SCRATCH / f"{stem}_room{idx:03d}_s2a{attempt}.png"
+            this_prompt = s2_prompt
+            if attempt > 1 and verdicts and str(verdicts[-1].get("notes", "")).startswith("stage2"):
+                this_prompt += (
+                    f"\n\nPREVIOUS ATTEMPT FAILED REVIEW: {verdicts[-1]['notes']} "
+                    "Fix that specific problem this time."
+                )
+            try:
+                gr = generate_image(this_prompt, s2_out,
+                                     reference_images=[str(stage1_path), str(material_path)])
+                total_cost += gr["cost"]
+            except Exception as exc:  # noqa: BLE001
+                verdicts.append({"verdict": "fail", "notes": f"stage2 generation error: {exc}"})
+                continue
+
+            raw2 = Image.open(s2_out).convert("RGB")
+            raw2 = crop_outer_black_margin(raw2)
+            raw2_resized = raw2.resize((tex_w, tex_h), Image.LANCZOS)
+
+            fb2 = verify_fullbleed(raw2_resized, mask, darken_thresh=1.55, boxes=scaled_boxes)
+            if not fb2["ok"]:
+                verdicts.append({"verdict": "fail", "notes":
+                                  f"stage2 full-bleed rejected (darken_ratio="
+                                  f"{fb2.get('darken_ratio')}, grad_ratio={fb2.get('grad_ratio')})."})
+                continue
+            iv2 = verify_no_interior_void(raw2_resized, mask)
+            if not iv2["ok"]:
+                verdicts.append({"verdict": "fail", "notes":
+                                  f"stage2 interior-void rejected: "
+                                  f"{iv2['black_frac']:.1%} painted near-black."})
+                continue
+            sc2 = verify_shape_conformance(raw2_resized, mask, wall_edges, boxes=scaled_boxes)
+            if not sc2["ok"]:
+                verdicts.append({"verdict": "fail", "notes":
+                                  f"stage2 shape-conformance rejected: "
+                                  f"mean angle error {sc2.get('mean_err'):.1f} deg."})
+                continue
+            gi2 = verify_no_guide_ink(raw2_resized, mask)
+            if not gi2["ok"]:
+                verdicts.append({"verdict": "fail", "notes":
+                                  f"stage2 guide-ink rejected: "
+                                  f"{gi2['leak_frac']:.2%} saturated ink."})
+                continue
+            db2 = verify_detail_budget(raw2_resized, mask,
+                                        Image.open(material_path).convert("RGB"),
+                                        boxes=scaled_boxes)
+            if not db2["ok"]:
+                verdicts.append({"verdict": "fail", "notes":
+                                  f"stage2 detail-budget rejected: "
+                                  f"bg_ratio={db2.get('background_grad_ratio', db2['grad_ratio_vs_material']):.2f} "
+                                  f"eq_ratio={db2.get('equipment_grad_ratio')}."})
+                continue
+
+            allowed = [b["label"] for b in scaled_boxes]
+            if d_note:
+                allowed.append("one small worn directional floor arrow/chevron "
+                                "(justified wayfinding mark)")
+            try:
+                v2 = verify_texture(guide_path, s2_out, kind, anchor_path=material_path,
+                                     allowed_items=allowed)
+                total_cost += v2.get("_cost", 0.0)
+            except Exception as exc:  # noqa: BLE001
+                v2 = {"verdict": "fail", "notes": f"stage2 verify error: {exc}"}
+            if v2.get("verdict") != "pass":
+                v2["notes"] = f"stage2 gemini: {v2.get('notes', '')}"
+                verdicts.append(v2)
+                continue
+
+            s2_final = apply_mask(raw2_resized, mask)
+            s2_final_path = GEN_SCRATCH / f"{stem}_room{idx:03d}_s2final_a{attempt}.png"
+            s2_final.save(s2_final_path)
+            try:
+                item_gate = verify_item_placement(s2_final_path, scaled_boxes, kind)
+                total_cost += item_gate.get("_cost", 0.0)
+            except Exception as exc:  # noqa: BLE001
+                item_gate = {"all_present": False, "results": [], "_cost": 0.0,
+                             "_error": str(exc)}
+            if not item_gate.get("all_present", True):
+                verdicts.append({"verdict": "fail",
+                                  "notes": f"stage2 item-placement rejected: {item_gate.get('results')}",
+                                  "_item_placement": item_gate})
+                continue
+
+            stage2_resized = raw2_resized
+            verdicts.append({"verdict": "pass", "notes": "stage2 equipment add accepted"})
+            break
+
+    equipment_painted = stage2_resized is not None
+    accepted_resized = stage2_resized if equipment_painted else stage1_resized
+
     # ACCEPTED: ship the texture, then derive + gate the walk-mask.
+    out_final = GEN_SCRATCH / "final" / f"{stem}_room{idx:03d}.png"
+    out_final.parent.mkdir(parents=True, exist_ok=True)
+    apply_mask(accepted_resized, mask).save(out_final)
+
     ship_path = texture_out_path(stem, idx)
     ship_path.parent.mkdir(parents=True, exist_ok=True)
-    ship_path.write_bytes(accepted_final.read_bytes())
+    ship_path.write_bytes(out_final.read_bytes())
 
     review_path = REVIEW_DIR / f"full_{stem}_room{idx:03d}.png"
     save_review_overlay(stem, idx, ship_path, review_path)
@@ -297,12 +435,16 @@ def process_room(stem: str, idx: int, kind: str, progress: dict) -> dict:
     final_im = Image.open(ship_path).convert("RGB")
     mask_status = "omitted"
     conn_result = None
+    # No painted equipment -> no solid geometry to key off; the walk-mask
+    # is the plain room polygon (boxes only block cells when the item was
+    # actually painted there by an accepted stage 2).
+    walk_boxes = scaled_boxes if equipment_painted else []
     for inset_frac in (0.0, 0.20, 0.40):
         if inset_frac == 0.0:
-            trial_boxes = scaled_boxes
+            trial_boxes = walk_boxes
         else:
             trial_boxes = []
-            for b in scaled_boxes:
+            for b in walk_boxes:
                 x0, y0, x1, y1 = b["box"]
                 dx, dy = (x1 - x0) * inset_frac / 2, (y1 - y0) * inset_frac / 2
                 trial_boxes.append(dict(b, box=(x0 + dx, y0 + dy, x1 - dx, y1 - dy)))
@@ -318,6 +460,8 @@ def process_room(stem: str, idx: int, kind: str, progress: dict) -> dict:
             break
 
     result = dict(key=key, status="accepted", cost=total_cost, texture=str(ship_path),
+                  verdicts=verdicts,
+                  equipment="painted" if equipment_painted else "floor-only",
                   mask_status=mask_status, walkmask_connectivity=conn_result,
                   n_boxes=len(boxes), used_neighbor_composite=neighbor_path is not None,
                   review_overlay=str(review_path))

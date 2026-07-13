@@ -384,7 +384,8 @@ def _band_mask_for_edge(shape, a, b, band_px: int) -> np.ndarray:
 def verify_shape_conformance(im: Image.Image, mask: np.ndarray,
                               wall_edges: list[tuple[tuple[float, float], tuple[float, float]]],
                               band_px: int = 40, angle_tol_deg: float = 12.0,
-                              min_grad_px: int = 60) -> dict:
+                              min_grad_px: int = 60,
+                              boxes: list | None = None) -> dict:
     """For each wall edge segment (pixel-space endpoints), measure whether
     the texture's DOMINANT linear structure in a `band_px` band along that
     wall aligns with the wall, mod 90 degrees: a rectilinear plate install
@@ -422,12 +423,31 @@ def verify_shape_conformance(im: Image.Image, mask: np.ndarray,
     gx, gy = _sobel(gray)
     mag = np.sqrt(gx ** 2 + gy ** 2)
 
+    # Box-aware (2026-07-13, same family as verify_fullbleed's fix):
+    # requested equipment/marking content inside a wall-hugging item box is
+    # legitimately oblique -- a HAZARD LANE's 45-degree stripes along the
+    # bottom wall measured 17-21 deg "wall angle error" on stage-2 outputs
+    # whose underlying floor (stage 1) PASSED this same gate. Exclude the
+    # (dilated) item footprints from every edge band before measuring.
+    eff_mask = mask
+    if boxes:
+        h_, w_ = mask.shape
+        excl = np.zeros((h_, w_), dtype=bool)
+        for bx in boxes:
+            x0, y0, x1, y1 = bx["box"]
+            x0, y0 = max(0, int(x0)), max(0, int(y0))
+            x1, y1 = min(w_, int(x1)), min(h_, int(y1))
+            if x1 > x0 and y1 > y0:
+                excl[y0:y1, x0:x1] = True
+        if excl.any():
+            eff_mask = mask & ~_dilate_mask(excl, 4)
+
     per_edge = []
     errs = []
     weights = []
     for a, b in wall_edges:
         wall_ang = math.degrees(math.atan2(b[1] - a[1], b[0] - a[0])) % 90.0
-        band = _band_mask_for_edge(gray.shape, a, b, band_px) & mask
+        band = _band_mask_for_edge(gray.shape, a, b, band_px) & eff_mask
         if band.sum() < min_grad_px:
             per_edge.append(dict(wall_angle=wall_ang, err=None, reason="band too small"))
             continue
