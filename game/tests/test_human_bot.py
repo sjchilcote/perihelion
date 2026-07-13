@@ -257,3 +257,191 @@ def test_aim_deviates_after_taking_damage_then_recovers():
     assert hit_tick is not None, "player never took damage in this scenario"
     assert any(abs(a) > 0.01 for a in flinch_angles), "flinch never kicked aim off"
     assert flinch_angles[-1] == 0.0, "flinch did not recover"
+
+
+# ---------------------------------------------------------------------------
+# flanked-choke disengage (design doc §5)
+# ---------------------------------------------------------------------------
+
+
+def build_flanked_choke_level() -> Level:
+    """Player mid-way down a NARROW corridor room (80 units tall -- no
+    strafe space, like the l01 doorway from the 2026-07-13 demo) with husk
+    trios closing from BOTH ends. The naive dist<60 backpedal is defeated
+    here: backpedaling from one side walks into the other, and there is no
+    perpendicular room to jockey in. A competent human breaks contact
+    through the weaker side or fights through; they do not stand on the
+    tile until dead. Scenario calibrated empirically: at DEFAULT_SKILL the
+    pre-fix bot dies in this room on seed 16 without ever leaving it."""
+    b = LevelBuilder("flank_choke")
+    r0 = b.rect(0, 0, 200, 200)
+    r1 = b.rect(300, 60, 200, 80)
+    r2 = b.rect(600, 0, 200, 200)
+    b.connect(r0, 2, r1, 0)
+    b.connect(r1, 2, r2, 0)
+    # the flankers are already in the player's room, opposite ends
+    for i in range(3):
+        b.entity(r1, "husk", (330 + 12 * i, 90 + 10 * (i % 2)))
+        b.entity(r1, "husk", (470 - 12 * i, 110 - 10 * (i % 2)))
+    b.entity(r0, "husk", (150, 100))
+    b.entity(r2, "husk", (650, 100))
+    b.player(r1, (400, 100))
+    b.exit(r2, (780, 180))
+    return b.build()
+
+
+def test_flank_escape_commits_through_the_weaker_side():
+    """Mechanism unit test -- this is the discriminating check (the
+    integration scenario below turned out NOT to discriminate: an ablated
+    never-escape bot survives it too once nav humanization landed, see the
+    2026-07-13 ablation note in the scenario test). Flanked at low HP by a
+    near group and a far single, the escape must (a) engage and (b) point
+    through the FARTHER (weaker) side, not backpedal from the nearest into
+    the near group."""
+    bot = HumanBot(3)
+    px, py = 400.0, 100.0
+    perceived = [
+        dict(id=1, kind="husk", room=1, pos=(460.0, 100.0), hp=15),  # near, right
+        dict(id=2, kind="husk", room=1, pos=(465.0, 110.0), hp=15),  # near, right
+        dict(id=3, kind="husk", room=1, pos=(300.0, 100.0), hp=15),  # far, left
+    ]
+    bot._update_flank_escape(perceived, hp=50.0, px=px, py=py)
+    assert bot._escape_ticks > 0, "flank at low HP did not trigger escape"
+    edx, edy = bot._escape_dir
+    assert edx < -0.5, (
+        f"escape dir {bot._escape_dir} does not point through the weaker "
+        f"(far-left) side")
+
+    # healthy bot in the same geometry: no escape (it can still win the fight)
+    healthy = HumanBot(3)
+    healthy._update_flank_escape(perceived, hp=100.0, px=px, py=py)
+    assert healthy._escape_ticks == 0
+
+
+def test_flanked_choke_is_survived_and_escape_engages():
+    """Integration guard for the l01-demo failure ("holds a flanked
+    doorway until death"). Honest scope note (2026-07-13 ablation): with
+    nav humanization landed, an ablated never-escape bot ALSO survives
+    this exact scenario -- survival here no longer discriminates the
+    escape policy (the unit test above does). What this test pins: on a
+    real flanked choke the escape policy ENGAGES under fire, and the bot
+    gets out of the choke room alive. (Seed chosen by scanning 13..32
+    after the focus-hysteresis change reshuffled trajectories: 14 is a
+    run where the fight degrades enough in-room to cross FLANK_HP -- on
+    most seeds the bot exits before dropping below 70 HP and escape
+    correctly never fires.)"""
+    level = build_flanked_choke_level()
+    bot = HumanBot(14)
+    session = GameSession(level, seed=14, difficulty="hard")
+    start_room = session.player_room()
+    left_room = escape_engaged = False
+    for tick in range(60 * 40):
+        if session.dead or session.complete:
+            break
+        snap = session.snapshot()
+        if snap["room"] != start_room:
+            left_room = True
+        inp = bot.step(snap, session)
+        if bot._escape_ticks > 0:
+            escape_engaged = True
+        session.tick(inp)
+    assert not session.dead, "bot held the flanked choke until death"
+    assert left_room, "bot never escaped the choke room"
+    assert escape_engaged, "flank escape never engaged during the choke fight"
+
+
+# ---------------------------------------------------------------------------
+# navigation humanization (design doc §3/§4)
+# ---------------------------------------------------------------------------
+
+
+def build_corridor_level() -> Level:
+    """Empty 3-room corridor for pure-navigation properties."""
+    b = LevelBuilder("nav_corridor")
+    r0 = b.rect(0, 0, 200, 200)
+    r1 = b.rect(300, 0, 200, 200)
+    r2 = b.rect(600, 0, 200, 200)
+    b.connect(r0, 2, r1, 0)
+    b.connect(r1, 2, r2, 0)
+    b.player(r0, (60, 100))
+    b.exit(r2, (740, 100))
+    return b.build()
+
+
+def _nav_trace(bot, level: Level, seed: int, max_ticks: int = 60 * 60):
+    """Returns per-tick (room, pos, (mx, my)) until completion."""
+    session = GameSession(level, seed=seed)
+    trace = []
+    for _ in range(max_ticks):
+        if session.dead or session.complete:
+            break
+        snap = session.snapshot()
+        inp = bot.step(snap, session)
+        trace.append((snap["room"], snap["pos"], (inp.mx, inp.my)))
+        session.tick(inp)
+    return trace, session
+
+
+def test_human_bot_pauses_at_the_threshold_of_an_unexplored_room():
+    """Fail-first (2026-07-13): pre-§3 HumanBot walked portal centerlines
+    at full speed exactly like AggroBot. Room-entry protocol requires a
+    pause at the threshold of unexplored territory: some ticks of
+    near-zero commanded movement while in the origin room, before the
+    first room transition."""
+    level = build_corridor_level()
+    bot = HumanBot(17)
+    trace, session = _nav_trace(bot, level, 17)
+    assert session.complete, "bot failed to finish the empty corridor"
+    first_cross = next(i for i, (room, _, _) in enumerate(trace) if room != trace[0][0])
+    slow_ticks = sum(1 for room, _, (mx, my) in trace[:first_cross]
+                     if math.hypot(mx, my) < 0.15)
+    assert slow_ticks >= 10, (
+        f"no threshold pause before entering new room ({slow_ticks} slow ticks)")
+
+
+def test_human_bot_heading_wobbles_but_aggro_bot_does_not():
+    """Fail-first (2026-07-13): both bots produced ruler-straight move
+    vectors down the corridor. Human movement needs heading wobble --
+    variance in the commanded move angle -- while staying far short of
+    drunk (bounded spread, and it still finishes the level)."""
+    level = build_corridor_level()
+
+    def heading_spread(bot, seed):
+        trace, session = _nav_trace(bot, level, seed)
+        assert session.complete
+        angles = [math.atan2(my, mx) for _, _, (mx, my) in trace
+                  if math.hypot(mx, my) > 0.5]
+        mean = sum(angles) / len(angles)
+        var = sum((a - mean) ** 2 for a in angles) / len(angles)
+        return math.sqrt(var)
+
+    aggro_spread = heading_spread(AggroBot(19), 19)
+    human_spread = heading_spread(HumanBot(19), 19)
+    assert human_spread > aggro_spread + 0.02, (
+        f"human heading spread {human_spread:.4f} not above aggro baseline "
+        f"{aggro_spread:.4f}")
+    assert human_spread < 0.6, f"too drunk: heading spread {human_spread:.4f}"
+
+
+def test_human_bot_sweeps_aim_at_the_threshold():
+    """During the threshold pause the aim point must sweep (lamp-sweep of
+    the room beyond), not sit frozen: across the pause ticks the aim
+    x-coordinate should cover a meaningful screen span."""
+    level = build_corridor_level()
+    bot = HumanBot(23)
+    session = GameSession(level, seed=23)
+    aims_during_pause = []
+    start_room = session.player_room()
+    for _ in range(60 * 60):
+        if session.dead or session.complete:
+            break
+        snap = session.snapshot()
+        inp = bot.step(snap, session)
+        if snap["room"] == start_room and math.hypot(inp.mx, inp.my) < 0.15:
+            aims_during_pause.append((inp.ax, inp.ay))
+        session.tick(inp)
+    assert len(aims_during_pause) >= 10
+    xs = [a[0] for a in aims_during_pause]
+    assert max(xs) - min(xs) > 30.0, (
+        f"aim did not sweep during threshold pause (x span "
+        f"{max(xs) - min(xs):.1f}px)")
