@@ -322,6 +322,9 @@ class App:
         self.internal = pygame.Surface((INTERNAL_W, INTERNAL_H))
         self.clock = pygame.time.Clock()
         self.audio = Audio(mute=args.mute)
+        from .music import MusicSystem
+        self.music = MusicSystem(self.audio,
+                                 enabled=not getattr(args, "no_music", False))
         self.debug = bool(args.fps)
         self.running = True
 
@@ -810,6 +813,7 @@ class App:
         game.renderer.consume_fx(fx)
         self.audio.handle_sounds(game.session, fx)
         self.audio.update_heartbeat(game.session)
+        self.music.update(game.session)
 
         for ev in fx:
             if ev[0] == "shake" and self.settings.get("shake", True):

@@ -102,7 +102,12 @@ through-the-peak rule, straight from the source.
 1. Stereo stage: guitars double-tracked wide L/R, mono spine center.
 2. Kick-keyed pump on wall/bed/choir in the combat states (3–4 dB).
 3. Bitcrush the drum bus, subtly; tape-sat glue on the bus.
-4. Dark 3.5 s plate ONLY on chant/organum/bell (holy = far), guitars dry.
+4. Dark 3.5 s plate on the holy-and-distant voices, guitars dry — but the
+   assignment follows DRAMATIC ROLE, not instrument class (director):
+   "sometimes the organ is distant and holy, and it has reverb. *Sometimes*
+   the organ directly represents a machine screaming in defiance, and is
+   close and raw." Two voicings per voice: SANCTUARY (wet, far) and
+   DEFIANCE (dry, close, driven) — the defiant organ is a STALWART voice.
 5. Binary transitions in the dynamic system: state changes are walls and
    vacuums at bar lines, not crossfades (entry-BAM was already the rule;
    the exit-vacuum is now too).

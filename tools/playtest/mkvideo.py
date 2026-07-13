@@ -67,6 +67,80 @@ def _place(mix: np.ndarray, snd: np.ndarray, t: float, lvol: float, rvol: float,
         pos += n
 
 
+MUSIC_BANK = Path(__file__).resolve().parents[2] / \
+    "game/perihelion/assets/music/hymn01"
+
+
+def _mix_music(mix: np.ndarray, events: list, duration_s: float) -> None:
+    """Rebuild the dynamic-music mix from the logged music taps —
+    the offline twin of game/perihelion/music.py's live mixer. Stems loop
+    continuously from the first music event; logged state changes move
+    the stem gains stepwise (binary walls/vacuums, already bar-quantized
+    at tap time); the riser follows its logged gain; stings land at their
+    logged instants."""
+    mevents = [e for e in events if e["kind"].startswith("music")]
+    if not MUSIC_BANK.exists():
+        return
+    # music runs from level start (prayer) even if no state change was
+    # ever logged — an all-calm capture still carries the prayer bed
+    import sys as _sys
+    _sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "game"))
+    from perihelion.music import GAINS, RISER_MAX
+
+    stems = {}
+    for name in ("prayer", "contempt", "stalwart", "riser"):
+        p = MUSIC_BANK / f"{name}.wav"
+        if p.exists():
+            with wave.open(str(p)) as w:
+                data = np.frombuffer(w.readframes(w.getnframes()),
+                                     dtype=np.int16)
+                if w.getnchannels() == 2:
+                    data = data.reshape(-1, 2).mean(axis=1)
+                stems[name] = data.astype(np.float32) / 32767.0
+
+    t0 = 0.0
+    n_total = len(mix)
+    # gain timelines, stepwise
+    state_evs = [e for e in mevents if e["kind"] == "music_state"]
+    riser_evs = [e for e in mevents if e["kind"] == "music_riser"]
+    state_tl = [(t0, "prayer")] + [(e["t"], e["name"]) for e in state_evs]
+    riser_tl = [(t0, 0.0)] + [(e["t"], float(e["name"])) for e in riser_evs]
+
+    for name, snd in stems.items():
+        L = len(snd)
+        tl = riser_tl if name == "riser" else state_tl
+        for i, (ts, val) in enumerate(tl):
+            te = tl[i + 1][0] if i + 1 < len(tl) else duration_s
+            g = (val * RISER_MAX) if name == "riser" \
+                else GAINS[val].get(name, 0.0)
+            if g <= 0.0:
+                continue
+            s0, s1 = int(ts * RATE), min(int(te * RATE), n_total)
+            if s1 <= s0:
+                continue
+            # loop-continuous phase relative to music start
+            phase = int((ts - t0) * RATE) % L
+            pos = s0
+            while pos < s1:
+                n = min(L - phase, s1 - pos)
+                seg = snd[phase:phase + n] * (g * 0.8)
+                mix[pos:pos + n, 0] += seg
+                mix[pos:pos + n, 1] += seg
+                pos += n
+                phase = 0
+    # stings
+    sting_p = MUSIC_BANK / "sting.wav"
+    if sting_p.exists():
+        with wave.open(str(sting_p)) as w:
+            sdata = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16)
+            if w.getnchannels() == 2:
+                sdata = sdata.reshape(-1, 2).mean(axis=1)
+            sdata = sdata.astype(np.float32) / 32767.0
+        for e in mevents:
+            if e["kind"] == "music_sting":
+                _place(mix, sdata, e["t"], 0.8, 0.8)
+
+
 def build_mix(events_path: Path, duration_s: float, out_wav: Path) -> None:
     events = [json.loads(line) for line in events_path.read_text().splitlines()
               if line.strip()]
@@ -100,6 +174,8 @@ def build_mix(events_path: Path, duration_s: float, out_wav: Path) -> None:
             continue
         v, pan = e["vol"], e["pan"]
         _place(mix, snd, e["t"], (1.0 - pan) * v, pan * v)
+
+    _mix_music(mix, events, duration_s)
 
     peak = float(np.abs(mix).max()) or 1.0
     if peak > 0.9:

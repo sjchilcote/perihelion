@@ -31,6 +31,8 @@ def main(argv=None) -> None:
                         help=argparse.SUPPRESS)
     parser.add_argument("--start-chunk", type=int, default=0,
                         help=argparse.SUPPRESS)
+    parser.add_argument("--no-music", action="store_true",
+                        help="disable the dynamic music system")
     args = parser.parse_args(argv)
     if args.record and not args.bot:
         args.bot = "aggro"
