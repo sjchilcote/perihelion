@@ -132,25 +132,29 @@ def main(argv=None) -> int:
     results = []
     for seed in seeds:
         trial_dir = out_root / f"seed_{seed}"
+        # LABEL HYGIENE: the judge Reads the frame files by path, so the
+        # bot kind must never appear anywhere in the path. (Found the hard
+        # way, 2026-07-13: with dirs named human/ and aggro/, a trial's
+        # verdict reason cited "the source folder labels" -- the whole
+        # measurement was leaking.) Clips are recorded directly into
+        # neutral a/ and b/ dirs, assigned by the seeded shuffle.
+        flip = Random(seed).random() < 0.5
         if args.control:
             # two aggro clips, different seeds: there is no human; a fair
             # judge should split ~50/50 across trials
-            clip_x = record_clip("aggro", seed, args.level, args.seconds,
-                                 trial_dir / "x", args.hard)
-            clip_y = record_clip("aggro", seed + 5000, args.level,
-                                 args.seconds, trial_dir / "y", args.hard)
-            truth = None
+            pair = [("aggro", seed), ("aggro", seed + 5000)]
+            if flip:
+                pair.reverse()
+            truth_letter = None
         else:
-            clip_x = record_clip("human", seed, args.level, args.seconds,
-                                 trial_dir / "human", args.hard)
-            clip_y = record_clip("aggro", seed, args.level, args.seconds,
-                                 trial_dir / "aggro", args.hard)
-            truth = "x"  # x is the human clip pre-shuffle
-
-        # seeded presentation shuffle so the human clip isn't always "A"
-        flip = Random(seed).random() < 0.5
-        a, b = (clip_y, clip_x) if flip else (clip_x, clip_y)
-        truth_letter = None if truth is None else ("B" if flip else "A")
+            pair = [("human", seed), ("aggro", seed)]
+            if flip:
+                pair.reverse()
+            truth_letter = "A" if pair[0][0] == "human" else "B"
+        a = record_clip(pair[0][0], pair[0][1], args.level, args.seconds,
+                        trial_dir / "a", args.hard)
+        b = record_clip(pair[1][0], pair[1][1], args.level, args.seconds,
+                        trial_dir / "b", args.hard)
 
         verdict = judge(sample_frames(a, args.frames_per_clip),
                         sample_frames(b, args.frames_per_clip), args.model)

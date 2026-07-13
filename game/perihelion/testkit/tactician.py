@@ -104,10 +104,11 @@ class Tactician:
         self._last_consult_t = now
 
         digest = self._build_digest(snapshot, session, reason, tick)
-        policy = self._consult(digest)
+        policy, error = self._consult(digest)
         if policy:
             self.bot.policy.update(policy)
-        record = dict(tick=tick, reason=reason, digest=digest, policy=policy)
+        record = dict(tick=tick, reason=reason, digest=digest, policy=policy,
+                      error=error)
         self.log.append(record)
         if self.on_consult is not None:
             self.on_consult(record)
@@ -128,28 +129,37 @@ class Tactician:
             current_policy=dict(self.bot.policy),
         )
 
-    def _consult(self, digest: dict) -> dict | None:
+    def _consult(self, digest: dict) -> tuple[dict | None, str | None]:
+        """Returns (policy, error). A failed consult keeps the last policy
+        (the reflex loop must never stall on the adviser), but the failure
+        reason is always surfaced in the consult record -- a null policy
+        with no explanation is a swallowed error."""
         prompt = _PROMPT_TEMPLATE.format(digest=json.dumps(digest))
         try:
             result = subprocess.run(
                 ["claude", "-p", prompt, "--model", self.model,
                  "--output-format", "json"],
                 capture_output=True, text=True, timeout=CONSULT_TIMEOUT_S)
-        except (subprocess.TimeoutExpired, OSError):
-            return None
+        except subprocess.TimeoutExpired:
+            return None, f"timeout after {CONSULT_TIMEOUT_S}s"
+        except OSError as exc:
+            return None, f"claude CLI unavailable: {exc}"
         if result.returncode != 0:
-            return None
+            return None, (f"claude exited {result.returncode}: "
+                          f"{result.stderr[:300]}")
         try:
             payload = json.loads(result.stdout)
             text = payload["result"] if isinstance(payload, dict) else payload
             policy = json.loads(text) if isinstance(text, str) else text
-        except (json.JSONDecodeError, KeyError, TypeError):
-            return None
+        except (json.JSONDecodeError, KeyError, TypeError) as exc:
+            return None, f"unparseable response ({exc}): {result.stdout[:300]}"
         if not isinstance(policy, dict):
-            return None
+            return None, f"non-object policy: {policy!r}"
         policy = {k: v for k, v in policy.items() if k in POLICY_KEYS}
         if policy.get("movement") not in VALID_MOVEMENT:
             policy.pop("movement", None)
         if policy.get("risk") not in VALID_RISK:
             policy.pop("risk", None)
-        return policy or None
+        if not policy:
+            return None, "no valid keys in policy response"
+        return policy, None
