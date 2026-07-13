@@ -523,7 +523,12 @@ def main() -> None:
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--rooms", type=str, default=None,
-                     help="comma-separated stem/room_XXX keys to force-redo")
+                     help="comma-separated stem/room_XXX keys to force-redo "
+                          "(also restricts the run to exactly these rooms)")
+    ap.add_argument("--budget", type=float, default=None,
+                     help="stop dispatching new rooms once THIS RUN's cost "
+                          "reaches this many dollars (in-flight rooms finish; "
+                          "session hard-cap enforcement)")
     args = ap.parse_args()
 
     rooms = load_manifest_rooms(args.level)
@@ -537,6 +542,11 @@ def main() -> None:
             k = room_key(stem, idx)
             if k in force:
                 progress.pop(k, None)
+        # RESTRICT the run to exactly these rooms (2026-07-13 fix: --rooms
+        # used to only force-clear and then fall through to the whole
+        # remaining manifest -- a 20-room diagnostic batch ran away into
+        # unplanned l04 generation before it was caught).
+        rooms = [(s, i, k) for s, i, k in rooms if room_key(s, i) in force]
 
     todo = [(s, i, k) for s, i, k in rooms if room_key(s, i) not in progress]
     print(f"[full_run] level={args.level or 'ALL'} {len(rooms)} rooms, "
@@ -551,10 +561,25 @@ def main() -> None:
     n_mask_omitted = 0
     run_cost = 0.0
 
+    budget_stopped = False
     with ThreadPoolExecutor(max_workers=args.workers) as ex:
-        futs = {ex.submit(process_room, s, i, k, progress): (s, i, k) for s, i, k in todo}
-        for fut in as_completed(futs):
-            s, i, k = futs[fut]
+        pending = list(todo)
+        futs = {}
+
+        def _dispatch_up_to(n):
+            nonlocal pending
+            for _ in range(n):
+                if not pending:
+                    return
+                s, i, k = pending.pop(0)
+                futs[ex.submit(process_room, s, i, k, progress)] = (s, i, k)
+
+        # keep a bounded frontier so a --budget stop takes effect within
+        # ~workers rooms instead of after the whole submitted backlog.
+        _dispatch_up_to(args.workers * 2)
+        while futs:
+            fut = next(as_completed(list(futs)))
+            s, i, k = futs.pop(fut)
             n_done += 1
             try:
                 res = fut.result()
@@ -573,8 +598,17 @@ def main() -> None:
             except Exception as exc:  # noqa: BLE001
                 print(f"[{n_done}/{len(todo)}] {room_key(s, i)} CRASHED: {exc}")
                 traceback.print_exc()
+            if args.budget is not None and run_cost >= args.budget:
+                if not budget_stopped:
+                    budget_stopped = True
+                    print(f"[full_run] BUDGET STOP: run_cost ${run_cost:.2f} >= "
+                          f"${args.budget:.2f}; {len(pending)} rooms not dispatched")
+                pending = []
+            else:
+                _dispatch_up_to(1)
 
-    summary = dict(level=args.level, n_rooms=len(rooms), n_processed=len(todo),
+    summary = dict(level=args.level, n_rooms=len(rooms), n_processed=n_done,
+                    budget_stopped=budget_stopped,
                     n_accepted=n_accepted, n_bare=n_bare, n_masked=n_masked,
                     n_mask_omitted=n_mask_omitted, run_cost=run_cost,
                     elapsed_sec=time.time() - t0)
