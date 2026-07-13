@@ -67,7 +67,16 @@
      40
     ]
    ],
-   "entities": [],
+   "entities": [
+    {
+     "type": "flicker",
+     "pos": [
+      -2362.5,
+      100.0
+     ],
+     "props": {}
+    }
+   ],
    "kind": "dock"
   },
   {
@@ -97,7 +106,16 @@
      40
     ]
    ],
-   "entities": [],
+   "entities": [
+    {
+     "type": "flicker",
+     "pos": [
+      -2205.0,
+      100.0
+     ],
+     "props": {}
+    }
+   ],
    "kind": "dock"
   },
   {
@@ -193,7 +211,16 @@
      160
     ]
    ],
-   "entities": [],
+   "entities": [
+    {
+     "type": "flicker",
+     "pos": [
+      -2227.5,
+      220.0
+     ],
+     "props": {}
+    }
+   ],
    "kind": "dock"
   },
   {
@@ -289,7 +316,16 @@
      280
     ]
    ],
-   "entities": [],
+   "entities": [
+    {
+     "type": "flicker",
+     "pos": [
+      -2227.5,
+      340.0
+     ],
+     "props": {}
+    }
+   ],
    "kind": "dock"
   },
   {
@@ -578,7 +614,16 @@
      730
     ]
    ],
-   "entities": [],
+   "entities": [
+    {
+     "type": "flicker",
+     "pos": [
+      -2392.5,
+      780.0
+     ],
+     "props": {}
+    }
+   ],
    "kind": "storage"
   },
   {
@@ -852,7 +897,16 @@
      665
     ]
    ],
-   "entities": [],
+   "entities": [
+    {
+     "type": "flicker",
+     "pos": [
+      -2010.0,
+      737.5
+     ],
+     "props": {}
+    }
+   ],
    "kind": "pump"
   },
   {
@@ -962,7 +1016,16 @@
      400
     ]
    ],
-   "entities": [],
+   "entities": [
+    {
+     "type": "flicker",
+     "pos": [
+      -2227.5,
+      440.0
+     ],
+     "props": {}
+    }
+   ],
    "kind": "dock"
   },
   {
@@ -2067,6 +2130,14 @@
       -1869.0,
       776.0
      ]
+    },
+    {
+     "type": "flicker",
+     "pos": [
+      -1862.5,
+      825.0
+     ],
+     "props": {}
     }
    ],
    "kind": "quarters"
@@ -2119,6 +2190,14 @@
       -1597.5,
       825.0
      ]
+    },
+    {
+     "type": "flicker",
+     "pos": [
+      -1569.4,
+      825.0
+     ],
+     "props": {}
     }
    ],
    "kind": "quarters"
@@ -2142,7 +2221,16 @@
      760
     ]
    ],
-   "entities": [],
+   "entities": [
+    {
+     "type": "flicker",
+     "pos": [
+      -1465.0,
+      825.0
+     ],
+     "props": {}
+    }
+   ],
    "kind": "quarters"
   },
   {
@@ -2471,7 +2559,16 @@
      680
     ]
    ],
-   "entities": [],
+   "entities": [
+    {
+     "type": "flicker",
+     "pos": [
+      -1862.5,
+      720.0
+     ],
+     "props": {}
+    }
+   ],
    "kind": "quarters"
   },
   {
@@ -2537,7 +2634,16 @@
      680
     ]
    ],
-   "entities": [],
+   "entities": [
+    {
+     "type": "flicker",
+     "pos": [
+      -1465.0,
+      720.0
+     ],
+     "props": {}
+    }
+   ],
    "kind": "quarters"
   },
   {
@@ -3139,7 +3245,16 @@
      1100
     ]
    ],
-   "entities": [],
+   "entities": [
+    {
+     "type": "flicker",
+     "pos": [
+      -2610.0,
+      1145.0
+     ],
+     "props": {}
+    }
+   ],
    "kind": "medbay"
   },
   {
@@ -3183,7 +3298,16 @@
      1100
     ]
    ],
-   "entities": [],
+   "entities": [
+    {
+     "type": "flicker",
+     "pos": [
+      -2410.0,
+      1145.0
+     ],
+     "props": {}
+    }
+   ],
    "kind": "medbay"
   },
   {

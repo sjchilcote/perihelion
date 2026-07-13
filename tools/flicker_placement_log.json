@@ -1,0 +1,299 @@
+[
+ {
+  "level": "l07",
+  "room": 22,
+  "pos": [
+   1345.0,
+   905.0
+  ],
+  "justification": "dark (no static fixture reaches room 22); chokepoint (degree 2 -- a through-room, pounce at the door-flank); bbox diagonal 127.3u (room for LURK repositioning + a real pounce); 11 hops from spawn on the main connects graph"
+ },
+ {
+  "level": "l07",
+  "room": 20,
+  "pos": [
+   1985.0,
+   764.0
+  ],
+  "justification": "dark (no static fixture reaches room 20); chokepoint (degree 2 -- a through-room, pounce at the door-flank); bbox diagonal 219.3u (room for LURK repositioning + a real pounce); 13 hops from spawn on the main connects graph"
+ },
+ {
+  "level": "l07",
+  "room": 30,
+  "pos": [
+   1574.0,
+   1210.0
+  ],
+  "justification": "dark (no static fixture reaches room 30); chokepoint (degree 2 -- a through-room, pounce at the door-flank); bbox diagonal 233.5u (room for LURK repositioning + a real pounce); 15 hops from spawn on the main connects graph"
+ },
+ {
+  "level": "l07",
+  "room": 35,
+  "pos": [
+   1925.0,
+   1330.0
+  ],
+  "justification": "dark (no static fixture reaches room 35); chokepoint (degree 2 -- a through-room, pounce at the door-flank); bbox diagonal 134.5u (room for LURK repositioning + a real pounce); 18 hops from spawn on the main connects graph"
+ },
+ {
+  "level": "l07",
+  "room": 37,
+  "pos": [
+   2020.0,
+   1425.0
+  ],
+  "justification": "dark (no static fixture reaches room 37); chokepoint (degree 2 -- a through-room, pounce at the door-flank); bbox diagonal 134.5u (room for LURK repositioning + a real pounce); 20 hops from spawn on the main connects graph"
+ },
+ {
+  "level": "l07",
+  "room": 41,
+  "pos": [
+   1525.0,
+   1760.0
+  ],
+  "justification": "dark (no static fixture reaches room 41); junction (degree 3 -- multiple approach lanes); bbox diagonal 158.1u (room for LURK repositioning + a real pounce); 28 hops from spawn on the main connects graph"
+ },
+ {
+  "level": "l07",
+  "room": 39,
+  "pos": [
+   1263.3,
+   1743.3
+  ],
+  "justification": "dark (no static fixture reaches room 39); junction (degree 3 -- multiple approach lanes); bbox diagonal 158.1u (room for LURK repositioning + a real pounce); 30 hops from spawn on the main connects graph"
+ },
+ {
+  "level": "l07",
+  "room": 227,
+  "pos": [
+   4105.0,
+   320.0
+  ],
+  "justification": "dark (no static fixture reaches room 227); chokepoint (degree 2 -- a through-room, pounce at the door-flank); bbox diagonal 127.3u (room for LURK repositioning + a real pounce); 40 hops from spawn on the main connects graph"
+ },
+ {
+  "level": "l08",
+  "room": 60,
+  "pos": [
+   -3025.0,
+   -315.0
+  ],
+  "justification": "dark (no static fixture reaches room 60); chokepoint (degree 2 -- a through-room, pounce at the door-flank); bbox diagonal 127.3u (room for LURK repositioning + a real pounce); 10 hops from spawn on the main connects graph"
+ },
+ {
+  "level": "l08",
+  "room": 40,
+  "pos": [
+   -3025.0,
+   -405.0
+  ],
+  "justification": "dark (no static fixture reaches room 40); chokepoint (degree 2 -- a through-room, pounce at the door-flank); bbox diagonal 127.3u (room for LURK repositioning + a real pounce); 13 hops from spawn on the main connects graph"
+ },
+ {
+  "level": "l08",
+  "room": 25,
+  "pos": [
+   -2755.0,
+   -495.0
+  ],
+  "justification": "dark (no static fixture reaches room 25); chokepoint (degree 2 -- a through-room, pounce at the door-flank); bbox diagonal 127.3u (room for LURK repositioning + a real pounce); 15 hops from spawn on the main connects graph"
+ },
+ {
+  "level": "l08",
+  "room": 48,
+  "pos": [
+   -2305.0,
+   -405.0
+  ],
+  "justification": "dark (no static fixture reaches room 48); chokepoint (degree 2 -- a through-room, pounce at the door-flank); bbox diagonal 127.3u (room for LURK repositioning + a real pounce); 19 hops from spawn on the main connects graph"
+ },
+ {
+  "level": "l08",
+  "room": 67,
+  "pos": [
+   -2125.0,
+   -315.0
+  ],
+  "justification": "dark (no static fixture reaches room 67); chokepoint (degree 2 -- a through-room, pounce at the door-flank); bbox diagonal 127.3u (room for LURK repositioning + a real pounce); 22 hops from spawn on the main connects graph"
+ },
+ {
+  "level": "l08",
+  "room": 69,
+  "pos": [
+   -1945.0,
+   -315.0
+  ],
+  "justification": "dark (no static fixture reaches room 69); chokepoint (degree 2 -- a through-room, pounce at the door-flank); bbox diagonal 127.3u (room for LURK repositioning + a real pounce); 24 hops from spawn on the main connects graph"
+ },
+ {
+  "level": "l08",
+  "room": 72,
+  "pos": [
+   -1675.0,
+   -315.0
+  ],
+  "justification": "dark (no static fixture reaches room 72); chokepoint (degree 2 -- a through-room, pounce at the door-flank); bbox diagonal 127.3u (room for LURK repositioning + a real pounce); 27 hops from spawn on the main connects graph"
+ },
+ {
+  "level": "l08",
+  "room": 163,
+  "pos": [
+   -1828.8,
+   405.0
+  ],
+  "justification": "dark (no static fixture reaches room 163); chokepoint (degree 2 -- a through-room, pounce at the door-flank); bbox diagonal 127.3u (room for LURK repositioning + a real pounce); 29 hops from spawn on the main connects graph"
+ },
+ {
+  "level": "l08",
+  "room": 167,
+  "pos": [
+   -1495.0,
+   405.0
+  ],
+  "justification": "dark (no static fixture reaches room 167); chokepoint (degree 2 -- a through-room, pounce at the door-flank); bbox diagonal 127.3u (room for LURK repositioning + a real pounce); 31 hops from spawn on the main connects graph"
+ },
+ {
+  "level": "l08",
+  "room": 9,
+  "pos": [
+   -1225.0,
+   -630.0
+  ],
+  "justification": "dark (no static fixture reaches room 9); chokepoint (degree 2 -- a through-room, pounce at the door-flank); bbox diagonal 201.2u (room for LURK repositioning + a real pounce); 33 hops from spawn on the main connects graph"
+ },
+ {
+  "level": "l08",
+  "room": 80,
+  "pos": [
+   -1225.0,
+   -225.0
+  ],
+  "justification": "dark (no static fixture reaches room 80); chokepoint (degree 2 -- a through-room, pounce at the door-flank); bbox diagonal 127.3u (room for LURK repositioning + a real pounce); 35 hops from spawn on the main connects graph"
+ },
+ {
+  "level": "l09",
+  "room": 2,
+  "pos": [
+   -2362.5,
+   100.0
+  ],
+  "justification": "dark (no static fixture reaches room 2); junction (degree 3 -- multiple approach lanes); bbox diagonal 180.6u (room for LURK repositioning + a real pounce); 2 hops from spawn on the main connects graph"
+ },
+ {
+  "level": "l09",
+  "room": 3,
+  "pos": [
+   -2205.0,
+   100.0
+  ],
+  "justification": "dark (no static fixture reaches room 3); junction (degree 3 -- multiple approach lanes); bbox diagonal 180.6u (room for LURK repositioning + a real pounce); 3 hops from spawn on the main connects graph"
+ },
+ {
+  "level": "l09",
+  "room": 7,
+  "pos": [
+   -2227.5,
+   220.0
+  ],
+  "justification": "dark (no static fixture reaches room 7); junction (degree 4 -- multiple approach lanes); bbox diagonal 180.6u (room for LURK repositioning + a real pounce); 4 hops from spawn on the main connects graph"
+ },
+ {
+  "level": "l09",
+  "room": 11,
+  "pos": [
+   -2227.5,
+   340.0
+  ],
+  "justification": "dark (no static fixture reaches room 11); junction (degree 3 -- multiple approach lanes); bbox diagonal 180.6u (room for LURK repositioning + a real pounce); 5 hops from spawn on the main connects graph"
+ },
+ {
+  "level": "l09",
+  "room": 37,
+  "pos": [
+   -2227.5,
+   440.0
+  ],
+  "justification": "dark (no static fixture reaches room 37); chokepoint (degree 2 -- a through-room, pounce at the door-flank); bbox diagonal 156.9u (room for LURK repositioning + a real pounce); 6 hops from spawn on the main connects graph"
+ },
+ {
+  "level": "l09",
+  "room": 22,
+  "pos": [
+   -2392.5,
+   780.0
+  ],
+  "justification": "dark (no static fixture reaches room 22); chokepoint (degree 2 -- a through-room, pounce at the door-flank); bbox diagonal 145.0u (room for LURK repositioning + a real pounce); 9 hops from spawn on the main connects graph"
+ },
+ {
+  "level": "l09",
+  "room": 32,
+  "pos": [
+   -2010.0,
+   737.5
+  ],
+  "justification": "dark (no static fixture reaches room 32); chokepoint (degree 2 -- a through-room, pounce at the door-flank); bbox diagonal 176.1u (room for LURK repositioning + a real pounce); 12 hops from spawn on the main connects graph"
+ },
+ {
+  "level": "l09",
+  "room": 125,
+  "pos": [
+   -2610.0,
+   1145.0
+  ],
+  "justification": "dark (no static fixture reaches room 125); chokepoint (degree 2 -- a through-room, pounce at the door-flank); bbox diagonal 134.5u (room for LURK repositioning + a real pounce); 13 hops from spawn on the main connects graph"
+ },
+ {
+  "level": "l09",
+  "room": 127,
+  "pos": [
+   -2410.0,
+   1145.0
+  ],
+  "justification": "dark (no static fixture reaches room 127); chokepoint (degree 2 -- a through-room, pounce at the door-flank); bbox diagonal 134.5u (room for LURK repositioning + a real pounce); 15 hops from spawn on the main connects graph"
+ },
+ {
+  "level": "l09",
+  "room": 82,
+  "pos": [
+   -1862.5,
+   825.0
+  ],
+  "justification": "dark (no static fixture reaches room 82); junction (degree 3 -- multiple approach lanes); bbox diagonal 187.4u (room for LURK repositioning + a real pounce); 22 hops from spawn on the main connects graph"
+ },
+ {
+  "level": "l09",
+  "room": 98,
+  "pos": [
+   -1862.5,
+   720.0
+  ],
+  "justification": "dark (no static fixture reaches room 98); chokepoint (degree 2 -- a through-room, pounce at the door-flank); bbox diagonal 156.9u (room for LURK repositioning + a real pounce); 23 hops from spawn on the main connects graph"
+ },
+ {
+  "level": "l09",
+  "room": 84,
+  "pos": [
+   -1569.4,
+   825.0
+  ],
+  "justification": "dark (no static fixture reaches room 84); junction (degree 4 -- multiple approach lanes); bbox diagonal 187.4u (room for LURK repositioning + a real pounce); 24 hops from spawn on the main connects graph"
+ },
+ {
+  "level": "l09",
+  "room": 85,
+  "pos": [
+   -1465.0,
+   825.0
+  ],
+  "justification": "dark (no static fixture reaches room 85); junction (degree 3 -- multiple approach lanes); bbox diagonal 183.8u (room for LURK repositioning + a real pounce); 25 hops from spawn on the main connects graph"
+ },
+ {
+  "level": "l09",
+  "room": 101,
+  "pos": [
+   -1465.0,
+   720.0
+  ],
+  "justification": "dark (no static fixture reaches room 101); chokepoint (degree 2 -- a through-room, pounce at the door-flank); bbox diagonal 152.6u (room for LURK repositioning + a real pounce); 26 hops from spawn on the main connects graph"
+ }
+]

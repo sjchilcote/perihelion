@@ -508,7 +508,16 @@
      -720.0
     ]
    ],
-   "entities": [],
+   "entities": [
+    {
+     "type": "flicker",
+     "pos": [
+      -1225.0,
+      -630.0
+     ],
+     "props": {}
+    }
+   ],
    "kind": "chapel"
   },
   {
@@ -930,7 +939,16 @@
      -540.0
     ]
    ],
-   "entities": [],
+   "entities": [
+    {
+     "type": "flicker",
+     "pos": [
+      -2755.0,
+      -495.0
+     ],
+     "props": {}
+    }
+   ],
    "kind": "quarters"
   },
   {
@@ -1335,7 +1353,16 @@
      -450.0
     ]
    ],
-   "entities": [],
+   "entities": [
+    {
+     "type": "flicker",
+     "pos": [
+      -3025.0,
+      -405.0
+     ],
+     "props": {}
+    }
+   ],
    "kind": "quarters"
   },
   {
@@ -1511,7 +1538,16 @@
      -450.0
     ]
    ],
-   "entities": [],
+   "entities": [
+    {
+     "type": "flicker",
+     "pos": [
+      -2305.0,
+      -405.0
+     ],
+     "props": {}
+    }
+   ],
    "kind": "corridor"
   },
   {
@@ -1783,7 +1819,16 @@
      -360.0
     ]
    ],
-   "entities": [],
+   "entities": [
+    {
+     "type": "flicker",
+     "pos": [
+      -3025.0,
+      -315.0
+     ],
+     "props": {}
+    }
+   ],
    "kind": "corridor"
   },
   {
@@ -1953,7 +1998,16 @@
      -360.0
     ]
    ],
-   "entities": [],
+   "entities": [
+    {
+     "type": "flicker",
+     "pos": [
+      -2125.0,
+      -315.0
+     ],
+     "props": {}
+    }
+   ],
    "kind": "corridor"
   },
   {
@@ -1997,7 +2051,16 @@
      -360.0
     ]
    ],
-   "entities": [],
+   "entities": [
+    {
+     "type": "flicker",
+     "pos": [
+      -1945.0,
+      -315.0
+     ],
+     "props": {}
+    }
+   ],
    "kind": "corridor"
   },
   {
@@ -2063,7 +2126,16 @@
      -360.0
     ]
    ],
-   "entities": [],
+   "entities": [
+    {
+     "type": "flicker",
+     "pos": [
+      -1675.0,
+      -315.0
+     ],
+     "props": {}
+    }
+   ],
    "kind": "corridor"
   },
   {
@@ -2270,7 +2342,16 @@
      -270.0
     ]
    ],
-   "entities": [],
+   "entities": [
+    {
+     "type": "flicker",
+     "pos": [
+      -1225.0,
+      -225.0
+     ],
+     "props": {}
+    }
+   ],
    "kind": "corridor"
   },
   {
@@ -4353,6 +4434,14 @@
       -1855.0,
       405.0
      ]
+    },
+    {
+     "type": "flicker",
+     "pos": [
+      -1828.8,
+      405.0
+     ],
+     "props": {}
     }
    ],
    "kind": "chapel"
@@ -4480,7 +4569,16 @@
      360.0
     ]
    ],
-   "entities": [],
+   "entities": [
+    {
+     "type": "flicker",
+     "pos": [
+      -1495.0,
+      405.0
+     ],
+     "props": {}
+    }
+   ],
    "kind": "chapel"
   },
   {

@@ -5,9 +5,13 @@ gets close, then ambushes." Covers the light-level query
 (`GameSession._flicker_ai`), and the sensor-trace intensity channel
 (`enemies[eid]["trace_intensity"]`, consumed by `render.py._draw_enemy`).
 
-No lurkers are placed in any shipped campaign level (director's call) --
-these tests build their own throwaway worlds, same as
-`test_terrain_light_shadows.py`.
+Lurkers are now placed in the Adversary-territory campaign levels (l07-l09
+only -- director's order 2026-07-13, "common annoyance... in sections
+where live Adversary troops... live"; see tools/flicker_placement.py and
+test_flicker_campaign_placement.py for the placement judgment and its
+invariant checks). These unit tests still build their own throwaway
+worlds, same as `test_terrain_light_shadows.py`, to isolate the mechanic
+from any one level's geometry.
 """
 from __future__ import annotations
 
