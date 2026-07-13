@@ -93,7 +93,14 @@ def ui(px: float) -> int:
 
 TEXTURE_DIR = Path(__file__).resolve().parent / "assets" / "textures"
 
-FLOOR_BASE = (26, 26, 33)          # ~0x1a1a21 dark grey-blue — reads clearly against the void
+FLOOR_BASE = (104, 104, 132)       # flat-floor ALBEDO (2026-07-13): under zero-ambient
+                                   # multiply lighting the floor color is the brightness
+                                   # ceiling — at the old (26,26,33) no light could lift a
+                                   # bare room past ~11%. Scaled x4 into the same albedo
+                                   # class as generated textures (measured 100-150) so
+                                   # fixtures and the work lamp read on untextured rooms.
+                                   # UNLIT floors still render black (the lightmap is the
+                                   # sole illumination); this only changes what light finds.
 SHADOW_FLOOR = (11, 11, 15)        # known geometry outside line of sight: present, unlit
 OW_FLOOR = (52, 64, 58)            # otherworld: the floor itself luminesces, cold
 WALL_COLOR = (184, 196, 204)       # 0xb8c4cc
@@ -145,7 +152,7 @@ HYDRO_STALK = (88, 152, 96)        # growing stalk dot -- dimmer than SCREEN_COL
 # moves the floor ~3 per channel) so no portal crossing ever reads as a
 # palette seam: SEAMLESSNESS IS LAW; the drama is cumulative. Ramps below
 # are (cold, mid, deep) waypoints sampled piecewise-linearly at d=0/0.5/1.
-_FLOOR_RAMP = ((26, 26, 33), (38, 28, 30), (54, 22, 26))
+_FLOOR_RAMP = ((104, 104, 132), (152, 112, 120), (200, 88, 100))  # x4 albedo (deep clamped ~x3.8)
 _WALL_RAMP = ((184, 196, 204), (194, 186, 178), (206, 168, 154))
 _WALL_MIN_RAMP = ((74, 80, 88), (80, 75, 73), (90, 66, 62))
 _PROP_WARM = (18, -6, -16)         # additive full-descent prop temperature shift
