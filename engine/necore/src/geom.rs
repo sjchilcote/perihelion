@@ -285,6 +285,124 @@ pub fn depth_in_polygon(p: Vec2, pts: &[Vec2]) -> f64 {
     d
 }
 
+/// Axis-aligned rect in a room's own local coordinates (same frame as the
+/// room's `verts`/floor texture). This is the terrain-mask collision
+/// primitive: a downsampled walk-mask PNG is reduced to a small set of these
+/// (see `game/perihelion/terrain.py`), one per blocked equipment footprint.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Rect {
+    pub lo: Vec2,
+    pub hi: Vec2,
+}
+
+impl Rect {
+    /// Normalizes corners so `lo <= hi` componentwise regardless of input order.
+    pub fn new(a: Vec2, b: Vec2) -> Rect {
+        Rect {
+            lo: v(a.x.min(b.x), a.y.min(b.y)),
+            hi: v(a.x.max(b.x), a.y.max(b.y)),
+        }
+    }
+
+    pub fn inflate(&self, r: f64) -> Rect {
+        Rect {
+            lo: v(self.lo.x - r, self.lo.y - r),
+            hi: v(self.hi.x + r, self.hi.y + r),
+        }
+    }
+
+    pub fn contains(&self, p: Vec2) -> bool {
+        p.x >= self.lo.x && p.x <= self.hi.x && p.y >= self.lo.y && p.y <= self.hi.y
+    }
+
+    /// The four edges of the rect as (a, b) segments, winding order matching
+    /// the room's own canonical CCW convention closely enough for occluder
+    /// use (a light/shadow pass only needs the segment geometry, not a
+    /// polygon interior test).
+    pub fn edges(&self) -> [(Vec2, Vec2); 4] {
+        let (lo, hi) = (self.lo, self.hi);
+        let tl = v(lo.x, lo.y);
+        let tr = v(hi.x, lo.y);
+        let br = v(hi.x, hi.y);
+        let bl = v(lo.x, hi.y);
+        [(tl, tr), (tr, br), (br, bl), (bl, tl)]
+    }
+}
+
+/// Swept-circle-vs-rect entry test along the moving segment `pos -> target`
+/// (circle of `radius`, axis-aligned `rect`, both in the same room-local
+/// frame). Returns the earliest entry parameter `t` in `(0, 1]` and the
+/// OUTWARD face normal (pointing away from the rect, back toward where the
+/// circle came from -- the same convention `physics.rs` wall code uses for
+/// its reflection normal) at first contact, or `None` if the segment never
+/// enters the radius-padded rect during this substep.
+///
+/// The padding is a square (Minkowski-sum-with-radius) expansion, not a
+/// rounded rect: a superset of the true rounded corner region, so a
+/// diagonal approach to a corner is stopped a hair early rather than ever
+/// tunneling past it -- the same "safe over exact" trade `EDGE_SPAN_EXT`
+/// makes for wall seams.
+///
+/// A circle whose center is ALREADY inside the padded rect at `pos` (t=0
+/// would be the "crossing") returns `None`: that is not a crossing this
+/// substep, and callers handle an already-embedded center with a separate
+/// positional correction (mirroring how room-wall containment is a
+/// standalone pass, not part of the crossing test).
+pub fn swept_circle_vs_rect(pos: Vec2, target: Vec2, radius: f64, rect: &Rect) -> Option<(f64, Vec2)> {
+    let padded = rect.inflate(radius);
+    let d = target - pos;
+    let mut t0 = 0.0f64;
+    let mut t1 = 1.0f64;
+    let mut normal = Vec2::ZERO;
+
+    if d.x.abs() < 1e-12 {
+        if pos.x < padded.lo.x || pos.x > padded.hi.x {
+            return None;
+        }
+    } else {
+        let inv = 1.0 / d.x;
+        let (tmin, tmax, n_near) = if d.x > 0.0 {
+            ((padded.lo.x - pos.x) * inv, (padded.hi.x - pos.x) * inv, v(-1.0, 0.0))
+        } else {
+            ((padded.hi.x - pos.x) * inv, (padded.lo.x - pos.x) * inv, v(1.0, 0.0))
+        };
+        if tmin > t0 {
+            t0 = tmin;
+            normal = n_near;
+        }
+        t1 = t1.min(tmax);
+        if t0 > t1 {
+            return None;
+        }
+    }
+
+    if d.y.abs() < 1e-12 {
+        if pos.y < padded.lo.y || pos.y > padded.hi.y {
+            return None;
+        }
+    } else {
+        let inv = 1.0 / d.y;
+        let (tmin, tmax, n_near) = if d.y > 0.0 {
+            ((padded.lo.y - pos.y) * inv, (padded.hi.y - pos.y) * inv, v(0.0, -1.0))
+        } else {
+            ((padded.hi.y - pos.y) * inv, (padded.lo.y - pos.y) * inv, v(0.0, 1.0))
+        };
+        if tmin > t0 {
+            t0 = tmin;
+            normal = n_near;
+        }
+        t1 = t1.min(tmax);
+        if t0 > t1 {
+            return None;
+        }
+    }
+
+    if t0 <= 1e-12 || t0 > 1.0 {
+        return None;
+    }
+    Some((t0, normal))
+}
+
 pub fn polygon_bbox(pts: &[Vec2]) -> (Vec2, Vec2) {
     let mut lo = v(f64::INFINITY, f64::INFINITY);
     let mut hi = v(f64::NEG_INFINITY, f64::NEG_INFINITY);
@@ -395,5 +513,61 @@ mod tests {
         assert_eq!(segs.len(), 1);
         assert!(segs[0][0].dist(v(0.0, 1.0)) < 1e-9);
         assert!(segs[0].last().unwrap().dist(v(2.0, 1.0)) < 1e-9);
+    }
+
+    // -- terrain-mask primitives (director's walk-mask directive) --------
+
+    #[test]
+    fn swept_circle_vs_rect_stops_at_padded_face_from_every_side() {
+        let rect = Rect::new(v(10.0, 10.0), v(20.0, 20.0));
+        // Approach from the left along +x.
+        let (t, n) = swept_circle_vs_rect(v(0.0, 15.0), v(30.0, 15.0), 2.0, &rect).unwrap();
+        let hit = v(0.0, 15.0).lerp(v(30.0, 15.0), t);
+        assert!((hit.x - 8.0).abs() < 1e-9, "hit {:?}", hit); // 10 - radius
+        assert!(n.dist(v(-1.0, 0.0)) < 1e-9);
+
+        // From the right along -x.
+        let (t, n) = swept_circle_vs_rect(v(30.0, 15.0), v(0.0, 15.0), 2.0, &rect).unwrap();
+        let hit = v(30.0, 15.0).lerp(v(0.0, 15.0), t);
+        assert!((hit.x - 22.0).abs() < 1e-9, "hit {:?}", hit);
+        assert!(n.dist(v(1.0, 0.0)) < 1e-9);
+
+        // From above along +y.
+        let (t, n) = swept_circle_vs_rect(v(15.0, 0.0), v(15.0, 30.0), 2.0, &rect).unwrap();
+        let hit = v(15.0, 0.0).lerp(v(15.0, 30.0), t);
+        assert!((hit.y - 8.0).abs() < 1e-9, "hit {:?}", hit);
+        assert!(n.dist(v(0.0, -1.0)) < 1e-9);
+
+        // From below along -y.
+        let (t, n) = swept_circle_vs_rect(v(15.0, 30.0), v(15.0, 0.0), 2.0, &rect).unwrap();
+        let hit = v(15.0, 30.0).lerp(v(15.0, 0.0), t);
+        assert!((hit.y - 22.0).abs() < 1e-9, "hit {:?}", hit);
+        assert!(n.dist(v(0.0, 1.0)) < 1e-9);
+    }
+
+    #[test]
+    fn swept_circle_vs_rect_never_tunnels_on_a_fast_diagonal_pass() {
+        // A "bullet"-speed diagonal crossing straight through the rect must
+        // still register an entry, not skip clean through.
+        let rect = Rect::new(v(-5.0, -5.0), v(5.0, 5.0));
+        let hit = swept_circle_vs_rect(v(-200.0, -200.0), v(200.0, 200.0), 1.0, &rect);
+        assert!(hit.is_some(), "diagonal pass tunneled through the rect");
+    }
+
+    #[test]
+    fn swept_circle_vs_rect_misses_a_parallel_near_pass() {
+        let rect = Rect::new(v(0.0, 0.0), v(10.0, 10.0));
+        // Passes well clear of the padded rect (radius 1, gap 5).
+        let hit = swept_circle_vs_rect(v(-10.0, 16.0), v(10.0, 16.0), 1.0, &rect);
+        assert!(hit.is_none(), "phantom hit on a clean miss: {:?}", hit);
+    }
+
+    #[test]
+    fn swept_circle_vs_rect_already_embedded_is_not_a_crossing() {
+        let rect = Rect::new(v(0.0, 0.0), v(10.0, 10.0));
+        // Starts already inside the rect: not a "crossing" this substep --
+        // the caller's separate positional correction owns this case.
+        let hit = swept_circle_vs_rect(v(5.0, 5.0), v(5.0, 6.0), 1.0, &rect);
+        assert!(hit.is_none());
     }
 }

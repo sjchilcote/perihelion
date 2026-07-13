@@ -254,6 +254,82 @@ impl Router {
     }
 }
 
+/// Walk-mask terrain as light-occluder geometry for room `room`, in that
+/// room's own local coordinates -- the same frame `Room::verts`/portal
+/// planes live in. Each returned segment is one edge of one terrain rect
+/// (`geom::Rect::edges`); a future lighting/shadow pass can treat these
+/// exactly like wall segments when building a light's visible wedge.
+///
+/// **Interface only.** Nothing in `render.py`/the lighting composite
+/// consumes this yet (that lane is owned by a sibling in-flight fix, per
+/// the director's order) -- this is the clean query surface for it to pick
+/// up later. Terrain never affects `visibility.rs`/vision: this function is
+/// a separate, additive query, not a change to `visible_set`.
+pub fn terrain_light_segments(world: &World, room: RoomId) -> Vec<(Vec2, Vec2)> {
+    match world.rooms.get(room) {
+        Some(r) => r.terrain.iter().flat_map(|rect| rect.edges()).collect(),
+        None => Vec::new(),
+    }
+}
+
+/// Steer a desired direction around walk-mask terrain so bot pathing (which
+/// only routes at ROOM granularity via `Router`) doesn't grind forever
+/// against in-room obstacles it beelines straight into.
+///
+/// Physics-level wall sliding (see `physics::Sim::step_entity`) already
+/// handles glancing approaches -- any nonzero tangential velocity component
+/// carries the entity around a corner. It does NOT handle an exactly
+/// head-on approach: the tangential component is zero, sliding kills all
+/// velocity, and a caller that re-aims straight at the same blocked target
+/// every tick (the game's `_enemy_ai` "seek" behavior) regenerates the same
+/// zero-progress velocity forever -- a real deadlock, confirmed by a
+/// fail-first test (`entity_slides_along_terrain_and_reaches_far_side`
+/// hung at the padded face until this function was used instead of a raw
+/// direction-to-target).
+///
+/// Casts `desired` (normalized) up to `lookahead` units from `pos`; if it
+/// would enter a terrain rect, blends in a tangential deflection AWAY from
+/// whichever side the obstacle's center leans toward relative to `pos` (a
+/// deterministic tie-break -- never zero, never oscillates between ticks for
+/// a static obstacle and desired direction). Otherwise returns `desired`
+/// unchanged (normalized). Room-local in, room-local out.
+pub fn terrain_avoid_dir(
+    world: &World,
+    room: RoomId,
+    pos: Vec2,
+    radius: f64,
+    desired: Vec2,
+    lookahead: f64,
+) -> Vec2 {
+    let d = desired.normalized();
+    let r = match world.rooms.get(room) {
+        Some(r) => r,
+        None => return d,
+    };
+    let end = pos + d * lookahead;
+    let mut best: Option<(f64, crate::geom::Rect)> = None;
+    for rect in &r.terrain {
+        if let Some((t, _n)) = crate::geom::swept_circle_vs_rect(pos, end, radius, rect) {
+            match best {
+                Some((bt, _)) if bt <= t => {}
+                _ => best = Some((t, *rect)),
+            }
+        }
+    }
+    let rect = match best {
+        Some((_, r)) => r,
+        None => return d,
+    };
+    let center = (rect.lo + rect.hi) * 0.5;
+    let to_center = center - pos;
+    let perp = d.perp_right();
+    // Steer away from the side the obstacle's center leans toward -- a
+    // sign that only flips when the obstacle's bearing genuinely does,
+    // never chatters between ticks for a static scene.
+    let side = if perp.dot(to_center) >= 0.0 { -1.0 } else { 1.0 };
+    (d + perp * (side * 0.9)).normalized()
+}
+
 pub fn rooms_within(world: &World, center: RoomId, hops: usize) -> Vec<RoomId> {
     let mut seen = vec![false; world.rooms.len()];
     let mut out = vec![center];
@@ -404,5 +480,61 @@ mod tests {
             router.next_edge(&w, rooms[3], rooms[0]),
             fresh.next_edge(&w, rooms[3], rooms[0])
         );
+    }
+
+    // -- walk-mask terrain queries -----------------------------------
+
+    #[test]
+    fn terrain_light_segments_is_empty_absent_a_mask_and_four_edges_once_set() {
+        let mut w = World::new();
+        let r = w.add_room(&square(50.0)).unwrap();
+        assert!(
+            terrain_light_segments(&w, r).is_empty(),
+            "absence must mean walkable/unoccluded, not fabricated occluder geometry"
+        );
+        w.set_room_terrain(r, vec![crate::geom::Rect::new(v(-5.0, -5.0), v(5.0, 5.0))])
+            .unwrap();
+        let segs = terrain_light_segments(&w, r);
+        assert_eq!(segs.len(), 4, "one rect must contribute exactly its 4 edges");
+        // Every segment endpoint must lie on the rect boundary.
+        for (a, b) in &segs {
+            for p in [a, b] {
+                let on_boundary = (p.x - (-5.0)).abs() < 1e-9
+                    || (p.x - 5.0).abs() < 1e-9
+                    || (p.y - (-5.0)).abs() < 1e-9
+                    || (p.y - 5.0).abs() < 1e-9;
+                assert!(on_boundary, "segment endpoint off the rect boundary: {:?}", p);
+            }
+        }
+        // Unknown room: empty, not a panic.
+        assert!(terrain_light_segments(&w, 999).is_empty());
+    }
+
+    #[test]
+    fn terrain_avoid_dir_passes_through_when_the_path_is_clear() {
+        let mut w = World::new();
+        let r = w.add_room(&square(50.0)).unwrap();
+        w.set_room_terrain(r, vec![crate::geom::Rect::new(v(30.0, 30.0), v(40.0, 40.0))])
+            .unwrap();
+        // Desired direction doesn't come near the rect at all.
+        let desired = v(-1.0, 0.0);
+        let steered = terrain_avoid_dir(&w, r, v(0.0, -30.0), 3.0, desired, 25.0);
+        assert!(steered.dist(desired) < 1e-9, "deflected an already-clear path: {:?}", steered);
+    }
+
+    #[test]
+    fn terrain_avoid_dir_deflects_and_is_deterministic_for_a_static_scene() {
+        let mut w = World::new();
+        let r = w.add_room(&square(50.0)).unwrap();
+        w.set_room_terrain(r, vec![crate::geom::Rect::new(v(-5.0, -5.0), v(5.0, 5.0))])
+            .unwrap();
+        let desired = v(1.0, 0.0); // straight at the rect, dead center
+        let steered = terrain_avoid_dir(&w, r, v(-30.0, 0.0), 3.0, desired, 40.0);
+        assert!(steered.dist(desired) > 1e-3, "did not deflect a head-on approach");
+        assert!((steered.len() - 1.0).abs() < 1e-9, "steered direction must stay unit length");
+        // Same inputs must give the same output every time (no chatter).
+        let steered2 = terrain_avoid_dir(&w, r, v(-30.0, 0.0), 3.0, desired, 40.0);
+        assert_eq!(steered.x, steered2.x);
+        assert_eq!(steered.y, steered2.y);
     }
 }

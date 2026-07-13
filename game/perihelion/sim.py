@@ -16,6 +16,7 @@ import necore
 
 from .levels import Level
 from .lighting import LightingSystem
+from . import terrain
 
 DT = 1.0 / 60.0
 TICK_RATE = 60
@@ -187,6 +188,14 @@ class GameSession:
         self.sim = s
         for verts in level.room_verts:
             s.add_room(verts)
+        # Walk-mask terrain: painted-in equipment/machinery that blocks
+        # movement and shots exactly like a wall. Loaded alongside the
+        # floor texture (same directory, same room-local coordinate
+        # mapping -- terrain.py), but the collision data itself flows
+        # straight into the engine here, never through the renderer.
+        # Absence of a mask file means fully walkable (no fabricated
+        # terrain) -- see terrain.py's module docstring.
+        terrain.apply_walk_masks(s, level)
         for a, ea, b, eb in level.connects:
             s.connect(a, ea, b, eb)
         for a, ea, b, eb, m9 in level.connects_x:
@@ -946,6 +955,7 @@ class GameSession:
         offset = self.sim.num_rooms()
         for verts in level.room_verts:
             self.sim.add_room(verts)
+        terrain.apply_walk_masks(self.sim, level, offset)
         for a, ea, b, eb in level.connects:
             self.sim.connect(a + offset, ea, b + offset, eb)
         for a, ea, b, eb, m9 in level.connects_x:
@@ -1335,14 +1345,25 @@ class GameSession:
                 ddx, ddy = px - ex, py - ey
                 dist = math.hypot(ddx, ddy) or 1e-6
                 nx, ny = ddx / dist, ddy / dist
-                s.set_dir(eid, nx, ny)
+                s.set_dir(eid, nx, ny)  # aim/face the player exactly
+                # Movement steers around walk-mask terrain: physics-level
+                # wall sliding alone doesn't route a bot around an obstacle
+                # it beelines straight into (only a room's convex boundary
+                # guarantees that) -- a straight seek toward a target
+                # directly behind painted equipment can generate zero
+                # tangential velocity and grind against it forever
+                # (confirmed fail-first in necore's physics tests). `sx,sy`
+                # is the movement heading; `nx,ny` stays the true bearing
+                # for aim/attacks below.
+                sx, sy = s.terrain_avoid_dir(room, ex, ey, d["radius"], nx, ny,
+                                             max(40.0, min(dist, 120.0)))
                 # husks lunge: a sudden burst inside close range reads as an
                 # attack, not a shove
                 if kind in ("husk", "brute") and dist < 95.0 \
                         and e.get("lunge_cd", 0) <= 0:
                     e["lunge_cd"] = 120 if kind == "husk" else 150
                     burst = 300.0 if kind == "husk" else 240.0
-                    s.set_vel(eid, evx + nx * burst, evy + ny * burst)
+                    s.set_vel(eid, evx + sx * burst, evy + sy * burst)
                     self._snd(d["alert_snd"], room, (ex, ey), 0.55)
                 if e.get("lunge_cd", 0) > 0:
                     e["lunge_cd"] -= 1
@@ -1357,9 +1378,9 @@ class GameSession:
                 if keep_min is not None and d.get("spit_cd") is not None:
                     # ranged: hold the band, spit on cooldown
                     if dist < d["keep_min"]:
-                        s.set_vel(eid, evx - nx * accel * DT, evy - ny * accel * DT)
+                        s.set_vel(eid, evx - sx * accel * DT, evy - sy * accel * DT)
                     elif dist > d["keep_max"]:
-                        s.set_vel(eid, evx + nx * accel * DT, evy + ny * accel * DT)
+                        s.set_vel(eid, evx + sx * accel * DT, evy + sy * accel * DT)
                     if e["spit_cd"] <= 0:
                         e["spit_cd"] = d["spit_cd"] // 2 if e.get("enraged") \
                             else d["spit_cd"]
@@ -1372,7 +1393,7 @@ class GameSession:
                                            math.cos(a2), math.sin(a2), d)
                     if kind != "warden":
                         continue
-                s.set_vel(eid, evx + nx * accel * DT, evy + ny * accel * DT)
+                s.set_vel(eid, evx + sx * accel * DT, evy + sy * accel * DT)
             else:
                 if e.get("tether"):
                     continue  # arena guardian: holds its ground
@@ -1382,9 +1403,11 @@ class GameSession:
                 mx_, my_ = s.edge_midpoint(room, edge)
                 ddx, ddy = mx_ - ex, my_ - ey
                 dist = math.hypot(ddx, ddy) or 1e-6
-                s.set_dir(eid, ddx / dist, ddy / dist)
-                s.set_vel(eid, evx + ddx / dist * accel * DT,
-                          evy + ddy / dist * accel * DT)
+                nx, ny = ddx / dist, ddy / dist
+                s.set_dir(eid, nx, ny)
+                sx, sy = s.terrain_avoid_dir(room, ex, ey, d["radius"], nx, ny,
+                                             max(40.0, min(dist, 120.0)))
+                s.set_vel(eid, evx + sx * accel * DT, evy + sy * accel * DT)
 
     def _spit(self, eid, room, ex, ey, nx, ny, d):
         bid = self.sim.spawn(room, ex + nx * (d["radius"] + 4),

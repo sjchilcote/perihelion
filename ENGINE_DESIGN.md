@@ -130,6 +130,102 @@ from the prototype, now law:
   into damage, sound, particles, camera rebasing. The engine never decides what a
   collision *means*.
 
+### 2.4a Walk-mask terrain (director's directive, 2026-07-13)
+
+Per-room painted terrain (equipment, troughs, machinery) that physically
+blocks movement and shots but never occludes vision — the art pipeline
+generates it as a texture-aligned mask, the engine turns it into collision.
+
+**Format.** `Room::terrain: Vec<geom::Rect>` — a small set of axis-aligned
+rects in the room's OWN local coordinates, the identical frame
+`Room::verts` and the floor texture live in (`texture_geom.py`'s texel
+law: texel `(tx,ty)` ↔ `bbox_min + (tx,ty)/DENSITY`). No world space, same
+as everything else in the engine: a rect is meaningless outside its room.
+`World::set_room_terrain(room, rects)` installs it wholesale (replace, not
+merge); an empty/never-called room has `terrain == []`, which means fully
+walkable — terrain is never fabricated.
+
+**Loading.** `game/perihelion/terrain.py` decodes
+`<textures_dir>/<level_id>/room_<i>_walkmask.png` (white = walkable,
+black = terrain; same directory and naming pattern as the floor texture
+`room_<i>.png`, same size/mapping — a size mismatch is a loud error, not a
+silent stretch), downsamples texels into coarse cells (`DOWNSAMPLE = 4`,
+majority-vote per cell), and greedily merges blocked cells into rects. It
+is deliberately dependency-free (stdlib `zlib`/`struct` PNG decode, no
+pygame) so `sim.py` — which states its own contract as "Pure python +
+necore, no pygame" — can call it directly: `GameSession.__init__` and
+`append_chunk` both call `terrain.apply_walk_masks(sim, level, offset)`
+right after their `add_room` loop, so the collision data flows straight
+into the engine, never through the renderer. Absence of a walk-mask file
+is the common case and costs one `Path.is_file()` check.
+
+**Movement/projectile collision.** `Sim::step_entity` folds terrain into
+the exact same "earliest blocking obstacle this substep" resolution as
+room walls (`physics.rs`): a swept-circle-vs-rect test
+(`geom::swept_circle_vs_rect`, a Minkowski-sum-by-radius slab test,
+conservative at corners so it never tunnels) picks whichever of {nearest
+wall, nearest terrain rect} the entity would hit first, and the response
+(project out the normal component, scaled by `rest_wall` — 0 slides, 1
+bounces) is identical either way, so terrain reads as "wall-like"
+throughout: slide, don't stick, don't tunnel at any speed. Projectiles are
+entities like any other, so they are blocked by terrain automatically —
+terrain is opaque solid equipment, it blocks light, so it blocks shots —
+gated by a per-group bitmask (`Sim::terrain_blocks`/`set_terrain_block`,
+every group blocked by default) for the rare entity that should be exempt.
+A defense-in-depth pass (`push_out_of_terrain`, mirroring
+`contain_in_room`) corrects any entity whose center ends a tick embedded
+in terrain anyway (a portal transfer landing there, a mask hot-loaded
+under a standee).
+
+**Root-frame invariance.** Terrain lives entirely in room-local state
+(`Room::terrain`, keyed by `RoomId`) and `step_entity` only ever reads the
+entity's *current* room and its own local fields — there is no "root",
+accumulated transform, or path-history concept anywhere in `Sim`/`World`
+for it to depend on. Re-rooting (which room the game's camera-transform
+chain currently anchors at, ENGINE_DESIGN.md invariant #8) is therefore
+automatically inert to collision outcomes; `properties::
+terrain_collision_after_portal_crossing_matches_native_local_simulation`
+proves this empirically (reach the same room-local state two different
+ways — natively vs. via an arbitrary-transform portal crossing — and the
+subsequent terrain-collision trajectory is identical).
+
+**Bot routing.** `Router` still only routes at ROOM granularity (the
+portal graph); it does not know about in-room terrain and does not need
+to. What it does need is a caller that doesn't grind against an obstacle
+forever: physics-level sliding alone resolves a *glancing* approach (any
+nonzero tangential velocity carries the entity around a corner, same as a
+wall) but not an exactly *head-on* one — a bot that re-aims straight at a
+target directly behind a flat terrain face regenerates zero tangential
+velocity every tick and deadlocks (confirmed fail-first; a room's convex
+boundary never has this problem because there's no "straight through" on
+the far side of a wall, but mid-room terrain does). `query::
+terrain_avoid_dir(room, pos, radius, desired, lookahead)` casts the
+desired heading, and if it would enter a terrain rect, blends in a
+tangential deflection away from whichever side the obstacle's center
+leans toward (a deterministic tie-break, no per-tick chatter). `sim.py`'s
+`_enemy_ai` calls it for the movement heading on both AI legs (in-room
+hunting and cross-room pursuit toward the next portal), while facing/aim
+(`set_dir`, projectile spit direction) keeps using the true un-steered
+bearing — a bot sidesteps an obstacle without visibly looking away from
+its target.
+
+**Light-occlusion INTERFACE (not yet consumed).** Terrain is meant to
+block lamp/world light — including the player's own worklight — the same
+way a wall does, while leaving vision/visibility completely alone
+(enemies behind terrain stay visible as sensor traces; entities already
+render on the sensor plane, unaffected by the lightmap, and this feature
+does not touch `visibility.rs`/`EDGE_BAND`/frustum code at all).
+`query::terrain_light_segments(world, room)` / `Sim.terrain_light_segments`
+exposes each terrain rect's four edges as room-local segments — the same
+shape a wall segment takes — so a future lighting pass can treat them as
+occluders exactly like walls when building a light's visible wedge (see
+§3.2a for how `lighting.py` already builds wedges via a second
+`visible_set` pass from the light's own apex). **This function is
+additive and currently unused**: `render.py`'s lighting composite is
+owned by an in-flight sibling fix (the ghost-line seam hunt) per explicit
+scope fence, so integrating occlusion into `_build_lightmap`/the rust
+`Raster` compose path is deliberately left for that lane to pick up.
+
 ### 2.5 Queries
 
 - `raycast(room, origin, dir, max_hops, max_len)` — walks portals (transforming ray

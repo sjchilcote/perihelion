@@ -256,3 +256,32 @@ scope (PBT enforcement, not feature work): V9 re-grading after commit
 (streamed texture-key stability), H3 (cloister hole-attach rejection),
 P8 (direct physics-level `fits`-gate test). These remain P0/P1 in the
 gap matrix above for a future wave.
+
+---
+
+## T. Walk-mask terrain (director's directive, 2026-07-13)
+
+Painted-in room terrain (equipment, troughs, machinery) blocks movement and
+shots exactly like a wall, but never affects vision/visibility — see
+`ENGINE_DESIGN.md` "Walk-mask terrain" for the format and the light-occlusion
+interface contract. Engine: `engine/necore/src/geom.rs` (`Rect`,
+`swept_circle_vs_rect`), `physics.rs` (`Sim::step_entity`'s terrain branch,
+`push_out_of_terrain`, `terrain_blocks`/`set_terrain_block`), `query.rs`
+(`terrain_avoid_dir`, `terrain_light_segments`). Game: `game/perihelion/
+terrain.py` (PNG decode + rect extraction), `sim.py` (`GameSession.__init__`/
+`append_chunk` load masks; `_enemy_ai` steers through `terrain_avoid_dir`).
+
+| # | Statement | Scope | Enforcement | Grade | Pri |
+|---|---|---|---|---|---|
+| T1 | Terrain blocks entity movement exactly like a wall: swept-circle-vs-rect per substep, slide (project out the normal component) not stick, never tunnels even at bullet speed. | engine-rust | `physics::tests::entity_head_on_into_terrain_stops_short_never_tunnels`, `fast_bullet_does_not_tunnel_through_terrain`, `entity_slides_along_terrain_and_reaches_far_side`/`terrain_avoid_dir_steering_reaches_far_side`, `geom::tests::swept_circle_vs_rect_*` (4 cases: every approach side, fast diagonal non-tunneling, clean miss, already-embedded) | A | P0 |
+| T2 | Projectiles are blocked by terrain by default (terrain is opaque solid equipment); a per-group flag (`set_terrain_block`) can exempt a group, off by default for none. | engine-rust | `physics::tests::terrain_blocks_projectiles_by_default`, `set_terrain_block_false_lets_a_group_pass_through` | A | P1 |
+| T3 | Terrain collision is room-local, so re-rooting (which room the game's camera-transform chain currently anchors at) has zero effect on collision outcomes — the engine has no "root" concept at all; the only way one could leak in is if collision consulted anything beyond the entity's current room-local state, and it doesn't. | engine-rust | `properties::terrain_collision_after_portal_crossing_matches_native_local_simulation` (proptest, 48 cases, randomized edge pairs; fail-first confirmed load-bearing by omitting terrain from the "native" path and observing the divergence assert fire) | A | **P0** (explicit directive item) |
+| T4 | Absence of a walk-mask (no `set_room_terrain` call, or no `<texture>_walkmask.png` on disk) means fully walkable — no terrain is ever fabricated. | engine-rust / game | `physics::tests::empty_terrain_mask_is_fully_walkable`, `test_walk_mask_terrain.py::test_absence_of_mask_file_means_fully_walkable`, `test_level_with_no_level_id_never_touches_disk` | A | P1 |
+| T5 | Defense-in-depth: an entity whose center ends a tick embedded in terrain anyway (portal transfer, hot-loaded mask, mid-overlap radius change) is pushed out along the shallowest axis, unconditionally, same pattern as room-wall containment. | engine-rust | `physics::tests::spawn_embedded_in_terrain_is_pushed_out_not_left_tunneled` | B (one fixed embedding case) | P1 |
+| T6 | Bot pathing routes around terrain instead of grinding forever against it: `query::terrain_avoid_dir` steers a desired heading around the nearest blocking rect on a deterministic side, wired into `sim.py`'s `_enemy_ai` (both in-room hunting and room-graph pursuit legs). Physics-level slide alone is **insufficient** for this — a straight seek at a target directly behind a flat terrain face generates zero tangential velocity and deadlocks. | engine-rust / sim | `physics::tests::naive_seek_deadlocks_head_on_against_terrain` (documents the deadlock, fail-first discovered while writing this wave), `terrain_avoid_dir_steering_reaches_far_side` (the fix), `query::tests::terrain_avoid_dir_passes_through_when_the_path_is_clear`, `terrain_avoid_dir_deflects_and_is_deterministic_for_a_static_scene` | B (deadlock scenario + clear-path + deterministic-tiebreak cases; no proptest sweep over rect/target geometry) | P1 |
+| T7 | Light-occlusion query INTERFACE: `query::terrain_light_segments`/`Sim.terrain_light_segments` exposes terrain edges as room-local segments, ready for a future lighting pass to treat as occluders alongside wall segments. Not wired into `render.py`'s lighting composite (owned by an in-flight sibling fix, per this directive's explicit scope fence) — this row only covers the query surface, not any consumer. | engine-rust / game | `query::tests::terrain_light_segments_is_empty_absent_a_mask_and_four_edges_once_set` | C (interface existence + shape only; no consumer to test against yet) | P1 |
+| T8 | Terrain never affects `visibility.rs`: vision passes through painted equipment (enemies behind it stay visible as sensor traces), and this feature makes zero edits to `visibility.rs`/`EDGE_BAND`/frustum code. | engine-rust | Provable by inspection (no terrain reference anywhere in `visibility.rs`, unchanged by this diff — `git diff` scope check) rather than a runtime test, since there is nothing to assert against short of re-testing all of §4's existing visibility suite, which already passed unmodified after this wave (`cargo test -p necore`, all `visibility::tests::*`/`V*` proptests green with terrain code present but unused by that module). | N/A (inspection) | P1 |
+
+Loot/economy, level-schema, and other wave-1 rows above are unaffected by
+this pass; check.sh is green end-to-end (`cargo test -p necore` + full
+`uv run pytest`, 510 tests) with all of the above added.

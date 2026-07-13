@@ -18,7 +18,7 @@ pub mod world;
 
 pub use math::{v, Mat3, Vec2};
 pub use physics::{Entity, Event, Sim};
-pub use query::{raycast, rooms_within, RayHit, Router};
+pub use query::{raycast, rooms_within, terrain_avoid_dir, terrain_light_segments, RayHit, Router};
 pub use raster::{Raster, RasterError};
 pub use visibility::{visible_set, Frustum, RoomInstance};
 pub use world::{Portal, Room, RoomId, World, WorldError};

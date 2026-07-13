@@ -53,6 +53,19 @@ pub enum Event {
         normal: Vec2,
         speed: f64,
     },
+    /// Same shape as `WallHit`, for walk-mask terrain instead of a room
+    /// edge -- `terrain` is the index into `Room::terrain` that was hit.
+    /// Physics response is identical to a wall (see `step_entity`); this is
+    /// a distinct variant only so the game layer can tell "hit painted
+    /// equipment" from "hit the room boundary" for sound/feedback.
+    TerrainHit {
+        ent: u64,
+        room: RoomId,
+        terrain: usize,
+        pos: Vec2,
+        normal: Vec2,
+        speed: f64,
+    },
     Contact {
         a: u64,
         b: u64,
@@ -69,6 +82,12 @@ pub struct Sim {
     next_id: u64,
     /// collision_mask[g] bit h => groups g and h collide.
     pub collision_mask: [u16; 16],
+    /// Bit `g` set => entities of group `g` are blocked by walk-mask
+    /// terrain (default: every group, matching the director's "blocked is
+    /// the default" spec). Cleared per-group via `set_terrain_block` for
+    /// the rare entity that should pass through painted equipment (a ghost
+    /// enemy, a decorative-only particle group, etc).
+    pub terrain_blocks: u16,
     pub active_rooms: Vec<bool>,
     pub all_active: bool,
     /// Otherworld soft-wall system (empty = zero cost).
@@ -83,6 +102,7 @@ impl Sim {
             entities: BTreeMap::new(),
             next_id: 1,
             collision_mask: [0xffff; 16],
+            terrain_blocks: 0xffff,
             active_rooms: vec![true; n],
             all_active: true,
             soft: crate::soft::SoftSystem::default(),
@@ -116,6 +136,21 @@ impl Sim {
 
     fn groups_collide(&self, g: u8, h: u8) -> bool {
         self.collision_mask[g as usize & 15] & (1 << (h as usize & 15)) != 0
+    }
+
+    /// Set whether entities of `group` are blocked by walk-mask terrain
+    /// (on by default for every group -- see `terrain_blocks`).
+    pub fn set_terrain_block(&mut self, group: u8, blocked: bool) {
+        let bit = 1 << (group as usize & 15);
+        if blocked {
+            self.terrain_blocks |= bit;
+        } else {
+            self.terrain_blocks &= !bit;
+        }
+    }
+
+    fn terrain_blocks_group(&self, g: u8) -> bool {
+        self.terrain_blocks & (1 << (g as usize & 15)) != 0
     }
 
     pub fn set_active_within(&mut self, center: RoomId, hops: usize) {
@@ -347,11 +382,47 @@ impl Sim {
                 }
             }
 
-            // Resolve the earliest event among entity hit / portal / wall.
-            // Entity hits use end-of-step detection, so walls/portals (which
-            // have exact times) win ties; entity contact resolves otherwise.
-            let portal_first = match (&best_portal, &best_wall) {
-                (Some((_, tp)), Some((_, tw, _))) => tp <= tw,
+            // --- walk-mask terrain: swept-circle-vs-rect, same substep ---
+            // Terrain blocks movement exactly like a wall (director's spec):
+            // fold it into the same "earliest blocking obstacle" resolution
+            // as best_wall so slide/stop/no-tunnel all come from the one
+            // mechanism the wall path already proves out.
+            let mut best_terrain: Option<(usize, f64, Vec2)> = None;
+            if self.terrain_blocks_group(e.group) {
+                let room_ref = &self.world.rooms[e.room];
+                for (ti, rect) in room_ref.terrain.iter().enumerate() {
+                    if let Some((t, n)) = geom::swept_circle_vs_rect(e.pos, target, e.radius, rect)
+                    {
+                        match best_terrain {
+                            Some((_, bt, _)) if bt <= t => {}
+                            _ => best_terrain = Some((ti, t, n)),
+                        }
+                    }
+                }
+            }
+            enum Block {
+                Wall(usize),
+                Terrain(usize),
+            }
+            let best_block: Option<(Block, f64, Vec2)> = match (best_wall, best_terrain) {
+                (Some((wi, wt, wn)), Some((ti, tt, tn))) => {
+                    if wt <= tt {
+                        Some((Block::Wall(wi), wt, wn))
+                    } else {
+                        Some((Block::Terrain(ti), tt, tn))
+                    }
+                }
+                (Some((wi, wt, wn)), None) => Some((Block::Wall(wi), wt, wn)),
+                (None, Some((ti, tt, tn))) => Some((Block::Terrain(ti), tt, tn)),
+                (None, None) => None,
+            };
+
+            // Resolve the earliest event among entity hit / portal / obstacle
+            // (wall or terrain). Entity hits use end-of-step detection, so
+            // walls/terrain/portals (which have exact times) win ties;
+            // entity contact resolves otherwise.
+            let portal_first = match (&best_portal, &best_block) {
+                (Some((_, tp)), Some((_, tw, _))) => *tp <= *tw,
                 (Some(_), None) => true,
                 _ => false,
             };
@@ -420,7 +491,7 @@ impl Sim {
             }
 
             if let Some((oid, n, _)) = hit_ent {
-                let wall_t = best_wall.map(|(_, t, _)| t).unwrap_or(1.0);
+                let wall_t = best_block.as_ref().map(|(_, t, _)| *t).unwrap_or(1.0);
                 if wall_t >= 1.0 - 1e-9 {
                     // Entity contact this substep: impulse + separation.
                     let o = self.entities.get(&oid).unwrap().clone();
@@ -468,7 +539,7 @@ impl Sim {
                 }
             }
 
-            if let Some((wi, tw, n)) = best_wall {
+            if let Some((kind, tw, n)) = best_block {
                 let cross_pt = e.pos.lerp(target, tw);
                 let speed_into = -e.vel.dot(n);
                 let new_pos = cross_pt + n * 1e-6;
@@ -480,14 +551,24 @@ impl Sim {
                     me.pos = new_pos;
                     me.vel = new_vel;
                 }
-                events.push(Event::WallHit {
-                    ent: id,
-                    room,
-                    edge: wi,
-                    pos: cross_pt - n * e.radius,
-                    normal: n,
-                    speed: speed_into,
-                });
+                match kind {
+                    Block::Wall(wi) => events.push(Event::WallHit {
+                        ent: id,
+                        room,
+                        edge: wi,
+                        pos: cross_pt - n * e.radius,
+                        normal: n,
+                        speed: speed_into,
+                    }),
+                    Block::Terrain(ti) => events.push(Event::TerrainHit {
+                        ent: id,
+                        room,
+                        terrain: ti,
+                        pos: cross_pt - n * e.radius,
+                        normal: n,
+                        speed: speed_into,
+                    }),
+                }
                 remaining -= step_dt * tw.max(1e-3);
                 continue;
             }
@@ -504,6 +585,56 @@ impl Sim {
         // room. Everything downstream (visibility apex, room queries,
         // the game's containment sweep) is allowed to assume this.
         self.contain_in_room(id);
+        self.push_out_of_terrain(id);
+    }
+
+    /// Defense-in-depth companion to `contain_in_room`: if an entity's
+    /// center ends the tick embedded in a padded terrain rect anyway (a
+    /// portal transfer depositing it there, a mask hot-loaded under a
+    /// standing entity, radius changed via `set_props` mid-overlap -- none
+    /// of these go through the swept per-substep test above), push it out
+    /// along the shallowest axis. Unconditional, like `contain_in_room`;
+    /// cheap no-op when the room has no terrain.
+    fn push_out_of_terrain(&mut self, id: u64) {
+        let e = match self.entities.get(&id) {
+            Some(e) => e.clone(),
+            None => return,
+        };
+        if !self.terrain_blocks_group(e.group) {
+            return;
+        }
+        let room = &self.world.rooms[e.room];
+        if room.terrain.is_empty() {
+            return;
+        }
+        let mut pos = e.pos;
+        for _pass in 0..2 {
+            for rect in &room.terrain {
+                let padded = rect.inflate(e.radius);
+                if !padded.contains(pos) {
+                    continue;
+                }
+                let dl = pos.x - padded.lo.x;
+                let dr = padded.hi.x - pos.x;
+                let dt = pos.y - padded.lo.y;
+                let db = padded.hi.y - pos.y;
+                let m = dl.min(dr).min(dt).min(db);
+                if m == dl {
+                    pos.x = padded.lo.x - 1e-6;
+                } else if m == dr {
+                    pos.x = padded.hi.x + 1e-6;
+                } else if m == dt {
+                    pos.y = padded.lo.y - 1e-6;
+                } else {
+                    pos.y = padded.hi.y + 1e-6;
+                }
+            }
+        }
+        if pos.dist(e.pos) > 1e-12 {
+            if let Some(me) = self.entities.get_mut(&id) {
+                me.pos = pos;
+            }
+        }
     }
 
     /// Containment invariant: an entity's CENTER ends every correction
@@ -733,5 +864,184 @@ mod tests {
         let e = &sim.entities[&id];
         assert_eq!(e.room, a);
         assert!(geom::depth_in_polygon(e.pos, &sim.world.rooms[a].verts) >= -1e-6);
+    }
+
+    // -- ENGINE_INVARIANTS.md T. walk-mask terrain -----------------------
+
+    #[test]
+    fn entity_head_on_into_terrain_stops_short_never_tunnels() {
+        // A slow entity walking straight at a terrain rect must stop at its
+        // padded face, exactly like a wall -- never pass through it.
+        let (mut sim, a, _) = two_room_world();
+        sim.world
+            .set_room_terrain(a, vec![geom::Rect::new(v(10.0, -10.0), v(20.0, 10.0))])
+            .unwrap();
+        let id = sim.spawn(a, v(-30.0, 0.0), 3.0, 1.0, 0).unwrap();
+        sim.entities.get_mut(&id).unwrap().vel = v(120.0, 0.0);
+        for _ in 0..180 {
+            sim.step(1.0 / 60.0);
+        }
+        let e = &sim.entities[&id];
+        // Must have stopped at (or very near) the padded face x=10-3=7, and
+        // categorically never crossed into/through the rect (x < 10).
+        assert!(e.pos.x < 10.0, "tunneled through terrain: pos {:?}", e.pos);
+        assert!((e.pos.x - 7.0).abs() < 0.5, "did not settle at the padded face: {:?}", e.pos);
+    }
+
+    #[test]
+    fn fast_bullet_does_not_tunnel_through_terrain() {
+        // Mirrors fast_bullet_does_not_tunnel_through_wall but for terrain:
+        // a high-speed thin projectile crossing a terrain rect in one nominal
+        // tick must still be caught by the per-substep swept test.
+        let (mut sim, a, _) = two_room_world();
+        sim.world
+            .set_room_terrain(a, vec![geom::Rect::new(v(-2.0, -40.0), v(2.0, 40.0))])
+            .unwrap();
+        let id = sim.spawn(a, v(-30.0, 0.0), 1.5, 0.001, 3).unwrap();
+        {
+            let e = sim.entities.get_mut(&id).unwrap();
+            e.vel = v(4000.0, 0.0); // would cross the 4-unit-thick rect in << 1 tick
+            e.rest_wall = 0.5;
+            e.max_substep = 3.0;
+        }
+        sim.step(1.0 / 60.0);
+        let e = &sim.entities[&id];
+        assert!(e.pos.x < -2.0, "bullet tunneled through terrain: pos {:?}", e.pos);
+        assert!(e.vel.x < 0.0, "should have bounced: {:?}", e.vel);
+    }
+
+    #[test]
+    fn naive_seek_deadlocks_head_on_against_terrain() {
+        // Documents the failure mode `terrain_avoid_dir` exists to fix
+        // (found fail-first while writing this wave): a bot that always
+        // re-aims straight at a target directly behind a terrain rect's
+        // flat face generates zero tangential velocity every tick and
+        // grinds forever -- physics-level sliding alone does not route
+        // around terrain the way it routes an entity along a convex room
+        // wall (a wall never has a "straight through" target on the other
+        // side of itself; terrain, sitting mid-room, does).
+        let (mut sim, a, _) = two_room_world();
+        sim.world
+            .set_room_terrain(a, vec![geom::Rect::new(v(-5.0, -40.0), v(5.0, 5.0))])
+            .unwrap();
+        let id = sim.spawn(a, v(-30.0, -20.0), 3.0, 1.0, 0).unwrap();
+        let target = v(30.0, -20.0);
+        for _ in 0..600 {
+            let e = &sim.entities[&id];
+            let to_target = target - e.pos;
+            let dl = to_target.len();
+            if dl < 4.0 {
+                break;
+            }
+            let dir = to_target * (1.0 / dl);
+            sim.entities.get_mut(&id).unwrap().vel = dir * 80.0;
+            sim.step(1.0 / 60.0);
+        }
+        let e = &sim.entities[&id];
+        assert!(
+            e.pos.dist(target) > 4.0,
+            "expected the naive-seek deadlock (this documents the bug \
+             terrain_avoid_dir fixes); it unexpectedly reached the target: {:?}",
+            e.pos
+        );
+    }
+
+    #[test]
+    fn terrain_avoid_dir_steering_reaches_far_side() {
+        // Same scenario as the deadlock above, but steering through
+        // `query::terrain_avoid_dir` (what `sim.py`'s enemy AI now calls):
+        // must route around the rect and actually arrive, not grind.
+        let (mut sim, a, _) = two_room_world();
+        sim.world
+            .set_room_terrain(a, vec![geom::Rect::new(v(-5.0, -40.0), v(5.0, 5.0))])
+            .unwrap();
+        let id = sim.spawn(a, v(-30.0, -20.0), 3.0, 1.0, 0).unwrap();
+        let target = v(30.0, -20.0);
+        for _ in 0..600 {
+            let e = &sim.entities[&id];
+            let to_target = target - e.pos;
+            let dl = to_target.len();
+            if dl < 4.0 {
+                break;
+            }
+            let desired = to_target * (1.0 / dl);
+            let steered =
+                crate::query::terrain_avoid_dir(&sim.world, e.room, e.pos, e.radius, desired, 25.0);
+            sim.entities.get_mut(&id).unwrap().vel = steered * 80.0;
+            sim.step(1.0 / 60.0);
+        }
+        let e = &sim.entities[&id];
+        assert!(e.pos.dist(target) < 4.0, "never reached the far side: {:?}", e.pos);
+    }
+
+    #[test]
+    fn terrain_blocks_projectiles_by_default() {
+        let (mut sim, a, _) = two_room_world();
+        sim.world
+            .set_room_terrain(a, vec![geom::Rect::new(v(10.0, -10.0), v(20.0, 10.0))])
+            .unwrap();
+        let id = sim.spawn(a, v(-30.0, 0.0), 1.5, 0.001, 3).unwrap(); // group 3: a bullet group
+        sim.entities.get_mut(&id).unwrap().vel = v(3000.0, 0.0);
+        for _ in 0..30 {
+            sim.step(1.0 / 60.0);
+        }
+        let e = &sim.entities[&id];
+        assert!(e.pos.x < 10.0, "projectile passed through terrain unblocked: {:?}", e.pos);
+    }
+
+    #[test]
+    fn set_terrain_block_false_lets_a_group_pass_through() {
+        // The per-group opt-out flag: a group with terrain-blocking disabled
+        // must fly straight through the rect it would otherwise stop at.
+        let (mut sim, a, _) = two_room_world();
+        sim.world
+            .set_room_terrain(a, vec![geom::Rect::new(v(10.0, -10.0), v(20.0, 10.0))])
+            .unwrap();
+        sim.set_terrain_block(0, false);
+        let id = sim.spawn(a, v(-30.0, 0.0), 3.0, 1.0, 0).unwrap();
+        sim.entities.get_mut(&id).unwrap().vel = v(120.0, 0.0);
+        for _ in 0..90 {
+            sim.step(1.0 / 60.0);
+        }
+        let e = &sim.entities[&id];
+        assert!(e.pos.x > 20.0, "opted-out group was still blocked by terrain: {:?}", e.pos);
+    }
+
+    #[test]
+    fn empty_terrain_mask_is_fully_walkable() {
+        // Absence of a mask (no set_room_terrain call at all) must mean
+        // fully walkable -- no fabricated terrain, straight-line travel
+        // reaches the far wall unimpeded.
+        let (mut sim, a, _) = two_room_world();
+        let id = sim.spawn(a, v(-30.0, 0.0), 3.0, 1.0, 0).unwrap();
+        sim.entities.get_mut(&id).unwrap().vel = v(200.0, 0.0);
+        for _ in 0..60 {
+            sim.step(1.0 / 60.0);
+        }
+        let e = &sim.entities[&id];
+        assert!(e.pos.x > 40.0, "phantom terrain blocked an unmasked room: {:?}", e.pos);
+    }
+
+    #[test]
+    fn spawn_embedded_in_terrain_is_pushed_out_not_left_tunneled() {
+        // The defense-in-depth path (push_out_of_terrain): an entity placed
+        // directly inside a terrain rect (e.g. a mask hot-loaded under a
+        // standee, or a portal transfer landing there) must be corrected
+        // out, not left embedded indefinitely.
+        let (mut sim, a, _) = two_room_world();
+        sim.world
+            .set_room_terrain(a, vec![geom::Rect::new(v(-10.0, -10.0), v(10.0, 10.0))])
+            .unwrap();
+        let id = sim.spawn(a, v(-30.0, 0.0), 3.0, 1.0, 0).unwrap();
+        sim.entities.get_mut(&id).unwrap().pos = v(0.0, 0.0); // dead center of the rect
+        sim.entities.get_mut(&id).unwrap().vel = v(0.0, 0.0);
+        sim.step(1.0 / 60.0);
+        let e = &sim.entities[&id];
+        let rect = geom::Rect::new(v(-10.0, -10.0), v(10.0, 10.0));
+        assert!(
+            !rect.inflate(e.radius).contains(e.pos),
+            "entity still embedded in terrain after a step: {:?}",
+            e.pos
+        );
     }
 }

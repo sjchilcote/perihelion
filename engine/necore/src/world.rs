@@ -26,6 +26,10 @@ pub struct Room {
     pub entities: Vec<u64>,
     /// Max distance from origin to a vertex (bounding radius).
     pub radius: f64,
+    /// Walk-mask terrain: room-local axis-aligned rects that block movement
+    /// and (via `query::terrain_light_segments`) can occlude light. Empty by
+    /// default -- absence means "fully walkable" (no fabricated terrain).
+    pub terrain: Vec<geom::Rect>,
 }
 
 impl Room {
@@ -118,9 +122,22 @@ impl World {
             edge_len,
             entities: Vec::new(),
             radius,
+            terrain: Vec::new(),
         });
         self.topology_version += 1;
         Ok(self.rooms.len() - 1)
+    }
+
+    /// Replace room `r`'s walk-mask terrain wholesale (idempotent; an empty
+    /// `rects` clears it back to fully-walkable). Room-local rects only --
+    /// the engine has no world space, so this is automatically root-frame
+    /// invariant: collision against it only ever consults the entity's
+    /// current room and local position (see `physics::Sim::step_entity`),
+    /// never anything about how the caller reached that room.
+    pub fn set_room_terrain(&mut self, r: RoomId, rects: Vec<geom::Rect>) -> Result<(), WorldError> {
+        let room = self.rooms.get_mut(r).ok_or(WorldError::BadRoom(r))?;
+        room.terrain = rects;
+        Ok(())
     }
 
     fn check_edge(&self, r: RoomId, e: usize) -> Result<(), WorldError> {

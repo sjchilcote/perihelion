@@ -944,3 +944,86 @@ proptest! {
         }
     }
 }
+
+// ---------------------------------------------------------------------
+// ENGINE_INVARIANTS.md T3 -- walk-mask terrain collision is root-frame
+// invariant (director's directive: "mask collision must be room-local so
+// it's automatically root-invariant -- add a PBT proving collision
+// outcomes are invariant under root change").
+//
+// The engine's `Sim`/`World` has no "root" concept at all -- "root" (the
+// portal-chain camera anchor render.py composes transforms from) is pure
+// game-layer (sim.py) bookkeeping, per ENGINE_DESIGN.md invariant #8. The
+// only way a root choice COULD leak into physics is if terrain collision
+// consulted anything beyond the entity's current room-local state -- e.g.
+// an accumulated transform, a chain-history flag, a global position. It
+// doesn't (`physics::Sim::step_entity` only ever reads
+// `self.world.rooms[e.room]` and the entity's own local fields), so this
+// is provable empirically: reach the SAME room-B local (pos, vel) two
+// different ways -- natively (spawned directly in a portal-free B) vs.
+// having just crossed a portal from an arbitrary room A on a randomized
+// edge pair (a stand-in for "a different root/chain history") -- and show
+// the subsequent terrain-collision trajectory is identical either way.
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(48))]
+    #[test]
+    fn terrain_collision_after_portal_crossing_matches_native_local_simulation(
+        ea_seed in any::<usize>(),
+        eb_seed in any::<usize>(),
+        speed in 60.0f64..200.0,
+    ) {
+        let ea = ea_seed % 4;
+        let eb = eb_seed % 4;
+        let terrain_rect = geom::Rect::new(v(-12.0, -12.0), v(12.0, 12.0));
+
+        // --- Path 1: cross INTO room B through an ordinary portal from
+        // room A on a randomized edge pair (stand-in for "a different
+        // root/chain history reaching this same local state"). ---
+        let mut w1 = World::new();
+        let a = w1.add_room(&square100(0.0, 0.0)).unwrap();
+        let b1 = w1.add_room(&square100(0.0, 0.0)).unwrap();
+        w1.connect(a, ea, b1, eb).unwrap();
+        w1.set_room_terrain(b1, vec![terrain_rect]).unwrap();
+        let mut sim1 = Sim::new(w1);
+        let start_pos = Vec2::ZERO;
+        let id1 = sim1.spawn(a, start_pos, 4.0, 1.0, 0).unwrap();
+        let (ea0, ea1) = sim1.world.rooms[a].edge(ea);
+        let mid = (ea0 + ea1) * 0.5;
+        let dir0 = (mid - start_pos).normalized();
+        sim1.entities.get_mut(&id1).unwrap().vel = dir0 * speed;
+        let normal_a = sim1.world.rooms[a].normals[ea];
+        approach_portal(&mut sim1, id1, ea0, normal_a);
+        prop_assert_eq!(sim1.entities[&id1].room, b1);
+
+        // Immediately after the crossing, aim through the terrain (toward
+        // B's own center, where the rect sits) and run real collision.
+        let after_pos = sim1.entities[&id1].pos;
+        let after_vel_dir = (Vec2::ZERO - after_pos).normalized();
+        sim1.entities.get_mut(&id1).unwrap().vel = after_vel_dir * speed;
+        for _ in 0..180 {
+            sim1.step(1.0 / 60.0);
+        }
+        let final1 = sim1.entities[&id1].pos;
+        let room1 = sim1.entities[&id1].room;
+
+        // --- Path 2: the SAME local (pos, vel), but "root = B itself" --
+        // spawned directly in a portal-free room B, no chain history. ---
+        let mut w2 = World::new();
+        let b2 = w2.add_room(&square100(0.0, 0.0)).unwrap();
+        w2.set_room_terrain(b2, vec![terrain_rect]).unwrap();
+        let mut sim2 = Sim::new(w2);
+        let id2 = sim2.spawn(b2, after_pos, 4.0, 1.0, 0).unwrap();
+        sim2.entities.get_mut(&id2).unwrap().vel = after_vel_dir * speed;
+        for _ in 0..180 {
+            sim2.step(1.0 / 60.0);
+        }
+        let final2 = sim2.entities[&id2].pos;
+
+        prop_assert_eq!(room1, b1);
+        prop_assert!(
+            final1.dist(final2) < 1e-6,
+            "terrain collision outcome depended on portal-chain history: {:?} (via portal) vs {:?} (native)",
+            final1, final2
+        );
+    }
+}

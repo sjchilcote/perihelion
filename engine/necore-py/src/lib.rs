@@ -10,6 +10,7 @@ use pyo3::types::PyBytes;
 
 use necore_core::{
     geom, raycast as core_raycast, rooms_within as core_rooms_within,
+    terrain_avoid_dir as core_terrain_avoid_dir, terrain_light_segments as core_terrain_light_segments,
     visible_set as core_visible_set, v, Mat3, RayHit, Raster as CoreRaster, Room, Router,
     Sim as CoreSim, Vec2, World,
 };
@@ -56,6 +57,10 @@ fn event_to_obj(py: Python<'_>, ev: necore_core::Event) -> PyObject {
         }
         WallHit { ent, room, edge, pos, normal, speed } => (
             "wall", ent, room, edge, pos.x, pos.y, normal.x, normal.y, speed,
+        )
+            .into_py(py),
+        TerrainHit { ent, room, terrain, pos, normal, speed } => (
+            "terrain", ent, room, terrain, pos.x, pos.y, normal.x, normal.y, speed,
         )
             .into_py(py),
         Contact { a, b, pos, normal, rel_speed } => {
@@ -175,6 +180,85 @@ impl Sim {
 
     fn room_radius(&self, r: usize) -> PyResult<f64> {
         Ok(get_room(&self.sim.world, r)?.radius)
+    }
+
+    // --- Walk-mask terrain --------------------------------------------
+
+    /// Replace room `r`'s walk-mask terrain wholesale: `rects` is a list of
+    /// `(lo_x, lo_y, hi_x, hi_y)` axis-aligned rects in the room's own local
+    /// coordinates (the same frame `room_verts`/the floor texture live in).
+    /// An empty list clears it back to fully walkable -- absence is the
+    /// default (levels.py never calls this when a room has no
+    /// `<texture>_walkmask.png`).
+    fn set_room_terrain(&mut self, r: usize, rects: Vec<(f64, f64, f64, f64)>) -> PyResult<()> {
+        if r >= self.sim.world.rooms.len() {
+            return Err(no_room(r));
+        }
+        let rs: Vec<geom::Rect> = rects
+            .into_iter()
+            .map(|(lx, ly, hx, hy)| geom::Rect::new(v(lx, ly), v(hx, hy)))
+            .collect();
+        self.sim
+            .world
+            .set_room_terrain(r, rs)
+            .map_err(world_err)
+    }
+
+    /// Read back room `r`'s current terrain rects (test/tooling use).
+    fn room_terrain(&self, r: usize) -> PyResult<Vec<(f64, f64, f64, f64)>> {
+        let room = get_room(&self.sim.world, r)?;
+        Ok(room
+            .terrain
+            .iter()
+            .map(|rect| (rect.lo.x, rect.lo.y, rect.hi.x, rect.hi.y))
+            .collect())
+    }
+
+    /// Whether entities of `group` are blocked by walk-mask terrain
+    /// (blocked by default for every group). Projectiles are terrain-solid
+    /// equipment blocks light and shots alike -- pass `blocked=False` for a
+    /// group that should be exempt (e.g. a decorative-only particle group).
+    fn set_terrain_block(&mut self, group: u8, blocked: bool) {
+        self.sim.set_terrain_block(group, blocked);
+    }
+
+    /// Light-occlusion INTERFACE ONLY (see ENGINE_DESIGN.md "Walk-mask
+    /// terrain & light occlusion"): the terrain edge segments in room `r`'s
+    /// local coordinates that a future lighting pass should treat as
+    /// occluders, same as wall segments. NOT consumed by render.py yet.
+    fn terrain_light_segments(&self, r: usize) -> PyResult<Vec<(f64, f64, f64, f64)>> {
+        if r >= self.sim.world.rooms.len() {
+            return Err(no_room(r));
+        }
+        Ok(core_terrain_light_segments(&self.sim.world, r)
+            .into_iter()
+            .map(|(a, b)| (a.x, a.y, b.x, b.y))
+            .collect())
+    }
+
+    /// Steer `(dx, dy)` around walk-mask terrain in room `r` so bot AI that
+    /// beelines a target doesn't grind forever against an obstacle it
+    /// approaches head-on (physics-level wall sliding alone doesn't resolve
+    /// that case -- see `query::terrain_avoid_dir`'s doc comment). Returns
+    /// a unit vector; pass the result as the entity's desired heading
+    /// before scaling by speed and calling `set_vel`.
+    #[pyo3(signature = (r, x, y, radius, dx, dy, lookahead = 40.0))]
+    #[allow(clippy::too_many_arguments)]
+    fn terrain_avoid_dir(
+        &self,
+        r: usize,
+        x: f64,
+        y: f64,
+        radius: f64,
+        dx: f64,
+        dy: f64,
+        lookahead: f64,
+    ) -> PyResult<(f64, f64)> {
+        if r >= self.sim.world.rooms.len() {
+            return Err(no_room(r));
+        }
+        let out = core_terrain_avoid_dir(&self.sim.world, r, v(x, y), radius, v(dx, dy), lookahead);
+        Ok((out.x, out.y))
     }
 
     // --- Entities ---------------------------------------------------------
