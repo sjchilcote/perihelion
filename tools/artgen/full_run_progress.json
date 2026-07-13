@@ -10872,5 +10872,4002 @@
     "n_boxes": 2,
     "used_neighbor_composite": false,
     "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/full_l03_room144.png"
+  },
+  "l03/room_035": {
+    "key": "l03/room_035",
+    "status": "accepted",
+    "cost": 0.2258855,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_35.png",
+    "verdicts": [
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "The generated texture correctly renders a full-bleed laboratory floor matching the flat square geometry of the base truth, with excellent style alignment to the anchor.",
+        "_cost": 0.0066585,
+        "_raw": "```json\n{\"geometry_ok\": true, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": true, \"verdict\": \"pass\", \"notes\": \"The generated texture correctly renders a full-bleed laboratory floor matching the flat square geometry of the base truth, with excellent style alignment to the anchor.\"}\n```"
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage2 item-placement rejected: [{'label': 'SPECIMEN TABLE', 'present': False, 'notes': 'bare floor region with only small edge of unconnected asset visible at top'}, {'label': 'SCREEN ARRAY', 'present': True, 'notes': 'unambiguous bank of wall monitors'}]",
+        "_item_placement": {
+          "results": [
+            {
+              "label": "SPECIMEN TABLE",
+              "present": false,
+              "notes": "bare floor region with only small edge of unconnected asset visible at top"
+            },
+            {
+              "label": "SCREEN ARRAY",
+              "present": true,
+              "notes": "unambiguous bank of wall monitors"
+            }
+          ],
+          "all_present": false,
+          "_cost": 0.006087,
+          "_raw": "```json\n{\n  \"results\": [\n    {\n      \"label\": \"SPECIMEN TABLE\",\n      \"present\": false,\n      \"notes\": \"bare floor region with only small edge of unconnected asset visible at top\"\n    },\n    {\n      \"label\": \"SCREEN ARRAY\",\n      \"present\": true,\n      \"notes\": \"unambiguous bank of wall monitors\"\n    }\n  ],\n  \"all_present\": false\n}\n```"
+        }
+      },
+      {
+        "verdict": "pass",
+        "notes": "stage2 equipment add accepted (composited)"
+      }
+    ],
+    "equipment": "painted",
+    "mask_status": "shipped",
+    "walkmask_connectivity": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": []
+    },
+    "n_boxes": 2,
+    "used_neighbor_composite": false,
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/full_l03_room035.png"
+  },
+  "l03/room_019": {
+    "key": "l03/room_019",
+    "status": "bare",
+    "cost": 0.2086015,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.29.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.2938615641662528,
+          "room_grad": 42.32183505102332,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.060042025114145,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.2510544048327912, grad_ratio=1.9457266022229716)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.55.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.5542452726637115,
+          "room_grad": 50.838910344240084,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.674500829598271,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_038": {
+    "key": "l03/room_038",
+    "status": "bare",
+    "cost": 0.20819100000000001,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.7662821535971471, grad_ratio=1.0244798426964434)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.42.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.4171021834374415,
+          "room_grad": 46.3529998253956,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.365448115931684,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.7955352565585097, grad_ratio=1.540200151443029)."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_150": {
+    "key": "l03/room_150",
+    "status": "bare",
+    "cost": 0.21026850000000002,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=2.291234299165885, grad_ratio=0.7172278925345156)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=3.289706636966532, grad_ratio=0.6902376645044639)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.41.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.4145756260260596,
+          "room_grad": 46.27035686808637,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.388587187905245,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_039": {
+    "key": "l03/room_039",
+    "status": "bare",
+    "cost": 0.209257,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.0750041114451827, grad_ratio=1.715785144889354)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 7.9% painted near-black."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 shape-conformance rejected: mean angle error 44.5 deg."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_020": {
+    "key": "l03/room_020",
+    "status": "bare",
+    "cost": 0.20870650000000002,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.3980205312021423, grad_ratio=2.3833707906440433)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.38.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.37706582211618,
+          "room_grad": 45.04342210332032,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.497611846273809,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.36.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.3566141427289484,
+          "room_grad": 44.374453625150416,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.366614486059513,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_036": {
+    "key": "l03/room_036",
+    "status": "accepted",
+    "cost": 0.151013,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_36.png",
+    "verdicts": [
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "The generated texture matches the required square geometry perfectly while delivering excellent material fidelity and staying consistent with the style anchor.",
+        "_cost": 0.0065955,
+        "_raw": "```json\n{\"geometry_ok\": true, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": true, \"verdict\": \"pass\", \"notes\": \"The generated texture matches the required square geometry perfectly while delivering excellent material fidelity and staying consistent with the style anchor.\"}\n```"
+      },
+      {
+        "verdict": "pass",
+        "notes": "stage2 equipment add accepted (composited)"
+      }
+    ],
+    "equipment": "painted",
+    "mask_status": "shipped",
+    "walkmask_connectivity": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": []
+    },
+    "n_boxes": 2,
+    "used_neighbor_composite": false,
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/full_l03_room036.png"
+  },
+  "l03/room_021": {
+    "key": "l03/room_021",
+    "status": "bare",
+    "cost": 0.209217,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.47.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.474243873094996,
+          "room_grad": 48.22208785706778,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.282611250607268,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.38.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.382926192856431,
+          "room_grad": 45.23511312396406,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.528517894104459,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.4006800736773142, grad_ratio=2.4162049028588872)."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_052": {
+    "key": "l03/room_052",
+    "status": "bare",
+    "cost": 0.20862050000000004,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.350538376638096, grad_ratio=2.857041166356309)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=2.0041817108858466, grad_ratio=1.6663500259501136)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.43.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.4286752804573553,
+          "room_grad": 46.731552459364515,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.251558344120497,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_151": {
+    "key": "l03/room_151",
+    "status": "accepted",
+    "cost": 0.3618115,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_151.png",
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.35.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.3513561027907153,
+          "room_grad": 55.822832081631674,
+          "material_grad": 41.30875049615028,
+          "entropy_bits": 6.696946023798478,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "geometry_ok": false,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "fail",
+        "notes": "The generated texture has successfully filled in the blurry cross-like negative space shown in the style anchor, but fails geometry_ok because it has introduced four discrete, raised rectangular clips or brackets in that central corridor region which act as prohibited discrete floor props.",
+        "_cost": 0.0068475,
+        "_raw": "```json\n{\"geometry_ok\": false, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": true, \"verdict\": \"fail\", \"notes\": \"The generated texture has successfully filled in the blurry cross-like negative space shown in the style anchor, but fails geometry_ok because it has introduced four discrete, raised rectangular clips or brackets in that central corridor region which act as prohibited discrete floor props.\"}\n```"
+      },
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "The generated texture matches the simple square geometry perfectly and captures the gritty, industrial style of the style anchor. The material details flow beautifully to the edges of the canvas without any artificial borders.",
+        "_cost": 0.0067305,
+        "_raw": "```json\n{\"geometry_ok\": true, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": true, \"verdict\": \"pass\", \"notes\": \"The generated texture matches the simple square geometry perfectly and captures the gritty, industrial style of the style anchor. The material details flow beautifully to the edges of the canvas without any artificial borders.\"}\n```"
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage2 detail-budget rejected: bg_ratio=1.37 eq_ratio=1.340511622843548."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage2 detail-budget rejected: bg_ratio=1.37 eq_ratio=0.7964321103867225."
+      }
+    ],
+    "equipment": "floor-only",
+    "mask_status": "shipped",
+    "walkmask_connectivity": {
+      "ok": true,
+      "n_portals": 4,
+      "unreachable_edges": []
+    },
+    "n_boxes": 1,
+    "used_neighbor_composite": false,
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/full_l03_room151.png"
+  },
+  "l03/room_043": {
+    "key": "l03/room_043",
+    "status": "accepted",
+    "cost": 0.0762875,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_43.png",
+    "verdicts": [
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "Excellent treatment. The generated texture successfully maps the style anchor's paneled metal and weathered details across the full aspect ratio of the base truth without introducing any unwanted props or border frames.",
+        "_cost": 0.0069075,
+        "_raw": "```json\n{\n  \"geometry_ok\": true,\n  \"style_ok\": true,\n  \"palette_ok\": true,\n  \"fidelity_ok\": true,\n  \"fullbleed_ok\": true,\n  \"verdict\": \"pass\",\n  \"notes\": \"Excellent treatment. The generated texture successfully maps the style anchor's paneled metal and weathered details across the full aspect ratio of the base truth without introducing any unwanted props or border frames.\"\n}\n```"
+      }
+    ],
+    "equipment": "floor-only",
+    "mask_status": "shipped",
+    "walkmask_connectivity": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": []
+    },
+    "n_boxes": 0,
+    "used_neighbor_composite": false,
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/full_l03_room043.png"
+  },
+  "l03/room_058": {
+    "key": "l03/room_058",
+    "status": "accepted",
+    "cost": 0.22723100000000002,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_58.png",
+    "verdicts": [
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "The generated texture correctly renders a continuous metal floor matching the rectangular room boundary defined in the base truth. The details, such as metal paneling, panel lines, and vents, align beautifully with the style anchor\u2019s layout while maintaining clean edges up to the frame.",
+        "_cost": 0.0070065,
+        "_raw": "```json\n{\n  \"geometry_ok\": true,\n  \"style_ok\": true,\n  \"palette_ok\": true,\n  \"fidelity_ok\": true,\n  \"fullbleed_ok\": true,\n  \"verdict\": \"pass\",\n  \"notes\": \"The generated texture correctly renders a continuous metal floor matching the rectangular room boundary defined in the base truth. The details, such as metal paneling, panel lines, and vents, align beautifully with the style anchor\u2019s layout while maintaining clean edges up to the frame.\"\n}\n```"
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage2 item-placement rejected: [{'label': 'SPECIMEN TABLE', 'present': False, 'notes': 'only floor tiles and colored stains are visible'}, {'label': 'SCREEN ARRAY', 'present': True, 'notes': 'unambiguous console/monitors at the top border'}]",
+        "_item_placement": {
+          "results": [
+            {
+              "label": "SPECIMEN TABLE",
+              "present": false,
+              "notes": "only floor tiles and colored stains are visible"
+            },
+            {
+              "label": "SCREEN ARRAY",
+              "present": true,
+              "notes": "unambiguous console/monitors at the top border"
+            }
+          ],
+          "all_present": false,
+          "_cost": 0.006117,
+          "_raw": "```json\n{\n  \"results\": [\n    {\n      \"label\": \"SPECIMEN TABLE\",\n      \"present\": false,\n      \"notes\": \"only floor tiles and colored stains are visible\"\n    },\n    {\n      \"label\": \"SCREEN ARRAY\",\n      \"present\": true,\n      \"notes\": \"unambiguous console/monitors at the top border\"\n    }\n  ],\n  \"all_present\": false\n}\n```"
+        }
+      },
+      {
+        "verdict": "pass",
+        "notes": "stage2 equipment add accepted (composited)"
+      }
+    ],
+    "equipment": "painted",
+    "mask_status": "shipped",
+    "walkmask_connectivity": {
+      "ok": true,
+      "n_portals": 6,
+      "unreachable_edges": []
+    },
+    "n_boxes": 2,
+    "used_neighbor_composite": false,
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/full_l03_room058.png"
+  },
+  "l03/room_168": {
+    "key": "l03/room_168",
+    "status": "bare",
+    "cost": 0.2094785,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.1945003403980077, grad_ratio=2.074804482682752)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.6330323312081172, grad_ratio=1.4646730721200838)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.37.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.3669725994809807,
+          "room_grad": 44.71327572960419,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.305291682861089,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_152": {
+    "key": "l03/room_152",
+    "status": "bare",
+    "cost": 0.210235,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=3.1631695599072884, grad_ratio=1.9267668048077233)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.16767776972834, grad_ratio=1.7140141819873258)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.1895739966482344, grad_ratio=2.489794009714936)."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_110": {
+    "key": "l03/room_110",
+    "status": "bare",
+    "cost": 0.209737,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=3.7156470097674297, grad_ratio=0.8713782761791602)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 3.5% painted near-black."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 4.0% painted near-black."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_108": {
+    "key": "l03/room_108",
+    "status": "bare",
+    "cost": 0.209465,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.8114051343361006, grad_ratio=1.0382593687946071)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 4.4% painted near-black."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 3.4% painted near-black."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_158": {
+    "key": "l03/room_158",
+    "status": "accepted",
+    "cost": 0.29173499999999997,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_158.png",
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.34.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.336786366218711,
+          "room_grad": 50.11449564683553,
+          "material_grad": 37.4887842315384,
+          "entropy_bits": 5.847308496786105,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.3590151690428314, grad_ratio=1.7553684011399828)."
+      },
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "The generated texture matches the simple square geometry of the base truth perfectly while beautifully translating the details from the style anchor. It features continuous full-bleed industrial floor plates with no frame borders or discrete props.",
+        "_cost": 0.0067455,
+        "_raw": "```json\n{\"geometry_ok\": true, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": true, \"verdict\": \"pass\", \"notes\": \"The generated texture matches the simple square geometry of the base truth perfectly while beautifully translating the details from the style anchor. It features continuous full-bleed industrial floor plates with no frame borders or discrete props.\"}\n```"
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage2 generation error: model returned no image (refusal=None); content='I\\'ve updated the top-down orthographic view of the archive-deck floor texture, adding the two solid matching archive shelves you requested while strictly maintaining the \"Black Law.\" The new equipment is integrated with natural contact shadows and a level of distress that matches the existing floor plating.'"
+      },
+      {
+        "verdict": "pass",
+        "notes": "stage2 equipment add accepted (composited)"
+      }
+    ],
+    "equipment": "painted",
+    "mask_status": "shipped",
+    "walkmask_connectivity": {
+      "ok": true,
+      "n_portals": 4,
+      "unreachable_edges": []
+    },
+    "n_boxes": 2,
+    "used_neighbor_composite": true,
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/full_l03_room158.png"
+  },
+  "l03/room_053": {
+    "key": "l03/room_053",
+    "status": "bare",
+    "cost": 0.2101715,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.36.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.3608737828502633,
+          "room_grad": 44.51378521330774,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.127278326310914,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.6677069991676292, grad_ratio=0.9363094911567963)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.38693646632545, grad_ratio=1.7292184362302319)."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_041": {
+    "key": "l03/room_041",
+    "status": "bare",
+    "cost": 0.210266,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.55.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.5530491546041656,
+          "room_grad": 50.79978567076679,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.862052774367147,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.28.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.2762094145930039,
+          "room_grad": 41.74443837797473,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.165330077367848,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 guide-ink rejected: 2.09% saturated ink."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_169": {
+    "key": "l03/room_169",
+    "status": "accepted",
+    "cost": 0.0760895,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_169.png",
+    "verdicts": [
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "The generated texture matches the base truth geometry perfectly and renders a continuous, high-fidelity floor surface up to all edges with no painted borders or added props.",
+        "_cost": 0.0067095,
+        "_raw": "```json\n{\"geometry_ok\": true, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": true, \"verdict\": \"pass\", \"notes\": \"The generated texture matches the base truth geometry perfectly and renders a continuous, high-fidelity floor surface up to all edges with no painted borders or added props.\"}\n```"
+      }
+    ],
+    "equipment": "floor-only",
+    "mask_status": "shipped",
+    "walkmask_connectivity": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": []
+    },
+    "n_boxes": 0,
+    "used_neighbor_composite": false,
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/full_l03_room169.png"
+  },
+  "l03/room_044": {
+    "key": "l03/room_044",
+    "status": "accepted",
+    "cost": 0.221344,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_44.png",
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=2.7873494647042465, grad_ratio=1.4465350787859765)."
+      },
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "The generated texture matches the base truth perfectly, with no layout changes. The style matches the anchor well, maintaining appropriate level of detail and blood-spatter staining without introducing any forbidden physical assets.",
+        "_cost": 0.006747,
+        "_raw": "```json\n{\"geometry_ok\": true, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": true, \"verdict\": \"pass\", \"notes\": \"The generated texture matches the base truth perfectly, with no layout changes. The style matches the anchor well, maintaining appropriate level of detail and blood-spatter staining without introducing any forbidden physical assets.\"}\n```"
+      },
+      {
+        "verdict": "pass",
+        "notes": "stage2 equipment add accepted (composited)"
+      }
+    ],
+    "equipment": "painted",
+    "mask_status": "shipped",
+    "walkmask_connectivity": {
+      "ok": true,
+      "n_portals": 5,
+      "unreachable_edges": []
+    },
+    "n_boxes": 2,
+    "used_neighbor_composite": true,
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/full_l03_room044.png"
+  },
+  "l03/room_042": {
+    "key": "l03/room_042",
+    "status": "bare",
+    "cost": 0.21739200000000003,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.30.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.2980555287930386,
+          "room_grad": 42.45901841287628,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 5.995347180857594,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.57.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.5717881280906572,
+          "room_grad": 51.412732037584504,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.866906845189661,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": false,
+        "verdict": "fail",
+        "notes": "The generated texture contains painted structural borders at the top and bottom edges (including pipes/conduits running along the ceiling/wall joint at the top), violating the full-bleed requirement for a continuous floor surface.",
+        "_cost": 0.0069615,
+        "_raw": "```json\n{\n  \"geometry_ok\": true,\n  \"style_ok\": true,\n  \"palette_ok\": true,\n  \"fidelity_ok\": true,\n  \"fullbleed_ok\": false,\n  \"verdict\": \"fail\",\n  \"notes\": \"The generated texture contains painted structural borders at the top and bottom edges (including pipes/conduits running along the ceiling/wall joint at the top), violating the full-bleed requirement for a continuous floor surface.\"\n}\n```"
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_059": {
+    "key": "l03/room_059",
+    "status": "accepted",
+    "cost": 0.282258,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_59.png",
+    "verdicts": [
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "The generated texture matches the simple square geometry of the base truth while utilizing the high-fidelity floor panels and vents from the style anchor. Material treatment is consistent and runs flush to all edges.",
+        "_cost": 0.0067275,
+        "_raw": "```json\n{\"geometry_ok\": true, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": true, \"verdict\": \"pass\", \"notes\": \"The generated texture matches the simple square geometry of the base truth while utilizing the high-fidelity floor panels and vents from the style anchor. Material treatment is consistent and runs flush to all edges.\"}\n```"
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage2 detail-budget rejected: bg_ratio=1.28 eq_ratio=1.2876941777607034."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage2 detail-budget rejected: bg_ratio=1.28 eq_ratio=1.0927784269126084."
+      }
+    ],
+    "equipment": "floor-only",
+    "mask_status": "shipped",
+    "walkmask_connectivity": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": []
+    },
+    "n_boxes": 2,
+    "used_neighbor_composite": true,
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/full_l03_room059.png"
+  },
+  "l03/room_153": {
+    "key": "l03/room_153",
+    "status": "bare",
+    "cost": 0.2094685,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.612359664494968, grad_ratio=1.8606231256673547)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.3164312735175252, grad_ratio=1.927286872079028)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.8190523110904566, grad_ratio=1.5299780292714187)."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_159": {
+    "key": "l03/room_159",
+    "status": "accepted",
+    "cost": 0.1517965,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_159.png",
+    "verdicts": [
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "The generated texture matches the simple square geometry of the base truth while successfully filling the surface with high-fidelity, full-bleed industrial floor plate details consistent with the style anchor.",
+        "_cost": 0.006723,
+        "_raw": "```json\n{\"geometry_ok\": true, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": true, \"verdict\": \"pass\", \"notes\": \"The generated texture matches the simple square geometry of the base truth while successfully filling the surface with high-fidelity, full-bleed industrial floor plate details consistent with the style anchor.\"}\n```"
+      },
+      {
+        "verdict": "pass",
+        "notes": "stage2 equipment add accepted (composited)"
+      }
+    ],
+    "equipment": "painted",
+    "mask_status": "shipped",
+    "walkmask_connectivity": {
+      "ok": true,
+      "n_portals": 4,
+      "unreachable_edges": []
+    },
+    "n_boxes": 2,
+    "used_neighbor_composite": true,
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/full_l03_room159.png"
+  },
+  "l03/room_111": {
+    "key": "l03/room_111",
+    "status": "bare",
+    "cost": 0.20843899999999999,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 3.6% painted near-black."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 3.8% painted near-black."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 3.5% painted near-black."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_109": {
+    "key": "l03/room_109",
+    "status": "bare",
+    "cost": 0.2084575,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 2.7% painted near-black."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 10.8% painted near-black."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 6.2% painted near-black."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_054": {
+    "key": "l03/room_054",
+    "status": "bare",
+    "cost": 0.2102505,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 2.4% painted near-black."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.2304784864282234, grad_ratio=2.155088896170984)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.38.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.3776816803035699,
+          "room_grad": 45.06356664532032,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.264573545260111,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_040": {
+    "key": "l03/room_040",
+    "status": "bare",
+    "cost": 0.21014300000000002,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 2.0% painted near-black."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.6521663735991978, grad_ratio=1.0981946080966403)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.7387257127038196, grad_ratio=1.5463210104165948)."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_049": {
+    "key": "l03/room_049",
+    "status": "accepted",
+    "cost": 0.151763,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_49.png",
+    "verdicts": [
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "Excellent treatment. The generated texture successfully maps the style anchor's tile layout across the entire square footprint of the base truth without introducing any discrete props or borders.",
+        "_cost": 0.006831,
+        "_raw": "```json\n{\n  \"geometry_ok\": true,\n  \"style_ok\": true,\n  \"palette_ok\": true,\n  \"fidelity_ok\": true,\n  \"fullbleed_ok\": true,\n  \"verdict\": \"pass\",\n  \"notes\": \"Excellent treatment. The generated texture successfully maps the style anchor's tile layout across the entire square footprint of the base truth without introducing any discrete props or borders.\"\n}\n```"
+      },
+      {
+        "verdict": "pass",
+        "notes": "stage2 equipment add accepted (composited)"
+      }
+    ],
+    "equipment": "painted",
+    "mask_status": "shipped",
+    "walkmask_connectivity": {
+      "ok": true,
+      "n_portals": 5,
+      "unreachable_edges": []
+    },
+    "n_boxes": 2,
+    "used_neighbor_composite": true,
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/full_l03_room049.png"
+  },
+  "l03/room_050": {
+    "key": "l03/room_050",
+    "status": "bare",
+    "cost": 0.22440550000000004,
+    "verdicts": [
+      {
+        "geometry_ok": false,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": false,
+        "verdict": "fail",
+        "notes": "The generated texture introduces simulated floor grates as discrete hand-drawn object props that do not exist in the base truth. Additionally, the bottom edge breaks full-bleed consistency with a distinct, busy trim/border panel sequence.",
+        "_cost": 0.006804,
+        "_raw": "```json\n{\"geometry_ok\": false, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": false, \"verdict\": \"fail\", \"notes\": \"The generated texture introduces simulated floor grates as discrete hand-drawn object props that do not exist in the base truth. Additionally, the bottom edge breaks full-bleed consistency with a distinct, busy trim/border panel sequence.\"}\n```"
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 2.4% painted near-black."
+      },
+      {
+        "geometry_ok": false,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": false,
+        "verdict": "fail",
+        "notes": "The generated texture introduces a horizontal seam/border near the bottom edge containing a wall perspective render, completely breaking both the silhouette geometry defined in the base truth and the fullbleed requirement.",
+        "_cost": 0.006723,
+        "_raw": "```json\n{\"geometry_ok\": false, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": false, \"verdict\": \"fail\", \"notes\": \"The generated texture introduces a horizontal seam/border near the bottom edge containing a wall perspective render, completely breaking both the silhouette geometry defined in the base truth and the fullbleed requirement.\"}\n```"
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_170": {
+    "key": "l03/room_170",
+    "status": "bare",
+    "cost": 0.21007150000000002,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.2621869159289172, grad_ratio=1.7100746549460295)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.6558972594271182, grad_ratio=1.1162309152764756)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 6.1% painted near-black."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_055": {
+    "key": "l03/room_055",
+    "status": "bare",
+    "cost": 0.210199,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 3.1% painted near-black."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 4.0% painted near-black."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.4118850102614808, grad_ratio=1.8999069824236938)."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_154": {
+    "key": "l03/room_154",
+    "status": "bare",
+    "cost": 0.21035149999999997,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.5262975829053447, grad_ratio=1.7279042613550604)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.52.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.5197553095380945,
+          "room_grad": 49.710753692288804,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.617258688001126,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.40.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.402577735729758,
+          "room_grad": 45.87790936972703,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.231213620140138,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_155": {
+    "key": "l03/room_155",
+    "status": "bare",
+    "cost": 0.2105915,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.4157095020821338, grad_ratio=1.732781240232627)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.45.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.4501056227338507,
+          "room_grad": 47.43253271570071,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.4162968751716924,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.6425657477882052, grad_ratio=1.6187587824481415)."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_112": {
+    "key": "l03/room_112",
+    "status": "bare",
+    "cost": 0.2085515,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.41.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.4053657102139527,
+          "room_grad": 48.65197894824717,
+          "material_grad": 34.61873204579639,
+          "entropy_bits": 5.753687828340561,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.75.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.747004782606383,
+          "room_grad": 60.47909045177515,
+          "material_grad": 34.61873204579639,
+          "entropy_bits": 6.130798643230224,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.66.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.6629886414758213,
+          "room_grad": 57.57055817445442,
+          "material_grad": 34.61873204579639,
+          "entropy_bits": 6.142490705255767,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_047": {
+    "key": "l03/room_047",
+    "status": "accepted",
+    "cost": 0.15149550000000003,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_47.png",
+    "verdicts": [
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "The generated texture correctly covers the full square room with a continuous tiled metal floor treatment. The visual style perfectly matches the anchor's industrial-horror medical aesthetic while remaining free of any illegal game-prop illustrations.",
+        "_cost": 0.006777,
+        "_raw": "```json\n{\"geometry_ok\": true, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": true, \"verdict\": \"pass\", \"notes\": \"The generated texture correctly covers the full square room with a continuous tiled metal floor treatment. The visual style perfectly matches the anchor's industrial-horror medical aesthetic while remaining free of any illegal game-prop illustrations.\"}\n```"
+      },
+      {
+        "verdict": "pass",
+        "notes": "stage2 equipment add accepted (composited)"
+      }
+    ],
+    "equipment": "painted",
+    "mask_status": "shipped",
+    "walkmask_connectivity": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": []
+    },
+    "n_boxes": 2,
+    "used_neighbor_composite": false,
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/full_l03_room047.png"
+  },
+  "l03/room_160": {
+    "key": "l03/room_160",
+    "status": "accepted",
+    "cost": 0.2213655,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_160.png",
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.3094075143786768, grad_ratio=2.2076926776293644)."
+      },
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "The generated texture fits the solid rectangular geometry perfectly without introducing any unwanted floor clutter or decorative borders. The material treatment seamlessly replicates the style anchor's grimy, industrial paneling to the outer edges.",
+        "_cost": 0.0067455,
+        "_raw": "```json\n{\"geometry_ok\": true, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": true, \"verdict\": \"pass\", \"notes\": \"The generated texture fits the solid rectangular geometry perfectly without introducing any unwanted floor clutter or decorative borders. The material treatment seamlessly replicates the style anchor's grimy, industrial paneling to the outer edges.\"}\n```"
+      },
+      {
+        "verdict": "pass",
+        "notes": "stage2 equipment add accepted (composited)"
+      }
+    ],
+    "equipment": "painted",
+    "mask_status": "shipped",
+    "walkmask_connectivity": {
+      "ok": true,
+      "n_portals": 4,
+      "unreachable_edges": []
+    },
+    "n_boxes": 2,
+    "used_neighbor_composite": true,
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/full_l03_room160.png"
+  },
+  "l03/room_046": {
+    "key": "l03/room_046",
+    "status": "bare",
+    "cost": 0.216709,
+    "verdicts": [
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": false,
+        "verdict": "fail",
+        "notes": "The generated texture contains a detached offset border strip running along the very bottom edge which disrupts the full-bleed continuity of the floor layout.",
+        "_cost": 0.006642,
+        "_raw": "```json\n{\"geometry_ok\": true, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": false, \"verdict\": \"fail\", \"notes\": \"The generated texture contains a detached offset border strip running along the very bottom edge which disrupts the full-bleed continuity of the floor layout.\"}\n```"
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.26.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.2571481678377148,
+          "room_grad": 60.933929341745454,
+          "material_grad": 48.46996630997868,
+          "entropy_bits": 6.520403399322932,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=3.6144984316693867, grad_ratio=0.5707823258353371)."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_171": {
+    "key": "l03/room_171",
+    "status": "bare",
+    "cost": 0.06938,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 4.1% painted near-black."
+      },
+      {
+        "verdict": "fail",
+        "notes": "generation error: [Errno 28] No space left on device"
+      },
+      {
+        "verdict": "fail",
+        "notes": "generation error: [Errno 28] No space left on device"
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_056": {
+    "key": "l03/room_056",
+    "status": "bare",
+    "cost": 0.06938,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.1748943591941465, grad_ratio=1.816506014519288)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "generation error: [Errno 28] No space left on device"
+      },
+      {
+        "verdict": "fail",
+        "notes": "generation error: [Errno 28] No space left on device"
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_156": {
+    "key": "l03/room_156",
+    "status": "bare",
+    "cost": 0.0,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "generation error: [Errno 28] No space left on device"
+      },
+      {
+        "verdict": "fail",
+        "notes": "generation error: [Errno 28] No space left on device"
+      },
+      {
+        "verdict": "fail",
+        "notes": "generation error: [Errno 28] No space left on device"
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_075": {
+    "key": "l03/room_075",
+    "status": "bare",
+    "cost": 0.1397775,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "generation error: [Errno 28] No space left on device"
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.44.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.435870454387143,
+          "room_grad": 46.96690450370484,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.3671818768277575,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.8791012323073077, grad_ratio=2.6458413284194635)."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_087": {
+    "key": "l03/room_087",
+    "status": "accepted",
+    "cost": 0.234509,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_87.png",
+    "verdicts": [
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "The generated texture flawlessly captures the geometry of the room, extending the industrial floor plates and tread patterns perfectly across the central cross shape from the base truth. Color tones, rust weathering, and panel alignments match the style anchor seamlessly with no added props or border artifacts.",
+        "_cost": 0.0068655,
+        "_raw": "```json\n{\"geometry_ok\": true, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": true, \"verdict\": \"pass\", \"notes\": \"The generated texture flawlessly captures the geometry of the room, extending the industrial floor plates and tread patterns perfectly across the central cross shape from the base truth. Color tones, rust weathering, and panel alignments match the style anchor seamlessly with no added props or border artifacts.\"}\n```"
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage2 item-placement rejected: [{'label': 'CRATE STACK', 'present': False, 'notes': 'Shows a wall panel with a ring fixture, not crates'}, {'label': 'CRATE STACK', 'present': False, 'notes': 'Shows a wall panel section, not crates'}, {'label': 'HAZARD LANE', 'present': False, 'notes': 'Shows bare textured floor plates with no clear hazard stripes'}, {'label': 'MOORING RING WALL', 'present': False, 'notes': 'Shows blurry wall tile textures, no visible mooring ring'}]",
+        "_item_placement": {
+          "results": [
+            {
+              "label": "CRATE STACK",
+              "present": false,
+              "notes": "Shows a wall panel with a ring fixture, not crates"
+            },
+            {
+              "label": "CRATE STACK",
+              "present": false,
+              "notes": "Shows a wall panel section, not crates"
+            },
+            {
+              "label": "HAZARD LANE",
+              "present": false,
+              "notes": "Shows bare textured floor plates with no clear hazard stripes"
+            },
+            {
+              "label": "MOORING RING WALL",
+              "present": false,
+              "notes": "Shows blurry wall tile textures, no visible mooring ring"
+            }
+          ],
+          "all_present": false,
+          "_cost": 0.0100095,
+          "_raw": "```json\n{\n  \"results\": [\n    {\n      \"label\": \"CRATE STACK\",\n      \"present\": false,\n      \"notes\": \"Shows a wall panel with a ring fixture, not crates\"\n    },\n    {\n      \"label\": \"CRATE STACK\",\n      \"present\": false,\n      \"notes\": \"Shows a wall panel section, not crates\"\n    },\n    {\n      \"label\": \"HAZARD LANE\",\n      \"present\": false,\n      \"notes\": \"Shows bare textured floor plates with no clear hazard stripes\"\n    },\n    {\n      \"label\": \"MOORING RING WALL\",\n      \"present\": false,\n      \"notes\": \"Shows blurry wall tile textures, no visible mooring ring\"\n    }\n  ],\n  \"all_present\": false\n}\n```"
+        }
+      },
+      {
+        "verdict": "pass",
+        "notes": "stage2 equipment add accepted (composited)"
+      }
+    ],
+    "equipment": "painted",
+    "mask_status": "shipped",
+    "walkmask_connectivity": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": []
+    },
+    "n_boxes": 4,
+    "used_neighbor_composite": false,
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/full_l03_room087.png"
+  },
+  "l03/room_048": {
+    "key": "l03/room_048",
+    "status": "accepted",
+    "cost": 0.29185649999999996,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_48.png",
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.29.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.2943495089605093,
+          "room_grad": 62.73707709265334,
+          "material_grad": 48.46996630997868,
+          "entropy_bits": 6.616305896650783,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=0.9957743270025591, grad_ratio=4.273926324679732)."
+      },
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "The generated texture correctly covers the entire square room geometry with a high-fidelity industrial floor pattern. It matches the style anchor perfectly while remaining free of any forbidden props or borders.",
+        "_cost": 0.006858,
+        "_raw": "```json\n{\n  \"geometry_ok\": true,\n  \"style_ok\": true,\n  \"palette_ok\": true,\n  \"fidelity_ok\": true,\n  \"fullbleed_ok\": true,\n  \"verdict\": \"pass\",\n  \"notes\": \"The generated texture correctly covers the entire square room geometry with a high-fidelity industrial floor pattern. It matches the style anchor perfectly while remaining free of any forbidden props or borders.\"\n}\n```"
+      },
+      {
+        "verdict": "pass",
+        "notes": "stage2 equipment add accepted (composited)"
+      }
+    ],
+    "equipment": "painted",
+    "mask_status": "shipped",
+    "walkmask_connectivity": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": []
+    },
+    "n_boxes": 2,
+    "used_neighbor_composite": true,
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/full_l03_room048.png"
+  },
+  "l03/room_057": {
+    "key": "l03/room_057",
+    "status": "bare",
+    "cost": 0.2091845,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.5381484016277345, grad_ratio=2.3951376817042105)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.1289797684376484, grad_ratio=2.351864929579443)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.28.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.2796257906120487,
+          "room_grad": 41.85618704286645,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.215102744560992,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_045": {
+    "key": "l03/room_045",
+    "status": "bare",
+    "cost": 0.21035099999999998,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.7740797159961272, grad_ratio=0.6814143995734107)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 guide-ink rejected: 1.66% saturated ink."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.5886525828257791, grad_ratio=1.3306419190031182)."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_157": {
+    "key": "l03/room_157",
+    "status": "bare",
+    "cost": 0.2102495,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.2669063571336436, grad_ratio=1.8704668328254617)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.42.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.415217176229645,
+          "room_grad": 46.291341788455796,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.235080250079895,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.42.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.4164982881191668,
+          "room_grad": 46.333246585361316,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.179789136290477,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_164": {
+    "key": "l03/room_164",
+    "status": "accepted",
+    "cost": 0.22166000000000002,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_164.png",
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.31.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.3106032970786257,
+          "room_grad": 49.13292421732342,
+          "material_grad": 37.4887842315384,
+          "entropy_bits": 5.7835754992995545,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "The generated texture correctly fills the entire square room geometry with any hazardous stripes removed, maintaining pristine fullbleed edges and excellent material fidelity consistent with the style anchor.",
+        "_cost": 0.0066765,
+        "_raw": "```json\n{\"geometry_ok\": true, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": true, \"verdict\": \"pass\", \"notes\": \"The generated texture correctly fills the entire square room geometry with any hazardous stripes removed, maintaining pristine fullbleed edges and excellent material fidelity consistent with the style anchor.\"}\n```"
+      },
+      {
+        "verdict": "pass",
+        "notes": "stage2 equipment add accepted (composited)"
+      }
+    ],
+    "equipment": "painted",
+    "mask_status": "shipped",
+    "walkmask_connectivity": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": []
+    },
+    "n_boxes": 2,
+    "used_neighbor_composite": true,
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/full_l03_room164.png"
+  },
+  "l03/room_173": {
+    "key": "l03/room_173",
+    "status": "bare",
+    "cost": 0.20845400000000003,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 7.7% painted near-black."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 3.8% painted near-black."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 3.3% painted near-black."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_165": {
+    "key": "l03/room_165",
+    "status": "bare",
+    "cost": 0.208088,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.609535206420919, grad_ratio=1.313388979875139)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.27.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.2741083403912108,
+          "room_grad": 47.76477266052959,
+          "material_grad": 37.4887842315384,
+          "entropy_bits": 5.762020773731933,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 5.1% painted near-black."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_161": {
+    "key": "l03/room_161",
+    "status": "accepted",
+    "cost": 0.221644,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_161.png",
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.49.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.4901948272489212,
+          "room_grad": 55.86559234168945,
+          "material_grad": 37.4887842315384,
+          "entropy_bits": 5.91546202261663,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "Excellent generation. The texture aligns perfectly with the base truth's square container geometry, is free of any discrete props, matches the style anchor's grimy metal panels beautifully, and runs flush to the edges without any vignette or borders.",
+        "_cost": 0.0069735,
+        "_raw": "```json\n{\n  \"geometry_ok\": true,\n  \"style_ok\": true,\n  \"palette_ok\": true,\n  \"fidelity_ok\": true,\n  \"fullbleed_ok\": true,\n  \"verdict\": \"pass\",\n  \"notes\": \"Excellent generation. The texture aligns perfectly with the base truth's square container geometry, is free of any discrete props, matches the style anchor's grimy metal panels beautifully, and runs flush to the edges without any vignette or borders.\"\n}\n```"
+      },
+      {
+        "verdict": "pass",
+        "notes": "stage2 equipment add accepted (composited)"
+      }
+    ],
+    "equipment": "painted",
+    "mask_status": "shipped",
+    "walkmask_connectivity": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": []
+    },
+    "n_boxes": 2,
+    "used_neighbor_composite": false,
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/full_l03_room161.png"
+  },
+  "l03/room_051": {
+    "key": "l03/room_051",
+    "status": "accepted",
+    "cost": 0.22681449999999997,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_51.png",
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "generation error: model returned no image (refusal=None); content='I\u2019m sorry, I misunderstood the geometry guide\u2019s constraints regarding the overall room shape and I mistakenly introduced perspective depth into the render. I also added explicit directional arrows on the floor pattern, which was a specific feature to avoid. I will correct the layout and the floor pattern to be a perfectly orthographic, text-free texture with a clean rectangular silhouette.\\n\\nHere is my plan to regenerate the image to align with your specifications. \\n \\n 1.  I must first correct the silhouette to be a perfect rectangle that runs *flush against the crop edges*, strictly avoiding the \"picture frame\" and void areas I mistakenly added. The reference is a square, so the final output will be a seamless square texture with the floor material edge-to-edge.\\n 2.  I will render the scene as a true top-down orthographic view, completely removing the perspective tilt of the furniture to ensure it looks perfectly flat, as specified.\\n 3.  The text markings \"MEDBAY 04\" and the large directional arrows will be removed. In their place, I will add modest, indistinct clinical panel seams and sparse, non-directional rust staining. \\n 4.  The overall detail level must be reduced, prioritizing quiet plate areas rather than a carpet of grime. Large, calm panel sections will feature only localized scuffs and rust bleed, reflecting the moderate detail of the reference swatch.'"
+      },
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "The generated texture correctly fills the square base truth geometry with high-fidelity, grit-textured tiling details. No illegal physical props or border moldings are present inside the perimeter, matching the style anchor perfectly.",
+        "_cost": 0.006903,
+        "_raw": "```json\n{\n  \"geometry_ok\": true,\n  \"style_ok\": true,\n  \"palette_ok\": true,\n  \"fidelity_ok\": true,\n  \"fullbleed_ok\": true,\n  \"verdict\": \"pass\",\n  \"notes\": \"The generated texture correctly fills the square base truth geometry with high-fidelity, grit-textured tiling details. No illegal physical props or border moldings are present inside the perimeter, matching the style anchor perfectly.\"\n}\n```"
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage2 item-placement rejected: [{'label': 'CABINET ROW', 'present': True, 'notes': 'a long structured panel row resembles sleek wall cabinets'}, {'label': 'EXAM TABLE', 'present': False, 'notes': 'unclear floor detail or structural framing line only'}]",
+        "_item_placement": {
+          "results": [
+            {
+              "label": "CABINET ROW",
+              "present": true,
+              "notes": "a long structured panel row resembles sleek wall cabinets"
+            },
+            {
+              "label": "EXAM TABLE",
+              "present": false,
+              "notes": "unclear floor detail or structural framing line only"
+            }
+          ],
+          "all_present": false,
+          "_cost": 0.0061365,
+          "_raw": "```json\n{\n  \"results\": [\n    {\n      \"label\": \"CABINET ROW\",\n      \"present\": true,\n      \"notes\": \"a long structured panel row resembles sleek wall cabinets\"\n    },\n    {\n      \"label\": \"EXAM TABLE\",\n      \"present\": false,\n      \"notes\": \"unclear floor detail or structural framing line only\"\n    }\n  ],\n  \"all_present\": false\n}\n```"
+        }
+      },
+      {
+        "verdict": "pass",
+        "notes": "stage2 equipment add accepted (composited)"
+      }
+    ],
+    "equipment": "painted",
+    "mask_status": "shipped",
+    "walkmask_connectivity": {
+      "ok": true,
+      "reason": "fewer than 2 doorways -- nothing to connect",
+      "n_portals": 1
+    },
+    "n_boxes": 2,
+    "used_neighbor_composite": false,
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/full_l03_room051.png"
+  },
+  "l03/room_060": {
+    "key": "l03/room_060",
+    "status": "bare",
+    "cost": 0.208457,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.31.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.3134790107037455,
+          "room_grad": 54.25817673509133,
+          "material_grad": 41.30875049615028,
+          "entropy_bits": 6.733450832068673,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.28.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.2809335318560628,
+          "room_grad": 52.913763669594665,
+          "material_grad": 41.30875049615028,
+          "entropy_bits": 6.721195585249927,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.3797057389450356, grad_ratio=3.495900807776672)."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_172": {
+    "key": "l03/room_172",
+    "status": "bare",
+    "cost": 0.20875700000000003,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 7.6% painted near-black."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 3.3% painted near-black."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 4.3% painted near-black."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_175": {
+    "key": "l03/room_175",
+    "status": "bare",
+    "cost": 0.20859450000000002,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 4.1% painted near-black."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 3.6% painted near-black."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.9125484151641587, grad_ratio=0.6570551684880891)."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_176": {
+    "key": "l03/room_176",
+    "status": "accepted",
+    "cost": 0.219519,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_176.png",
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 guide-ink rejected: 0.65% saturated ink."
+      },
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "The generated texture matches the simple square floor geometry of the base truth, successfully filling in the large cross-like gap from the style anchor sample with matching paneling and grates. It remains free of any discrete game props or boundary-hugging trims.",
+        "_cost": 0.0070005,
+        "_raw": "```json\n{\n  \"geometry_ok\": true,\n  \"style_ok\": true,\n  \"palette_ok\": true,\n  \"fidelity_ok\": true,\n  \"fullbleed_ok\": true,\n  \"verdict\": \"pass\",\n  \"notes\": \"The generated texture matches the simple square floor geometry of the base truth, successfully filling in the large cross-like gap from the style anchor sample with matching paneling and grates. It remains free of any discrete game props or boundary-hugging trims.\"\n}\n```"
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage2 generation error: model returned no image (refusal=None); content=\"I have generated the top-down orthographic view of the derelict deep-space station's pump room floor, incorporating the specific modifications and strict environmental controls you requested.\\n\\n1.  **Floor Preservation:** I have maintained the exact composition, silhouette, and pixel-for-pixel detail of the base floor from your reference (image_1.png).\\n2.  **Equipment Placement:** The requested Pump Housing has been painted as a solid piece of equipment, seen top-down, and occupies the specified rectangular footprint (39% to 61% width and height) in the center of the room.\\n3.  **Material Matching:** The material language and palette for the new pump housing and its connection points precisely match the existing floor and your tileable material swatch (image_0.png), maintaining the wet-service textured deck grating, cold grays, and rust ochres.\\n4.  **Weathering Effects:** Mineral staining and fine condensation streaks have been rendered radiating naturally from the central pump housing.\\n5.  **Lighting and Exposure:** The scene is rendered with a neutral, flat exposure. All background areas and the central equipment are clearly visible without over-darkening or over-brightening, ready for post-process lighting application. No strong, directional shadows were added.\\n\\n{image}\""
+      },
+      {
+        "verdict": "pass",
+        "notes": "stage2 equipment add accepted (composited)"
+      }
+    ],
+    "equipment": "painted",
+    "mask_status": "shipped",
+    "walkmask_connectivity": {
+      "ok": true,
+      "reason": "fewer than 2 doorways -- nothing to connect",
+      "n_portals": 1
+    },
+    "n_boxes": 1,
+    "used_neighbor_composite": false,
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/full_l03_room176.png"
+  },
+  "l03/room_162": {
+    "key": "l03/room_162",
+    "status": "bare",
+    "cost": 0.2104785,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 11.8% painted near-black."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.55.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.5549829861696696,
+          "room_grad": 58.29442165222801,
+          "material_grad": 37.4887842315384,
+          "entropy_bits": 6.071949907946876,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 guide-ink rejected: 1.48% saturated ink."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_166": {
+    "key": "l03/room_166",
+    "status": "accepted",
+    "cost": 0.1512065,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_166.png",
+    "verdicts": [
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "The generated texture correctly covers the full frame as specified by the blank base truth, seamlessly matching the industrial grit and color palette of the style anchor without adding any forbidden decorative borders or objects.",
+        "_cost": 0.0068745,
+        "_raw": "```json\n{\n  \"geometry_ok\": true,\n  \"style_ok\": true,\n  \"palette_ok\": true,\n  \"fidelity_ok\": true,\n  \"fullbleed_ok\": true,\n  \"verdict\": \"pass\",\n  \"notes\": \"The generated texture correctly covers the full frame as specified by the blank base truth, seamlessly matching the industrial grit and color palette of the style anchor without adding any forbidden decorative borders or objects.\"\n}\n```"
+      },
+      {
+        "verdict": "pass",
+        "notes": "stage2 equipment add accepted (composited)"
+      }
+    ],
+    "equipment": "painted",
+    "mask_status": "shipped",
+    "walkmask_connectivity": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": []
+    },
+    "n_boxes": 2,
+    "used_neighbor_composite": false,
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/full_l03_room166.png"
+  },
+  "l03/room_064": {
+    "key": "l03/room_064",
+    "status": "bare",
+    "cost": 0.20856199999999997,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.27.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.273185101212655,
+          "room_grad": 41.64551396784419,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.5765189802234625,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 2.2% painted near-black."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=0.9630552299215914, grad_ratio=2.2912489115171994)."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_066": {
+    "key": "l03/room_066",
+    "status": "bare",
+    "cost": 0.20905400000000002,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.42.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.4159182600424634,
+          "room_grad": 49.01729484316029,
+          "material_grad": 34.61873204579639,
+          "entropy_bits": 6.049010680569439,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=0.9229124463915093, grad_ratio=1.8818136420250329)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 guide-ink rejected: 0.86% saturated ink."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_079": {
+    "key": "l03/room_079",
+    "status": "accepted",
+    "cost": 0.22073949999999998,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_79.png",
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.40.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.4037371712547195,
+          "room_grad": 45.91583416817433,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.581441731045482,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "The generated texture correctly covers the full square room silhouette from the base truth without unwanted borders or newly invented physical prop objects, staying perfectly aligned with the style anchor's material grit.",
+        "_cost": 0.0068535,
+        "_raw": "```json\n{\n  \"geometry_ok\": true,\n  \"style_ok\": true,\n  \"palette_ok\": true,\n  \"fidelity_ok\": true,\n  \"fullbleed_ok\": true,\n  \"verdict\": \"pass\",\n  \"notes\": \"The generated texture correctly covers the full square room silhouette from the base truth without unwanted borders or newly invented physical prop objects, staying perfectly aligned with the style anchor's material grit.\"\n}\n```"
+      },
+      {
+        "verdict": "pass",
+        "notes": "stage2 equipment add accepted (composited)"
+      }
+    ],
+    "equipment": "painted",
+    "mask_status": "shipped",
+    "walkmask_connectivity": {
+      "ok": true,
+      "n_portals": 4,
+      "unreachable_edges": []
+    },
+    "n_boxes": 2,
+    "used_neighbor_composite": false,
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/full_l03_room079.png"
+  },
+  "l03/room_174": {
+    "key": "l03/room_174",
+    "status": "bare",
+    "cost": 0.208583,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 3.3% painted near-black."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=0.9819082143957638, grad_ratio=1.7046918295146767)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 3.7% painted near-black."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_163": {
+    "key": "l03/room_163",
+    "status": "bare",
+    "cost": 0.2100845,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 guide-ink rejected: 1.47% saturated ink."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.37.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.3736738989976143,
+          "room_grad": 51.49736440401764,
+          "material_grad": 37.4887842315384,
+          "entropy_bits": 5.83100303477136,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.1186643548173156, grad_ratio=4.830736626720131)."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_167": {
+    "key": "l03/room_167",
+    "status": "accepted",
+    "cost": 0.2206495,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_167.png",
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 guide-ink rejected: 2.14% saturated ink."
+      },
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "Excellent treatment. The generated texture matches the square room silhouette perfectly, correctly omits the placeholder elements of the style anchor, and runs flush to all edges with no vignetting.",
+        "_cost": 0.0068565,
+        "_raw": "```json\n{\n  \"geometry_ok\": true,\n  \"style_ok\": true,\n  \"palette_ok\": true,\n  \"fidelity_ok\": true,\n  \"fullbleed_ok\": true,\n  \"verdict\": \"pass\",\n  \"notes\": \"Excellent treatment. The generated texture matches the square room silhouette perfectly, correctly omits the placeholder elements of the style anchor, and runs flush to all edges with no vignetting.\"\n}\n```"
+      },
+      {
+        "verdict": "pass",
+        "notes": "stage2 equipment add accepted (composited)"
+      }
+    ],
+    "equipment": "painted",
+    "mask_status": "shipped",
+    "walkmask_connectivity": {
+      "ok": true,
+      "reason": "fewer than 2 doorways -- nothing to connect",
+      "n_portals": 1
+    },
+    "n_boxes": 2,
+    "used_neighbor_composite": false,
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/full_l03_room167.png"
+  },
+  "l03/room_076": {
+    "key": "l03/room_076",
+    "status": "bare",
+    "cost": 0.210196,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.33.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.330684725617778,
+          "room_grad": 43.52630994089524,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.101782986244806,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.37.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.370211532261259,
+          "room_grad": 44.81922027781915,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.422041382952308,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 3.6% painted near-black."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_063": {
+    "key": "l03/room_063",
+    "status": "bare",
+    "cost": 0.209339,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.50.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.4991696466719933,
+          "room_grad": 49.03740265353489,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.780128374218811,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.6173434948227463, grad_ratio=1.2014922471355574)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.8725935588185778, grad_ratio=0.8836021051129377)."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_080": {
+    "key": "l03/room_080",
+    "status": "accepted",
+    "cost": 0.29177749999999997,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_80.png",
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.8349972607318954, grad_ratio=1.4883768139786397)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.0957675002452922, grad_ratio=2.031758924562374)."
+      },
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "Excellent generation. The texture seamlessly matches the base truth's simple square silhouette without introducing unwanted edge borders or physical props, perfectly adopting the style anchor's grimy paneled aesthetic.",
+        "_cost": 0.0068625,
+        "_raw": "```json\n{\n  \"geometry_ok\": true,\n  \"style_ok\": true,\n  \"palette_ok\": true,\n  \"fidelity_ok\": true,\n  \"fullbleed_ok\": true,\n  \"verdict\": \"pass\",\n  \"notes\": \"Excellent generation. The texture seamlessly matches the base truth's simple square silhouette without introducing unwanted edge borders or physical props, perfectly adopting the style anchor's grimy paneled aesthetic.\"\n}\n```"
+      },
+      {
+        "verdict": "pass",
+        "notes": "stage2 equipment add accepted (composited)"
+      }
+    ],
+    "equipment": "painted",
+    "mask_status": "shipped",
+    "walkmask_connectivity": {
+      "ok": true,
+      "n_portals": 4,
+      "unreachable_edges": []
+    },
+    "n_boxes": 2,
+    "used_neighbor_composite": true,
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/full_l03_room080.png"
+  },
+  "l03/room_065": {
+    "key": "l03/room_065",
+    "status": "bare",
+    "cost": 0.20903650000000001,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.7741599827189185, grad_ratio=0.9590569628453698)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.39.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.3909264669745487,
+          "room_grad": 48.152110655598165,
+          "material_grad": 34.61873204579639,
+          "entropy_bits": 5.86813291753349,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.3802695941294918, grad_ratio=1.8569454499646625)."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_077": {
+    "key": "l03/room_077",
+    "status": "bare",
+    "cost": 0.209085,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.162831513211243, grad_ratio=2.6401924939255363)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.248448494400706, grad_ratio=2.2977530117360785)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.38.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.3818139912628655,
+          "room_grad": 45.198733333660385,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.521236118023566,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_078": {
+    "key": "l03/room_078",
+    "status": "bare",
+    "cost": 0.20865850000000002,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.44.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.4413873345071901,
+          "room_grad": 47.14736004617036,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.398408064414802,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.3061074146667166, grad_ratio=1.8028004887741027)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.37.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.374244297879292,
+          "room_grad": 44.951130867029526,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.319886263257946,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_081": {
+    "key": "l03/room_081",
+    "status": "bare",
+    "cost": 0.210372,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=342.79006158881486, grad_ratio=0.037757750020854894)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 shape-conformance rejected: mean angle error 15.2 deg."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.34.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.3381617869383908,
+          "room_grad": 55.277791380120604,
+          "material_grad": 41.30875049615028,
+          "entropy_bits": 6.651654829500126,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_062": {
+    "key": "l03/room_062",
+    "status": "bare",
+    "cost": 0.2100005,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 5.6% painted near-black."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=2.5359829574526267, grad_ratio=0.8762588095336192)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.39.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.3879207379675407,
+          "room_grad": 45.39848324036712,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.270092946453394,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_061": {
+    "key": "l03/room_061",
+    "status": "accepted",
+    "cost": 0.215362,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_61.png",
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 10.4% painted near-black."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.29.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.2856001646372863,
+          "room_grad": 42.05160707776961,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.5763724683090246,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "The generated texture correctly reproduces the simple rectangular room silhouette without any bleed or margins. The material treatment matches the style anchor perfectly.",
+        "_cost": 0.0066555,
+        "_raw": "```json\n{\"geometry_ok\": true, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": true, \"verdict\": \"pass\", \"notes\": \"The generated texture correctly reproduces the simple rectangular room silhouette without any bleed or margins. The material treatment matches the style anchor perfectly.\"}\n```"
+      }
+    ],
+    "equipment": "floor-only",
+    "mask_status": "shipped",
+    "walkmask_connectivity": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": []
+    },
+    "n_boxes": 0,
+    "used_neighbor_composite": false,
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/full_l03_room061.png"
+  },
+  "l03/room_070": {
+    "key": "l03/room_070",
+    "status": "bare",
+    "cost": 0.20919699999999997,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.47.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.4672139078264854,
+          "room_grad": 50.7930851289109,
+          "material_grad": 34.61873204579639,
+          "entropy_bits": 6.193682275474486,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=0.9067251702990521, grad_ratio=1.81365325642683)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.55.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.5515174242095564,
+          "room_grad": 53.71156597309484,
+          "material_grad": 34.61873204579639,
+          "entropy_bits": 6.222002597876978,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_090": {
+    "key": "l03/room_090",
+    "status": "bare",
+    "cost": 0.20897749999999998,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 guide-ink rejected: 1.84% saturated ink."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=2.4640192244461696, grad_ratio=1.2699132672555338)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.69.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.693047985475956,
+          "room_grad": 55.37910666737589,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.953868679773727,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_082": {
+    "key": "l03/room_082",
+    "status": "bare",
+    "cost": 0.209451,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.33.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.333921620535094,
+          "room_grad": 43.63218783120603,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.119800862706783,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.49.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.49150454973283,
+          "room_grad": 48.78667956437782,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.7138490384534055,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.288394234648844, grad_ratio=3.1508993062555044)."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_067": {
+    "key": "l03/room_067",
+    "status": "bare",
+    "cost": 0.20886150000000003,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.6615681435585947, grad_ratio=0.844719117770829)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.49.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.4852996544225954,
+          "room_grad": 51.41919074416981,
+          "material_grad": 34.61873204579639,
+          "entropy_bits": 6.1205770257417615,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 5.8% painted near-black."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_091": {
+    "key": "l03/room_091",
+    "status": "accepted",
+    "cost": 0.14609650000000002,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_91.png",
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.33.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.3320266972345152,
+          "room_grad": 43.570205441758425,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.678877685615375,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "The generated texture matches the simple rectangular footprint defined in the base truth. It successfully translates the style anchor's metal floor panels across the entire surface without any borders, frames, or incorrect prop inclusions.",
+        "_cost": 0.0069345,
+        "_raw": "```json\n{\n  \"geometry_ok\": true,\n  \"style_ok\": true,\n  \"palette_ok\": true,\n  \"fidelity_ok\": true,\n  \"fullbleed_ok\": true,\n  \"verdict\": \"pass\",\n  \"notes\": \"The generated texture matches the simple rectangular footprint defined in the base truth. It successfully translates the style anchor's metal floor panels across the entire surface without any borders, frames, or incorrect prop inclusions.\"\n}\n```"
+      }
+    ],
+    "equipment": "floor-only",
+    "mask_status": "shipped",
+    "walkmask_connectivity": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": []
+    },
+    "n_boxes": 0,
+    "used_neighbor_composite": false,
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/full_l03_room091.png"
+  },
+  "l03/room_071": {
+    "key": "l03/room_071",
+    "status": "bare",
+    "cost": 0.210318,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=2.405589186141688, grad_ratio=0.4957690592548314)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.39.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.390112796853082,
+          "room_grad": 48.123942427689435,
+          "material_grad": 34.61873204579639,
+          "entropy_bits": 6.169577275589115,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 9.2% painted near-black."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_083": {
+    "key": "l03/room_083",
+    "status": "bare",
+    "cost": 0.208475,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.2532219057847536, grad_ratio=1.9192687797577963)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.35.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.3545206687813771,
+          "room_grad": 44.305976701848486,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.152401327423211,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.40.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.398118922729188,
+          "room_grad": 45.732062894679224,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.542880508330182,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_107": {
+    "key": "l03/room_107",
+    "status": "bare",
+    "cost": 0.20855050000000003,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.5704747387677098, grad_ratio=1.1589921258423903)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.39.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.385915124884733,
+          "room_grad": 45.332880220370576,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.5108753191295365,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.7677108849648018, grad_ratio=0.9212724093070144)."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_072": {
+    "key": "l03/room_072",
+    "status": "bare",
+    "cost": 0.2087855,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.43.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.4347468622333421,
+          "room_grad": 49.669117177203226,
+          "material_grad": 34.61873204579639,
+          "entropy_bits": 6.4186204536050155,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.39.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.3876896278698585,
+          "room_grad": 48.040055389957544,
+          "material_grad": 34.61873204579639,
+          "entropy_bits": 6.244161369707875,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.47.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.4677195339980615,
+          "room_grad": 50.81058926586004,
+          "material_grad": 34.61873204579639,
+          "entropy_bits": 6.1596579154788245,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_068": {
+    "key": "l03/room_068",
+    "status": "bare",
+    "cost": 0.2088045,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.49.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.4901800175590416,
+          "room_grad": 51.58814272787662,
+          "material_grad": 34.61873204579639,
+          "entropy_bits": 6.1410992117970755,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 guide-ink rejected: 2.65% saturated ink."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.34.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.33717684159137,
+          "room_grad": 46.29136677689597,
+          "material_grad": 34.61873204579639,
+          "entropy_bits": 6.0077084601181525,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_092": {
+    "key": "l03/room_092",
+    "status": "bare",
+    "cost": 0.2100965,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 6.1% painted near-black."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.28.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.2827297227624508,
+          "room_grad": 41.957715759784115,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.503903683796672,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.1959021653828346, grad_ratio=1.7449422638097563)."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_084": {
+    "key": "l03/room_084",
+    "status": "bare",
+    "cost": 0.20925500000000002,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.1666721975730938, grad_ratio=2.6205993780671797)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.34.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.3428943301559677,
+          "room_grad": 43.925682550465304,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.353036499129914,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.3739460808606119, grad_ratio=2.701400665298102)."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_106": {
+    "key": "l03/room_106",
+    "status": "bare",
+    "cost": 0.208562,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.49.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.4857680609577646,
+          "room_grad": 48.59904068674657,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.7107444190182095,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.7316448331779828, grad_ratio=2.257616093799657)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.35.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.3530213667157076,
+          "room_grad": 44.25693496780809,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.657173429361352,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_069": {
+    "key": "l03/room_069",
+    "status": "accepted",
+    "cost": 0.21999700000000003,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_69.png",
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.50.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.5016897109267713,
+          "room_grad": 51.986593718503336,
+          "material_grad": 34.61873204579639,
+          "entropy_bits": 6.305271757372039,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "The generated texture correctly fills the entire square room geometry with a high-fidelity industrial metal floor. It perfectly adapts the style anchor's panel logic to fill the central cross-shaped negative space without matching its blurred watermark.",
+        "_cost": 0.0067935,
+        "_raw": "```json\n{\"geometry_ok\": true, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": true, \"verdict\": \"pass\", \"notes\": \"The generated texture correctly fills the entire square room geometry with a high-fidelity industrial metal floor. It perfectly adapts the style anchor's panel logic to fill the central cross-shaped negative space without matching its blurred watermark.\"}\n```"
+      },
+      {
+        "verdict": "pass",
+        "notes": "stage2 equipment add accepted (composited)"
+      }
+    ],
+    "equipment": "painted",
+    "mask_status": "shipped",
+    "walkmask_connectivity": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": []
+    },
+    "n_boxes": 2,
+    "used_neighbor_composite": false,
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/full_l03_room069.png"
+  },
+  "l03/room_099": {
+    "key": "l03/room_099",
+    "status": "bare",
+    "cost": 0.208856,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.3383352177774341, grad_ratio=1.9887388603300844)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.35.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.345769617719882,
+          "room_grad": 44.01973236952972,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.338526031118306,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.549516173108774, grad_ratio=2.4570411461659916)."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_093": {
+    "key": "l03/room_093",
+    "status": "bare",
+    "cost": 0.21697300000000003,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=2.7679287753015758, grad_ratio=0.934804528222734)."
+      },
+      {
+        "geometry_ok": false,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": false,
+        "verdict": "fail",
+        "notes": "The generated texture introduces prominent horizontal conduit/pipe bundles that are not present in the BASE TRUTH geometry, violating the geometry_ok rule. Additionally, these raised wall-like structures break the flat, full-bleed surface requirement.",
+        "_cost": 0.0069885,
+        "_raw": "```json\n{\n  \"geometry_ok\": false,\n  \"style_ok\": true,\n  \"palette_ok\": true,\n  \"fidelity_ok\": true,\n  \"fullbleed_ok\": false,\n  \"verdict\": \"fail\",\n  \"notes\": \"The generated texture introduces prominent horizontal conduit/pipe bundles that are not present in the BASE TRUTH geometry, violating the geometry_ok rule. Additionally, these raised wall-like structures break the flat, full-bleed surface requirement.\"\n}\n```"
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.251188575094443, grad_ratio=4.101189546658715)."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_073": {
+    "key": "l03/room_073",
+    "status": "accepted",
+    "cost": 0.23067949999999998,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_73.png",
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.66.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.655961314709635,
+          "room_grad": 57.32728103213757,
+          "material_grad": 34.61873204579639,
+          "entropy_bits": 6.206306510306524,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "Excellent match to the base truth square geometry and the style anchor. The industrial metal plating flows continuously right to the edges with no artificial framing or margins.",
+        "_cost": 0.0068115,
+        "_raw": "```json\n{\n  \"geometry_ok\": true,\n  \"style_ok\": true,\n  \"palette_ok\": true,\n  \"fidelity_ok\": true,\n  \"fullbleed_ok\": true,\n  \"verdict\": \"pass\",\n  \"notes\": \"Excellent match to the base truth square geometry and the style anchor. The industrial metal plating flows continuously right to the edges with no artificial framing or margins.\"\n}\n```"
+      },
+      {
+        "verdict": "pass",
+        "notes": "stage2 equipment add accepted (composited)"
+      }
+    ],
+    "equipment": "painted",
+    "mask_status": "shipped",
+    "walkmask_connectivity": {
+      "ok": true,
+      "reason": "fewer than 2 doorways -- nothing to connect",
+      "n_portals": 1
+    },
+    "n_boxes": 2,
+    "used_neighbor_composite": false,
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/full_l03_room073.png"
+  },
+  "l03/room_085": {
+    "key": "l03/room_085",
+    "status": "bare",
+    "cost": 0.20821,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.5576441559458296, grad_ratio=3.001064853724103)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.151472707917997, grad_ratio=1.7092956823312417)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.3977760667061756, grad_ratio=2.4295253701421653)."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_105": {
+    "key": "l03/room_105",
+    "status": "bare",
+    "cost": 0.20856800000000003,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.46.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.4626072974871738,
+          "room_grad": 47.84145885697041,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.539106485330198,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.3685197237636761, grad_ratio=2.2839731206909253)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.39.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.3899829356993652,
+          "room_grad": 45.46593712775817,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.5757036457812585,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_100": {
+    "key": "l03/room_100",
+    "status": "bare",
+    "cost": 0.208719,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.54.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.5358930242737694,
+          "room_grad": 50.238613642733974,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.598621241320755,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.32.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.315244314885906,
+          "room_grad": 43.02125860139168,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.039725063313822,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.35.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.3521176302968867,
+          "room_grad": 44.22737401267486,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.091098354261069,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_074": {
+    "key": "l03/room_074",
+    "status": "accepted",
+    "cost": 0.217036,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_74.png",
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.47.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.4658702533290642,
+          "room_grad": 47.94818919253629,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.576331585824875,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.39.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.388504890425262,
+          "room_grad": 45.41759069718091,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.120875945915667,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "The generated texture matches the required simple rectangular layout perfectly and does not contain any forbidden props or borders. The clean panel lines and subtle rust details align well with the style anchor and run fully flush to the edges.",
+        "_cost": 0.0067665,
+        "_raw": "```json\n{\"geometry_ok\": true, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": true, \"verdict\": \"pass\", \"notes\": \"The generated texture matches the required simple rectangular layout perfectly and does not contain any forbidden props or borders. The clean panel lines and subtle rust details align well with the style anchor and run fully flush to the edges.\"}\n```_\n"
+      }
+    ],
+    "equipment": "floor-only",
+    "mask_status": "shipped",
+    "walkmask_connectivity": {
+      "ok": true,
+      "reason": "fewer than 2 doorways -- nothing to connect",
+      "n_portals": 1
+    },
+    "n_boxes": 0,
+    "used_neighbor_composite": true,
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/full_l03_room074.png"
+  },
+  "l03/room_104": {
+    "key": "l03/room_104",
+    "status": "accepted",
+    "cost": 0.1461325,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_104.png",
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.26.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.2564737428049615,
+          "room_grad": 41.0988902999059,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.390780288819929,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "The generated texture matches the simple rectangular base truth geometry exactly and contains no unwanted prop elements. The industrial metal plating material is beautifully executed and matches the style anchor perfectly.",
+        "_cost": 0.0067275,
+        "_raw": "```json\n{\"geometry_ok\": true, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": true, \"verdict\": \"pass\", \"notes\": \"The generated texture matches the simple rectangular base truth geometry exactly and contains no unwanted prop elements. The industrial metal plating material is beautifully executed and matches the style anchor perfectly.\"}\n```"
+      }
+    ],
+    "equipment": "floor-only",
+    "mask_status": "shipped",
+    "walkmask_connectivity": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": []
+    },
+    "n_boxes": 0,
+    "used_neighbor_composite": false,
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/full_l03_room104.png"
+  },
+  "l03/room_086": {
+    "key": "l03/room_086",
+    "status": "accepted",
+    "cost": 0.23430549999999997,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_86.png",
+    "verdicts": [
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "The generated texture successfully matches the full-bleed square geometry of the base truth with no added obstacles or decorative borders, perfectly reproducing the industrial-horror metallic styling from the anchor.",
+        "_cost": 0.0067125,
+        "_raw": "```json\n{\"geometry_ok\": true, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": true, \"verdict\": \"pass\", \"notes\": \"The generated texture successfully matches the full-bleed square geometry of the base truth with no added obstacles or decorative borders, perfectly reproducing the industrial-horror metallic styling from the anchor.\"}\n```"
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage2 item-placement rejected: [{'label': 'CRATE STACK', 'present': True, 'notes': 'two metal containers stacked together'}, {'label': 'CRATE STACK', 'present': True, 'notes': 'two metal containers stacked together'}, {'label': 'HAZARD LANE', 'present': True, 'notes': 'yellow and black hazard safety stripe lane'}, {'label': 'MOORING RING WALL', 'present': False, 'notes': 'shows only bare metal trim or floor line'}]",
+        "_item_placement": {
+          "results": [
+            {
+              "label": "CRATE STACK",
+              "present": true,
+              "notes": "two metal containers stacked together"
+            },
+            {
+              "label": "CRATE STACK",
+              "present": true,
+              "notes": "two metal containers stacked together"
+            },
+            {
+              "label": "HAZARD LANE",
+              "present": true,
+              "notes": "yellow and black hazard safety stripe lane"
+            },
+            {
+              "label": "MOORING RING WALL",
+              "present": false,
+              "notes": "shows only bare metal trim or floor line"
+            }
+          ],
+          "all_present": false,
+          "_cost": 0.0098835,
+          "_raw": "```json\n{\n  \"results\": [\n    {\n      \"label\": \"CRATE STACK\",\n      \"present\": true,\n      \"notes\": \"two metal containers stacked together\"\n    },\n    {\n      \"label\": \"CRATE STACK\",\n      \"present\": true,\n      \"notes\": \"two metal containers stacked together\"\n    },\n    {\n      \"label\": \"HAZARD LANE\",\n      \"present\": true,\n      \"notes\": \"yellow and black hazard safety stripe lane\"\n    },\n    {\n      \"label\": \"MOORING RING WALL\",\n      \"present\": false,\n      \"notes\": \"shows only bare metal trim or floor line\"\n    }\n  ],\n  \"all_present\": false\n}\n```"
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage2 item-placement rejected: [{'label': 'CRATE STACK', 'present': True, 'notes': 'stacked metal shipping crates'}, {'label': 'CRATE STACK', 'present': True, 'notes': 'stacked metal shipping crates'}, {'label': 'HAZARD LANE', 'present': True, 'notes': 'yellow and black hazard stripe floor markings'}, {'label': 'MOORING RING WALL', 'present': False, 'notes': 'shows only bare rusty metal flooring panels'}]",
+        "_item_placement": {
+          "results": [
+            {
+              "label": "CRATE STACK",
+              "present": true,
+              "notes": "stacked metal shipping crates"
+            },
+            {
+              "label": "CRATE STACK",
+              "present": true,
+              "notes": "stacked metal shipping crates"
+            },
+            {
+              "label": "HAZARD LANE",
+              "present": true,
+              "notes": "yellow and black hazard stripe floor markings"
+            },
+            {
+              "label": "MOORING RING WALL",
+              "present": false,
+              "notes": "shows only bare rusty metal flooring panels"
+            }
+          ],
+          "all_present": false,
+          "_cost": 0.0098565,
+          "_raw": "```json\n{\n  \"results\": [\n    {\n      \"label\": \"CRATE STACK\",\n      \"present\": true,\n      \"notes\": \"stacked metal shipping crates\"\n    },\n    {\n      \"label\": \"CRATE STACK\",\n      \"present\": true,\n      \"notes\": \"stacked metal shipping crates\"\n    },\n    {\n      \"label\": \"HAZARD LANE\",\n      \"present\": true,\n      \"notes\": \"yellow and black hazard stripe floor markings\"\n    },\n    {\n      \"label\": \"MOORING RING WALL\",\n      \"present\": false,\n      \"notes\": \"shows only bare rusty metal flooring panels\"\n    }\n  ],\n  \"all_present\": false\n}\n```"
+        }
+      }
+    ],
+    "equipment": "floor-only",
+    "mask_status": "shipped",
+    "walkmask_connectivity": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": []
+    },
+    "n_boxes": 4,
+    "used_neighbor_composite": true,
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/full_l03_room086.png"
+  },
+  "l03/room_101": {
+    "key": "l03/room_101",
+    "status": "bare",
+    "cost": 0.2094985,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.35.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.3549693405948373,
+          "room_grad": 44.320652626234214,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.161833229682929,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.31.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.3126845711905315,
+          "room_grad": 42.937530130395366,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.022173834207445,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.58.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.5766216663627848,
+          "room_grad": 51.57083566716223,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.377303140489378,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_094": {
+    "key": "l03/room_094",
+    "status": "accepted",
+    "cost": 0.2991115,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_94.png",
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=2.5473645441856445, grad_ratio=0.6889018599133601)."
+      },
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "The generated texture matches the square room geometry of the base truth perfectly and renders it in the high-fidelity industrial style defined by the style anchor.",
+        "_cost": 0.0066585,
+        "_raw": "```json\n{\"geometry_ok\": true, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": true, \"verdict\": \"pass\", \"notes\": \"The generated texture matches the square room geometry of the base truth perfectly and renders it in the high-fidelity industrial style defined by the style anchor.\"}\n```"
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage2 item-placement rejected: [{'label': 'COT BAY', 'present': False, 'notes': 'bare floor texture'}, {'label': 'COT BAY', 'present': False, 'notes': 'bare floor texture'}, {'label': 'COT BAY', 'present': False, 'notes': 'bare floor texture'}]",
+        "_item_placement": {
+          "results": [
+            {
+              "label": "COT BAY",
+              "present": false,
+              "notes": "bare floor texture"
+            },
+            {
+              "label": "COT BAY",
+              "present": false,
+              "notes": "bare floor texture"
+            },
+            {
+              "label": "COT BAY",
+              "present": false,
+              "notes": "bare floor texture"
+            }
+          ],
+          "all_present": false,
+          "_cost": 0.007299,
+          "_raw": "```json\n{\"results\": [{\"label\": \"COT BAY\", \"present\": false, \"notes\": \"bare floor texture\"}, {\"label\": \"COT BAY\", \"present\": false, \"notes\": \"bare floor texture\"}, {\"label\": \"COT BAY\", \"present\": false, \"notes\": \"bare floor texture\"}], \"all_present\": false}\n```"
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage2 item-placement rejected: [{'label': 'COT BAY', 'present': False, 'notes': 'bare rusty metal floor panelling'}, {'label': 'COT BAY', 'present': False, 'notes': 'bare rusty metal floor panelling'}, {'label': 'COT BAY', 'present': False, 'notes': 'bare rusty metal floor panelling'}]",
+        "_item_placement": {
+          "results": [
+            {
+              "label": "COT BAY",
+              "present": false,
+              "notes": "bare rusty metal floor panelling"
+            },
+            {
+              "label": "COT BAY",
+              "present": false,
+              "notes": "bare rusty metal floor panelling"
+            },
+            {
+              "label": "COT BAY",
+              "present": false,
+              "notes": "bare rusty metal floor panelling"
+            }
+          ],
+          "all_present": false,
+          "_cost": 0.00738,
+          "_raw": "```json\n{\"results\": [{\"label\": \"COT BAY\", \"present\": false, \"notes\": \"bare rusty metal floor panelling\"}, {\"label\": \"COT BAY\", \"present\": false, \"notes\": \"bare rusty metal floor panelling\"}, {\"label\": \"COT BAY\", \"present\": false, \"notes\": \"bare rusty metal floor panelling\"}], \"all_present\": false}\n```"
+        }
+      }
+    ],
+    "equipment": "floor-only",
+    "mask_status": "shipped",
+    "walkmask_connectivity": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": []
+    },
+    "n_boxes": 3,
+    "used_neighbor_composite": false,
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/full_l03_room094.png"
+  },
+  "l03/room_095": {
+    "key": "l03/room_095",
+    "status": "accepted",
+    "cost": 0.23014800000000002,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_95.png",
+    "verdicts": [
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "The generated texture successfully translates the base geometry into a continuous metal floor material. It correctly fills the central cross hair shape observed as a blurry placeholder in the style anchor with high-fidelity metal plates running full bleed to all edges.",
+        "_cost": 0.0068025,
+        "_raw": "```json\n{\"geometry_ok\": true, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": true, \"verdict\": \"pass\", \"notes\": \"The generated texture successfully translates the base geometry into a continuous metal floor material. It correctly fills the central cross hair shape observed as a blurry placeholder in the style anchor with high-fidelity metal plates running full bleed to all edges.\"}\n```"
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage2 item-placement rejected: [{'label': 'COT BAY', 'present': False, 'notes': 'bare rusty metal floor texture only'}, {'label': 'COT BAY', 'present': False, 'notes': 'bare rusty metal floor texture only'}, {'label': 'COT BAY', 'present': False, 'notes': 'bare rusty metal floor texture only'}]",
+        "_item_placement": {
+          "results": [
+            {
+              "label": "COT BAY",
+              "present": false,
+              "notes": "bare rusty metal floor texture only"
+            },
+            {
+              "label": "COT BAY",
+              "present": false,
+              "notes": "bare rusty metal floor texture only"
+            },
+            {
+              "label": "COT BAY",
+              "present": false,
+              "notes": "bare rusty metal floor texture only"
+            }
+          ],
+          "all_present": false,
+          "_cost": 0.007785,
+          "_raw": "```json\n{\n  \"results\": [\n    {\n      \"label\": \"COT BAY\",\n      \"present\": false,\n      \"notes\": \"bare rusty metal floor texture only\"\n    },\n    {\n      \"label\": \"COT BAY\",\n      \"present\": false,\n      \"notes\": \"bare rusty metal floor texture only\"\n    },\n    {\n      \"label\": \"COT BAY\",\n      \"present\": false,\n      \"notes\": \"bare rusty metal floor texture only\"\n    }\n  ],\n  \"all_present\": false\n}\n```"
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage2 item-placement rejected: [{'label': 'COT BAY', 'present': False, 'notes': 'bare rusty metal floor texture only'}, {'label': 'COT BAY', 'present': False, 'notes': 'bare rusty metal floor texture only'}, {'label': 'COT BAY', 'present': False, 'notes': 'bare rusty metal floor texture only'}]",
+        "_item_placement": {
+          "results": [
+            {
+              "label": "COT BAY",
+              "present": false,
+              "notes": "bare rusty metal floor texture only"
+            },
+            {
+              "label": "COT BAY",
+              "present": false,
+              "notes": "bare rusty metal floor texture only"
+            },
+            {
+              "label": "COT BAY",
+              "present": false,
+              "notes": "bare rusty metal floor texture only"
+            }
+          ],
+          "all_present": false,
+          "_cost": 0.007785,
+          "_raw": "```json\n{\n  \"results\": [\n    {\n      \"label\": \"COT BAY\",\n      \"present\": false,\n      \"notes\": \"bare rusty metal floor texture only\"\n    },\n    {\n      \"label\": \"COT BAY\",\n      \"present\": false,\n      \"notes\": \"bare rusty metal floor texture only\"\n    },\n    {\n      \"label\": \"COT BAY\",\n      \"present\": false,\n      \"notes\": \"bare rusty metal floor texture only\"\n    }\n  ],\n  \"all_present\": false\n}\n```"
+        }
+      }
+    ],
+    "equipment": "floor-only",
+    "mask_status": "shipped",
+    "walkmask_connectivity": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": []
+    },
+    "n_boxes": 3,
+    "used_neighbor_composite": false,
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/full_l03_room095.png"
+  },
+  "l03/room_088": {
+    "key": "l03/room_088",
+    "status": "accepted",
+    "cost": 0.2352835,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_88.png",
+    "verdicts": [
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "Excellent generation. The texture matches the base truth geometry perfectly while faithfully translating the style anchor's grimy, industrial metal paneling across the entire layout without any borders or invented props.",
+        "_cost": 0.0068745,
+        "_raw": "```json\n{\n  \"geometry_ok\": true,\n  \"style_ok\": true,\n  \"palette_ok\": true,\n  \"fidelity_ok\": true,\n  \"fullbleed_ok\": true,\n  \"verdict\": \"pass\",\n  \"notes\": \"Excellent generation. The texture matches the base truth geometry perfectly while faithfully translating the style anchor's grimy, industrial metal paneling across the entire layout without any borders or invented props.\"\n}\n```"
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage2 item-placement rejected: [{'label': 'CRATE STACK', 'present': True, 'notes': 'stack of various metal cargo crates'}, {'label': 'CRATE STACK', 'present': True, 'notes': 'stack of various metal cargo crates'}, {'label': 'HAZARD LANE', 'present': True, 'notes': 'yellow and black striped hazard line on floor'}, {'label': 'MOORING RING WALL', 'present': False, 'notes': 'shows only bare metal floor framing'}]",
+        "_item_placement": {
+          "results": [
+            {
+              "label": "CRATE STACK",
+              "present": true,
+              "notes": "stack of various metal cargo crates"
+            },
+            {
+              "label": "CRATE STACK",
+              "present": true,
+              "notes": "stack of various metal cargo crates"
+            },
+            {
+              "label": "HAZARD LANE",
+              "present": true,
+              "notes": "yellow and black striped hazard line on floor"
+            },
+            {
+              "label": "MOORING RING WALL",
+              "present": false,
+              "notes": "shows only bare metal floor framing"
+            }
+          ],
+          "all_present": false,
+          "_cost": 0.0098925,
+          "_raw": "```json\n{\n  \"results\": [\n    {\n      \"label\": \"CRATE STACK\",\n      \"present\": true,\n      \"notes\": \"stack of various metal cargo crates\"\n    },\n    {\n      \"label\": \"CRATE STACK\",\n      \"present\": true,\n      \"notes\": \"stack of various metal cargo crates\"\n    },\n    {\n      \"label\": \"HAZARD LANE\",\n      \"present\": true,\n      \"notes\": \"yellow and black striped hazard line on floor\"\n    },\n    {\n      \"label\": \"MOORING RING WALL\",\n      \"present\": false,\n      \"notes\": \"shows only bare metal floor framing\"\n    }\n  ],\n  \"all_present\": false\n}\n```"
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage2 item-placement rejected: [{'label': 'CRATE STACK', 'present': True, 'notes': 'metal crates visible at the top edge'}, {'label': 'CRATE STACK', 'present': True, 'notes': 'metal crates visible at the top edge'}, {'label': 'HAZARD LANE', 'present': False, 'notes': 'bare floor plate with diamond tread and a circular fixture, no hazard markings here'}, {'label': 'MOORING RING WALL', 'present': True, 'notes': 'vertical metal structure with mooring rings attached'}]",
+        "_item_placement": {
+          "results": [
+            {
+              "label": "CRATE STACK",
+              "present": true,
+              "notes": "metal crates visible at the top edge"
+            },
+            {
+              "label": "CRATE STACK",
+              "present": true,
+              "notes": "metal crates visible at the top edge"
+            },
+            {
+              "label": "HAZARD LANE",
+              "present": false,
+              "notes": "bare floor plate with diamond tread and a circular fixture, no hazard markings here"
+            },
+            {
+              "label": "MOORING RING WALL",
+              "present": true,
+              "notes": "vertical metal structure with mooring rings attached"
+            }
+          ],
+          "all_present": false,
+          "_cost": 0.0099825,
+          "_raw": "```json\n{\n  \"results\": [\n    {\n      \"label\": \"CRATE STACK\",\n      \"present\": true,\n      \"notes\": \"metal crates visible at the top edge\"\n    },\n    {\n      \"label\": \"CRATE STACK\",\n      \"present\": true,\n      \"notes\": \"metal crates visible at the top edge\"\n    },\n    {\n      \"label\": \"HAZARD LANE\",\n      \"present\": false,\n      \"notes\": \"bare floor plate with diamond tread and a circular fixture, no hazard markings here\"\n    },\n    {\n      \"label\": \"MOORING RING WALL\",\n      \"present\": true,\n      \"notes\": \"vertical metal structure with mooring rings attached\"\n    }\n  ],\n  \"all_present\": false\n}\n```"
+        }
+      }
+    ],
+    "equipment": "floor-only",
+    "mask_status": "shipped",
+    "walkmask_connectivity": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": []
+    },
+    "n_boxes": 4,
+    "used_neighbor_composite": true,
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/full_l03_room088.png"
+  },
+  "l03/room_103": {
+    "key": "l03/room_103",
+    "status": "bare",
+    "cost": 0.2239665,
+    "verdicts": [
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": false,
+        "verdict": "fail",
+        "notes": "The generated texture matches the base truth geometry but fails fullbleed_ok due to the introduction of a tiled metallic trim strip running along the bottom edge, breaking the continuous floor plate design.",
+        "_cost": 0.0067305,
+        "_raw": "```json\n{\"geometry_ok\": true, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": false, \"verdict\": \"fail\", \"notes\": \"The generated texture matches the base truth geometry but fails fullbleed_ok due to the introduction of a tiled metallic trim strip running along the bottom edge, breaking the continuous floor plate design.\"}\n```"
+      },
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": false,
+        "verdict": "fail",
+        "notes": "The generated texture matches the room geometry and style anchor closely. However, it fails fullbleed_ok due to a distinct, dark, picture-frame vignette and border margin running along the left, bottom, and right outer edges which prevents seamless blending with the walls.",
+        "_cost": 0.0070185,
+        "_raw": "```json\n{\n  \"geometry_ok\": true,\n  \"style_ok\": true,\n  \"palette_ok\": true,\n  \"fidelity_ok\": true,\n  \"fullbleed_ok\": false,\n  \"verdict\": \"fail\",\n  \"notes\": \"The generated texture matches the room geometry and style anchor closely. However, it fails fullbleed_ok due to a distinct, dark, picture-frame vignette and border margin running along the left, bottom, and right outer edges which prevents seamless blending with the walls.\"\n}\n```"
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.29.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.291298798991774,
+          "room_grad": 53.341939903529706,
+          "material_grad": 41.30875049615028,
+          "entropy_bits": 6.6205923821202575,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_096": {
+    "key": "l03/room_096",
+    "status": "accepted",
+    "cost": 0.298834,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_96.png",
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "generation error: model returned no image (refusal=None); content=None"
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 4.4% painted near-black."
+      },
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "The generated texture matches the required square geometry of the base truth, utilizing a continuous tiling floor-plate material that runs edge-to-edge. The style and industrial-horror color palette align well with the style anchor.",
+        "_cost": 0.00681,
+        "_raw": "```json\n{\"geometry_ok\": true, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": true, \"verdict\": \"pass\", \"notes\": \"The generated texture matches the required square geometry of the base truth, utilizing a continuous tiling floor-plate material that runs edge-to-edge. The style and industrial-horror color palette align well with the style anchor.\"}\n```"
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage2 item-placement rejected: [{'label': 'COT BAY', 'present': False, 'notes': 'bare floor panel with wear patterns'}, {'label': 'COT BAY', 'present': False, 'notes': 'bare floor panel with wear patterns'}, {'label': 'COT BAY', 'present': False, 'notes': 'bare floor panel with wear patterns'}]",
+        "_item_placement": {
+          "results": [
+            {
+              "label": "COT BAY",
+              "present": false,
+              "notes": "bare floor panel with wear patterns"
+            },
+            {
+              "label": "COT BAY",
+              "present": false,
+              "notes": "bare floor panel with wear patterns"
+            },
+            {
+              "label": "COT BAY",
+              "present": false,
+              "notes": "bare floor panel with wear patterns"
+            }
+          ],
+          "all_present": false,
+          "_cost": 0.007785,
+          "_raw": "```json\n{\n  \"results\": [\n    {\n      \"label\": \"COT BAY\",\n      \"present\": false,\n      \"notes\": \"bare floor panel with wear patterns\"\n    },\n    {\n      \"label\": \"COT BAY\",\n      \"present\": false,\n      \"notes\": \"bare floor panel with wear patterns\"\n    },\n    {\n      \"label\": \"COT BAY\",\n      \"present\": false,\n      \"notes\": \"bare floor panel with wear patterns\"\n    }\n  ],\n  \"all_present\": false\n}\n```"
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage2 item-placement rejected: [{'label': 'COT BAY', 'present': False, 'notes': 'bare floor pattern only'}, {'label': 'COT BAY', 'present': False, 'notes': 'bare floor pattern only'}, {'label': 'COT BAY', 'present': False, 'notes': 'bare floor pattern only'}]",
+        "_item_placement": {
+          "results": [
+            {
+              "label": "COT BAY",
+              "present": false,
+              "notes": "bare floor pattern only"
+            },
+            {
+              "label": "COT BAY",
+              "present": false,
+              "notes": "bare floor pattern only"
+            },
+            {
+              "label": "COT BAY",
+              "present": false,
+              "notes": "bare floor pattern only"
+            }
+          ],
+          "all_present": false,
+          "_cost": 0.007326,
+          "_raw": "```json\n{\"results\": [{\"label\": \"COT BAY\", \"present\": false, \"notes\": \"bare floor pattern only\"}, {\"label\": \"COT BAY\", \"present\": false, \"notes\": \"bare floor pattern only\"}, {\"label\": \"COT BAY\", \"present\": false, \"notes\": \"bare floor pattern only\"}], \"all_present\": false}\n```"
+        }
+      }
+    ],
+    "equipment": "floor-only",
+    "mask_status": "shipped",
+    "walkmask_connectivity": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": []
+    },
+    "n_boxes": 3,
+    "used_neighbor_composite": false,
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/full_l03_room096.png"
+  },
+  "l03/room_102": {
+    "key": "l03/room_102",
+    "status": "bare",
+    "cost": 0.208349,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.28.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.2789428517805395,
+          "room_grad": 41.8338483125281,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.128657565766126,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.7691796794610068, grad_ratio=2.688668216525241)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.39.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.390832994034736,
+          "room_grad": 45.49374228841033,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.214505520285753,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l03/room_098": {
+    "key": "l03/room_098",
+    "status": "accepted",
+    "cost": 0.29918100000000003,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_98.png",
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.26.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.2639941810216633,
+          "room_grad": 58.15564223711058,
+          "material_grad": 46.009422440619495,
+          "entropy_bits": 6.319655731348348,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "The generated texture matches the base truth geometry precisely, including the diagonal corner cut. The industrial floor plates align perfectly across the surface with no borders or added props.",
+        "_cost": 0.0066855,
+        "_raw": "```json\n{\"geometry_ok\": true, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": true, \"verdict\": \"pass\", \"notes\": \"The generated texture matches the base truth geometry precisely, including the diagonal corner cut. The industrial floor plates align perfectly across the surface with no borders or added props.\"}\n```"
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage2 item-placement rejected: [{'label': 'COT BAY', 'present': False, 'notes': 'bare rusty textured floor'}, {'label': 'COT BAY', 'present': False, 'notes': 'bare rusty textured floor'}, {'label': 'COT BAY', 'present': False, 'notes': 'bare rusty textured floor'}]",
+        "_item_placement": {
+          "results": [
+            {
+              "label": "COT BAY",
+              "present": false,
+              "notes": "bare rusty textured floor"
+            },
+            {
+              "label": "COT BAY",
+              "present": false,
+              "notes": "bare rusty textured floor"
+            },
+            {
+              "label": "COT BAY",
+              "present": false,
+              "notes": "bare rusty textured floor"
+            }
+          ],
+          "all_present": false,
+          "_cost": 0.00738,
+          "_raw": "```json\n{\"results\": [{\"label\": \"COT BAY\", \"present\": false, \"notes\": \"bare rusty textured floor\"}, {\"label\": \"COT BAY\", \"present\": false, \"notes\": \"bare rusty textured floor\"}, {\"label\": \"COT BAY\", \"present\": false, \"notes\": \"bare rusty textured floor\"}], \"all_present\": false}\n```"
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage2 item-placement rejected: [{'label': 'COT BAY', 'present': False, 'notes': 'bare rusty textured floor panels'}, {'label': 'COT BAY', 'present': False, 'notes': 'bare rusty textured floor panels'}, {'label': 'COT BAY', 'present': False, 'notes': 'bare rusty textured floor panels'}]",
+        "_item_placement": {
+          "results": [
+            {
+              "label": "COT BAY",
+              "present": false,
+              "notes": "bare rusty textured floor panels"
+            },
+            {
+              "label": "COT BAY",
+              "present": false,
+              "notes": "bare rusty textured floor panels"
+            },
+            {
+              "label": "COT BAY",
+              "present": false,
+              "notes": "bare rusty textured floor panels"
+            }
+          ],
+          "all_present": false,
+          "_cost": 0.007812,
+          "_raw": "```json\n{\n  \"results\": [\n    {\n      \"label\": \"COT BAY\",\n      \"present\": false,\n      \"notes\": \"bare rusty textured floor panels\"\n    },\n    {\n      \"label\": \"COT BAY\",\n      \"present\": false,\n      \"notes\": \"bare rusty textured floor panels\"\n    },\n    {\n      \"label\": \"COT BAY\",\n      \"present\": false,\n      \"notes\": \"bare rusty textured floor panels\"\n    }\n  ],\n  \"all_present\": false\n}\n```"
+        }
+      }
+    ],
+    "equipment": "floor-only",
+    "mask_status": "shipped",
+    "walkmask_connectivity": {
+      "ok": true,
+      "reason": "fewer than 2 doorways -- nothing to connect",
+      "n_portals": 1
+    },
+    "n_boxes": 3,
+    "used_neighbor_composite": false,
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/full_l03_room098.png"
+  },
+  "l03/room_089": {
+    "key": "l03/room_089",
+    "status": "accepted",
+    "cost": 0.382379,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_89.png",
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 5.8% painted near-black."
+      },
+      {
+        "geometry_ok": false,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": false,
+        "verdict": "fail",
+        "notes": "The generated texture introduces illegal crate props painted directly onto the floor in the top-left and top-right corners. It also features a prominent dark border frame along the edges, violating the fullbleed requirement.",
+        "_cost": 0.0069105,
+        "_raw": "```json\n{\n  \"geometry_ok\": false,\n  \"style_ok\": true,\n  \"palette_ok\": true,\n  \"fidelity_ok\": true,\n  \"fullbleed_ok\": false,\n  \"verdict\": \"fail\",\n  \"notes\": \"The generated texture introduces illegal crate props painted directly onto the floor in the top-left and top-right corners. It also features a prominent dark border frame along the edges, violating the fullbleed requirement.\"\n}\n```"
+      },
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "The generated texture matches the full-square room geometry perfectly. It fills in the central cross area with a beautifully synthesized, continuous metal plate pattern that perfectly matches the style anchor.",
+        "_cost": 0.0067125,
+        "_raw": "```json\n{\"geometry_ok\": true, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": true, \"verdict\": \"pass\", \"notes\": \"The generated texture matches the full-square room geometry perfectly. It fills in the central cross area with a beautifully synthesized, continuous metal plate pattern that perfectly matches the style anchor.\"}\n```"
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage2 item-placement rejected: [{'label': 'CRATE STACK', 'present': True, 'notes': 'unambiguous crate containers visible on the left side of the crop'}, {'label': 'CRATE STACK', 'present': True, 'notes': 'unambiguous crate containers visible on the left of the crop'}, {'label': 'HAZARD LANE', 'present': True, 'notes': 'yellow and black striped hazard pattern is clearly visible at the top edge'}, {'label': 'MOORING RING WALL', 'present': False, 'notes': 'only shows bare metal floor plates with no mooring hardware'}]",
+        "_item_placement": {
+          "results": [
+            {
+              "label": "CRATE STACK",
+              "present": true,
+              "notes": "unambiguous crate containers visible on the left side of the crop"
+            },
+            {
+              "label": "CRATE STACK",
+              "present": true,
+              "notes": "unambiguous crate containers visible on the left of the crop"
+            },
+            {
+              "label": "HAZARD LANE",
+              "present": true,
+              "notes": "yellow and black striped hazard pattern is clearly visible at the top edge"
+            },
+            {
+              "label": "MOORING RING WALL",
+              "present": false,
+              "notes": "only shows bare metal floor plates with no mooring hardware"
+            }
+          ],
+          "all_present": false,
+          "_cost": 0.0100905,
+          "_raw": "```json\n{\n  \"results\": [\n    {\n      \"label\": \"CRATE STACK\",\n      \"present\": true,\n      \"notes\": \"unambiguous crate containers visible on the left side of the crop\"\n    },\n    {\n      \"label\": \"CRATE STACK\",\n      \"present\": true,\n      \"notes\": \"unambiguous crate containers visible on the left of the crop\"\n    },\n    {\n      \"label\": \"HAZARD LANE\",\n      \"present\": true,\n      \"notes\": \"yellow and black striped hazard pattern is clearly visible at the top edge\"\n    },\n    {\n      \"label\": \"MOORING RING WALL\",\n      \"present\": false,\n      \"notes\": \"only shows bare metal floor plates with no mooring hardware\"\n    }\n  ],\n  \"all_present\": false\n}\n```"
+        }
+      },
+      {
+        "verdict": "pass",
+        "notes": "stage2 equipment add accepted (composited)"
+      }
+    ],
+    "equipment": "painted",
+    "mask_status": "shipped",
+    "walkmask_connectivity": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": []
+    },
+    "n_boxes": 4,
+    "used_neighbor_composite": true,
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/full_l03_room089.png"
+  },
+  "l03/room_097": {
+    "key": "l03/room_097",
+    "status": "accepted",
+    "cost": 0.369658,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_97.png",
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=4.870023969756393, grad_ratio=0.17560570676638879)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.26.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.2565892032599242,
+          "room_grad": 57.81494348710733,
+          "material_grad": 46.009422440619495,
+          "entropy_bits": 6.49100384695821,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "The generated texture aligns perfectly with the base truth's simple square room geometry. It faithfully reproduces the style anchor's panel logic and industrial, grunge-heavy aesthetic without adding any prohibited props.",
+        "_cost": 0.0067485,
+        "_raw": "```json\n{\"geometry_ok\": true, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": true, \"verdict\": \"pass\", \"notes\": \"The generated texture aligns perfectly with the base truth's simple square room geometry. It faithfully reproduces the style anchor's panel logic and industrial, grunge-heavy aesthetic without adding any prohibited props.\"}\n```"
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage2 item-placement rejected: [{'label': 'COT BAY', 'present': False, 'notes': 'bare rusty metal floor texture only'}, {'label': 'COT BAY', 'present': False, 'notes': 'bare rusty metal floor texture only'}, {'label': 'COT BAY', 'present': False, 'notes': 'bare rusty metal floor texture only'}]",
+        "_item_placement": {
+          "results": [
+            {
+              "label": "COT BAY",
+              "present": false,
+              "notes": "bare rusty metal floor texture only"
+            },
+            {
+              "label": "COT BAY",
+              "present": false,
+              "notes": "bare rusty metal floor texture only"
+            },
+            {
+              "label": "COT BAY",
+              "present": false,
+              "notes": "bare rusty metal floor texture only"
+            }
+          ],
+          "all_present": false,
+          "_cost": 0.007785,
+          "_raw": "```json\n{\n  \"results\": [\n    {\n      \"label\": \"COT BAY\",\n      \"present\": false,\n      \"notes\": \"bare rusty metal floor texture only\"\n    },\n    {\n      \"label\": \"COT BAY\",\n      \"present\": false,\n      \"notes\": \"bare rusty metal floor texture only\"\n    },\n    {\n      \"label\": \"COT BAY\",\n      \"present\": false,\n      \"notes\": \"bare rusty metal floor texture only\"\n    }\n  ],\n  \"all_present\": false\n}\n```"
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage2 item-placement rejected: [{'label': 'COT BAY', 'present': False, 'notes': 'bare floor pane only'}, {'label': 'COT BAY', 'present': False, 'notes': 'bare floor pane only'}, {'label': 'COT BAY', 'present': False, 'notes': 'bare floor pane only'}]",
+        "_item_placement": {
+          "results": [
+            {
+              "label": "COT BAY",
+              "present": false,
+              "notes": "bare floor pane only"
+            },
+            {
+              "label": "COT BAY",
+              "present": false,
+              "notes": "bare floor pane only"
+            },
+            {
+              "label": "COT BAY",
+              "present": false,
+              "notes": "bare floor pane only"
+            }
+          ],
+          "all_present": false,
+          "_cost": 0.007326,
+          "_raw": "```json\n{\"results\": [{\"label\": \"COT BAY\", \"present\": false, \"notes\": \"bare floor pane only\"}, {\"label\": \"COT BAY\", \"present\": false, \"notes\": \"bare floor pane only\"}, {\"label\": \"COT BAY\", \"present\": false, \"notes\": \"bare floor pane only\"}], \"all_present\": false}\n```"
+        }
+      }
+    ],
+    "equipment": "floor-only",
+    "mask_status": "shipped",
+    "walkmask_connectivity": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": []
+    },
+    "n_boxes": 3,
+    "used_neighbor_composite": true,
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/full_l03_room097.png"
   }
 }
