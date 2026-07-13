@@ -50,10 +50,16 @@ FLINCH_ANGLE_RANGE = (0.35, 0.75)
 # baseline but measured against the humanized aim point, not a raw angle.
 FIRE_ERR = math.radians(9.0)
 
-# Single skill knob (design doc §8): scales perception latency and aim
-# error together. 1.0 = tuned default; lower = sharper/less human, higher =
-# sloppier. Exposed as HumanBot(..., skill=...).
-DEFAULT_SKILL = 1.0
+# Single skill knob (design doc §8): scales the fire-discipline window
+# (`allowed_px` in `_combat_input`) that gates when the humanized cursor is
+# "close enough" to shoot. 1.0 is a plausible human aim cone but measured
+# too low against HARD-mode multi-enemy rooms on l01 (0/3 survival attempts,
+# ~1-6% fire duty cycle -- see BOT_REALISM_DESIGN.md skill-floor check,
+# 2026-07-13). 4.0 clears l01/HARD in 2 of 3 attempts (the third is a real
+# death, kept as honest footage per design doc §5) at a still-low ~5-18%
+# fire duty cycle -- tune this one number, not the reaction-latency or
+# mouse-trajectory constants, if the director wants the bot sharper/sloppier.
+DEFAULT_SKILL = 4.0
 
 
 class HumanBot(_UnstickMixin, Bot):
