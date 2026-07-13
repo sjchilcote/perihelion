@@ -133,6 +133,40 @@ states, not threat meters:
   weight class, HP, boxed-in-ness), not raw enemy count: many weak
   enemies is still CONTEMPT.
 
+## The canonical track→state mapping (2026-07-13, his ear, verbatim)
+
+> "Rejoyce... is the archetypal reflective chant, Fleshgrinder is the
+> archetypal CONTEMPT ass-kicking music, Trash Planet Mining Rig is one
+> step above it on the contempt - stalwart line, with a little prayer
+> mixed in during the break. Not A Heart, But An Engine starts off
+> prayerful, then a lead in that creschendoes in to STALWART+CONTEMPT at
+> 30 seconds - then the slow, intense, unstoppable juggernaut-like saw
+> lead at 1:00 goes to pure STALWART, back down to full PRAYER just
+> before the 2 minute mark, immediately building back up in to CONTEMPT
+> without losing the chants, the introduction of the guitar could
+> represent a jump in intensity and enemy count. Then we get to the first
+> central STALWART track - Styx Floods With Souls. Note how the saw lead
+> moves _slowly_, but unstoppably, with breaks for chanting."
+
+Derived, at stated force:
+- **State exemplars for eval + composition**: PRAYER ⇢ Rejoice (01);
+  CONTEMPT ⇢ Fleshgrinder (02); the contempt→stalwart LINE ⇢ Trash Planet
+  (03, with the prayer-in-the-break move); STALWART ⇢ Styx (05), with Not
+  A Heart (04) as the full state-arc demonstration (prayer → 0:30
+  STALWART+CONTEMPT → 1:00 pure STALWART → ~1:55 full PRAYER → rebuild to
+  CONTEMPT *without losing the chants*).
+- **STALWART's melodic law**: the lead moves SLOWLY, unstoppably — the
+  juggernaut. Long values, inexorable stepwise motion, chant breaks.
+  (Augmentation — the liturgical device — is the natural rendering.)
+- **Chant continuity across state shifts** is exemplified in the album
+  itself (04's rebuild keeps the chants under the returning guitar).
+- **Dynamic-system semantic he named**: "the introduction of the guitar
+  could represent a jump in intensity and enemy count" — guitar entry is
+  the CONTEMPT-onset voice over a persisting chant bed.
+- States BLEND (STALWART+CONTEMPT at 04's 0:30; prayer inside 03's
+  break): the classifier rides a line, not discrete buckets; stems must
+  layer without exclusivity.
+
 ## Director-flagged gold from the talk
 
 > "the 'infinite riser' - using Sheperd's tones to create a riser that builds

@@ -47,6 +47,26 @@ ANCHORS = [
     "01_rejoice__for_we_were_once_blessed__chant_of_remembrance_blk00.wav",
     "05_styx_floods_with_souls_blk03.wav",
 ]
+
+# Director's canonical track->state mapping (DIRECTOR_FEEDBACK.md): each
+# emotional state judges against ITS archetype's blocks.
+STATE_ANCHORS = {
+    "prayer": [
+        "01_rejoice__for_we_were_once_blessed__chant_of_remembrance_blk00.wav",
+        "01_rejoice__for_we_were_once_blessed__chant_of_remembrance_blk05.wav",
+        "07_i_swear_to_protect__chant_of_trust_blk00.wav",
+    ],
+    "contempt": [
+        "02_fleshgrinder_blk01.wav",
+        "02_fleshgrinder_blk02.wav",
+        "02_fleshgrinder_blk03.wav",
+    ],
+    "stalwart": [
+        "05_styx_floods_with_souls_blk00.wav",
+        "05_styx_floods_with_souls_blk03.wav",
+        "04_not_a_heart__but_an_engine_blk07.wav",
+    ],
+}
 # Held-out fixture blocks (never used as anchors).
 FIXTURE_GOOD = "03_trash_planet_mining_rig_blk03.wav"
 FIXTURE_BAD = "demo_piece_v8.wav"          # condemned by the director's ear
@@ -215,10 +235,11 @@ def probe(ours: Path, work: Path) -> dict:
     return _call(content, "musicgen.anchored_critic.probe")
 
 
-def run_panel(ours: Path, n: int, work: Path) -> dict:
+def run_panel(ours: Path, n: int, work: Path, state: str | None = None) -> dict:
     rs = []
+    anchor_set = STATE_ANCHORS[state] if state else ANCHORS
     for k in range(n):
-        anchor = BLOCKS / ANCHORS[k % len(ANCHORS)]
+        anchor = BLOCKS / anchor_set[k % len(anchor_set)]
         for swap in (False, True):
             try:
                 rs.append(anchored_once(ours, anchor, work, swap=swap))
@@ -283,6 +304,8 @@ def main():
     ap.add_argument("--probes", action="store_true")
     ap.add_argument("--spec", action="store_true",
                     help="absolute brief-execution panel (no anchor)")
+    ap.add_argument("--state", choices=list(STATE_ANCHORS),
+                    help="judge against this emotional state's archetype blocks")
     ap.add_argument("--fixtures", action="store_true")
     a = ap.parse_args()
     work = Path(tempfile.mkdtemp(prefix="critic_", dir=str(SCRATCH)))
@@ -304,7 +327,7 @@ def main():
     if a.spec:
         r = run_spec_panel(a.wav, a.n, work)
     else:
-        r = run_panel(a.wav, a.n, work)
+        r = run_panel(a.wav, a.n, work, state=a.state)
     slim = {k: v for k, v in r.items() if k != "raw"}
     print(json.dumps(slim, indent=1))
 
