@@ -152,8 +152,40 @@ def make_guide(stem: str, room_idx: int, out_path: Path) -> Path:
     # travels exclusively via the neighbor composite, not via guide
     # annotations the model can mistake for floor content.)
     _ = door_edges  # doorway info intentionally NOT drawn; see above
+    # Wall lines are drawn OFFSET OUTWARD ~3px from the true boundary
+    # (2026-07-13 accept-rate fix #2, mechanism confirmed by reading
+    # rejected frames: l04/room_059 attempt 3 shipped-to-review with the
+    # guide's cyan outline painted literally into the floor as a full
+    # perimeter border, and its attempt 2 failed guide-ink at 2.64%
+    # saturated cyan -- the model copies the strongest visual feature of
+    # the conditioning image, and no prompt text overrides that. With the
+    # line sitting just OUTSIDE the polygon, a faithful copy lands in the
+    # void that apply_mask() zeroes at ship time, so copying becomes
+    # harmless while the line still communicates the wall's position and
+    # angle. On bbox-flush edges the offset line clips out of frame --
+    # acceptable: there the crop edge itself is the wall signal (the
+    # CRITICAL FRAMING RULE in the prompt), and the cyan line matters for
+    # interior diagonal/notched edges, which always have in-frame void
+    # beyond them.
+    h_m, w_m = mask.shape
     for i in range(n):
-        draw.line([px[i], px[(i + 1) % n]], fill=(60, 230, 255), width=2)
+        ax, ay = px[i]
+        bx, by = px[(i + 1) % n]
+        ex, ey = bx - ax, by - ay
+        elen = max(1e-6, (ex ** 2 + ey ** 2) ** 0.5)
+        # unit normal; pick the sign whose sample point at the edge
+        # midpoint lands OUTSIDE the room mask (robust for non-convex
+        # rooms where "away from centroid" lies).
+        nx_, ny_ = -ey / elen, ex / elen
+        mx_, my_ = (ax + bx) / 2.0, (ay + by) / 2.0
+        sx_, sy_ = int(round(mx_ + nx_ * 4)), int(round(my_ + ny_ * 4))
+        inside = (0 <= sy_ < h_m and 0 <= sx_ < w_m and mask[sy_, sx_])
+        if inside:
+            nx_, ny_ = -nx_, -ny_
+        off = 3.0
+        draw.line([(ax + nx_ * off, ay + ny_ * off),
+                   (bx + nx_ * off, by + ny_ * off)],
+                  fill=(60, 230, 255), width=2)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     im.save(out_path)
     return out_path
