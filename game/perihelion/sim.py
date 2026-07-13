@@ -15,7 +15,7 @@ from random import Random
 import necore
 
 from .levels import Level
-from .lighting import LightingSystem
+from .lighting import LightingSystem, light_level_at
 from . import terrain
 
 DT = 1.0 / 60.0
@@ -94,6 +94,20 @@ ENEMIES: dict[str, dict] = {
                    touch_cd=48, alert_snd="shrieker_scream", die_snd="enemy_die_brute",
                    spit_cd=70, spit_speed=460.0, spit_dmg=13, keep_min=0.0,
                    keep_max=100.0, score=25),
+    # Adversary-lane ambush predator (director's directive, 2026-07-13):
+    # "add an enemy that deliberately keeps to the shadows until the
+    # player gets close, then ambushes." Named for the sensor-trace
+    # dramaturgy its own render channel implements (dim/intermittent
+    # return while dormant, solid the instant it commits) rather than any
+    # "shadow stalker" flavor label -- clinical/diegetic, matching the
+    # existing husk/mite/spitter/brute/shrieker/warden naming register.
+    # See `GameSession._flicker_ai` for the LURK/AMBUSH state machine.
+    "flicker": dict(hp=22, radius=8.5, mass=1.0, accel=560.0, fric=3.4,
+                    touch_dmg=16, touch_cd=42, alert_snd="enemy_alert_husk",
+                    die_snd="enemy_die_husk", score=3,
+                    lurk_speed=95.0, ambush_radius=70.0, ambush_burst=560.0,
+                    ambush_ticks=18, disengage_light=0.15, disengage_dist=220.0,
+                    disengage_beat=90),
 }
 
 PICKUPS: dict[str, dict] = {
@@ -137,6 +151,7 @@ DROP_TABLES = {
     "brute": [(0.55, "ammo_cell"), (0.25, "medkit")],
     "shrieker": [(0.5, "ammo_9mm")],
     "warden": [],
+    "flicker": [(0.4, "ammo_9mm"), (0.1, "medkit")],
 }
 
 
@@ -321,6 +336,11 @@ class GameSession:
             necore.mat_translate(-px, -py)))
 
         # --- scripted/world objects ---
+        # per-tick light-map cache for flicker (Adversary-lane lurker) AI
+        # queries only -- see `_room_light_map`; never populated (and
+        # never costs anything) for a session with no flicker enemies.
+        self._light_map_tick = -1
+        self._light_map_cache: dict = {}
         self.enemies: dict[int, dict] = {}
         self.bullets: dict[int, dict] = {}
         self.pickups: dict[int, dict] = {}
@@ -380,9 +400,13 @@ class GameSession:
         d = ENEMIES[kind]
         eid = self.sim.spawn(room, pos[0], pos[1], d["radius"], d["mass"], GROUP_ENEMY)
         self.sim.set_props(eid, rest_wall=0.0, rest_ent=0.2, max_substep=8.0)
-        self.enemies[eid] = dict(kind=kind, hp=d["hp"] * self._hp_mul, state="idle",
+        # A flicker's resting behavior IS lurking (not idle-until-noticed
+        # like the standard state machine) -- it never uses idle/waking,
+        # see `_flicker_ai`.
+        state = "lurk" if kind == "flicker" else "idle"
+        self.enemies[eid] = dict(kind=kind, hp=d["hp"] * self._hp_mul, state=state,
                                  touch_cd=0, spit_cd=0, scream_cd=0,
-                                 wander_cd=0, buff=0)
+                                 wander_cd=0, buff=0, trace_intensity=1.0)
         return eid
 
     def spawn_pickup(self, room: int, pos, kind: str, meta=None,
@@ -1284,6 +1308,16 @@ class GameSession:
             if e.get("buff", 0) > 0:
                 e["buff"] -= 1
 
+            if kind == "flicker":
+                # Deliberately bypasses the standard idle/waking/hunt
+                # state machine entirely -- a flicker's resting behavior
+                # already IS an active state (holding low-light ground),
+                # not "wait until the player enters the room" like every
+                # other kind; see `_flicker_ai`'s own docstring for the
+                # LURK/AMBUSH/hunt/disengage state machine.
+                self._flicker_ai(eid, e, room, proom, ex, ey, evx, evy)
+                continue
+
             # footfalls: the dread channel again — mass on deck plating,
             # audible through walls before anything is visible. Deltas are
             # only meaningful within one room's local frame, so a transfer
@@ -1441,6 +1475,158 @@ class GameSession:
             _, _, _, evx, evy, _, _ = s.get(eid)
             s.set_dir(eid, ddx / dist, ddy / dist)
             s.set_vel(eid, evx + ddx / dist * accel * DT, evy + ddy / dist * accel * DT)
+
+    # ------------------------------------------------------------------
+    # flicker: Adversary-lane ambush predator (LURK/AMBUSH state machine)
+    # ------------------------------------------------------------------
+
+    def _room_light_map(self):
+        """`LightingSystem.frame_lookup()`, computed at most ONCE per sim
+        tick and cached -- `light_level_at` queries are cheap per-call, but
+        `frame_lookup` itself re-runs the attached (worklight) visibility
+        pass, the same cost `render.py` already pays once per frame. Only
+        ever called when a flicker enemy actually exists (see
+        `_flicker_ai`'s call site in `_enemy_ai`), so a session with no
+        lurkers -- every shipped campaign level today -- pays nothing."""
+        if self._light_map_tick != self.tick_count:
+            self._light_map_cache = self.lighting.frame_lookup(self.sim)
+            self._light_map_tick = self.tick_count
+        return self._light_map_cache
+
+    #: how lit a spot must read (0..1) before a lurker treats it as a lamp
+    #: pool to avoid / a discovery bright enough to abandon stealth.
+    LURK_MAX_LIGHT = 0.12
+
+    def _flicker_dormant_trace(self, e) -> float:
+        """Sensor-trace intensity while DORMANT (LURK, not currently
+        committing): a flickering, unreliable return -- dim, never fully
+        invisible, alternating on a randomized cadence so a player who's
+        paying attention can catch it. Draws from the sim's own RNG
+        stream (determinism law: no wall clock), the same pattern
+        `_enemy_ai`'s existing idle "wander" cadence already uses."""
+        cd = e.get("flicker_cd", 0) - 1
+        if cd <= 0:
+            cd = self.rng.randrange(6, 22)
+            e["flicker_on"] = not e.get("flicker_on", False)
+        e["flicker_cd"] = cd
+        return 0.34 if e.get("flicker_on") else 0.12
+
+    def _flicker_ai(self, eid, e, room, proom, ex, ey, evx, evy):
+        """LURK: seek/hold low-light room-local positions, steer away from
+        lamp pools, reposition as the worklight sweep approaches (all via
+        `light_level_at`, which already folds in Unit 1's terrain shadows
+        -- a lurker's best hiding spot is naturally behind terrain).
+        AMBUSH: player within `ambush_radius` while in the same room ->
+        a fast burst commit, full-solid trace, no more hiding. After the
+        burst it fights like a normal aggressive (`hunt`) until either it
+        disengages back to darkness (dark + far from the player for a
+        sustained beat) or the player kills it."""
+        s = self.sim
+        d = ENEMIES["flicker"]
+        px, py = self.player_pos()
+        light_map = self._room_light_map()
+        level = light_level_at(light_map, self.lighting.lights, room, ex, ey)
+
+        if e["state"] == "lurk":
+            e["trace_intensity"] = self._flicker_dormant_trace(e)
+            if room == proom:
+                dist = math.hypot(px - ex, py - ey)
+                if dist < d["ambush_radius"]:
+                    e["state"] = "ambush"
+                    e["ambush_t"] = d["ambush_ticks"]
+                    dx, dy = px - ex, py - ey
+                    dl = math.hypot(dx, dy) or 1e-6
+                    nx, ny = dx / dl, dy / dl
+                    s.set_dir(eid, nx, ny)
+                    s.set_vel(eid, nx * d["ambush_burst"], ny * d["ambush_burst"])
+                    self._snd(d["alert_snd"], room, (ex, ey), 0.9)
+                    self.fx.append(("alerted", room, ex, ey))
+                    e["trace_intensity"] = 1.0
+                    return
+            # Reposition toward darkness ONLY while the current spot is
+            # actually a lamp pool (debounced by `lurk_retarget_cd` so a
+            # single bright tick doesn't cause thrashing) -- deliberately
+            # NOT on a periodic cadence regardless of light level. Fail-
+            # first note: an earlier version also retargeted whenever a
+            # cooldown expired even while already dark, and once outside
+            # every light's radius (level == 0.0 EXACTLY, not just low)
+            # every one of the 8 sampled candidate directions ties at
+            # 0.0 -- `min()`'s first-seen tie-break then always picked the
+            # same candidate angle (index 0, "east"), so a lurker that had
+            # already reached true darkness kept "repositioning" dead east
+            # forever, one 44-unit hop per cooldown, with no bound. Caught
+            # via tools/playtest/flicker_lurker_demo.py: the lurker walked
+            # off its intended shadow spot over ~450 ticks and the player's
+            # scripted approach never got within ambush range. The random
+            # phase offset below (rather than always starting the angle
+            # sweep at 0) is the belt-and-suspenders fix for the same tie-
+            # break class in the remaining "actually bright" case.
+            e["lurk_retarget_cd"] = e.get("lurk_retarget_cd", 0) - 1
+            if level > self.LURK_MAX_LIGHT and e["lurk_retarget_cd"] <= 0:
+                e["lurk_retarget_cd"] = self.rng.randrange(45, 90)
+                phase = self.rng.uniform(0.0, 2.0 * math.pi)
+                best = None
+                for k in range(8):
+                    a = phase + k * math.pi / 4.0
+                    cand = (ex + math.cos(a) * 44.0, ey + math.sin(a) * 44.0)
+                    lvl = light_level_at(light_map, self.lighting.lights, room, *cand)
+                    if best is None or lvl < best[0]:
+                        best = (lvl, cand)
+                e["lurk_target"] = best[1]
+            tx, ty = e.get("lurk_target", (ex, ey))
+            dx, dy = tx - ex, ty - ey
+            dist = math.hypot(dx, dy)
+            if dist > 4.0:
+                nx, ny = dx / dist, dy / dist
+                sx, sy = s.terrain_avoid_dir(room, ex, ey, d["radius"], nx, ny, 44.0)
+                s.set_dir(eid, nx, ny)
+                s.set_vel(eid, sx * d["lurk_speed"], sy * d["lurk_speed"])
+            else:
+                s.set_vel(eid, evx * 0.8, evy * 0.8)
+            return
+
+        if e["state"] == "ambush":
+            e["trace_intensity"] = 1.0
+            e["ambush_t"] -= 1
+            dx, dy = px - ex, py - ey
+            dl = math.hypot(dx, dy) or 1e-6
+            nx, ny = dx / dl, dy / dl
+            s.set_dir(eid, nx, ny)
+            s.set_vel(eid, evx + nx * d["accel"] * DT, evy + ny * d["accel"] * DT)
+            if e["ambush_t"] <= 0:
+                e["state"] = "hunt"
+                e["dark_beat"] = 0
+            return
+
+        # hunt: fights like a normal aggressive (husk-pattern seek/lunge)
+        # until it can disengage back to darkness.
+        e["trace_intensity"] = 1.0
+        if room == proom:
+            dx, dy = px - ex, py - ey
+            dist = math.hypot(dx, dy) or 1e-6
+            nx, ny = dx / dist, dy / dist
+            s.set_dir(eid, nx, ny)
+            sx, sy = s.terrain_avoid_dir(room, ex, ey, d["radius"], nx, ny,
+                                         max(40.0, min(dist, 120.0)))
+            s.set_vel(eid, evx + sx * d["accel"] * DT, evy + sy * d["accel"] * DT)
+            if level < d["disengage_light"] and dist > d["disengage_dist"]:
+                e["dark_beat"] = e.get("dark_beat", 0) + 1
+                if e["dark_beat"] > d["disengage_beat"]:
+                    e["state"] = "lurk"
+                    e["dark_beat"] = 0
+            else:
+                e["dark_beat"] = 0
+        else:
+            edge = s.next_edge(room, proom)
+            if edge >= 0:
+                mx_, my_ = s.edge_midpoint(room, edge)
+                dx, dy = mx_ - ex, my_ - ey
+                dist = math.hypot(dx, dy) or 1e-6
+                nx, ny = dx / dist, dy / dist
+                s.set_dir(eid, nx, ny)
+                sx, sy = s.terrain_avoid_dir(room, ex, ey, d["radius"], nx, ny,
+                                             max(40.0, min(dist, 120.0)))
+                s.set_vel(eid, evx + sx * d["accel"] * DT, evy + sy * d["accel"] * DT)
 
     # ------------------------------------------------------------------
 

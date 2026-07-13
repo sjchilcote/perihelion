@@ -221,6 +221,11 @@ ENEMY_SHAPE = {
     "brute": _regular_lumpy(5, [1.0, 0.95, 1.05, 0.95, 1.0]),
     "warden": _regular_lumpy(9, [0.9, 1.0, 0.85, 1.05, 0.9, 0.95, 1.0, 0.85, 1.0]),
     "shrieker": [(1.4, 0.0), (0.0, 0.28), (-1.4, 0.0), (0.0, -0.28)],
+    # low, angular, close to the ground -- reads as something that holds
+    # still rather than something that runs (Adversary lane: total chaos
+    # in its OWN silhouette, jagged rather than the biological lumpiness
+    # the other kinds use).
+    "flicker": _regular_lumpy(6, [1.05, 0.55, 0.95, 0.5, 1.0, 0.6], phase=0.4),
 }
 ENEMY_COLOR = {
     "husk": (126, 142, 116),
@@ -229,6 +234,7 @@ ENEMY_COLOR = {
     "brute": (158, 80, 64),
     "shrieker": (236, 228, 205),
     "warden": (52, 32, 60),
+    "flicker": (150, 60, 150),
 }
 
 
@@ -2811,6 +2817,20 @@ class Renderer:
         flashed = self._hitflash.get(eid, 0) > 0
         fill = ENEMY_COLOR.get(kind, (150, 150, 150))
         rim = ENEMY_RIM.get(kind) or _brighten(fill, 70)
+        # Sensor-trace intensity channel (director's directive, 2026-07-13):
+        # while a flicker is DORMANT (LURK, not yet committed) its own
+        # sim-side AI state drives a dim/intermittent return instead of the
+        # normal full-strength trace -- diegetically "low emission while
+        # hiding," never fully invisible (the AI clamps this to a 0.12
+        # floor, see `GameSession._flicker_dormant_trace`). Matches the
+        # existing entity render style: this only scales the SAME fill/rim
+        # colors every other kind already uses, no new draw path, and
+        # composites post-lightmap-multiply like every entity does.
+        e = self.session.enemies.get(eid)
+        intensity = e.get("trace_intensity", 1.0) if e else 1.0
+        if intensity < 0.999 and not flashed:
+            fill = _scale_color(fill, intensity)
+            rim = _scale_color(rim, intensity)
         if flashed:
             fill = rim = (255, 255, 255)
         if kind == "mite":
