@@ -51,6 +51,46 @@ inspiration album into 30s blocks / 5s overlap, listen-analyze each, build a
 playbook; instruments first, then melodies. Catholic and Protestant traditions
 strictly separated; the game's register is Catholic.
 
+## The positive spec (goal-gate, 2026-07-13)
+
+> "Church music made by posthuman industrial machines that genuinely believe,
+> _meaningful_ musical symbolism"
+
+Gates: P(Mick Gordon would call it shippable, first-draft-grade, with an
+original sound never _quite_ heard before, executing that spec) > 0.8; and
+P(a professional technical artist calls the dynamic system's gameplay↔music
+matching beta-test shippable) > 0.8.
+
+Read the spec's clauses as constraints:
+- **Church music** — liturgical FORMS, not church-flavored pads: antiphony
+  (call and response), organum voice-leading, the eight modes, chant phrase
+  grammar (breaths, mora), change-ringing patterns.
+- **Made by machines** — the machines are the performers: pitched industrial
+  sources as the congregation's voices, mechanical periodicity where a human
+  would rubato, the Gordon array as their vocal tract.
+- **That genuinely believe** — sincere, never spooky-chant irony. Reverence:
+  space, patience, cadences that resolve. The congregation is not a horror
+  texture; it is praying.
+- **Meaningful symbolism** — symbols that refer to THIS game's facts: Dies
+  Irae is not a metal cliché here, it is the literal plot ("solvet saeclum in
+  favilla" — the world dissolved in embers — sung at a station falling into
+  the sun). Chapter sets the rhythm, enemies own basslines, the player's
+  weapon voices the lead (director's dynamic spec). Symbolism must be
+  legible enough to mean, not trivia.
+
+## Director-flagged gold from the talk
+
+> "the 'infinite riser' - using Sheperd's tones to create a riser that builds
+> escalating tension and release _on someone else's schedule_."
+
+The dynamic-music primitive: a Shepard/Risset riser sustains "rising"
+indefinitely — the GAME decides when it releases (combat entry, ambush
+trigger, kill confirm), so tension always peaks exactly on the gameplay
+event. Implement as a first-class stem (`shepard_riser`): intensity scalar
+drives its level/rate; release = cadence hit + bus drop. Prime uses: a
+dormant flicker nearby (the player can't see it — the music can), lockdown
+waves building to breach, the drop into a hub fight.
+
 ## Working laws derived (shortest form)
 
 1. **Start over entirely.** Round-1/round-2 instruments, melodies, and demos are

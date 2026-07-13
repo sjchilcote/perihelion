@@ -1,237 +1,183 @@
-# Gordon Method — distilled from "DOOM: Behind the Music" (GDC 2017)
+# The Gordon talk, read exactly — component-by-component spec + our translations
 
-Source: Mick Gordon's GDC talk, verified as GDC Festival of Gaming's upload
-titled "DOOM: Behind the Music" (uploaded 2017-08-22, 61 min,
-https://www.youtube.com/watch?v=U4FNBMZsqrY). Transcript: YouTube
-auto-generated captions, deduped into continuous prose, ~9,780 words.
+Source: GDC "DOOM: Behind the Music" (https://www.youtube.com/watch?v=U4FNBMZsqrY),
+full transcript read directly on the main line (director's order — prior
+distillations, including this doc's previous revision, genericized exact
+toolchains). Where a component can't be replicated 1:1, the translation
+targets the *same effect on the final product* (director's ruling).
+Format per entry: WHAT HE SAID → WHAT IT DOES → OURS.
 
-**Revision note**: the first version of this doc was produced by a
-research subagent that summarized the transcript into a flat 10-point
-listicle of generic audio-production techniques (parallel chains,
-sidechain compression, ring-mod, tuning to root, "punchy transients").
-That shape is recognizable as the LLM default for "game composer talk
-about layered distortion" — and it contained at least one substantive
-error: it described the final compressor as a generic "transient-punch"
-tool, when Gordon's own words describe something more specific and more
-interesting (see Lesson 1 below). Directorial correction: don't
-genericize the talk, read what it actually says. This version is
-rewritten directly against the transcript, quoting Gordon's own words,
-and restructured around the **three lessons Gordon himself states** at
-the close of the talk, rather than an invented equal-weight bullet list.
+## 0. The brief pattern (identical to ours)
 
----
+"Music no one has ever heard before, fits the game perfectly, instantly
+loved." The piano player, the dubstep producer, and the Cubase-template
+composer all FAIL the same way: same process → same output, merely *inspired
+by* the brief, never an *execution* of it. That is precisely our round-1/2
+failure ("organ clip + filter"). Change the process, change the outcome — and
+the round-2 judge's 0.85 was the Cubase template of evaluation.
 
-## Gordon's own closing recap (his words, his structure — not mine)
+## 1. The DOOM instrument array (exact hardware list, translated)
 
-He ends the talk by naming these explicitly, in this order, as "what we
-learned":
+Source: a computer sending a **pure sine wave** — nothing else. "Any
+interesting thing happening within this array was being imparted onto that
+sine wave in the purest form possible." Occasionally **two sines slightly
+detuned** — the phase imbalance "would do all sorts of crazy stuff to the
+pedals." The array IS the instrument; the performance is only amplitude,
+pitch, and knob tweaks.
 
-1. **"If you want to get a different outcome, you must change the
-   process... it takes courage to do so. I say courage, not confidence.
-   Confidence comes from doing the same thing over and over and over
-   again. It takes courage to change that."**
-2. **"Change the brief if it makes the project better."** They violated
-   the brief's own "no guitars, we hate guitars" clause, deliberately,
-   because it was blocking a *different* clause of the same brief
-   ("instantly loved by millions of fans") — a considered trade against
-   the brief, not scope creep.
-3. **"The most important [thing]: a team that encourages an environment
-   where you feel comfortable in failure will enable you to thrive as a
-   composer... your fear of rejection will often get in the way of you
-   experimenting."** He calls this the most important lesson, full stop —
-   not an aside.
+Four parallel chains from a split:
 
-Everything below is the concrete technical material that sits *under*
-lesson 1 (what "changing the process" actually looked like, mechanically)
-— but the doc is organized this way, matching his own emphasis, instead
-of flattening his #3 into a random bullet among ten.
+| # | His hardware | Function | Our DSP translation |
+|---|---|---|---|
+| 1 | Retro Mechanical Labs 432K → Metasonix KV100 (tube) → "Geiger counter" bitcrusher → Dwarfcraft pedal → **SPLITTER** | fuzz → asymmetric tube stages → rate/bit mangling → gated fuzz; the splitter taps this chain's envelope | hard fuzz → biased-tanh asym stages → decimate+quantize w/ jitter → gated fuzz; envelope follower = sidechain source |
+| 2 | Geiger counter → Metasonix TX-3 → Mu-Tron Bi-Phase → DOD 70s phaser → **compressor (sidechained from 1)** | crush → tube filth → two vintage phasers in series → this chain ducks under chain 1 and swells when it decays | decimator → asym sat → cascaded swept allpass ×2 (6-stage + 4-stage, different LFO rates) → gain modulated inversely by chain-1 envelope |
+| 3 | Watkins Copycat tape echo → Rocktronics valve box ("not really there for the distortion… more for the compression") → Akai reel-to-reel **fed ~40 dB more than it could handle** while recording back off it → spring reverb tank (wet/dry) → **compressor (sidechained)** | true tape echo → tube squash → screaming hot tape (saturation, wow, hiss) → dispersive boing → ducked like chain 2 | saturating wobbling tape-echo model → soft-knee squash → deep tanh + flutter + head-bump EQ + hiss floor → chirp-train spring IR → sidechain gain |
+| 4 | Mini practice amp **fed ~40 dB over**, miked; a little of the mic split **back into the amp = feedback loop** tuned so small that "if a sound was actually coming through the amp it would choke out the feedback, and when that sound started to disappear the feedback would come back up in the mix" | the array BREATHES between notes — self-noise that answers the playing | built & benched: `y[n]=tanh(x+fb·y[n-D])`, loop gain barely past unity, in-loop bandpass at the howl note; measured −15.9 dBFS choke, +8.9 dB swell in the gaps |
 
----
+Sum → **EQ**: cut ~4–5 dB @ 30–60 Hz, boost ~4–5 dB @ 8–10 kHz ("basically
+creating a nice sort of smiley-face EQ — nothing really amazing there") →
+**bus compressor absolutely PINNED**: "knocking off about 20 decibels…
+so when the loud noises would start to go away the compressor would begin to
+open up and bring up all the interesting noise that every single one of
+these pedals and bits of equipment was creating." Attack ~30 ms ("really
+cool punchy stuff"), **release adjusted to the tempo** of the material,
+ratio "about twelve or twenty to one," then straight into the DAW.
+**The array's noise floor is a feature.** His array even added its own note —
+a ground-hum E creeping under four F notes ("that's not being generated from
+me… that's coming from some ground hum within the array"). Ours: the
+feedback bus IS our ground hum; let it sound honestly.
 
-## Lesson 1: change the process — what that meant, mechanically
+In-DAW after: **transient processing**. "Transients I believe are really the
+key to getting a really punchy sounding game mix… what you want is those
+dynamics going hey I'm a punch then I'm gone, and a punch then I'm gone, and
+that tricks the player's ear into believing that there's more solid music
+happening in the background" — a solidly-limited bed just disappears under
+gunfire. Census agrees: album crest ~13 dB; our condemned demos 5.6–9.2.
 
-### The failure mode he names first
+Q&A detail: he never sent other waveforms through the array — but a pedal's
+preamp clipping a sine "instantly creates a square wave there… naturally and
+organically within that system." Squares are EARNED by drive, not synthesized.
 
-Given the brief ("Doom is about demons on Mars, no guitars, must be
-loved by fans"), he describes three hypothetical composers — a piano
-player, a dubstep producer, a composer running Kontakt "demon/hell/Mars"
-patch templates — each of whom would produce something "inspired by the
-brief... but not an execution of it," because each ran *their own default
-process* regardless of the brief. **"You cannot expect to end up with a
-different outcome without changing the process."** This is a warning
-against pattern-matching a familiar recipe onto a new brief — which is
-exactly the failure this project hit with the first `GORDON_METHOD.md`
-draft itself (summarizing the talk via a familiar "audio production tips"
-template instead of reading it).
+## 2. Sub-bass audibility (exact recipe)
 
-His own first attempt at "the DOOM sound" (sub-bass sine + white noise +
-distortion) was *also* this failure, by his own admission: **"I knew in
-myself it wasn't correct. All I've done is taken some sounds and ran them
-through distortion... I'm a guitar player, they've been doing that exact
-thing for about ten years."** Recognizing a result as a genre cliché and
-discarding the *whole recipe* (not tuning its parameters) is the actual
-skill being demonstrated — not any single DSP trick.
+A ~36.7 Hz sub is inaudible on TVs. **Turn white noise on and off at the
+frequency of the sub** ("what I'm essentially doing here is ring modulation…
+at the audio frequency"), combine with the sub, then run the pair through
+distortion: the noise sidebands + distortion harmonics make the sub READ on
+small speakers while the sine keeps the weight. Trivial DSP:
+`noise * (0.5+0.5*sign(sin(2π f_sub t)))` → array. Use on every drop.
 
-### Where the array idea came from — not a distortion-chain lookup
+## 3. The Sean Beavan / Manson chug (exact recipe)
 
-He explicitly credits a different source for the array's *shape*: Tony
-Visconti's gated-microphone technique on Bowie's "Heroes" (three mics at
-increasing distance, gated open only as Bowie's voice got louder, so
-reverb amount *scaled dynamically with input*). **"They designed a system
-that dynamically added reverb based on the input, so I thought: what if I
-designed a system that dynamically produced interesting and appropriate
-musical bits based on the input?"** The array is not "four distortion
-pedals in parallel" as a static recipe — it's *a dynamic system whose
-output character changes with input dynamics*, modeled on Visconti's
-gate-by-distance idea. This is the actual design principle: build a
-signal chain whose *behavior* (not just its timbre) responds to what's
-being fed into it.
+Take the guitar part, **play it up an octave and twice as fast**, record to
+tape at **30 inches per second**, then **play the tape back at 15 ips**
+(pitch/tempo land back where written, but every transient, harmonic, and
+tape artifact is stretched down an octave), then "run it through a preamp
+which is kind of jacked pretty hard." Ours: render the chug pattern at 2×
+speed +12 st → tape-saturation chain → high-quality 0.5× resample → driven
+preamp stage. Apply to the REAL recorded chug samples, not synthesis.
 
-### The actual array topology (his numbers, not rounded)
+## 4. The signature-tone move: MORPH (the Trojan horse)
 
-Sine wave → split into 4 chains:
-- **Chain 1**: 4 pedals (RML 432K distortion, Metasonix kV100 tube
-  distortion, a "Geiger counter"-style bitcrusher, a Dwarfcraft Devices
-  pedal) → a **splitter**. This splitter's output is sent as a
-  **sidechain trigger into chains 2 and 3's compressors** — "based on
-  whatever the input was doing, it could dynamically change the mix of
-  each chain." This is real cross-chain sidechaining, and chain 1
-  specifically is the *driver*, not a peer being ducked.
-- **Chain 2**: 4 pedals (another Geiger-counter bitcrusher, Metasonix
-  TX-3, a Mutron Bi-Phase, a DOD 70s phaser) → a compressor (the sidechain
-  target from chain 1).
-- **Chain 3**: Watkins Copicat tape echo → a distortion box used "more for
-  the compression aspect" than distortion → an Akai reel-to-reel fed
-  **~40dB hotter than it can handle**, recorded back off simultaneously →
-  spring reverb (wet/dry) → compressor (also a sidechain target).
-- **Chain 4**: a small guitar-practice amp fed ~40dB hot, mic'd, with a
-  **small feedback loop** (a little of the mic signal routed back into the
-  amp) — small enough that "if a sound was actually coming through the amp
-  it would choke out the feedback, and when that sound started to
-  disappear, the feedback would come back up in the mix."
+The 9-string was abandoned — "sounding too much like a guitar… too sort of
+metal thing." Zynaptiq **MORPH** interpolated the guitar tone **into a sample
+of the chainsaw from the original DOOM** — the game's own iconic sound became
+the guitar's timbre, "the little Trojan horse" that got guitars into the
+game (introduced "5% here, 10% there" against a NO-GUITARS brief — see law
+9.2). Ours (STFT cross-synthesis: |X|^α·|Y|^(1−α) with X's phase): morph the
+chug toward PERIHELION's OWN sounds — the pitched-factory machine-choir bed,
+station drones, a weapon report. The machines' guitar, literally built from
+the machines. This is the "original sound never quite heard" lever, and it is
+*meaningful*: the congregation's voice inside the instrument.
 
-All 4 chains → mixer → EQ ("cut about 4-5dB around 30-60Hz, boost about
-the same up around 8-10[kHz], a smiley-face curve") → **one shared final
-compressor**: "absolutely pinned... knocking off about 20 decibels,"
-30ms attack, ratio "twelve or twenty to one."
+## 5. The horror drone (exact recipe)
 
-### The compressor's actual purpose (the point the first draft got wrong)
+"Everything you're hearing there is bowed guitar. I'm bowing this guitar
+between C# and D, and I've spread that out across four octaves… recorded a
+whole bunch of different takes and laid them on top of each other." The
+dread is the unresolved ADJACENT-SEMITONE cluster in every register — not a
+tritone cliché. Ours: sustained-excitation string model (or pitch-shifted
+real sustained sources) at C#/D pairs ×4 octaves, slow independent
+crossfades per take-layer. For PERIHELION: D is the album's center; C# is
+the leading tone refusing to resolve — liturgically apt dread.
 
-**Direct quote, this is the mechanism**: *"The reason I was hitting it
-that hard was so when the loud noises would start to go away, the
-compressor begin to open up and bring up all the interesting noise that
-every single one of these pedals and bits of equipment was creating."*
+## 6. Spectrogram iconography + the mono-reveal (exact, and ours to weaponize)
 
-This is **not** "punchy transients via fast attack" as a generic mix
-trick (that's a *separate*, secondary point he makes in the Q&A about
-game-mix transients in general — see below). It is specifically: hard gain
-reduction on the loud part, **then makeup gain restores level**, which
-means the makeup gain also lifts everything that *wasn't* being reduced —
-the pedals' own idle noise, feedback-loop hum, tape hiss, spring-reverb
-tail — up into audibility once the input note decays. He demonstrates this
-directly: feeding the array 4 sine-wave "F" notes, *"at the end of those 4
-F notes you'll hear another note creeping underneath it... that's coming
-from some ground hum within the array."* The chain's own artifacts become
-part of the instrument's voice, specifically in the silence after a note.
+- Image-Line **Harmor** resynthesizes an image "across the frequency
+  spectrum… essentially you're able to insert an image into a wave file but
+  you need a spectrograph to be able to see it." He hid a 6 and an inverted
+  star under a three-note bass part. Ours, made MEANINGFUL (the goal spec
+  demands symbolism with referents): hide the **Dies Irae neumes** — the
+  actual chant notation — and/or the CUCULUS glyph in the spectrum of the
+  machines' hymn: the score contains its own scripture. ISTFT: draw the
+  image into a magnitude mask, resynthesize, tuck at ~−30 dB under the drone.
+- **Mid-side phase trick**: "put something in the center, take a little bit
+  of information from one side of the channel into the other side and flip
+  the phase" — inaudible in stereo, and **a hidden signal appears on mono
+  fold-down** (his: a reversed message). Ours: in stereo, machine noise; in
+  mono, the plain chant emerges — belief hidden inside the machine. Verified
+  by DSP fold-down only (Gemini is stereo-blind — johnny method §4).
 
-**`tools/musicgen/gordon_chain.py`'s `tempo_punch()` was rewritten to
-match this**: hard threshold-based gain reduction on the transient, then
-explicit makeup gain applied to the *whole* signal afterward (not just
-the compressed part) — so a chain's own resonant tail (the comb-filter
-"feedback loop" path, see below) becomes audible once the source note
-decays, instead of just producing a punchy attack and nothing else.
-`guitar_chain()` was also fixed to pad the source with trailing silence
-before running the parallel paths, because truncating every path back to
-`len(source)` (the original bug) silently cut off exactly the resonant
-tail this mechanism depends on having room to ring into.
+## 7. Dynamic music (exact — and deliberately SIMPLE)
 
-### The separate, secondary point about transients (Q&A, general game-mix advice)
+DOOM combat is linear ("the demons come out, your role is to kill all the
+demons, then you move forward"), so they chose NOT to do clever mid-combat
+rearrangement — "we just wanted it to be on… just going bang bang bang…
+honestly that's as complicated as the dynamic music system in Doom was."
+The entire system:
+- Songs broken into **bars, delivered as Wwise segments, constantly
+  re-arranged in order** ("we didn't have a single 30-minute loop… it's just
+  going from there" — variation without data-driven cleverness).
+- **Glory kills: the music drops out and a white riser plays**; duration
+  unknown → **"endless risers": Shepard-tone loops** — "it just feels
+  constantly like there's this tension rising… really handy in a game
+  environment when you don't know how long something is going to go for."
+  (Director-flagged gold: tension that releases on GAMEPLAY's schedule.)
+- Combat entry: "the hi-hat and the basic kick riding along, and then BAM —
+  when everything kicked in, that's when the music would start."
+This vindicates pyweek-28 simplicity. Our system: N stems + bar-shuffled
+arrangement + Shepard riser stem + entry-BAM. No cleverer than that.
 
-Distinct from the above: asked in Q&A about punchy attacks, he separately
-says *side-chain compressors with ~30ms attack* (lets the transient
-through uncompressed) into *a slower final compressor, heavily pinned*,
-whose release he'd manually tune to the track's tempo, because *"if
-you've got just a solidly limited thing sitting in the background it
-doesn't come through... those dynamics going [transient]-then-gone... 
-tricks the player's ear into believing there's more solid music
-happening."* This is real and does apply generally to game mixes, but
-it's a secondary Q&A remark about mix translation, not the mechanism
-behind the DOOM instrument's own compressor (which is the noise-reveal
-effect above) — the first draft conflated the two into one bullet.
+## 8. The mix-integration law (exact)
 
-### Ring-modulating a sub with gated noise (a real, separate, concrete recipe)
+Tonal game SFX share the music's key: the triple chaingun fires so fast "it
+produces a tone… we made sure that tone was a D note, and that D note was
+sitting with the same music playing in the background, which is also sitting
+on a D." And: "if you're ducking stuff when something else happens… you're
+fixing a problem that shouldn't be there in the first place." Design-time,
+not mix-time. Ours: the album is D-centered; weapon tonal centers tune to
+D/A; SFX beat-quantization (director's stretch goal) plus PITCH discipline.
 
-Confirmed accurate from the transcript: a ~36.7Hz sub is nearly inaudible
-on small speakers alone. His fix: take white noise, gate it on/off *at the
-sub's own frequency* ("ring modulation, but at the audio frequency"), sum
-it with the sub, then run both through distortion together so new
-harmonics form from the interaction. `gordon_chain.py`'s `ring_mod_noise()`
-implements this literally.
+## 9. Process laws (his closing, his order)
 
-### Real physical nonlinearity over generic waveshaping (confirmed, refined)
+1. **Change the process → change the outcome. "Courage, not confidence"** —
+   "confidence comes from doing the same thing over and over… it takes
+   courage to change that."
+2. **"Change the brief if it makes the project better"** — no-guitars →
+   5% → 10% → the signature sound; the brief's deeper goals (instantly
+   loved) outranked its letter (no guitars).
+3. **Psychological safety** — Hite's reply to a failed first attempt: "I feel
+   you've taken the first step on a journey toward the perfect destination.
+   Keep going, you're almost there." Comfort with failure is what permits
+   laws 1 and 2. He calls this the most important lesson.
 
-- Guitar tone: Sean Beavan's (Marilyn Manson's engineer) technique —
-  record the guitar part an octave up and double-speed to tape at 30ips,
-  play back at 15ips through a hard-driven preamp.
-- Drone layer: **literally bowed guitar strings**, detuned between C and
-  C#/D, across four octaves, multi-tracked.
-- Reel-to-reel and mini-amp both driven ~40dB past their rated input and
-  recorded off simultaneously — real analog overload, not a `soft_clip()`
-  call.
-- We're numpy-only (no tape/pedals available), so this doesn't transfer
-  literally, but the *lesson* — model a specific physical nonlinear
-  process rather than a generic waveshaper cliché — is why
-  `instruments.py`'s Karplus-Strong string model (a physical pluck/decay
-  model) is the right shape of approach, and why round 2 pivoted to
-  processing **real recorded samples** (freesound guitar/kick, see
-  `SOURCES_LICENSES.md`) through the array rather than synthesizing a
-  "guitar" from scratch.
+Also from Q&A: the **soundtrack is an album** — "the absolute best
+opportunity to put forth the best representation of that music… treated
+almost like a separate project," structured with game monologues as
+interludes (War of the Worlds concept-album model). For us later:
+RATIO/terminal voices as interludes.
 
-### The chainsaw "Trojan horse" (a specific detail, not generic "guitar reintroduction")
+## 10. What this changes in our build, immediately
 
-The morph from a pure guitar tone into a chainsaw sample (via Image-Line's
-Morph plugin, interpolating between the DOOM chainsaw SFX and a guitar
-tone) was specifically how he got guitar-derived material *approved*
-inside a "no guitars" brief — it read as a game-native texture first,
-guitar second. Guitars were then reintroduced gradually ("5%... 10%...")
-and validated against the actual game feel at each step, not against the
-written brief — a direct enactment of Lesson 2 (change the brief when it
-demonstrably improves the result).
-
-### Tuning shared SFX to the music's root (confirmed accurate)
-
-DOOM's triple chain-gun's fire-rate produces an audible tone; they tuned
-it to D to match the music's root, deliberately, at design time: *"if you
-can carve your sounds and your music with that stuff in mind to begin
-with, you're going to end up with a much tighter mix... it's not
-something you can fix in Wwise later on."*
-
-### Easter eggs as narrative device (confirmed accurate)
-
-An image of a "6" and an inverted star loaded into Image-Line's Harmor
-(spectral synth) to imprint their shape onto a bass part's spectrum
-(visible only via spectrogram), and a mid-side phase trick (info on one
-channel, phase-flipped copy on the other, resolves only when summed to
-mono) — both deliberate secrets tied to the game's imagery, not sound
-design for its own sake. This project's Catholic-liturgical register has
-an equivalent opportunity (a hidden chant fragment or verse revealed only
-under specific playback conditions) if the director wants one — noted as
-an idea, not built.
-
----
-
-## Lesson 2 and 3, applied here
-
-**Lesson 2 (change the brief)**: this project's round-1 rejection is the
-brief-violation moment — the director's "AWFUL" verdict is exactly the
-kind of result that should trigger reconsidering the *approach* (as this
-round-2 rebuild does: real samples instead of pure synthesis for
-guitar/kick, motif-based melody instead of a looped array, chant-derived
-material), not defending round 1's design while tuning its parameters.
-
-**Lesson 3 (team psychological safety)**: not directly actionable by a
-solo pipeline, but the operative translation is: report failed
-intermediate results honestly (this doc's own revision note above; the
-listen-proxy checks in `SOURCES_LICENSES.md` that failed and are logged
-as failures, not hidden) rather than presenting only the version that
-looks finished.
+- The array gains the exact missing pieces: smiley EQ, pinned 20 dB
+  tempo-release bus compressor, chain-2/3 sidechain from chain 1's splitter,
+  detuned-sine-pair drive mode, noise-floor-as-feature discipline.
+- Every drop gets the ring-mod-noise sub treatment (§2).
+- The chug goes through the Beavan octave/speed tape round-trip (§3).
+- The signature tone is a MORPH between the chug and the machine-choir /
+  station drone (§4).
+- One drone bed: D/C# bowed-cluster ×4 octaves (§5).
+- The hymn hides its own neumes in the spectrum; mono fold-down reveals the
+  plain chant (§6) — symbolism with referents, per the goal spec.
+- The dynamic system stays DOOM-simple: stems + bar shuffle + Shepard riser
+  + entry-BAM (§7); weapon tones in D (§8).
