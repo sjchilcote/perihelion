@@ -157,3 +157,47 @@ public HQ preview URLs, scratchpad only, never committed):
   here so the gap is explicit, per no-silent-failures discipline). The
   listen-proxy liked it ("large resonant bell, real"), but provenance
   gates usage, not quality.
+
+## 2026-07-13 — Library audit: cab IRs + headless VST3 host
+
+Director asked for a prior-work audit of the Python audio ecosystem
+(auto-tuning, cab/amp convolution, vocoder, loudness) instead of hand-rolled
+DSP for everything. Full results in `tools/musicgen/LIB_AUDIT.md`. Two
+categories of asset downloaded to the scratchpad as part of proving the
+tools actually work (nothing here committed to git, same commit-budget
+reasoning as the soundfonts above):
+
+- **Cab IRs (3x, all CC0)**, found via Freesound's own
+  `license:"Creative Commons 0"` search filter, same public HQ-preview
+  download route as the rest of this log:
+  - "4x12 Vintage.wav" by jesterdyne,
+    https://freesound.org/people/jesterdyne/sounds/129399/, **CC0**.
+    `https://cdn.freesound.org/previews/129/129399_867203-hq.mp3`. 5.5ms —
+    a bare cabinet-sim IR (Korg AX1500g unit), no room tail.
+  - "Cabinet IR BG412S Godmode DV77+V30 Mix.wav" by jesterdyne,
+    https://freesound.org/people/jesterdyne/sounds/618897/, **CC0**.
+    `https://cdn.freesound.org/previews/618/618897_867203-hq.mp3`. 1.28s,
+    modified Behringer BG412S w/ Celestion V30 + Eminence DV77, includes
+    room tail.
+  - "IR Brown Cab_Audix i5 Center.wav" by tosha73,
+    https://freesound.org/people/tosha73/sounds/507167/, **CC0**.
+    `https://cdn.freesound.org/previews/507/507167_10725617-hq.mp3`. 0.5s,
+    mic'd cab (Audix i5) — normal cab-IR length, probably the best default
+    of the three.
+  - All 3 downloaded as HQ MP3 preview, decoded to wav via ffmpeg, and
+    load-verified through `pedalboard.Convolution` in a real
+    distortion→convolution→compressor→reverb→limiter chain on a chug1.wav
+    slice (see LIB_AUDIT.md). Stored at `scratchpad/musicgen/ir/`.
+
+- **Surge XT VST3 (GPL-3.0)**, official Linux "pluginsonly" release
+  tarball, no installer/sudo required:
+  https://github.com/surge-synthesizer/releases-xt/releases/download/1.3.4/surge-xt-linux-1.3.4-pluginsonly.tar.gz
+  (via https://github.com/surge-synthesizer/surge, license confirmed
+  GPL-3.0 via the GitHub API). Downloaded + extracted to
+  `scratchpad/musicgen/vst3/`, load-verified via
+  `pedalboard.load_plugin()` and rendered a real, correctly-pitched MIDI
+  note (FFT-confirmed). Used here purely as an audit smoke test of
+  pedalboard's headless VST3 hosting capability, not wired into any
+  pipeline. GPL-3.0 is fine for offline asset-authoring tooling (never
+  linked into the shipped game binary); see LIB_AUDIT.md's license note
+  before using any GPL/AGPL tool from this audit at runtime.
