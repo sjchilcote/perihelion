@@ -123,3 +123,37 @@ DID pass the same listen-proxy check.
   freesound audio; those processed one-shots are small enough to commit
   if the director wants them locked in (currently left as a build step,
   not committed, pending his ear-check on round 2).
+
+## 2026-07-13 — machine-choir source + liturgical real-sample candidates
+
+Director's aesthetic thesis for the project's sound: "Gregorian chants and
+Catholic hymns as played and sung by industrial machines who genuinely
+believe in what they represent" — real industrial sounds pushed through the
+Gordon-array pipeline to become instruments. Downloads (all via freesound's
+public HQ preview URLs, scratchpad only, never committed):
+
+- **Machine-choir voice**: "Industrial factory working 02.wav" by
+  dersinnsspace, https://freesound.org/people/dersinnsspace/sounds/439402/,
+  **CC0** (found via freesound's license:"Creative Commons 0" search
+  filter; page states "Creative Commons 0"). A steady 1.2s slice is
+  pitched note-by-note through the full Dies Irae first strophe
+  (scratchpad `round2/machine_choir.py`) — the factory sings the chant.
+  Used in the round-2 showcase video's "MACHINE CHOIR" chapter.
+- **Real pipe organ candidate**: "Cathedral Organ" by Beetlemuse,
+  https://freesound.org/people/Beetlemuse/sounds/527206/, **CC0** (page
+  states "Creative Commons 0"). Downloaded + verified by listen-proxy;
+  intended replacement for the GM-soundfont organ after the director's
+  "no GM sounds" pushback; not yet wired into the committed pipeline.
+- **Real chamber choir candidate**: "chamber_choir_chord_o.wav" (and
+  single-note files) by uair01,
+  https://freesound.org/people/uair01/packs/4311/, **CC BY 3.0**
+  (attribution: uair01, freesound.org). Real recordings of a chamber
+  choir; listen-proxy confirms "sustained chord sung by a choir, real".
+  Candidate for the choir voice; not yet wired in.
+- **Church bell**: "Church bell.wav" by Audeption
+  (https://freesound.org/people/Audeption/sounds/425172/) — downloaded for
+  evaluation but its license marker was NOT successfully scraped from the
+  page; **treated as unusable until the license is confirmed** (logged
+  here so the gap is explicit, per no-silent-failures discipline). The
+  listen-proxy liked it ("large resonant bell, real"), but provenance
+  gates usage, not quality.

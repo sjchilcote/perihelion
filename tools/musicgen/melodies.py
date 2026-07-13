@@ -75,6 +75,54 @@ VICTIMAE_MOTIF = [0, -2, 0, 3, 5, 3, 2, 0]
 # MELODY_CRAFT.md sec 2 specifies for a developable motif).
 MOTIF_DUR_STEPS = 2  # each chant syllable -> an 8th note (2 x 16th steps)
 
+# ---------------------------------------------------------------------------
+# The COMPLETE Dies Irae first strophe -- the authored phrase seed.
+#
+# Director's framing (and the entire point of the CATHOLIC_SOURCES.md
+# research): the chant IS the human-authored seed phrase the Sol consult
+# said a rules-based generator needs (its odds of clearing "finished
+# soundtrack" jump from ~15-25% to ~65-80% WITH an authored seed). An
+# 800-year-old composed phrase already has contour, cadences, apex, and
+# breathing built in -- the earlier approach of shredding the 8-note
+# incipit into transform fodder used 5% of the seed and generated the
+# other 95%, which was backwards.
+#
+# Captured from the full GABC (GregoBase chant 1198, "Dies irae",
+# Sequentia, mode 1; book: Graduale Romanum 1961 p.96 / Liber Usualis
+# 1961 p.1810; transcriber credited in the GABC header: Andrew Hinkley;
+# https://gregobase.selapa.net/download.php?id=1198&format=gabc&elem=1):
+#
+#   (c4) DI(f)es(e) i(f)rae,(d) di(e)es(c) il(d)la,(d.) (;)
+#   Sol(f)vet(fg) sae(fe)clum(dc) in(e) fa(f)vil(e)la:(d.) (;)
+#   Te(a)ste(cd) Da(d)vid(dc) cum(e) Si(f)byl(e)la.(d.) (::)
+#
+# Pitch-letter mapping verified against TWO independently known phrases
+# (the famous F-E-F-D incipit AND the later "Tu(h)ba(j)" = A4-C5 register
+# jump), so in this transcription letters = literal note names:
+# a=A3 ... c=C4 d=D4 e=E4 f=F4 g=G4 h=A4 j=C5.
+#
+# Encoding: (semitones_from_D_final, duration_in_16th_steps); None = rest
+# (the chant's own breath marks (;)). Syllable = quarter note (4 steps),
+# two-note neumes (fg, fe, dc, cd) split their syllable into two 8ths,
+# mora-dotted line finals (d.) hold longer. Three 8-syllable lines at
+# 140bpm = an exactly 8-bar authored period, breathing included.
+DIES_IRAE_STROPHE = [
+    # Line 1: Di-es i-rae, di-es il-la, (antecedent -- the famous statement)
+    (3, 4), (2, 4), (3, 4), (0, 4),
+    (2, 4), (-2, 4), (0, 4), (0, 8),
+    (None, 4),                                  # breath (;)
+    # Line 2: Sol-vet sae-clum in fa-vil-la: (answering line, adds the G apex)
+    (3, 4), (3, 2), (5, 2), (3, 2), (2, 2), (0, 2), (-2, 2),
+    (2, 4), (3, 4), (2, 4), (0, 8),
+    (None, 4),                                  # breath (;)
+    # Line 3: Te-ste Da-vid cum Si-byl-la. (consequent -- dips to low A, closes)
+    (-5, 4), (-2, 2), (0, 2), (0, 4), (0, 2), (-2, 2),
+    (2, 4), (3, 4), (2, 4), (0, 12),
+    (None, 8),                                  # full stop (::), phrase tail
+]
+assert sum(d for _, d in DIES_IRAE_STROPHE) == 8 * BAR_STEPS, \
+    "Dies Irae strophe must be exactly 8 bars on the 140bpm 16th grid"
+
 
 # ---------------------------------------------------------------------------
 # Motivic development transforms (MELODY_CRAFT.md sec 2)
@@ -311,12 +359,23 @@ def render_bass(n_bars: int, root_note: str, root_octave: int, intensity: str,
 
 
 def render_lead(n_bars: int, root_note: str, root_octave: int, intensity: str,
-                 mode: str = "dorian", motif=None) -> np.ndarray:
-    """Chant-derived motif, developed across antecedent/consequent periods
-    (MELODY_CRAFT.md sec 1-5), replacing round 1's single looped
-    `LEAD_PATTERN_HIGH` array. `motif` defaults to the Dies Irae incipit
-    (DIES_IRAE_MOTIF) -- the director's ordered judgment/apocalypse chant
-    source (CATHOLIC_SOURCES.md sec 2a)."""
+                 mode: str = "dorian", phrase=None) -> np.ndarray:
+    """The authored chant strophe, stated LITERALLY as the lead.
+
+    Directorial reframe (the point of the whole CATHOLIC_SOURCES.md
+    research): the chant phrases ARE the human-authored seed material the
+    Sol consult said this generator needs -- so the lead is now the
+    complete Dies Irae first strophe (DIES_IRAE_STROPHE: three lines,
+    breaths at the chant's own (;) marks, held cadences at its mora dots,
+    the G apex in line 2, the low-A dip opening line 3, every line closing
+    on the D final), NOT algorithmic development spun off an 8-note
+    fragment. build_period()/build_phrase() remain available for future
+    non-quotation development sections, but the melody the player hears at
+    high intensity is the 13th-century composition, as composed.
+
+    At "peak" the strophe is doubled an octave up on repeat -- variation
+    by orchestration/register (how the reference album and DOOM treat a
+    theme), not by scrambling the notes."""
     n = int(n_bars * BAR_STEPS * STEP_S * sy.SR) + sy.samples(0.5)
     if intensity not in ("high", "peak"):
         # lead only enters at high intensity+ -- playbook's "lead enters
@@ -324,25 +383,24 @@ def render_lead(n_bars: int, root_note: str, root_octave: int, intensity: str,
         return np.zeros(n, dtype=np.float64)
     root = note_hz(root_note, root_octave)
     track = np.zeros(n, dtype=np.float64)
-    seed = motif if motif is not None else DIES_IRAE_MOTIF
-    # register: one octave above the bass root (round 1's C6-region lead
-    # read as "8-bit chiptino bleeps" per that module's own note -- keep
-    # the lower register that fixed it)
-    period = build_period(seed, mode, phrase_bars=4, register_offset=0)
+    events = phrase if phrase is not None else DIES_IRAE_STROPHE
     total_steps = n_bars * BAR_STEPS
-    period_steps = sum(d for _, d in period)
     step = 0
     idx = 0
+    pass_num = 0
     while step < total_steps:
-        semi, dur = period[idx % len(period)]
-        if step >= total_steps:
-            break
+        semi, dur = events[idx % len(events)]
         dur = min(dur, total_steps - step)
-        freq = root * 2 * (2.0 ** (semi / 12.0))
-        note_dur_s = dur * STEP_S
-        _place(track, inst.lead_saw(freq, note_dur_s), step, 0.8)
+        if semi is not None:
+            # register: one octave above the bass root (round 1's C6-region
+            # lead read as "8-bit chiptune bleeps"; keep the lower register)
+            octave_up = 12 if (intensity == "peak" and pass_num % 2 == 1) else 0
+            freq = root * 2 * (2.0 ** ((semi + octave_up) / 12.0))
+            _place(track, inst.lead_saw(freq, dur * STEP_S), step, 0.8)
         step += dur
         idx += 1
+        if idx % len(events) == 0:
+            pass_num += 1
     return sy.normalize_peak(track, -3.0)
 
 
