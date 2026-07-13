@@ -78,6 +78,61 @@ Read the spec's clauses as constraints:
   weapon voices the lead (director's dynamic spec). Symbolism must be
   legible enough to mean, not trivia.
 
+## Canon rulings (2026-07-13, after the direct transcript read)
+
+> "all sound effects must be on-key" — confirmed against Gordon's chaingun-
+> in-D passage; the director goes further: "I went even further with trying
+> to quantize weapon firings to the nearest practical beat, half-beat,
+> quarter, eigth, sixteenth, thirty-second, etc..."
+
+> **"The Commando's liturgical chant _is_ his weaponfire."**
+
+The framing behind the two rules above, no further (director: "I dunno if
+I'd go that far. You're flanderizing again" — when I spun it into
+gunfire-as-choir-voice in the composed score, weapon-morphed guitars, etc.).
+What it licenses: in GAMEPLAY, his fire sits in the music's key and lands
+on its grid — that is his part in the liturgy, and it needs no additional
+literalization. The composed music keeps its own voices.
+
+**Anti-flanderization law (recurring correction, now standing):** when the
+director hands me an evocative framing, it explains the design that exists;
+it is not an invitation to amplify it into a system of literal consequences.
+Fold it in at the force he gave it.
+
+## The emotional spec (2026-07-13, from further Gordon interviews)
+
+> "he says the entire point of music is to 'take an emotional state and
+> illustrate it to another person who's never felt it before.' That's the
+> goal of this music - we need it to illustrate the Commando's emotional
+> state. The Doom soundtrack glorifies the violence - our soundtrack must
+> glorify the _intent_, and the intent makes the violence righteous. When
+> mowing down weak enemies, he feels contempt, rage and pride, and concern
+> for the time it's taking up when he needs to be getting on with the
+> rescue. Against overwhelming odds he is stalwart, taps in to his deep
+> righteous rage, 'I am a prayer for vengeance,' refuses to give up hope
+> because he knows impossible odds are an illusion, this is a test sent by
+> God and he _will_ overcome it. In calm moments he is praying,
+> contemplating, meditating, proccessing the next mind map node - but he
+> never forgets the urgency of the mission."
+
+Derived mapping (at stated force) — the dynamic states are EMOTIONAL
+states, not threat meters:
+- **PRAYER (calm)**: contemplative chant/processing — over a pulse that
+  never fully stops. Urgency inside stillness; never pure ambience.
+- **CONTEMPT (weak enemies)**: the music does NOT escalate to full — a
+  confident, almost dismissive groove (pride, impatience); the chant
+  continues UNINTERRUPTED over the violence: trash isn't worth pausing
+  the liturgy for. This is how "glorify the intent" sounds — the music
+  stays on-mission, not on the bodies.
+- **STALWART (overwhelming odds)**: the full congregation, the prayer for
+  vengeance — and the harmonic floor HOLDS. No despair harmony, no
+  collapse into chaos-diminished writing: it can strain, but it resolves
+  (Dorian's raised 6th earns its keep). The cantus firmus does not stop
+  during the peak — the test is being passed.
+- The state classifier models how the Commando READS the fight (enemy
+  weight class, HP, boxed-in-ness), not raw enemy count: many weak
+  enemies is still CONTEMPT.
+
 ## Director-flagged gold from the talk
 
 > "the 'infinite riser' - using Sheperd's tones to create a riser that builds
