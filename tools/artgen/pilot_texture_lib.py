@@ -470,6 +470,30 @@ FULLBLEED_LAW = (
     "straight-edged strip or bar running parallel to the wall)."
 )
 
+# Diagnosis (2026-07-13, FINAL-pass accept-rate economics, director's order
+# workstream 2): full-bleed/border rejects were the single largest reject
+# class in the shipped l01-l03 run (fullbleed = the LAST verdict on 121/316
+# bare rooms, 38% -- larger than detail_budget or interior_void). The
+# instruction was already present (FULLBLEED_LAW above) but buried in the
+# middle of a long multi-paragraph prompt behind the reference-image
+# descriptions and neighbor-continuity note; the model was still painting a
+# border/trim band at a high rate. Root-caused as a PLACEMENT problem, not a
+# missing-instruction problem: this is the identical rule restated as a
+# short, standalone final line, so it is the LAST thing read regardless of
+# which optional notes (box_note/decal_note) are present -- recency in a
+# long conditioning prompt is the cheap, low-risk lever (no threshold or
+# gate math changed, so this cannot mask a real border that the gate would
+# otherwise have correctly caught).
+FULLBLEED_FINAL_REMINDER = (
+    "FINAL CHECK BEFORE YOU RENDER: is there ANY band, strip, trim, "
+    "baseboard, rivet line, darker margin, or vignette running along one "
+    "or more edges of the image, even a subtle one? If so, that is the "
+    "single most common failure for this task -- remove it. The floor "
+    "material must run flush and uniformly lit all the way to every edge "
+    "of the crop, exactly like the rest of the surface, with nothing "
+    "framing it."
+)
+
 GEOMETRY_LOCK = (
     "CRITICAL geometry constraint: this must be the SAME room, at the SAME "
     "pixel dimensions as the base-truth reference image, viewed from "
@@ -720,5 +744,6 @@ def build_room_prompt(kind: str, has_neighbor_composite: bool = False,
         f"{SHAPE_LAW}\n\n"
         + (f"{box_note}\n\n" if box_note else "")
         + f"{NO_SIGNAGE_LAW}\n\n"
-        + (f"{decal_note}" if decal_note else "")
+        + (f"{decal_note}\n\n" if decal_note else "")
+        + f"{FULLBLEED_FINAL_REMINDER}"
     )
