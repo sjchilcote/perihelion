@@ -180,6 +180,22 @@ drives its level/rate; release = cadence hit + bus drop. Prime uses: a
 dormant flicker nearby (the player can't see it — the music can), lockdown
 waves building to breach, the drop into a hub fight.
 
+## The gauntlet law (2026-07-13)
+
+> "What's in 'dynamic_music_demo_2026-07-13' is complete and utter garbage
+> ... you need to be checking these with Gemini, this isn't even worth my
+> time to check."
+
+Context: I shipped him a system demo carrying stems whose content failures
+my own probes had already flagged, because the demo's point was the state
+machine. His time is the project's scarcest resource. LAW: **no audio/AV
+artifact goes to the director until it has passed the full model-ears
+gauntlet** (probes + per-state anchored panels + spec panel + dynamic
+judge, as applicable) — the gauntlet is the pre-filter that spends API
+pennies to protect his attention. A system demo is not exempt because
+"the content is placeholder"; if the content is condemned-grade, the demo
+waits for content that isn't.
+
 ## Working laws derived (shortest form)
 
 1. **Start over entirely.** Round-1/round-2 instruments, melodies, and demos are

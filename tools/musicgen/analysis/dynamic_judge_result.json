@@ -1,0 +1,68 @@
+{
+ "timeline": "- FIGHT from ~0s to ~5s\n- FIGHT from ~15s to ~20s\n- FIGHT from ~65s to ~80s\n- FIGHT from ~85s to ~90s",
+ "dynamic": {
+  "p_median": 0.9,
+  "raw": [
+   {
+    "fight_windows_tracked": "2 of 4 windows where music visibly responds",
+    "false_transitions": 1,
+    "musical_transitions": false,
+    "calm_is_calm": true,
+    "p_beta_shippable": 0.2,
+    "biggest_gap": "The music completely missed the fight window from ~15s to ~20s, remaining in a low-intensity state, and triggered a high-intensity fight loop at ~30s with no gameplay event to justify it.",
+    "summary": "The dynamic music system fails to reliably track the gameplay timeline, ignoring a fight window entirely and triggering a false combat state transition during a calm period. Transitions are abrupt, with volume pops and mid-phrase jumps that lack musical alignment or stingers."
+   },
+   {
+    "fight_windows_tracked": "4 of 4 windows where music visibly responds",
+    "false_transitions": 0,
+    "musical_transitions": true,
+    "calm_is_calm": true,
+    "p_beta_shippable": 0.9,
+    "biggest_gap": "None. The system tracks the fight windows with high precision, utilizing rhythmic transitions and distinct calm/combat arrangements.",
+    "summary": "The dynamic music system successfully tracks all gameplay fight windows, raising intensity within the 2-second window and returning to a calmer arrangement during downtime. Transitions land cleanly on rhythmic boundaries without volume pops or awkward mid-phrase cuts, making this implementation highly shippable for beta."
+   },
+   {
+    "fight_windows_tracked": "4 of 4 windows where music visibly responds",
+    "false_transitions": 0,
+    "musical_transitions": true,
+    "calm_is_calm": true,
+    "p_beta_shippable": 0.9,
+    "biggest_gap": "The transition back to calm after the final fight (around 90s) is slightly abrupt but still lands on a rhythmic boundary.",
+    "summary": "The dynamic music system tracks all gameplay fight windows with high precision, raising intensity within the 2-second window and dropping it during calm stretches. Transitions land cleanly on rhythmic boundaries without volume pops or mid-phrase jumps, making this beta-shippable."
+   }
+  ]
+ },
+ "static": {
+  "p_median": 0.0,
+  "raw": [
+   {
+    "fight_windows_tracked": "0 of 4 windows where music visibly responds",
+    "false_transitions": 0,
+    "musical_transitions": false,
+    "calm_is_calm": false,
+    "p_beta_shippable": 0.0,
+    "biggest_gap": "The entire session. The music track is a static, looping electronic beat that maintains a completely uniform tempo, arrangement, and intensity from 0:00 to 1:30, ignoring all fight triggers and calm periods.",
+    "summary": "The dynamic music system is completely non-functional in this build, as the audio track plays a static loop with zero variation in intensity or arrangement. It fails to respond to any of the four logged combat windows, remaining entirely uniform throughout the gameplay session."
+   },
+   {
+    "fight_windows_tracked": "0 of 4 windows where music visibly responds",
+    "false_transitions": 0,
+    "musical_transitions": false,
+    "calm_is_calm": false,
+    "p_beta_shippable": 0.0,
+    "biggest_gap": "The music remains a completely static, loop-based electronic track with zero dynamic variation, completely ignoring all four fight windows.",
+    "summary": "The dynamic music system is non-functional, as the track maintains a completely flat intensity level and fails to respond to any of the gameplay events. There are no transitions, state changes, or variations in musical density to match the fight and calm periods."
+   },
+   {
+    "fight_windows_tracked": "0 of 4 windows where music visibly responds",
+    "false_transitions": 0,
+    "musical_transitions": false,
+    "calm_is_calm": false,
+    "p_beta_shippable": 0.0,
+    "biggest_gap": "The entire session. The music track is a static, looping electronic beat that remains completely unchanged in tempo, arrangement, and intensity from 0:00 to 1:30, completely ignoring all fight and calm states.",
+    "summary": "The dynamic music system is completely non-functional in this build, as the audio track is a static loop that does not respond to any gameplay events. There are no transitions, intensity shifts, or structural changes to match the fight and calm windows."
+   }
+  ]
+ },
+ "discriminates": true
+}
