@@ -29,7 +29,7 @@ import necore
 
 from ..sim import GameSession, InputFrame, WEAPON_ORDER
 from .bots import (Bot, _UnstickMixin, _dist, _norm, choose_weapon,
-                    nav_to_exit, nav_to_point, nav_to_room)
+                    nav_to_point)
 from .mouse_model import MouseModel
 from .perception import PerceptionModel
 
@@ -101,6 +101,16 @@ class HumanBot(_UnstickMixin, Bot):
         # flanked-choke escape state (design doc §5)
         self._escape_ticks = 0
         self._escape_dir: tuple[float, float] = (0.0, 0.0)
+        # travel-aim wander state (design doc §2/§6): where the resting
+        # cursor hovers relative to the direction of travel. A cursor
+        # parked dead-center (or pinned exactly on the movement vector at
+        # a fixed radius) is a machine tell the A/B judge called out
+        # verbatim on 2026-07-13 ("cursor consistently centered/aligned
+        # exactly along the movement direction").
+        self._gaze_off = (0.0, 0.0)
+        self._gaze_radius = 80.0
+        # variable tempo (§6): slow multiplicative random walk on move speed
+        self._tempo = 0.9
         # single-threaded attention (design doc §1): the current focus
         # target, held with hysteresis. Without this, two equidistant
         # enemies flip "nearest" every tick and the cursor oscillates
@@ -182,7 +192,7 @@ class HumanBot(_UnstickMixin, Bot):
             # portal ping-pong pattern where contact keeps dropping and
             # re-acquiring -- gets walked out toward the exit while firing
             if self._combat_streak > 60 * 10:
-                mx_, my_ = nav_to_exit(session, snapshot)
+                mx_, my_ = self._nav_exit_move(session, snapshot, px, py)
                 if mx_ or my_:
                     inp.mx, inp.my = mx_, my_
             return self._apply_unstick(px, py, inp)
@@ -202,12 +212,16 @@ class HumanBot(_UnstickMixin, Bot):
                 target = min(medkits, key=lambda p: (p["hops"], p["room"]))
                 self._med_target = (target["room"], target["pos"])
             if target["room"] == proom:
-                inp.mx, inp.my = nav_to_point(session, px, py, target["pos"])
+                goal = target["pos"]
             else:
-                inp.mx, inp.my = nav_to_room(session, snapshot, target["room"], None)
+                edge = session.sim.next_edge(proom, target["room"])
+                goal = session.sim.edge_midpoint(proom, edge) if edge >= 0 else None
+            if goal is not None:
+                way = self._steer_target(session, proom, (px, py), goal)
+                inp.mx, inp.my = nav_to_point(session, px, py, way)
         else:
             self._med_target = None
-            inp.mx, inp.my = nav_to_exit(session, snapshot)
+            inp.mx, inp.my = self._nav_exit_move(session, snapshot, px, py)
 
         # room-entry protocol (design doc §3): pause at the threshold of
         # unexplored territory and lamp-sweep it from the doorway. A hurt
@@ -241,11 +255,116 @@ class HumanBot(_UnstickMixin, Bot):
             mouse = self._ensure_mouse(ax, ay)
             inp.ax, inp.ay = mouse.step(ax, ay, 1.0 / 60.0)
         else:
-            rest_x, rest_y = session.screen_w / 2.0, session.screen_h / 2.0
-            mouse = self._ensure_mouse(rest_x, rest_y)
-            inp.ax, inp.ay = mouse.step(rest_x, rest_y, 1.0 / 60.0)
+            ax, ay = self._travel_aim(session, inp.mx, inp.my)
+            mouse = self._ensure_mouse(ax, ay)
+            inp.ax, inp.ay = mouse.step(ax, ay, 1.0 / 60.0)
+
+        # variable tempo (§6): nobody holds the stick at exactly 1.0
+        self._tempo += self._nav_rng.uniform(-0.02, 0.02)
+        self._tempo = max(0.7, min(1.0, self._tempo))
+        inp.mx, inp.my = inp.mx * self._tempo, inp.my * self._tempo
 
         return self._apply_unstick(px, py, inp)
+
+    def _travel_aim(self, session: GameSession, mx: float, my: float
+                     ) -> tuple[float, float]:
+        """Resting cursor target while traveling: hovers AHEAD of the
+        movement direction at a wandering radius and offset, so the gaze
+        leads into upcoming space instead of parking at screen center or
+        riding the exact movement vector."""
+        cx, cy = session.screen_w / 2.0, session.screen_h / 2.0
+        # slow random walk on the lateral/longitudinal offset and radius
+        gx, gy = self._gaze_off
+        gx = max(-45.0, min(45.0, gx + self._nav_rng.uniform(-2.2, 2.2)))
+        gy = max(-35.0, min(35.0, gy + self._nav_rng.uniform(-2.2, 2.2)))
+        self._gaze_off = (gx, gy)
+        self._gaze_radius = max(45.0, min(115.0,
+            self._gaze_radius + self._nav_rng.uniform(-3.0, 3.0)))
+        mag = math.hypot(mx, my)
+        if mag < 1e-6:
+            return (cx + gx, cy + gy)
+        return (cx + mx / mag * self._gaze_radius + gx,
+                cy + my / mag * self._gaze_radius + gy)
+
+    # -- terrain-aware in-room steering --------------------------------
+    #
+    # Walk-mask terrain (rect colliders inside rooms) landed with the art
+    # pass; the shared nav helpers steer straight at the target and rely
+    # on the random unstick jitter to round obstacles, which grinds for
+    # sim-minutes against real cover (l01 room 112: AggroBot seed 101
+    # spent the full 12-minute budget there; clearing that one room's
+    # terrain in-session flipped it to complete-in-17s -- causal). Humans
+    # walk around furniture: greedy corner-hopping, re-evaluated per tick.
+
+    CLEARANCE = 9.0  # player radius + margin, room units
+
+    @staticmethod
+    def _seg_hits_rect(p, q, rect, pad: float) -> bool:
+        """Liang-Barsky: does segment p->q cross rect inflated by pad?"""
+        x0, y0, x1, y1 = rect
+        x0, y0, x1, y1 = x0 - pad, y0 - pad, x1 + pad, y1 + pad
+        dx, dy = q[0] - p[0], q[1] - p[1]
+        t0, t1 = 0.0, 1.0
+        for num, den in ((x0 - p[0], dx), (p[0] - x1, -dx),
+                          (y0 - p[1], dy), (p[1] - y1, -dy)):
+            if abs(den) < 1e-12:
+                if num > 0:
+                    return False
+                continue
+            t = num / den
+            if den > 0:
+                t0 = max(t0, t)
+            else:
+                t1 = min(t1, t)
+            if t0 > t1:
+                return False
+        return True
+
+    def _steer_target(self, session: GameSession, room: int,
+                       p: tuple[float, float],
+                       target: tuple[float, float]) -> tuple[float, float]:
+        """Next waypoint toward `target` around this room's terrain rects.
+        Greedy: if the straight segment is blocked, hop to the reachable
+        inflated corner of a blocking rect that best shortens the path.
+        Re-run every tick, so multi-rect fields resolve corner by corner."""
+        rects = session.sim.room_terrain(room) or []
+        if not rects:
+            return target
+
+        def blocked(a, b):
+            return any(self._seg_hits_rect(a, b, r, self.CLEARANCE * 0.7)
+                       for r in rects)
+
+        if not blocked(p, target):
+            return target
+        pad = self.CLEARANCE
+        best, best_cost = None, float("inf")
+        for r in rects:
+            x0, y0, x1, y1 = r
+            for c in ((x0 - pad, y0 - pad), (x1 + pad, y0 - pad),
+                       (x0 - pad, y1 + pad), (x1 + pad, y1 + pad)):
+                if _dist(p, c) < 1.0 or blocked(p, c):
+                    continue
+                cost = _dist(p, c) + _dist(c, target)
+                if cost < best_cost:
+                    best, best_cost = c, cost
+        return best if best is not None else target
+
+    def _nav_exit_move(self, session: GameSession, snapshot: dict,
+                        px: float, py: float) -> tuple[float, float]:
+        """`nav_to_exit` with terrain-aware in-room steering."""
+        proom = snapshot["room"]
+        if session.exit_room < 0:
+            return (0.0, 0.0)
+        if proom == session.exit_room:
+            goal = session.exit_pos
+        else:
+            edge = snapshot.get("exit_next_edge", -1)
+            if edge < 0:
+                return (0.0, 0.0)
+            goal = session.sim.edge_midpoint(proom, edge)
+        way = self._steer_target(session, proom, (px, py), goal)
+        return nav_to_point(session, px, py, way)
 
     # -- navigation humanization (design doc §3/§4) --------------------
 
@@ -434,7 +553,13 @@ class HumanBot(_UnstickMixin, Bot):
         perp = (-uy, ux)
         pressure = min(1.0, len(perceived) / 3.0) + (0.0 if snapshot["hp"] > 40 else 0.4)
         if self._escape_ticks > 0:
-            move_room = self._escape_dir  # committed flank escape
+            # committed flank escape, steered around in-room terrain
+            gx = px + self._escape_dir[0] * 80.0
+            gy = py + self._escape_dir[1] * 80.0
+            way = self._steer_target(session, snapshot["room"], (px, py),
+                                      (gx, gy))
+            move_room = _norm((way[0] - px, way[1] - py)) \
+                if _dist(way, (px, py)) > 1e-6 else self._escape_dir
         elif weapon_name == "knife":
             move_room = (ux, uy)
         elif dist < 60.0 or snapshot["hp"] < 30:
