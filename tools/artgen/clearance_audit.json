@@ -1,0 +1,850 @@
+{
+  "summary": {
+    "n_checked": 120,
+    "n_fail": 0,
+    "n_no_mask_skipped": 4,
+    "failures": []
+  },
+  "results": {
+    "l01/room_003": {
+      "ok": true,
+      "n_portals": 4,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l01/room_064": {
+      "ok": true,
+      "n_portals": 4,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l01/room_061": {
+      "ok": true,
+      "n_portals": 6,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l01/room_002": {
+      "ok": true,
+      "n_portals": 4,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l01/room_001": {
+      "ok": true,
+      "n_portals": 5,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l01/room_062": {
+      "ok": true,
+      "n_portals": 4,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l01/room_041": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l01/room_055": {
+      "ok": true,
+      "n_portals": 4,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l01/room_006": {
+      "ok": true,
+      "n_portals": 5,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l01/room_005": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l01/room_042": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l01/room_021": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l01/room_078": {
+      "ok": true,
+      "n_portals": 4,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l01/room_052": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l01/room_082": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l01/room_022": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l01/room_046": {
+      "ok": true,
+      "n_portals": 4,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l01/room_071": {
+      "ok": true,
+      "n_portals": 4,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l01/room_110": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l01/room_023": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l01/room_050": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l01/room_080": {
+      "ok": true,
+      "n_portals": 4,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l01/room_026": {
+      "ok": true,
+      "n_portals": 4,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l01/room_085": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l01/room_104": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l01/room_024": {
+      "ok": true,
+      "n_portals": 4,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l01/room_032": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l01/room_038": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l01/room_033": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l01/room_097": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l01/room_040": {
+      "ok": true,
+      "reason": "fewer than 2 doorways -- nothing to connect",
+      "n_portals": 1,
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l01/room_112": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l01/room_106": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l01/room_019": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l01/room_044": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l01/room_027": {
+      "ok": true,
+      "n_portals": 4,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l01/room_037": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l02/room_002": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l02/room_005": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l02/room_007": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l02/room_030": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l02/room_032": {
+      "ok": true,
+      "n_portals": 4,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l02/room_033": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l02/room_011": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l02/room_014": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l02/room_021": {
+      "ok": true,
+      "reason": "fewer than 2 doorways -- nothing to connect",
+      "n_portals": 1,
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l02/room_071": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l02/room_075": {
+      "ok": true,
+      "reason": "fewer than 2 doorways -- nothing to connect",
+      "n_portals": 1,
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l02/room_139": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l02/room_140": {
+      "ok": true,
+      "reason": "fewer than 2 doorways -- nothing to connect",
+      "n_portals": 1,
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l02/room_122": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l02/room_135": {
+      "ok": true,
+      "n_portals": 4,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l02/room_124": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l02/room_082": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l02/room_092": {
+      "ok": true,
+      "n_portals": 4,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l02/room_101": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l02/room_104": {
+      "ok": true,
+      "n_portals": 4,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l02/room_080": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l02/room_137": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l02/room_142": {
+      "ok": true,
+      "reason": "fewer than 2 doorways -- nothing to connect",
+      "n_portals": 1,
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_006": {
+      "ok": true,
+      "n_portals": 4,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_121": {
+      "ok": true,
+      "n_portals": 4,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_007": {
+      "ok": true,
+      "reason": "fewer than 2 doorways -- nothing to connect",
+      "n_portals": 1,
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_120": {
+      "ok": true,
+      "n_portals": 4,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_116": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_122": {
+      "ok": true,
+      "n_portals": 4,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_124": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_029": {
+      "ok": true,
+      "n_portals": 4,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_126": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_032": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_123": {
+      "ok": true,
+      "reason": "fewer than 2 doorways -- nothing to connect",
+      "n_portals": 1,
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_022": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_030": {
+      "ok": true,
+      "n_portals": 4,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_026": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_141": {
+      "ok": true,
+      "n_portals": 4,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_130": {
+      "ok": true,
+      "n_portals": 4,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_023": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_027": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_033": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_024": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_034": {
+      "ok": true,
+      "reason": "fewer than 2 doorways -- nothing to connect",
+      "n_portals": 1,
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_149": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_144": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_035": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_036": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_151": {
+      "ok": true,
+      "n_portals": 4,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_043": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_058": {
+      "ok": true,
+      "n_portals": 6,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_158": {
+      "ok": true,
+      "n_portals": 4,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_169": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_044": {
+      "ok": true,
+      "n_portals": 5,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_059": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_159": {
+      "ok": true,
+      "n_portals": 4,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_049": {
+      "ok": true,
+      "n_portals": 5,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_047": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_160": {
+      "ok": true,
+      "n_portals": 4,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_087": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_048": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_164": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_161": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_051": {
+      "ok": true,
+      "reason": "fewer than 2 doorways -- nothing to connect",
+      "n_portals": 1,
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_176": {
+      "ok": true,
+      "reason": "fewer than 2 doorways -- nothing to connect",
+      "n_portals": 1,
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_166": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_079": {
+      "ok": true,
+      "n_portals": 4,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_167": {
+      "ok": true,
+      "reason": "fewer than 2 doorways -- nothing to connect",
+      "n_portals": 1,
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_080": {
+      "ok": true,
+      "n_portals": 4,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_061": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_091": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_069": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_073": {
+      "ok": true,
+      "reason": "fewer than 2 doorways -- nothing to connect",
+      "n_portals": 1,
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_074": {
+      "ok": true,
+      "reason": "fewer than 2 doorways -- nothing to connect",
+      "n_portals": 1,
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_104": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_086": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_094": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_095": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_088": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_096": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_098": {
+      "ok": true,
+      "reason": "fewer than 2 doorways -- nothing to connect",
+      "n_portals": 1,
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_089": {
+      "ok": true,
+      "n_portals": 2,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    },
+    "l03/room_097": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": [],
+      "clearance_radius_px": 39.0,
+      "clearance_radius_units": 13.0
+    }
+  }
+}

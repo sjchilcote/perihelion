@@ -47,6 +47,12 @@ from PIL import Image, ImageFilter
 
 from tools.artgen.pilot_texture_lib import room_doorway_edges, _room_xform
 
+# pilot_texture_lib's import above already put game/ on sys.path -- pull the
+# real engine constants rather than redefine them locally, or the gate
+# silently drifts from what sim.py actually collides against.
+from perihelion.sim import PLAYER_RADIUS  # noqa: E402
+from perihelion.texture_geom import DENSITY as PX_PER_UNIT  # noqa: E402
+
 
 def _largest_component(binary: np.ndarray) -> np.ndarray:
     """Boolean (H,W) -> boolean mask of just its largest 4-connected
@@ -131,7 +137,14 @@ def derive_walkmask(room_mask_arr: np.ndarray, boxes: list[dict],
         # component so isolated noisy floor pixels inside the box don't
         # get incorrectly blocked.
         sub = tex_arr[y0:y1, x0:x1]
-        if sub.size == 0:
+        if sub.size == 0 or sub.shape[0] < 2 or sub.shape[1] < 2:
+            # np.gradient needs >= 2 samples on every axis; an aggressively
+            # inset box (walkmask retry ladder) can shrink to a sliver.
+            # Too small to analyze texture structure -- fall back to
+            # blocking the whole (tiny) box, the same conservative
+            # "never under-block a requested item" behavior the low-solid
+            # branch below already uses.
+            walk[y0:y1, x0:x1] = False
             continue
         # crude edge-density proxy for "this looks like a distinct object"
         # vs "this looks like plain floor": local gradient magnitude.
@@ -269,6 +282,96 @@ def check_level_portal_connectivity(stem: str, walkmasks: dict[int, np.ndarray],
     for room_idx, walk_arr in walkmasks.items():
         pts = portal_points_px(stem, room_idx, level)
         res = check_room_portal_connectivity(walk_arr, pts)
+        results[room_idx] = res
+        if not res["ok"]:
+            all_ok = False
+    return dict(ok=all_ok, rooms=results)
+
+
+# ---------------------------------------------------------------------------
+# hard gate: portal CLEARANCE (director's order, 2026-07-13 -- stop-the-line
+# fix for room 112/l01: its shipped mask passed the plain BFS above but left
+# only a ~13-unit-wide bottom channel; the baseline AggroBot burned a full
+# 12-minute budget stuck there, and clearing the terrain by hand flipped it
+# to a 17s clear. REACHABLE != TRAVERSABLE -- portal-to-portal connectivity
+# through single-pixel-wide walkable cells says nothing about whether the
+# player's own collision circle fits through the route.
+#
+# Implementation: erode the walkable region by a clearance radius before
+# re-running the exact same portal-to-portal BFS. If a route survives
+# erosion, it is wide enough everywhere along its narrowest point for the
+# player disc (with margin) to walk it centered; if erosion disconnects a
+# portal pair that the plain gate called connected, that pair's route has a
+# pinch point narrower than the required clearance and the mask fails.
+# ---------------------------------------------------------------------------
+
+# Config is explicit and separate from the erosion math on purpose (director:
+# "make the config explicit") -- retune here, never by hand-editing the
+# erosion call sites below.
+#   - clearance radius is measured from the CENTER of the corridor, i.e. an
+#     eroded cell survives only if it is >= this far from any non-walkable
+#     cell in every direction, so a route through it has >= 2x this radius
+#     of total width available.
+#   - PLAYER_RADIUS is the real collision radius sim.py spawns the player
+#     with (game/perihelion/sim.py); margin defaults to exactly one more
+#     player radius, satisfying the ">= 1 player radius" floor with no slack
+#     assumed beyond the director's stated minimum.
+CLEARANCE_MARGIN_UNITS = PLAYER_RADIUS  # >= 1 player radius, per directive
+CLEARANCE_RADIUS_UNITS = PLAYER_RADIUS + CLEARANCE_MARGIN_UNITS
+
+
+def clearance_radius_px(px_per_unit: float = PX_PER_UNIT) -> float:
+    """World-unit clearance radius converted to this room's texel grid.
+    px_per_unit defaults to the engine's own texture density
+    (texture_geom.DENSITY) so it matches whatever grid the walk-mask PNG
+    was actually rasterized at."""
+    return CLEARANCE_RADIUS_UNITS * px_per_unit
+
+
+def erode_walkable(walk: np.ndarray, radius_px: float) -> np.ndarray:
+    """Boolean (H,W) walkable array -> eroded copy: a cell survives only if
+    every cell within `radius_px` of it (square structuring element, via
+    PIL's MinFilter rank filter) is also walkable. A square kernel erodes
+    diagonals slightly more aggressively than a true disk would -- that
+    makes the gate marginally stricter at corners, never laxer, which is
+    the safe direction for a traversability floor."""
+    if radius_px <= 0 or not walk.any():
+        return walk.copy()
+    k = int(round(radius_px)) * 2 + 1
+    im = Image.fromarray((walk.astype(np.uint8) * 255), mode="L")
+    eroded = im.filter(ImageFilter.MinFilter(k))
+    return np.asarray(eroded) > 127
+
+
+def check_room_portal_clearance(walk_arr: np.ndarray, portal_pts: list[tuple[int, int, int]],
+                                 radius_px: float | None = None) -> dict:
+    """HARD GATE: every portal-to-portal route must survive erosion by the
+    player-clearance radius, not just the raw BFS. Same portal points and
+    same reachability check as check_room_portal_connectivity -- only the
+    walkable array fed in differs (eroded first). Returns the same shape as
+    check_room_portal_connectivity plus the radius actually used, so a
+    caller can log/tune it."""
+    if radius_px is None:
+        radius_px = clearance_radius_px()
+    eroded = erode_walkable(walk_arr, radius_px)
+    result = check_room_portal_connectivity(eroded, portal_pts)
+    result["clearance_radius_px"] = radius_px
+    result["clearance_radius_units"] = radius_px / PX_PER_UNIT
+    return result
+
+
+def check_level_portal_clearance(stem: str, walkmasks: dict[int, np.ndarray], level=None,
+                                  radius_px: float | None = None) -> dict:
+    """Level-wide clearance gate, mirroring check_level_portal_connectivity
+    but eroding each room's walkable array by the clearance radius first."""
+    if level is None:
+        from tools.artgen.pilot_texture_lib import get_level
+        level = get_level(stem)
+    results = {}
+    all_ok = True
+    for room_idx, walk_arr in walkmasks.items():
+        pts = portal_points_px(stem, room_idx, level)
+        res = check_room_portal_clearance(walk_arr, pts, radius_px=radius_px)
         results[room_idx] = res
         if not res["ok"]:
             all_ok = False

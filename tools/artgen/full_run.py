@@ -18,11 +18,13 @@ Ship-or-bare, sticky acceptance:
     room already recorded "accepted" or "bare" in the progress file unless
     --rooms force-clears it.
   - walk-mask: derived (no extra API cost) from the accepted texture +
-    boxes, checked against the portal-connectivity hard gate. Retried up to
-    3x with the boxes inset progressively (20%, 40%) to open more floor
-    around portals before giving up. A mask that still fails ships the
-    texture with NO mask file (absence = fully walkable, per engine
-    contract) -- logged.
+    boxes, checked against the portal-connectivity hard gate AND the
+    portal-CLEARANCE hard gate (walkmask.py's check_room_portal_clearance --
+    2026-07-13 stop-the-line fix: reachable != traversable, see room 112/l01
+    post-mortem). Retried up to 3x with the boxes inset progressively (20%,
+    40%) to open more floor around portals before giving up. A mask that
+    still fails either gate ships the texture with NO mask file (absence =
+    fully walkable, per engine contract) -- logged.
 
 Usage:
     uv run python -m tools.artgen.full_run --level l01
@@ -61,8 +63,8 @@ from tools.artgen.texture_checks import (
     verify_no_guide_ink, verify_no_interior_void, verify_shape_conformance,
 )
 from tools.artgen.walkmask import (
-    check_room_portal_connectivity, derive_walkmask, portal_points_px,
-    walkmask_out_path,
+    check_room_portal_clearance, check_room_portal_connectivity, derive_walkmask,
+    portal_points_px, walkmask_out_path,
 )
 
 import numpy as np
@@ -486,6 +488,17 @@ def process_room(stem: str, idx: int, kind: str, progress: dict) -> dict:
         walk_arr = np.asarray(walk_im) > 127
         conn_result = check_room_portal_connectivity(walk_arr, pts)
         if conn_result["ok"]:
+            # STOP-THE-LINE FIX (room 112/l01, 2026-07-13): reachable is not
+            # traversable -- also require every portal-to-portal route to
+            # survive erosion by the player-clearance radius (walkmask.py's
+            # check_room_portal_clearance). A route that passes the plain
+            # BFS but fails clearance is exactly the room-112 bug (a bot
+            # burned its full 12-minute budget stuck in a too-narrow
+            # channel that nonetheless satisfied "reachable").
+            clearance_result = check_room_portal_clearance(walk_arr, pts)
+            conn_result["clearance"] = clearance_result
+            if not clearance_result["ok"]:
+                continue
             walk_path = walkmask_out_path(ship_path)
             walk_im.save(walk_path)
             review_walk = REVIEW_DIR / f"full_{stem}_room{idx:03d}_walkmask.png"
