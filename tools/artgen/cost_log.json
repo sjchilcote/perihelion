@@ -1,5 +1,5 @@
 {
-  "total_cost": 102.75457299999975,
+  "total_cost": 103.09735349999977,
   "calls": [
     {
       "model": "google/gemini-3.1-flash-image",
@@ -17962,6 +17962,102 @@
       "prompt_tokens": 5734,
       "completion_tokens": 1120,
       "ts": 1783952696.4992745
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/v3_calibration/gen/l01_room000.png",
+      "cost": 0.0695355,
+      "prompt_tokens": 4671,
+      "completion_tokens": 1120,
+      "ts": 1783953202.543432
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "verify:/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/v3_calibration/gen/l01_room000.png",
+      "cost": 0.0068295,
+      "prompt_tokens": 3953,
+      "completion_tokens": 100,
+      "ts": 1783953207.8606296
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "item_placement:/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/v3_calibration/final/l01_room000.png",
+      "cost": 0.010164,
+      "prompt_tokens": 5672,
+      "completion_tokens": 184,
+      "ts": 1783953210.9335616
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/v3_calibration/gen/l03_room000.png",
+      "cost": 0.0696405,
+      "prompt_tokens": 4881,
+      "completion_tokens": 1120,
+      "ts": 1783953230.6014633
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "verify:/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/v3_calibration/gen/l03_room000.png",
+      "cost": 0.0070275,
+      "prompt_tokens": 3947,
+      "completion_tokens": 123,
+      "ts": 1783953235.8453648
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "item_placement:/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/v3_calibration/final/l03_room000.png",
+      "cost": 0.0080565,
+      "prompt_tokens": 4501,
+      "completion_tokens": 145,
+      "ts": 1783953238.916409
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/v3_calibration/gen/l01_room000.png",
+      "cost": 0.070254,
+      "prompt_tokens": 2994,
+      "completion_tokens": 1639,
+      "ts": 1783953354.2466738
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "verify:/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/v3_calibration/gen/l01_room000.png",
+      "cost": 0.0070065,
+      "prompt_tokens": 4065,
+      "completion_tokens": 101,
+      "ts": 1783953359.120873
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "item_placement:/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/v3_calibration/final/l01_room000.png",
+      "cost": 0.009444,
+      "prompt_tokens": 5672,
+      "completion_tokens": 104,
+      "ts": 1783953361.917532
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/v3_calibration/gen/l03_room000.png",
+      "cost": 0.0696635,
+      "prompt_tokens": 4927,
+      "completion_tokens": 1120,
+      "ts": 1783953374.655963
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "verify:/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/v3_calibration/gen/l03_room000.png",
+      "cost": 0.0071385,
+      "prompt_tokens": 4051,
+      "completion_tokens": 118,
+      "ts": 1783953381.1233478
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "item_placement:/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/v3_calibration/final/l03_room000.png",
+      "cost": 0.0080205,
+      "prompt_tokens": 4501,
+      "completion_tokens": 141,
+      "ts": 1783953386.2638474
     }
   ]
 }

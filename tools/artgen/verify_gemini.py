@@ -47,7 +47,20 @@ def _b64_image(path: str | Path) -> str:
 
 def verify_texture(base_truth_path: str | Path, generated_path: str | Path,
                     kind: str, anchor_path: str | Path | None = None,
-                    max_retries: int = 3) -> dict:
+                    max_retries: int = 3, allowed_items: list[str] | None = None) -> dict:
+    """`allowed_items`, if given (box_conditioning.py's labeled-box item
+    labels), relaxes check 1's blanket "no invented props" rule: the
+    listed items are EXPECTED to appear (that is the whole point of box
+    conditioning -- see box_conditioning.boxes_prompt_note), so only an
+    UNLISTED prop counts as a geometry defect. Without this, the geometry
+    judge and the box-conditioning prompt contradict each other --
+    confirmed on the tools/artgen/calibrate_v3.py calibration batch
+    (2026-07-13): l01/room_0's requested crate stacks correctly appeared
+    and were correctly vision-confirmed present by
+    box_conditioning.verify_item_placement, yet this judge still failed
+    geometry_ok for "painted cargo crates ... These are separate props
+    that should not be baked into the floor texture" -- it was applying
+    the OLD floor-only pipeline's rule to the NEW item-painting pipeline."""
     key = _load_key()
     content: list[dict] = []
     images = [(str(base_truth_path), "BASE TRUTH")]
@@ -60,6 +73,18 @@ def verify_texture(base_truth_path: str | Path, generated_path: str | Path,
     images.append((str(generated_path), "GENERATED"))
 
     text = PROMPT_TEMPLATE.format(kind=kind, anchor_line=anchor_line, gen_idx=gen_idx)
+    if allowed_items:
+        items_line = ", ".join(allowed_items)
+        text += (
+            f"\n\nBOX-CONDITIONING EXCEPTION to check 1: this room's texture "
+            f"was generated with explicit item requests for exactly these "
+            f"items, which are EXPECTED and must not be flagged as invented "
+            f"props: {items_line}. geometry_ok should be false only if an "
+            f"OBJECT NOT ON THIS LIST appears, or if a listed item is "
+            f"missing/badly misplaced relative to its requested region, or "
+            f"if walls/silhouette have moved -- not for the presence of the "
+            f"listed items themselves."
+        )
     content.append({"type": "text", "text": text})
     for path, _label in images:
         content.append({

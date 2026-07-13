@@ -428,10 +428,16 @@ def verify_no_guide_ink(im: Image.Image, mask: np.ndarray,
     """Catch the geometry guide's annotation colors leaking into the
     output: the model occasionally renders the guide's saturated CYAN wall
     lines / MAGENTA doorway marks as literal paint on the floor (caught
-    2026-07-11: pink doorway rectangles rendered into l05/room_4). The
-    game's palette is deliberately desaturated (STYLE_LANGUAGE), so ANY
-    concentration of saturated cyan/magenta inside the floor polygon is
-    guide-ink leakage, not legitimate material."""
+    2026-07-11: pink doorway rectangles rendered into l05/room_4). Also
+    catches the labeled-box conditioning's ORANGE (MIRIAD) / bronze-green
+    (TESTATOR) box outlines leaking the same way -- confirmed 2026-07-13 on
+    the box-conditioning calibration batch (tools/artgen/calibrate_v3.py):
+    l03/room_0's texture shipped with a literal orange rectangle outline
+    painted around the requested center-trough box, which this gate
+    previously could not see because it only ever checked cyan/magenta.
+    The game's palette is deliberately desaturated (STYLE_LANGUAGE), so ANY
+    concentration of saturated cyan/magenta/orange/bronze-green inside the
+    floor polygon is guide-ink leakage, not legitimate material."""
     rgb = np.asarray(im.convert("RGB")).astype(np.float32)
     r, g, b = rgb[..., 0], rgb[..., 1], rgb[..., 2]
     mx = rgb.max(axis=2)
@@ -439,7 +445,12 @@ def verify_no_guide_ink(im: Image.Image, mask: np.ndarray,
     sat = (mx - mn) / np.maximum(mx, 1e-6)
     cyan = (sat > 0.45) & (mx > 90) & (b > r * 1.25) & (g > r * 1.25)
     magenta = (sat > 0.45) & (mx > 90) & (r > g * 1.3) & (b > g * 1.3)
-    leak = (cyan | magenta) & mask
+    # box_conditioning.LANE_COLOR: MIRIAD (255,140,20) orange, TESTATOR
+    # (120,200,160) bronze-green. Orange: strong R, mid G, low B, R>>B.
+    orange = (sat > 0.45) & (mx > 90) & (r > b * 1.8) & (r > g * 1.15) & (g > b * 1.3)
+    # bronze-green: G and B close and both clearly above R, moderate sat.
+    bronze_green = (sat > 0.25) & (mx > 90) & (g > r * 1.15) & (b > r * 1.05) & (abs(g - b) < 40)
+    leak = (cyan | magenta | orange | bronze_green) & mask
     frac = float(leak.mean() if mask.any() else 0.0)
     in_frac = float(leak[mask].mean()) if mask.any() else 0.0
     ok = in_frac <= frac_thresh

@@ -1,0 +1,173 @@
+{
+  "l01/room_000": {
+    "key": "l01/room_000",
+    "kind": "dock",
+    "cost": 0.08670449999999999,
+    "n_boxes": 4,
+    "n_decal_marks": 0,
+    "gates": {
+      "fullbleed": {
+        "ok": true,
+        "edge_mean": 77.56412506103516,
+        "center_mean": 98.83712768554688,
+        "darken_ratio": 1.2742634253628466,
+        "edge_grad": 14.042627334594727,
+        "center_grad": 9.164337158203125,
+        "grad_ratio": 1.5323123857381193,
+        "border_darkening": false,
+        "border_structure": false
+      },
+      "interior_void": {
+        "ok": false,
+        "black_frac": 0.029983164983164983,
+        "frac_thresh": 0.02
+      },
+      "guide_ink": {
+        "ok": true,
+        "leak_frac": 0.0,
+        "frac_thresh": 0.0015,
+        "_frac_of_image": 0.0
+      },
+      "detail_budget": {
+        "ok": false,
+        "grad_ratio_vs_material": 1.4533009181328274,
+        "room_grad": 73.85310227325188,
+        "material_grad": 50.81748821031291,
+        "entropy_bits": 7.136445050802433,
+        "ratio_thresh": 1.25
+      },
+      "gemini_geometry": {
+        "geometry_ok": false,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": false,
+        "verdict": "fail",
+        "notes": "The generated texture has severe geometry drift, cutting out chunks of the rectangular room shape on the right edge. It also fails fullbleed due to a prominent structural metal border with inset panel lines running along the right edge instead of seamless tiling flooring.",
+        "_cost": 0.0070065
+      },
+      "item_placement": {
+        "results": [
+          {
+            "label": "CRATE STACK",
+            "present": true,
+            "notes": "crate stack"
+          },
+          {
+            "label": "CRATE STACK",
+            "present": true,
+            "notes": "crate stack"
+          },
+          {
+            "label": "HAZARD LANE",
+            "present": false,
+            "notes": "bare floor"
+          },
+          {
+            "label": "MOORING RING WALL",
+            "present": false,
+            "notes": "bare edge/wall trim"
+          }
+        ],
+        "all_present": false,
+        "_cost": 0.009444
+      },
+      "walkmask_connectivity": {
+        "ok": false,
+        "n_portals": 6,
+        "unreachable_edges": [
+          2,
+          3,
+          4,
+          5,
+          6
+        ]
+      }
+    },
+    "overall_ok": false,
+    "review_texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/v3_l01_room000_texture.png",
+    "review_boxed_guide": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/v3_l01_room000_boxed_guide.png",
+    "review_walkmask": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/v3_l01_room000_walkmask.png"
+  },
+  "l03/room_000": {
+    "key": "l03/room_000",
+    "kind": "hydro",
+    "cost": 0.08482250000000001,
+    "n_boxes": 3,
+    "n_decal_marks": 1,
+    "gates": {
+      "fullbleed": {
+        "ok": true,
+        "edge_mean": 77.07609558105469,
+        "center_mean": 76.4821548461914,
+        "darken_ratio": 0.9922940993522605,
+        "edge_grad": 10.33345890045166,
+        "center_grad": 9.24061107635498,
+        "grad_ratio": 1.118265752672253,
+        "border_darkening": false,
+        "border_structure": false
+      },
+      "interior_void": {
+        "ok": true,
+        "black_frac": 0.0008763963597797577,
+        "frac_thresh": 0.02
+      },
+      "guide_ink": {
+        "ok": true,
+        "leak_frac": 0.0,
+        "frac_thresh": 0.0015,
+        "_frac_of_image": 0.0
+      },
+      "detail_budget": {
+        "ok": false,
+        "grad_ratio_vs_material": 1.3473916268218173,
+        "room_grad": 67.99762398969175,
+        "material_grad": 50.46611737530408,
+        "entropy_bits": 6.533266857092865,
+        "ratio_thresh": 1.25
+      },
+      "gemini_geometry": {
+        "geometry_ok": false,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": false,
+        "verdict": "fail",
+        "notes": "The generated texture completely fails to respect the BASE TRUTH silhouette, filling in most of the negative space on the right and overlaying orange zoning boxes. Additionally, the texture shows no awareness of the room boundaries and lacks any actual floor edge definition.",
+        "_cost": 0.0071385
+      },
+      "item_placement": {
+        "results": [
+          {
+            "label": "WALL TROUGH",
+            "present": true,
+            "notes": "partially visible trough along the bottom wall edge"
+          },
+          {
+            "label": "WALL TROUGH",
+            "present": true,
+            "notes": "partially visible trough along the bottom wall edge"
+          },
+          {
+            "label": "CENTER TROUGH",
+            "present": true,
+            "notes": "clear, well-defined industrial floor trough"
+          }
+        ],
+        "all_present": true,
+        "_cost": 0.0080205
+      },
+      "walkmask_connectivity": {
+        "ok": false,
+        "n_portals": 3,
+        "unreachable_edges": [
+          2
+        ]
+      }
+    },
+    "overall_ok": false,
+    "review_texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/v3_l03_room000_texture.png",
+    "review_boxed_guide": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/v3_l03_room000_boxed_guide.png",
+    "review_walkmask": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/v3_l03_room000_walkmask.png"
+  }
+}

@@ -641,7 +641,8 @@ FLOORPLAN_NOTE = {
 }
 
 
-def build_room_prompt(kind: str, has_neighbor_composite: bool = False) -> str:
+def build_room_prompt(kind: str, has_neighbor_composite: bool = False,
+                       box_note: str = "", decal_note: str = "") -> str:
     material = KIND_MATERIAL[kind]
     flavor = (
         "Testator-made: alien, older, non-human geometry, asymmetric, "
@@ -717,5 +718,7 @@ def build_room_prompt(kind: str, has_neighbor_composite: bool = False) -> str:
         f"{FULLBLEED_LAW}\n\n"
         f"{GEOMETRY_LOCK}\n\n"
         f"{SHAPE_LAW}\n\n"
-        f"{NO_SIGNAGE_LAW}"
+        + (f"{box_note}\n\n" if box_note else "")
+        + f"{NO_SIGNAGE_LAW}\n\n"
+        + (f"{decal_note}" if decal_note else "")
     )
