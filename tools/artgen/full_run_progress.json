@@ -201,5 +201,716 @@
     "n_boxes": 2,
     "used_neighbor_composite": true,
     "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/full_l01_room041.png"
+  },
+  "l01/room_010": {
+    "key": "l01/room_010",
+    "status": "bare",
+    "cost": 0.2097635,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.42.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.4181371495598607,
+          "room_grad": 49.0941099848023,
+          "material_grad": 34.61873204579639,
+          "entropy_bits": 5.927347033760814,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 guide-ink rejected: 1.73% saturated ink."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.52.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.51772342863606,
+          "room_grad": 52.54166069557914,
+          "material_grad": 34.61873204579639,
+          "entropy_bits": 6.0980972466519905,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l01/room_065": {
+    "key": "l01/room_065",
+    "status": "bare",
+    "cost": 0.211988,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 4.3% painted near-black."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=2.3384707769253024, grad_ratio=0.6802073286937778)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.53.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.525800570675081,
+          "room_grad": 49.90849242397821,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 7.012865137130516,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l01/room_066": {
+    "key": "l01/room_066",
+    "status": "bare",
+    "cost": 0.210536,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 5.7% painted near-black."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 3.7% painted near-black."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=4.482130334002776, grad_ratio=0.18105502305948493)."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l01/room_055": {
+    "key": "l01/room_055",
+    "status": "accepted",
+    "cost": 0.2157715,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l01/room_55.png",
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 2.2% painted near-black."
+      },
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "The generated texture matches the simple rectangular footprint perfectly and is free of unwanted props. The industrial grimy paneling style and desaturated palette are perfectly aligned with the style anchor.",
+        "_cost": 0.0066435,
+        "_raw": "```json\n{\"geometry_ok\": true, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": true, \"verdict\": \"pass\", \"notes\": \"The generated texture matches the simple rectangular footprint perfectly and is free of unwanted props. The industrial grimy paneling style and desaturated palette are perfectly aligned with the style anchor.\"}\n```"
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage2 interior-void rejected: 23.1% painted near-black."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage2 generation error: model returned no image (refusal=None); content='I have recreated the corridor floor texture with the requested equipment. Here is a breakdown of the visual elements added:\\n\\n*   **Piping Systems:** I have painted solid, top-down utility piping that runs horizontally with soft contact shadows. The first run is placed near the top wall and a symmetrical run along the opposite wall, adhering strictly to your specified footprints. These pipes match the material and lighting of the surrounding deck plating.\\n*   **Wayfinding Chevron:** Consistent with your specific travel route, a single worn and faded white chevron arrow has been painted onto the central traffic lane, pointing directly toward the door leading to the Cargo Dock.\\n*   **Aesthetics & Fidelity:** The rest of the scene is pixel-faithful to the provided reference; there are no invented borders or vignettes. The dark sections in the upper left, upper right, and lower right corners have been converted to lit, distressed floor panels to eliminate any non-permissible void areas within the room silhouette.'"
+      }
+    ],
+    "equipment": "floor-only",
+    "mask_status": "shipped",
+    "walkmask_connectivity": {
+      "ok": true,
+      "n_portals": 4,
+      "unreachable_edges": []
+    },
+    "n_boxes": 2,
+    "used_neighbor_composite": true,
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/full_l01_room055.png"
+  },
+  "l01/room_009": {
+    "key": "l01/room_009",
+    "status": "bare",
+    "cost": 0.210183,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.4598114864223493, grad_ratio=2.4974029732127194)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.32.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.3240067040785597,
+          "room_grad": 45.835433315333695,
+          "material_grad": 34.61873204579639,
+          "entropy_bits": 6.311398825834966,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.30.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.297641949641842,
+          "room_grad": 44.92271894603575,
+          "material_grad": 34.61873204579639,
+          "entropy_bits": 5.3788507809593105,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l01/room_011": {
+    "key": "l01/room_011",
+    "status": "bare",
+    "cost": 0.209026,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.39.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.3858597139537507,
+          "room_grad": 45.331067744951255,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.274606856208549,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.5297246704183658, grad_ratio=2.15130090493417)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.40.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.3989077007853066,
+          "room_grad": 45.75786359523905,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.250915536947942,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l01/room_006": {
+    "key": "l01/room_006",
+    "status": "accepted",
+    "cost": 0.214563,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l01/room_6.png",
+    "verdicts": [
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "The generated texture matches the base truth geometry perfectly while rendering a continuous, high-fidelity industrial floor paneling system that aligns with the style anchor.",
+        "_cost": 0.0066315,
+        "_raw": "```json\n{\"geometry_ok\": true, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": true, \"verdict\": \"pass\", \"notes\": \"The generated texture matches the base truth geometry perfectly while rendering a continuous, high-fidelity industrial floor paneling system that aligns with the style anchor.\"}\n```"
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage2 detail-budget rejected: bg_ratio=1.52 eq_ratio=2.492312425854289."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage2 full-bleed rejected (darken_ratio=1.7148481254966652, grad_ratio=0.8153861841775483)."
+      }
+    ],
+    "equipment": "floor-only",
+    "mask_status": "shipped",
+    "walkmask_connectivity": {
+      "ok": true,
+      "n_portals": 5,
+      "unreachable_edges": []
+    },
+    "n_boxes": 2,
+    "used_neighbor_composite": true,
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/full_l01_room006.png"
+  },
+  "l01/room_005": {
+    "key": "l01/room_005",
+    "status": "accepted",
+    "cost": 0.354752,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l01/room_5.png",
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 guide-ink rejected: 0.51% saturated ink."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.3354283612301636, grad_ratio=2.0241248550711446)."
+      },
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "The generated texture successfully matches the base truth geometry and perfectly adopts the style anchor's industrial-horror paneling. The panels run flush to all edges with no artificial vignetting or picture-frame borders.",
+        "_cost": 0.0068835,
+        "_raw": "```json\n{\n  \"geometry_ok\": true,\n  \"style_ok\": true,\n  \"palette_ok\": true,\n  \"fidelity_ok\": true,\n  \"fullbleed_ok\": true,\n  \"verdict\": \"pass\",\n  \"notes\": \"The generated texture successfully matches the base truth geometry and perfectly adopts the style anchor's industrial-horror paneling. The panels run flush to all edges with no artificial vignetting or picture-frame borders.\"\n}\n```"
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage2 detail-budget rejected: bg_ratio=1.51 eq_ratio=2.535925876052519."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage2 full-bleed rejected (darken_ratio=1.7295998888846826, grad_ratio=1.4644062082317184)."
+      }
+    ],
+    "equipment": "floor-only",
+    "mask_status": "shipped",
+    "walkmask_connectivity": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": []
+    },
+    "n_boxes": 2,
+    "used_neighbor_composite": true,
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/full_l01_room005.png"
+  },
+  "l01/room_049": {
+    "key": "l01/room_049",
+    "status": "bare",
+    "cost": 0.20987999999999998,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.36.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.3569208291334047,
+          "room_grad": 46.97487859112921,
+          "material_grad": 34.61873204579639,
+          "entropy_bits": 6.268812128200283,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 guide-ink rejected: 1.36% saturated ink."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.32.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.319510666287345,
+          "room_grad": 45.67978618777186,
+          "material_grad": 34.61873204579639,
+          "entropy_bits": 6.302243928145172,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l01/room_042": {
+    "key": "l01/room_042",
+    "status": "accepted",
+    "cost": 0.2150555,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l01/room_42.png",
+    "verdicts": [
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "Excellent treatment. The candidate successfully filled the central cross-shape missing from the style anchor, achieving a continuous, high-fidelity full-bleed floor texture that perfectly matches the base truth geometry.",
+        "_cost": 0.0068715,
+        "_raw": "```json\n{\n  \"geometry_ok\": true,\n  \"style_ok\": true,\n  \"palette_ok\": true,\n  \"fidelity_ok\": true,\n  \"fullbleed_ok\": true,\n  \"verdict\": \"pass\",\n  \"notes\": \"Excellent treatment. The candidate successfully filled the central cross-shape missing from the style anchor, achieving a continuous, high-fidelity full-bleed floor texture that perfectly matches the base truth geometry.\"\n}\n```"
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage2 detail-budget rejected: bg_ratio=1.55 eq_ratio=3.2720749765001576."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage2 interior-void rejected: 3.1% painted near-black."
+      }
+    ],
+    "equipment": "floor-only",
+    "mask_status": "shipped",
+    "walkmask_connectivity": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": []
+    },
+    "n_boxes": 2,
+    "used_neighbor_composite": true,
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/full_l01_room042.png"
+  },
+  "l01/room_063": {
+    "key": "l01/room_063",
+    "status": "bare",
+    "cost": 0.210522,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=2.1740737784890523, grad_ratio=0.5655988564985037)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.5517422863466082, grad_ratio=1.7823409711841656)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=2.1548861414088516, grad_ratio=1.2560134929565692)."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l01/room_079": {
+    "key": "l01/room_079",
+    "status": "bare",
+    "cost": 0.209193,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.32.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.3244309161002876,
+          "room_grad": 45.8501189976445,
+          "material_grad": 34.61873204579639,
+          "entropy_bits": 6.483382927643176,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.28.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.2789901919009548,
+          "room_grad": 44.27701874262086,
+          "material_grad": 34.61873204579639,
+          "entropy_bits": 6.055616840371968,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 guide-ink rejected: 1.90% saturated ink."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l01/room_068": {
+    "key": "l01/room_068",
+    "status": "bare",
+    "cost": 0.20900849999999999,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.42.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.4187642967423337,
+          "room_grad": 49.115821025065614,
+          "material_grad": 34.61873204579639,
+          "entropy_bits": 6.170094848328031,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.103064677744057, grad_ratio=3.4333285814408963)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 5.9% painted near-black."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l01/room_075": {
+    "key": "l01/room_075",
+    "status": "bare",
+    "cost": 0.21017549999999996,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=2.1085655945734922, grad_ratio=0.997671159005795)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 2.0% painted near-black."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=2.3960812884899783, grad_ratio=0.44842553289426956)."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l01/room_067": {
+    "key": "l01/room_067",
+    "status": "bare",
+    "cost": 0.2081405,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 6.4% painted near-black."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 guide-ink rejected: 1.54% saturated ink."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.30.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.303647382037009,
+          "room_grad": 45.130619400943175,
+          "material_grad": 34.61873204579639,
+          "entropy_bits": 6.215077066569488,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l01/room_008": {
+    "key": "l01/room_008",
+    "status": "bare",
+    "cost": 0.2103205,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.50.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.504837739498245,
+          "room_grad": 52.0955744760917,
+          "material_grad": 34.61873204579639,
+          "entropy_bits": 6.1775102629470595,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.73.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.7288827680643104,
+          "room_grad": 59.851729286213114,
+          "material_grad": 34.61873204579639,
+          "entropy_bits": 6.1911965632710295,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.72.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.7241627683625893,
+          "room_grad": 59.68832888128299,
+          "material_grad": 34.61873204579639,
+          "entropy_bits": 6.252086404282615,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l01/room_056": {
+    "key": "l01/room_056",
+    "status": "bare",
+    "cost": 0.21021600000000001,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.0496298061408122, grad_ratio=2.5961514383798927)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.44.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.4360172790469896,
+          "room_grad": 46.97170709557985,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.926235771856474,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.27271631392384, grad_ratio=3.8404644804342594)."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l01/room_007": {
+    "key": "l01/room_007",
+    "status": "bare",
+    "cost": 0.210787,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.78.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.7803139338453076,
+          "room_grad": 61.63221103318838,
+          "material_grad": 34.61873204579639,
+          "entropy_bits": 6.508463716277033,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.1724126157184318, grad_ratio=2.0426766755433725)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 guide-ink rejected: 2.35% saturated ink."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l01/room_012": {
+    "key": "l01/room_012",
+    "status": "bare",
+    "cost": 0.20847349999999998,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.39.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.3907994296629413,
+          "room_grad": 45.49264440758133,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.396693690878015,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.37.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.3677400518169083,
+          "room_grad": 44.73837887206564,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.436854372157371,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=4.994155374515771, grad_ratio=0.6961160682034828)."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l01/room_048": {
+    "key": "l01/room_048",
+    "status": "bare",
+    "cost": 0.2104445,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=5.3270858191893895, grad_ratio=0.2464338757986164)."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 detail-budget rejected: ratio=1.43.",
+        "_detail_budget": {
+          "grad_ratio_vs_material": 1.4323512433052592,
+          "room_grad": 49.58618388744808,
+          "material_grad": 34.61873204579639,
+          "entropy_bits": 6.265505545658209,
+          "ratio_thresh": 1.25,
+          "ok": false
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage1 interior-void rejected: 3.4% painted near-black."
+      }
+    ],
+    "removed_stale_texture": false
+  },
+  "l01/room_021": {
+    "key": "l01/room_021",
+    "status": "accepted",
+    "cost": 0.29821200000000003,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l01/room_21.png",
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "stage1 full-bleed rejected (darken_ratio=1.608129044781599, grad_ratio=0.9425531887116859)."
+      },
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "The generated texture correctly maintains the flat rectangular silhouette from the base truth without introducing any invalid prop elements. The floor paneling blends seamlessly to all outer edges, providing high-fidelity industrial detail perfectly matched to the style anchor.",
+        "_cost": 0.0067515,
+        "_raw": "```json\n{\"geometry_ok\": true, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": true, \"verdict\": \"pass\", \"notes\": \"The generated texture correctly maintains the flat rectangular silhouette from the base truth without introducing any invalid prop elements. The floor paneling blends seamlessly to all outer edges, providing high-fidelity industrial detail perfectly matched to the style anchor.\"}\n```"
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage2 detail-budget rejected: bg_ratio=1.30 eq_ratio=1.4902124382531927."
+      },
+      {
+        "verdict": "fail",
+        "notes": "stage2 item-placement rejected: [{'label': 'COT BAY', 'present': False, 'notes': 'bare floor texture'}, {'label': 'COT BAY', 'present': False, 'notes': 'bare floor texture'}, {'label': 'COT BAY', 'present': False, 'notes': 'bare floor texture'}]",
+        "_item_placement": {
+          "results": [
+            {
+              "label": "COT BAY",
+              "present": false,
+              "notes": "bare floor texture"
+            },
+            {
+              "label": "COT BAY",
+              "present": false,
+              "notes": "bare floor texture"
+            },
+            {
+              "label": "COT BAY",
+              "present": false,
+              "notes": "bare floor texture"
+            }
+          ],
+          "all_present": false,
+          "_cost": 0.007521,
+          "_raw": "```json\n{\n  \"results\": [\n    {\n      \"label\": \"COT BAY\",\n      \"present\": false,\n      \"notes\": \"bare floor texture\"\n    },\n    {\n      \"label\": \"COT BAY\",\n      \"present\": false,\n      \"notes\": \"bare floor texture\"\n    },\n    {\n      \"label\": \"COT BAY\",\n      \"present\": false,\n      \"notes\": \"bare floor texture\"\n    }\n  ],\n  \"all_present\": false\n}\n```"
+        }
+      }
+    ],
+    "equipment": "floor-only",
+    "mask_status": "shipped",
+    "walkmask_connectivity": {
+      "ok": true,
+      "n_portals": 3,
+      "unreachable_edges": []
+    },
+    "n_boxes": 3,
+    "used_neighbor_composite": false,
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/full_l01_room021.png"
   }
 }

@@ -621,7 +621,7 @@ def verify_detail_budget(im: Image.Image, mask: np.ndarray,
                           material_im: Image.Image,
                           ratio_thresh: float = 1.25,
                           boxes: list | None = None,
-                          equipment_ratio_thresh: float = 2.5) -> dict:
+                          equipment_ratio_thresh: float | None = 2.5) -> dict:
     """Mean Sobel gradient magnitude inside `mask`, relative to the kind's
     approved material swatch. If `boxes` (list of dicts with a pixel-space
     `box` = (x0,y0,x1,y1), in the SAME pixel frame as `im`/`mask`) is given,
@@ -682,7 +682,14 @@ def verify_detail_budget(im: Image.Image, mask: np.ndarray,
     eq_ratio = eq_grad / max(1e-6, mat_grad) if eq_mask.any() else None
 
     bg_ok = True if bg_ratio is None else bg_ratio <= ratio_thresh
-    eq_ok = True if eq_ratio is None else eq_ratio <= equipment_ratio_thresh
+    # equipment_ratio_thresh=None: skip the numeric equipment sub-gate.
+    # Measured 2026-07-13 (composite stage-2 mode): structured equipment
+    # (pipe runs) reads 3.2x on a personally-verified GOOD render -- above
+    # the 2.75-2.81x synthetic-noise negative control, so the numeric
+    # ratio cannot discriminate good structured equipment from noise.
+    # In composite mode the semantic check (verify_item_placement vision
+    # gate) owns equipment quality; the ratio is still reported.
+    eq_ok = True if (eq_ratio is None or equipment_ratio_thresh is None)         else eq_ratio <= equipment_ratio_thresh
 
     result.update(
         background_grad_ratio=bg_ratio, equipment_grad_ratio=eq_ratio,
