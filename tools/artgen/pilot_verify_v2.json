@@ -604,5 +604,154 @@
     },
     "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/l07_room007.png",
     "used_neighbor_composite": false
+  },
+  "l03/room_075": {
+    "key": "l03/room_075",
+    "status": "dropped",
+    "cost": 0.2082465,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "programmatic full-bleed check rejected: border/vignette/invented-void detected inside the polygon (darken_ratio=1.30283460181297, grad_ratio=2.1721219265188223). The floor material must run flush to the room's true wall line with no darkened margin or drawn border.",
+        "_fullbleed": {
+          "ok": false,
+          "edge_mean": 84.18732452392578,
+          "center_mean": 109.68215942382812,
+          "darken_ratio": 1.30283460181297,
+          "edge_grad": 7.567185401916504,
+          "center_grad": 3.4837756156921387,
+          "grad_ratio": 2.1721219265188223,
+          "border_darkening": false,
+          "border_structure": true
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "programmatic full-bleed check rejected: border/vignette/invented-void detected inside the polygon (darken_ratio=1.8576799398133965, grad_ratio=2.665344903032648). The floor material must run flush to the room's true wall line with no darkened margin or drawn border.",
+        "_fullbleed": {
+          "ok": false,
+          "edge_mean": 65.89613342285156,
+          "center_mean": 122.41392517089844,
+          "darken_ratio": 1.8576799398133965,
+          "edge_grad": 13.79881477355957,
+          "center_grad": 5.177121639251709,
+          "grad_ratio": 2.665344903032648,
+          "border_darkening": true,
+          "border_structure": true
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "programmatic detail-budget check rejected: gradient energy 1.33x the kind's material swatch (threshold 1.25x) -- the floor is over-detailed/visually noisy. Render large calm plate areas with sparse, localized wear; overall wear/marking density must be LOWER than the material swatch, not higher.",
+        "_detail_budget": {
+          "ok": false,
+          "grad_ratio_vs_material": 1.3323339590340906,
+          "room_grad": 43.58025588576206,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.1344781617760615,
+          "ratio_thresh": 1.25
+        }
+      }
+    ],
+    "removed_stale_texture": true
+  },
+  "l07/room_009": {
+    "key": "l07/room_009",
+    "status": "dropped",
+    "cost": 0.21008849999999998,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "programmatic guide-ink check rejected: 2.24% of the floor polygon is saturated cyan/magenta -- you rendered the reference annotation lines as literal paint. The cyan lines in the guide mark wall positions; the floor under them is ordinary material, never colored ink.",
+        "_guide_ink": {
+          "ok": false,
+          "leak_frac": 0.022400548696844994,
+          "frac_thresh": 0.0015,
+          "_frac_of_image": 0.022400548696844994
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "programmatic detail-budget check rejected: gradient energy 1.47x the kind's material swatch (threshold 1.25x) -- the floor is over-detailed/visually noisy. Render large calm plate areas with sparse, localized wear; overall wear/marking density must be LOWER than the material swatch, not higher.",
+        "_detail_budget": {
+          "ok": false,
+          "grad_ratio_vs_material": 1.4706397245687157,
+          "room_grad": 48.10419720813508,
+          "material_grad": 32.709708846088915,
+          "entropy_bits": 6.323208924098205,
+          "ratio_thresh": 1.25
+        }
+      },
+      {
+        "verdict": "fail",
+        "notes": "programmatic full-bleed check rejected: border/vignette/invented-void detected inside the polygon (darken_ratio=5.83915617006127, grad_ratio=0.32388453926333355). The near-black region right at the polygon edge is almost certainly INVENTED GEOMETRY: you likely rendered a notch, chamfered corner, or extra wall/void that is NOT in the geometry guide's actual silhouette (the guide's true outline -- often a plain rectangle -- is binding; do not add bevelled/octagonal corners or any boundary detail not present in image 1).",
+        "_fullbleed": {
+          "ok": false,
+          "edge_mean": 17.417150497436523,
+          "center_mean": 101.70146179199219,
+          "darken_ratio": 5.83915617006127,
+          "edge_grad": 2.0081911087036133,
+          "center_grad": 6.2003302574157715,
+          "grad_ratio": 0.32388453926333355,
+          "border_darkening": true,
+          "border_structure": false
+        }
+      }
+    ],
+    "removed_stale_texture": true
+  },
+  "l07/room_049": {
+    "key": "l07/room_049",
+    "status": "accepted",
+    "attempt": 2,
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l07/room_49.png",
+    "cost": 0.14565099999999997,
+    "verdicts": [
+      {
+        "verdict": "fail",
+        "notes": "programmatic full-bleed check rejected: border/vignette/invented-void detected inside the polygon (darken_ratio=1.128093797746611, grad_ratio=2.143708241598243). The floor material must run flush to the room's true wall line with no darkened margin or drawn border.",
+        "_fullbleed": {
+          "ok": false,
+          "edge_mean": 100.24777221679688,
+          "center_mean": 113.0888900756836,
+          "darken_ratio": 1.128093797746611,
+          "edge_grad": 12.359855651855469,
+          "center_grad": 5.7656426429748535,
+          "grad_ratio": 2.143708241598243,
+          "border_darkening": false,
+          "border_structure": true
+        }
+      },
+      {
+        "geometry_ok": true,
+        "style_ok": true,
+        "palette_ok": true,
+        "fidelity_ok": true,
+        "fullbleed_ok": true,
+        "verdict": "pass",
+        "notes": "The generated texture flawlessly follows the rectangular base truth geometry without any introduced props or borders. The metallic panel material matches the style anchor perfectly.",
+        "_cost": 0.0066135,
+        "_raw": "```json\n{\"geometry_ok\": true, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": true, \"verdict\": \"pass\", \"notes\": \"The generated texture flawlessly follows the rectangular base truth geometry without any introduced props or borders. The metallic panel material matches the style anchor perfectly.\"}\n```",
+        "_fullbleed": {
+          "ok": true,
+          "edge_mean": 99.63462829589844,
+          "center_mean": 120.01811981201172,
+          "darken_ratio": 1.2045824013673003,
+          "edge_grad": 5.304624080657959,
+          "center_grad": 5.898106098175049,
+          "grad_ratio": 0.8993775276947424,
+          "border_darkening": false,
+          "border_structure": false
+        }
+      }
+    ],
+    "tone_after": {
+      "mean_l": 101.78713989257812,
+      "mean_r": 100.19334411621094,
+      "mean_g": 102.76325988769531,
+      "mean_b": 96.81095886230469
+    },
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/l07_room049.png",
+    "used_neighbor_composite": false
   }
 }

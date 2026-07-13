@@ -1,5 +1,5 @@
 {
-  "total_cost": 97.50825299999995,
+  "total_cost": 102.75457299999975,
   "calls": [
     {
       "model": "google/gemini-3.1-flash-image",
@@ -16170,6 +16170,1798 @@
       "prompt_tokens": 2656,
       "completion_tokens": 66,
       "ts": 1783805480.4283402
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l01/room_111.png",
+      "cost": 0.0027,
+      "prompt_tokens": 1404,
+      "completion_tokens": 66,
+      "ts": 1783951413.6354978
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l01/room_2.png",
+      "cost": 0.0025935,
+      "prompt_tokens": 1381,
+      "completion_tokens": 58,
+      "ts": 1783951413.7761693
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l01/room_110.png",
+      "cost": 0.002565,
+      "prompt_tokens": 1404,
+      "completion_tokens": 51,
+      "ts": 1783951413.9021342
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l01/room_0.png",
+      "cost": 0.0026685,
+      "prompt_tokens": 1407,
+      "completion_tokens": 62,
+      "ts": 1783951414.045675
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l01/room_117.png",
+      "cost": 0.002781,
+      "prompt_tokens": 1404,
+      "completion_tokens": 75,
+      "ts": 1783951414.105004
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l01/room_113.png",
+      "cost": 0.002691,
+      "prompt_tokens": 1404,
+      "completion_tokens": 65,
+      "ts": 1783951414.393715
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l01/room_55.png",
+      "cost": 0.0026655,
+      "prompt_tokens": 1381,
+      "completion_tokens": 66,
+      "ts": 1783951415.6067598
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l01/room_56.png",
+      "cost": 0.0025575,
+      "prompt_tokens": 1381,
+      "completion_tokens": 54,
+      "ts": 1783951415.8164396
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l02/room_0.png",
+      "cost": 0.00261,
+      "prompt_tokens": 1404,
+      "completion_tokens": 56,
+      "ts": 1783951415.9071276
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l02/room_1.png",
+      "cost": 0.002709,
+      "prompt_tokens": 1404,
+      "completion_tokens": 67,
+      "ts": 1783951415.9807916
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l01/room_57.png",
+      "cost": 0.002769,
+      "prompt_tokens": 1390,
+      "completion_tokens": 76,
+      "ts": 1783951416.0309703
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l02/room_11.png",
+      "cost": 0.0026145,
+      "prompt_tokens": 1395,
+      "completion_tokens": 58,
+      "ts": 1783951416.3363771
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l02/room_17.png",
+      "cost": 0.002646,
+      "prompt_tokens": 1404,
+      "completion_tokens": 60,
+      "ts": 1783951417.5429647
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l02/room_12.png",
+      "cost": 0.002547,
+      "prompt_tokens": 1404,
+      "completion_tokens": 49,
+      "ts": 1783951417.6882455
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l02/room_5.png",
+      "cost": 0.0026505,
+      "prompt_tokens": 1395,
+      "completion_tokens": 62,
+      "ts": 1783951417.9468064
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l02/room_13.png",
+      "cost": 0.0027,
+      "prompt_tokens": 1404,
+      "completion_tokens": 66,
+      "ts": 1783951418.0866952
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l02/room_57.png",
+      "cost": 0.0027165,
+      "prompt_tokens": 1403,
+      "completion_tokens": 68,
+      "ts": 1783951418.2525275
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l02/room_2.png",
+      "cost": 0.002748,
+      "prompt_tokens": 1388,
+      "completion_tokens": 74,
+      "ts": 1783951418.3274896
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l02/room_75.png",
+      "cost": 0.0026805,
+      "prompt_tokens": 1415,
+      "completion_tokens": 62,
+      "ts": 1783951419.49757
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l02/room_9.png",
+      "cost": 0.0026625,
+      "prompt_tokens": 1379,
+      "completion_tokens": 66,
+      "ts": 1783951419.7453957
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l02/room_65.png",
+      "cost": 0.002688,
+      "prompt_tokens": 1390,
+      "completion_tokens": 67,
+      "ts": 1783951419.9087574
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_10.png",
+      "cost": 0.0028155,
+      "prompt_tokens": 1415,
+      "completion_tokens": 77,
+      "ts": 1783951420.26656
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_16.png",
+      "cost": 0.0025365,
+      "prompt_tokens": 1415,
+      "completion_tokens": 46,
+      "ts": 1783951420.3386586
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_11.png",
+      "cost": 0.0027435,
+      "prompt_tokens": 1415,
+      "completion_tokens": 69,
+      "ts": 1783951420.8064382
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_17.png",
+      "cost": 0.002559,
+      "prompt_tokens": 1400,
+      "completion_tokens": 51,
+      "ts": 1783951421.1108444
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_2.png",
+      "cost": 0.002736,
+      "prompt_tokens": 1404,
+      "completion_tokens": 70,
+      "ts": 1783951421.8937495
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_28.png",
+      "cost": 0.002655,
+      "prompt_tokens": 1404,
+      "completion_tokens": 61,
+      "ts": 1783951422.0219522
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_29.png",
+      "cost": 0.002664,
+      "prompt_tokens": 1404,
+      "completion_tokens": 62,
+      "ts": 1783951422.1497421
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_3.png",
+      "cost": 0.002673,
+      "prompt_tokens": 1404,
+      "completion_tokens": 63,
+      "ts": 1783951422.3333569
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_30.png",
+      "cost": 0.002709,
+      "prompt_tokens": 1404,
+      "completion_tokens": 67,
+      "ts": 1783951422.6178973
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_37.png",
+      "cost": 0.002772,
+      "prompt_tokens": 1404,
+      "completion_tokens": 74,
+      "ts": 1783951423.2543168
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_52.png",
+      "cost": 0.0026535,
+      "prompt_tokens": 1415,
+      "completion_tokens": 59,
+      "ts": 1783951424.0747073
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_58.png",
+      "cost": 0.002676,
+      "prompt_tokens": 1400,
+      "completion_tokens": 64,
+      "ts": 1783951424.2226818
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_4.png",
+      "cost": 0.002718,
+      "prompt_tokens": 1404,
+      "completion_tokens": 68,
+      "ts": 1783951424.436529
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_59.png",
+      "cost": 0.002622,
+      "prompt_tokens": 1400,
+      "completion_tokens": 58,
+      "ts": 1783951424.4713113
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_6.png",
+      "cost": 0.0026685,
+      "prompt_tokens": 1407,
+      "completion_tokens": 62,
+      "ts": 1783951425.2665002
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_39.png",
+      "cost": 0.002619,
+      "prompt_tokens": 1404,
+      "completion_tokens": 57,
+      "ts": 1783951425.277643
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_75.png",
+      "cost": 0.0027075,
+      "prompt_tokens": 1415,
+      "completion_tokens": 65,
+      "ts": 1783951426.2386718
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_7.png",
+      "cost": 0.0026535,
+      "prompt_tokens": 1403,
+      "completion_tokens": 61,
+      "ts": 1783951426.3637133
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_80.png",
+      "cost": 0.002667,
+      "prompt_tokens": 1400,
+      "completion_tokens": 63,
+      "ts": 1783951426.466731
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_81.png",
+      "cost": 0.002565,
+      "prompt_tokens": 1404,
+      "completion_tokens": 51,
+      "ts": 1783951426.590911
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_82.png",
+      "cost": 0.0025905,
+      "prompt_tokens": 1415,
+      "completion_tokens": 52,
+      "ts": 1783951427.2062192
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_83.png",
+      "cost": 0.0027165,
+      "prompt_tokens": 1415,
+      "completion_tokens": 66,
+      "ts": 1783951427.3081174
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_84.png",
+      "cost": 0.0027435,
+      "prompt_tokens": 1415,
+      "completion_tokens": 69,
+      "ts": 1783951428.3327997
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l04/room_0.png",
+      "cost": 0.0026475,
+      "prompt_tokens": 1381,
+      "completion_tokens": 64,
+      "ts": 1783951428.4831254
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_86.png",
+      "cost": 0.002907,
+      "prompt_tokens": 1404,
+      "completion_tokens": 89,
+      "ts": 1783951428.5797439
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_87.png",
+      "cost": 0.002853,
+      "prompt_tokens": 1404,
+      "completion_tokens": 83,
+      "ts": 1783951428.7525392
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l04/room_1.png",
+      "cost": 0.0025335,
+      "prompt_tokens": 1431,
+      "completion_tokens": 43,
+      "ts": 1783951429.28522
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l04/room_129.png",
+      "cost": 0.0027435,
+      "prompt_tokens": 1415,
+      "completion_tokens": 69,
+      "ts": 1783951429.5161917
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l04/room_19.png",
+      "cost": 0.0026145,
+      "prompt_tokens": 1407,
+      "completion_tokens": 56,
+      "ts": 1783951430.3121192
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l04/room_130.png",
+      "cost": 0.0026985,
+      "prompt_tokens": 1415,
+      "completion_tokens": 64,
+      "ts": 1783951430.379525
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l04/room_2.png",
+      "cost": 0.0027555,
+      "prompt_tokens": 1417,
+      "completion_tokens": 70,
+      "ts": 1783951430.6865666
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l04/room_20.png",
+      "cost": 0.0027405,
+      "prompt_tokens": 1407,
+      "completion_tokens": 70,
+      "ts": 1783951430.7889984
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l04/room_21.png",
+      "cost": 0.0026595,
+      "prompt_tokens": 1407,
+      "completion_tokens": 61,
+      "ts": 1783951431.41629
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l04/room_3.png",
+      "cost": 0.0026325,
+      "prompt_tokens": 1395,
+      "completion_tokens": 60,
+      "ts": 1783951431.5177336
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l04/room_43.png",
+      "cost": 0.0025845,
+      "prompt_tokens": 1381,
+      "completion_tokens": 57,
+      "ts": 1783951432.0869973
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l04/room_42.png",
+      "cost": 0.0026685,
+      "prompt_tokens": 1395,
+      "completion_tokens": 64,
+      "ts": 1783951432.4737232
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l04/room_5.png",
+      "cost": 0.0026595,
+      "prompt_tokens": 1395,
+      "completion_tokens": 63,
+      "ts": 1783951432.7542644
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l04/room_55.png",
+      "cost": 0.002712,
+      "prompt_tokens": 1400,
+      "completion_tokens": 68,
+      "ts": 1783951432.9414027
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l04/room_6.png",
+      "cost": 0.0026235,
+      "prompt_tokens": 1395,
+      "completion_tokens": 59,
+      "ts": 1783951433.349893
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l04/room_7.png",
+      "cost": 0.0026865,
+      "prompt_tokens": 1395,
+      "completion_tokens": 66,
+      "ts": 1783951433.5325687
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l05/room_6.png",
+      "cost": 0.002622,
+      "prompt_tokens": 1400,
+      "completion_tokens": 58,
+      "ts": 1783951434.475531
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l05/room_4.png",
+      "cost": 0.002613,
+      "prompt_tokens": 1400,
+      "completion_tokens": 57,
+      "ts": 1783951434.6440606
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l06/room_101.png",
+      "cost": 0.002652,
+      "prompt_tokens": 1396,
+      "completion_tokens": 62,
+      "ts": 1783951434.836573
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l05/room_0.png",
+      "cost": 0.0027315,
+      "prompt_tokens": 1395,
+      "completion_tokens": 71,
+      "ts": 1783951435.0552707
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l06/room_115.png",
+      "cost": 0.002583,
+      "prompt_tokens": 1404,
+      "completion_tokens": 53,
+      "ts": 1783951435.603664
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l06/room_172.png",
+      "cost": 0.0027405,
+      "prompt_tokens": 1371,
+      "completion_tokens": 76,
+      "ts": 1783951435.815562
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l07/room_10.png",
+      "cost": 0.0026505,
+      "prompt_tokens": 1407,
+      "completion_tokens": 60,
+      "ts": 1783951436.56671
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l07/room_11.png",
+      "cost": 0.002616,
+      "prompt_tokens": 1390,
+      "completion_tokens": 59,
+      "ts": 1783951436.6047554
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l07/room_12.png",
+      "cost": 0.0026955,
+      "prompt_tokens": 1395,
+      "completion_tokens": 67,
+      "ts": 1783951436.6379137
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l07/room_204.png",
+      "cost": 0.0026865,
+      "prompt_tokens": 1407,
+      "completion_tokens": 64,
+      "ts": 1783951436.934422
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l07/room_206.png",
+      "cost": 0.002631,
+      "prompt_tokens": 1400,
+      "completion_tokens": 59,
+      "ts": 1783951437.8496082
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l07/room_205.png",
+      "cost": 0.002613,
+      "prompt_tokens": 1400,
+      "completion_tokens": 57,
+      "ts": 1783951437.8755403
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l07/room_209.png",
+      "cost": 0.0026415,
+      "prompt_tokens": 1395,
+      "completion_tokens": 61,
+      "ts": 1783951438.4861164
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l07/room_210.png",
+      "cost": 0.00264,
+      "prompt_tokens": 1400,
+      "completion_tokens": 60,
+      "ts": 1783951438.5039208
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l07/room_208.png",
+      "cost": 0.002691,
+      "prompt_tokens": 1404,
+      "completion_tokens": 65,
+      "ts": 1783951438.7180834
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l07/room_211.png",
+      "cost": 0.002619,
+      "prompt_tokens": 1404,
+      "completion_tokens": 57,
+      "ts": 1783951438.7945728
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l07/room_212.png",
+      "cost": 0.0025875,
+      "prompt_tokens": 1395,
+      "completion_tokens": 55,
+      "ts": 1783951439.637691
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l07/room_213.png",
+      "cost": 0.002622,
+      "prompt_tokens": 1400,
+      "completion_tokens": 58,
+      "ts": 1783951439.7066839
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l07/room_219.png",
+      "cost": 0.002754,
+      "prompt_tokens": 1404,
+      "completion_tokens": 72,
+      "ts": 1783951440.3638656
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l07/room_214.png",
+      "cost": 0.00261,
+      "prompt_tokens": 1404,
+      "completion_tokens": 56,
+      "ts": 1783951440.439671
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l07/room_221.png",
+      "cost": 0.002772,
+      "prompt_tokens": 1404,
+      "completion_tokens": 74,
+      "ts": 1783951440.5931664
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l07/room_220.png",
+      "cost": 0.002631,
+      "prompt_tokens": 1400,
+      "completion_tokens": 59,
+      "ts": 1783951440.7106373
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l07/room_222.png",
+      "cost": 0.002646,
+      "prompt_tokens": 1404,
+      "completion_tokens": 60,
+      "ts": 1783951441.4088786
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l07/room_223.png",
+      "cost": 0.0027885,
+      "prompt_tokens": 1403,
+      "completion_tokens": 76,
+      "ts": 1783951441.9112418
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l07/room_224.png",
+      "cost": 0.0025275,
+      "prompt_tokens": 1403,
+      "completion_tokens": 47,
+      "ts": 1783951442.2478228
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l07/room_228.png",
+      "cost": 0.0026505,
+      "prompt_tokens": 1407,
+      "completion_tokens": 60,
+      "ts": 1783951442.3543963
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l07/room_4.png",
+      "cost": 0.0026535,
+      "prompt_tokens": 1379,
+      "completion_tokens": 65,
+      "ts": 1783951442.4591947
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l07/room_225.png",
+      "cost": 0.0026355,
+      "prompt_tokens": 1403,
+      "completion_tokens": 59,
+      "ts": 1783951442.840625
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l07/room_49.png",
+      "cost": 0.0026325,
+      "prompt_tokens": 1395,
+      "completion_tokens": 60,
+      "ts": 1783951443.6558511
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l07/room_5.png",
+      "cost": 0.0025335,
+      "prompt_tokens": 1407,
+      "completion_tokens": 47,
+      "ts": 1783951443.8909278
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l07/room_56.png",
+      "cost": 0.0026595,
+      "prompt_tokens": 1395,
+      "completion_tokens": 63,
+      "ts": 1783951443.9185667
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l07/room_55.png",
+      "cost": 0.0026235,
+      "prompt_tokens": 1395,
+      "completion_tokens": 59,
+      "ts": 1783951444.2628438
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l07/room_7.png",
+      "cost": 0.0025965,
+      "prompt_tokens": 1395,
+      "completion_tokens": 56,
+      "ts": 1783951444.3261063
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l07/room_9.png",
+      "cost": 0.0027,
+      "prompt_tokens": 1404,
+      "completion_tokens": 66,
+      "ts": 1783951445.0932958
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l08/room_109.png",
+      "cost": 0.002655,
+      "prompt_tokens": 1404,
+      "completion_tokens": 61,
+      "ts": 1783951445.858454
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l08/room_108.png",
+      "cost": 0.002637,
+      "prompt_tokens": 1404,
+      "completion_tokens": 59,
+      "ts": 1783951445.9171104
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l08/room_124.png",
+      "cost": 0.002637,
+      "prompt_tokens": 1404,
+      "completion_tokens": 59,
+      "ts": 1783951446.0641184
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l08/room_110.png",
+      "cost": 0.002691,
+      "prompt_tokens": 1404,
+      "completion_tokens": 65,
+      "ts": 1783951446.0644038
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l08/room_1.png",
+      "cost": 0.002703,
+      "prompt_tokens": 1400,
+      "completion_tokens": 67,
+      "ts": 1783951446.0875266
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l08/room_126.png",
+      "cost": 0.002538,
+      "prompt_tokens": 1404,
+      "completion_tokens": 48,
+      "ts": 1783951447.0867784
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l08/room_128.png",
+      "cost": 0.0027,
+      "prompt_tokens": 1404,
+      "completion_tokens": 66,
+      "ts": 1783951447.7951562
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l08/room_129.png",
+      "cost": 0.002682,
+      "prompt_tokens": 1404,
+      "completion_tokens": 64,
+      "ts": 1783951447.8335779
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l08/room_135.png",
+      "cost": 0.002583,
+      "prompt_tokens": 1404,
+      "completion_tokens": 53,
+      "ts": 1783951448.0721056
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l08/room_134.png",
+      "cost": 0.002628,
+      "prompt_tokens": 1404,
+      "completion_tokens": 58,
+      "ts": 1783951448.1215148
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l08/room_130.png",
+      "cost": 0.002835,
+      "prompt_tokens": 1404,
+      "completion_tokens": 81,
+      "ts": 1783951448.23295
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l08/room_136.png",
+      "cost": 0.002574,
+      "prompt_tokens": 1404,
+      "completion_tokens": 52,
+      "ts": 1783951449.0471919
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l08/room_140.png",
+      "cost": 0.002718,
+      "prompt_tokens": 1404,
+      "completion_tokens": 68,
+      "ts": 1783951449.8067944
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l08/room_137.png",
+      "cost": 0.002628,
+      "prompt_tokens": 1404,
+      "completion_tokens": 58,
+      "ts": 1783951449.8656933
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l08/room_138.png",
+      "cost": 0.002691,
+      "prompt_tokens": 1404,
+      "completion_tokens": 65,
+      "ts": 1783951449.9760327
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l08/room_141.png",
+      "cost": 0.002601,
+      "prompt_tokens": 1404,
+      "completion_tokens": 55,
+      "ts": 1783951450.3066747
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l08/room_139.png",
+      "cost": 0.00261,
+      "prompt_tokens": 1404,
+      "completion_tokens": 56,
+      "ts": 1783951450.517579
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l08/room_142.png",
+      "cost": 0.002637,
+      "prompt_tokens": 1404,
+      "completion_tokens": 59,
+      "ts": 1783951451.0665994
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l08/room_144.png",
+      "cost": 0.002718,
+      "prompt_tokens": 1404,
+      "completion_tokens": 68,
+      "ts": 1783951451.6519637
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l08/room_145.png",
+      "cost": 0.00261,
+      "prompt_tokens": 1404,
+      "completion_tokens": 56,
+      "ts": 1783951451.7230017
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l08/room_143.png",
+      "cost": 0.002718,
+      "prompt_tokens": 1404,
+      "completion_tokens": 68,
+      "ts": 1783951451.8116236
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l08/room_146.png",
+      "cost": 0.002637,
+      "prompt_tokens": 1404,
+      "completion_tokens": 59,
+      "ts": 1783951451.865035
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l08/room_147.png",
+      "cost": 0.002637,
+      "prompt_tokens": 1404,
+      "completion_tokens": 59,
+      "ts": 1783951452.2375834
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l08/room_148.png",
+      "cost": 0.002691,
+      "prompt_tokens": 1404,
+      "completion_tokens": 65,
+      "ts": 1783951452.9625096
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l08/room_150.png",
+      "cost": 0.002583,
+      "prompt_tokens": 1404,
+      "completion_tokens": 53,
+      "ts": 1783951453.4940798
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l08/room_149.png",
+      "cost": 0.002637,
+      "prompt_tokens": 1404,
+      "completion_tokens": 59,
+      "ts": 1783951453.5409102
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l08/room_151.png",
+      "cost": 0.002637,
+      "prompt_tokens": 1404,
+      "completion_tokens": 59,
+      "ts": 1783951453.6395297
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l08/room_92.png",
+      "cost": 0.002862,
+      "prompt_tokens": 1404,
+      "completion_tokens": 84,
+      "ts": 1783951453.7192025
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l08/room_93.png",
+      "cost": 0.002862,
+      "prompt_tokens": 1404,
+      "completion_tokens": 84,
+      "ts": 1783951454.3295987
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l08/room_94.png",
+      "cost": 0.002934,
+      "prompt_tokens": 1404,
+      "completion_tokens": 92,
+      "ts": 1783951454.8540485
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l08/room_95.png",
+      "cost": 0.002637,
+      "prompt_tokens": 1404,
+      "completion_tokens": 59,
+      "ts": 1783951455.4902399
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l08/room_97.png",
+      "cost": 0.002682,
+      "prompt_tokens": 1404,
+      "completion_tokens": 64,
+      "ts": 1783951455.6096594
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l09/room_0.png",
+      "cost": 0.002757,
+      "prompt_tokens": 1400,
+      "completion_tokens": 73,
+      "ts": 1783951455.6732848
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l08/room_96.png",
+      "cost": 0.002736,
+      "prompt_tokens": 1404,
+      "completion_tokens": 70,
+      "ts": 1783951455.8572946
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l09/room_4.png",
+      "cost": 0.003045,
+      "prompt_tokens": 1400,
+      "completion_tokens": 105,
+      "ts": 1783951456.6353378
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l10/room_115.png",
+      "cost": 0.00264,
+      "prompt_tokens": 1388,
+      "completion_tokens": 62,
+      "ts": 1783951457.1746864
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l10/room_116.png",
+      "cost": 0.002625,
+      "prompt_tokens": 1390,
+      "completion_tokens": 60,
+      "ts": 1783951457.3850048
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l10/room_179.png",
+      "cost": 0.002574,
+      "prompt_tokens": 1404,
+      "completion_tokens": 52,
+      "ts": 1783951457.4775732
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l09/room_9.png",
+      "cost": 0.002928,
+      "prompt_tokens": 1400,
+      "completion_tokens": 92,
+      "ts": 1783951457.5041947
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l10/room_117.png",
+      "cost": 0.002628,
+      "prompt_tokens": 1404,
+      "completion_tokens": 58,
+      "ts": 1783951457.6657672
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l10/room_181.png",
+      "cost": 0.0026865,
+      "prompt_tokens": 1395,
+      "completion_tokens": 66,
+      "ts": 1783951458.4196794
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l10/room_182.png",
+      "cost": 0.0026985,
+      "prompt_tokens": 1403,
+      "completion_tokens": 66,
+      "ts": 1783951458.8208735
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l10/room_184.png",
+      "cost": 0.0025545,
+      "prompt_tokens": 1379,
+      "completion_tokens": 54,
+      "ts": 1783951459.1883466
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "arrow_audit:/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l10/room_183.png",
+      "cost": 0.0025275,
+      "prompt_tokens": 1379,
+      "completion_tokens": 51,
+      "ts": 1783951459.2566197
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l03_room075_p1_a1.png",
+      "cost": 0.06938,
+      "prompt_tokens": 4360,
+      "completion_tokens": 1120,
+      "ts": 1783951594.0823936
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l03_room075_p1_a2.png",
+      "cost": 0.069433,
+      "prompt_tokens": 4466,
+      "completion_tokens": 1120,
+      "ts": 1783951607.282511
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l03_room075_p1_a3.png",
+      "cost": 0.0694335,
+      "prompt_tokens": 4467,
+      "completion_tokens": 1120,
+      "ts": 1783951619.537827
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l07_room009_p1_a1.png",
+      "cost": 0.070055,
+      "prompt_tokens": 5710,
+      "completion_tokens": 1120,
+      "ts": 1783951638.6089802
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l07_room009_p1_a2.png",
+      "cost": 0.0701815,
+      "prompt_tokens": 3197,
+      "completion_tokens": 1581,
+      "ts": 1783951651.570211
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l07_room009_p1_a3.png",
+      "cost": 0.069852,
+      "prompt_tokens": 3210,
+      "completion_tokens": 1469,
+      "ts": 1783951663.1865392
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l07_room049_p1_a1.png",
+      "cost": 0.06938,
+      "prompt_tokens": 4360,
+      "completion_tokens": 1120,
+      "ts": 1783951677.8515313
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l07_room049_p1_a2.png",
+      "cost": 0.0696575,
+      "prompt_tokens": 2743,
+      "completion_tokens": 1482,
+      "ts": 1783951689.0449827
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "verify:/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l07_room049_p1_a2.png",
+      "cost": 0.0066135,
+      "prompt_tokens": 3929,
+      "completion_tokens": 80,
+      "ts": 1783951694.5231736
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l01_room056_p1_a1.png",
+      "cost": 0.070055,
+      "prompt_tokens": 5710,
+      "completion_tokens": 1120,
+      "ts": 1783951751.8073835
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l01_room056_p1_a2.png",
+      "cost": 0.0703095,
+      "prompt_tokens": 3231,
+      "completion_tokens": 1618,
+      "ts": 1783951765.5738227
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l01_room056_p1_a3.png",
+      "cost": 0.070108,
+      "prompt_tokens": 5816,
+      "completion_tokens": 1120,
+      "ts": 1783951781.0206358
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "verify:/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l01_room056_p1_a3.png",
+      "cost": 0.0068775,
+      "prompt_tokens": 3901,
+      "completion_tokens": 114,
+      "ts": 1783951784.6878388
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l02_room001_p1_a1.png",
+      "cost": 0.0702955,
+      "prompt_tokens": 3125,
+      "completion_tokens": 1631,
+      "ts": 1783951798.8713195
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l02_room001_p1_a2.png",
+      "cost": 0.07032,
+      "prompt_tokens": 3210,
+      "completion_tokens": 1625,
+      "ts": 1783951812.647661
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "verify:/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l02_room001_p1_a2.png",
+      "cost": 0.0068295,
+      "prompt_tokens": 3947,
+      "completion_tokens": 101,
+      "ts": 1783951815.8193364
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l02_room001_p1_a3.png",
+      "cost": 0.069876,
+      "prompt_tokens": 3174,
+      "completion_tokens": 1483,
+      "ts": 1783951823.7844353
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l02_room057_p1_a1.png",
+      "cost": 0.070196,
+      "prompt_tokens": 3046,
+      "completion_tokens": 1611,
+      "ts": 1783951836.8804908
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l02_room057_p1_a2.png",
+      "cost": 0.0700545,
+      "prompt_tokens": 5709,
+      "completion_tokens": 1120,
+      "ts": 1783951852.408415
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l02_room057_p1_a3.png",
+      "cost": 0.069986,
+      "prompt_tokens": 3124,
+      "completion_tokens": 1528,
+      "ts": 1783951865.5927494
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l02_room012_p1_a1.png",
+      "cost": 0.0704725,
+      "prompt_tokens": 3125,
+      "completion_tokens": 1690,
+      "ts": 1783951878.56266
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l02_room012_p1_a2.png",
+      "cost": 0.070109,
+      "prompt_tokens": 5818,
+      "completion_tokens": 1120,
+      "ts": 1783951894.8469808
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l02_room012_p1_a3.png",
+      "cost": 0.0700975,
+      "prompt_tokens": 5795,
+      "completion_tokens": 1120,
+      "ts": 1783951910.1187806
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l02_room017_p1_a1.png",
+      "cost": 0.070055,
+      "prompt_tokens": 5710,
+      "completion_tokens": 1120,
+      "ts": 1783951925.729529
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l02_room017_p1_a2.png",
+      "cost": 0.070061,
+      "prompt_tokens": 3232,
+      "completion_tokens": 1535,
+      "ts": 1783951939.1465235
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l02_room017_p1_a3.png",
+      "cost": 0.069945,
+      "prompt_tokens": 3210,
+      "completion_tokens": 1500,
+      "ts": 1783951953.9107168
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l03_room087_p1_a1.png",
+      "cost": 0.070067,
+      "prompt_tokens": 5734,
+      "completion_tokens": 1120,
+      "ts": 1783951972.6266842
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "verify:/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l03_room087_p1_a1.png",
+      "cost": 0.0066585,
+      "prompt_tokens": 3947,
+      "completion_tokens": 82,
+      "ts": 1783951979.529099
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l03_room037_p1_a1.png",
+      "cost": 0.0699925,
+      "prompt_tokens": 3125,
+      "completion_tokens": 1530,
+      "ts": 1783951993.511001
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "verify:/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l03_room037_p1_a1.png",
+      "cost": 0.0066405,
+      "prompt_tokens": 3947,
+      "completion_tokens": 80,
+      "ts": 1783951999.4295652
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l03_room037_p1_a2.png",
+      "cost": 0.070077,
+      "prompt_tokens": 5754,
+      "completion_tokens": 1120,
+      "ts": 1783952010.7744088
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l03_room037_p1_a3.png",
+      "cost": 0.0700975,
+      "prompt_tokens": 5795,
+      "completion_tokens": 1120,
+      "ts": 1783952026.8092005
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l03_room030_p1_a1.png",
+      "cost": 0.0698505,
+      "prompt_tokens": 3135,
+      "completion_tokens": 1481,
+      "ts": 1783952038.8494492
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l03_room030_p1_a2.png",
+      "cost": 0.070172,
+      "prompt_tokens": 3214,
+      "completion_tokens": 1575,
+      "ts": 1783952050.2772763
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l03_room030_p1_a3.png",
+      "cost": 0.070099,
+      "prompt_tokens": 5798,
+      "completion_tokens": 1120,
+      "ts": 1783952073.0571632
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l03_room006_p1_a1.png",
+      "cost": 0.06938,
+      "prompt_tokens": 4360,
+      "completion_tokens": 1120,
+      "ts": 1783952089.7638617
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l03_room006_p1_a2.png",
+      "cost": 0.0694335,
+      "prompt_tokens": 4467,
+      "completion_tokens": 1120,
+      "ts": 1783952107.481121
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l03_room006_p1_a3.png",
+      "cost": 0.0695855,
+      "prompt_tokens": 2737,
+      "completion_tokens": 1459,
+      "ts": 1783952119.5301876
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l04_room001_p1_a1.png",
+      "cost": 0.0702355,
+      "prompt_tokens": 3125,
+      "completion_tokens": 1611,
+      "ts": 1783952134.331715
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "verify:/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l04_room001_p1_a1.png",
+      "cost": 0.0069465,
+      "prompt_tokens": 4001,
+      "completion_tokens": 105,
+      "ts": 1783952138.2801213
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l04_room019_p1_a1.png",
+      "cost": 0.070055,
+      "prompt_tokens": 5710,
+      "completion_tokens": 1120,
+      "ts": 1783952153.28417
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l04_room019_p1_a2.png",
+      "cost": 0.0700975,
+      "prompt_tokens": 5795,
+      "completion_tokens": 1120,
+      "ts": 1783952166.4389448
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "verify:/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l04_room019_p1_a2.png",
+      "cost": 0.0070455,
+      "prompt_tokens": 3953,
+      "completion_tokens": 124,
+      "ts": 1783952170.3677301
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l04_room019_p1_a3.png",
+      "cost": 0.070445,
+      "prompt_tokens": 5782,
+      "completion_tokens": 1238,
+      "ts": 1783952187.5714703
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l04_room006_p1_a1.png",
+      "cost": 0.070055,
+      "prompt_tokens": 5710,
+      "completion_tokens": 1120,
+      "ts": 1783952204.6083784
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "verify:/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l04_room006_p1_a1.png",
+      "cost": 0.0067935,
+      "prompt_tokens": 3929,
+      "completion_tokens": 100,
+      "ts": 1783952210.504851
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l04_room129_p1_a1.png",
+      "cost": 0.0700325,
+      "prompt_tokens": 3103,
+      "completion_tokens": 1547,
+      "ts": 1783952223.4371498
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l04_room129_p1_a2.png",
+      "cost": 0.0700975,
+      "prompt_tokens": 5795,
+      "completion_tokens": 1120,
+      "ts": 1783952253.1157103
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l04_room129_p1_a3.png",
+      "cost": 0.070354,
+      "prompt_tokens": 3188,
+      "completion_tokens": 1640,
+      "ts": 1783952265.5051131
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l05_room006_p1_a1.png",
+      "cost": 0.0693735,
+      "prompt_tokens": 4347,
+      "completion_tokens": 1120,
+      "ts": 1783952284.4029024
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l05_room006_p1_a2.png",
+      "cost": 0.0700055,
+      "prompt_tokens": 2731,
+      "completion_tokens": 1600,
+      "ts": 1783952299.6568375
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "verify:/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l05_room006_p1_a2.png",
+      "cost": 0.0067635,
+      "prompt_tokens": 3939,
+      "completion_tokens": 95,
+      "ts": 1783952304.2711112
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l07_room011_p1_a1.png",
+      "cost": 0.070055,
+      "prompt_tokens": 5710,
+      "completion_tokens": 1120,
+      "ts": 1783952347.044498
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l07_room011_p1_a2.png",
+      "cost": 0.0698955,
+      "prompt_tokens": 3231,
+      "completion_tokens": 1480,
+      "ts": 1783952358.8466792
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "verify:/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l07_room011_p1_a2.png",
+      "cost": 0.0068865,
+      "prompt_tokens": 3919,
+      "completion_tokens": 112,
+      "ts": 1783952362.957931
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l07_room011_p1_a3.png",
+      "cost": 0.0701635,
+      "prompt_tokens": 3185,
+      "completion_tokens": 1577,
+      "ts": 1783952373.4324918
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l07_room012_p1_a1.png",
+      "cost": 0.06938,
+      "prompt_tokens": 4360,
+      "completion_tokens": 1120,
+      "ts": 1783952393.504537
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l07_room012_p1_a2.png",
+      "cost": 0.0694225,
+      "prompt_tokens": 4445,
+      "completion_tokens": 1120,
+      "ts": 1783952406.5603788
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "verify:/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l07_room012_p1_a2.png",
+      "cost": 0.0067395,
+      "prompt_tokens": 3929,
+      "completion_tokens": 94,
+      "ts": 1783952410.6785977
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l07_room204_p1_a1.png",
+      "cost": 0.070021,
+      "prompt_tokens": 5642,
+      "completion_tokens": 1120,
+      "ts": 1783952426.9579175
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l07_room204_p1_a2.png",
+      "cost": 0.07006,
+      "prompt_tokens": 5720,
+      "completion_tokens": 1120,
+      "ts": 1783952442.2530463
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l07_room204_p1_a3.png",
+      "cost": 0.070075,
+      "prompt_tokens": 5750,
+      "completion_tokens": 1120,
+      "ts": 1783952455.5398474
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "verify:/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l07_room204_p1_a3.png",
+      "cost": 0.0068925,
+      "prompt_tokens": 3953,
+      "completion_tokens": 107,
+      "ts": 1783952459.62915
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l07_room208_p1_a1.png",
+      "cost": 0.0701485,
+      "prompt_tokens": 3125,
+      "completion_tokens": 1582,
+      "ts": 1783952470.5929246
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l07_room208_p1_a2.png",
+      "cost": 0.069849,
+      "prompt_tokens": 3210,
+      "completion_tokens": 1468,
+      "ts": 1783952481.6665576
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l07_room208_p1_a3.png",
+      "cost": 0.070158,
+      "prompt_tokens": 3210,
+      "completion_tokens": 1571,
+      "ts": 1783952492.543943
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l07_room210_p1_a1.png",
+      "cost": 0.0701275,
+      "prompt_tokens": 3125,
+      "completion_tokens": 1575,
+      "ts": 1783952503.9771287
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l07_room210_p1_a2.png",
+      "cost": 0.06981,
+      "prompt_tokens": 3210,
+      "completion_tokens": 1455,
+      "ts": 1783952517.6385882
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l07_room210_p1_a3.png",
+      "cost": 0.069897,
+      "prompt_tokens": 3210,
+      "completion_tokens": 1484,
+      "ts": 1783952528.2355509
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "verify:/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l07_room210_p1_a3.png",
+      "cost": 0.0066915,
+      "prompt_tokens": 3939,
+      "completion_tokens": 87,
+      "ts": 1783952531.9117289
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l07_room219_p1_a1.png",
+      "cost": 0.0700165,
+      "prompt_tokens": 3125,
+      "completion_tokens": 1538,
+      "ts": 1783952541.277861
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l07_room219_p1_a2.png",
+      "cost": 0.069897,
+      "prompt_tokens": 3210,
+      "completion_tokens": 1484,
+      "ts": 1783952553.2481453
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l07_room219_p1_a3.png",
+      "cost": 0.069818,
+      "prompt_tokens": 3232,
+      "completion_tokens": 1454,
+      "ts": 1783952566.2605376
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l07_room224_p1_a1.png",
+      "cost": 0.070021,
+      "prompt_tokens": 5642,
+      "completion_tokens": 1120,
+      "ts": 1783952581.6987844
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l07_room224_p1_a2.png",
+      "cost": 0.070075,
+      "prompt_tokens": 5750,
+      "completion_tokens": 1120,
+      "ts": 1783952598.3421211
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l07_room224_p1_a3.png",
+      "cost": 0.070074,
+      "prompt_tokens": 5748,
+      "completion_tokens": 1120,
+      "ts": 1783952611.7925835
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "verify:/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l07_room224_p1_a3.png",
+      "cost": 0.0067185,
+      "prompt_tokens": 3945,
+      "completion_tokens": 89,
+      "ts": 1783952615.9824207
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l07_room004_p1_a1.png",
+      "cost": 0.069346,
+      "prompt_tokens": 4292,
+      "completion_tokens": 1120,
+      "ts": 1783952630.9481263
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "verify:/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l07_room004_p1_a1.png",
+      "cost": 0.0068625,
+      "prompt_tokens": 3897,
+      "completion_tokens": 113,
+      "ts": 1783952634.8246365
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l08_room093_p1_a1.png",
+      "cost": 0.0719935,
+      "prompt_tokens": 3149,
+      "completion_tokens": 2193,
+      "ts": 1783952650.5843205
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l08_room093_p1_a2.png",
+      "cost": 0.07012,
+      "prompt_tokens": 5840,
+      "completion_tokens": 1120,
+      "ts": 1783952666.6783001
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "verify:/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l08_room093_p1_a2.png",
+      "cost": 0.0068745,
+      "prompt_tokens": 3947,
+      "completion_tokens": 106,
+      "ts": 1783952670.5618703
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l08_room093_p1_a3.png",
+      "cost": 0.0701215,
+      "prompt_tokens": 3203,
+      "completion_tokens": 1560,
+      "ts": 1783952679.8068187
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "out": "verify:/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l08_room093_p1_a3.png",
+      "cost": 0.0068655,
+      "prompt_tokens": 3947,
+      "completion_tokens": 105,
+      "ts": 1783952684.1183484
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_v2/l08_room094_p1_a1.png",
+      "cost": 0.070067,
+      "prompt_tokens": 5734,
+      "completion_tokens": 1120,
+      "ts": 1783952696.4992745
     }
   ]
 }

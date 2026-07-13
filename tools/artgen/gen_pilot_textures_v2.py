@@ -401,6 +401,13 @@ def main() -> None:
     ap.add_argument("--sample", action="store_true",
                      help="restrict to the director-ordered sample set (SAMPLE_KEYS), "
                           "BFS-ordered, sequential, with a neighbor-conditioning second pass")
+    ap.add_argument("--only-keys", type=str, default=None,
+                     help="comma-separated level/room_index keys (e.g. l07/room_005) to "
+                          "RESTRICT the run's scope to (unlike --rooms, which only "
+                          "force-clears progress within whatever scope is already "
+                          "selected). BFS-ordered, sequential, same neighbor-conditioning "
+                          "second pass as --sample -- for remediation batches picked by "
+                          "an external audit rather than the hardcoded SAMPLE_KEYS.")
     args = ap.parse_args()
 
     pilot = load_pilot()
@@ -409,6 +416,11 @@ def main() -> None:
         rooms = [r for r in rooms if room_key(r) in SAMPLE_KEYS]
         rooms = _bfs_order(rooms)
         args.workers = 1  # sequential: composites depend on already-shipped neighbors
+    if args.only_keys:
+        keys = set(args.only_keys.split(","))
+        rooms = [r for r in rooms if room_key(r) in keys]
+        rooms = _bfs_order(rooms)
+        args.workers = 1
     if args.only_kind:
         rooms = [r for r in rooms if r["kind"] == args.only_kind]
     if args.limit:
@@ -442,7 +454,7 @@ def main() -> None:
 
     _run_pass(rooms, "pass1")
 
-    if args.sample:
+    if args.sample or args.only_keys:
         # SECOND PASS (director's ruling, 2026-07-11): regenerate a sample
         # room that has an in-sample neighbor, now that pass 1 has shipped
         # textures for the whole set -- so every room sees a neighbor
