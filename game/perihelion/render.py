@@ -2028,7 +2028,28 @@ class Renderer:
         # per-pixel coverage test would give. Distinct non-Euclidean
         # appearances of a light (different screen apex) stay separate
         # groups and legitimately add.
-        groups: dict = {}
+        #
+        # Grouping is TOLERANCE-based (cluster within GROUP_TOL_PX), not a
+        # fixed-grid round(x, 1) key: two rooms an ADJACENT light wedge
+        # spans (e.g. a straight corridor doorway) recover their screen
+        # apex through two DIFFERENT composed transform chains (this
+        # room's own vs. the light's original discovery chain, inverted
+        # and re-projected -- see lighting.py's ROOT-FRAME INVARIANCE
+        # docstring: chain-independent in exact math, not in float64). The
+        # two apex values can land a few thousandths of a pixel apart --
+        # negligible on its own, but a fixed rounding grid occasionally
+        # bisects that gap (641.34999 vs 641.35001 round to different
+        # buckets), splitting ONE physical wedge into two independent
+        # `_blit_light` calls -- two rasterized polygon edges and two
+        # independently-rounded gradient origins meeting at the portal --
+        # which is exactly the pixel-visible seam this function exists to
+        # prevent. Root-caused 2026-07-13 from a director report of
+        # "seams between rooms in the corridor" and "ghost lines";
+        # reproduced with a real >100-luminance step at the shared portal
+        # column in `test_pixel_composite_seam_freeness_across_corridor_
+        # portals` before this fix (see that test's fail-first note).
+        GROUP_TOL_PX = 1.0
+        groups_by_light: dict[int, list[dict]] = {}
         for room, xform, depth, clip_screen, walls, entry_edge, ents in instances:
             if len(clip_screen) < 3:
                 continue
@@ -2048,13 +2069,31 @@ class Renderer:
                 radius_screen = inst.radius_local * scale
                 if radius_screen < 1.0:
                     continue
-                key = (light_idx, round(apex_sx, 1), round(apex_sy, 1),
-                       round(radius_screen, 1))
-                groups.setdefault(key, []).append(gated)
-        for (light_idx, apex_sx, apex_sy, radius_screen), polys in groups.items():
+                buckets = groups_by_light.setdefault(light_idx, [])
+                for g in buckets:
+                    if (abs(g["apex_sx"] - apex_sx) <= GROUP_TOL_PX
+                            and abs(g["apex_sy"] - apex_sy) <= GROUP_TOL_PX
+                            and abs(g["radius_screen"] - radius_screen) <= GROUP_TOL_PX):
+                        g["polys"].append(gated)
+                        # running mean keeps the cluster's reference point
+                        # centered as more near-identical instances join,
+                        # instead of freezing on the first one seen.
+                        n = g["n"] + 1
+                        g["apex_sx"] += (apex_sx - g["apex_sx"]) / n
+                        g["apex_sy"] += (apex_sy - g["apex_sy"]) / n
+                        g["radius_screen"] += (radius_screen - g["radius_screen"]) / n
+                        g["n"] = n
+                        break
+                else:
+                    buckets.append({"apex_sx": apex_sx, "apex_sy": apex_sy,
+                                     "radius_screen": radius_screen,
+                                     "polys": [gated], "n": 1})
+        for light_idx, buckets in groups_by_light.items():
             light = lighting.lights[light_idx]
-            self._blit_light(surf, apex_sx, apex_sy, radius_screen,
-                              light.color, light.intensity, polys)
+            for g in buckets:
+                self._blit_light(surf, g["apex_sx"], g["apex_sy"],
+                                  g["radius_screen"], light.color,
+                                  light.intensity, g["polys"])
 
     def _light_gradient(self, radius: float) -> "pygame.Surface":
         """White radial-falloff sprite of pixel radius `radius`, kernel
@@ -2130,7 +2169,25 @@ class Renderer:
         xs = [p[0] for poly in polys for p in poly]
         ys = [p[1] for poly in polys for p in poly]
         sw, sh = surf.get_size()
-        ir = int(math.ceil(radius))
+        # `ir` MUST be the gradient sprite's own actual half-width, not a
+        # separately-rounded copy of `radius`: the sprite is cached/sized
+        # by `_light_gradient` as `max(2, round(radius))`, which differs
+        # from `ceil(radius)` whenever frac(radius) < 0.5 (true for roughly
+        # half of all radii). A stale `ir = ceil(radius)` used to clamp the
+        # rect made the rect's outer edge extend ONE COLUMN/ROW past where
+        # the gradient blit actually painted -- that strip kept its raw
+        # white-polygon-fill*tint value (never multiplied down to zero by
+        # the missing gradient coverage) and got ADDed at full strength: a
+        # single full-brightness pixel sitting right at the light's own
+        # radius edge, inside an otherwise-dark room, wherever a lit
+        # room's polygon fill happened to extend that far. Root-caused
+        # 2026-07-13 chasing the director's "ghost lines" report --
+        # reproduced as a lone (104,104,132) [full unlit-floor-albedo,
+        # i.e. an UNMULTIPLIED pixel] spike one column past `icx - round
+        # (radius)` amid a field of (0,0,0) in `test_pixel_composite_seam_
+        # freeness_across_corridor_portals` before this fix.
+        grad = self._light_gradient(radius)
+        ir = grad.get_width() // 2
         icx, icy = int(round(cx)), int(round(cy))
         x0 = max(0, int(math.floor(min(xs))), icx - ir)
         y0 = max(0, int(math.floor(min(ys))), icy - ir)
@@ -2151,9 +2208,7 @@ class Renderer:
                 min(255, int(color[1] * intensity)),
                 min(255, int(color[2] * intensity)))
         scratch.fill(tint, special_flags=pygame.BLEND_RGB_MULT)
-        grad = self._light_gradient(radius)
-        gr = grad.get_width() // 2
-        scratch.blit(grad, (icx - gr, icy - gr),
+        scratch.blit(grad, (icx - ir, icy - ir),
                      special_flags=pygame.BLEND_RGB_MULT)
         scratch.set_clip(None)
         surf.blit(scratch, rect.topleft, area=rect,

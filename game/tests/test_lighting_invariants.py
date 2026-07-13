@@ -42,16 +42,18 @@ import os
 
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
+os.environ.setdefault("PERIHELION_INTERNAL_RES", "1280x720")
 
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
 import necore
+import numpy as np
 import pytest
 
 from perihelion.levels import LevelBuilder, LightSpec
 from perihelion.lighting import compute_light_instances
-from perihelion.sim import GameSession
+from perihelion.sim import GameSession, InputFrame
 
 EXAMPLES = 30
 
@@ -289,6 +291,177 @@ def test_seam_freeness_across_a_portal(straddle):
     # seam step. The mutation this test guards against (wrong apex frame)
     # produces order-of-magnitude divergence, well outside this budget.
     assert abs(a0 - a1) < 0.06, f"seam step: r0 side {a0:.4f} vs r1 side {a1:.4f}"
+
+
+@settings(max_examples=15, deadline=None)
+@given(room_w=st.floats(220.0, 420.0), radius=st.floats(300.0, 700.0),
+       light_dx=st.floats(-60.0, 60.0))
+def test_pixel_composite_seam_freeness_across_corridor_portals(room_w, radius, light_dx):
+    """Director-reported ("there are ALSO seams between the rooms in the
+    corridor now, that's new with the lighting stuff"): a straight 3-room
+    corridor (translation-only portals, the common case) with one static
+    light in the middle room whose wedge reaches both neighbors through
+    their doorways. This exercises the ACTUAL PIXEL COMPOSITE path
+    (`Renderer.draw` -> `_draw_world_lights` -> `_blit_light`'s union-fill
+    grouping by rounded (light, screen-apex, screen-radius)) that
+    `test_seam_freeness_across_a_portal` above does NOT cover -- that test
+    only checks `compute_light_instances`' room-local attenuation math,
+    never the rendered surface. Nothing exercised the union-fill grouping
+    or the gradient-sprite blit at pixel granularity before this test.
+
+    Property: sampling a horizontal scanline across a UNIFORM-ALBEDO floor
+    (per the design brief's property (i): "for a light shining through a
+    doorway onto uniform-albedo floor" -- room decoration is seeded per
+    room and legitimately produces its own faint tint lines/props unrelated
+    to lighting, see the module-docstring-adjacent finding below, so this
+    test disables `_get_detail` to isolate the lighting composite alone),
+    well clear of the player sprite/reticle, the max adjacent-pixel
+    luminance delta anywhere on the lit floor -- including directly on
+    both portal-boundary columns -- must stay small. A step at a boundary
+    would mean the same light's wedge in the two rooms landed in different
+    `_blit_light` groups (independent gradient origins/rasterized polygon
+    edges meeting instead of unioning).
+
+    Root-cause note for future maintainers: a "ghost line" at a FIXED
+    screen position, present regardless of the light's world position and
+    still present when the composited lightmap is forced flat white
+    (bypassing `_draw_world_lights` entirely), is NOT this bug -- it is a
+    `_draw_detail` decorative floor prop (a `("line", ...)` primitive,
+    default color = floor albedo + 18/channel) that is simply invisible
+    under the old ambient-lit floor and newly visible now that zero-ambient
+    lighting actually multiplies the floor up. Diagnosed exactly this way
+    2026-07-13 while investigating the director's "ghost lines" report:
+    the specific line reproduced there traced to `_get_detail`, not to
+    `_blit_light`/the lightmap. Disabling `_get_detail` here keeps this
+    test honest about which subsystem it exercises.
+
+    Verified fail-first: temporarily perturbed the group key in
+    `_draw_world_lights` (rounding `apex_sx`/`apex_sy` to a coarser unit
+    tied to `room`, i.e. `key = (light_idx, room, round(radius_screen, 1))`
+    -- forcing every room's wedge into its own group even when the apex
+    genuinely coincides) and this test failed with a >100-luminance step
+    at the shared portal column on every generated example. Reverted
+    before committing.
+    """
+    import pygame
+
+    from perihelion.render import INTERNAL_H, INTERNAL_W, Renderer
+
+    pygame.init()
+    b = LevelBuilder("CORRSEAM", 1)
+    r0 = b.rect(-room_w - 100.0, -100.0, room_w, 200.0)
+    r1 = b.rect(-100.0, -100.0, 200.0, 200.0)
+    r2 = b.rect(100.0, -100.0, room_w, 200.0)
+    b.connect_pts(r0, (-100.0, 0.0), r1, (-100.0, 0.0))
+    b.connect_pts(r1, (100.0, 0.0), r2, (100.0, 0.0))
+    b.player(r1, (0.0, 0.0))
+    level = b.build()
+    level.lights.append(LightSpec(room=r1, pos=(light_dx, 0.0),
+                                   color=(255, 220, 170), intensity=1.2,
+                                   radius=radius, kind="static"))
+    session = GameSession(level, seed=1, screen=(INTERNAL_W, INTERNAL_H))
+    session.player_light.intensity = 0.0  # isolate the static light's own composite
+    # pygame backend explicitly: `_draw_world_lights`/`_blit_light` run
+    # identically on both backends (see `test_lighting_backend_parity`),
+    # but this test's `_draw_floor` trace hook (below, to find the portal
+    # columns) is pygame-only -- the rust backend emits the floor itself.
+    ren = Renderer(session, backend="pygame")
+    ren._get_detail = lambda room: []  # isolate lighting from room decoration (see docstring)
+
+    # Record each room's own screen clip span so the assertion below can
+    # target the two shared PORTAL columns specifically (this property is
+    # about portal continuity, not about the level's outer walls, where a
+    # real floor-to-void step is expected and not a "seam").
+    spans: dict[int, tuple[float, float]] = {}
+    orig_floor = ren._draw_floor
+
+    def traced_floor(canvas, room, depth, clip_screen, xform=None):
+        xs = [p[0] for p in clip_screen]
+        spans[room] = (min(xs), max(xs))
+        return orig_floor(canvas, room, depth, clip_screen, xform)
+
+    ren._draw_floor = traced_floor
+
+    surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
+    session.tick(InputFrame(mx=0, my=0, ax=INTERNAL_W / 2, ay=INTERNAL_H / 2,
+                             fire=False, alt=False, interact=False, weapon=0))
+    ren.consume_fx(session.fx)
+    ren.draw(surf)
+    assert set(spans) == {r0, r1, r2}, f"not all 3 rooms rendered: {spans}"
+    portal_xs = sorted({round(spans[r0][1]), round(spans[r1][0]),
+                         round(spans[r1][1]), round(spans[r2][0])})
+    # r0's right edge == r1's left edge, r1's right edge == r2's left edge
+    # (touching axis-aligned rects): exactly 2 distinct shared columns.
+    assert len(portal_xs) == 2, f"expected 2 portal columns, got {portal_xs}"
+
+    arr = pygame.surfarray.array3d(surf).astype(int)
+    # A row well below the player sprite/reticle (they sit on the room's
+    # vertical center) but still inside every room's floor extent.
+    y = INTERNAL_H // 2 + 60
+    lum = arr[:, y, :].sum(axis=1)
+    jumps = np.abs(np.diff(lum))
+    for px in portal_xs:
+        x = int(round(px))
+        window = jumps[max(0, x - 2):x + 2]
+        assert window.max() <= 12, (
+            f"seam at portal column x={x}: max adjacent-pixel luminance "
+            f"jump {window.max()} (room_w={room_w}, radius={radius}, "
+            f"light_dx={light_dx})")
+
+
+@settings(max_examples=25, deadline=None)
+@given(radius=st.floats(150.0, 400.0))
+def test_no_ghost_pixel_at_light_radius_edge(radius):
+    """Design brief property (ii), "no-ghost-edges": for a single light in
+    a plain convex room with an oversized radius (so the disc's own edge,
+    not a wall or portal, is what bounds the lit area on-screen), no pixel
+    outside the true falloff -- i.e. no lone bright pixel sitting one
+    column/row past where the light's own radial gradient sprite stops --
+    may exceed a small epsilon above its neighbors.
+
+    Root-cause covered: `_blit_light` computed the rect clamp radius as
+    `ir = ceil(radius)` but sized/positioned the gradient sprite from
+    `_light_gradient`'s own `round(radius)` -- these disagree whenever
+    frac(radius) < 0.5 (about half of all radii), leaving the rect's
+    outermost column/row OUTSIDE the gradient blit's coverage. That strip
+    kept its raw white-polygon-fill*tint value (never multiplied down)
+    and got ADDed at full strength: a single full-brightness pixel sitting
+    right at the light's radius edge, deep inside an otherwise near-black
+    room.
+
+    Verified fail-first: reverted `ir` to `int(math.ceil(radius))` (the
+    pre-fix form) in a local copy -- this test failed with a lone
+    full-albedo pixel roughly `ceil(radius) - round(radius)` columns
+    outside the true lit disc on every generated example where
+    frac(radius) < 0.5. Reverted before committing.
+    """
+    import pygame
+
+    from perihelion.render import INTERNAL_H, INTERNAL_W, Renderer
+
+    pygame.init()
+    b = LevelBuilder("GHOSTEDGE", 1)
+    r0 = b.rect(-500.0, -500.0, 1000.0, 1000.0)  # big enough the disc never hits a wall
+    b.player(r0, (0.0, 0.0))
+    level = b.build()
+    level.lights.append(LightSpec(room=r0, pos=(0.0, 0.0), color=(255, 255, 255),
+                                   intensity=1.2, radius=radius, kind="static"))
+    session = GameSession(level, seed=1, screen=(INTERNAL_W, INTERNAL_H))
+    session.player_light.intensity = 0.0
+    ren = Renderer(session, backend="pygame")
+    ren._get_detail = lambda room: []
+    surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
+    session.tick(InputFrame(mx=0, my=0, ax=INTERNAL_W / 2, ay=INTERNAL_H / 2,
+                             fire=False, alt=False, interact=False, weapon=0))
+    ren.consume_fx(session.fx)
+    ren.draw(surf)
+    arr = pygame.surfarray.array3d(surf).astype(int)
+    y = INTERNAL_H // 2 + 60  # clear of the player sprite/reticle at room center
+    lum = arr[:, y, :].sum(axis=1)
+    jumps = np.abs(np.diff(lum))
+    assert jumps.max() <= 12, (
+        f"ghost pixel: max adjacent-pixel luminance jump {jumps.max()} at "
+        f"x={int(jumps.argmax())} (radius={radius})")
 
 
 @pytest.mark.skipif(not hasattr(necore, "Raster"),
