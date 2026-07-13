@@ -136,6 +136,29 @@ Return STRICT JSON only:
                     symbolism, or null",
  "summary": "2 sentences"}"""
 
+ARTIFACTS = """AUDIO-ONLY task: one mono clip from a work-in-progress
+render. Your ONLY job is to find AUDIO DEFECTS — technical brokenness, not
+taste. Listen adversarially, like a mastering engineer doing QC. For each
+category report what you actually hear (null if genuinely absent):
+
+Return STRICT JSON only:
+{"clicks_pops": "any clicks, pops, digital ticks — where/how often, or null",
+ "cutoff_decays": "any sounds whose natural decay is chopped before it
+                   finishes (bells, cymbals, tails) — describe, or null",
+ "timbre_discontinuity": "does any single voice CHANGE CHARACTER between
+                          consecutive notes (different texture per note,
+                          as if each note is a different sample)? or null",
+ "mechanical_rearticulation": "does any sustained/vocal line re-attack
+                               every note identically like 'ah-ah-ah-ah'
+                               instead of phrasing legato? or null",
+ "loop_seams": "audible loop restart points / abrupt repeats, or null",
+ "broken_voices": "any voice that sounds glitchy, malfunctioning, or like
+                   a corrupted render rather than an intended instrument —
+                   name and describe each, or null",
+ "sounds_like_finished_music": true/false,
+ "worst_defect": "the single worst technical problem",
+ "summary": "2 sentences, defects only"}"""
+
 PROBES = """AUDIO-ONLY task: one mono clip. Do not comment on stereo width or
 sub-bass weight; do not trust your own absolute timestamps. Answer with
 OBSERVABLES, not opinions.
