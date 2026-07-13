@@ -1,5 +1,5 @@
 {
-  "total_cost": 103.09735349999977,
+  "total_cost": 103.86701149999978,
   "calls": [
     {
       "model": "google/gemini-3.1-flash-image",
@@ -18058,6 +18058,94 @@
       "prompt_tokens": 4501,
       "completion_tokens": 141,
       "ts": 1783953386.2638474
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_full/l01_room000_a1.png",
+      "cost": 0.0695585,
+      "prompt_tokens": 4717,
+      "completion_tokens": 1120,
+      "ts": 1783954758.5383577
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_full/l01_room000_a2.png",
+      "cost": 0.070355,
+      "prompt_tokens": 3064,
+      "completion_tokens": 1661,
+      "ts": 1783954773.8020115
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_full/l01_room000_a3.png",
+      "cost": 0.0703845,
+      "prompt_tokens": 3027,
+      "completion_tokens": 1677,
+      "ts": 1783954786.3017585
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_full/l01_room061_a1.png",
+      "cost": 0.0699585,
+      "prompt_tokens": 3039,
+      "completion_tokens": 1533,
+      "ts": 1783954841.6291378
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_full/l01_room064_a1.png",
+      "cost": 0.069581,
+      "prompt_tokens": 4762,
+      "completion_tokens": 1120,
+      "ts": 1783954844.6329098
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_full/l01_room003_a1.png",
+      "cost": 0.0695585,
+      "prompt_tokens": 4717,
+      "completion_tokens": 1120,
+      "ts": 1783954845.5562432
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_full/l01_room061_a3.png",
+      "cost": 0.070148,
+      "prompt_tokens": 3178,
+      "completion_tokens": 1573,
+      "ts": 1783954856.595513
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_full/l01_room064_a2.png",
+      "cost": 0.070206,
+      "prompt_tokens": 3108,
+      "completion_tokens": 1604,
+      "ts": 1783954860.4345376
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_full/l01_room003_a2.png",
+      "cost": 0.069593,
+      "prompt_tokens": 4786,
+      "completion_tokens": 1120,
+      "ts": 1783954869.3159158
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_full/l01_room064_a3.png",
+      "cost": 0.069987,
+      "prompt_tokens": 3108,
+      "completion_tokens": 1531,
+      "ts": 1783954871.848252
+    },
+    {
+      "model": "google/gemini-3.1-flash-image",
+      "out": "/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/gen_rooms_full/l01_room003_a3.png",
+      "cost": 0.070328,
+      "prompt_tokens": 3028,
+      "completion_tokens": 1658,
+      "ts": 1783954881.0876257
     }
   ]
 }

@@ -1,0 +1,35 @@
+[
+  {
+    "level": "l01",
+    "n_rooms": 1,
+    "n_processed": 1,
+    "n_accepted": 0,
+    "n_bare": 1,
+    "n_masked": 0,
+    "n_mask_omitted": 0,
+    "run_cost": 0.21029799999999998,
+    "elapsed_sec": 45.15917086601257
+  },
+  {
+    "level": "l01",
+    "n_rooms": 3,
+    "n_processed": 2,
+    "n_accepted": 0,
+    "n_bare": 0,
+    "n_masked": 0,
+    "n_mask_omitted": 0,
+    "run_cost": 0.0,
+    "elapsed_sec": 0.006011247634887695
+  },
+  {
+    "level": "l01",
+    "n_rooms": 4,
+    "n_processed": 3,
+    "n_accepted": 0,
+    "n_bare": 3,
+    "n_masked": 0,
+    "n_mask_omitted": 0,
+    "run_cost": 0.5593600000000001,
+    "elapsed_sec": 50.24737048149109
+  }
+]
