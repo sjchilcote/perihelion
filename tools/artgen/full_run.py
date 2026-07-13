@@ -480,7 +480,8 @@ def process_room(stem: str, idx: int, kind: str, progress: dict) -> dict:
             for b in walk_boxes:
                 x0, y0, x1, y1 = b["box"]
                 dx, dy = (x1 - x0) * inset_frac / 2, (y1 - y0) * inset_frac / 2
-                trial_boxes.append(dict(b, box=(x0 + dx, y0 + dy, x1 - dx, y1 - dy)))
+                trial_boxes.append(dict(b, box=(int(x0 + dx), int(y0 + dy),
+                                                 int(x1 - dx), int(y1 - dy))))
         walk_im = derive_walkmask(mask, trial_boxes, texture=final_im)
         walk_arr = np.asarray(walk_im) > 127
         conn_result = check_room_portal_connectivity(walk_arr, pts)
