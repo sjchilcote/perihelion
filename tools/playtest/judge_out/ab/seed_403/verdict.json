@@ -1,0 +1,11 @@
+{
+  "seed": 403,
+  "flip": true,
+  "truth": "B",
+  "verdict": {
+    "human": "B",
+    "confidence": 0.65,
+    "reason": "Clip B stops to open and read a lore text log mid-fight then takes a big chunk of damage reacting messily to threats, whereas Clip A shows steady, unchanging stats and near-frozen cursor micro-drift near a doorway typical of scripted idling."
+  },
+  "correct": true
+}

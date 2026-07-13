@@ -1,0 +1,6 @@
+# judge trial clip frames (hundreds of MB per batch); verdict.json and
+# summary.json are the durable record and ARE committed
+judge_out/*/seed_*/a/
+judge_out/*/seed_*/b/
+judge_out/*/seed_*/x/
+judge_out/*/seed_*/y/

@@ -1,0 +1,11 @@
+{
+  "seed": 406,
+  "flip": true,
+  "truth": "B",
+  "verdict": {
+    "human": "B",
+    "confidence": 0.68,
+    "reason": "Clip A goes nearly motionless for six straight frames after taking damage (classic idle/parked bot state), while Clip B shows continuous purposeful movement, active enemy engagement, and item pickups throughout."
+  },
+  "correct": true
+}

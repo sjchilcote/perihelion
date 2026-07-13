@@ -1,0 +1,35 @@
+[
+  {
+    "seed": 404,
+    "flip": true,
+    "truth": "B",
+    "verdict": {
+      "human": "B",
+      "confidence": 0.72,
+      "reason": "Clip A parks in one spot for the last ~5 samples oscillating its facing angle with zero positional movement, a mechanical idle/rotate pattern, while Clip B shows a winding, non-optimal path with backtracking through the same rooms and steadily worsening, erratic combat damage typical of a human under pressure."
+    },
+    "correct": true
+  },
+  {
+    "seed": 405,
+    "flip": true,
+    "truth": "B",
+    "verdict": {
+      "human": "A",
+      "confidence": 0.72,
+      "reason": "A shows organic diagonal pathing and stops to read lore notes and manage cautious engagements with light health loss, while B beelines dead-center through corridors and junctions and stands nearly stationary absorbing a sudden 30hp hit from a swarm without repositioning, both classic bot tells."
+    },
+    "correct": false
+  },
+  {
+    "seed": 406,
+    "flip": true,
+    "truth": "B",
+    "verdict": {
+      "human": "B",
+      "confidence": 0.68,
+      "reason": "Clip A goes nearly motionless for six straight frames after taking damage (classic idle/parked bot state), while Clip B shows continuous purposeful movement, active enemy engagement, and item pickups throughout."
+    },
+    "correct": true
+  }
+]

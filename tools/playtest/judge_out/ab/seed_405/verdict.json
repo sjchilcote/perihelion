@@ -1,0 +1,11 @@
+{
+  "seed": 405,
+  "flip": true,
+  "truth": "B",
+  "verdict": {
+    "human": "A",
+    "confidence": 0.72,
+    "reason": "A shows organic diagonal pathing and stops to read lore notes and manage cautious engagements with light health loss, while B beelines dead-center through corridors and junctions and stands nearly stationary absorbing a sudden 30hp hit from a swarm without repositioning, both classic bot tells."
+  },
+  "correct": false
+}

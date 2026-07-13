@@ -1,0 +1,11 @@
+{
+  "seed": 401,
+  "flip": true,
+  "truth": "B",
+  "verdict": {
+    "human": "B",
+    "confidence": 0.68,
+    "reason": "A gets pinned in nearly the same spot near a door for six consecutive frames while just rotating in place as enemies swarm, whereas B repositions and retreats into the open corridor when threatened, which reads as more human evasive behavior."
+  },
+  "correct": true
+}

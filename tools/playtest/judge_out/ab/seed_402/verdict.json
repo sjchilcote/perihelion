@@ -1,0 +1,11 @@
+{
+  "seed": 402,
+  "flip": false,
+  "truth": "A",
+  "verdict": {
+    "human": "A",
+    "confidence": 0.72,
+    "reason": "Clip B's crosshair and player position stay frozen at the exact same pixel for six consecutive samples (~2s) while an enemy drifts nearby, a fixed/parked aim pattern typical of scripted bot behavior, whereas Clip A shows continuous purposeful movement and heading changes consistent with human control."
+  },
+  "correct": true
+}
