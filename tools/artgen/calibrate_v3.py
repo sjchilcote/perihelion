@@ -97,20 +97,9 @@ def run_room(stem: str, room_idx: int, kind_override: str | None = None) -> dict
         m = m.resize((tex_w, tex_h), Image.NEAREST)
         mask = np.asarray(m) > 127
 
-    gates = {}
-    gates["fullbleed"] = verify_fullbleed(raw_resized, mask, darken_thresh=1.55)
-    gates["interior_void"] = verify_no_interior_void(raw_resized, mask)
-    gates["guide_ink"] = verify_no_guide_ink(raw_resized, mask)
-    gates["detail_budget"] = verify_detail_budget(
-        raw_resized, mask, Image.open(material_path).convert("RGB"))
-
-    gv = verify_texture(guide_path, gen_out, kind, anchor_path=material_path,
-                         allowed_items=[b["label"] for b in boxes])
-    total_cost += gv.get("_cost", 0.0)
-    gates["gemini_geometry"] = gv
-
     # scale boxes from the boxed-guide's px size to the final texel size
-    # before cropping the finished texture (they can differ slightly).
+    # up front -- needed both for the (now box-aware) detail-budget gate
+    # and for item-placement/walkmask derivation below.
     guide_im = Image.open(boxed_guide_path)
     gw, gh = guide_im.size
     sx, sy = tex_w / gw, tex_h / gh
@@ -118,6 +107,18 @@ def run_room(stem: str, room_idx: int, kind_override: str | None = None) -> dict
     for b in boxes:
         x0, y0, x1, y1 = b["box"]
         scaled_boxes.append(dict(b, box=(int(x0 * sx), int(y0 * sy), int(x1 * sx), int(y1 * sy))))
+
+    gates = {}
+    gates["fullbleed"] = verify_fullbleed(raw_resized, mask, darken_thresh=1.55)
+    gates["interior_void"] = verify_no_interior_void(raw_resized, mask)
+    gates["guide_ink"] = verify_no_guide_ink(raw_resized, mask)
+    gates["detail_budget"] = verify_detail_budget(
+        raw_resized, mask, Image.open(material_path).convert("RGB"), boxes=scaled_boxes)
+
+    gv = verify_texture(guide_path, gen_out, kind, anchor_path=material_path,
+                         allowed_items=[b["label"] for b in boxes])
+    total_cost += gv.get("_cost", 0.0)
+    gates["gemini_geometry"] = gv
 
     out_final = V3_OUT / "final" / f"{stem}_room{room_idx:03d}.png"
     out_final.parent.mkdir(parents=True, exist_ok=True)

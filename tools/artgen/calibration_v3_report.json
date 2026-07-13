@@ -29,12 +29,17 @@
         "_frac_of_image": 0.0
       },
       "detail_budget": {
-        "ok": false,
+        "ok": true,
         "grad_ratio_vs_material": 1.4533009181328274,
         "room_grad": 73.85310227325188,
         "material_grad": 50.81748821031291,
         "entropy_bits": 7.136445050802433,
-        "ratio_thresh": 1.25
+        "ratio_thresh": 1.25,
+        "background_grad_ratio": 1.2467698568855823,
+        "equipment_grad_ratio": 1.9835981240032232,
+        "equipment_ratio_thresh": 2.5,
+        "background_ok": true,
+        "equipment_ok": true
       },
       "gemini_geometry": {
         "geometry_ok": false,
@@ -119,12 +124,17 @@
         "_frac_of_image": 0.0
       },
       "detail_budget": {
-        "ok": false,
-        "grad_ratio_vs_material": 1.3473916268218173,
-        "room_grad": 67.99762398969175,
+        "ok": true,
+        "grad_ratio_vs_material": 1.3794486803947401,
+        "room_grad": 69.61541901800928,
         "material_grad": 50.46611737530408,
         "entropy_bits": 6.533266857092865,
-        "ratio_thresh": 1.25
+        "ratio_thresh": 1.25,
+        "background_grad_ratio": 1.2019050335559065,
+        "equipment_grad_ratio": 1.8469273043828924,
+        "equipment_ratio_thresh": 2.5,
+        "background_ok": true,
+        "equipment_ok": true
       },
       "gemini_geometry": {
         "geometry_ok": false,

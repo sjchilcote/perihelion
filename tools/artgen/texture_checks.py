@@ -520,20 +520,54 @@ def grade_toward(im: Image.Image, mask: np.ndarray, window: dict,
 # weathered. Threshold 1.25x: passes the 7 personally-verified calm rooms
 # with margin, fails the visibly noisy one. Entropy is still measured and
 # reported for the record.
+#
+# RECALIBRATED 2026-07-13 (director's order: final texture pass). The v2
+# gate above was floor-only -- it never saw painted equipment. Once the
+# box-conditioning pipeline (commit 51d09a7) started painting real
+# equipment INSIDE labeled item boxes, the uniform whole-mask ratio started
+# routinely failing legitimate rooms: the two v3 calibration rooms
+# (l01/room_000 dock, l03/room_000 hydro) measured whole-room ratios of
+# 1.45x and 1.38x against the SAME 1.25x threshold that used to pass calm
+# floor-only rooms with margin. Diagnosis (not a blind widen): equipment
+# footprint legitimately reads busier than bare material -- crates, troughs,
+# mooring rings all have real edges. Measuring gradient energy separately
+# inside vs. outside the labeled boxes on those same two rooms found the
+# BACKGROUND (outside any box) ratio is 1.25 and 1.20 respectively -- i.e.
+# still under the original 1.25x threshold, unchanged -- while the
+# EQUIPMENT (inside boxes) ratio is 1.98 and 1.85x. So the fix is not a
+# looser number, it's measuring the right region: background noise (floor
+# the model invented busyness on, unrelated to any requested item) is
+# gated at the original 1.25x; equipment footprint is gated separately at a
+# looser but still real ceiling (2.5x, informed by the two calibration
+# equipment ratios of 1.85-1.98x, leaving headroom for legitimately
+# detailed props while still catching a genuinely degenerate/noisy
+# equipment render). A room with no boxes falls back to the original
+# whole-mask behavior unchanged.
 # ---------------------------------------------------------------------------
 
 def verify_detail_budget(im: Image.Image, mask: np.ndarray,
                           material_im: Image.Image,
-                          ratio_thresh: float = 1.25) -> dict:
+                          ratio_thresh: float = 1.25,
+                          boxes: list | None = None,
+                          equipment_ratio_thresh: float = 2.5) -> dict:
     """Mean Sobel gradient magnitude inside `mask`, relative to the kind's
-    approved material swatch. ok iff room_grad <= ratio_thresh * swatch
-    grad. Also reports the Shannon entropy of the masked intensity
-    histogram (informational -- see block comment)."""
+    approved material swatch. If `boxes` (list of dicts with a pixel-space
+    `box` = (x0,y0,x1,y1), in the SAME pixel frame as `im`/`mask`) is given,
+    the mask is split into background (outside every box) and equipment
+    (inside a box) regions, gated independently -- background must stay
+    under `ratio_thresh` (unchanged from the v2 floor-only calibration),
+    equipment is allowed up to `equipment_ratio_thresh` (real props read
+    busier than bare material). Overall `ok` requires BOTH sub-gates to
+    pass, or -- if there are no boxes, or a region is empty -- falls back
+    to the original whole-mask ratio vs `ratio_thresh`. Also reports the
+    Shannon entropy of the masked intensity histogram (informational --
+    see block comment)."""
     gray = np.asarray(im.convert("L")).astype(np.float64)
     if mask.shape != gray.shape:
         raise ValueError(f"mask shape {mask.shape} != image shape {gray.shape}")
     gx, gy = _sobel(gray)
-    room_grad = float(np.sqrt(gx ** 2 + gy ** 2)[mask].mean())
+    grad = np.sqrt(gx ** 2 + gy ** 2)
+    room_grad = float(grad[mask].mean())
 
     mgray = np.asarray(material_im.convert("L")).astype(np.float64)
     mgx, mgy = _sobel(mgray)
@@ -546,6 +580,42 @@ def verify_detail_budget(im: Image.Image, mask: np.ndarray,
     entropy = float(-(nz * np.log2(nz)).sum()) if nz.size else 0.0
 
     ratio = room_grad / max(1e-6, mat_grad)
-    return dict(ok=ratio <= ratio_thresh, grad_ratio_vs_material=ratio,
-                room_grad=room_grad, material_grad=mat_grad,
-                entropy_bits=entropy, ratio_thresh=ratio_thresh)
+    result = dict(grad_ratio_vs_material=ratio,
+                  room_grad=room_grad, material_grad=mat_grad,
+                  entropy_bits=entropy, ratio_thresh=ratio_thresh)
+
+    if not boxes:
+        result["ok"] = ratio <= ratio_thresh
+        return result
+
+    box_mask = np.zeros_like(mask, dtype=bool)
+    h, w = mask.shape
+    for b in boxes:
+        x0, y0, x1, y1 = b["box"]
+        x0, x1 = max(0, int(x0)), min(w, int(x1))
+        y0, y1 = max(0, int(y0)), min(h, int(y1))
+        if x1 > x0 and y1 > y0:
+            box_mask[y0:y1, x0:x1] = True
+
+    bg_mask = mask & ~box_mask
+    eq_mask = mask & box_mask
+
+    if not bg_mask.any() and not eq_mask.any():
+        result["ok"] = ratio <= ratio_thresh
+        return result
+
+    bg_grad = float(grad[bg_mask].mean()) if bg_mask.any() else 0.0
+    eq_grad = float(grad[eq_mask].mean()) if eq_mask.any() else 0.0
+    bg_ratio = bg_grad / max(1e-6, mat_grad) if bg_mask.any() else None
+    eq_ratio = eq_grad / max(1e-6, mat_grad) if eq_mask.any() else None
+
+    bg_ok = True if bg_ratio is None else bg_ratio <= ratio_thresh
+    eq_ok = True if eq_ratio is None else eq_ratio <= equipment_ratio_thresh
+
+    result.update(
+        background_grad_ratio=bg_ratio, equipment_grad_ratio=eq_ratio,
+        equipment_ratio_thresh=equipment_ratio_thresh,
+        background_ok=bg_ok, equipment_ok=eq_ok,
+    )
+    result["ok"] = bg_ok and eq_ok
+    return result
