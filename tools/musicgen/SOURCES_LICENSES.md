@@ -89,3 +89,37 @@ endorsed alternative: fluidsynth (already installed) + soundfonts, using ONLY CC
   "CC0/PD sources only, provenance logged" bar for the Catholic-tradition organ/
   choir/bell voices specifically. Kept only as a local scratch comparison, not
   wired into `real_sources.py`'s `BANK_ORDER`.
+
+## 2026-07-13 — freesound real guitar-chug + kick samples
+
+A listen-proxy sanity check (`gemini_listen.py`) on the CC0 GM soundfonts'
+"Distortion Guitar"/"Overdrive Guitar" patches came back negative even on
+the RAW unprocessed sample ("Brass... synthesized... buzzy", not "guitar") --
+i.e. the free GM soundfont's guitar patches are themselves low-fidelity, a
+source-quality problem, not a processing problem (isolated by testing the
+raw sample before any Gordon-chain processing). Pivoted to the director's
+other endorsed route (freesound CC0/CC-licensed real recordings) for guitar
+and kick specifically; kept the CC0 soundfonts for organ/choir/bells, which
+DID pass the same listen-proxy check.
+
+- **Guitar chug**: "100 BPM Rhythm Guitar B0 8th Note Chug 1" by Vrezerino,
+  https://freesound.org/people/Vrezerino/sounds/846771/, **CC Attribution
+  4.0** (not CC0 -- attribution required, logged here: "100 BPM Rhythm
+  Guitar B0 8th Note Chug 1" by Vrezerino, freesound.org, CC BY 4.0).
+  Downloaded via the public HQ preview URL (no login needed for the
+  preview stream): `https://cdn.freesound.org/previews/846/846771_17361-hq.mp3`.
+  One hit sliced out and run through `gordon_chain.guitar_chain()` to
+  produce `chug_sampled.wav` for the demo's rhythm-bed sample slot.
+  Listen-proxy check on the raw slice: "string... acoustic guitar riff...
+  real instrument: true".
+- **Kick**: "Metal Bass Drum" by deadpoetsocietyband,
+  https://freesound.org/people/deadpoetsocietyband/sounds/128970/, **CC0**
+  (page states "Creative Commons 0"). Same public-preview download route:
+  `https://cdn.freesound.org/previews/128/128970_2354572-hq.mp3`.
+- **Not committed to git** (source recordings only exist in scratchpad,
+  same <5MB commit-budget reasoning as the soundfonts) -- the committed
+  pipeline (`gordon_chain.py`, `melodies.py`) consumes pre-rendered
+  `demo_samples/{chug,kick}_sampled.wav` at render time, not raw
+  freesound audio; those processed one-shots are small enough to commit
+  if the director wants them locked in (currently left as a build step,
+  not committed, pending his ear-check on round 2).
