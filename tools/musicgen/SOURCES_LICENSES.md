@@ -214,3 +214,8 @@ reasoning as the soundfonts above):
   (Hall/Room/Plate/Early), loaded headless via pedalboard; factory preset
   values applied verbatim from the source preset table
   (DistrhoPluginInfo.h). Offline authoring only; scratchpad only.
+- **AudioRealism TR-909 Sample Pack** (audiorealism.se) — 853 samples from
+  a real TR-909 (11 accent layers/instrument, 5x5x5 kick/snare knob grid,
+  choke + phasing combos). Free download, free for personal & commercial
+  use per their site; NO redistribution — samples scratchpad-only, only
+  our renders are committed.
