@@ -67,11 +67,10 @@ def _snd(mp3: Path) -> dict:
 
 BANK = Path(__file__).resolve().parents[2] / "game/perihelion/assets/music/hymn01"
 
-RUBRIC = """AUDIO-ONLY task: the clip is the MUSIC track recorded from a
-top-down action game session (sound effects removed). You are a veteran
-TECHNICAL ARTIST reviewing the game's dynamic music implementation for a
-beta-quality gate. Do not judge composition quality or mixing polish —
-judge only the SYSTEM: does the music track the gameplay?
+RUBRIC = """Audio only: the music track from a top-down action game
+session, sound effects removed. Assess the dynamic music SYSTEM only —
+whether the music tracks the gameplay — not composition quality or mix
+polish.
 
 The session's gameplay timeline (from the game's own event log):
 {timeline}

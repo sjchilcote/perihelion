@@ -26,22 +26,22 @@ MODEL = "google/gemini-3.1-pro-preview"
 S = Path("/tmp/claude-1000/-home-login-PycharmProjects-noneuclideantopdownshooter"
          "/6f0b5b45-ac47-4526-b96e-c9dc90e4fe0b/scratchpad/musicgen")
 
-RUBRIC = """AUDIO-ONLY task (mono mixdown; ignore stereo width; do not
-trust absolute timestamps; sub-bass under-reports in your frontend — do
-not penalize it).
+RUBRIC = """Audio only, mono mixdown. Ignore stereo width. Your audio
+frontend under-reports sub-bass; do not penalize low end. Timestamps you
+infer are unreliable.
 
-You are a veteran producer of industrial/electronic music doing an
-honest review. The clip may be from ANY project — a commercial release,
-a demo, or a broken render.
+The clip is a music render from an unknown source: could be a commercial
+release, a work-in-progress, or a broken render.
 
-FIRST, brief-independent: does this WORK as music — intent, phrasing,
-rhythm that locks, sounds that belong together? A finished commercial
-industrial-metal track works as music BY DEFINITION even if abrasive;
-a render of disconnected noises does not. THEN production quality.
-THEN, separately, execution of this brief (score 0 if simply a
-different style, without letting that affect works_as_music):
-"Church music made by posthuman industrial machines that genuinely
-believe — with meaningful musical symbolism."
+Assess, in this order, keeping the assessments independent:
+1. Musicality (brief-independent): intent, phrasing, rhythm that locks,
+   sounds that belong together. A finished commercial track is musical
+   even if abrasive; disconnected noises are not.
+2. Production: source quality, balance, space.
+3. Brief execution, scored separately from 1 and 2. The brief: "Church
+   music made by posthuman industrial machines that genuinely believe —
+   with meaningful musical symbolism." A piece in a different style
+   scores low here without affecting its musicality score.
 
 Return STRICT JSON only:
 {"works_as_music": true/false,
