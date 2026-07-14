@@ -153,6 +153,41 @@ def test_perception_model_releases_entity_only_after_sampled_latency():
     assert latency_ticks >= 0.18 * 60 - 1  # sampled from >= 180ms
 
 
+def test_perception_model_widens_to_visible_ids_not_just_room_local():
+    """Direct unit test of the `visible_ids` widening (BOT_REALISM_DESIGN.md
+    §1: perception should be "entities inside the rendered viewport," which
+    for this seamless-portal engine is wider than room-membership -- see
+    `HumanBot._visible_enemy_screens`, which feeds this from
+    `session.visible()`, the renderer's own portal-visibility query).
+
+    Fail-first: pre-fix, `perceive` took no `visible_ids` parameter at all
+    -- a different-room entity could never be released no matter how
+    visible it was on screen (director's verdict, 2026-07-13: this was the
+    confirmed root cause of the bot running right past enemies it hadn't
+    room-crossed into range of yet). Confirms both halves: room-only
+    (`visible_ids` omitted) never releases a different-room entity no
+    matter how long it's watched; naming its id in `visible_ids` releases
+    it after the same sampled latency as any room-local entity."""
+    model = PerceptionModel(seed=42)
+    snap = dict(room=0, enemies=[dict(id=1, kind="husk", room=1, pos=(0, 0))])
+    ever_released_room_only = any(
+        model.perceive(snap, tick) for tick in range(120))
+    assert not ever_released_room_only, (
+        "a different-room entity was released without being named in "
+        "visible_ids -- the room-membership gate is not being enforced")
+
+    model2 = PerceptionModel(seed=42)
+    latency_ticks = None
+    for tick in range(120):
+        visible = model2.perceive(snap, tick, visible_ids=frozenset({1}))
+        if visible and latency_ticks is None:
+            latency_ticks = tick
+    assert latency_ticks is not None, (
+        "visible_ids did not widen perceivability to a different-room entity")
+    assert latency_ticks >= 0.18 * 60 - 1, (
+        "visible_ids bypassed the reaction-latency sampling")
+
+
 # ---------------------------------------------------------------------------
 # mouse trajectory
 # ---------------------------------------------------------------------------
@@ -500,3 +535,149 @@ def test_human_bot_sweeps_aim_at_the_threshold():
     assert max(xs) - min(xs) > 30.0, (
         f"aim did not sweep during threshold pause (x span "
         f"{max(xs) - min(xs):.1f}px)")
+
+
+# ---------------------------------------------------------------------------
+# absolute threat priority / viewport perception (director's verdict,
+# 2026-07-13: "it's way too hesitant to move, and will run right past
+# enemies coming at it instead of shooting them ... a human player who
+# sees an enemy ... is going to act to neutralize the threat immediately")
+# ---------------------------------------------------------------------------
+
+
+def build_portal_runpast_level() -> Level:
+    """A husk sits just past a doorway, off the direct line from the
+    player's spawn to the exit -- the collision-path scenario the director
+    described: the player's own route runs right past it. Empty-room-then-
+    portal geometry like `build_ambush_level`, but positioned close enough
+    to the shared portal that it is confirmed (see the fixture-validity
+    test below) to be in the renderer's own portal-visibility set well
+    before the player ever shares its room -- exactly the gap the
+    absolute-priority fix closes."""
+    b = LevelBuilder("portal_runpast")
+    r0 = b.rect(0, 0, 200, 200)
+    r1 = b.rect(300, 0, 260, 200)
+    b.connect(r0, 2, r1, 0)
+    b.entity(r1, "husk", (330, 70))
+    b.player(r0, (100, 100))
+    b.exit(r1, (540, 100))
+    return b.build()
+
+
+def test_husk_is_viewport_visible_through_the_portal_before_coroom():
+    """Fixture-validity guard for the two tests below: confirms the level
+    actually exercises the portal-visibility gap -- `session.visible()`
+    (the renderer's own query) sees the husk while the player is still in
+    room 0 -- rather than the assertions below happening to pass for some
+    unrelated reason."""
+    level = build_portal_runpast_level()
+    session = GameSession(level, seed=1)
+    snap = session.snapshot()
+    assert snap["room"] == 0
+    husk = snap["enemies"][0]
+    assert husk["room"] != snap["room"], "fixture bug: husk already co-room"
+    visible_ids = {eid for _r, _x, _d, _c, _w, _e, ents in session.visible()
+                   for eid, *_ in ents}
+    assert husk["id"] in visible_ids, (
+        "fixture bug: husk is not actually visible through the portal -- "
+        "the tests below would not be exercising the gap they claim to")
+
+
+def test_human_bot_does_not_run_past_an_enemy_seen_through_a_doorway():
+    """THE fail-first for the director's verdict. Root cause: HumanBot's
+    perception previously gated strictly on `enemy["room"] == player_room`
+    -- narrower than what the seamless-portal renderer actually draws (this
+    level's husk IS on screen through the doorway before co-room, per the
+    fixture-validity test above). A human reacts to an enemy the instant
+    it's visible, portal or not; the pre-fix bot could not.
+
+    Measured pre-fix (by forcing `_visible_enemy_screens` to return `{}`,
+    identical to the old behavior -- the fix is a strict widening with
+    exactly that as its room-only fallback) on this level, seed 1: the
+    threshold-pause ritual fired despite the husk being plainly visible,
+    and once the player finally reached co-room the bot still waited out a
+    fresh "surprise" latency from scratch on top of that -- fire lagged
+    co-room by 101 ticks (1.68s), and the kill didn't land until 125 ticks
+    (2.1s) after co-room. That is "running past": full nav speed through a
+    room with a visible threat, no reaction until physically level with
+    it, then a slow reacquire.
+
+    Post-fix, same level and seed: no ritual ever fires, and because the
+    bot had already been tracking the husk through the doorway, its
+    perception latency had already elapsed BY co-room -- fire starts the
+    same tick (lag=0) and the kill lands 22 ticks (0.37s) later. Assertion
+    margins below are generous over those measured numbers so the test
+    isn't pinned to one exact trajectory."""
+    level = build_portal_runpast_level()
+    bot = HumanBot(1)
+    session = GameSession(level, seed=1)
+    first_coroom = first_fire = kill_tick = None
+    pause_ticks_seen = lookaround_ticks_seen = 0
+    for tick in range(60 * 15):
+        if session.dead or session.complete:
+            break
+        snap = session.snapshot()
+        if not snap["enemies"]:
+            kill_tick = tick
+            break
+        if snap["enemies"][0]["room"] == snap["room"] and first_coroom is None:
+            first_coroom = tick
+        inp = bot.step(snap, session)
+        pause_ticks_seen = max(pause_ticks_seen, bot._pause_ticks)
+        lookaround_ticks_seen = max(lookaround_ticks_seen, bot._lookaround_ticks)
+        if inp.fire and first_fire is None:
+            first_fire = tick
+        session.tick(inp)
+    assert not session.dead
+    assert first_coroom is not None, "player never reached the husk's room"
+    assert pause_ticks_seen == 0, (
+        "threshold-pause ritual fired while the husk was on screen through "
+        "the doorway -- rituals must never fire while a threat is perceived")
+    assert lookaround_ticks_seen == 0, (
+        "curiosity-sweep ritual fired while a threat was perceived")
+    assert first_fire is not None, "bot never fired at all"
+    assert first_fire - first_coroom <= 10, (
+        f"fire lagged co-room by {first_fire - first_coroom} ticks -- the "
+        f"husk was visible well before co-room, so perception latency "
+        f"should already have elapsed by the time the player reached it "
+        f"(perception latency + ~200ms, not a fresh surprise reaction)")
+    assert kill_tick is not None and kill_tick - first_coroom <= 60, (
+        "did not kill the husk promptly after reaching it")
+
+    # "resumes ... once every perceived threat is dead": after the kill,
+    # nav toward the objective picks back up rather than staying stalled.
+    snap = session.snapshot()
+    inp = bot.step(snap, session)
+    assert inp.mx or inp.my, "bot did not resume its route after the kill"
+
+
+def test_rituals_never_fire_while_any_threat_is_perceived():
+    """General check of the director's law ("does not resume any other
+    activity ... until every perceived threat is dead") across several
+    seeds of the portal scenario: at no tick where anything is perceived
+    -- co-room or only visible through a portal -- may a threshold pause
+    or curiosity sweep be active. `perceive()` is idempotent for
+    inspection here (per-id latency is memoized on first sight; a same-
+    tick re-call neither draws a new sample nor changes state)."""
+    for seed in range(1, 6):
+        level = build_portal_runpast_level()
+        bot = HumanBot(seed)
+        session = GameSession(level, seed=seed)
+        for tick in range(60 * 15):
+            if session.dead or session.complete:
+                break
+            snap = session.snapshot()
+            if not snap["enemies"]:
+                break
+            inp = bot.step(snap, session)
+            visible_ids = frozenset(bot._visible_enemy_screens(session))
+            perceived = bot.perception.perceive(snap, snap["tick"],
+                                                 visible_ids=visible_ids)
+            if perceived:
+                assert bot._pause_ticks == 0, (
+                    f"seed={seed} tick={tick}: threshold pause active "
+                    f"while a threat was perceived")
+                assert bot._lookaround_ticks == 0, (
+                    f"seed={seed} tick={tick}: curiosity sweep active "
+                    f"while a threat was perceived")
+            session.tick(inp)
