@@ -1,0 +1,11 @@
+{
+  "seed": 401,
+  "flip": true,
+  "truth": "B",
+  "verdict": {
+    "human": "A",
+    "confidence": 0.62,
+    "reason": "Clip B shows a precise circular lock-on reticle snapped exactly onto a distant enemy at frame_000160, consistent with an aimbot-style instant target acquisition rather than human aiming."
+  },
+  "correct": false
+}

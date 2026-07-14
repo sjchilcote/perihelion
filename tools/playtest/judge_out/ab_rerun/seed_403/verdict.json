@@ -1,0 +1,11 @@
+{
+  "seed": 403,
+  "flip": true,
+  "truth": "B",
+  "verdict": {
+    "human": "A",
+    "confidence": 0.65,
+    "reason": "A takes visible damage (100\u219285 HP) and messier ammo drain while B clears the same swarm without a scratch, which reads as bot-perfect play rather than human reaction time."
+  },
+  "correct": false
+}

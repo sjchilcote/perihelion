@@ -1,0 +1,11 @@
+{
+  "seed": 402,
+  "flip": false,
+  "truth": null,
+  "verdict": {
+    "human": "B",
+    "confidence": 0.75,
+    "reason": "Clip B pauses combat to open and read a full lore text log (frame ~319), a deliberate exploratory behavior atypical of a bot optimizing for combat/score."
+  },
+  "correct": null
+}

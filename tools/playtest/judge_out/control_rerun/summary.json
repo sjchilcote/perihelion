@@ -1,0 +1,68 @@
+[
+  {
+    "seed": 401,
+    "flip": true,
+    "truth": null,
+    "verdict": {
+      "human": "B",
+      "confidence": 0.58,
+      "reason": "B shows a distinct mouse crosshair reticle decoupled from the player's facing/movement in the later frames (independent aim direction), while A's aim always tracks its movement heading exactly, suggesting scripted facing rather than free mouse-aim."
+    },
+    "correct": null
+  },
+  {
+    "seed": 402,
+    "flip": false,
+    "truth": null,
+    "verdict": {
+      "human": "B",
+      "confidence": 0.75,
+      "reason": "Clip B pauses combat to open and read a full lore text log (frame ~319), a deliberate exploratory behavior atypical of a bot optimizing for combat/score."
+    },
+    "correct": null
+  },
+  {
+    "seed": 403,
+    "flip": true,
+    "truth": null,
+    "verdict": {
+      "human": "A",
+      "confidence": 0.72,
+      "reason": "Clip A pauses mid-fight to open and read an environmental lore log (frame 359) \u2014 a curiosity-driven detour a scripted bot wouldn't take \u2014 while clip B pushes through the same enemy cluster with cleaner, near-damage-free efficiency until a late hit."
+    },
+    "correct": null
+  },
+  {
+    "seed": 404,
+    "flip": true,
+    "truth": null,
+    "verdict": {
+      "human": "B",
+      "confidence": 0.6,
+      "reason": "B explores more varied territory (picks up ammo, pushes into a new area on the right) and absorbs more inconsistent damage over time, while A parks in one spot fighting the same cluster with tidier, more efficient health management typical of scripted combat prioritization."
+    },
+    "correct": null
+  },
+  {
+    "seed": 405,
+    "flip": true,
+    "truth": null,
+    "verdict": {
+      "human": "B",
+      "confidence": 0.65,
+      "reason": "B pauses to open and read an optional lore terminal and takes damage during combat (100\u219285), while A clears the same encounters with mechanically perfect efficiency and zero damage taken."
+    },
+    "correct": null
+  },
+  {
+    "seed": 406,
+    "flip": true,
+    "truth": null,
+    "verdict": {
+      "human": "B",
+      "confidence": 0.65,
+      "reason": "Clip B shows the player taking damage (health drops 100\u219285) and messier engagement with the enemy swarm, while Clip A maintains perfect full health throughout, suggesting more optimal/bot-like play."
+    },
+    "correct": null
+  }
+]

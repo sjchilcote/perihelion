@@ -1,0 +1,11 @@
+{
+  "seed": 401,
+  "flip": true,
+  "truth": null,
+  "verdict": {
+    "human": "B",
+    "confidence": 0.58,
+    "reason": "B shows a distinct mouse crosshair reticle decoupled from the player's facing/movement in the later frames (independent aim direction), while A's aim always tracks its movement heading exactly, suggesting scripted facing rather than free mouse-aim."
+  },
+  "correct": null
+}

@@ -1,0 +1,68 @@
+[
+  {
+    "seed": 401,
+    "flip": true,
+    "truth": "B",
+    "verdict": {
+      "human": "A",
+      "confidence": 0.62,
+      "reason": "Clip B shows a precise circular lock-on reticle snapped exactly onto a distant enemy at frame_000160, consistent with an aimbot-style instant target acquisition rather than human aiming."
+    },
+    "correct": false
+  },
+  {
+    "seed": 402,
+    "flip": false,
+    "truth": "A",
+    "verdict": {
+      "human": "B",
+      "confidence": 0.78,
+      "reason": "B shows independent, reactive aim rotation and took damage/looted ammo/components while engaging enemies, whereas A moves in a ruler-straight beeline with its cursor locked to the travel direction and never reacts to nearby enemies or pickups."
+    },
+    "correct": false
+  },
+  {
+    "seed": 403,
+    "flip": true,
+    "truth": "B",
+    "verdict": {
+      "human": "A",
+      "confidence": 0.65,
+      "reason": "A takes visible damage (100\u219285 HP) and messier ammo drain while B clears the same swarm without a scratch, which reads as bot-perfect play rather than human reaction time."
+    },
+    "correct": false
+  },
+  {
+    "seed": 404,
+    "flip": true,
+    "truth": "B",
+    "verdict": {
+      "human": "A",
+      "confidence": 0.72,
+      "reason": "A took progressive damage (100\u219285\u219270\u219255) consistent with messier human combat, while B cleared the same enemy cluster without ever losing health, suggesting bot-like precision."
+    },
+    "correct": false
+  },
+  {
+    "seed": 405,
+    "flip": true,
+    "truth": "B",
+    "verdict": {
+      "human": "A",
+      "confidence": 0.65,
+      "reason": "Clip A pauses to open and read an in-world shift-note text log, a deliberate lore-curiosity interaction unlikely for a scripted bot, while clip B moves through the same combat encounter without ever stopping to read."
+    },
+    "correct": false
+  },
+  {
+    "seed": 406,
+    "flip": true,
+    "truth": "B",
+    "verdict": {
+      "human": "B",
+      "confidence": 0.62,
+      "reason": "B weaves evasively around the creature swarm instead of plowing straight through it and then stops to read an environmental lore panel, a curiosity-driven detour that doesn't fit an objective-optimizing bot, while A shows a more mechanically efficient straight-line clear-and-loot sequence through the same pack."
+    },
+    "correct": true
+  }
+]

@@ -1,0 +1,11 @@
+{
+  "seed": 406,
+  "flip": true,
+  "truth": "B",
+  "verdict": {
+    "human": "B",
+    "confidence": 0.62,
+    "reason": "B weaves evasively around the creature swarm instead of plowing straight through it and then stops to read an environmental lore panel, a curiosity-driven detour that doesn't fit an objective-optimizing bot, while A shows a more mechanically efficient straight-line clear-and-loot sequence through the same pack."
+  },
+  "correct": true
+}

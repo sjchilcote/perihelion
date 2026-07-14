@@ -1,0 +1,11 @@
+{
+  "seed": 405,
+  "flip": true,
+  "truth": "B",
+  "verdict": {
+    "human": "A",
+    "confidence": 0.65,
+    "reason": "Clip A pauses to open and read an in-world shift-note text log, a deliberate lore-curiosity interaction unlikely for a scripted bot, while clip B moves through the same combat encounter without ever stopping to read."
+  },
+  "correct": false
+}

@@ -1,0 +1,11 @@
+{
+  "seed": 406,
+  "flip": true,
+  "truth": null,
+  "verdict": {
+    "human": "B",
+    "confidence": 0.65,
+    "reason": "Clip B shows the player taking damage (health drops 100\u219285) and messier engagement with the enemy swarm, while Clip A maintains perfect full health throughout, suggesting more optimal/bot-like play."
+  },
+  "correct": null
+}

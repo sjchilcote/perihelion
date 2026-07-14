@@ -1,0 +1,11 @@
+{
+  "seed": 401,
+  "flip": true,
+  "truth": "B",
+  "verdict": {
+    "human": "A",
+    "confidence": 0.62,
+    "reason": "Clip A takes visible damage (100\u219285\u219270) during the firefight while B clears the same enemies without a scratch, and B's frame_160 shows a tight circling reticle lock that reads as mechanically precise aim rather than human drift."
+  },
+  "correct": false
+}

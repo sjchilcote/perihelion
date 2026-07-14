@@ -1,0 +1,11 @@
+{
+  "seed": 403,
+  "flip": true,
+  "truth": null,
+  "verdict": {
+    "human": "A",
+    "confidence": 0.72,
+    "reason": "Clip A pauses mid-fight to open and read an environmental lore log (frame 359) \u2014 a curiosity-driven detour a scripted bot wouldn't take \u2014 while clip B pushes through the same enemy cluster with cleaner, near-damage-free efficiency until a late hit."
+  },
+  "correct": null
+}

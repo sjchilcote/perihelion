@@ -1,0 +1,11 @@
+{
+  "seed": 404,
+  "flip": true,
+  "truth": null,
+  "verdict": {
+    "human": "B",
+    "confidence": 0.6,
+    "reason": "B explores more varied territory (picks up ammo, pushes into a new area on the right) and absorbs more inconsistent damage over time, while A parks in one spot fighting the same cluster with tidier, more efficient health management typical of scripted combat prioritization."
+  },
+  "correct": null
+}

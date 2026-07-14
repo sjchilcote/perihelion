@@ -1,0 +1,11 @@
+{
+  "seed": 404,
+  "flip": true,
+  "truth": "B",
+  "verdict": {
+    "human": "A",
+    "confidence": 0.72,
+    "reason": "A took progressive damage (100\u219285\u219270\u219255) consistent with messier human combat, while B cleared the same enemy cluster without ever losing health, suggesting bot-like precision."
+  },
+  "correct": false
+}

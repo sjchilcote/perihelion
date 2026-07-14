@@ -1,0 +1,11 @@
+{
+  "seed": 405,
+  "flip": true,
+  "truth": null,
+  "verdict": {
+    "human": "B",
+    "confidence": 0.65,
+    "reason": "B pauses to open and read an optional lore terminal and takes damage during combat (100\u219285), while A clears the same encounters with mechanically perfect efficiency and zero damage taken."
+  },
+  "correct": null
+}

@@ -1,0 +1,11 @@
+{
+  "seed": 402,
+  "flip": false,
+  "truth": "A",
+  "verdict": {
+    "human": "B",
+    "confidence": 0.78,
+    "reason": "B shows independent, reactive aim rotation and took damage/looted ammo/components while engaging enemies, whereas A moves in a ruler-straight beeline with its cursor locked to the travel direction and never reacts to nearby enemies or pickups."
+  },
+  "correct": false
+}
