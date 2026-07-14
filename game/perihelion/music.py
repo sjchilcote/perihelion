@@ -165,7 +165,11 @@ class MusicSystem:
         off mid-ring. self._applied holds bar-quantized TARGETS; _live
         holds what the channels actually sit at this frame."""
         p, c, d = self._applied
-        targets = {"prayer": p, "contempt": c, "stalwart": d,
+        # perceptual mapping: equal-power-ish curve — a 0.3 VALUE should be
+        # clearly audible, not volume 0.3 (judge heard small skirmishes as
+        # ignored)
+        targets = {"prayer": p ** 0.5, "contempt": c ** 0.5,
+                   "stalwart": d ** 0.5,
                    "riser": self._riser_gain * 0.85}
         fall_rate = dt / (1.5 * BAR_S)             # full fade ~1.5 bars
         master = getattr(self.bank, "master", 1.0)

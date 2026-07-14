@@ -211,7 +211,14 @@ def compile_track(tid: int, verbose=True) -> dict:
             role, lvl, off = "break", 0.8, bar_s
         chain = phrase_chain(ev, role,
                              block_steps - int(off / step_s) - 8)
-        line = parts.render_lead(rng, chain, step_s, reg, assets["lead"])
+        if assets.get("melody_voice") == "chant":
+            # liturgical melody voice (the machine congregation carries
+            # the line itself — prayer-state material)
+            line = parts.render_chant(rng, chain, step_s, reg - 12,
+                                      breath=0.15)
+        else:
+            line = parts.render_lead(rng, chain, step_s, reg,
+                                     assets["lead"])
         place(mel, line * lvl, t0 + off)
         melody_spans.append((t0 + off, chain, reg))
 

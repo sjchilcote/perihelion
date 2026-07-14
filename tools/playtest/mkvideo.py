@@ -114,7 +114,7 @@ def _mix_music(mix: np.ndarray, events: list, duration_s: float) -> None:
         env = np.zeros(n_total, dtype=np.float32)
         for i, (ts, val) in enumerate(tl):
             te = tl[i + 1][0] if i + 1 < len(tl) else duration_s
-            g = (val * 0.85) if name == "riser" else val[IDX[name]]
+            g = (val * 0.85) if name == "riser" else val[IDX[name]] ** 0.5
             s0, s1 = int(ts * RATE), min(int(te * RATE), n_total)
             if s1 > s0:
                 env[s0:s1] = g
