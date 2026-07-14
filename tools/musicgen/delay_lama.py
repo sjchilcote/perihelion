@@ -78,9 +78,12 @@ def render_vocal(events, step_s: float, base_midi: int = D3_MIDI,
         midp = Path(td) / "line.mid"
         wavp = Path(td) / "line.wav"
         _write_midi(events, step_s, midp, base_midi, vowels)
+        # wine + MrsWatson want paths relative to cwd (unix absolutes
+        # fail plugin-chain construction — M0 spike used relative paths)
         r = subprocess.run(
-            ["wine", str(HOST), "--plugin", str(DLL),
-             "--midi-file", str(midp), "--output", str(wavp),
+            ["wine", str(HOST.relative_to(DL_DIR)), "--plugin",
+             DLL.name, "--midi-file", str(midp.relative_to(DL_DIR)),
+             "--output", str(wavp.relative_to(DL_DIR)),
              "--sample-rate", str(SR)],
             capture_output=True, text=True, timeout=timeout_s,
             cwd=str(DL_DIR))
