@@ -125,7 +125,12 @@ class MusicSystem:
 
     def __init__(self, audio_bank, enabled: bool = True):
         self.bank = audio_bank
-        self.enabled = enabled and BANK_DIR.exists()
+        # the INPUT engine always runs (values, taps, riser logic — the
+        # part the director kept); only the MIXER needs stems on disk.
+        # With no bank (generation deleted; awaiting the commissioned
+        # artist's stems) the engine logs its state stream silently.
+        self.enabled = enabled
+        self.has_bank = BANK_DIR.exists() and any(BANK_DIR.glob("*.wav"))
         self.vals = (1.0, 0.0, 0.0)
         self.inputs: dict = {}
         self._applied = (1.0, 0.0, 0.0)
@@ -138,7 +143,7 @@ class MusicSystem:
 
     # -- mixer plumbing --------------------------------------------------
     def _ensure_started(self):
-        if self._started or not self.enabled:
+        if self._started or not self.enabled or not self.has_bank:
             return
         self._started = True
         if not getattr(self.bank, "_ready", False):
