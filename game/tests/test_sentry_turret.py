@@ -100,21 +100,37 @@ def test_sentry_never_damages_player():
     Without `_contact`'s explicit `kind == 'turret': pass`, a bullet this
     close to the player's own hitbox WOULD have hit them (that guard is
     pre-existing, shared with the cloister guardians -- this test pins
-    the *new* call site to it). Player sits directly on the sentry-target
-    firing line, 50 units from the muzzle; the target is pinned well
-    outside the player's own melee-touch range (100 units, vs a husk's
-    ~14.5u touch reach) so any hp loss can only be a bullet, never a bump."""
+    the *new* call site to it).
+
+    Geometry matters here: the player stands BETWEEN the sentry and its
+    target (not merely 'colinear' on the far side of the sentry, which
+    the first version of this test got wrong -- caught by deliberately
+    breaking the bullet's `kind` tag during review and finding the
+    'player never touched' result held for the wrong reason, because the
+    bullet never actually traveled anywhere near the player). `_sentry_
+    los_clear` only ever checks walk-mask TERRAIN, never other entities,
+    so the sentry keeps firing at the husk straight through the player's
+    own hitbox -- every one of those shots must physically contact the
+    player (proven below: the husk, entirely un-occluded and in range,
+    still survives, because the player's own body -- not a targeting
+    exclusion -- absorbs every round before it gets there) with zero
+    damage, tick after tick."""
     b = LevelBuilder("sentry_never_hits_player", 1)
     r0 = b.rect(0, 0, 400, 400)
-    b.player(r0, (150, 150))
-    b.entity(r0, "sentry", (150, 100))
+    b.entity(r0, "sentry", (150, 250))
+    b.player(r0, (150, 150))               # directly between sentry and husk
     b.entity(r0, "husk", (150, 50))
     b.exit(r0, (380, 380))
     s = GameSession(b.build(), seed=7)
     husk_id = _one_husk(s)
     _, hx0, hy0, *_ = s.sim.get(husk_id)
+    tid = next(iter(s.sentries))
+    _, tx0, ty0, *_ = s.sim.get(tid)
     px0, py0 = s.player_pos()
-    assert math.hypot(px0 - hx0, py0 - hy0) > 90.0, "test geometry sanity"
+    # sanity: player strictly between sentry and husk on that line, and
+    # well outside the husk's own melee-touch reach (~14.5u)
+    assert math.hypot(tx0 - px0, ty0 - py0) < math.hypot(tx0 - hx0, ty0 - hy0)
+    assert math.hypot(px0 - hx0, py0 - hy0) > 90.0
 
     shots_fired = 0
     for _ in range(600):
@@ -124,10 +140,10 @@ def test_sentry_never_damages_player():
         if husk_id in s.enemies:
             s.sim.set_pos(husk_id, hx0, hy0)
             s.sim.set_vel(husk_id, 0.0, 0.0)
-        else:
-            break
-    assert husk_id not in s.enemies, "setup sanity: the sentry should have killed it"
-    assert shots_fired >= 1, "test never actually exercised sentry fire"
+    assert shots_fired >= 10, "test never exercised repeated sentry fire through the player"
+    assert husk_id in s.enemies and s.enemies[husk_id]["hp"] == ENEMIES["husk"]["hp"], \
+        ("setup sanity: the husk is un-occluded and in range, so it surviving "
+         "proves every shot was consumed by the player's own hitbox, not a miss")
 
 
 # ---------------------------------------------------------------------
