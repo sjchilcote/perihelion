@@ -24,6 +24,18 @@ of each ammo type (health + ammo per the brief; no weapons, since a
 mid-game *loadout* is a run_farm.py `player_state` concern, not a level-
 content one — see run_farm.py's docstring).
 
+Sentries (director's directive, 2026-07-13: "let's put friendly turrets in
+the safe-room corridors"): one `"sentry"` entity (game/perihelion/sim.py's
+SENTRIES) placed at the centroid of each of the seven loot rooms -- the
+room the corridor's own geometry already makes its physical midpoint, and
+where FITTING_REPORT.md finding #1 measured the deadliest hazard in the
+whole gauntlet (pursuers with no de-aggro path following a hurt player to
+the medkits). Placement is unconditional (every loot room gets exactly
+one) and independent of `--density`, which only ever scales the enemy
+pool in the SIX COMBAT SEGMENTS above -- turret count and enemy density
+are orthogonal knobs by construction, so a density-matched rebuild
+isolates the turrets' effect.
+
 Geometry: each segment/corridor occupies its own, far-apart canvas band
 (20000 units per segment slot; corridors live in a disjoint y>=60000
 band). This is the "mind the autoconnect no_connect gate" trap the brief
@@ -229,6 +241,11 @@ def add_corridor(b: LevelBuilder, idx: int, start_attach, end_attach) -> dict:
     b.entity(loot_room, "ammo_shell", (cx, cy + 30))
     b.entity(loot_room, "ammo_cell", (cx + 40, cy + 30))
     b.light(loot_room, (cx, cy), color=(210, 230, 255), intensity=1.1, radius=170.0)
+    # the safe-room corridor's defensive emplacement: dead center, clear of
+    # both item clusters (y = cy +/- 30) and covering the whole 220x220
+    # room (range 260 in sim.py's SENTRIES) plus a margin past either
+    # doorway -- see the module docstring.
+    b.entity(loot_room, "sentry", (cx, cy))
 
     return dict(first_room=pieces[0], first_pos=room_center(b, pieces[0]),
                 last_room=pieces[-1], last_pos=room_center(b, pieces[-1]),

@@ -30,7 +30,40 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "playtest"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "musicgen"))
 import audio_judge  # noqa: E402
 import mkvideo      # noqa: E402  (build_mix for the music-only render)
-from anchored_critic import _call, _snd, _mp3  # noqa: E402
+
+
+def _call(content: list, tag: str) -> dict:
+    import urllib.request
+    body = {"model": audio_judge.MODEL,
+            "messages": [{"role": "user", "content": content}],
+            "temperature": 0.2}
+    req = urllib.request.Request(
+        audio_judge.OPENROUTER_URL, data=json.dumps(body).encode(),
+        headers={"Authorization": f"Bearer {audio_judge.openrouter_key()}",
+                 "Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=300) as resp:
+        payload = json.load(resp)
+    usage = payload.get("usage", {})
+    audio_judge._log_call({"tool": tag, "model": audio_judge.MODEL,
+                           "prompt_tokens": usage.get("prompt_tokens"),
+                           "completion_tokens": usage.get("completion_tokens")},
+                          float(usage.get("cost", 0.0) or 0.0))
+    return audio_judge._parse_json_response(
+        payload["choices"][0]["message"]["content"])
+
+
+def _mp3(src: Path, work: Path, max_s: float = 95.0) -> Path:
+    out = work / (src.stem + ".mp3")
+    if not out.exists():
+        audio_judge.to_mp3(src, out, max_s=max_s)
+    return out
+
+
+def _snd(mp3: Path) -> dict:
+    import base64
+    return {"type": "input_audio", "input_audio": {
+        "data": base64.b64encode(mp3.read_bytes()).decode(),
+        "format": "mp3"}}
 
 BANK = Path(__file__).resolve().parents[2] / "game/perihelion/assets/music/hymn01"
 

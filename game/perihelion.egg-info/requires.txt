@@ -1,2 +1,2 @@
 pygame-ce>=2.5
-numpy>=1.26
+numpy<2.5,>=1.26

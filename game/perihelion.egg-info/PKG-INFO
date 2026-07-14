@@ -4,4 +4,4 @@ Version: 0.1.0
 Summary: PERIHELION: a non-Euclidean Teleglitch-like survival shooter.
 Requires-Python: >=3.11
 Requires-Dist: pygame-ce>=2.5
-Requires-Dist: numpy>=1.26
+Requires-Dist: numpy<2.5,>=1.26

@@ -9,9 +9,19 @@ test to fail against (BOT_REALISM_DESIGN.md "Verification").
 `PerceptionModel` narrows that omniscient feed down to what a player could
 plausibly react to:
 
-  - only entities sharing the player's current room are perceivable at all
-    (matches the room-local sensor/lightmap boundary the renderer draws);
-  - a newly-room-shared entity is not acted on until a sampled reaction
+  - an entity is perceivable at all only once it is either room-local, OR
+    present in the caller's `visible_ids` -- the entities the renderer's
+    own portal-visibility query (`session.visible()`, see
+    `HumanBot._visible_enemy_screens`) currently has on screen. The engine
+    is a seamless-portal design (design_document_2.md §11): a player sees
+    into a neighboring room through an open doorway before ever crossing
+    into it, so "on screen" is strictly wider than "room-local," and
+    gating on room-membership alone made the bot blind to enemies plainly
+    in frame -- the confirmed root cause of it running right past ones
+    that hadn't crossed the room-index boundary yet (director's verdict,
+    2026-07-13). Room-membership alone remains the default/fallback for
+    callers that don't have a `session` to query (direct unit tests below).
+  - a newly-perceivable entity is not acted on until a sampled reaction
     latency has elapsed since it first became perceivable -- ~180-280ms
     when the bot is already anticipating that spot (pre-aimed), ~280-450ms
     for a surprise appearance (design doc's "reaction latency" + "surprise
@@ -38,8 +48,9 @@ SURPRISE_LATENCY_RANGE = (0.28, 0.45)
 
 
 class PerceptionModel:
-    """Tracks, per enemy id, when it first became room-local to the player
-    and the sampled latency before the bot may act on it."""
+    """Tracks, per enemy id, when it first became perceivable (room-local
+    or on-screen via `visible_ids`) and the sampled latency before the bot
+    may act on it."""
 
     def __init__(self, seed: int = 0):
         self.rng = Random(seed)
@@ -53,21 +64,33 @@ class PerceptionModel:
             del self._latency[eid]
 
     def perceive(self, snapshot: dict, tick: int,
-                 anticipated_ids: frozenset[int] = frozenset()) -> list[dict]:
-        """Return the subset of `snapshot["enemies"]` sharing the player's
-        room that have been perceivable for at least their sampled latency.
+                 anticipated_ids: frozenset[int] = frozenset(),
+                 visible_ids: frozenset[int] = frozenset()) -> list[dict]:
+        """Return the subset of `snapshot["enemies"]` currently perceivable
+        (room-local, OR present in `visible_ids`) that have been
+        perceivable for at least their sampled latency.
 
         `anticipated_ids` names enemies the caller already had a pre-aim on
         (e.g. a doorway sweep landed on their spot) -- those draw from the
         fast latency tail; everything else is a surprise.
+
+        `visible_ids` names entities the renderer's own visibility query
+        currently has on screen, room-membership aside (a room-local
+        entity is always implicitly visible, so this only ever WIDENS the
+        candidate set -- callers with no `session` to query simply omit
+        it and get the old room-only behavior). Positions for a returned
+        entity that is NOT room-local are in THAT entity's own room-local
+        frame, not the player's -- never diff them against the player's
+        position; see `HumanBot._distant_threat_input`.
         """
         proom = snapshot["room"]
-        in_room = [e for e in snapshot["enemies"] if e["room"] == proom]
-        present_ids = {e["id"] for e in in_room}
+        candidates = [e for e in snapshot["enemies"]
+                      if e["room"] == proom or e["id"] in visible_ids]
+        present_ids = {e["id"] for e in candidates}
         self._forget(present_ids)
 
         visible = []
-        for e in in_room:
+        for e in candidates:
             eid = e["id"]
             if eid not in self._first_seen:
                 self._first_seen[eid] = tick
@@ -80,6 +103,7 @@ class PerceptionModel:
         return visible
 
     def ticks_perceivable(self, eid: int, tick: int) -> int:
-        """How many ticks this entity has been in-room, for diagnostics/tests."""
+        """How many ticks this entity has been a candidate (room-local or
+        visible), for diagnostics/tests."""
         first = self._first_seen.get(eid)
         return -1 if first is None else tick - first

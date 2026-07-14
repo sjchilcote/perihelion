@@ -2,24 +2,24 @@
   "l01/room_000": {
     "key": "l01/room_000",
     "kind": "dock",
-    "cost": 0.08670449999999999,
+    "cost": 0.086933,
     "n_boxes": 4,
     "n_decal_marks": 0,
     "gates": {
       "fullbleed": {
         "ok": true,
-        "edge_mean": 77.56412506103516,
-        "center_mean": 98.83712768554688,
-        "darken_ratio": 1.2742634253628466,
-        "edge_grad": 14.042627334594727,
-        "center_grad": 9.164337158203125,
-        "grad_ratio": 1.5323123857381193,
+        "edge_mean": 77.21219635009766,
+        "center_mean": 93.8604965209961,
+        "darken_ratio": 1.2156174925449765,
+        "edge_grad": 11.725525856018066,
+        "center_grad": 7.496556758880615,
+        "grad_ratio": 1.5641215338132008,
         "border_darkening": false,
         "border_structure": false
       },
       "interior_void": {
-        "ok": false,
-        "black_frac": 0.029983164983164983,
+        "ok": true,
+        "black_frac": 0.001531986531986532,
         "frac_thresh": 0.02
       },
       "guide_ink": {
@@ -29,64 +29,58 @@
         "_frac_of_image": 0.0
       },
       "detail_budget": {
-        "ok": true,
-        "grad_ratio_vs_material": 1.4533009181328274,
-        "room_grad": 73.85310227325188,
+        "grad_ratio_vs_material": 1.1440246217147454,
+        "room_grad": 58.136457726296754,
         "material_grad": 50.81748821031291,
-        "entropy_bits": 7.136445050802433,
+        "entropy_bits": 6.668085761067508,
         "ratio_thresh": 1.25,
-        "background_grad_ratio": 1.2467698568855823,
-        "equipment_grad_ratio": 1.9835981240032232,
+        "background_grad_ratio": 1.0655797242391574,
+        "equipment_grad_ratio": 1.4454715830904168,
         "equipment_ratio_thresh": 2.5,
         "background_ok": true,
-        "equipment_ok": true
+        "equipment_ok": true,
+        "ok": true
       },
       "gemini_geometry": {
-        "geometry_ok": false,
+        "geometry_ok": true,
         "style_ok": true,
         "palette_ok": true,
         "fidelity_ok": true,
         "fullbleed_ok": false,
         "verdict": "fail",
-        "notes": "The generated texture has severe geometry drift, cutting out chunks of the rectangular room shape on the right edge. It also fails fullbleed due to a prominent structural metal border with inset panel lines running along the right edge instead of seamless tiling flooring.",
-        "_cost": 0.0070065
+        "notes": "The generated texture matches the requested box-conditioned props (crates, hazard lane, mooring rings) and matches the style anchor closely. However, it fails fullbleed_ok due to a prominent dark frame border and raised trim/conduit line running around the entire outer perimeter of the room.",
+        "_cost": 0.0072405
       },
       "item_placement": {
         "results": [
           {
             "label": "CRATE STACK",
             "present": true,
-            "notes": "crate stack"
+            "notes": "unambiguous crate stack visible"
           },
           {
             "label": "CRATE STACK",
             "present": true,
-            "notes": "crate stack"
+            "notes": "unambiguous crate stack visible"
           },
           {
             "label": "HAZARD LANE",
             "present": false,
-            "notes": "bare floor"
+            "notes": "shows only crates and metal floor plates"
           },
           {
             "label": "MOORING RING WALL",
             "present": false,
-            "notes": "bare edge/wall trim"
+            "notes": "shows only bare rusty metal wall or paneling"
           }
         ],
         "all_present": false,
-        "_cost": 0.009444
+        "_cost": 0.010134
       },
       "walkmask_connectivity": {
-        "ok": false,
+        "ok": true,
         "n_portals": 6,
-        "unreachable_edges": [
-          2,
-          3,
-          4,
-          5,
-          6
-        ]
+        "unreachable_edges": []
       }
     },
     "overall_ok": false,
@@ -97,24 +91,24 @@
   "l03/room_000": {
     "key": "l03/room_000",
     "kind": "hydro",
-    "cost": 0.08482250000000001,
+    "cost": 0.085797,
     "n_boxes": 3,
     "n_decal_marks": 1,
     "gates": {
       "fullbleed": {
         "ok": true,
-        "edge_mean": 77.07609558105469,
-        "center_mean": 76.4821548461914,
-        "darken_ratio": 0.9922940993522605,
-        "edge_grad": 10.33345890045166,
-        "center_grad": 9.24061107635498,
-        "grad_ratio": 1.118265752672253,
+        "edge_mean": 84.94841766357422,
+        "center_mean": 85.33500671386719,
+        "darken_ratio": 1.0045508681730129,
+        "edge_grad": 8.93829345703125,
+        "center_grad": 8.320157051086426,
+        "grad_ratio": 1.0742938387039351,
         "border_darkening": false,
         "border_structure": false
       },
       "interior_void": {
         "ok": true,
-        "black_frac": 0.0008763963597797577,
+        "black_frac": 0.001714688530003874,
         "frac_thresh": 0.02
       },
       "guide_ink": {
@@ -124,48 +118,48 @@
         "_frac_of_image": 0.0
       },
       "detail_budget": {
-        "ok": true,
-        "grad_ratio_vs_material": 1.3794486803947401,
-        "room_grad": 69.61541901800928,
+        "grad_ratio_vs_material": 1.2747749939683777,
+        "room_grad": 64.3329444727107,
         "material_grad": 50.46611737530408,
-        "entropy_bits": 6.533266857092865,
+        "entropy_bits": 6.469998630260152,
         "ratio_thresh": 1.25,
-        "background_grad_ratio": 1.2019050335559065,
-        "equipment_grad_ratio": 1.8469273043828924,
+        "background_grad_ratio": 1.0889496362564686,
+        "equipment_grad_ratio": 1.899178863187585,
         "equipment_ratio_thresh": 2.5,
         "background_ok": true,
-        "equipment_ok": true
+        "equipment_ok": true,
+        "ok": true
       },
       "gemini_geometry": {
         "geometry_ok": false,
         "style_ok": true,
         "palette_ok": true,
         "fidelity_ok": true,
-        "fullbleed_ok": false,
+        "fullbleed_ok": true,
         "verdict": "fail",
-        "notes": "The generated texture completely fails to respect the BASE TRUTH silhouette, filling in most of the negative space on the right and overlaying orange zoning boxes. Additionally, the texture shows no awareness of the room boundaries and lacks any actual floor edge definition.",
-        "_cost": 0.0071385
+        "notes": "The texture matches style and fullbleed constraints, but contains an unrequested directional chevron painted on the bottom middle edge, which violates the geometry/prop rules.",
+        "_cost": 0.0069765
       },
       "item_placement": {
         "results": [
           {
             "label": "WALL TROUGH",
             "present": true,
-            "notes": "partially visible trough along the bottom wall edge"
+            "notes": "Partially visible wall trough with plants"
           },
           {
             "label": "WALL TROUGH",
             "present": true,
-            "notes": "partially visible trough along the bottom wall edge"
+            "notes": "Partially visible wall trough with plants"
           },
           {
             "label": "CENTER TROUGH",
             "present": true,
-            "notes": "clear, well-defined industrial floor trough"
+            "notes": "Clearly visible center trough with plants"
           }
         ],
         "all_present": true,
-        "_cost": 0.0080205
+        "_cost": 0.0079635
       },
       "walkmask_connectivity": {
         "ok": false,

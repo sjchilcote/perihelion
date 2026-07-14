@@ -9,10 +9,22 @@ like it does for real keyboard/mouse input).
 
 What makes this bot different from `AggroBot` is entirely upstream of that
 struct: it never looks at `snapshot["enemies"]` directly, only at what
-`PerceptionModel.perceive` releases after room-locality + reaction latency;
-its aim is the output of a velocity/accel-bounded `MouseModel`, not a
-computed angle; and it carries stress state (flinch, pressure) sampled from
-its own seeded RNG stream, per design doc §8.
+`PerceptionModel.perceive` releases after visibility (room-local, or on
+screen via the renderer's own portal-visibility query -- see
+`_visible_enemy_screens`) + reaction latency; its aim is the output of a
+velocity/accel-bounded `MouseModel`, not a computed angle; and it carries
+stress state (flinch, pressure) sampled from its own seeded RNG stream,
+per design doc §8.
+
+Threat neutralization is absolute priority (director's verdict,
+2026-07-13): the instant anything is perceived, `step` cancels every
+ritual (threshold pause, curiosity sweep) and either fights it (co-room)
+or closes the distance with the weapon up (seen through a portal, not yet
+co-room) -- never resuming navigation-toward-objective, and never running
+past it, until nothing is perceived. The recognized exceptions are the
+flanked-choke escape (§5, still fights while leaving) and the low-HP
+disengage-while-firing in `_combat_input`; both keep engaging, they just
+change the footwork.
 
 The optional Sonnet tactical layer (§7) is out of scope for this module --
 see `tools/playtest/tactician.py`. Without it, `HumanBot` runs on the
@@ -60,6 +72,24 @@ FIRE_ERR = math.radians(9.0)
 # fire duty cycle -- tune this one number, not the reaction-latency or
 # mouse-trajectory constants, if the director wants the bot sharper/sloppier.
 DEFAULT_SKILL = 4.0
+
+# Movement-hesitancy tunables (director's verdict, 2026-07-13: "it's way
+# too hesitant to move"). Each ran long/deep enough pre-tune to read as
+# dithering instead of the "beat of intention" design doc §3/§4 call for.
+# Retuned down together with the absolute-priority fix in `step` (rituals
+# now also cancel the instant a threat is merely VISIBLE, not just once
+# it's shared the player's room -- see `_visible_enemy_screens` -- so in
+# enemy-dense areas they fire far less often even though the trigger
+# condition below is otherwise unchanged; "rarer" comes from that
+# preemption, "shorter" from the numbers themselves).
+PAUSE_TICKS = (8, 16)          # was (28, 55): ~0.13-0.27s, was ~0.47-0.92s
+ENTRY_BIAS_TICKS = 14          # was 25: matched back down to the shorter pause
+LOOKAROUND_TICKS = (12, 22)    # was (30, 60): ~0.2-0.37s, was ~0.5-1.0s
+LOOKAROUND_MOVE_SCALE = 0.75   # was 0.5: a glance, not a crawl
+TEMPO_INIT = 0.95              # was 0.9
+TEMPO_MIN = 0.85               # was 0.7: permanent foot-drag floor raised
+HARD_TURN_COS = 0.5            # was 0.75 (~41deg): only >~60deg sheds speed
+HARD_TURN_SCALE = 0.75         # was 0.55: gentler shed when it does trigger
 
 
 class HumanBot(_UnstickMixin, Bot):
@@ -110,7 +140,7 @@ class HumanBot(_UnstickMixin, Bot):
         self._gaze_off = (0.0, 0.0)
         self._gaze_radius = 80.0
         # variable tempo (§6): slow multiplicative random walk on move speed
-        self._tempo = 0.9
+        self._tempo = TEMPO_INIT
         # single-threaded attention (design doc §1): the current focus
         # target, held with hysteresis. Without this, two equidistant
         # enemies flip "nearest" every tick and the cursor oscillates
@@ -175,18 +205,38 @@ class HumanBot(_UnstickMixin, Bot):
         # look-around beat (design doc §6)
         if proom not in self._visited_rooms:
             if self._visited_rooms:  # not the spawn room
-                self._lookaround_ticks = self._nav_rng.randint(30, 60)
+                self._lookaround_ticks = self._nav_rng.randint(*LOOKAROUND_TICKS)
             self._visited_rooms.add(proom)
 
+        # THREAT NEUTRALIZATION IS ABSOLUTE PRIORITY (director's verdict,
+        # 2026-07-13). Perception is "on the screen," not "room-membership"
+        # -- `session.visible()` is the exact portal-visibility query the
+        # renderer uses, so an enemy plainly in frame through an open
+        # doorway counts even before the player has crossed the room-index
+        # boundary the sim uses for bookkeeping. Gating on room-membership
+        # alone was the confirmed root cause of the bot running right past
+        # enemies it hadn't room-crossed into range of yet: it was blind to
+        # anything the renderer had already put on screen. See
+        # `_visible_enemy_screens`.
+        visible_screens = self._visible_enemy_screens(session)
         anticipated = self._anticipated_ids(session, snapshot, px, py)
-        perceived = self._perception.perceive(snapshot, tick, anticipated)
+        perceived = self._perception.perceive(snapshot, tick, anticipated,
+                                               frozenset(visible_screens))
+        # Co-room entries have valid room-local coordinates for the
+        # existing aim/movement math. Anything only glimpsed through a
+        # portal does not -- positions from different rooms are different
+        # local frames, never diffed against the player's -- and is
+        # handled screen-space-only by `_distant_threat_input` until the
+        # bot actually reaches it.
+        co_room = [e for e in perceived if e["room"] == proom]
+        distant = [e for e in perceived if e["room"] != proom]
 
-        if perceived:
+        if co_room:
             self._pause_ticks = 0  # combat preempts any threshold ritual
             self._lookaround_ticks = 0
             self._combat_streak += 1
             self._last_contact_tick = tick
-            inp = self._combat_input(session, snapshot, perceived, px, py)
+            inp = self._combat_input(session, snapshot, co_room, px, py)
             # sustained-pressure escape (ported from AggroBot): a fight
             # that has accumulated ~10s of net pressure -- including the
             # portal ping-pong pattern where contact keeps dropping and
@@ -197,36 +247,37 @@ class HumanBot(_UnstickMixin, Bot):
                     inp.mx, inp.my = mx_, my_
             return self._apply_unstick(px, py, inp)
 
+        if distant:
+            # A threat plainly on screen cancels every ritual just like a
+            # co-room one -- never run PAST something the bot can see
+            # coming. It just can't be fired on yet: every weapon's hit
+            # test is room-scoped (`sim._fire`/`_fire_rail` resolve
+            # targets from `room_entities(proom)` / a raycast rooted at
+            # `proom`), so "firing" here could never connect and would
+            # just be an ammo-waste, spray-at-nothing tell. Orient and
+            # close the distance instead; `co_room` above takes over --
+            # fire included -- the tick it's actually reached.
+            self._pause_ticks = 0
+            self._lookaround_ticks = 0
+            self._escape_ticks = 0
+            self._last_contact_tick = tick
+            inp = self._distant_threat_input(session, snapshot, distant,
+                                              visible_screens, px, py)
+            return self._apply_unstick(px, py, inp)
+
         self._combat_streak = max(0, self._combat_streak - 2)
         self._escape_ticks = 0
         inp = InputFrame()
-        medkits = [p for p in snapshot["pickups"]
-                   if p["kind"] == "medkit" and 0 <= p["hops"] <= 3]
-        if snapshot["hp"] < 60 and medkits:
-            target = None
-            if self._med_target is not None:
-                target = next((p for p in medkits
-                               if (p["room"], p["pos"]) == self._med_target),
-                              None)
-            if target is None:
-                target = min(medkits, key=lambda p: (p["hops"], p["room"]))
-                self._med_target = (target["room"], target["pos"])
-            if target["room"] == proom:
-                goal = target["pos"]
-            else:
-                edge = session.sim.next_edge(proom, target["room"])
-                goal = session.sim.edge_midpoint(proom, edge) if edge >= 0 else None
-            if goal is not None:
-                way = self._steer_target(session, proom, (px, py), goal)
-                inp.mx, inp.my = nav_to_point(session, px, py, way)
-        else:
-            self._med_target = None
-            inp.mx, inp.my = self._nav_exit_move(session, snapshot, px, py)
+        inp.mx, inp.my = self._objective_move(session, snapshot, px, py, proom)
 
         # room-entry protocol (design doc §3): pause at the threshold of
         # unexplored territory and lamp-sweep it from the doorway. A hurt
         # player, or one fresh out of contact, hurries instead -- the
-        # ritual reads human only when the situation is calm.
+        # ritual reads human only when the situation is calm. Short and
+        # infrequent by construction (director's verdict, 2026-07-13:
+        # "way too hesitant to move") -- a beat of intention, not a
+        # dither -- and preempted entirely the instant anything is
+        # perceived, not just once it shares the room (see above).
         calm = snapshot["hp"] >= 50 and tick - self._last_contact_tick > 60 * 3
         if calm:
             self._maybe_start_threshold_pause(session, proom, px, py)
@@ -246,9 +297,10 @@ class HumanBot(_UnstickMixin, Bot):
         inp.mx, inp.my = self._humanize_move(inp.mx, inp.my)
 
         if self._lookaround_ticks > 0:
-            # curiosity sweep: slow down and look around the new room
+            # curiosity sweep: slow down (not crawl) and look around
             self._lookaround_ticks -= 1
-            inp.mx, inp.my = inp.mx * 0.5, inp.my * 0.5
+            inp.mx, inp.my = (inp.mx * LOOKAROUND_MOVE_SCALE,
+                               inp.my * LOOKAROUND_MOVE_SCALE)
             ahead = (px + math.cos(self._aim_world_angle) * 120.0,
                      py + math.sin(self._aim_world_angle) * 120.0)
             ax, ay = self._sweep_aim(session, px, py, ahead)
@@ -259,12 +311,91 @@ class HumanBot(_UnstickMixin, Bot):
             mouse = self._ensure_mouse(ax, ay)
             inp.ax, inp.ay = mouse.step(ax, ay, 1.0 / 60.0)
 
-        # variable tempo (§6): nobody holds the stick at exactly 1.0
+        # variable tempo (§6): nobody holds the stick at exactly 1.0 --
+        # narrow, high floor (director's verdict, 2026-07-13: the old
+        # 0.7-1.0 range read as permanent foot-dragging, not the occasional
+        # confident-burst/careful-step variation it was meant to be).
         self._tempo += self._nav_rng.uniform(-0.02, 0.02)
-        self._tempo = max(0.7, min(1.0, self._tempo))
+        self._tempo = max(TEMPO_MIN, min(1.0, self._tempo))
         inp.mx, inp.my = inp.mx * self._tempo, inp.my * self._tempo
 
         return self._apply_unstick(px, py, inp)
+
+    def _visible_enemy_screens(self, session: GameSession
+                                ) -> dict[int, tuple[float, float]]:
+        """Every entity id currently in the renderer's own portal-visibility
+        set (`session.visible()` -- the exact query the real renderer calls
+        every frame to decide what's on screen, walking `max_depth` portal
+        hops out), mapped to its screen position. This is the perception
+        channel design doc §1 actually specifies ("entities inside the
+        rendered viewport"): wider than room-membership, because the
+        seamless-portal renderer shows a neighboring room's contents
+        through an open doorway before the player ever crosses into it.
+        Cheap: a pure geometry query (no rasterization), measured well
+        under the render pass's own per-frame cost."""
+        screens: dict[int, tuple[float, float]] = {}
+        for _room, _xform, _depth, _clip, _walls, _entry_edge, ents \
+                in session.visible():
+            for eid, sx, sy, _dirx, _diry, _srad, _fully_inside in ents:
+                screens[eid] = (sx, sy)
+        return screens
+
+    def _objective_move(self, session: GameSession, snapshot: dict,
+                         px: float, py: float, proom: int) -> tuple[float, float]:
+        """Movement toward the current objective: a nearby medkit when
+        hurt, otherwise the exit. Shared by the no-threat branch and by
+        `_distant_threat_input` -- closing on a threat still has to go
+        SOMEWHERE, and that somewhere is wherever the bot was already
+        headed (usually exactly the room the threat was spotted in)."""
+        medkits = [p for p in snapshot["pickups"]
+                   if p["kind"] == "medkit" and 0 <= p["hops"] <= 3]
+        if snapshot["hp"] < 60 and medkits:
+            target = None
+            if self._med_target is not None:
+                target = next((p for p in medkits
+                               if (p["room"], p["pos"]) == self._med_target),
+                              None)
+            if target is None:
+                target = min(medkits, key=lambda p: (p["hops"], p["room"]))
+                self._med_target = (target["room"], target["pos"])
+            if target["room"] == proom:
+                goal = target["pos"]
+            else:
+                edge = session.sim.next_edge(proom, target["room"])
+                goal = session.sim.edge_midpoint(proom, edge) if edge >= 0 else None
+            if goal is None:
+                return (0.0, 0.0)
+            way = self._steer_target(session, proom, (px, py), goal)
+            return nav_to_point(session, px, py, way)
+        self._med_target = None
+        return self._nav_exit_move(session, snapshot, px, py)
+
+    def _distant_threat_input(self, session: GameSession, snapshot: dict,
+                               distant: list[dict],
+                               visible_screens: dict[int, tuple[float, float]],
+                               px: float, py: float) -> InputFrame:
+        """Orient toward the nearest threat that's on screen but not yet
+        room-local: aim tracks its actual screen position (valid regardless
+        of which room it's physically in -- the renderer already did that
+        transform for us), movement keeps closing on the objective that
+        put it in view in the first place. No fire here (see `step`'s
+        comment: no weapon's hit test can connect room-to-room) -- this is
+        "advance with the weapon up," not combat footwork; that starts the
+        instant `co_room` does."""
+        proom = snapshot["room"]
+        inp = InputFrame()
+        inp.mx, inp.my = self._objective_move(session, snapshot, px, py, proom)
+        inp.mx, inp.my = self._humanize_move(inp.mx, inp.my)
+
+        # cross-room comparisons are invalid (different local frames) --
+        # `hops` is the one graph-distance field that IS comparable here
+        target = min(distant, key=lambda e: (e["hops"], e["id"]))
+        target_ax, target_ay = visible_screens.get(
+            target["id"], (session.screen_w / 2.0, session.screen_h / 2.0))
+        mouse = self._ensure_mouse(target_ax, target_ay)
+        inp.ax, inp.ay = mouse.step(target_ax, target_ay, 1.0 / 60.0)
+        inp.fire = False
+        return inp
 
     def _travel_aim(self, session: GameSession, mx: float, my: float
                      ) -> tuple[float, float]:
@@ -386,10 +517,10 @@ class HumanBot(_UnstickMixin, Bot):
             mx_, my_ = session.sim.edge_midpoint(proom, edge)
             if math.hypot(mx_ - px, my_ - py) < self.THRESHOLD_RADIUS:
                 self._paused_thresholds.add((proom, edge))
-                self._pause_ticks = self._nav_rng.randint(28, 55)
+                self._pause_ticks = self._nav_rng.randint(*PAUSE_TICKS)
                 self._pause_mid = (mx_, my_)
                 self._sweep_phase = self._nav_rng.uniform(0.0, math.pi)
-                self._entry_bias_ticks = 25
+                self._entry_bias_ticks = ENTRY_BIAS_TICKS
                 self._entry_bias_side = self._nav_rng.choice((-1.0, 1.0))
                 return
 
@@ -425,14 +556,17 @@ class HumanBot(_UnstickMixin, Bot):
         cos_w, sin_w = math.cos(self._wobble), math.sin(self._wobble)
         wx = mx * cos_w - my * sin_w
         wy = mx * sin_w + my * cos_w
-        # hard turns shed speed (a hand steering, not a vector snap)
+        # hard turns shed speed (a hand steering, not a vector snap) --
+        # only genuinely sharp reversals, and only a partial shed (director's
+        # verdict, 2026-07-13: this used to fire on ~41deg course changes at
+        # a 45% cut and made ordinary corridor steering read as hesitant)
         pmx, pmy = self._prev_move
         pmag = math.hypot(pmx, pmy)
         scale = 1.0
         if pmag > 1e-6 and mag > 1e-6:
             cos_turn = (wx * pmx + wy * pmy) / (mag * pmag)
-            if cos_turn < 0.75:  # > ~41 degree course change
-                scale = 0.55
+            if cos_turn < HARD_TURN_COS:
+                scale = HARD_TURN_SCALE
         out = (wx / mag * min(1.0, mag) * scale,
                wy / mag * min(1.0, mag) * scale)
         self._prev_move = out

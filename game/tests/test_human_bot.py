@@ -62,6 +62,34 @@ def _run_until_coroom(bot, level: Level, seed: int, max_ticks: int = SMOKE_MAX_T
     return first_coroom, first_fire
 
 
+def _run_until_perceivable(bot, level: Level, seed: int, max_ticks: int = SMOKE_MAX_TICKS):
+    """Like `_run_until_coroom`, but measured from the tick the enemy FIRST
+    becomes a perception candidate at all -- room-local OR visible through
+    a portal (`PerceptionModel`'s `visible_ids`, fed by `HumanBot`'s own
+    `_visible_enemy_screens`) -- rather than from co-room. HumanBot-only
+    (reads `bot.perception`)."""
+    session = GameSession(level, seed=seed)
+    enemy_id = None
+    first_candidate = None
+    first_fire = None
+    for tick in range(max_ticks):
+        if session.dead or session.complete:
+            break
+        snap = session.snapshot()
+        if enemy_id is None and snap["enemies"]:
+            enemy_id = snap["enemies"][0]["id"]
+        inp = bot.step(snap, session)
+        if enemy_id is not None and first_candidate is None \
+                and bot.perception.ticks_perceivable(enemy_id, tick) >= 0:
+            first_candidate = tick
+        if first_candidate is not None and inp.fire and first_fire is None:
+            first_fire = tick
+        session.tick(inp)
+        if first_fire is not None:
+            break
+    return first_candidate, first_fire
+
+
 # ---------------------------------------------------------------------------
 # perception honesty
 # ---------------------------------------------------------------------------
@@ -85,14 +113,29 @@ def test_human_bot_never_fires_before_perception_latency_elapses():
     """Fail-first: run against `AggroBot` above shows 0-tick reaction is
     possible. `HumanBot` must not fire until its `PerceptionModel`-sampled
     latency (>= ~0.18s = 11 ticks at 60Hz, even in the anticipated/fast
-    case) has elapsed since the enemy first became room-local."""
+    case) has elapsed since the enemy first became perceivable.
+
+    Measured from first-perceivable, not first-co-room (retuned
+    2026-07-13 alongside the absolute-priority/viewport-perception fix):
+    `build_ambush_level`'s husk sits close enough to the shared portal
+    that it is a perception candidate -- on screen through the doorway,
+    see `HumanBot._visible_enemy_screens` -- before the player ever
+    crosses into its room, so first-fire can now land on the SAME tick as
+    first-co-room while still honestly waiting out the full latency
+    window from the moment it actually became perceivable. That's the fix
+    working, not a regression: an enemy plainly on screen is no longer
+    invisible just because a room-index hasn't flipped yet. First-co-room
+    stopped being the right reference point for "when could the bot have
+    reacted"; `test_aggro_bot_fires_on_the_same_tick_the_enemy_becomes_coroom`
+    above still uses it deliberately, to characterize the omniscient
+    baseline this suite supersedes."""
     level = build_ambush_level()
     bot = HumanBot(7)
-    first_coroom, first_fire = _run_until_coroom(bot, level, 7)
-    assert first_coroom is not None
+    first_candidate, first_fire = _run_until_perceivable(bot, level, 7)
+    assert first_candidate is not None
     MIN_LATENCY_TICKS = 0.18 * 60  # fastest possible sampled latency
     if first_fire is not None:
-        assert first_fire - first_coroom >= MIN_LATENCY_TICKS
+        assert first_fire - first_candidate >= MIN_LATENCY_TICKS
 
 
 def test_perception_model_releases_entity_only_after_sampled_latency():
@@ -329,10 +372,14 @@ def test_flanked_choke_is_survived_and_escape_engages():
     behavior changes reshuffle trajectories: pick one where the fight
     degrades enough in-room to cross FLANK_HP and the bot still lives --
     on most seeds it exits before dropping below 70 HP and escape
-    correctly never fires. Currently seed 13.)"""
+    correctly never fires. Re-scanned again 2026-07-13 pm after the
+    absolute-priority/viewport-perception retune shuffled trajectories a
+    second time -- seed 13 no longer dips below FLANK_HP in this room, but
+    the mechanism is unchanged and still fires on plenty of others (18/79
+    of seeds 1..79 rescanned); currently seed 18.)"""
     level = build_flanked_choke_level()
-    bot = HumanBot(13)
-    session = GameSession(level, seed=13, difficulty="hard")
+    bot = HumanBot(18)
+    session = GameSession(level, seed=18, difficulty="hard")
     start_room = session.player_room()
     left_room = escape_engaged = False
     for tick in range(60 * 40):
@@ -387,7 +434,15 @@ def test_human_bot_pauses_at_the_threshold_of_an_unexplored_room():
     at full speed exactly like AggroBot. Room-entry protocol requires a
     pause at the threshold of unexplored territory: some ticks of
     near-zero commanded movement while in the origin room, before the
-    first room transition."""
+    first room transition.
+
+    Threshold retuned down from 10 to 5 (2026-07-13 pm, director's verdict
+    "way too hesitant to move"): `PAUSE_TICKS` shrank from (28, 55) to
+    (8, 16) ticks so the ritual reads as a beat, not a dither -- 10 was
+    only ever a "did a pause happen at all" proxy sized to the old range,
+    not a requirement on duration. Seed 17 now deterministically draws 8;
+    5 keeps a comfortable margin under that while still being well above
+    what any single non-ritual slow tick could produce by chance."""
     level = build_corridor_level()
     bot = HumanBot(17)
     trace, session = _nav_trace(bot, level, 17)
@@ -395,7 +450,7 @@ def test_human_bot_pauses_at_the_threshold_of_an_unexplored_room():
     first_cross = next(i for i, (room, _, _) in enumerate(trace) if room != trace[0][0])
     slow_ticks = sum(1 for room, _, (mx, my) in trace[:first_cross]
                      if math.hypot(mx, my) < 0.15)
-    assert slow_ticks >= 10, (
+    assert slow_ticks >= 5, (
         f"no threshold pause before entering new room ({slow_ticks} slow ticks)")
 
 

@@ -77,20 +77,43 @@ def test_enemies_only_in_combat_zones(level, meta):
 
 
 def test_loot_rooms_carry_health_and_ammo(level, meta):
-    from perihelion.sim import PICKUPS
+    from perihelion.sim import PICKUPS, SENTRIES
 
     loot_rooms = {int(r) for r, z in meta["zones"].items() if z["zone"] == "loot"}
     assert len(loot_rooms) == 7, "one loot room per corridor (start + 5 between + end)"
     kinds_by_room: dict[int, set[str]] = {}
     for room, spec in level.entities:
         if room in loot_rooms:
-            assert spec.type in PICKUPS
+            assert spec.type in PICKUPS or spec.type in SENTRIES, \
+                f"unexpected entity type {spec.type!r} in loot room {room}"
             kinds_by_room.setdefault(room, set()).add(spec.type)
     for room in loot_rooms:
         kinds = kinds_by_room.get(room, set())
         assert "medkit" in kinds, f"loot room {room} has no health pickup"
         assert any(k.startswith("ammo_") for k in kinds), \
             f"loot room {room} has no ammo pickup"
+
+
+def test_loot_rooms_each_have_one_sentry(level, meta):
+    """Director's directive, 2026-07-13: "let's put friendly turrets in
+    the safe-room corridors" -- FITTING_REPORT.md finding #1 measured loot
+    rooms as the deadliest zone (2.2x combat) because pursuers have no
+    de-aggro path. One sentry per loot room, none anywhere else -- placing
+    them is the director's tuning call for campaign levels, not the
+    gauntlet's structural default (see build_gauntlet.py's module note)."""
+    from perihelion.sim import SENTRIES
+
+    loot_rooms = {int(r) for r, z in meta["zones"].items() if z["zone"] == "loot"}
+    sentries_by_room: dict[int, int] = {}
+    for room, spec in level.entities:
+        if spec.type in SENTRIES:
+            assert room in loot_rooms, \
+                f"sentry placed outside a loot room (room {room}) -- gauntlet " \
+                "placement is loot-room-doorway only"
+            sentries_by_room[room] = sentries_by_room.get(room, 0) + 1
+    for room in loot_rooms:
+        assert sentries_by_room.get(room, 0) == 1, \
+            f"loot room {room} should have exactly one sentry"
 
 
 def test_corridors_are_long_and_safe(level, meta):

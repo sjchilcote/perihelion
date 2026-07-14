@@ -130,6 +130,30 @@ PICKUPS: dict[str, dict] = {
     "organ_gland": dict(radius=6.0),
 }
 
+# Friendly, stationary defensive emplacement (director's directive,
+# 2026-07-13: "let's put friendly turrets in the safe-room corridors" --
+# the calibration farm measured loot/rest rooms as the DEADLIEST zone
+# class, 2.2x combat, because standard enemies have no de-aggro path and
+# simply follow a hurt player to the medkits; see FITTING_REPORT.md
+# finding #1). MIRIAD-lane defensive emplacement, clinical naming to match
+# the enemy roster's own register (husk/mite/spitter/...). Pistol-class
+# rate of fire and damage, finite range, requires LOS (same room + no
+# walk-mask terrain crossing the shot -- see `_sentry_los_clear`), and a
+# short spin-up before its first shot on a freshly acquired target rather
+# than instant acquisition. No `hp` field: indestructible, matching the
+# only existing "friendly turret" precedent in this codebase (the
+# cloister's anti-looter guardians, `self.turrets` / `_turret_tick`
+# below, also spawned GROUP_PICKUP with no hp) -- that group never
+# collides with enemies or the player under this session's collision
+# matrix (see __init__), so real destructibility would need a new
+# collision pair PLUS teaching ranged enemies to target something other
+# than the player, a much larger AI change this directive doesn't ask
+# for. See `spawn_sentry` / `_sentry_tick`.
+SENTRIES: dict[str, dict] = {
+    "sentry": dict(radius=7.0, dmg=12, cd=20, range=260.0, spin_up=10,
+                   bolt_speed=1400.0, alert_snd="pistol_fire"),
+}
+
 # The fabricator's price sheet. Components are salvaged mass — every enemy
 # yields its score in components (the same number the metrics already used,
 # so salvage income equals fight difficulty by construction).
@@ -327,6 +351,11 @@ class GameSession:
         self.tau_charge = 0
         self.cloister: dict | None = None  # {sanctum, corridor, links, attached}
         self.turrets: dict[int, dict] = {}
+        # Data-driven defensive emplacements (SENTRIES), placed by level
+        # JSON (e.g. levels/gauntlet_cal.json's loot rooms) -- distinct
+        # container/tick from the cloister's `self.turrets` above; see the
+        # comment on `SENTRIES` and `_sentry_tick`.
+        self.sentries: dict[int, dict] = {}
 
         # --- camera: player-room local -> internal screen ---
         px, py = level.player_pos
@@ -385,6 +414,8 @@ class GameSession:
                 self.enemies[eid]["hp"] = float(spec.props["hp"]) * self._hp_mul
             if spec.props.get("tether"):
                 self.enemies[eid]["tether"] = True
+        elif t in SENTRIES:
+            self.spawn_sentry(room, spec.pos, t)
         elif t in PICKUPS:
             meta = None
             if t.startswith("key_"):
@@ -420,6 +451,13 @@ class GameSession:
         if extra:
             rec.update(extra)
         self.pickups[eid] = rec
+        return eid
+
+    def spawn_sentry(self, room: int, pos, kind: str = "sentry") -> int:
+        d = SENTRIES[kind]
+        eid = self.sim.spawn(room, pos[0], pos[1], d["radius"], 100.0, GROUP_PICKUP)
+        self.sim.set_props(eid, transfers=False)
+        self.sentries[eid] = dict(kind=kind, cd=0, spin=d["spin_up"])
         return eid
 
     # ------------------------------------------------------------------
@@ -618,6 +656,7 @@ class GameSession:
         self.sweep_bullets()
 
         self._turret_tick()
+        self._sentry_tick()
         if self.dead:
             # death landed mid-tick (contact/spit during the event sweep):
             # a dead frame reads no terminals, opens no shops, exits no
@@ -1152,6 +1191,105 @@ class GameSession:
             self.bullets[bid] = dict(kind="turret", dmg=6, ttl=40)
             self._snd("smg_fire", room, (tx, ty), 0.35)
             self.fx.append(("flash", room, tx + nx * 8, ty + ny * 8, 14.0))
+
+    # ------------------------------------------------------------------
+    # gauntlet sentries: data-driven, range/LOS-gated defensive turrets
+    # (see SENTRIES above). Deliberately separate from the cloister's
+    # `self.turrets` / `_turret_tick` above -- those guardians are
+    # shipped, tested (test_cloister.py pins len(s.turrets) == 2), and
+    # tuned for a tiny always-safe sanctum with no range/LOS/spin-up of
+    # their own; folding sentries into that path would change guardian
+    # behavior too. Sentry bullets reuse the guardians' own kind="turret"
+    # bullet tag on purpose -- `_contact` already refuses to damage the
+    # player with it ("the guardians do not miss that badly") and already
+    # damages `self.enemies` with it, so this is the exact "study how
+    # player projectiles vs enemy interactions resolve" reuse the
+    # directive asks for, not a new special case.
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _segment_crosses_rect(x1, y1, x2, y2, lo_x, lo_y, hi_x, hi_y) -> bool:
+        """Liang-Barsky segment-vs-AABB clip test: True if the open segment
+        (x1,y1)-(x2,y2) actually crosses the closed rect's interior (a bare
+        touch/tangent at a single point does not count -- t0 < t1, not
+        <=). Used for sentry LOS against walk-mask terrain rects: the same
+        room-local `Sim.room_terrain` data the lighting system's own
+        shadow-casting already reads (see `lighting.terrain_shadow_polys`).
+        A room's own boundary is convex by construction, so terrain is the
+        only thing that can occlude two points already confirmed to share
+        a room -- `raycast` (used by the rail gun / portable hole) has no
+        notion of terrain at all, it only stops at room edges/entities."""
+        dx, dy = x2 - x1, y2 - y1
+        t0, t1 = 0.0, 1.0
+        for p, q in ((-dx, x1 - lo_x), (dx, hi_x - x1),
+                    (-dy, y1 - lo_y), (dy, hi_y - y1)):
+            if abs(p) < 1e-12:
+                if q < 0.0:
+                    return False  # parallel to this edge and outside it
+                continue
+            r = q / p
+            if p < 0.0:
+                if r > t1:
+                    return False
+                if r > t0:
+                    t0 = r
+            else:
+                if r < t0:
+                    return False
+                if r < t1:
+                    t1 = r
+        return t0 < t1
+
+    def _sentry_los_clear(self, room: int, x1, y1, x2, y2) -> bool:
+        for lo_x, lo_y, hi_x, hi_y in self.sim.room_terrain(room):
+            if self._segment_crosses_rect(x1, y1, x2, y2, lo_x, lo_y, hi_x, hi_y):
+                return False
+        return True
+
+    def _sentry_tick(self):
+        if not self.sentries:
+            return
+        s = self.sim
+        for tid, t in self.sentries.items():
+            d = SENTRIES[t["kind"]]
+            if t["cd"] > 0:
+                t["cd"] -= 1
+            room = s.get_room(tid)
+            _, tx, ty, *_ = s.get(tid)
+            # nearest enemy in range WITH a clear shot -- an occluded
+            # nearer target must not blind the sentry to a farther, clear
+            # one (see the fail-first walls/terrain test).
+            best, best_d2 = None, d["range"] * d["range"]
+            for eid in s.room_entities(room):
+                if eid not in self.enemies:
+                    continue
+                _, ex, ey, *_ = s.get(eid)
+                dist2 = (ex - tx) ** 2 + (ey - ty) ** 2
+                if dist2 > best_d2:
+                    continue
+                if not self._sentry_los_clear(room, tx, ty, ex, ey):
+                    continue
+                best, best_d2 = (ex, ey), dist2
+            if best is None:
+                t["spin"] = d["spin_up"]  # target lost: re-acquire from cold
+                continue
+            if t["spin"] > 0:
+                t["spin"] -= 1  # instant-ish acquisition, not instant
+                continue
+            if t["cd"] > 0:
+                continue
+            t["cd"] = d["cd"]
+            dx, dy = best[0] - tx, best[1] - ty
+            dl = math.hypot(dx, dy) or 1e-6
+            nx, ny = dx / dl, dy / dl
+            bid = s.spawn(room, tx + nx * (d["radius"] + 2), ty + ny * (d["radius"] + 2),
+                         1.6, 0.002, GROUP_PBULLET)
+            s.set_props(bid, rest_wall=0.0, max_substep=3.2)
+            s.set_vel(bid, nx * d["bolt_speed"], ny * d["bolt_speed"])
+            self.bullets[bid] = dict(kind="turret", dmg=d["dmg"], ttl=50)
+            self._snd(d["alert_snd"], room, (tx, ty), 0.4)
+            self.fx.append(("flash", room, tx + nx * (d["radius"] + 2),
+                            ty + ny * (d["radius"] + 2), 14.0))
 
     def _detonate_dart(self, bid: int, room: int, x: float, y: float):
         w = WEAPONS["lightning"]
