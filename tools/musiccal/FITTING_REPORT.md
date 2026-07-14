@@ -365,6 +365,68 @@ hypothesized directions are false, and the third failed its target:**
    bins (relative SE of a ≈0 estimate); see the saturation section for
    the amended absolute-floor evaluation that was met at 1200 runs.
 
+## Turret intervention (2026-07-13 follow-up) — finding #1, remedied and measured
+
+Director's directive, verbatim: *"let's put friendly turrets in the
+safe-room corridors."* Built: a stationary, indestructible, LOS+range-
+gated friendly emplacement (`SENTRIES`/`spawn_sentry`/`_sentry_tick` in
+`game/perihelion/sim.py`; entity type `"sentry"`, pistol-class damage/rof,
+260-unit range, walk-mask-terrain LOS via `_sentry_los_clear`, ~0.17s
+target-acquisition spin-up; reuses the cloister guardians' `kind="turret"`
+bullet tag so the existing player-immunity guard in `_contact` covers it
+for free). Placed one per loot room (`tools/musiccal/build_gauntlet.py`'s
+`add_corridor`), density knob untouched (still 10/43 enemies, `--density
+0.232558`) so any measured delta is attributable to the turrets alone.
+Fail-first unit/integration tests: `game/tests/test_sentry_turret.py`.
+
+**Methodology correction, mid-measurement:** `tools/musiccal/run_farm.py`
+on the freshly-turreted level (60 runs, seeds 0–59, same `MID_GAME_STATE`
+loadout) read **clear rate 1.000** — every run complete, zero deaths. A
+naive read against this report's 0.494 baseline would overstate the
+turrets' effect enormously. Checked instead of reported: a MATCHED
+control (the same 60 seeds, same HumanBot code, same density, built from
+the pre-turret `build_gauntlet.py` at commit `2ecb7fe`) also cleared at
+**0.967** (58/60) — nowhere near 0.494 either. Root cause (confirmed via
+`git log` / `git diff` on `game/perihelion/testkit/{humanbot,perception}.py`
+between the calibration commit and now): HumanBot's perception and
+movement were substantially retuned by unrelated concurrent work in this
+shared checkout after this report's corpus was captured (portal-visibility
+widening, shorter/rarer hesitation rituals, gentler turn speed-shedding —
+see commit `0489cda`). **The 0.494/2.2x numbers above are pre-retune and
+are no longer this bot's baseline; they are not a valid zero-turret
+control for this measurement.** The matched same-seed, same-bot,
+turret-vs-no-turret comparison below is the valid one.
+
+Matched comparison, extended to 600 runs (seeds 0–599, both levels built
+at the identical `--density 0.232558`) for a death count large enough to
+read:
+
+| | clear rate | deaths (n=600) | combat hazard | corridor hazard | loot hazard | loot/combat |
+|---|---|---|---|---|---|---|
+| no-turret (matched control) | 0.9817 | 11 | 0.000310 (~2.2 deaths) | 0.000232 (~2.1 deaths) | **0.002415 (~6.8 deaths)** | **7.79x** |
+| turreted | **0.9983** | **1** | 0.000143 (~1.0 deaths) | 0.000000 | **0.000000** | **0.00x** |
+
+Turreted-level primary numbers (director's literally-requested 60-run
+batch, seeds 0–59): clear rate 1.000 (60/60), hazard 0.0 in every zone.
+
+**Verdict: the acceptance criterion is met, and by a wide margin.** With
+the modern (retuned) bot, loot rooms are *still* the deadliest zone by
+far when undefended — 7.79x combat, actually a worse ratio than this
+report's original 2.24x, consistent with the mechanism in finding #1
+(a bot that got much better at combat concentrates its remaining deaths
+in the one place with no defense at all). With turrets, loot-room deaths
+go to exactly **zero** at n=600 — safer than combat, not just safer than
+before. The single surviving death (seed 328, 600-run turreted batch) was
+verified in the raw run file to be an ordinary combat-room death (room 9,
+`zone=="combat"`, hp draining to 0 in room) — outside the turrets' scope
+by design (director's order: gauntlet loot-room corridors only, campaign
+placement deferred). Turrets also have a small, plausible secondary
+effect on combat hazard itself (0.000310 → 0.000143): a run that survives
+a loot room at full health rather than half-dead-or-not-at-all enters its
+next fight healthier, and `hp` is this report's dominant hazard
+coefficient (−4.56) — noted as a hypothesis, not re-verified at this
+sample size (only ~1 vs ~2 combat deaths).
+
 ## Output artifact
 
 `tools/musiccal/factor_model.json` (schema 2, pinned by
