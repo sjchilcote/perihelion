@@ -1,0 +1,63 @@
+{
+ "good": {
+  "n": 2,
+  "p_median": 0.65,
+  "works_as_music": [
+   true,
+   true
+  ],
+  "melody_followable": [
+   true,
+   true
+  ],
+  "brief_median": 0.925,
+  "originality_median": 0.725,
+  "problems": [
+   [
+    "The mix is overly dense and brickwalled, leading to a lack of dynamic range and some mid-range mud.",
+    "Drum programming is extremely static; while fitting the machine theme, it lacks subtle velocity variations to help the groove breathe.",
+    "The high-end frequencies of the choral synths clash slightly with the guitar/synth distortion, causing some harshness."
+   ],
+   [
+    "The low-mid frequencies are quite muddy, causing the heavy guitars and bass to blur into a wall of noise rather than distinct riffs.",
+    "High-end elements like cymbals suffer from phasey, artificial-sounding artifacts.",
+    "The arrangement is highly repetitive, lacking dynamic shifts, breakdowns, or structural evolution over the 30 seconds."
+   ]
+  ],
+  "verdicts": [
+   "A highly effective and thematic slab of symphonic industrial metal that perfectly captures the requested 'machine religion' aesthetic, though the mix suffers from excessive density and a lack of dynamic breathing room.",
+   "A highly effective and atmospheric industrial metal track that flawlessly executes the 'cyber-cathedral' brief, held back only by a dense, slightly muddy mix and static arrangement."
+  ]
+ },
+ "bad": {
+  "n": 2,
+  "p_median": 0.125,
+  "works_as_music": [
+   true,
+   true
+  ],
+  "melody_followable": [
+   true,
+   true
+  ],
+  "brief_median": 0.45,
+  "originality_median": 0.35,
+  "problems": [
+   [
+    "Production is incredibly thin, sounding like a raw MIDI file slapped over a static drum loop.",
+    "Lacks any dynamic variation, automation, or atmospheric depth to sell the 'posthuman belief' concept.",
+    "The lead synth patch is cheap and grating, lacking the timbral complexity expected in modern industrial music."
+   ],
+   [
+    "Production is extremely raw, sounding like an unmixed MIDI soundfont layered directly over a static drum loop.",
+    "The organ patch is completely dry, lacking the massive reverberant space essential for a 'church' atmosphere.",
+    "Fails to convey 'genuine belief' or 'meaningful symbolism', coming across more like a frantic speedcore meme track than a profound religious experience."
+   ]
+  ],
+  "verdicts": [
+   "While it technically mashes up a church-like melody with an industrial kick, the execution is so raw and devoid of atmospheric depth that it sounds more like a crude breakcore meme than a profound posthuman religious experience.",
+   "While it literally combines a classical church organ with industrial machine-gun kicks, the result is a raw, unmixed speedcore sketch that lacks the spatial production and emotional depth needed to fulfill the brief's deeper requirements."
+  ]
+ },
+ "pass": true
+}
