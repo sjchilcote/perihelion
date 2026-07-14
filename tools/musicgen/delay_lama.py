@@ -10,8 +10,12 @@ Facts this wrapper encodes:
 - MrsWatson reads MIDI TYPE 0 only.
 - The plugin sounds an octave below MIDI nominal (MIDI 50 -> D2 73.4 Hz):
   callers write intended pitches; we add +12 internally.
-- Monophonic (it is one monk). Pitch bend morphs the vowel — exposed as
-  per-note `vowel` in [-1, 1].
+- Monophonic (it is one monk). FOUR VST parameters (enumerated via
+  --display-info): 0 PortTime (default 0.5 — the meditative glide that
+  poisoned note conformance to 7/29), 1 Vowel, 2 Delay (default 0.8 — a
+  built-in echo), 3 HeadSize. Driven via MrsWatson --parameter. The
+  earlier pitchwheel-as-vowel assumption was WRONG (params are static
+  per render; per-phrase vowel = separate renders).
 
     from delay_lama import render_vocal
     y = render_vocal([(0, 8), (3, 8), (2, 8), (0, 16)], step_s=0.214)
@@ -43,6 +47,15 @@ def _write_midi(events, step_s: float, path: Path, base_midi: int,
     tr = mido.MidiTrack()
     mid.tracks.append(tr)
     tick_s = 60.0 / (BPM_MIDI * PPQ)
+    # Per the shipped documentation: CC5=portamento, CC12=delay mix,
+    # CC13=voice, CC1=vibrato; PITCHBEND = vowel (not pitch!). HOST BUG
+    # (measured): MrsWatson silences the render if a MIDI file contains
+    # MORE THAN ONE control_change — any pair, any spacing, even the same
+    # CC twice. So exactly ONE CC per render: portamento (the one that
+    # decides note conformance). Delay/voice/vibrato ride their defaults;
+    # vary them per-render only via separate renders if ever needed.
+    tr.append(mido.Message("control_change", control=5,
+                           value=_cc(_write_midi.port_time), time=0))
     pending = 0             # rest time accumulated, in ticks
     for i, (sv, d) in enumerate(events):
         dur_ticks = max(1, int(round(d * step_s / tick_s)))
@@ -64,8 +77,14 @@ def _write_midi(events, step_s: float, path: Path, base_midi: int,
     mid.save(str(path))
 
 
+def _cc(v: float) -> int:
+    return int(max(0, min(127, round(v * 127))))
+
+
 def render_vocal(events, step_s: float, base_midi: int = D3_MIDI,
-                 vowels=None, timeout_s: int = 300) -> np.ndarray:
+                 vowels=None, port_time: float = 0.04, delay: float = 0.08,
+                 voice: float = 0.35, vibrato: float = 0.15,
+                 timeout_s: int = 300) -> np.ndarray:
     """Render a monophonic vocal line through Delay Lama. Returns mono
     float64 at 44100. Loud failure on any host error — no silent fallback
     (instruction-substitution law: this instrument or an error)."""
@@ -77,6 +96,10 @@ def render_vocal(events, step_s: float, base_midi: int = D3_MIDI,
     with tempfile.TemporaryDirectory(dir=str(DL_DIR)) as td:
         midp = Path(td) / "line.mid"
         wavp = Path(td) / "line.wav"
+        _write_midi.port_time = port_time
+        _write_midi.delay = delay
+        _write_midi.voice = voice
+        _write_midi.vibrato = vibrato
         _write_midi(events, step_s, midp, base_midi, vowels)
         # wine + MrsWatson want paths relative to cwd (unix absolutes
         # fail plugin-chain construction — M0 spike used relative paths)
