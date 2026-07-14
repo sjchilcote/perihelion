@@ -210,3 +210,7 @@ reasoning as the soundfonts above):
 - **MrsWatson 0.9.8** (Teragon Audio, BSD-style license) — CLI VST2 host,
   Windows build run under wine 11.9 for headless offline rendering.
   https://github.com/teragonaudio/MrsWatson — scratchpad only.
+- **Dragonfly Reverb 3.2.10** (Michael Willis, GPL-3) — Linux x86_64 VST3
+  (Hall/Room/Plate/Early), loaded headless via pedalboard; factory preset
+  values applied verbatim from the source preset table
+  (DistrhoPluginInfo.h). Offline authoring only; scratchpad only.

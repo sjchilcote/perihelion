@@ -25,6 +25,17 @@ the only final gate.
 
 ## 2. Architecture (three layers, strictly ordered)
 
+**PRESETS-FIRST LAW (director, after hearing M1):** "You need to lean as
+heavily as you can on premade samples and presets on your tools - you
+_can't hear_." Every instrument AND every processing step (reverb, EQ,
+compression) uses a real tool's factory presets/samples wherever one
+exists; hand-rolled DSP only where no tool exists, and it dies the moment
+a tool is found. First proof: my noise-IR "sanctuary" (his verdict:
+"sounds really bad") replaced by Dragonfly Hall's factory "Large Vocal
+Hall" preset — flash gauntlet flipped to reverb_quality=natural.
+Acquisition queue: preset-driven synth VSTs for leads/bass (Vital/Odin2/
+Dexed class), a drumkit VST or 909-style kit, processing VSTs throughout.
+
 **Layer 1 — INSTRUMENTS (each gated solo, flash-tier ears + FFT):**
 - **Voice: Delay Lama** (Windows VST2) — the album's actual vocal
   instrument. Hosting route: MrsWatson (CLI VST2 host) under wine 11.9;
