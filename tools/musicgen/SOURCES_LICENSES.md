@@ -201,3 +201,12 @@ reasoning as the soundfonts above):
   pipeline. GPL-3.0 is fine for offline asset-authoring tooling (never
   linked into the shipped game binary); see LIB_AUDIT.md's license note
   before using any GPL/AGPL tool from this audit at runtime.
+
+## Album Mode v2 / M0 (2026-07-13)
+- **Delay Lama VST** (AudioNerdz, 2002) — freeware VST2 (i386 DLL); the
+  source album's actual vocal instrument (director-identified). Fetched
+  from https://archive.org/details/delay-lama (3,719,168 bytes). Kept in
+  scratchpad only; never committed, never shipped in the game.
+- **MrsWatson 0.9.8** (Teragon Audio, BSD-style license) — CLI VST2 host,
+  Windows build run under wine 11.9 for headless offline rendering.
+  https://github.com/teragonaudio/MrsWatson — scratchpad only.
