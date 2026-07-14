@@ -91,6 +91,17 @@ TEMPO_MIN = 0.85               # was 0.7: permanent foot-drag floor raised
 HARD_TURN_COS = 0.5            # was 0.75 (~41deg): only >~60deg sheds speed
 HARD_TURN_SCALE = 0.75         # was 0.55: gentler shed when it does trigger
 
+# A/B judge finding (2026-07-13 re-run, seed 401): a distant threat's aim
+# was converging to pixel precision on its screen position, read by the
+# judge as "aimbot-style instant target acquisition." Correct: nothing is
+# being fired at a not-yet-room-local target (see `_distant_threat_input`),
+# so there is no reason for the tracking to be combat-precise -- a human
+# noticing something through a doorway looks roughly toward it, not at a
+# firing solution on it. Bounded wander added on top of the true screen
+# position keeps the read as "noticed, orienting," not "locked on."
+DISTANT_GLANCE_RADIUS = 30.0
+DISTANT_GLANCE_STEP = 2.5
+
 
 class HumanBot(_UnstickMixin, Bot):
     """Perception -> policy -> reactive executor -> MouseModel input
@@ -139,6 +150,10 @@ class HumanBot(_UnstickMixin, Bot):
         # exactly along the movement direction").
         self._gaze_off = (0.0, 0.0)
         self._gaze_radius = 80.0
+        # distant-threat glance wander (design doc §2/§6, see
+        # DISTANT_GLANCE_RADIUS): the same idea applied to tracking a
+        # threat seen through a portal -- roughly toward it, not locked on.
+        self._distant_glance_off = (0.0, 0.0)
         # variable tempo (§6): slow multiplicative random walk on move speed
         self._tempo = TEMPO_INIT
         # single-threaded attention (design doc §1): the current focus
@@ -375,13 +390,15 @@ class HumanBot(_UnstickMixin, Bot):
                                visible_screens: dict[int, tuple[float, float]],
                                px: float, py: float) -> InputFrame:
         """Orient toward the nearest threat that's on screen but not yet
-        room-local: aim tracks its actual screen position (valid regardless
-        of which room it's physically in -- the renderer already did that
-        transform for us), movement keeps closing on the objective that
-        put it in view in the first place. No fire here (see `step`'s
-        comment: no weapon's hit test can connect room-to-room) -- this is
-        "advance with the weapon up," not combat footwork; that starts the
-        instant `co_room` does."""
+        room-local: aim tracks NEAR its actual screen position (valid
+        regardless of which room it's physically in -- the renderer
+        already did that transform for us) with a loose glance wander, not
+        combat-precise tracking -- nothing is fired at a not-yet-room-local
+        target (see `step`'s comment: no weapon's hit test can connect
+        room-to-room), so there is no firing solution to converge on, only
+        "I see that." Movement keeps closing on the objective that put it
+        in view in the first place; this is "advance with the weapon up,"
+        not combat footwork -- that starts the instant `co_room` does."""
         proom = snapshot["room"]
         inp = InputFrame()
         inp.mx, inp.my = self._objective_move(session, snapshot, px, py, proom)
@@ -390,8 +407,15 @@ class HumanBot(_UnstickMixin, Bot):
         # cross-room comparisons are invalid (different local frames) --
         # `hops` is the one graph-distance field that IS comparable here
         target = min(distant, key=lambda e: (e["hops"], e["id"]))
-        target_ax, target_ay = visible_screens.get(
+        true_ax, true_ay = visible_screens.get(
             target["id"], (session.screen_w / 2.0, session.screen_h / 2.0))
+        gx, gy = self._distant_glance_off
+        gx = max(-DISTANT_GLANCE_RADIUS, min(DISTANT_GLANCE_RADIUS,
+            gx + self._nav_rng.uniform(-DISTANT_GLANCE_STEP, DISTANT_GLANCE_STEP)))
+        gy = max(-DISTANT_GLANCE_RADIUS, min(DISTANT_GLANCE_RADIUS,
+            gy + self._nav_rng.uniform(-DISTANT_GLANCE_STEP, DISTANT_GLANCE_STEP)))
+        self._distant_glance_off = (gx, gy)
+        target_ax, target_ay = true_ax + gx, true_ay + gy
         mouse = self._ensure_mouse(target_ax, target_ay)
         inp.ax, inp.ay = mouse.step(target_ax, target_ay, 1.0 / 60.0)
         inp.fire = False
