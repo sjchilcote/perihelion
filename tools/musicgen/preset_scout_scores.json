@@ -1,0 +1,2127 @@
+{
+ "5years__4th sweep pad LFO__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound is clean and well-produced in a vacuum, it is far too bright, polite, and synth-like for a gritty, lo-fi industrial cosmic-horror game. It lacks"
+ },
+ "5years__4th sweep pad__pad": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This asset fails to meet the spec because it is far too bright, aggressive, and digitally harsh for a dark, reverent sanctuary pad. It lacks the physical, heavy"
+ },
+ "5years__666666-Year-Curse Mechanism__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound has an aggressive attack, it completely lacks the low-end authority and dark, heavy weight required to sit under distorted industrial guitars. T"
+ },
+ "5years__666666-Year-Curse Mechanism__lead": {
+  "p": 0.15,
+  "match": false,
+  "summary": "This sound is far too cheerful, clean, and thin for a lo-fi industrial cosmic-horror game. It sounds like a default preset from a basic FM synthesizer or a 1980"
+ },
+ "5years__666666-Year-Curse Mechanism__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound is professionally designed and has a great sense of scale, it is fundamentally a cinematic impact rather than a sustained atmosphere or pad. The"
+ },
+ "5years__Acid Bass 2__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the asset is clean and free of technical artifacts, it completely misses the aesthetic mark for a dark, lo-fi industrial-metal combat track. It sounds mor"
+ },
+ "5years__Acid Bass 2__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the synth notes are clean and free of technical artifacts, the patch is far too polite, warm, and basic for the intended spec. It lacks the aggressive dis"
+ },
+ "5years__Acid Bass 3__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound has a sharp attack, it completely misses the dark, gritty, and heavy industrial-metal aesthetic required for the spec. It is far too clean, plas"
+ },
+ "5years__Acid Bass 3__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the synth has a buzzy, aggressive mid-range, it lacks the physical weight, analog grit, and low-end dread required for a lo-fi cosmic-horror aesthetic. It"
+ },
+ "5years__Acid Bass__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the performance has an aggressive rhythm, the synth patch itself lacks the physical weight and analog grit required for dark industrial-metal. It sounds t"
+ },
+ "5years__Acid Bass__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the synth patch is clean and functional, it is far too polite, warm, and basic for a gritty, lo-fi cosmic-horror shooter. It lacks the aggressive distorti"
+ },
+ "5years__Alien Telephone__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the low-end weight is technically clean and solid, the sound is far too soft, warm, and polite for dark industrial-metal combat. It lacks the aggressive m"
+ },
+ "5years__Alien Telephone__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the synth has a decent retro-analog character, it is far too polite, soft, and clean for a gritty, lo-fi industrial cosmic-horror shooter. It lacks the ag"
+ },
+ "5years__Alien Telephone__pad": {
+  "p": 0.6,
+  "match": true,
+  "summary": "The tone and texture of this drone are spot-on for a gritty, lo-fi industrial cosmic-horror sanctuary, offering a great sense of heavy, physical dread. However,"
+ },
+ "5years__Alluminium__bass": {
+  "p": 0.4,
+  "match": false,
+  "summary": "While the low-end weight and analog decay of the synth are clean and well-produced, the sound is far too soft and polite for the intended spec. It lacks the agg"
+ },
+ "5years__Alluminium__lead": {
+  "p": 0.2,
+  "match": false,
+  "summary": "While the synth is clean and well-rendered, it sounds like a gentle, warm ambient patch rather than an aggressive or eerie industrial lead. It completely lacks "
+ },
+ "5years__Alluminium__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sonic texture is beautifully gritty, heavy, and perfectly matches the lo-fi industrial aesthetic of a Teleglitch-adjacent game, this is fundamentally "
+ },
+ "5years__Altar of the Ancients__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound functions as a sustained pad, it is far too bright, clean, and musically pleasant for a gritty cosmic-horror sanctuary. It lacks the physical, l"
+ },
+ "5years__Amazonia__bass": {
+  "p": 0.2,
+  "match": false,
+  "summary": "While the sound is clean and free of technical artifacts, it completely misses the mark for a dark, aggressive industrial-metal combat track. It lacks the neces"
+ },
+ "5years__Amazonia__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the tuning and retro vibe are present, the sound is far too clean, polite, and dry for a dark industrial cosmic-horror shooter. It lacks the aggressive gr"
+ },
+ "5years__Amazonia__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound is clean and well-produced in a vacuum, it completely misses the mark for a lo-fi industrial cosmic-horror aesthetic. It sounds like a standard "
+ },
+ "5years__Ambia__pad": {
+  "p": 0.9,
+  "match": true,
+  "summary": "This is an excellent, atmospheric drone that perfectly captures the dark, heavy, and reverent dread required for a derelict-station sanctuary. It has a great ph"
+ },
+ "5years__Ambulance Accident__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound has a decent sub-bass foundation, it lacks the aggressive, physical grit and heavy low-mid harmonic body required to sit under distorted industr"
+ },
+ "5years__Ambulance Accident__lead": {
+  "p": 0.7,
+  "match": true,
+  "summary": "This is a highly aggressive, cutting lead synth that perfectly captures the gritty, retro-futuristic, and hostile tone required for dark industrial combat. It c"
+ },
+ "5years__Ambulance Accident__pad": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound completely misses the mark for a dark, reverent sanctuary pad, presenting instead as an aggressive, high-pitched metallic screech. It lacks the physi"
+ },
+ "5years__Amicus__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the low-end weight is physically present, the sound is far too soft, clean, and sub-focused for an aggressive industrial-metal combat track. It lacks the "
+ },
+ "5years__Amicus__lead": {
+  "p": 0.2,
+  "match": false,
+  "summary": "While the synth line is clean and technically well-rendered, it is far too polite, warm, and gentle for a dark industrial cosmic-horror shooter. It lacks the ag"
+ },
+ "5years__Amicus__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While technically clean and well-rendered, this sound is far too warm, pleasant, and new-age to fit a lo-fi industrial cosmic-horror game. It lacks the grit, ph"
+ },
+ "5years__Andhari__bass": {
+  "p": 0.9,
+  "match": true,
+  "summary": "This is an exceptionally strong asset that perfectly captures the gritty, analog-industrial dread required for the game's aesthetic. The distortion has a physic"
+ },
+ "5years__Andhari__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound has a decent retro-futuristic space vibe, it is far too polite, warm, and clean for a gritty, lo-fi industrial cosmic-horror shooter. It lacks t"
+ },
+ "5years__Andhari__pad": {
+  "p": 0.9,
+  "match": true,
+  "summary": "This asset perfectly captures the dark, industrial-cosmic dread required for a derelict sanctuary. The low-mid weight and gritty, unstable analog texture feel p"
+ },
+ "5years__Android Lullaby__bass": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound is the polar opposite of the intended spec; it is a polite, clean, and soft synth pluck rather than a heavy, gritty industrial bass. It completely la"
+ },
+ "5years__Android Lullaby__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound has a sharp attack that could cut through a mix, it completely lacks the gritty, heavy, and analog-industrial dread required by the spec. It fee"
+ },
+ "5years__Android Lullaby__pad": {
+  "p": 0.8,
+  "match": true,
+  "summary": "This is an exceptionally clean, heavy, and dark low-end impact that perfectly captures the gritty, industrial dread of a derelict station. However, because it i"
+ },
+ "5years__Angels__pad": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound is far too bright, clean, and pleasant, evoking a sci-fi fantasy or new-age atmosphere rather than lo-fi industrial dread. It lacks the physical weig"
+ },
+ "5years__Anime Generator__bass": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound is completely wrong for the intended dark industrial-metal spec, presenting as a quirky, wet, and funky synth bass rather than a heavy, gritty, and a"
+ },
+ "5years__Anime Generator__lead": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound is completely wrong for the intended spec, sounding more like a cheerful 8-bit arcade game or a sci-fi UI chirp than a dark, aggressive industrial sy"
+ },
+ "5years__Anime Generator__pad": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound is a harsh, high-pitched digital screech rather than a dark, heavy, and reverent atmospheric pad. It lacks the physical weight, low-end warmth, and v"
+ },
+ "5years__Aphantasia__bass": {
+  "p": 0.2,
+  "match": false,
+  "summary": "While the low-end weight is decent, the sound is far too soft, warm, and clean for a dark industrial-metal combat track. It lacks the aggressive, sharp attack a"
+ },
+ "5years__Aphantasia__lead": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound is far too polite, clean, and cheerful for a lo-fi industrial cosmic-horror game. It lacks any of the physical weight, aggressive distortion, or eeri"
+ },
+ "5years__Aphantasia__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound is professionally produced and decays beautifully, it is far too clean, warm, and pleasant for a lo-fi industrial cosmic-horror game. It lacks t"
+ },
+ "5years__Apollo 2__bass": {
+  "p": 0.1,
+  "match": false,
+  "summary": "While the asset is a clean, well-rendered synth bass, it is completely wrong for the dark industrial-metal spec. It sounds like a cozy, lo-fi hip-hop or synthwa"
+ },
+ "5years__Apollo 2__lead": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound is far too polite, clean, and thin for a lo-fi industrial cosmic-horror shooter. It lacks the physical weight, distortion, and aggressive grit requir"
+ },
+ "5years__Apollo 2__pad": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound is far too bright, clean, and polite for a lo-fi industrial cosmic-horror game, sounding more like a classic sci-fi UI chime or a new-age synth swell"
+ },
+ "5years__Apollo__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the low-end weight is decent, the sound is far too soft, clean, and warm for a dark industrial-metal combat track. It lacks the aggressive transient attac"
+ },
+ "5years__Apollo__lead": {
+  "p": 0.1,
+  "match": false,
+  "summary": "While the audio is technically clean and free of artifacts, it is entirely inappropriate for the intended spec. Instead of a gritty, aggressive, and heavy indus"
+ },
+ "5years__Apollo__pad": {
+  "p": 0.1,
+  "match": false,
+  "summary": "While the sound decays naturally and is free of technical artifacts, it completely misses the mark for a lo-fi industrial cosmic-horror aesthetic. It sounds lik"
+ },
+ "5years__Aqualung__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sub-bass weight is physically present and clean, the sound is far too polite, soft, and warm for the intended spec. It lacks the aggressive, gritty ha"
+ },
+ "5years__Aqualung__lead": {
+  "p": 0.1,
+  "match": false,
+  "summary": "While the synth patch is clean, it is entirely wrong for the requested aesthetic, sounding more like a cheerful 1990s progressive house bassline than a gritty, "
+ },
+ "5years__Aqualung__pad": {
+  "p": 0.9,
+  "match": true,
+  "summary": "This is an excellent, heavy atmospheric drone that perfectly captures the dark, dreadful weight of a derelict space station. It avoids any bright, new-age trope"
+ },
+ "5years__Aquarium 2__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While this is a clean and well-synthesized classic analog bass patch, it is far too soft, warm, and polite for the intended spec. It lacks the aggressive transi"
+ },
+ "5years__Aquarium 2__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the synth has a decent retro-analog flavor, it is far too polite, clean, and soft-edged for a gritty, lo-fi industrial cosmic-horror shooter. It lacks the"
+ },
+ "5years__Aquarium 2__pad": {
+  "p": 0.4,
+  "match": false,
+  "summary": "While the sound captures a sense of vastness, it leans too close to a warm, sci-fi mystery vibe rather than gritty, industrial dread. The lack of low-end weight"
+ },
+ "5years__Aquarium 3__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound has a nice analog warmth, it is far too soft, polite, and slow-attacking for a dark industrial-metal combat track. It lacks the aggressive, grit"
+ },
+ "5years__Aquarium 3__lead": {
+  "p": 0.2,
+  "match": false,
+  "summary": "While the sound is clean and well-rendered for a space ambient track, it completely misses the mark for a dark industrial combat lead. It lacks the aggressive a"
+ },
+ "5years__Aquarium 3__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While technically clean and well-rendered, this pad is far too bright, pristine, and pleasant for a lo-fi cosmic-horror game. It lacks the heavy, gritty, analog"
+ },
+ "5years__Aquarium 4__bass": {
+  "p": 0.15,
+  "match": false,
+  "summary": "While the sound has a nice analog-adjacent quality, it is entirely the wrong style for the requested spec, leaning into wet, bubbly acid-techno rather than heav"
+ },
+ "5years__Aquarium 4__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the synth lead is aggressive and cutting, it is far too thin, digital, and high-pitched for the intended lo-fi analog-industrial aesthetic. It lacks the p"
+ },
+ "5years__Aquarium 4__pad": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound is completely unsuited for a dark, reverent sanctuary pad, acting instead as a harsh, piercing jump-scare or metallic impact. It lacks the physical w"
+ },
+ "5years__Aquarium__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While this is a clean and usable sub-bass drone for ambient tension, it completely lacks the aggressive, gritty mid-range harmonics required to sit under distor"
+ },
+ "5years__Aquarium__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the synth line is clean and has a pleasant retro-analog warmth, it is far too polite, soft, and cheerful for a dark cosmic-horror combat track. It lacks t"
+ },
+ "5years__Aquarium__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound functions as a space-themed pad, its smooth digital texture and prominent, sweeping filter modulation feel too sci-fi and 'new-age' for a gritty"
+ },
+ "5years__Archeologist__bass": {
+  "p": 0.8,
+  "match": true,
+  "summary": "This is a highly aggressive, gritty synth bass that perfectly captures the distorted, industrial-metal aesthetic required for the game. It has excellent mid-ran"
+ },
+ "5years__Archeologist__lead": {
+  "p": 0.1,
+  "match": false,
+  "summary": "While the sound is clean and well-produced for a chill ambient track, it completely misses the mark for a dark, aggressive industrial combat lead. It lacks the "
+ },
+ "5years__Archeologist__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the metallic, industrial, and dread-inducing tone of the impact fits the game's aesthetic perfectly, this is fundamentally an impact sound rather than a s"
+ },
+ "5years__Archipielago__bass": {
+  "p": 0.8,
+  "match": true,
+  "summary": "This is a solid, heavy industrial bass pulse that fits the lo-fi cosmic-horror aesthetic perfectly with its gritty, analog warmth. However, for high-intensity c"
+ },
+ "5years__Archipielago__lead": {
+  "p": 0.95,
+  "match": true,
+  "summary": "This is an exceptional, production-ready industrial synth voice that perfectly nails the gritty, analog-dread aesthetic of a Teleglitch-style universe. It has i"
+ },
+ "5years__Archipielago__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound decays naturally and is free of technical artifacts, it is far too clean, musical, and pleasant for a lo-fi industrial cosmic-horror game. It la"
+ },
+ "5years__Arctic Wind__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the low-end weight is clean and deep, the sound completely lacks the aggressive, gritty mid-range harmonics and sharp attack required to survive in a dens"
+ },
+ "5years__Arctic Wind__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound has a decent analog warmth, it is far too gentle, clean, and slow-building for a dark industrial combat lead. It lacks the aggressive bite, grit"
+ },
+ "5years__Arctic Wind__pad": {
+  "p": 0.9,
+  "match": true,
+  "summary": "This is an excellent, moody atmosphere that perfectly captures the dark, hollow dread of a derelict space station. It has a heavy, physical weight in the low-mi"
+ },
+ "5years__Atlantis Pad__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound is a well-produced, smooth ambient pad, it completely misses the mark for a lo-fi industrial cosmic-horror aesthetic. It feels far too clean, br"
+ },
+ "5years__Azure__bass": {
+  "p": 0.8,
+  "match": true,
+  "summary": "This is an excellent, highly physical industrial drone that perfectly captures the gritty, analog-dread aesthetic of a Teleglitch-style game. While it functions"
+ },
+ "5years__Azure__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the lo-fi digital grit fits the retro-futuristic aesthetic, the synth's bubbly, rubbery timbre feels far too playful and EDM-adjacent for a cosmic-horror "
+ },
+ "5years__Azure__pad": {
+  "p": 0.2,
+  "match": false,
+  "summary": "This sound fails to capture the vast, heavy, and dread-inducing atmosphere required for a derelict cosmic-horror station. It reads more like a generic sci-fi co"
+ },
+ "5years__Babylon__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While this is a beautifully warm and deep analog sub-drone, it completely lacks the aggressive, gritty harmonic teeth required to function as an industrial-meta"
+ },
+ "5years__Babylon__lead": {
+  "p": 0.2,
+  "match": false,
+  "summary": "While beautifully produced, this sound is a lush, cinematic ambient pad rather than an aggressive, cutting lead synth voice for dark industrial combat. It lacks"
+ },
+ "5years__Babylon__pad": {
+  "p": 0.9,
+  "match": true,
+  "summary": "This asset perfectly captures the dark, reverent, and dreadful atmosphere required for a derelict-station sanctuary. Its low-mid weight and gritty, analog-filte"
+ },
+ "5years__Bamboo__bass": {
+  "p": 0.8,
+  "match": true,
+  "summary": "This is a highly aggressive, gritty synth bass with excellent mid-range distortion that would easily cut through a dense mix of distorted guitars. It perfectly "
+ },
+ "5years__Bamboo__lead": {
+  "p": 0.1,
+  "match": false,
+  "summary": "While the notes are clean and free of technical clipping, the sound is far too polite, sterile, and mid-range heavy for a dark industrial cosmic-horror game. It"
+ },
+ "5years__Bamboo__pad": {
+  "p": 0.1,
+  "match": false,
+  "summary": "While the sound is clean and decays naturally, it is far too pleasant, musical, and polite for a lo-fi cosmic-horror game. It lacks the physical grit, industria"
+ },
+ "5years__Banjoscape__bass": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound completely misses the mark for a dark industrial-metal synth bass, functioning instead as a soft, ambient wind or rumble. It lacks the aggressive att"
+ },
+ "5years__Banjoscape__lead": {
+  "p": 0.8,
+  "match": true,
+  "summary": "This is a highly effective, aggressive, and gritty industrial synth voice that perfectly captures the lo-fi cosmic-horror aesthetic. It has excellent weight and"
+ },
+ "5years__Banjoscape__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound captures a gritty, industrial texture, it is far too bright, harsh, and abrasive to serve as a sanctuary atmosphere, leaning closer to an active"
+ },
+ "5years__Bark__bass": {
+  "p": 0.95,
+  "match": true,
+  "summary": "This is an exceptional, production-ready industrial synth bass that perfectly captures the gritty, analog-dread aesthetic of the game. It has immense physical w"
+ },
+ "5years__Bark__lead": {
+  "p": 0.2,
+  "match": false,
+  "summary": "This sound is far too clean, polite, and thin to fit the gritty, analog-industrial dread of a Teleglitch-inspired cosmic horror game. It lacks the aggressive di"
+ },
+ "5years__Bark__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound functions as a sustained pad, its bright, clean, and brassy digital character is far too pleasant and sci-fi heroic for a gritty, lo-fi industri"
+ },
+ "5years__Basin__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound is a beautifully warm and clean analog sub-bass swell, it completely misses the mark for aggressive industrial-metal combat music. It lacks the "
+ },
+ "5years__Basin__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound is professionally programmed and possesses a pleasing, warm analog character, it is far too gentle and polite for the intended spec. It lacks th"
+ },
+ "5years__Basin__pad": {
+  "p": 0.9,
+  "match": true,
+  "summary": "This is an excellent, moody atmosphere that perfectly captures the dark, hollow, and reverent tone of a derelict space sanctuary. It avoids any bright, new-age "
+ },
+ "5years__Bhutanese EAS Alarm__bass": {
+  "p": 0.4,
+  "match": false,
+  "summary": "While the clip captures a gritty, lo-fi industrial vibe, it functions more like a mid-range synth lead than a heavy bass. It lacks the low-end weight and aggres"
+ },
+ "5years__Bhutanese EAS Alarm__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the detuned chord has a slightly eerie quality, the sound is far too thin, bright, and digitally clean for a gritty, lo-fi industrial cosmic-horror game. "
+ },
+ "5years__Bhutanese EAS Alarm__pad": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound is far too bright, harsh, and dry to serve as a dark, reverent sanctuary pad. It lacks the physical weight, low-end depth, and spatial decay required"
+ },
+ "5years__Bike Slide__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound has a buzzy mid-range, it lacks the physical weight, aggressive low-end grit, and dark analog dread required for a Teleglitch-style industrial-m"
+ },
+ "5years__Bike Slide__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the synth patch is clean and free of technical artifacts, it is far too polite, warm, and soft-edged for a gritty, lo-fi industrial cosmic-horror game. It"
+ },
+ "5years__Bike Slide__pad": {
+  "p": 0.9,
+  "match": true,
+  "summary": "This sound perfectly captures the dark, industrial, and haunted atmosphere required for a derelict-station sanctuary. The gritty, low-mid heavy texture feels ph"
+ },
+ "5years__Birdwatching__bass": {
+  "p": 0.1,
+  "match": false,
+  "summary": "While the clip is a clean and well-rendered sub-bass, it is completely wrong for the intended dark industrial-metal spec. It lacks the aggressive attack, harmon"
+ },
+ "5years__Birdwatching__lead": {
+  "p": 0.1,
+  "match": false,
+  "summary": "While the synth patch is clean and free of technical artifacts, it is entirely wrong for the intended aesthetic. It sounds like a cheerful, basic educational to"
+ },
+ "5years__Birdwatching__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound is clean and decays naturally, it is far too bright, warm, and pleasant for a lo-fi cosmic-horror sanctuary. It lacks the heavy, physical low-en"
+ },
+ "5years__Boeing__bass": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound completely fails to deliver the heavy, gritty, physical low-end required for dark industrial-metal combat music. It presents as a thin, buzzy mid-ran"
+ },
+ "5years__Boeing__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the gliding pitch has a slightly eerie quality, the overall timbre is too clean, nasal, and thin for a gritty, lo-fi industrial cosmic-horror soundtrack. "
+ },
+ "5years__Boeing__pad": {
+  "p": 0.1,
+  "match": false,
+  "summary": "While the chord has a slightly tense quality, the overall timbre is far too bright, clean, and digitally thin to fit a gritty, lo-fi industrial cosmic-horror ae"
+ },
+ "5years__Bonfire__bass": {
+  "p": 0.8,
+  "match": true,
+  "summary": "This is an incredibly gritty, heavy, and aggressive industrial bass sound that perfectly fits the dark cosmic-horror aesthetic. It has the necessary weight and "
+ },
+ "5years__Bonfire__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the synth patch has a pleasant, warm analog character, its soft attack and melancholic chord progression feel far too passive and safe for dark industrial"
+ },
+ "5years__Bonfire__pad": {
+  "p": 0.4,
+  "match": false,
+  "summary": "While the mid-range resonance captures a decent sense of a hollow, metallic structure, the sound lacks the deep, physical low-end weight required for the game's"
+ },
+ "5years__Boomerang__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound has a decent aggressive buzz, it completely fails as a synth bass because it lacks any real low-end or sub-bass foundation. The stereo imaging i"
+ },
+ "5years__Boomerang__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the melody itself has a slightly tense, minor quality, the sound design is far too polite, clean, and mid-range heavy for a gritty cosmic-horror shooter. "
+ },
+ "5years__Boomerang__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound has a nice analog warmth, it is far too bright, musical, and pleasant for a dark derelict-station sanctuary. It lacks the gritty, sub-heavy, and"
+ },
+ "5years__Bork__bass": {
+  "p": 0.8,
+  "match": true,
+  "summary": "This is a highly aggressive, gritty synth bass that perfectly captures the industrial-metal aesthetic and would easily cut through a dense mix of distorted guit"
+ },
+ "5years__Bork__lead": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound is far too clean, thin, and cheerful for a lo-fi cosmic-horror industrial shooter. It lacks the aggressive distortion, low-end weight, and eerie atmo"
+ },
+ "5years__Bork__pad": {
+  "p": 0.2,
+  "match": false,
+  "summary": "While the sound functions as a sustained pad, its bright, clean, and synthetic organ-like character completely misses the gritty, lo-fi industrial dread require"
+ },
+ "5years__Borneo__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound is clean and free of technical artifacts, it lacks the aggressive, physical grit and heavy low-end weight required for a dark industrial-metal c"
+ },
+ "5years__Borneo__lead": {
+  "p": 0.8,
+  "match": true,
+  "summary": "This is a solid, aggressive synth patch that fits the retro-futuristic, lo-fi industrial aesthetic perfectly with its buzzy, distorted character. To make it tru"
+ },
+ "5years__Borneo__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the clip has a decent lo-fi, degraded texture, it fails to evoke a vast or dreadful sanctuary, sounding instead like a localized sci-fi forcefield or engi"
+ },
+ "5years__Botanica__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While this is a pleasingly warm sub-bass drone, it completely lacks the aggressive, gritty harmonic body required to survive under distorted guitars in a combat"
+ },
+ "5years__Botanica__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound is clean and well-produced as an ambient pad, it fails the spec for an aggressive, cutting industrial combat lead. It lacks the physical grit, s"
+ },
+ "5years__Botanica__pad": {
+  "p": 0.9,
+  "match": true,
+  "summary": "This is an excellent, heavy, and deeply atmospheric drone that perfectly captures the weight and dread of a derelict space station. It avoids any cheap new-age "
+ },
+ "5years__Brassy Pad 1__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound is clean and well-rendered, it completely misses the aesthetic mark for a lo-fi industrial cosmic-horror game. It sounds far too pleasant, warm,"
+ },
+ "5years__Brassy Pad 2__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the metallic, gritty texture fits the lo-fi industrial aesthetic, the sound functions as a dramatic stinger rather than a sustained sanctuary atmosphere. "
+ },
+ "5years__Brassy Pad 3__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound is professionally produced and decays cleanly, it is far too bright, warm, and pleasant for a lo-fi industrial cosmic-horror game. It lacks the "
+ },
+ "5years__Brassy Pad 4__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound has a minor sense of dread, it is far too bright, synthetic, and thin to fit a gritty, lo-fi industrial cosmic-horror aesthetic. It plays more l"
+ },
+ "5years__Brassy Pad 5__pad": {
+  "p": 0.2,
+  "match": false,
+  "summary": "While the sound is clean and well-rendered, it is far too bright, polite, and synthetic for a lo-fi industrial cosmic-horror aesthetic. It lacks the gritty, phy"
+ },
+ "5years__Brassy__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound has a decent mid-range buzz, it lacks the physical, chest-hitting low end and gritty analog weight required for a dark industrial-metal combat t"
+ },
+ "5years__Brassy__lead": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound is far too clean, polite, and thin for a gritty, lo-fi cosmic-horror industrial shooter. It lacks the aggressive bite, low-end weight, and physical t"
+ },
+ "5years__Brassy__pad": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound completely misses the mark for a dark, derelict-station sanctuary. Instead of a heavy, physical, and dreadful industrial atmosphere, it presents a br"
+ },
+ "5years__Breakout__bass": {
+  "p": 0.8,
+  "match": true,
+  "summary": "This is a highly usable, gritty industrial bass sweep that perfectly captures the analog-industrial dread of the game's aesthetic. It has excellent weight, satu"
+ },
+ "5years__Breakout__lead": {
+  "p": 0.95,
+  "match": true,
+  "summary": "This is an exceptional, production-ready asset that perfectly captures the gritty, analog-industrial dread required by the spec. It has immense physical weight,"
+ },
+ "5years__Breakout__pad": {
+  "p": 0.95,
+  "match": true,
+  "summary": "This is an exceptional, heavy-weight atmosphere that perfectly captures the oppressive, industrial dread of a derelict space station. It avoids all new-age ambi"
+ },
+ "5years__Bright Keys__lead": {
+  "p": 0.2,
+  "match": false,
+  "summary": "While the sound is clean and free of technical artifacts, it is far too polite, warm, and cheerful for a lo-fi industrial cosmic-horror game. It lacks the aggre"
+ },
+ "5years__Broken Supersaw 2__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the synth has a sharp attack that cuts through, it lacks the heavy, physical, and gritty analog weight required for a dark industrial cosmic-horror aesthe"
+ },
+ "5years__Broken Supersaw__lead": {
+  "p": 0.2,
+  "match": false,
+  "summary": "While the melody has a slightly tense quality, the synth patch itself sounds like a generic, dry preset from a basic digital synthesizer. It completely lacks th"
+ },
+ "5years__Bubbler__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the performance has the aggressive tempo needed for combat, the tone itself is far too thin, buzzy, and digital to meet the 'heavy, gritty, analog-industr"
+ },
+ "5years__Bubbler__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the synth phrase has a decent cutting quality, it sounds far too clean, lightweight, and basic for a lo-fi industrial cosmic-horror game. It lacks the hea"
+ },
+ "5years__Bubbler__pad": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound is far too bright, static, and digitally harsh to serve as a dark, dread-inducing sanctuary atmosphere. It lacks the physical weight, low-end depth, "
+ },
+ "5years__Buried__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound has a decent low-end weight, it is far too passive, soft, and atmospheric for a dark industrial-metal combat track. It lacks the grit, aggressiv"
+ },
+ "5years__Buried__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound has a great low-end weight and an eerie, atmospheric quality suitable for background tension, it fails as a lead synth voice for combat. It lack"
+ },
+ "5years__Buried__pad": {
+  "p": 0.9,
+  "match": true,
+  "summary": "This asset perfectly captures the dark, heavy, and haunted atmosphere required for a derelict-station sanctuary. It avoids any bright, new-age pleasantness in f"
+ },
+ "5years__B\u251c\u2592angarangg__bass": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound completely misses the mark for a heavy industrial synth bass, presenting instead as a thin, clicky high-mid synth pluck or a laser-like sound effect."
+ },
+ "5years__B\u251c\u2592angarangg__lead": {
+  "p": 0.2,
+  "match": false,
+  "summary": "While the sound is clean and well-sequenced, it completely misses the mark for a dark, lo-fi cosmic-horror aesthetic. It sounds like a cheerful, lightweight chi"
+ },
+ "5years__B\u251c\u2592angarangg__pad": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This clip is a rapid, dry sequence of high-frequency clicks that completely fails to meet the spec of a sustained, dark, and vast atmospheric pad. It lacks any "
+ },
+ "5years__C-Sides__bass": {
+  "p": 0.4,
+  "match": false,
+  "summary": "While the sound has a decent aggressive mid-range bite, it lacks the deep, physical sub-bass weight required to sit effectively under distorted guitars in an in"
+ },
+ "5years__C-Sides__lead": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound is far too clean, polite, and thin to fit the gritty, analog-industrial dread of a Teleglitch-inspired cosmic horror game. It lacks the aggressive bi"
+ },
+ "5years__C-Sides__pad": {
+  "p": 0.2,
+  "match": false,
+  "summary": "While the sound is clean and well-produced in isolation, it completely misses the mark for a lo-fi industrial cosmic-horror game. It is far too bright, polite, "
+ },
+ "5years__Caillou__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound has a decent mid-range growl, its soft attack and lack of true low-end weight make it unsuitable for intense industrial-metal combat. It feels m"
+ },
+ "5years__Caillou__lead": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound is far too polite, clean, and thin for a lo-fi industrial cosmic-horror game. It lacks the aggressive distortion, physical weight, and eerie analog c"
+ },
+ "5years__Caillou__pad": {
+  "p": 0.1,
+  "match": false,
+  "summary": "While the sound functions as a sustained pad, it completely misses the aesthetic mark for a lo-fi industrial cosmic-horror game. It is far too bright, clean, an"
+ },
+ "5years__Calibration__bass": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound is a gentle, ambient synth pad rather than an aggressive industrial bass. It completely lacks the grit, heavy attack, and low-end weight required to "
+ },
+ "5years__Calibration__lead": {
+  "p": 0.1,
+  "match": false,
+  "summary": "While the sound is clean and well-produced in isolation, it is completely wrong for the intended spec. It behaves like a gentle, ambient sci-fi pad rather than "
+ },
+ "5years__Calibration__pad": {
+  "p": 0.9,
+  "match": true,
+  "summary": "This is an excellent, atmospheric drone that perfectly captures the dark, heavy, and reverent tone required for a derelict sanctuary. It has a great analog weig"
+ },
+ "5years__Canned Bread__bass": {
+  "p": 0.4,
+  "match": false,
+  "summary": "While the sound has a decent aggressive bite in the mid-range, it lacks the deep, physical sub-bass weight and gritty analog warmth required for a dark industri"
+ },
+ "5years__Canned Bread__lead": {
+  "p": 0.2,
+  "match": false,
+  "summary": "While the notes are clean, this sound completely misses the mark for a dark, lo-fi industrial cosmic-horror aesthetic. It sounds like a basic, default synthesiz"
+ },
+ "5years__Canned Bread__pad": {
+  "p": 0.4,
+  "match": false,
+  "summary": "While the sound has a decent metallic, haunted quality, it lacks the low-end physical weight and gritty texture required for a Teleglitch-style industrial aesth"
+ },
+ "5years__Canyon__bass": {
+  "p": 0.95,
+  "match": true,
+  "summary": "This is an exceptional, production-ready asset that perfectly captures the gritty, analog-industrial dread required for the game's aesthetic. The low-end weight"
+ },
+ "5years__Canyon__lead": {
+  "p": 0.9,
+  "match": true,
+  "summary": "This sound perfectly captures the gritty, analog-industrial dread required for a Teleglitch-style cosmic horror aesthetic. It has a heavy, physical weight in th"
+ },
+ "5years__Canyon__pad": {
+  "p": 0.9,
+  "match": true,
+  "summary": "This sound perfectly captures the oppressive, low-end weight required for a derelict cosmic-horror sanctuary. It avoids any bright, new-age synth cliches in fav"
+ },
+ "5years__Carbonated__bass": {
+  "p": 0.4,
+  "match": false,
+  "summary": "While the sound has a pleasingly dark, analog weight and a nice gritty texture, its slow attack and sweeping filter make it unusable as a playable combat synth "
+ },
+ "5years__Carbonated__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound is clean and well-synthesized, it plays more like a melancholic sci-fi horn than an aggressive, lo-fi industrial combat lead. It lacks the grit,"
+ },
+ "5years__Carbonated__pad": {
+  "p": 0.4,
+  "match": false,
+  "summary": "While the sound has a decent sense of space and scale, it is far too bright and sweeping, leaning into classic sci-fi territory rather than lo-fi industrial dre"
+ },
+ "5years__Caribbean 2__bass": {
+  "p": 0.95,
+  "match": true,
+  "summary": "This is an exceptional, production-ready industrial synth bass that perfectly matches the requested aesthetic. It has a vicious, biting transient that will easi"
+ },
+ "5years__Caribbean 2__lead": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound is far too clean, polite, and basic to fit the gritty, lo-fi industrial aesthetic of a Teleglitch-inspired cosmic horror game. It lacks the aggressiv"
+ },
+ "5years__Caribbean 2__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound decays cleanly, it fails the spec by being far too bright, polite, and synthetic for a gritty, lo-fi industrial cosmic-horror game. The sharp in"
+ },
+ "5years__Caribbean__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the low-end weight is present, the sound completely lacks the aggressive, gritty harmonic body required to cut through distorted guitars. It reads more li"
+ },
+ "5years__Caribbean__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the melody itself has a slightly eerie quality, the actual timbre of the synth is far too clean, polite, and basic for a gritty, lo-fi industrial cosmic-h"
+ },
+ "5years__Caribbean__pad": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This is a simple, dry synthesizer chord that completely misses the mark for a lo-fi cosmic-horror atmosphere. It lacks the physical grit, industrial weight, and"
+ },
+ "5years__Cat Sitar__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound has a gritty, distorted character, it lacks the deep, physical low-end weight required to anchor an industrial-metal track. The distortion is to"
+ },
+ "5years__Cat Sitar__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the synth line has a slightly eerie melody, the actual timbre is far too clean, bright, and thin for a gritty, lo-fi industrial cosmic-horror game. It sou"
+ },
+ "5years__Cat Sitar__pad": {
+  "p": 0.2,
+  "match": false,
+  "summary": "While the sound attempts a solemn, chordal atmosphere, it is far too bright, clean, and synthetic to fit a gritty, lo-fi industrial cosmic-horror aesthetic. The"
+ },
+ "5years__Catwalk__bass": {
+  "p": 0.9,
+  "match": true,
+  "summary": "This sound perfectly captures the raw, aggressive, and gritty analog-industrial dread required for the game's aesthetic. It has a massive, distorted low-end wei"
+ },
+ "5years__Catwalk__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound has a sharp, cutting attack, it is far too bright, thin, and digitally clean for a lo-fi industrial cosmic-horror game. It lacks the physical we"
+ },
+ "5years__Catwalk__pad": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound is far too bright, aggressive, and abrasive to serve as a sustained sanctuary atmosphere, lacking any of the required vastness or low-end dread. It f"
+ },
+ "5years__Celestials__bass": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound is a gentle, cinematic sci-fi pad rather than a heavy industrial-metal synth bass. It completely lacks the aggressive attack, gritty distortion, and "
+ },
+ "5years__Celestials__lead": {
+  "p": 0.2,
+  "match": false,
+  "summary": "While the sound is a pleasant, clean ambient pad, it completely misses the mark for a dark, aggressive industrial combat lead. It lacks the physical grit, heavy"
+ },
+ "5years__Celestials__pad": {
+  "p": 0.1,
+  "match": false,
+  "summary": "While the sound is technically clean and free of artifacts, its bright, pristine, and pleasant tonal character is the exact opposite of the requested lo-fi indu"
+ },
+ "5years__Ceuta__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "This sound is far too clean, polite, and digitally sterile to fit the gritty, analog-industrial dread of a Teleglitch-inspired cosmic horror game. It lacks the "
+ },
+ "5years__Ceuta__lead": {
+  "p": 0.1,
+  "match": false,
+  "summary": "While the melody itself has a slightly somber quality, the actual timbre of the synth is far too clean, thin, and polite for a gritty cosmic-horror industrial s"
+ },
+ "5years__Ceuta__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound is clean and well-produced in isolation, it completely misses the mark for a dark, derelict-station sanctuary. It sounds like a standard sci-fi "
+ },
+ "5years__Chimera__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound has a decent analog-adjacent buzz, its slow attack and lack of aggressive low-end grit make it unsuitable for intense industrial-metal combat. I"
+ },
+ "5years__Chimera__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the asset is clean and well-rendered, it sounds like a classic, heroic sci-fi pad rather than a gritty, dark industrial lead. It lacks the aggressive bite"
+ },
+ "5years__Chimera__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound is clean and well-produced in isolation, it completely misses the mark for a lo-fi industrial cosmic-horror aesthetic. It sounds like a classic "
+ },
+ "5years__Chip Bass__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound has a decent amount of low-end weight, its soft attack and lack of mid-range harmonic body prevent it from cutting through a dense mix of distor"
+ },
+ "5years__Chip Square Lead__lead": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound is far too clean, thin, and basic for a gritty, lo-fi industrial cosmic-horror game. It lacks the physical weight, distortion, and eerie atmosphere r"
+ },
+ "5years__Chiptune 64__bass": {
+  "p": 0.2,
+  "match": false,
+  "summary": "While the sound has a gritty, aggressive mid-range, it completely lacks the heavy, dark low-end body required to sit under distorted guitars in an industrial-me"
+ },
+ "5years__Chiptune 64__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound is aggressive, it lacks the physical weight, analog warmth, and low-end dread required for a dark industrial cosmic-horror aesthetic. It present"
+ },
+ "5years__Chiptune 64__pad": {
+  "p": 0.0,
+  "match": false,
+  "summary": "This clip is a fraction-of-a-second burst of raw static rather than a sustained, dark atmospheric pad. It completely fails to meet the spec in duration, frequen"
+ },
+ "5years__Choir Pad__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound is clean and well-produced in isolation, it completely misses the mark for a lo-fi industrial cosmic-horror aesthetic. It sounds like a pristine"
+ },
+ "5years__Chord  Stab__lead": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound is completely wrong for a dark, lo-fi industrial cosmic-horror shooter. It sounds like a cheerful, clean, and sterile synth-pop pluck rather than a h"
+ },
+ "5years__Chula__bass": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound is a gentle, ambient sci-fi pad rather than a heavy, gritty industrial-metal synth bass. It lacks the aggressive attack, distortion, and low-frequenc"
+ },
+ "5years__Chula__lead": {
+  "p": 0.95,
+  "match": true,
+  "summary": "This is an excellent, atmospheric drone that perfectly captures the analog-industrial dread required for a cosmic-horror setting. It has immense physical weight"
+ },
+ "5years__Chula__pad": {
+  "p": 0.95,
+  "match": true,
+  "summary": "This is an exceptional piece of industrial sound design that perfectly captures the cold, cavernous dread of a derelict space station. The gritty, metallic reso"
+ },
+ "5years__Circuitbent__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound has a decent analog warmth, it completely lacks the aggressive, gritty, and heavy industrial character specified for the combat music. It is far"
+ },
+ "5years__Circuitbent__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the synth has a retro aesthetic, it sounds far too playful and polite for a dark, lo-fi industrial cosmic-horror shooter. It lacks the aggressive bite, ph"
+ },
+ "5years__Circuitbent__pad": {
+  "p": 0.8,
+  "match": true,
+  "summary": "This is an incredibly moody, heavy, and physically imposing sound that perfectly captures the lo-fi industrial dread of the game's aesthetic. While it functions"
+ },
+ "5years__Claw Machine__bass": {
+  "p": 0.95,
+  "match": true,
+  "summary": "This is an exceptional, production-ready asset that perfectly captures the gritty, analog-industrial dread of the game's aesthetic. The low-end weight is immens"
+ },
+ "5years__Claw Machine__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the synth has a slightly retro aesthetic, it is far too polite, clean, and soft to fit a gritty, lo-fi industrial cosmic-horror combat scenario. It lacks "
+ },
+ "5years__Claw Machine__pad": {
+  "p": 0.95,
+  "match": true,
+  "summary": "This is an outstanding, heavy sound that perfectly captures the gritty, industrial cosmic-horror aesthetic of a derelict station. The initial metallic impact fe"
+ },
+ "5years__Clickbait__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound is clean and well-synthesized, it is far too polite, warm, and soft for a dark industrial-metal combat track. It lacks the aggressive harmonic b"
+ },
+ "5years__Clickbait__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the synth loop is clean and well-programmed, it sounds far too cheerful, warm, and polite for a dark cosmic-horror shooter. It lacks the aggressive, gritt"
+ },
+ "5years__Clickbait__pad": {
+  "p": 0.1,
+  "match": false,
+  "summary": "While the sound is technically clean and free of digital clipping, it completely misses the aesthetic mark for a lo-fi, industrial cosmic-horror game. It is far"
+ },
+ "5years__Clouds__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sub-bass weight is clean and solid, the sound completely lacks the aggressive grit, sharp attack, and harmonic body required to sit under distorted gu"
+ },
+ "5years__Clouds__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound has a decent eerie quality, it is far too soft, clean, and passive to function as a lead synth voice for dark industrial combat. It lacks the ag"
+ },
+ "5years__Clouds__pad": {
+  "p": 0.8,
+  "match": true,
+  "summary": "This is a solid, dark, and heavy drone that perfectly captures the vast, dreadful, and non-new-age atmosphere required for a sanctuary pad. It sits beautifully "
+ },
+ "5years__Comet Nova__bass": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound is far too clean, soft, and polite for a dark cosmic-horror industrial shooter. It lacks the aggressive transient attack, heavy distortion, and rich "
+ },
+ "5years__Comet Nova__lead": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound is completely wrong for the intended spec, sounding like a cheerful, sterile, and basic digital melody rather than a gritty, aggressive industrial sy"
+ },
+ "5years__Comet Nova__pad": {
+  "p": 0.1,
+  "match": false,
+  "summary": "While the sound is technically clean and decays smoothly, its bright, glassy, and pleasant tonal character is the exact opposite of the gritty, lo-fi industrial"
+ },
+ "5years__Cool Lead__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the melody has a slightly eerie, minor-key quality, the synth patch itself is far too clean, bright, and polite for a gritty, lo-fi industrial cosmic-horr"
+ },
+ "5years__Core Robot__bass": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound is the polar opposite of the requested spec; it is a soft, ambient, mid-range synth pad rather than a heavy, aggressive industrial bass. It completel"
+ },
+ "5years__Core Robot__lead": {
+  "p": 0.1,
+  "match": false,
+  "summary": "While the sound is clean and beautifully produced in isolation, it is completely wrong for the intended spec. Instead of a gritty, aggressive, and heavy industr"
+ },
+ "5years__Core Robot__pad": {
+  "p": 0.1,
+  "match": false,
+  "summary": "While the asset is technically clean and well-rendered, it is entirely wrong for the intended aesthetic. It presents a bright, pristine, and almost hopeful new-"
+ },
+ "5years__Corgi__bass": {
+  "p": 0.7,
+  "match": true,
+  "summary": "This is a solid, highly aggressive industrial bass patch that perfectly captures the gritty, distorted aesthetic of the game. It has excellent mid-range bite th"
+ },
+ "5years__Corgi__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the synth patch has a pleasant, warm analog character, it is far too polite and soft for a high-intensity industrial combat track. It lacks the aggressive"
+ },
+ "5years__Corgi__pad": {
+  "p": 0.9,
+  "match": true,
+  "summary": "This is an excellent, heavy analog drone that perfectly captures the weight and dread of a derelict space station. It avoids any cheap new-age brightness, optin"
+ },
+ "5years__Corporation__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound has a decent industrial grit in the mid-range, it lacks the physical, heavy low-end weight required to anchor a dark industrial-metal track. The"
+ },
+ "5years__Corporation__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound is clean and well-produced in a vacuum, it is far too polite, bright, and pristine for a lo-fi industrial cosmic-horror shooter. It lacks the ph"
+ },
+ "5years__Corporation__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the asset is clean and well-rendered, it is far too pristine, bright, and musically pleasant for a lo-fi industrial cosmic-horror game. It lacks the heavy"
+ },
+ "5years__Cortan Lead__lead": {
+  "p": 0.1,
+  "match": false,
+  "summary": "While the clip is technically clean and free of digital artifacts, it sounds like a default, sterile toy keyboard or basic chip-tune synth. It completely lacks "
+ },
+ "5years__Cortan ish__bass": {
+  "p": 0.1,
+  "match": false,
+  "summary": "While the low-end weight is technically clean and present, the sound completely misses the aggressive, gritty, and physical aesthetic required for dark industri"
+ },
+ "5years__Cortan ish__lead": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound is far too sterile, thin, and static to fit a gritty, lo-fi industrial cosmic-horror aesthetic. It lacks the aggressive distortion, low-end weight, a"
+ },
+ "5years__Cortan ish__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the chord choice has a slightly melancholic quality, the overall timbre is far too clean, bright, and static for a lo-fi industrial cosmic-horror game. It"
+ },
+ "5years__Crazy__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound has an aggressive, sharp attack, it completely lacks the heavy, gritty low-end body required to sit under distorted guitars as a bass instrument"
+ },
+ "5years__Crazy__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound has a retro aesthetic, it lacks the grit, weight, and dark atmosphere required for a cosmic-horror industrial soundtrack. It presents as a basic"
+ },
+ "5years__Crazy__pad": {
+  "p": 0.1,
+  "match": false,
+  "summary": "While the sound possesses a raw, lo-fi industrial grit, it completely fails the aesthetic spec of a vast, dark, and reverent sanctuary pad. It is far too bright"
+ },
+ "5years__Cretacic__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While this is a clean and pleasing low-end drone, it completely lacks the grit, aggression, and harmonic bite required for a dark industrial-metal combat track."
+ },
+ "5years__Cretacic__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound has a nice, warm analog quality and an eerie, hollow resonance, it is far too soft and polite to serve as a cutting combat lead. It lacks the ag"
+ },
+ "5years__Cretacic__pad": {
+  "p": 0.9,
+  "match": true,
+  "summary": "This is an excellent, atmospheric drone that perfectly captures the cold, industrial dread of a derelict space station. The low-end weight is physically palpabl"
+ },
+ "5years__Cryogen__bass": {
+  "p": 0.4,
+  "match": false,
+  "summary": "While the sound has a decent aggressive bite in the mid-range, it lacks the low-end chest punch and analog grit required for a dark industrial-metal bassline. I"
+ },
+ "5years__Cryogen__lead": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound completely misses the mark for a dark, gritty, cosmic-horror industrial shooter. It sounds like a default, dry preset from a basic synthesizer rather"
+ },
+ "5years__Cryogen__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound is clean and free of technical artifacts, it is far too polite, warm, and musical for a lo-fi industrial cosmic-horror game. It lacks the grit, "
+ },
+ "5years__Crystal__bass": {
+  "p": 0.2,
+  "match": false,
+  "summary": "This sound is far too polite, soft, and warm for a gritty, lo-fi cosmic-horror shooter. It lacks the aggressive transient attack, heavy sub-bass, and distorted "
+ },
+ "5years__Crystal__lead": {
+  "p": 0.1,
+  "match": false,
+  "summary": "While the clip is a clean and technically flawless recording, it is entirely wrong for the intended spec. It sounds like a pleasant, nostalgic sci-fi synth pad "
+ },
+ "5years__Crystal__pad": {
+  "p": 0.9,
+  "match": true,
+  "summary": "This asset perfectly captures the cold, metallic dread required for a derelict space station sanctuary. It avoids any new-age synth warmth, opting instead for a"
+ },
+ "5years__Cyber Organ__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the synth patch itself is clean and well-rendered, it is entirely too soft, slow, and polite for a dark industrial-metal combat track. It lacks the aggres"
+ },
+ "5years__Cyber Organ__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the gliding pitch of the synth has a slightly eerie quality, the overall timbre is far too thin, clean, and nasal for a gritty, lo-fi industrial cosmic-ho"
+ },
+ "5years__Cyber Organ__pad": {
+  "p": 0.2,
+  "match": false,
+  "summary": "While the sound is clean and well-produced in isolation, it completely misses the mark for a lo-fi industrial cosmic-horror aesthetic. It is far too bright, pol"
+ },
+ "5years__Cyberpunk__bass": {
+  "p": 0.8,
+  "match": true,
+  "summary": "This is an incredibly heavy, physical sound that perfectly captures the lo-fi industrial dread of a Teleglitch-adjacent aesthetic. It has immense weight and a g"
+ },
+ "5years__Cyberpunk__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the synth patch is clean and well-programmed for a generic retro soundtrack, it completely lacks the aggressive, gritty, and physical character demanded b"
+ },
+ "5years__Cyberpunk__pad": {
+  "p": 0.8,
+  "match": true,
+  "summary": "This is a beautifully composed, dark, and reverent pad that perfectly captures the 'haunted sanctuary' atmosphere. However, for a Teleglitch-adjacent aesthetic,"
+ },
+ "5years__Dancing Bird__bass": {
+  "p": 0.4,
+  "match": false,
+  "summary": "While the riff has an aggressive, buzzy mid-range bite, it lacks the physical weight and low-end authority required to sit under distorted guitars in an industr"
+ },
+ "5years__Dancing Bird__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the synth has a decent retro-analog tone, it completely lacks the grit, aggression, and physical weight required for a dark industrial cosmic-horror sound"
+ },
+ "5years__Dancing Bird__pad": {
+  "p": 0.2,
+  "match": false,
+  "summary": "While the sound is clean and free of technical artifacts, it completely misses the mark for a dark, dread-inducing cosmic-horror sanctuary. It is far too bright"
+ },
+ "5years__Dawning 5th__bass": {
+  "p": 0.4,
+  "match": false,
+  "summary": "While the sound has a decent lo-fi aesthetic, its slow attack and lack of low-end punch make it unsuitable for an aggressive industrial-metal combat track. It b"
+ },
+ "5years__Dawning 5th__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound is clean and well-produced for a space ambient track, it fails the combat spec entirely. It lacks the aggressive, cutting attack required to dri"
+ },
+ "5years__Dawning 5th__pad": {
+  "p": 0.9,
+  "match": true,
+  "summary": "This is an excellent, atmospheric drone that perfectly captures the cold, industrial dread of a derelict space station. The low-end weight provides a physical s"
+ },
+ "5years__Dawning__bass": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound completely misses the mark for a heavy, aggressive industrial-metal synth bass, functioning instead as a soft, ambient sci-fi drone. It lacks the phy"
+ },
+ "5years__Dawning__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound is beautifully produced and has a lovely, eerie quality, it is far too soft, clean, and passive for a dark industrial combat lead. It lacks the "
+ },
+ "5years__Dawning__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound is clean and well-produced in isolation, it completely misses the mark for a lo-fi industrial cosmic-horror aesthetic. It sounds like a pristine"
+ },
+ "5years__Deactivation__bass": {
+  "p": 0.95,
+  "match": true,
+  "summary": "This is an exceptional, production-ready industrial synth bass that perfectly captures the gritty, analog-dread aesthetic of the game. It has immense physical w"
+ },
+ "5years__Deactivation__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the melody has a slightly eerie quality, the synth patch itself is far too clean, warm, and polite for a gritty, lo-fi industrial cosmic-horror game. It l"
+ },
+ "5years__Deactivation__pad": {
+  "p": 0.1,
+  "match": false,
+  "summary": "While the sound functions as a sustained atmosphere, its bright, clean, and major-adjacent tonality feels far too pleasant and 'new-age' for a dark cosmic-horro"
+ },
+ "5years__Deep Abyss__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound has a nice, warm low-end weight suitable for a dark cosmic atmosphere, it completely lacks the aggressive, gritty harmonic body needed for indus"
+ },
+ "5years__Deep Abyss__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the melody itself has a slightly melancholic, eerie quality, the sound design of the synth voice is far too polite, soft, and clean for a gritty, lo-fi in"
+ },
+ "5years__Deep Abyss__pad": {
+  "p": 0.9,
+  "match": true,
+  "summary": "This is an excellent, moody atmosphere that perfectly captures the dark, reverent, and haunted tone required for a derelict sanctuary. Its soft attack and warm,"
+ },
+ "5years__Delay Lama Ensemble__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound has a decent amount of mid-range grit, the rapid LFO modulation gives it a bouncy, almost comical movement that completely undermines the intend"
+ },
+ "5years__Delay Lama Ensemble__lead": {
+  "p": 0.2,
+  "match": false,
+  "summary": "While the sound is technically clean and free of accidental digital clipping, it completely fails to meet the aesthetic requirements of a dark, cosmic-horror in"
+ },
+ "5years__Delay Lama Ensemble__pad": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound completely misses the mark for a dark, derelict-station sanctuary, sounding more like a dry, buzzy synthesizer preset or a nasal vocal warm-up than a"
+ },
+ "5years__Departure__bass": {
+  "p": 0.8,
+  "match": true,
+  "summary": "This is a highly usable, gritty industrial bass patch that perfectly captures the analog dread of the game's aesthetic. The low-end weight and distorted harmoni"
+ },
+ "5years__Departure__lead": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound is far too clean, polite, and lightweight for a gritty, lo-fi industrial cosmic-horror game. It lacks the aggressive distortion, physical weight, and"
+ },
+ "5years__Departure__pad": {
+  "p": 0.9,
+  "match": true,
+  "summary": "This is an excellent, moody atmosphere that perfectly captures the haunted, reverent, and dreadful tone required for a derelict sanctuary. It avoids any new-age"
+ },
+ "5years__Depths Mallet__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sub-bass decay is clean and deep, the sound completely lacks the aggressive midrange grit and sharp attack needed for industrial-metal combat. It feel"
+ },
+ "5years__Depths Mallet__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the low-end weight of the synth is decent, it functions more like a sub-bass than a cutting, aggressive lead voice. It lacks the grit, distortion, and hig"
+ },
+ "5years__Depths Mallet__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the aesthetic of the sound perfectly captures the gritty, heavy, lo-fi industrial dread of the game, it completely fails the functional spec of being a su"
+ },
+ "5years__Destructive__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the clip attempts a gritty, industrial vibe, it suffers from harsh digital fizz and a lack of true low-end weight required to sit under distorted guitars."
+ },
+ "5years__Destructive__lead": {
+  "p": 0.8,
+  "match": true,
+  "summary": "This is a highly aggressive, biting synth lead that perfectly captures the gritty, lo-fi industrial aesthetic of a Teleglitch-style game. It has an excellent, n"
+ },
+ "5years__Destructive__pad": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound completely misses the mark for a dark, reverent, or dreadful sanctuary pad, sounding instead like a harsh, unmodulated synthesizer buzz. It lacks the"
+ },
+ "5years__Digi Clavi__bass": {
+  "p": 0.95,
+  "match": true,
+  "summary": "This is an exceptional synth bass patch that perfectly captures the gritty, analog-industrial dread required for the game's aesthetic. It has a heavy, aggressiv"
+ },
+ "5years__Digi Clavi__lead": {
+  "p": 0.1,
+  "match": false,
+  "summary": "While the synth is clean and free of technical artifacts, it completely misses the aesthetic target for a dark, lo-fi industrial cosmic-horror game. It sounds l"
+ },
+ "5years__Digi Clavi__pad": {
+  "p": 0.1,
+  "match": false,
+  "summary": "While the asset is technically clean and well-recorded, it is far too clean, warm, and musically pleasant for a lo-fi industrial cosmic-horror game. It lacks an"
+ },
+ "5years__Digi Ocarina__bass": {
+  "p": 0.2,
+  "match": false,
+  "summary": "While the sound is clean and well-synthesized for a generic space ambient pad, it completely misses the mark for dark industrial-metal combat. It lacks the aggr"
+ },
+ "5years__Digi Ocarina__lead": {
+  "p": 0.1,
+  "match": false,
+  "summary": "While the synth patch itself is clean and well-rendered for a peaceful or melancholic setting, it completely misses the mark for dark industrial combat. It lack"
+ },
+ "5years__Digi Ocarina__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound is professionally produced and clean, it is far too warm, pleasant, and pristine for a lo-fi industrial cosmic-horror game. It lacks the physica"
+ },
+ "5years__Digital Love__bass": {
+  "p": 0.1,
+  "match": false,
+  "summary": "While the asset is a beautifully rendered, clean analog pad, it is the exact polar opposite of the requested spec. It lacks the aggressive, gritty, and heavy lo"
+ },
+ "5years__Digital Love__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound is clean and has an eerie, suspenseful quality, it is far too polite, warm, and soft-edged for a dark industrial combat lead. It lacks the aggre"
+ },
+ "5years__Digital Love__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound functions as a sustained atmosphere, it is far too clean, bright, and musical, evoking a sci-fi fantasy vibe rather than lo-fi cosmic horror. It"
+ },
+ "5years__Digivice__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound is a clean and pleasing low-frequency drone, it completely misses the mark for the aggressive, gritty industrial-metal combat spec. It lacks the"
+ },
+ "5years__Digivice__lead": {
+  "p": 0.2,
+  "match": false,
+  "summary": "While the sound is clean and well-produced for a different genre, it completely misses the mark for a dark, lo-fi industrial cosmic-horror aesthetic. It sounds "
+ },
+ "5years__Digivice__pad": {
+  "p": 0.1,
+  "match": false,
+  "summary": "While the sound has a sci-fi quality, it is far too bright, clean, and thin to fit a gritty, lo-fi industrial cosmic-horror aesthetic. It lacks the physical wei"
+ },
+ "5years__Disaster__bass": {
+  "p": 0.9,
+  "match": true,
+  "summary": "This is an excellent, highly aggressive industrial synth bass that perfectly matches the requested spec. It has the exact gritty, distorted harmonic body needed"
+ },
+ "5years__Disaster__lead": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound is far too clean, polite, and cheerful for a lo-fi industrial cosmic-horror shooter. It lacks the aggressive distortion, physical grit, and heavy low"
+ },
+ "5years__Disaster__pad": {
+  "p": 0.2,
+  "match": false,
+  "summary": "While the sound has a haunting, reverent quality, it is far too bright, clean, and polite for a gritty, lo-fi industrial cosmic-horror game. It lacks the physic"
+ },
+ "5years__Discretion__bass": {
+  "p": 0.7,
+  "match": true,
+  "summary": "This is a solid, highly aggressive synth bass patch that fits the industrial-metal aesthetic well with its gritty, buzzy mid-range distortion. However, to truly"
+ },
+ "5years__Discretion__lead": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound is far too clean, polite, and basic to fit the gritty, lo-fi industrial aesthetic of a cosmic-horror shooter. It lacks the aggressive bite, physical "
+ },
+ "5years__Discretion__pad": {
+  "p": 0.1,
+  "match": false,
+  "summary": "While the sound is clean and well-produced in isolation, it is far too polite, musical, and pleasant for a lo-fi industrial cosmic-horror game. It completely la"
+ },
+ "5years__Disposable__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the clip is a clean and well-rendered analog synth loop, it completely misses the mark for the aggressive, gritty industrial-metal spec. It lacks the phys"
+ },
+ "5years__Disposable__lead": {
+  "p": 0.1,
+  "match": false,
+  "summary": "While the melody itself has a slightly somber tone, the synth patch is far too polite, clean, and soft for a gritty, lo-fi cosmic-horror shooter. It completely "
+ },
+ "5years__Disposable__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound is professionally produced and decays beautifully, it completely misses the aesthetic mark for a lo-fi industrial cosmic-horror game. It sounds "
+ },
+ "5years__Distant Rave__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the performance has the right aggressive intent and rhythmic drive, the sound lacks the physical, heavy low-end required to sit under distorted guitars in"
+ },
+ "5years__Distant Rave__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound has a sharp, cutting attack, it is far too thin, bright, and sterile for a lo-fi industrial cosmic-horror aesthetic. It lacks the physical weigh"
+ },
+ "5years__Distant Rave__pad": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound is far too bright, buzzy, and digital, sounding more like a harsh synth lead or an alarm than a dark, heavy, and reverent sanctuary pad. It lacks the"
+ },
+ "5years__Distant Spring__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound is professionally rendered with a pleasing, warm analog low-end drift, it is far too gentle and atmospheric for the intended spec. It lacks the "
+ },
+ "5years__Distant Spring__lead": {
+  "p": 0.4,
+  "match": false,
+  "summary": "While the sound has an eerie, space-like quality, its soft attack and bright, buzzy high-end make it feel more like a sci-fi ambient pad than an aggressive lead"
+ },
+ "5years__Distant Spring__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the metallic, industrial texture of the drone fits the derelict station aesthetic, the sound is far too bright and lacks the physical, low-end weight requ"
+ },
+ "5years__Distorted Saw Bass__bass": {
+  "p": 0.95,
+  "match": true,
+  "summary": "This is an exceptional industrial synth bass loop that perfectly captures the gritty, aggressive, and physical aesthetic of the game. The distortion has a fanta"
+ },
+ "5years__Distorted Saw Bass__lead": {
+  "p": 0.8,
+  "match": true,
+  "summary": "This is a solid, heavy analog synth patch that perfectly fits the gritty, lo-fi industrial dread of a Teleglitch-style aesthetic. It has great weight and a plea"
+ },
+ "5years__Distorted Sub Bass__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound has a buzzy, lo-fi quality, it lacks the aggressive attack and deep, heavy sub-bass foundation needed to anchor dark industrial-metal combat mus"
+ },
+ "5years__Distress Signal__bass": {
+  "p": 0.2,
+  "match": false,
+  "summary": "While the sound is clean and well-synthesized for a generic electronic music pad, it completely misses the mark for a heavy, dark industrial-metal synth bass. I"
+ },
+ "5years__Distress Signal__lead": {
+  "p": 0.8,
+  "match": true,
+  "summary": "This is a beautifully warm, eerie, and atmospheric analog synth pad that perfectly captures the cosmic-horror dread of the game's aesthetic. However, for a comb"
+ },
+ "5years__Distress Signal__pad": {
+  "p": 0.7,
+  "match": true,
+  "summary": "The sound captures the dark, haunted, and reverent atmosphere of a derelict sanctuary quite well, fitting the lo-fi industrial aesthetic. However, it lacks the "
+ },
+ "5years__Dolphin__bass": {
+  "p": 0.95,
+  "match": true,
+  "summary": "This is an exceptional, production-ready industrial synth bass that perfectly captures the gritty, analog-dread aesthetic of the game. It has immense physical w"
+ },
+ "5years__Dolphin__lead": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound is entirely unsuitable for a gritty, lo-fi cosmic-horror industrial shooter. It sounds like a default, clean poly-synth preset from a basic DAW, lack"
+ },
+ "5years__Dolphin__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the chord has a decent sense of dread, the sound is far too bright, clean, and synth-like to fit a gritty, lo-fi industrial aesthetic. It lacks the physic"
+ },
+ "5years__Donk__bass": {
+  "p": 0.8,
+  "match": true,
+  "summary": "This is a solid, heavy industrial bass hit with great grit and a physical, punchy low-end that fits the game's aesthetic perfectly. It only needs a slightly lon"
+ },
+ "5years__Donk__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the synth patch has a pleasant retro-analog warmth, it is far too polite, clean, and soft-edged for a gritty, lo-fi industrial cosmic-horror shooter. It l"
+ },
+ "5years__Donk__pad": {
+  "p": 0.9,
+  "match": true,
+  "summary": "This sound perfectly captures the heavy, physical, and industrial dread required for a derelict cosmic-horror station. The initial impact feels massive and meta"
+ },
+ "5years__Drill__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound has a gritty, aggressive texture, it lacks the physical weight, low-end body, and analog warmth required for a dark industrial-metal bass. It so"
+ },
+ "5years__Drill__lead": {
+  "p": 0.7,
+  "match": true,
+  "summary": "This sound captures the aggressive, screeching, and retro-futuristic vibe required for a dark cosmic-horror combat lead. However, it is currently too thin and b"
+ },
+ "5years__Drill__pad": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound is a harsh, abrasive wall of high-frequency static rather than a dark, vast, and reverent atmospheric pad. It lacks the physical weight, low-end dept"
+ },
+ "5years__Dripping__bass": {
+  "p": 0.4,
+  "match": false,
+  "summary": "While the low-end weight is solid and the analog warmth is pleasant, the sound is far too polite, soft, and clean for dark industrial-metal combat. It lacks the"
+ },
+ "5years__Dripping__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound is clean and well-rendered, it is far too polite, warm, and soft for a dark industrial cosmic-horror shooter. It lacks the aggressive attack, gr"
+ },
+ "5years__Dripping__pad": {
+  "p": 0.9,
+  "match": true,
+  "summary": "This is an excellent, minimalist atmospheric drone that perfectly captures the heavy, dark, and reverent dread required for a derelict sanctuary. It avoids any "
+ },
+ "5years__Drum Fill 4-4__bass": {
+  "p": 0.95,
+  "match": true,
+  "summary": "This is an exceptional, production-ready industrial bass patch that perfectly captures the gritty, analog-dread aesthetic of the game. It has the exact physical"
+ },
+ "5years__Drum Fill 4-4__lead": {
+  "p": 0.8,
+  "match": true,
+  "summary": "This is a highly aggressive, gritty, and heavy industrial synth loop that perfectly fits the Teleglitch-adjacent aesthetic. It has immense physical weight and a"
+ },
+ "5years__Drum Fill 4-4__pad": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound is a short, aggressive burst of static noise rather than a sustained, dread-inducing atmospheric pad. It completely lacks the low-end weight, vast sp"
+ },
+ "5years__Drum Machine__bass": {
+  "p": 0.1,
+  "match": false,
+  "summary": "While technically clean and free of artifacts, this bass patch is far too soft, round, and sub-heavy to meet the spec. It lacks the aggressive harmonic bite, gr"
+ },
+ "5years__Drum Machine__lead": {
+  "p": 0.0,
+  "match": false,
+  "summary": "This sound is a dry, acoustic woodblock percussion hit rather than a dark, aggressive synth lead. It completely misses the aesthetic spec of lo-fi industrial co"
+ },
+ "5years__Drum Machine__pad": {
+  "p": 0.0,
+  "match": false,
+  "summary": "This sound is a short, metallic impact transient rather than the requested sustained atmospheric pad. It lacks the vastness, dread, and low-frequency weight req"
+ },
+ "5years__Dual E. Piano__bass": {
+  "p": 0.1,
+  "match": false,
+  "summary": "While the sound is clean and well-rendered for a chill, lo-fi aesthetic, it completely misses the mark for a dark industrial-metal combat track. It lacks the ag"
+ },
+ "5years__Dual E. Piano__lead": {
+  "p": 0.1,
+  "match": false,
+  "summary": "While the clip is a clean and technically flawless recording of a basic synthesizer, it is entirely wrong for the intended spec. It sounds like a gentle, retro "
+ },
+ "5years__Dual E. Piano__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound avoids being bright or new-age pleasant, it fails to capture the gritty, physical, and industrial dread required by the spec. It reads more like"
+ },
+ "5years__Ducati__bass": {
+  "p": 0.9,
+  "match": true,
+  "summary": "This is an excellent, production-ready industrial bass stab that perfectly captures the gritty, analog-saturated aesthetic of the game. It has the necessary low"
+ },
+ "5years__Ducati__lead": {
+  "p": 0.8,
+  "match": true,
+  "summary": "This sound fits the lo-fi industrial cosmic-horror aesthetic incredibly well, offering a heavy, distorted, and deeply unsettling tone. It has excellent weight a"
+ },
+ "5years__Ducati__pad": {
+  "p": 0.95,
+  "match": true,
+  "summary": "This is an exceptional, production-ready atmospheric drone that perfectly captures the weight and scale of a derelict space station. It avoids all new-age clich"
+ },
+ "5years__EDM Pluck__lead": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound is far too polite, clean, and thin for a dark, lo-fi industrial cosmic-horror game. It lacks the aggressive bite, heavy saturation, and physical weig"
+ },
+ "5years__Easy Going__bass": {
+  "p": 0.4,
+  "match": false,
+  "summary": "While the sound captures the aggressive, gritty industrial spirit, it lacks the physical, heavy low-end weight required to anchor a dark metal mix. The distorti"
+ },
+ "5years__Easy Going__lead": {
+  "p": 0.2,
+  "match": false,
+  "summary": "While the synth patch has a slightly eerie quality due to the minor interval tuning, it is far too thin, clean, and polite for a gritty lo-fi industrial cosmic-"
+ },
+ "5years__Easy Going__pad": {
+  "p": 0.2,
+  "match": false,
+  "summary": "While the sound has a cold, synthetic quality, it is far too bright, thin, and static to meet the spec of a heavy, dreadful cosmic-horror sanctuary. It lacks th"
+ },
+ "5years__Echoes of the simulation__bass": {
+  "p": 0.4,
+  "match": false,
+  "summary": "While the clip captures the gritty, lo-fi, and distorted aesthetic of the game, it functions more like a mid-range synth lead than a heavy bass. It lacks the fo"
+ },
+ "5years__Echoes of the simulation__lead": {
+  "p": 0.9,
+  "match": true,
+  "summary": "This is an excellent, highly aggressive industrial synth voice that perfectly fits the Teleglitch aesthetic. It has a fantastic, gritty mid-range bite that will"
+ },
+ "5years__Echoes of the simulation__pad": {
+  "p": 0.1,
+  "match": false,
+  "summary": "While the clip captures a gritty, lo-fi industrial texture, it fails as a sanctuary atmosphere due to its extreme harshness, lack of spatial depth, and aggressi"
+ },
+ "5years__Ectoplasm__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While this is a beautifully clean, warm sub-bass drone that would work well for ambient cosmic dread, it completely fails the spec for aggressive industrial-met"
+ },
+ "5years__Ectoplasm__lead": {
+  "p": 0.7,
+  "match": true,
+  "summary": "This is a highly atmospheric, eerie, and gritty analog synth pad that fits the lo-fi cosmic horror aesthetic perfectly. However, as a 'lead voice' for active co"
+ },
+ "5years__Ectoplasm__pad": {
+  "p": 0.95,
+  "match": true,
+  "summary": "This is an exceptional, atmospheric drone that perfectly captures the weight and dread of a derelict cosmic station. The low-end weight is physically imposing, "
+ },
+ "5years__Eire__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound has a gritty, analog-style texture, it functions more like a sci-fi synth lead or transition sweep than a heavy combat bass. It lacks the immedi"
+ },
+ "5years__Eire__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound is clean and free of technical artifacts, it lacks the physical weight, grit, and aggressive character required for a dark industrial combat tra"
+ },
+ "5years__Eire__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound has an eerie, suspended quality, it leans far too close to a bright, digital synthesizer pad rather than a heavy, physical, analog-industrial at"
+ },
+ "5years__Elastic Pad__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound attempts a solemn, reverent atmosphere, it is far too bright, synthetic, and thin to fit the gritty, heavy, lo-fi industrial aesthetic of a dere"
+ },
+ "5years__Elastic__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound has a decent mid-range bite, it lacks the physical, heavy low-end weight required to sit under distorted guitars in an industrial-metal track. T"
+ },
+ "5years__Elastic__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the synth patch has a slightly tense quality, it sounds like a generic, dry preset from a modern digital synth rather than a heavy, analog-industrial voic"
+ },
+ "5years__Elastic__pad": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound fails to meet the spec because it is far too bright, clean, and musical, sounding like a standard polyphonic synth pad rather than a dark, gritty ind"
+ },
+ "5years__Electric Clavinet__bass": {
+  "p": 0.8,
+  "match": true,
+  "summary": "This is a highly usable, aggressive industrial synth bass that perfectly captures the gritty, lo-fi analog dread of the game's aesthetic. It has excellent harmo"
+ },
+ "5years__Electric Clavinet__lead": {
+  "p": 0.7,
+  "match": true,
+  "summary": "This synth voice has a fantastic, aggressive, lo-fi bite that perfectly fits the retro-futuristic industrial aesthetic of a Teleglitch-style game. However, it c"
+ },
+ "5years__Electric Clavinet__pad": {
+  "p": 0.9,
+  "match": true,
+  "summary": "This sound perfectly captures the heavy, physical, and industrial dread required for a Teleglitch-style cosmic horror sanctuary. The initial impact feels massiv"
+ },
+ "5years__Enjoy__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound has an aggressive, distorted bite, it lacks the massive low-end weight and dark, physical analog warmth required to sit under industrial-metal g"
+ },
+ "5years__Enjoy__lead": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound is entirely wrong for the game's aesthetic, sounding like a cheerful, retro RPG fanfare rather than a dark, gritty industrial synth. It lacks the agg"
+ },
+ "5years__Enjoy__pad": {
+  "p": 0.2,
+  "match": false,
+  "summary": "While the sound is technically clean and free of digital clipping, its aesthetic is entirely wrong for a lo-fi industrial cosmic-horror game. It sounds like a g"
+ },
+ "5years__Everlasting__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound is clean and has a decent low-end weight, it is far too soft, slow, and polite for a dark industrial-metal combat track. It lacks the aggressive"
+ },
+ "5years__Everlasting__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the synth patch is beautifully programmed and has a nice warm analog drift, it is far too gentle, clean, and melancholic for a gritty, lo-fi industrial co"
+ },
+ "5years__Everlasting__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound is technically clean and well-rendered, it is far too bright, polite, and new-age to fit a lo-fi industrial cosmic-horror game. It lacks the hea"
+ },
+ "5years__Every Movie Trailer Ever__bass": {
+  "p": 0.9,
+  "match": true,
+  "summary": "This is an exceptionally strong, aggressive industrial bass sound that perfectly captures the gritty, overdriven aesthetic of the game. It has the necessary har"
+ },
+ "5years__Every Movie Trailer Ever__lead": {
+  "p": 0.8,
+  "match": true,
+  "summary": "This is a highly aggressive, distorted synth voice that perfectly captures the gritty, lo-fi industrial dread required for a Teleglitch-style cosmic horror game"
+ },
+ "5years__Every Movie Trailer Ever__pad": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound completely misses the mark for a dark, reverent, or dreadful sanctuary pad, sounding instead like a harsh, blown-out steam pipe or raw radio static. "
+ },
+ "5years__Evil__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound has a decent gritty, analog-industrial texture, it completely fails as a synth bass due to its lack of low-end weight and slow, swelling attack."
+ },
+ "5years__Evil__lead": {
+  "p": 0.8,
+  "match": true,
+  "summary": "This is an incredibly atmospheric, heavy, and dread-inducing sound that perfectly fits the lo-fi cosmic-horror aesthetic. However, as a 'lead synth voice' for c"
+ },
+ "5years__Evil__pad": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This asset fails to meet the spec because it is far too bright, buzzy, and digitally aggressive, sounding more like an alarm or a distorted synth lead than a da"
+ },
+ "5years__Exabyte__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound is clean and well-synthesized, it is far too polite, warm, and progressive-house adjacent for a dark industrial-metal combat track. It lacks the"
+ },
+ "5years__Exabyte__lead": {
+  "p": 0.2,
+  "match": false,
+  "summary": "While the melody has a slightly eerie, minor-key quality, the actual timbre of the synth is far too clean, thin, and polite for a gritty cosmic-horror shooter. "
+ },
+ "5years__Exabyte__pad": {
+  "p": 0.9,
+  "match": true,
+  "summary": "This is an excellent, atmospheric drone that perfectly captures the heavy, industrial dread required for a derelict space station sanctuary. It avoids any cheap"
+ },
+ "5years__Exclusive Lead__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the synth patch has a decent retro-analog character, it is far too clean, warm, and polite for a gritty, lo-fi industrial cosmic-horror game. It lacks the"
+ },
+ "5years__FM Basic Pluck__lead": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound is far too clean, polite, and lightweight for a gritty, lo-fi industrial cosmic-horror game. It lacks the aggressive distortion, physical weight, and"
+ },
+ "5years__FM Bass 1__bass": {
+  "p": 0.2,
+  "match": false,
+  "summary": "While the low-end weight is clean, this sound is far too polite, soft, and warm for a dark industrial-metal combat track. It lacks the aggressive harmonic body,"
+ },
+ "5years__FM Bass 2__bass": {
+  "p": 0.2,
+  "match": false,
+  "summary": "While the low-end weight is decent, the sound is far too soft, clean, and polite for a dark industrial-metal combat track. It lacks the aggressive harmonic body"
+ },
+ "5years__FM Bass 3__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the low-end weight is present, the sound is far too clean, round, and polite for a dark industrial-metal combat track. It lacks the aggressive harmonic di"
+ },
+ "5years__FM Keys__lead": {
+  "p": 0.2,
+  "match": false,
+  "summary": "While the melody itself has a slightly melancholic quality, the synthesizer patch is far too clean, warm, and polite for a lo-fi industrial cosmic-horror game. "
+ },
+ "5years__Factory Reset__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While this is a beautifully warm and clean analog sub-bass drone, it completely misses the mark for aggressive industrial-metal combat music. It lacks the sharp"
+ },
+ "5years__Factory Reset__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound is professionally designed and possesses a pleasing, warm analog character, it is far too gentle and polite for the intended spec. It functions "
+ },
+ "5years__Factory Reset__pad": {
+  "p": 0.9,
+  "match": true,
+  "summary": "This clip perfectly captures the dark, dusty, and heavy atmosphere required for a derelict space station sanctuary. It avoids any bright, new-age synth cliches "
+ },
+ "5years__Faulty Connection__bass": {
+  "p": 0.95,
+  "match": true,
+  "summary": "This is an exceptional, production-ready industrial synth bass that perfectly captures the gritty, analog-dread aesthetic of the game. It has immense physical w"
+ },
+ "5years__Faulty Connection__lead": {
+  "p": 0.9,
+  "match": true,
+  "summary": "This is an excellent, highly aggressive synth lead that perfectly captures the gritty, lo-fi industrial aesthetic of a Teleglitch-style game. The heavy distorti"
+ },
+ "5years__Faulty Connection__pad": {
+  "p": 0.7,
+  "match": true,
+  "summary": "This sound perfectly captures the gritty, lo-fi industrial dread required for a derelict cosmic-horror station. It has a fantastic, heavy, physical vibration th"
+ },
+ "5years__Faux__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound has a decent mid-range buzz, it lacks the physical, heavy sub-bass foundation required to anchor dark industrial-metal combat music. The gating "
+ },
+ "5years__Faux__lead": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound is far too clean, bright, and basic to fit the gritty, lo-fi industrial cosmic-horror aesthetic of a Teleglitch-adjacent game. It sounds like a defau"
+ },
+ "5years__Faux__pad": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound completely misses the mark for a dark, dread-inducing derelict station sanctuary, sounding instead like a bright, nostalgic new-age synth chord. It l"
+ },
+ "5years__Feebdack__bass": {
+  "p": 0.1,
+  "match": false,
+  "summary": "While this is a clean, well-rendered sub-bass drone, it completely misses the mark for the aggressive, gritty industrial-metal spec. It lacks the harmonic teeth"
+ },
+ "5years__Feebdack__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound is clean and well-rendered as a space-ambient pad, it completely misses the mark for a dark industrial combat lead. It lacks the aggressive, sha"
+ },
+ "5years__Feebdack__pad": {
+  "p": 0.9,
+  "match": true,
+  "summary": "This is an excellent, moody atmosphere that perfectly captures the hollow, haunted dread of a derelict space station. It avoids any bright, new-age synth tropes"
+ },
+ "5years__Feldspar__bass": {
+  "p": 0.2,
+  "match": false,
+  "summary": "While the sound is clean and well-rendered for a space ambient pad, it completely misses the mark for an aggressive industrial-metal synth bass. It lacks the ph"
+ },
+ "5years__Feldspar__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound is clean and well-produced for a space ambient game, it completely misses the mark for a gritty, lo-fi industrial combat lead. It lacks the aggr"
+ },
+ "5years__Feldspar__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound is clean and well-produced, it is far too warm, pleasant, and pristine for a lo-fi industrial cosmic-horror game. It lacks the physical weight, "
+ },
+ "5years__Fifth Revival__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the low-end weight is decent, the sound is far too soft, clean, and polite for a dark industrial-metal combat track. It lacks the aggressive harmonic dist"
+ },
+ "5years__Fifth Revival__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the clip is clean and free of technical artifacts, it is far too polite, warm, and soft for a gritty, lo-fi industrial cosmic-horror game. It lacks the ag"
+ },
+ "5years__Fifth Revival__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound has a haunting quality, it is far too bright, clean, and ethereal for a lo-fi industrial cosmic-horror aesthetic. It lacks the physical grit, lo"
+ },
+ "5years__Fifths Lead Yet Again__lead": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound is far too clean, polite, and reminiscent of a basic EDM or synthwave pad to fit a gritty, lo-fi cosmic horror aesthetic. It lacks the aggressive dis"
+ },
+ "5years__Final Frontier__bass": {
+  "p": 0.9,
+  "match": true,
+  "summary": "This is an exceptionally strong, gritty synth bass that perfectly captures the raw, analog-industrial dread required for the game's aesthetic. It has the necess"
+ },
+ "5years__Final Frontier__lead": {
+  "p": 0.6,
+  "match": true,
+  "summary": "The synth patch has a solid, gritty mid-range bite that fits the retro-futuristic industrial aesthetic well. However, it lacks the physical low-end weight requi"
+ },
+ "5years__Final Frontier__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the dark, muffled, and gritty industrial texture fits the game's overall aesthetic, this is a rhythmic machine loop rather than a sustained, vast atmosphe"
+ },
+ "5years__Fingers__bass": {
+  "p": 0.8,
+  "match": true,
+  "summary": "This is a highly usable, aggressive industrial synth bass that perfectly captures the gritty, distorted aesthetic of the game. It has excellent mid-range bite t"
+ },
+ "5years__Fingers__lead": {
+  "p": 0.1,
+  "match": false,
+  "summary": "While the synth patch is clean and well-programmed for a generic retro style, it is far too polite, soft, and cheerful for a dark industrial cosmic-horror shoot"
+ },
+ "5years__Fingers__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound is technically clean and decays naturally, it completely misses the mark for a gritty, lo-fi cosmic horror aesthetic. It sounds like a generic, "
+ },
+ "5years__Fireflies__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound has a decent mid-range harmonic buzz, it completely lacks the aggressive attack and heavy low-end weight required for dark industrial-metal comb"
+ },
+ "5years__Fireflies__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the melody itself has a decent melancholic quality, the sound design is far too polite, clean, and mid-range focused for a gritty industrial cosmic-horror"
+ },
+ "5years__Fireflies__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound is clean and decays naturally, it completely misses the mark for a lo-fi industrial cosmic-horror aesthetic. It feels too safe, warm, and new-ag"
+ },
+ "5years__Floating Point__bass": {
+  "p": 0.4,
+  "match": false,
+  "summary": "While this is a well-designed, clean analog synth patch with great low-end weight, it is far too polite and warm for the intended dark industrial-metal spec. It"
+ },
+ "5years__Floating Point__lead": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound is far too polite, thin, and clean for a lo-fi industrial cosmic-horror shooter. It lacks the physical weight, aggressive distortion, and eerie analo"
+ },
+ "5years__Floating Point__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound is clean and well-produced in isolation, it completely misses the mark for a lo-fi industrial cosmic-horror game. It is far too bright, clean, a"
+ },
+ "5years__Flux Core__bass": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound is far too soft, clean, and polite for a dark industrial-metal combat track in a cosmic-horror shooter. It completely lacks the aggressive mid-range "
+ },
+ "5years__Flux Core__lead": {
+  "p": 0.1,
+  "match": false,
+  "summary": "While the sound is clean and well-produced for a different genre, it completely misses the mark for a lo-fi industrial cosmic-horror aesthetic. It sounds like a"
+ },
+ "5years__Flux Core__pad": {
+  "p": 0.2,
+  "match": false,
+  "summary": "While the metallic, cold texture fits the industrial cosmic-horror aesthetic, this asset is fundamentally the wrong type of sound for the spec. It functions as "
+ },
+ "5years__Fluxus__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While this is a clean, well-rendered low-frequency drone, it is far too passive and soft-edged for a dark industrial-metal combat track. It lacks the aggressive"
+ },
+ "5years__Fluxus__lead": {
+  "p": 0.6,
+  "match": true,
+  "summary": "This sound captures the aggressive, screaming, and eerie quality required for a cosmic-horror industrial lead, fitting the lo-fi aesthetic well. However, it is "
+ },
+ "5years__Fluxus__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound has a decent sense of scale and a smooth decay, it is far too bright, clean, and celestial for a gritty, lo-fi industrial cosmic-horror game. It"
+ },
+ "5years__Fly__bass": {
+  "p": 0.9,
+  "match": true,
+  "summary": "This is an exceptionally strong, filthy synth bass loop that perfectly captures the gritty, analog-industrial dread of the game's aesthetic. It has immense weig"
+ },
+ "5years__Fly__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the synth line has a cutting quality, it sounds like a basic, unpolished sawtooth preset rather than a heavy, dread-inducing industrial instrument. It lac"
+ },
+ "5years__Fly__pad": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound completely misses the mark for a vast, dark sanctuary pad, presenting instead as a harsh, grating mid-range buzz. It lacks the physical weight, deep "
+ },
+ "5years__Folk Supersaw__lead": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound completely misses the mark for a dark, lo-fi industrial cosmic-horror aesthetic, sounding more like a default, cheerful EDM lead preset. It lacks any"
+ },
+ "5years__Follin__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound has an aggressive mid-range bite, it lacks the deep, physical low-end weight and analog grit required to sit under distorted guitars in a lo-fi "
+ },
+ "5years__Follin__lead": {
+  "p": 0.7,
+  "match": true,
+  "summary": "This synth voice has a fantastic, aggressive bite that fits the gritty, retro-futuristic industrial aesthetic of a Teleglitch-style shooter. It cuts through the"
+ },
+ "5years__Follin__pad": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound fails to capture the physical, heavy, and dread-inducing atmosphere required for a derelict cosmic-horror station. It presents as a basic, bright syn"
+ },
+ "5years__Forgotten Tech__bass": {
+  "p": 0.8,
+  "match": true,
+  "summary": "This is a highly aggressive, gritty synth bass that perfectly captures the distorted, industrial-metal aesthetic required for the game. It has excellent harmoni"
+ },
+ "5years__Forgotten Tech__lead": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound is far too clean, bright, and polite for a lo-fi cosmic-horror shooter. It lacks the physical weight, analog grit, and aggressive or eerie character "
+ },
+ "5years__Forgotten Tech__pad": {
+  "p": 0.9,
+  "match": true,
+  "summary": "This is an excellent, atmospheric drone that perfectly captures the cold, heavy, and haunted vibe of a derelict space station. It avoids any cheap new-age brigh"
+ },
+ "5years__Formant Pad__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound functions as a sustained pad, its bright, clean, and slightly warm tonal character leans far too close to a classic sci-fi or new-age synth rath"
+ },
+ "5years__Fragment Shader__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While this is a clean and well-rendered low-end drone, it is far too gentle, ambient, and soft-attacked for a dark industrial-metal combat track. It lacks the a"
+ },
+ "5years__Fragment Shader__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound is clean and beautifully programmed as a sci-fi ambient pad, it completely fails the spec for an aggressive, cutting lead synth voice for dark i"
+ },
+ "5years__Fragment Shader__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound is clean and well-produced, it is far too bright, pristine, and pleasant for a lo-fi cosmic-horror game. It lacks the physical grit, low-end wei"
+ },
+ "5years__Francium__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound has a fast, aggressive tempo, it lacks the physical weight, low-end authority, and analog grit required for a dark industrial-metal combat track"
+ },
+ "5years__Francium__lead": {
+  "p": 0.9,
+  "match": true,
+  "summary": "This is an exceptionally strong fit for the game's aesthetic, delivering a filthy, overdriven, and physically heavy industrial tone. It perfectly captures the l"
+ },
+ "5years__Francium__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the gritty, distorted texture fits the lo-fi industrial aesthetic of a Teleglitch-adjacent game, this sound fails as a sanctuary pad. It is far too aggres"
+ },
+ "5years__French Ld__bass": {
+  "p": 0.8,
+  "match": true,
+  "summary": "This is a highly aggressive, gritty synth bass that perfectly captures the lo-fi industrial dread of the game's aesthetic. It has the necessary weight and harmo"
+ },
+ "5years__French Ld__lead": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sequence has a frantic energy, the synth patch itself is far too bright, thin, and plastic for a gritty cosmic-horror setting. It lacks the heavy, phy"
+ },
+ "5years__French Ld__pad": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound completely misses the mark for a dark, vast, and reverent sanctuary pad, sounding instead like an aggressive, high-frequency hazard alarm or a distor"
+ },
+ "5years__Fretless__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound has a buzzy, aggressive mid-range, it lacks the heavy, physical low-end weight required to anchor a dark industrial-metal track. It feels more l"
+ },
+ "5years__Fretless__lead": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound is far too clean, static, and polite to fit the gritty, analog-industrial dread of a Teleglitch-adjacent cosmic horror game. It sounds like a default"
+ },
+ "5years__Fretless__pad": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the dark, industrial tone of the drone fits the general aesthetic of a derelict station, the sound lacks the vastness and deep, physical weight required f"
+ },
+ "5years__Fried Circuit__bass": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound completely fails to meet the spec for a heavy, gritty synth bass, presenting instead as a harsh burst of high-frequency static. It lacks the physical"
+ },
+ "5years__Fried Circuit__lead": {
+  "p": 0.1,
+  "match": false,
+  "summary": "While the sound captures a gritty, lo-fi digital harshness, it fails as a lead synth voice because it lacks any tonal or pitch definition, presenting instead as"
+ },
+ "5years__Fried Circuit__pad": {
+  "p": 0.1,
+  "match": false,
+  "summary": "This sound is a harsh, static blast of high-frequency noise rather than a dark, heavy, and vast atmospheric pad. It completely lacks the low-end weight, spatial"
+ },
+ "5years__Froggy Bass__bass": {
+  "p": 0.3,
+  "match": false,
+  "summary": "While the sound has a decent mid-range bite, it lacks the physical, heavy low-end required to anchor dark industrial-metal combat music. The decay is too abrupt"
+ }
+}
