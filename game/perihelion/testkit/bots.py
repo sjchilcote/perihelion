@@ -47,9 +47,11 @@ def _weapon_field(name: str) -> int:
 
 
 def choose_weapon(snapshot: dict, dist: float, n_enemies: int) -> int:
-    """Sensible weapon pick for a fight at `dist` against `n_enemies` in-room
-    enemies: knife when truly out of ammo and close, shotgun up close,
-    smg/pistol otherwise, falling back to whatever still has ammo."""
+    """Sensible weapon pick for a fight at `dist` against `n_enemies`
+    in-room enemies. A player who OWNS the arsenal uses it (2026-07-16,
+    the dense-gauntlet recalibration: the old policy never drew rail/tau
+    and died to every warden): heavies get the rail, big crowds at range
+    get the tau, close crowds the shotgun, chaff the smg."""
     weapons = snapshot["weapons"]
     ammo = snapshot["ammo"]
 
@@ -59,6 +61,12 @@ def choose_weapon(snapshot: dict, dist: float, n_enemies: int) -> int:
     out_of_ammo = not (has("9mm") or has("shell") or has("cell"))
     if out_of_ammo and dist < 40.0 and "knife" in weapons:
         return _weapon_field("knife")
+    heavy_near = any(e["kind"] in ("warden", "brute") and e["hops"] == 0
+                     for e in snapshot.get("enemies", []))
+    if heavy_near and "rail" in weapons and has("cell") and dist > 55.0:
+        return _weapon_field("rail")
+    if n_enemies >= 5 and dist > 90.0 and "tau" in weapons and has("cell"):
+        return _weapon_field("tau")
     if dist < 70.0 and "shotgun" in weapons and has("shell"):
         return _weapon_field("shotgun")
     if "smg" in weapons and has("9mm"):

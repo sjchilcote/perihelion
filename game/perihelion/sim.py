@@ -211,6 +211,8 @@ class GameSession:
         # never inherits another session's deformations.
         level.room_verts = [list(map(tuple, vs)) for vs in level.room_verts]
         self.difficulty = difficulty
+        self.player_resist = float((player_state or {}).get(
+            "dmg_taken_mul", 1.0))
         self._hp_mul = 1.35 if difficulty == "hard" else 1.0
         self._dmg_mul = 1.25 if difficulty == "hard" else 1.0
         self.rng = Random(seed)
@@ -1390,6 +1392,7 @@ class GameSession:
             self.recall_t = 0
             self._objective("RECALL SEVERED")
         dmg *= self._dmg_mul * self._armor_mul
+        dmg *= self.player_resist        # armor: player_state buff lever
         self.hp -= dmg
         self.metrics["dmg_taken"] += dmg
         px, py = self.player_pos()
