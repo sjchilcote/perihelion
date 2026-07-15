@@ -116,6 +116,13 @@ Format: date | decision | chosen | passed up | revisit trigger.
   long-note reductions | lead doubles chant in unison (rejected:
   foreground collision) | peaks feel thin without unison doubling ->
   try octave-doubling at peak tutti only.
+- 2026-07-15 | synth sourcing | ALL synth voices from the Vital banks
+  (TngKaos + 5 Years of Vital via Vitalium; director: "if we use Vital
+  patches that add their own detailed character, the rudimentary nature
+  of our sources becomes an asset rather than a problem") | Odin2
+  factory + Dexed DX7 as primary voices (they remain available as
+  fallbacks; assignments + runners-up in preset_scout_scores.json) |
+  a slot sounds better on the old preset in the lab A/B.
 - 2026-07-14 | anti-MIDI language | the ALBUM'S OWN (measured + pro-tier
   piano-roll reconstruction): strict grid, flat velocity + downbeat
   accents, zero legato in rhythm section, binary gates (ring or chopped
