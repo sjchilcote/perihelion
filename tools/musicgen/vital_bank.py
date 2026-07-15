@@ -62,7 +62,8 @@ SLOTS: dict[str, tuple[str, str]] = {
     "organ_holy": ("5years", "Heaven's Gate"),
     "organ_defiant": ("5years", "Hoover"),   # Medieval Punk = arpy pad, director 2026-07-15
     # stage beds by descent
-    "bed_t1": ("5years", "Machine Drone"),
+    "bed_t1": ("5years", "Machine Drone"),  # measured sustain 0.84; the
+    #   "does not loop" report was the demo clip's dying release tail
     "bed_t2": ("tngkaos", "Dark mood 1"),
     "bed_t3": ("5years", "Distress Signal"),
     "bed_t4": ("5years", "Evil"),

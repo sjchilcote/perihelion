@@ -224,10 +224,17 @@ def r_bass_fm(ev):
 
 def _mk_bed(tier):
     def r(ev):
+        # loop-shaped: the note holds to the END of the clip (a bed never
+        # releases in-game; a dying tail in the demo reads as "doesn't
+        # loop" — director 2026-07-15)
         n = 38 - 2 * (tier - 1)
+        dur = 8.0
         y = VB.render_seq(*VB.SLOTS[f"bed_t{tier}"],
-                          [(n, 0.0, 5.0, 100), (n - 12, 0.0, 5.0, 90)],
-                          5.0, tail_s=2.5)
+                          [(n, 0.0, dur, 100), (n - 12, 0.0, dur, 90)],
+                          dur, tail_s=0.0)
+        y = y[:int(dur * 44100)]
+        e = int(0.05 * 44100)
+        y[-e:] *= np.linspace(1, 0, e)
         return y / (np.abs(y).max() + 1e-9) * 0.85
     return r
 
