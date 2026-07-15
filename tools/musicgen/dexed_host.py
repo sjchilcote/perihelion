@@ -153,6 +153,23 @@ def render_notes(program: int, notes, dur_s: float, velocity: int = 100,
     return y.mean(axis=0) if y.ndim == 2 else y
 
 
+def render_sequence(program: int, seq, total_s: float,
+                    tail_s: float = 1.0) -> np.ndarray:
+    """One continuous pass for a whole phrase (see odin2_host)."""
+    from mido import Message
+    p = set_program(program)
+    msgs = []
+    for n, t0, d, v in seq:
+        msgs.append(Message("note_on", note=int(n),
+                            velocity=int(max(1, min(127, v))),
+                            time=float(t0)))
+        msgs.append(Message("note_off", note=int(n), velocity=0,
+                            time=float(t0 + d)))
+    msgs.sort(key=lambda m: m.time)
+    y = p(msgs, duration=total_s + tail_s, sample_rate=SR)
+    return y.mean(axis=0) if y.ndim == 2 else y
+
+
 if __name__ == "__main__":
     import soundfile as sf
     names = program_names()

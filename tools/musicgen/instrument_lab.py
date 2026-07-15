@@ -49,6 +49,10 @@ def _mono(x):
     return x.mean(axis=1) if x.ndim == 2 else x
 
 
+def _patch_path(cat_name):
+    return G._odin_patch(cat_name)
+
+
 def _chant_head(events, n_notes=8):
     out = []
     for p, d in events:
@@ -116,36 +120,46 @@ def r_bell(ev):
     return G.hall(x, 1.3).T
 
 
-def r_wall(ev):
-    """The RIFF: 16th pedal motor, melody pitches as open accents."""
-    rng = np.random.default_rng(11)
+def _wall_take(ev, seed, drive_db):
+    """One take of the riff, the ALBUM's programming language (pro-tier
+    piano-roll reconstruction of t02/t07): STRICT grid, flat velocity
+    with downbeat accents only, all re-picked, chugs hard-gated to
+    silence, power chords on accents."""
+    import synth as sy
+    rng = np.random.default_rng(seed)
     riff = riffs.riff_16(ev, n_bars=4, accents=riffs.ACCENTS_A, pedal=0)
     out = np.zeros(int(4 * G.BAR * SR) + SR)
     t = 0
     for p, steps, art in riff:
+        on_grid = t * G.STEP            # no timing jitter: the grid IS
+        #                                 the album's feel
         if art == "open":
-            # melody accent = POWER CHORD an octave up (root+5th+8ve),
-            # open strings — the approved wall voicing (parts.render_wall)
             for iv, g in ((12, 1.0), (19, 0.8), (24, 0.55)):
                 h = G.voices.chug_note(rng, p + iv,
-                                       G.STEP * steps * 1.8, 0.0,
-                                       g * (1 + rng.normal(0, .04)))
-                G.place_mono(out, h, t * G.STEP)
+                                       G.STEP * steps * 1.8, 0.0, g)
+                G.place_mono(out, h, on_grid)
         else:
-            # let the mute ring its natural decay (probe: hard gating
-            # cut string/cab resonance)
-            h = G.voices.chug_note(rng, p, G.STEP * 2.2, 0.85,
-                                   .5 * (1 + rng.normal(0, .05)))
-            G.place_mono(out, h, t * G.STEP + rng.normal(0, .002))
+            vel = 1.0 if t % 16 == 0 else 0.62   # accent = downbeat only
+            h = G.voices.chug_note(rng, p, G.STEP * 1.05, 0.85, vel)
+            # binary gate: chop to the slot, 3ms fade -> true silence
+            n_gate = int(G.STEP * 0.92 * SR)
+            if len(h) > n_gate:
+                h = h[:n_gate].copy()
+                h[-132:] *= np.linspace(1, 0, 132)
+            G.place_mono(out, h, on_grid)
         t += steps
-    # the approved chain: amp (distortion + cab IR), then HP 120 — the
-    # grit and body live here, raw chug samples read as sub-bass pillow.
-    # feed the amp conservatively: a 1.0-peak input at 20dB drive clips
-    # digitally (probe: "fizzy... severe digital clipping")
-    import synth as sy
-    out = G.voices.amp(out * 0.75 / (np.abs(out).max() + 1e-9), 18.0)
-    out = sy.highpass(out, 120)
-    return out / (np.abs(out).max() + 1e-9) * 0.9
+    out = G.voices.amp(out * 0.75 / (np.abs(out).max() + 1e-9), drive_db)
+    return sy.highpass(out, 120)
+
+
+def r_wall(ev):
+    """TWO independent takes hard L/R — the album's double-track law;
+    the decorrelation between takes is the 'band' cue, not jitter."""
+    L = _wall_take(ev, 11, 18.0)
+    R = _wall_take(ev, 22, 19.0)
+    n = min(len(L), len(R))
+    st = np.stack([L[:n], R[:n]], axis=1)
+    return st / (np.abs(st).max() + 1e-9) * 0.9
 
 
 def r_drums(ev):
@@ -176,18 +190,20 @@ def r_bass_deep(ev):
 
 
 def r_bass_fm(ev):
-    """Locks the wall's riff at bass register: same accent template,
-    melody pitches on the accents, pedal drive between."""
+    """The album's bass law: PERFECT UNISON with the wall riff — same
+    notes, same gates, root register, one hybrid tone with the guitars.
+    Rendered as ONE continuous sequence (envelope/LFO continuity), not
+    note-by-note pastes."""
     riff = riffs.riff_16(ev, n_bars=4, accents=riffs.ACCENTS_A, pedal=0)
-    x = np.zeros(int(4 * G.BAR * SR) + SR)
-    p = G._odin_patch(G.BASS_FM)
+    seq = []
     t = 0
     for pp, steps, art in riff:
-        vel = 110 if art == "open" else 78
-        y = G.o2.render_notes(p, [38 + pp], G.STEP * steps * 0.9,
-                              velocity=vel, tail_s=0.15)
-        G.place_mono(x, y, t * G.STEP)
+        vel = 118 if art == "open" else 96      # flat-loud, accent bump
+        gate = steps * 0.92 if art == "mute" else steps * 1.6
+        seq.append((38 + pp, t * G.STEP, gate * G.STEP, vel))
         t += steps
+    total = t * G.STEP
+    x = G.o2.render_sequence(_patch_path(G.BASS_FM), seq, total)
     return x / (np.abs(x).max() + 1e-9) * 0.9
 
 
@@ -204,13 +220,21 @@ def _mk_lead(wname):
 
     def r(ev):
         line = riffs.lead_phrase(_chant_head(ev, 12), factor=2)
+        # ONE continuous sequence with slight overlaps: the synth hears
+        # a played line (legato/glide/envelope continuity), not pasted
+        # single-note renders
+        seq = []
+        t = 0.0
+        for p, d in line:
+            if p is not None:
+                seq.append((62 + p + oct_shift, t * G.STEP,
+                            (d + 0.5) * G.STEP, 108))
+            t += d
+        total = t * G.STEP
         if kind == "odin":
-            patch = G._odin_patch(sel)
-            x = G.phrase_on(line, lambda p, d: G.o2.render_notes(
-                patch, [62 + p + oct_shift], d, tail_s=0.4))
+            x = G.o2.render_sequence(G._odin_patch(sel), seq, total)
         else:
-            x = G.phrase_on(line, lambda p, d: G.dx.render_notes(
-                sel, [62 + p + oct_shift], d, tail_s=0.4))
+            x = G.dx.render_sequence(sel, seq, total)
         return x / (np.abs(x).max() + 1e-9) * 0.9
     return r
 

@@ -94,6 +94,28 @@ def render_notes(patch_path: Path, notes, dur_s: float,
     return y.mean(axis=0) if y.ndim == 2 else y
 
 
+def render_sequence(patch_path: Path, seq, total_s: float,
+                    tail_s: float = 1.0) -> np.ndarray:
+    """ONE continuous plugin pass for a whole phrase — the anti-MIDI
+    fix: overlapping notes get real legato/glide, envelopes and LFOs
+    run across the line instead of retriggering identically per note.
+
+    seq: [(midi_note, t_on_s, dur_s, velocity 1..127)]
+    """
+    from mido import Message
+    p = load_patch(patch_path)
+    msgs = []
+    for n, t0, d, v in seq:
+        msgs.append(Message("note_on", note=int(n),
+                            velocity=int(max(1, min(127, v))),
+                            time=float(t0)))
+        msgs.append(Message("note_off", note=int(n), velocity=0,
+                            time=float(t0 + d)))
+    msgs.sort(key=lambda m: m.time)
+    y = p(msgs, duration=total_s + tail_s, sample_rate=SR)
+    return y.mean(axis=0) if y.ndim == 2 else y
+
+
 if __name__ == "__main__":
     import soundfile as sf
     base = render_notes.__wrapped__ if hasattr(render_notes, "__wrapped__") \
