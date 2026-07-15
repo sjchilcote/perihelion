@@ -181,6 +181,8 @@ class HumanBot(_UnstickMixin, Bot):
         self._ohshit_cooldown = 0
         self._ohshit_winning = 0
         self._warden_hunting = False
+        self._settle_focus = None
+        self._settle_until = 0
         self._standoff = False
         self._last_kills = 0
         self._last_kill_tick = 0
@@ -943,6 +945,25 @@ class HumanBot(_UnstickMixin, Bot):
             else:
                 nearest = closest
             self._focus_id = nearest["id"]
+        # sight-settle (director 2026-07-16: "a certain delay between
+        # pointing at a target and firing" -- the measured retarget->
+        # fire gap was 1 TICK, a 16ms trigger reflex): a new focus
+        # samples a 120-220ms settle before the trigger may drop
+        if nearest["id"] != self._settle_focus:
+            # transferring to an adjacent, already-tracked target is a
+            # short micro-adjust (~50-80ms); acquiring a fresh or far
+            # target is the full 120-220ms sight picture
+            near_transfer = False
+            if self._settle_focus is not None:
+                prev = next((e for e in perceived
+                             if e["id"] == self._settle_focus), None)
+                if prev is not None and \
+                        _dist(prev["pos"], nearest["pos"]) < 130.0:
+                    near_transfer = True
+            self._settle_focus = nearest["id"]
+            self._settle_until = snapshot["tick"] + \
+                (self._flinch_rng.randint(3, 5) if near_transfer
+                 else self._flinch_rng.randint(7, 13))
         ex, ey = nearest["pos"]
         dx, dy = ex - px, ey - py
         dist = math.hypot(dx, dy) or 1e-6
@@ -950,7 +971,15 @@ class HumanBot(_UnstickMixin, Bot):
         self._aim_world_angle = true_angle
 
         aim_angle = true_angle + self._flinch_angle
-        tx, ty = px + math.cos(aim_angle) * dist, py + math.sin(aim_angle) * dist
+        # minimum aim extension (director: "engaging enemies from close
+        # enough that the aim direction is indeterminate and it shoots
+        # the wall" -- 81% of fires were inside 30u, where the cursor
+        # sits pixels from the player and tiny error means any bearing):
+        # a human aims THROUGH a point-blank target, holding the cursor
+        # out where the direction stays determinate
+        aim_dist = max(dist, 50.0)
+        tx, ty = px + math.cos(aim_angle) * aim_dist, \
+            py + math.sin(aim_angle) * aim_dist
         target_ax, target_ay = necore.mat_apply(session.cam, tx, ty)
 
         mouse = self._ensure_mouse(target_ax, target_ay)
@@ -963,8 +992,21 @@ class HumanBot(_UnstickMixin, Bot):
         # relative to the true (un-flinched) target position on screen --
         # mouse lag, overshoot, and flinch all show up here as misses,
         # rather than as a separately-computed "true" aim error
+        # error = LATERAL miss at the target's range (would this aim RAY
+        # cross the silhouette?), not cursor-to-target point distance --
+        # with the min aim extension the cursor legitimately parks past
+        # a point-blank target, which is a perfect shot, not a 14px miss
         true_ax, true_ay = necore.mat_apply(session.cam, ex, ey)
-        screen_err = math.hypot(cur_ax - true_ax, cur_ay - true_ay)
+        pax, pay = necore.mat_apply(session.cam, px, py)
+        cdx, cdy = cur_ax - pax, cur_ay - pay
+        cmag = math.hypot(cdx, cdy)
+        edx, edy = true_ax - pax, true_ay - pay
+        if cmag < 1e-6:
+            screen_err = math.hypot(cur_ax - true_ax, cur_ay - true_ay)
+        elif cdx * edx + cdy * edy <= 0.0:
+            screen_err = 1e9          # aiming AWAY from it: never fire
+        else:
+            screen_err = abs(cdx * edy - cdy * edx) / cmag
         target_r = session.sim.get_radius(nearest["id"]) \
             if session.sim.exists(nearest["id"]) else 8.0
         cam_scale = math.hypot(*necore.mat_apply_dir(session.cam, 1.0, 0.0)) or 1.0
@@ -981,6 +1023,7 @@ class HumanBot(_UnstickMixin, Bot):
         # (the miss cost at contact range is nil and holding fire on the
         # thing biting you is the machine tell the director called out)
         inp.fire = (screen_err < allowed_px and
+                    snapshot["tick"] >= self._settle_until and
                     (self._flinch_ticks == 0 or dist < 55.0))
 
         want = choose_weapon(snapshot, dist, len(perceived))
@@ -1057,14 +1100,19 @@ class HumanBot(_UnstickMixin, Bot):
                              perp[1] * self._strafe_sign + 0.15 * -uy)
                 if self._strafe_rng.random() < 0.02:
                     self._strafe_sign *= -1
-        elif dist < 60.0 or snapshot["hp"] < 30:
+        elif dist < 80.0 or snapshot["hp"] < 30:
             move_room = (-ux, -uy)  # disengage / backpedal-while-firing when hurt
         elif dist > 140.0:
             move_room = (ux, uy)
         else:
+            # melee kinds CLOSE through a pure orbit -- 81% of fires
+            # ended up point-blank. Kite: strafe with a backward bias,
+            # trading ground for range the way the lanes are built for
             j = self._strafe_rng.uniform(-0.3 - 0.2 * pressure, 0.3 + 0.2 * pressure)
-            move_room = (perp[0] * self._strafe_sign + j * ux,
-                         perp[1] * self._strafe_sign + j * uy)
+            back = 0.55 if nearest.get("kind") in \
+                ("husk", "mite", "brute", "flicker") else 0.0
+            move_room = (perp[0] * self._strafe_sign + (j - back) * ux,
+                         perp[1] * self._strafe_sign + (j - back) * uy)
             if self._strafe_rng.random() < 0.02:
                 self._strafe_sign *= -1
         mvx, mvy = _norm(move_room)
