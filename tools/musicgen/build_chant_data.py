@@ -89,10 +89,37 @@ def main():
         lines.append("]")
         lines.append("")
         names.append(name)
+    # historical tunes (Lilypond/ABC sources, incipit-fixture-verified)
+    from tunes import load_menu
+    tune_names = []
+    for name, (ev, prov) in load_menu().items():
+        up = name.upper()
+        total = sum(d for _, d in ev)
+        lines.append(f"# {prov}")
+        lines.append(f"# {len(ev)} events, {total/16:.1f} bars")
+        lines.append(f"{up} = [")
+        row = "    "
+        for e in ev:
+            tok = f"{e!r}, "
+            if len(row) + len(tok) > 76:
+                lines.append(row.rstrip())
+                row = "    "
+            row += tok
+        lines.append(row.rstrip())
+        lines.append("]")
+        lines.append("")
+        tune_names.append(up)
     lines.append("CHANT_MENU = {")
     for n in names:
         lines.append(f'    "{n.lower()}": {n},')
     lines.append("}")
+    lines.append("")
+    lines.append("TUNE_MENU = {")
+    for n in tune_names:
+        lines.append(f'    "{n.lower()}": {n},')
+    lines.append("}")
+    lines.append("")
+    lines.append("MELODY_MENU = {**CHANT_MENU, **TUNE_MENU}")
     lines.append("")
     out = Path(__file__).parent / "chants_data.py"
     out.write_text("\n".join(lines))
