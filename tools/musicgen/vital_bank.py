@@ -60,7 +60,7 @@ SLOTS: dict[str, tuple[str, str]] = {
     # holy / defiant voices
     "choir": ("5years", "Choir Pad"),
     "organ_holy": ("5years", "Heaven's Gate"),
-    "organ_defiant": ("tngkaos", "Medieval Punk"),
+    "organ_defiant": ("5years", "Hoover"),   # Medieval Punk = arpy pad, director 2026-07-15
     # stage beds by descent
     "bed_t1": ("5years", "Machine Drone"),
     "bed_t2": ("tngkaos", "Dark mood 1"),
