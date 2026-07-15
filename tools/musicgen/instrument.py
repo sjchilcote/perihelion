@@ -109,7 +109,12 @@ def main():
 
     audio = Audio()
     audio.master_vol = 1.0
-    banks = sorted(p for p in BANKS.iterdir() if (p / "bank.json").exists()) \
+    # ONLY current-pipeline banks (album_*), labeled by track title —
+    # stale generate_bank-era banks retired (director: "certainly isn't
+    # the same pipeline that produced these tracks")
+    banks = sorted(p for p in BANKS.iterdir()
+                   if p.name.startswith("album_")
+                   and (p / "bank.json").exists()) \
         if BANKS.exists() else []
     if not banks:
         print("No banks in out/banks/ — run tools/musicgen/generate_bank.py "
@@ -138,7 +143,10 @@ def main():
         buttons.clear()
         y = 46
         for i, b in enumerate(banks):
-            buttons.append(Btn((12, y, 190, 22), b.name,
+            import json as _j
+            label = _j.loads((b / "bank.json").read_text()) \
+                .get("title", b.name)[:24]
+            buttons.append(Btn((12, y, 190, 22), label,
                                lambda i=i: load_bank(i),
                                lambda i=i: state["bank_i"] == i))
             y += 25

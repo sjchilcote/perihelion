@@ -390,7 +390,6 @@ def _monk_enter(ctx, t0, gain=0.5, ramp_s=6.0):
 def sec_vigil(ctx, bars, prog):
     rec, C, t0 = ctx["rec"], ctx["C"], ctx["t"]
     if not ctx["monk_used"]:
-        _monk_enter(ctx, t0)
         head = [(pp, d) for pp, d in ctx["events"] if pp is not None][:8]
         cs, tt = [], BAR
         for pp, d in head:
@@ -398,6 +397,10 @@ def sec_vigil(ctx, bars, prog):
             tt += d * ctx["chant_step"]
         ch = vb_seq_raw(rec["choir"], cs, bars * BAR, 1.5)
         lp(ctx, "holy", C, G.hall(ch, 1.6).T.mean(axis=1) * 0.45, t0)
+        # call-and-response, never simultaneous (director: "two vocals
+        # fight for the same aural space"): the choir STATES the line,
+        # the monk answers after it
+        _monk_enter(ctx, t0 + tt + BAR)
     lp(ctx, "holy", C, G.hall(bell_render(rec), 1.4).T.mean(axis=1) * 0.5,
        t0 + 2 * BAR)
     lp(ctx, "holy", C, G.hall(bell_render(rec, 0.4), 1.4).T.mean(axis=1) * 0.4,
@@ -416,9 +419,9 @@ def sec_ritual(ctx, bars, prog):
     ch = vb_seq_raw(rec["choir"], cs, bars * BAR, 1.5)
     lp(ctx, "holy", C, G.hall(ch, 1.7).T.mean(axis=1) * 0.5, t0)
     if not ctx["monk_used"]:
-        _monk_enter(ctx, t0)
+        _monk_enter(ctx, t0 + 2 * BAR)
     else:
-        lp(ctx, "holy", C, ctx["monk_far"] * 0.4, t0 + BAR)
+        lp(ctx, "holy", C, ctx["monk_far"] * 0.4, t0 + 2 * BAR)
     fl = []
     for bar in range(1, bars, 2):
         r = roots[bar * 16]
@@ -576,7 +579,7 @@ def sec_peak(ctx, bars, prog):
     ramp2 = np.minimum(1, np.arange(len(monk2)) / (4.0 * SR)) ** 1.5
     m2 = gc.sidechain_duck(monk2 * ramp2, dh4[:len(monk2)],
                            amount=0.5, release_s=0.12)
-    lp(ctx, "holy", C, m2 * 0.4, t0)
+    lp(ctx, "holy", C, m2 * 0.4, t0 + (bars // 2) * BAR)
 
 
 def sec_outro(ctx, bars, prog):
