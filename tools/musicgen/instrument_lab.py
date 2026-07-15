@@ -28,7 +28,6 @@ Slots and their planned material:
 from __future__ import annotations
 
 import sys
-import threading
 from pathlib import Path
 
 import numpy as np
@@ -249,11 +248,11 @@ def main():
     melodies = list(G.MELODIES)
     slots = build_slots()
     state = dict(mel_i=0, status={}, playing=None)
-    lock = threading.Lock()
-    # ONE render worker: the VST hosts (pedalboard instances) are not
-    # thread-safe — concurrent renders segfault. Clicks enqueue.
-    import queue
-    jobs: "queue.Queue[tuple]" = queue.Queue()
+    # Single-threaded by design: renders happen synchronously, one per
+    # frame-loop pass, with a visible banner. No queue, no worker — the
+    # only states are "missing", "ready", "ERR". Nothing can get stuck
+    # (the one hang-capable subprocess, wine, has its own hard timeout).
+    pending: list[int] = []
 
     def cache_path(mel, slot):
         return CACHE / f"{mel}__{slot}.wav"
@@ -262,59 +261,49 @@ def main():
         snd = pygame.mixer.Sound(str(cp))
         pygame.mixer.stop()
         snd.play()                       # loops=0: exactly one pass
-        with lock:
-            state["playing"] = slot_name
+        state["playing"] = slot_name
 
-    def render_slot(mel, slot_name, fn, play):
+    def render_now(mel, i):
         import soundfile as sf
-        cp = cache_path(mel, slot_name)
+        name, _p, _m, fn = slots[i]
+        cp = cache_path(mel, name)
+        if cp.exists():
+            state["status"][(mel, name)] = "ready"
+            return cp
         try:
-            if not cp.exists():
-                with lock:
-                    state["status"][(mel, slot_name)] = "rendering..."
-                x = fn(G.MELODIES[mel])
-                if x.ndim == 1:
-                    x = np.stack([x, x], axis=1)
-                sf.write(str(cp), (np.clip(x, -1, 1) * 32767)
-                         .astype(np.int16), SR, subtype="PCM_16")
-            with lock:
-                state["status"][(mel, slot_name)] = "ready"
-            if play:
-                play_once(cp, slot_name)
+            x = fn(G.MELODIES[mel])
+            if x.ndim == 1:
+                x = np.stack([x, x], axis=1)
+            sf.write(str(cp), (np.clip(x, -1, 1) * 32767)
+                     .astype(np.int16), SR, subtype="PCM_16")
+            state["status"][(mel, name)] = "ready"
+            return cp
         except Exception as exc:
-            with lock:
-                state["status"][(mel, slot_name)] = f"ERR {exc}"[:60]
-            print(f"[lab] {slot_name}: {exc}", file=sys.stderr)
+            state["status"][(mel, name)] = f"ERR {exc}"[:60]
+            print(f"[lab] {name}: {exc}", file=sys.stderr)
+            return None
 
-    def worker():
-        while True:
-            mel, name, fn, play = jobs.get()
-            render_slot(mel, name, fn, play)
-
-    threading.Thread(target=worker, daemon=True).start()
-
-    def prerender_all(mel):
-        """No clicking to generate: everything for this melody renders
-        in the background as soon as it's selected."""
-        for name, _p, _m, fn in slots:
-            key = (mel, name)
+    def select_melody(i):
+        state["mel_i"] = i
+        mel = melodies[i]
+        pending.clear()
+        for k, (name, _p, _m, _f) in enumerate(slots):
             if cache_path(mel, name).exists():
-                state["status"][key] = "ready"
-            elif not state["status"].get(key):
-                state["status"][key] = "queued"
-                jobs.put((mel, name, fn, False))
+                state["status"][(mel, name)] = "ready"
+            else:
+                pending.append(k)
 
     def click_slot(i):
         mel = melodies[state["mel_i"]]
-        name, _preset, _mat, fn = slots[i]
+        name = slots[i][0]
         cp = cache_path(mel, name)
         if cp.exists():
-            play_once(cp, name)         # plays exactly once
-        else:
-            state["status"][(mel, name)] = "queued (will play)"
-            jobs.put((mel, name, fn, True))
+            play_once(cp, name)
+        elif i in pending:               # render this one next
+            pending.remove(i)
+            pending.insert(0, i)
 
-    prerender_all(melodies[0])
+    select_melody(0)
 
     rows_top = 46
     row_h = 21
@@ -328,18 +317,15 @@ def main():
                 if ev.key == pygame.K_ESCAPE:
                     running = False
                 elif ev.key == pygame.K_UP:
-                    state["mel_i"] = (state["mel_i"] - 1) % len(melodies)
-                    prerender_all(melodies[state["mel_i"]])
+                    select_melody((state["mel_i"] - 1) % len(melodies))
                 elif ev.key == pygame.K_DOWN:
-                    state["mel_i"] = (state["mel_i"] + 1) % len(melodies)
-                    prerender_all(melodies[state["mel_i"]])
+                    select_melody((state["mel_i"] + 1) % len(melodies))
             elif ev.type == pygame.MOUSEBUTTONDOWN:
                 x, y = ev.pos
                 if x < 220:
                     i = (y - rows_top) // 25
                     if 0 <= i < len(melodies):
-                        state["mel_i"] = i
-                        prerender_all(melodies[i])
+                        select_melody(i)
                 elif x > 240:
                     i = (y - rows_top) // row_h
                     if 0 <= i < len(slots):
@@ -366,16 +352,24 @@ def main():
             y = rows_top + i * row_h
             stat = state["status"].get((mel, name), "")
             col = (190, 190, 190)
-            if stat.startswith("render"):
-                col = (240, 220, 120)
-            elif stat.startswith("ERR"):
+            if stat.startswith("ERR"):
                 col = (240, 110, 110)
-            elif state["playing"] == name:
+            elif stat == "ready" and state["playing"] == name:
                 col = (140, 230, 140)
+            elif stat != "ready":
+                col = (110, 110, 120)
             txt(f"{name:16s}  {preset:30.30s} {mat:26.26s} {stat}",
                 250, y, col)
+        if pending:
+            nm = slots[pending[0]][0]
+            txt(f"rendering {nm} ... ({len(pending)} to go)",
+                250, H - 30, (240, 220, 120), big)
         pygame.display.flip()
         clock.tick(30)
+        # render ONE missing clip per pass, synchronously, banner already
+        # on screen; ESC/clicks handled between renders
+        if pending:
+            render_now(mel, pending.pop(0))
     pygame.quit()
 
 
