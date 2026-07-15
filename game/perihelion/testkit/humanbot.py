@@ -54,9 +54,13 @@ from .perception import PerceptionModel
 ANTICIPATE_CONE = math.radians(35.0)
 
 # Flinch: taking damage kicks the aim off-target for ~100ms before recovery
-# (design doc §5). At 60Hz, 100ms ~= 6 ticks.
+# (design doc §5). At 60Hz, 100ms ~= 6 ticks. Magnitude is a JITTER,
+# not a wild swing: the original 0.35-0.75 rad (20-43 deg) meant a
+# melee touch every ~0.7s kept the cursor permanently in the weeds --
+# measured 53% of combat ticks blocked on aim error, the director's
+# 'refuses to fire' (2026-07-16). A hit shakes your hand ~6-13 deg.
 FLINCH_TICKS = 6
-FLINCH_ANGLE_RANGE = (0.35, 0.75)
+FLINCH_ANGLE_RANGE = (0.10, 0.22)
 
 # Fire discipline: only shoot once tracking error is within this angle of
 # the (perceived, latency-delayed) target -- mirrors _CombatMixin's AGGRO
@@ -194,6 +198,8 @@ class HumanBot(_UnstickMixin, Bot):
         # the retreat LEVEL is continuous, not a latched mode)
         self._retreat_gain = 0.0
         self._retreat_room: int | None = None
+        self._entry_caution = False
+        self._planted = False
         self._warden_hunting = False
         self._settle_focus = None
         self._settle_until = 0
@@ -329,6 +335,7 @@ class HumanBot(_UnstickMixin, Bot):
                 max(0.45, 1.0 - 0.5 * rg)
         else:
             self._combat_streak = max(0, self._combat_streak - 2)
+            self._planted = False
             inp = InputFrame()
             if distant:
                 self._pause_ticks = 0
@@ -362,6 +369,34 @@ class HumanBot(_UnstickMixin, Bot):
         # idle targets on the move (that leak re-created run-past)
         adv_gain = max(0.08, 1.0 - rg - 0.5 * len(co_room)
                        - 0.2 * min(3, n_dist_hunt))
+        # NEVER walk on with hunters inbound (the absolute-priority law,
+        # re-lost in the blend: measured run-past of a waking husk, then
+        # a 74-tick stroll with it chasing): no co-room fight + anything
+        # hunting on screen = stand your ground and meet it, gun up
+        if not co_room and n_dist_hunt > 0 and rg < 0.4:
+            adv_gain = min(adv_gain, 0.12)
+        # planted (deleting a free target): the advance schema stands
+        # down too -- at 0.5 gain it dragged the blend through the
+        # doorway at forced full pace while the fight schema strafed
+        if self._planted:
+            adv_gain = min(adv_gain, 0.05)
+        # doorway discipline: 67% of all damage landed within 1.5s of a
+        # room entry (measured, seed 1054) -- the blind stumble. Any
+        # portal into a room not yet walked slows the approach to a
+        # careful entrance; perception catches up before the body does.
+        if not co_room:
+            portals = session.sim.room_portals(proom)
+            for edge, portal in enumerate(portals):
+                if portal is None or portal[0] in self._visited_rooms:
+                    continue
+                mx_, my_ = session.sim.edge_midpoint(proom, edge)
+                if math.hypot(mx_ - px, my_ - py) < 90.0:
+                    self._entry_caution = True
+                    break
+            else:
+                self._entry_caution = False
+        else:
+            self._entry_caution = False
         adv_vec = self._objective_move(session, snapshot, px, py, proom)
 
         RG_W = float(__import__('os').environ.get('BOT_RG_W', '1.15'))
@@ -388,8 +423,12 @@ class HumanBot(_UnstickMixin, Bot):
         mag = math.hypot(vx, vy)
         if mag > 1e-6:
             speed = min(1.0, mag)
-            if fight_gain > 0.45 or rg > 0.45:
+            if self._planted:
+                speed = min(speed, 0.35)
+            elif fight_gain > 0.45 or rg > 0.45:
                 speed = max(speed, 0.95)
+            elif self._entry_caution:
+                speed = min(speed, 0.5)     # careful through the door
             inp.mx, inp.my = vx / mag * speed, vy / mag * speed
         else:
             inp.mx, inp.my = 0.0, 0.0
@@ -940,6 +979,7 @@ class HumanBot(_UnstickMixin, Bot):
 
     def _combat_input(self, session: GameSession, snapshot: dict,
                        perceived: list[dict], px: float, py: float):
+        self._planted = False
         self._update_flank_escape(perceived, snapshot["hp"], px, py)
         # PAIN OVERRIDES EVERYTHING (director 2026-07-16: the bot "will
         # hold fire on an enemy currently touch-hurting it to shoot at a
@@ -1139,10 +1179,38 @@ class HumanBot(_UnstickMixin, Bot):
                              perp[1] * self._strafe_sign + 0.15 * -uy)
                 if self._strafe_rng.random() < 0.02:
                     self._strafe_sign *= -1
+        elif nearest.get("state") in ("idle", "waking") and \
+                snapshot["hp"] >= 30:
+            # an idle OR still-waking target is free damage: plant your
+            # feet and delete it -- backpedal/kite footwork here walked
+            # the bot off the target (and back through the doorway)
+            # before the trigger could settle
+            self._planted = True
+            move_room = (0.0, 0.0)   # feet planted means planted: the
+            #   0.3 strafe drifted the bot over the very doorway seam
+            #   it was standing on when it acquired the target
         elif dist < 80.0 or snapshot["hp"] < 30:
             move_room = (-ux, -uy)  # disengage / backpedal-while-firing when hurt
         elif dist > 140.0:
-            move_room = (ux, uy)
+            # approach ONLY what will not come to you (director: "it
+            # sees an enemy and walks in to it" -- closing on a charging
+            # melee enemy meets it at combined speed, at contact, mid
+            # sight-settle). A hunting melee kind gets held at range:
+            # stand and shoot, give ground slowly, let it cross the gun.
+            charging = (nearest.get("state") in ("hunt", "waking") and
+                        nearest.get("kind") in
+                        ("husk", "mite", "brute", "flicker", "warden"))
+            if charging:
+                # STAND and shoot -- pure strafe. A back-drift here
+                # walked the bot back through the portal it had just
+                # entered, dropping co-room and resetting the whole
+                # fight (74-tick fire lag at the doorway, measured);
+                # ground-giving belongs to the <80u band, not to a
+                # target still 140u out
+                move_room = (perp[0] * self._strafe_sign,
+                             perp[1] * self._strafe_sign)
+            else:
+                move_room = (ux, uy)
         else:
             # melee kinds CLOSE through a pure orbit -- 81% of fires
             # ended up point-blank. Kite: strafe with a backward bias,
