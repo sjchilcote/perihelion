@@ -177,6 +177,10 @@ class HumanBot(_UnstickMixin, Bot):
         self._ohshit_room: int | None = None
         self._ohshit_ticks = 0
         self._ohshit_quiet = 0
+        self._pressure_hist = collections.deque()
+        self._ohshit_cooldown = 0
+        self._ohshit_winning = 0
+        self._warden_hunting = False
         self._standoff = False
         self._last_kills = 0
         self._last_kill_tick = 0
@@ -271,10 +275,16 @@ class HumanBot(_UnstickMixin, Bot):
         if kills != self._last_kills:
             self._last_kills = kills
             self._last_kill_tick = tick
-        # (hop-limiting this count was tried at the wide camera -- fewer
-        # timeouts but 0/20 pass: the far-sighted early retreat is what
-        # keeps the bot alive. Count everything perceived.)
-        self._threats_total = len(co_room) + len(distant)
+        # pressure = AGGROED enemies only (director 2026-07-16: the bot
+        # "spends the VAST majority of its time trying to kite enemies
+        # that haven't even aggroed yet" -- an idle enemy on screen is
+        # scenery, not pressure; it gets fought where it stands)
+        self._threats_total = sum(
+            1 for e in co_room + distant
+            if e.get("state") in ("hunt", "waking"))
+        self._warden_hunting = any(
+            e.get("kind") == "warden" and e.get("state") == "hunt"
+            for e in co_room + distant)
         self._update_ohshit(session, snapshot, proom,
                             self._threats_total, tick)
 
@@ -583,8 +593,28 @@ class HumanBot(_UnstickMixin, Bot):
         the pressure has thinned to OHSHIT_CLEAR or the clock runs out
         (never anchor forever on a stalemate)."""
         hp = snapshot["hp"]
+        self._pressure_hist.append((snapshot["tick"], n_threats,
+                                    session.metrics.get("kills", 0)))
+        while self._pressure_hist and \
+                snapshot["tick"] - self._pressure_hist[0][0] > 120:
+            self._pressure_hist.popleft()
+        t0, n0, k0 = self._pressure_hist[0]
+        influx = n_threats - n0
+        killed = session.metrics.get("kills", 0) - k0
         if self._ohshit_room is not None:
             self._ohshit_ticks -= 1
+            # win-trend release: the trigger is rate-based, the release
+            # must be too -- kills outpacing influx means the fight
+            # turned; holding the retreat through a fight the bot is
+            # winning is what kept OH-SHIT at 40% of the run
+            if killed > influx and killed > 0 and hp >= 40.0:
+                self._ohshit_winning += 1
+            else:
+                self._ohshit_winning = 0
+            if self._ohshit_winning >= 60:
+                self._ohshit_room = None
+                self._ohshit_winning = 0
+                return
             # COMMITTED withdrawal: perception blips to zero through the
             # walls the instant the bot backs out of sight, and clearing
             # on that blip caused a 1s-period enter/clear thrash (seed
@@ -600,19 +630,38 @@ class HumanBot(_UnstickMixin, Bot):
             # failed (idle enemies out of alert range) -- a player gives
             # up waiting and goes to them (5 timeout runs at 15min were
             # exactly this loiter, one of them 174/180 kills from done)
-            stale = (snapshot["tick"] - self._last_kill_tick > 60 * 15 and
-                     hp >= 55.0)
+            # staleness breaks camp at ANY hp: a hurt bot that gated
+            # this on hp >= 55 camped a dead stalemate for 900s (seed
+            # 1011) -- if they are not coming, waiting is just a slower
+            # death, so go fight carefully instead. A stale break also
+            # suppresses re-triggering for 10s: without the cooldown the
+            # same standoff re-armed the instant the clock reset.
+            stale = snapshot["tick"] - self._last_kill_tick > 60 * 15
             if done or stale or self._ohshit_ticks <= 0:
                 self._ohshit_room = None
+                if stale:
+                    self._ohshit_cooldown = snapshot["tick"] + 600
             return
-        # pull-to-the-guns doctrine (the 0/20 attrition findings, in
-        # order: the bot never saw 8 at once under alert_hops=1 and bled
-        # to death 2-3 at a time; then died in one -43hp/s burst walking
-        # into a 9-enemy hub at hp 74). ANY real contact beyond a
-        # skirmish gets dragged back onto the sentry field -- wake a
-        # batch, fall back, let the funnel and the guns grind it, step
-        # forward again. The gauntlet is fought AT the chokes.
-        if not (n_threats >= 3 or (hp < 60.0 and n_threats >= 1)):
+        # trigger rule (director 2026-07-16): OH-SHIT only when the
+        # fight is being LOST -- the rate at which aggroed enemies pile
+        # on exceeds the rate they die. A steady grind (influx <= kills)
+        # is a fight, not an emergency; the bot stands and wins it.
+        # ... and only for a fight he's actually IN: influx always beats
+        # kills in the first second of a wave (kills lag aggro), so an
+        # instant trigger made every first contact a retreat and OH-SHIT
+        # still owned 35-54% of the run. Stand and fight first; fall
+        # back when the trend is still bad after real engagement.
+        if snapshot["tick"] < self._ohshit_cooldown:
+            return
+        engaged = self._combat_streak > 90
+        losing = n_threats >= 3 and influx > killed and engaged
+        hurt_and_pressed = hp < 45.0 and n_threats >= 2
+        # a HUNTING warden is an emergency at any count: 19/20 farm
+        # deaths had one in the room, and a solo duel in an open lane is
+        # a coin the bot keeps losing -- the one monster that outguns
+        # you is exactly what the turret pocket exists for
+        heavy_hunting = self._warden_hunting
+        if not (losing or hurt_and_pressed or heavy_hunting):
             return
         # the sentry fields already walked through (a player remembers
         # the turrets he passed, not ones he hasn't seen yet). Prefer the
@@ -916,7 +965,14 @@ class HumanBot(_UnstickMixin, Bot):
         target_r = session.sim.get_radius(nearest["id"]) \
             if session.sim.exists(nearest["id"]) else 8.0
         cam_scale = math.hypot(*necore.mat_apply_dir(session.cam, 1.0, 0.0)) or 1.0
-        allowed_px = max(6.0 * self.skill, target_r * 0.9 * cam_scale)
+        # the skill floor is a WORLD-space tolerance (authored as 6px/
+        # skill-point at the 1.35 default zoom = ~4.4u each). Leaving it
+        # in raw pixels made zoom part of the skill: at the shipped 0.45
+        # camera 24px was a 53u slop -- the bot pulled the trigger with
+        # the cursor half a room off the target ("its aim is strangely
+        # bad", director 2026-07-16)
+        allowed_px = max(6.0 * self.skill * (cam_scale / 1.35),
+                         target_r * 0.9 * cam_scale)
         # flinch suppresses aimed fire -- but not point-blank panic fire:
         # a player being chewed on mashes the trigger through the flinch
         # (the miss cost at contact range is nil and holding fire on the

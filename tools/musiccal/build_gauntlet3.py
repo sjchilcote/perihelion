@@ -85,16 +85,23 @@ def lane_with_alcove(b: LevelBuilder, idx: int) -> dict:
     b.connect(b2, 3, alc, 1)      # north edge 170 <-> alcove south 170
     seg = seg_len
     bmx = ax + ALCOVE / 2
-    b.entity(A, "sentry", (x0 + seg * 0.5, y + 18))
-    b.entity(Bm, "sentry", (bmx, y + 18))
-    b.entity(Cc, "sentry", (x0 + 2 * seg + seg * 0.5, y + 18))
+    # NO sentries in the lane pieces (director 2026-07-16: "there needs
+    # to be, like, 5x as much material between the safe rooms" -- with a
+    # gun in every lane room, kiting-to-turrets was optimal everywhere.
+    # The safe strongpoints per segment are the ALCOVE and the CHOKE
+    # pair only; the lane itself is open ground you fight across).
     b.entity(A, "medkit", (x0 + seg * 0.3, y + LANE_W * 0.5))
     b.entity(Bm, "medkit", (bmx, y + LANE_W * 0.5))
     b.entity(Cc, "medkit", (x0 + 2 * seg + seg * 0.7, y + LANE_W * 0.5))
     b.entity(Bm, "ammo_9mm", (bmx - 30, y + LANE_W * 0.3))
     b.entity(Bm, "ammo_shell", (bmx + 30, y + LANE_W * 0.7))
     b.entity(Bm, "ammo_cell", (bmx, y + LANE_W * 0.65))
-    b.entity(alc, "sentry", (ax + ALCOVE * 0.5, y - ALCOVE * 0.65))
+    # the alcove is the segment's ONE strong lure pocket now that the
+    # lane pieces are gunless -- rare but genuinely strong (director:
+    # kite-to-turrets stays a valid strat, just not free everywhere)
+    b.entity(alc, "sentry", (ax + ALCOVE * 0.3, y - ALCOVE * 0.65))
+    b.entity(alc, "sentry", (ax + ALCOVE * 0.7, y - ALCOVE * 0.65))
+    b.entity(alc, "sentry", (ax + ALCOVE * 0.5, y - ALCOVE * 0.8))
     b.entity(alc, "medkit", (ax + ALCOVE * 0.5, y - ALCOVE * 0.35))
     b.entity(alc, "ammo_9mm", (ax + ALCOVE * 0.25, y - ALCOVE * 0.4))
     b.entity(alc, "ammo_shell", (ax + ALCOVE * 0.75, y - ALCOVE * 0.4))
