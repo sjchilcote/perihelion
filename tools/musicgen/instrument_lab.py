@@ -36,6 +36,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "soundgen"))
 
 import generate_bank as G                     # noqa: E402
+import riffs                                  # noqa: E402
 
 SR = 44100
 CACHE = Path("/tmp/claude-1000/-home-login-PycharmProjects-"
@@ -93,10 +94,18 @@ def r_organ_holy(ev):
 
 
 def r_organ_def(ev):
-    ans = _first_rest_answer(ev)
-    x = G.phrase_on([(p - 12, d * 2) for p, d in ans],
-                    lambda p, d: G.o2.render_notes(
-        G._odin_patch(G.ORGAN_DEFIANT), [50 + p], d, tail_s=0.5))
+    """Defiant organ: melody accents only (the riff's open slots),
+    stabbed dry — the machine shouting the tune's skeleton."""
+    riff = riffs.riff_16(ev, n_bars=4, accents=riffs.ACCENTS_B, pedal=0)
+    x = np.zeros(int(4 * G.BAR * SR) + SR)
+    p = G._odin_patch(G.ORGAN_DEFIANT)
+    t = 0
+    for pp, steps, art in riff:
+        if art == "open":
+            y = G.o2.render_notes(p, [50 + pp, 57 + pp],
+                                  G.STEP * steps * 1.4, tail_s=0.3)
+            G.place_mono(x, y, t * G.STEP)
+        t += steps
     return x / (np.abs(x).max() + 1e-9) * 0.9
 
 
@@ -108,16 +117,34 @@ def r_bell(ev):
 
 
 def r_wall(ev):
+    """The RIFF: 16th pedal motor, melody pitches as open accents."""
     rng = np.random.default_rng(11)
-    roots = G.bar_roots(ev, 4)
+    riff = riffs.riff_16(ev, n_bars=4, accents=riffs.ACCENTS_A, pedal=0)
     out = np.zeros(int(4 * G.BAR * SR) + SR)
-    for bar in range(4):
-        for e8 in range(8):
-            mute = 0.0 if e8 == 0 else 0.85
-            vel = (1.0 if e8 == 0 else .55) * (1 + rng.normal(0, .05))
-            h = G.voices.chug_note(rng, roots[bar],
-                                   G.STEP * 1.9 * (1.6 - mute), mute, vel)
-            G.place_mono(out, h, bar * G.BAR + e8 * 2 * G.STEP)
+    t = 0
+    for p, steps, art in riff:
+        if art == "open":
+            # melody accent = POWER CHORD an octave up (root+5th+8ve),
+            # open strings — the approved wall voicing (parts.render_wall)
+            for iv, g in ((12, 1.0), (19, 0.8), (24, 0.55)):
+                h = G.voices.chug_note(rng, p + iv,
+                                       G.STEP * steps * 1.8, 0.0,
+                                       g * (1 + rng.normal(0, .04)))
+                G.place_mono(out, h, t * G.STEP)
+        else:
+            # let the mute ring its natural decay (probe: hard gating
+            # cut string/cab resonance)
+            h = G.voices.chug_note(rng, p, G.STEP * 2.2, 0.85,
+                                   .5 * (1 + rng.normal(0, .05)))
+            G.place_mono(out, h, t * G.STEP + rng.normal(0, .002))
+        t += steps
+    # the approved chain: amp (distortion + cab IR), then HP 120 — the
+    # grit and body live here, raw chug samples read as sub-bass pillow.
+    # feed the amp conservatively: a 1.0-peak input at 20dB drive clips
+    # digitally (probe: "fizzy... severe digital clipping")
+    import synth as sy
+    out = G.voices.amp(out * 0.75 / (np.abs(out).max() + 1e-9), 18.0)
+    out = sy.highpass(out, 120)
     return out / (np.abs(out).max() + 1e-9) * 0.9
 
 
@@ -149,13 +176,18 @@ def r_bass_deep(ev):
 
 
 def r_bass_fm(ev):
-    roots = G.bar_roots(ev, 4)
+    """Locks the wall's riff at bass register: same accent template,
+    melody pitches on the accents, pedal drive between."""
+    riff = riffs.riff_16(ev, n_bars=4, accents=riffs.ACCENTS_A, pedal=0)
     x = np.zeros(int(4 * G.BAR * SR) + SR)
     p = G._odin_patch(G.BASS_FM)
-    for bar, r in enumerate(roots):
-        for pos in (0, 2, 4, 6, 8, 10, 12, 14):
-            y = G.o2.render_notes(p, [38 + r], G.STEP * 1.6, tail_s=0.2)
-            G.place_mono(x, y, bar * G.BAR + pos * G.STEP)
+    t = 0
+    for pp, steps, art in riff:
+        vel = 110 if art == "open" else 78
+        y = G.o2.render_notes(p, [38 + pp], G.STEP * steps * 0.9,
+                              velocity=vel, tail_s=0.15)
+        G.place_mono(x, y, t * G.STEP)
+        t += steps
     return x / (np.abs(x).max() + 1e-9) * 0.9
 
 
@@ -171,16 +203,14 @@ def _mk_lead(wname):
     kind, sel, oct_shift = G.WEAPON_LEADS[wname]
 
     def r(ev):
-        ans = _first_rest_answer(ev)
+        line = riffs.lead_phrase(_chant_head(ev, 12), factor=2)
         if kind == "odin":
             patch = G._odin_patch(sel)
-            x = G.phrase_on([(p, d * 2) for p, d in ans],
-                            lambda p, d: G.o2.render_notes(
-                                patch, [62 + p + oct_shift], d, tail_s=0.4))
+            x = G.phrase_on(line, lambda p, d: G.o2.render_notes(
+                patch, [62 + p + oct_shift], d, tail_s=0.4))
         else:
-            x = G.phrase_on([(p, d * 2) for p, d in ans],
-                            lambda p, d: G.dx.render_notes(
-                                sel, [62 + p + oct_shift], d, tail_s=0.4))
+            x = G.phrase_on(line, lambda p, d: G.dx.render_notes(
+                sel, [62 + p + oct_shift], d, tail_s=0.4))
         return x / (np.abs(x).max() + 1e-9) * 0.9
     return r
 
