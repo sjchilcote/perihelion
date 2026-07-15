@@ -264,10 +264,38 @@ def build_slots():
     return slots
 
 
+def cache_path(mel, slot):
+    return CACHE / f"{mel}__{slot}.wav"
+
+
+def render_all(only_melody: str | None = None):
+    """Batch mode: render every (melody, slot) clip to the cache, once,
+    upfront. The player never renders anything."""
+    import soundfile as sf
+    slots = build_slots()
+    melodies = [only_melody] if only_melody else list(G.MELODIES)
+    todo = [(m, s) for m in melodies for s in slots
+            if not cache_path(m, s[0]).exists()]
+    print(f"{len(todo)} clips to render")
+    for k, (mel, (name, _p, _m, fn)) in enumerate(todo):
+        try:
+            x = fn(G.MELODIES[mel])
+            if x.ndim == 1:
+                x = np.stack([x, x], axis=1)
+            sf.write(str(cache_path(mel, name)),
+                     (np.clip(x, -1, 1) * 32767).astype(np.int16),
+                     SR, subtype="PCM_16")
+            print(f"[{k + 1}/{len(todo)}] {mel}/{name}", flush=True)
+        except Exception as exc:
+            print(f"[{k + 1}/{len(todo)}] {mel}/{name} FAILED: {exc}",
+                  file=sys.stderr, flush=True)
+
+
 def main():
+    """The player. It plays wav files from the cache; that is all it
+    does. Missing files show as dim rows saying so (run --render)."""
     import pygame
     pygame.init()
-    pygame.mixer.pre_init(44100, -16, 2, 512)
     pygame.mixer.init(44100, -16, 2, 512)
     W, H = 1240, 760
     screen = pygame.display.set_mode((W, H))
@@ -277,69 +305,15 @@ def main():
 
     melodies = list(G.MELODIES)
     slots = build_slots()
-    state = dict(mel_i=0, status={}, playing=None)
-    # Single-threaded by design: renders happen synchronously, one per
-    # frame-loop pass, with a visible banner. No queue, no worker — the
-    # only states are "missing", "ready", "ERR". Nothing can get stuck
-    # (the one hang-capable subprocess, wine, has its own hard timeout).
-    pending: list[int] = []
-
-    def cache_path(mel, slot):
-        return CACHE / f"{mel}__{slot}.wav"
-
-    def play_once(cp, slot_name):
-        snd = pygame.mixer.Sound(str(cp))
-        pygame.mixer.stop()
-        snd.play()                       # loops=0: exactly one pass
-        state["playing"] = slot_name
-
-    def render_now(mel, i):
-        import soundfile as sf
-        name, _p, _m, fn = slots[i]
-        cp = cache_path(mel, name)
-        if cp.exists():
-            state["status"][(mel, name)] = "ready"
-            return cp
-        try:
-            x = fn(G.MELODIES[mel])
-            if x.ndim == 1:
-                x = np.stack([x, x], axis=1)
-            sf.write(str(cp), (np.clip(x, -1, 1) * 32767)
-                     .astype(np.int16), SR, subtype="PCM_16")
-            state["status"][(mel, name)] = "ready"
-            return cp
-        except Exception as exc:
-            state["status"][(mel, name)] = f"ERR {exc}"[:60]
-            print(f"[lab] {name}: {exc}", file=sys.stderr)
-            return None
-
-    def select_melody(i):
-        state["mel_i"] = i
-        mel = melodies[i]
-        pending.clear()
-        for k, (name, _p, _m, _f) in enumerate(slots):
-            if cache_path(mel, name).exists():
-                state["status"][(mel, name)] = "ready"
-            else:
-                pending.append(k)
-
-    def click_slot(i):
-        mel = melodies[state["mel_i"]]
-        name = slots[i][0]
-        cp = cache_path(mel, name)
-        if cp.exists():
-            play_once(cp, name)
-        elif i in pending:               # render this one next
-            pending.remove(i)
-            pending.insert(0, i)
-
-    select_melody(0)
+    mel_i = 0
+    playing = None
 
     rows_top = 46
     row_h = 21
     clock = pygame.time.Clock()
     running = True
     while running:
+        mel = melodies[mel_i]
         for ev in pygame.event.get():
             if ev.type == pygame.QUIT:
                 running = False
@@ -347,19 +321,23 @@ def main():
                 if ev.key == pygame.K_ESCAPE:
                     running = False
                 elif ev.key == pygame.K_UP:
-                    select_melody((state["mel_i"] - 1) % len(melodies))
+                    mel_i = (mel_i - 1) % len(melodies)
                 elif ev.key == pygame.K_DOWN:
-                    select_melody((state["mel_i"] + 1) % len(melodies))
+                    mel_i = (mel_i + 1) % len(melodies)
             elif ev.type == pygame.MOUSEBUTTONDOWN:
                 x, y = ev.pos
                 if x < 220:
                     i = (y - rows_top) // 25
                     if 0 <= i < len(melodies):
-                        select_melody(i)
+                        mel_i = i
                 elif x > 240:
                     i = (y - rows_top) // row_h
                     if 0 <= i < len(slots):
-                        click_slot(i)
+                        cp = cache_path(mel, slots[i][0])
+                        if cp.exists():
+                            pygame.mixer.stop()
+                            pygame.mixer.Sound(str(cp)).play()
+                            playing = slots[i][0]
 
         screen.fill((15, 15, 19))
 
@@ -368,40 +346,32 @@ def main():
 
         txt("MELODY (up/down)", 12, 20, (240, 220, 160), big)
         for i, m in enumerate(melodies):
-            sel = i == state["mel_i"]
-            if sel:
+            if i == mel_i:
                 pygame.draw.rect(screen, (85, 65, 35),
                                  (10, rows_top + i * 25 - 2, 205, 22))
             txt(m, 14, rows_top + i * 25,
-                (255, 240, 200) if sel else (170, 170, 170))
+                (255, 240, 200) if i == mel_i else (170, 170, 170))
         txt("SLOT              INSTRUMENT                     MATERIAL"
-            "                    (click to hear)", 250, 20,
+            "              (click = play once)", 250, 20,
             (240, 220, 160), big)
-        mel = melodies[state["mel_i"]]
         for i, (name, preset, mat, _fn) in enumerate(slots):
             y = rows_top + i * row_h
-            stat = state["status"].get((mel, name), "")
-            col = (190, 190, 190)
-            if stat.startswith("ERR"):
-                col = (240, 110, 110)
-            elif stat == "ready" and state["playing"] == name:
-                col = (140, 230, 140)
-            elif stat != "ready":
-                col = (110, 110, 120)
-            txt(f"{name:16s}  {preset:30.30s} {mat:26.26s} {stat}",
+            have = cache_path(mel, name).exists()
+            if not have:
+                col, note = (95, 95, 105), "not rendered"
+            elif playing == name:
+                col, note = (140, 230, 140), ""
+            else:
+                col, note = (195, 195, 195), ""
+            txt(f"{name:16s}  {preset:30.30s} {mat:24.24s} {note}",
                 250, y, col)
-        if pending:
-            nm = slots[pending[0]][0]
-            txt(f"rendering {nm} ... ({len(pending)} to go)",
-                250, H - 30, (240, 220, 120), big)
         pygame.display.flip()
         clock.tick(30)
-        # render ONE missing clip per pass, synchronously, banner already
-        # on screen; ESC/clicks handled between renders
-        if pending:
-            render_now(mel, pending.pop(0))
     pygame.quit()
 
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) > 1 and sys.argv[1] == "--render":
+        render_all(sys.argv[2] if len(sys.argv) > 2 else None)
+    else:
+        main()
