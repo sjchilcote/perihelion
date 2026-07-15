@@ -162,14 +162,16 @@ def test_riser_releases_with_sting():
     rooms = {1: 0}
     ms.update(make_session(lurk, rooms, tick=1))
     assert ms._riser_gain > 0.0
+    # pounce clearly mid-8th (an 8th is ~12.9 ticks at 140bpm; tick 6 is
+    # ~5 ticks past the tick-1 bar line, outside the on-grid window)
     pounce = {1: dict(kind="flicker", state="hunt")}
-    ms.update(make_session(pounce, rooms, tick=2))
+    ms.update(make_session(pounce, rooms, tick=6))
     assert ms._riser_gain == 0.0
-    # the sting is QUANTIZED: it must NOT fire mid-air at tick 2, and
-    # must land within the next 8th-note of the bar grid
+    # the sting is QUANTIZED: it must NOT fire mid-air, and must land
+    # within the next 8th-note of the bar grid
     assert not any(k == "music_sting" for k, _ in taps)
     eighth_ticks = int(round(60.0 * ms.bar_s / 8.0)) + 1
-    for t in range(3, 3 + eighth_ticks):
+    for t in range(7, 7 + eighth_ticks):
         ms.update(make_session(pounce, rooms, tick=t))
     assert any(k == "music_sting" for k, _ in taps)
 

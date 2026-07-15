@@ -284,8 +284,7 @@ def main():
                 (255, 240, 200) if sel else (190, 190, 190))
         # sliders + live vals
         vals = ms.vals
-        live = [ms._live.get(n, 0.0) for n in ("prayer", "contempt",
-                                               "stalwart")]
+        live = [ms._live.get(n, 0.0) for n in ("holy", "groove", "wall")]
         txt(f"{'AUTO' if state['auto'] else 'MANUAL'} (M to toggle)",
             560, 40, (240, 220, 160), big)
         for i, name in enumerate(["PRAYER", "CONTEMPT", "STALWART"]):
@@ -307,12 +306,13 @@ def main():
                          (r.x, r.y, int(r.w * sess.hp / 100), r.h))
         # engine state readout
         txt(f"bank: {banks[state['bank_i']].name}   "
-            f"bar {ms._last_bar}   bpm {240/ms.bar_s:.0f}   "
+            f"bar {ms._bar_idx}   bpm {240/ms.bar_s:.0f}   "
             f"riser {ms._riser_gain:.2f}", 12, 640)
-        act = [f"{n}={ms._live.get(n, 0):.2f}"
-               for n in sorted(ms._live) if ms._live.get(n, 0) > 0.02]
-        txt("  ".join(act[:8]), 12, 660, (150, 150, 160))
-        txt("  ".join(act[8:16]), 12, 678, (150, 150, 160))
+        act = [f"{n}:{lane.key}={lane.gain:.2f}"
+               for n, lane in sorted(ms._lanes.items())
+               if lane.gain > 0.02 and lane.key != "silence"]
+        txt("  ".join(act[:5]), 12, 660, (150, 150, 160))
+        txt("  ".join(act[5:10]), 12, 678, (150, 150, 160))
         # player sim box
         pygame.draw.rect(screen, (50, 30, 30), (560, 560, 200, 70))
         flash = int(120 + 120 * state["fire_flash"])
