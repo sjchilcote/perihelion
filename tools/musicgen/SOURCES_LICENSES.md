@@ -235,3 +235,11 @@ reasoning as the soundfonts above):
   PARKED: stalls at first processReplacing (next lever: effStartProcess
   opcode 71 before rendering). u-he freeware EULA: free use, no
   redistribution — binary stays in scratchpad.
+
+## Specimen by Spektralisk (free sample pack)
+- Provided by the director (Downloads). EULA: non-exclusive license,
+  use in music OK; NO redistribution of samples/loops as standalone
+  files. Samples stay in the scratchpad; renders are committed.
+- 82 samples, 19 keyed. Wired via tools/musicgen/specimen_kit.py;
+  lab alternates: ATMO->beds, IMP->stings, RISE->risers, keyed
+  BASS->riff sampler voice.

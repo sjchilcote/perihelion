@@ -286,6 +286,67 @@ def _mk_cell(ename):
     return r
 
 
+def _mk_spec_sample(path, trim_s=8.0):
+    def r(ev):
+        import specimen_kit as SP
+        x = SP.load(str(path))[:int(trim_s * SR)]
+        return x / (np.abs(x).max() + 1e-9) * 0.85
+    return r
+
+
+def _mk_spec_bass(path, src_midi):
+    """Keyed Specimen one-shot as the riff's bass voice (sampler
+    repitch), unison with the wall's pressure cycle."""
+    def r(ev):
+        import specimen_kit as SP
+        riff = riffs.riff_16(ev, n_bars=4, accents=riffs.ACCENTS_A,
+                             chord_roots=harmony.roots_16("pressure", 4))
+        out = np.zeros(int(4 * G.BAR * SR) + SR)
+        t = 0
+        for p, steps, art in riff:
+            y = SP.keyed(path, src_midi, 38 + p)
+            n_gate = int(G.STEP * (steps * 0.92 if art == "mute"
+                                   else steps * 1.6) * SR)
+            y = y[:n_gate]
+            g = 1.0 if art == "open" else 0.7
+            G.place_mono(out, y * g, t * G.STEP)
+            t += steps
+        return out / (np.abs(out).max() + 1e-9) * 0.9
+    return r
+
+
+def _specimen_slots():
+    import specimen_kit as SP
+    rows = []
+    want_atmo = ["Nightmare Tension", "Earth Hole", "Breathing Cave",
+                 "Dark Blue"]
+    cat = SP.catalog()
+    def find(c, name):
+        for cc, nm, f, midi, bpm in cat:
+            if cc == c and nm == name:
+                return f, midi
+        return None, None
+    for nm in want_atmo:
+        f, _ = find("ATMO", nm)
+        if f:
+            rows.append((f"spec_atmo:{nm[:12]}", f"Specimen '{nm}'",
+                         "bed candidate", _mk_spec_sample(f, 10)))
+    for nm in ["Impact Braaam", "Contagist Punch"]:
+        f, _ = find("IMP", nm)
+        if f:
+            rows.append((f"spec_imp:{nm[:12]}", f"Specimen '{nm}'",
+                         "sting candidate", _mk_spec_sample(f, 6)))
+    for cc, nm, f, midi, bpm in cat:
+        if cc == "RISE":
+            rows.append((f"spec_rise:{nm[:11]}", f"Specimen '{nm}'",
+                         "riser candidate", _mk_spec_sample(f, 8)))
+    f, midi = find("BASS", "Lava Bass")
+    if f:
+        rows.append(("spec_bass:LavaBass", "Specimen 'Lava Bass' C#2",
+                     "riff via sampler", _mk_spec_bass(f, midi)))
+    return rows
+
+
 def build_slots():
     slots = [
         ("monk", "Delay Lama (the album's voice)", "the chant, free grid",
@@ -316,6 +377,7 @@ def build_slots():
     for e in G.ENEMY_CELLS:
         slots.append((f"cell_{e}", G.ENEMY_CELLS[e][1][1],
                       "that enemy's bass cell", _mk_cell(e)))
+    slots += _specimen_slots()
     return slots
 
 
