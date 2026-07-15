@@ -61,12 +61,14 @@ def build(mel: str, outdir: Path):
     _st, lanes, ctx = T.compose(mel, collect_lanes=True)
 
     _write(outdir / "prayer.wav", lanes["holy"] + lanes["spine"] * 0.3, n)
-    stal = np.stack([lanes["wall_L"] + lanes["drums"] + lanes["bass"]
-                     + lanes["tells"],
-                     lanes["wall_R"] + lanes["drums"] + lanes["bass"]
-                     + lanes["tells"]], axis=1)
+    stal = np.stack([lanes["wall_L"] + lanes["bass"] + lanes["tells"],
+                     lanes["wall_R"] + lanes["bass"] + lanes["tells"]],
+                    axis=1)
     _write(outdir / "stalwart.wav", stal, n)
     _write(outdir / "contempt.wav", lanes["fm"] + lanes["flour"], n)
+    # drums are their OWN lane: any combat tier gets the kit (the v1
+    # drums-in-stalwart seam left contempt fights drum-less)
+    _write(outdir / "drums.wav", lanes["drums"], n)
     for tier in range(1, 5):
         _write(outdir / f"bed_t{tier}.wav", lanes["spine"], n)
 

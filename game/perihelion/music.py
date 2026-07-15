@@ -303,6 +303,8 @@ class MusicSystem:
                     self.key = None
                     self.gain = 0.0
             self._lanes = {
+                "drums": _SimLane({"drums"} if "drums" in stems
+                                  else set()),
                 "bed": _SimLane({s for s in stems if s.startswith("bed_")}),
                 "holy": _SimLane({"prayer"}),
                 "groove": _SimLane({"contempt"}),
@@ -330,6 +332,9 @@ class MusicSystem:
             leads = sorted(k for k in chunks if k.startswith("lead_"))
             basses = sorted(k for k in chunks if k.startswith("bass_"))
             lane_defs = {
+                "drums": ({"drums": chunks["drums"]}
+                          | {"silence": chunks["silence"]})
+                if "drums" in chunks else None,
                 "bed": {k: chunks[k] for k in beds} | {"silence": chunks["silence"]},
                 "holy": {"prayer": chunks["prayer"],
                          "silence": chunks["silence"]},
@@ -343,6 +348,8 @@ class MusicSystem:
             if pygame.mixer.get_num_channels() < 8 + len(lane_defs) + 1:
                 pygame.mixer.set_num_channels(8 + len(lane_defs) + 1)
             master = getattr(self.bank, "master", 1.0)
+            lane_defs = {k: v for k, v in lane_defs.items()
+                         if v is not None}
             for i, (lname, variants) in enumerate(lane_defs.items()):
                 lane = ChunkLane(pygame.mixer.Channel(4 + i), variants,
                                  self.n_bars)
@@ -384,6 +391,7 @@ class MusicSystem:
         kind = dominant_kind(self.inputs.get("aggro", []))
         lanes = self._lanes
         sel = {
+            "drums": "drums" if max(c, d) > 0.03 else "silence",
             "bed": f"bed_t{tier}"
             if f"bed_t{tier}" in lanes.get("bed", ChunkLane(None, {}, 1)
                                            ).variants else "silence",
@@ -402,17 +410,19 @@ class MusicSystem:
         return sel
 
     def _bar_gains(self) -> dict:
-        """The TRANSITION CONTROLLER (design §4) — the runtime speaks
-        the generator's grammar, not instant gain walls:
+        """Transition controller, stateless slew form (v2 — the stored
+        build-programs crawled through short skirmishes and never
+        re-targeted; taps showed the wall peaking at 0.47):
 
-        - the DERIVATIVE of the value triple picks each rise's program:
-          spike (>=0.35/bar) = 1-bar wall (+ sting, elsewhere); moderate
-          = 2-bar build; shallow = 4-bar build starting at the next
-          PHRASE boundary (4 bars);
-        - falls: hard drop = the pull (one bar to silence, the space
-          rings); shallow = stepped fade;
-        - the riser's gain follows the longest running build program —
-          anticipation honestly proportional to escalation speed."""
+        - rise SPEED follows the value derivative: spike >= STING_RISE
+          lands the full wall this bar; otherwise gains rise <= 0.35/bar
+          (a natural 2-3 bar build) — always toward the CURRENT target;
+        - presence floor: while a lane's value is live (> 0.05) its gain
+          never sits below 0.4 — small skirmishes are clearly audible
+          (director's standing ruling), the build shapes the arrival,
+          never the existence;
+        - falls: hard drop (>= 0.5) = the pull, one bar; soft = stepped
+          fade (FALL_STEP)."""
         p, c, d = self._applied
         dp = max(c - self._prev_vals[1], d - self._prev_vals[2])
         self._prev_vals = self._applied
@@ -420,54 +430,38 @@ class MusicSystem:
         n_aggro = sum(1.0 if sr else 0.4 for _, sr in aggro)
         combat = max(c, d)
         want = {
+            "drums": 0.9 * combat ** 0.5,
             "bed": 0.55 + 0.35 * p,
             "holy": p ** 0.5,
             "groove": c ** 0.5,
             "wall": d ** 0.5,
-            "lead": 0.8 * combat ** 0.5,
-            "bass": 0.75 * min(1.0, n_aggro / 2.0) ** 0.5,
+            "lead": 0.9 * combat ** 0.5,
+            "bass": 0.8 * min(1.0, n_aggro / 2.0) ** 0.5,
         }
+        FLOOR = {"drums": (combat, 0.5),
+                 "groove": (c, 0.4), "wall": (d, 0.4),
+                 "lead": (combat, 0.4), "bass": (n_aggro / 4.0, 0.45)}
         out = {}
+        max_rise = 1.0 if dp >= STING_RISE else 0.35
         for name, tgt in want.items():
+            val, floor = FLOOR.get(name, (1.0, 0.0))
+            if val > 0.05:
+                tgt = max(tgt, floor)
             cur = self._live.get(name, 0.0)
-            prog = self._programs.get(name)
-            if prog:
-                cur = prog.pop(0)
-                if not prog:
-                    del self._programs[name]
-                out[name] = min(cur, 1.0)
-                continue
-            rise = tgt - cur
-            if rise > 0.15:
-                if dp >= STING_RISE or rise >= 0.6:
-                    cur = tgt                       # spike: the wall
-                else:
-                    n_bars = 2 if dp > 0.08 else 4
-                    wait = 0
-                    if n_bars == 4:                 # slow builds land on
-                        wait = (-self._bar_idx) % 4  # the phrase line
-                    steps = [cur] * wait + [
-                        cur + (tgt - cur) * (k + 1) / n_bars
-                        for k in range(n_bars)]
-                    self._programs[name] = steps[1:] + [tgt]
-                    cur = steps[0]
-            elif rise >= 0:
-                cur = tgt
+            if tgt > cur:
+                cur = min(tgt, cur + max_rise)
+            elif cur - tgt >= 0.5:
+                cur = tgt                           # the pull
             else:
-                fall = cur - tgt
-                if fall >= 0.5:
-                    cur = tgt                       # the pull: one bar
-                else:
-                    cur = tgt if cur * FALL_STEP < 0.02 else \
-                        max(tgt, cur * FALL_STEP)
-            out[name] = cur
+                cur = tgt if cur * FALL_STEP < 0.02 else \
+                    max(tgt, cur * FALL_STEP)
+            out[name] = min(cur, 1.0)
         self._live = out
-        # riser rides the longest build in flight
-        if self._programs and self._riser_gain < 0.6:
-            longest = max(len(v) for v in self._programs.values())
-            self._riser_gain = max(self._riser_gain,
-                                   min(0.8, 0.25 * longest))
-        elif not self._programs and self.inputs.get("tension", 0) <= 1e-6:
+        # riser rides an in-flight build
+        building = any(out[n] < want.get(n, 0) - 0.05 for n in out)
+        if building and self._riser_gain < 0.6:
+            self._riser_gain = max(self._riser_gain, 0.45)
+        elif not building and self.inputs.get("tension", 0) <= 1e-6:
             self._riser_gain = 0.0
         return out
 
