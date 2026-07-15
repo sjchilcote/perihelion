@@ -331,7 +331,7 @@ class App:
         # never repeats itself within a few minutes)
         mb = getattr(args, "music_bank", None)
         self._music_banks = []
-        if mb:
+        if mb:                                    # dev override only
             mbp = Path(mb)
             if (mbp / "bank.json").exists():
                 self._music_banks = [mbp]
@@ -339,6 +339,9 @@ class App:
                 self._music_banks = sorted(
                     q for q in mbp.glob("album_*")
                     if (q / "bank.json").exists())
+        else:                                     # RELEASABLE DEFAULT:
+            from .music import shipped_banks      # shipped assets, no
+            self._music_banks = shipped_banks()   # flags required
         self._music_i = -1
         self.music = MusicSystem(self.audio,
                                  enabled=not getattr(args, "no_music", False),

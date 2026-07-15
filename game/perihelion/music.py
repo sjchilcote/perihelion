@@ -47,6 +47,16 @@ import sys
 from pathlib import Path
 
 BANK_DIR = Path(__file__).resolve().parent / "assets/music/hymn01"
+MUSIC_ROOT = Path(__file__).resolve().parents[1] / "assets/music"
+
+
+def shipped_banks() -> list:
+    """All shipped album banks — the game's default soundtrack; no
+    flags, no dev paths (releasable-game law, 2026-07-15)."""
+    if not MUSIC_ROOT.exists():
+        return []
+    return sorted(p for p in MUSIC_ROOT.glob("album_*")
+                  if (p / "bank.json").exists())
 BPM = 140.0
 BAR_S = 240.0 / BPM
 TICKS_PER_S = 60.0
@@ -205,7 +215,8 @@ class MusicSystem:
         self.enabled = enabled
         self.bank_dir = Path(bank_dir) if bank_dir else BANK_DIR
         self.has_bank = self.bank_dir.exists() \
-            and any(self.bank_dir.glob("*.wav"))
+            and (any(self.bank_dir.glob("*.wav"))
+                 or any(self.bank_dir.glob("*.ogg")))
         self.rich = (self.bank_dir / "bank.json").exists()
         self.bar_s = BAR_S
         self.n_bars = 0
@@ -225,6 +236,11 @@ class MusicSystem:
         self._riser_gain = 0.0
         self._pending_sting = False
         self._sting = None
+        # transition controller (STEM_COMPOSITION_DESIGN §4): per-lane
+        # build programs — {lane: [gain_step_per_bar..., target]}; the
+        # derivative of the value triple picks the program length
+        self._programs: dict = {}
+        self._prev_vals = (1.0, 0.0, 0.0)
         # rich mixer state
         self._lanes: dict[str, ChunkLane] = {}
         self._bar_idx = 0                 # position in the form
@@ -244,8 +260,10 @@ class MusicSystem:
         chunks: dict[str, list] = {}
         n_total = None
         bounds = None
-        for fn in sorted(self.bank_dir.glob("*.wav")):
-            name = fn.stem
+        files = {f.stem: f for f in sorted(self.bank_dir.glob("*.wav"))}
+        for f in sorted(self.bank_dir.glob("*.ogg")):
+            files.setdefault(f.stem, f)
+        for name, fn in sorted(files.items()):
             if name in ("sting", "riser"):
                 continue
             data, sr = sf.read(str(fn), dtype="int16")
@@ -276,7 +294,8 @@ class MusicSystem:
         if not getattr(self.bank, "_ready", False):
             return
         if self.rich and self.tick_clock:
-            stems = {q.stem for q in self.bank_dir.glob("*.wav")}
+            stems = {q.stem for q in self.bank_dir.glob("*.wav")} | \
+                {q.stem for q in self.bank_dir.glob("*.ogg")}
 
             class _SimLane:
                 def __init__(self, variants):
@@ -297,7 +316,12 @@ class MusicSystem:
             return
         import pygame
         try:
-            self._sting = pygame.mixer.Sound(str(self.bank_dir / "sting.wav"))
+            sting_f = next((self.bank_dir / f"sting.{ext}"
+                            for ext in ("wav", "ogg")
+                            if (self.bank_dir / f"sting.{ext}").exists()),
+                           None)
+            self._sting = pygame.mixer.Sound(str(sting_f)) if sting_f \
+                else None
             if not self.rich:
                 self._start_legacy()
                 return
@@ -324,7 +348,10 @@ class MusicSystem:
                                  self.n_bars)
                 self._lanes[lname] = lane
             # riser: continuous tension effect on its own loop channel
-            riser_fn = self.bank_dir / "riser.wav"
+            riser_fn = next((self.bank_dir / f"riser.{e}"
+                             for e in ("wav", "ogg")
+                             if (self.bank_dir / f"riser.{e}").exists()),
+                            self.bank_dir / "riser.wav")
             self._riser_ch = None
             if riser_fn.exists():
                 snd = pygame.mixer.Sound(str(riser_fn))
@@ -375,15 +402,23 @@ class MusicSystem:
         return sel
 
     def _bar_gains(self) -> dict:
-        """Stepped per-bar gains from the applied value triple: rises
-        land as walls, falls step down by FALL_STEP per bar (the album's
-        exit-vacuum, with one bar of ring)."""
+        """The TRANSITION CONTROLLER (design §4) — the runtime speaks
+        the generator's grammar, not instant gain walls:
+
+        - the DERIVATIVE of the value triple picks each rise's program:
+          spike (>=0.35/bar) = 1-bar wall (+ sting, elsewhere); moderate
+          = 2-bar build; shallow = 4-bar build starting at the next
+          PHRASE boundary (4 bars);
+        - falls: hard drop = the pull (one bar to silence, the space
+          rings); shallow = stepped fade;
+        - the riser's gain follows the longest running build program —
+          anticipation honestly proportional to escalation speed."""
         p, c, d = self._applied
+        dp = max(c - self._prev_vals[1], d - self._prev_vals[2])
+        self._prev_vals = self._applied
         aggro = self.inputs.get("aggro", [])
         n_aggro = sum(1.0 if sr else 0.4 for _, sr in aggro)
         combat = max(c, d)
-        # perceptual mapping: equal-power-ish curve — a 0.3 VALUE should
-        # be clearly audible, not volume 0.3
         want = {
             "bed": 0.55 + 0.35 * p,
             "holy": p ** 0.5,
@@ -394,14 +429,46 @@ class MusicSystem:
         }
         out = {}
         for name, tgt in want.items():
-            cur = self._live.get(name, tgt)
-            if tgt >= cur:
-                cur = tgt                       # rise = wall
+            cur = self._live.get(name, 0.0)
+            prog = self._programs.get(name)
+            if prog:
+                cur = prog.pop(0)
+                if not prog:
+                    del self._programs[name]
+                out[name] = min(cur, 1.0)
+                continue
+            rise = tgt - cur
+            if rise > 0.15:
+                if dp >= STING_RISE or rise >= 0.6:
+                    cur = tgt                       # spike: the wall
+                else:
+                    n_bars = 2 if dp > 0.08 else 4
+                    wait = 0
+                    if n_bars == 4:                 # slow builds land on
+                        wait = (-self._bar_idx) % 4  # the phrase line
+                    steps = [cur] * wait + [
+                        cur + (tgt - cur) * (k + 1) / n_bars
+                        for k in range(n_bars)]
+                    self._programs[name] = steps[1:] + [tgt]
+                    cur = steps[0]
+            elif rise >= 0:
+                cur = tgt
             else:
-                cur = tgt if cur * FALL_STEP < 0.02 else \
-                    max(tgt, cur * FALL_STEP)   # fall = stepped fade
+                fall = cur - tgt
+                if fall >= 0.5:
+                    cur = tgt                       # the pull: one bar
+                else:
+                    cur = tgt if cur * FALL_STEP < 0.02 else \
+                        max(tgt, cur * FALL_STEP)
             out[name] = cur
         self._live = out
+        # riser rides the longest build in flight
+        if self._programs and self._riser_gain < 0.6:
+            longest = max(len(v) for v in self._programs.values())
+            self._riser_gain = max(self._riser_gain,
+                                   min(0.8, 0.25 * longest))
+        elif not self._programs and self.inputs.get("tension", 0) <= 1e-6:
+            self._riser_gain = 0.0
         return out
 
     # -- legacy 4-loop mixer (pre-rich banks) ------------------------------
