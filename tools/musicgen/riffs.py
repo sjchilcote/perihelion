@@ -36,18 +36,26 @@ def diminish(events, factor: int = 2):
 
 
 def riff_16(events, n_bars: int = 4, accents=ACCENTS_A, pedal: int = 0,
-            bar_steps: int = 16):
-    """Pedal-motor riff: every 16th slot sounds; accent slots take the
-    melody's next pitch (open), everything else is the pedal (muted).
-    Long accents get 2 steps of ring where the template allows."""
+            bar_steps: int = 16, chord_roots=None):
+    """Pedal-motor riff: every 16th slot sounds.
+
+    With chord_roots (per-16th root list from harmony.roots_16), the
+    wall is the HARMONIC-RHYTHM instrument: accent slots punch the
+    CURRENT CHORD (open), the motor chugs the current root (muted) —
+    the melody belongs to the foreground voices, not the wall
+    (<=1-foreground law). Without chord_roots, accents walk the melody
+    (legacy demo mode)."""
     mel = pitches(events)
     out = []
     mi = 0
     for bar in range(n_bars):
         slot = 0
         while slot < bar_steps:
+            k = bar * bar_steps + slot
+            root = chord_roots[k % len(chord_roots)] if chord_roots \
+                else pedal
             if slot in accents:
-                p = mel[mi % len(mel)]
+                p = root if chord_roots else mel[mi % len(mel)]
                 mi += 1
                 nxt = min([a for a in accents if a > slot],
                           default=bar_steps)
@@ -55,7 +63,7 @@ def riff_16(events, n_bars: int = 4, accents=ACCENTS_A, pedal: int = 0,
                 out.append((p, steps, "open"))
                 slot += steps
             else:
-                out.append((pedal, 1, "mute"))
+                out.append((root if chord_roots else pedal, 1, "mute"))
                 slot += 1
     return out
 

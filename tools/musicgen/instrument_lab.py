@@ -37,6 +37,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "soundgen"))
 
 import generate_bank as G                     # noqa: E402
 import riffs                                  # noqa: E402
+import harmony                                # noqa: E402
 
 SR = 44100
 CACHE = Path("/tmp/claude-1000/-home-login-PycharmProjects-"
@@ -51,6 +52,22 @@ def _mono(x):
 
 def _patch_path(cat_name):
     return G._odin_patch(cat_name)
+
+
+_CTX = {}
+
+
+def _context(key, ev):
+    """Mono fight-bed (wall + drums) a combat voice is auditioned over."""
+    if key not in _CTX:
+        w = r_wall(ev)
+        d = r_drums(ev)
+        n = max(len(w), len(d))
+        m = np.zeros(n)
+        m[:len(w)] += w.mean(axis=1) if w.ndim == 2 else w
+        m[:len(d)] += d * 0.8
+        _CTX[key] = m / (np.abs(m).max() + 1e-9)
+    return _CTX[key]
 
 
 def _chant_head(events, n_notes=8):
@@ -124,10 +141,14 @@ def _wall_take(ev, seed, drive_db):
     """One take of the riff, the ALBUM's programming language (pro-tier
     piano-roll reconstruction of t02/t07): STRICT grid, flat velocity
     with downbeat accents only, all re-picked, chugs hard-gated to
-    silence, power chords on accents."""
+    silence, power chords on accents. The wall is the HARMONIC-RHYTHM
+    voice: it punches the pressure cycle's chords, not the melody
+    (harmony.py 'pressure' — bII leaning on home, fought off)."""
     import synth as sy
     rng = np.random.default_rng(seed)
-    riff = riffs.riff_16(ev, n_bars=4, accents=riffs.ACCENTS_A, pedal=0)
+    roots = harmony.roots_16("pressure", 4)
+    riff = riffs.riff_16(ev, n_bars=4, accents=riffs.ACCENTS_A,
+                         chord_roots=roots)
     out = np.zeros(int(4 * G.BAR * SR) + SR)
     t = 0
     for p, steps, art in riff:
@@ -194,7 +215,8 @@ def r_bass_fm(ev):
     notes, same gates, root register, one hybrid tone with the guitars.
     Rendered as ONE continuous sequence (envelope/LFO continuity), not
     note-by-note pastes."""
-    riff = riffs.riff_16(ev, n_bars=4, accents=riffs.ACCENTS_A, pedal=0)
+    riff = riffs.riff_16(ev, n_bars=4, accents=riffs.ACCENTS_A,
+                         chord_roots=harmony.roots_16("pressure", 4))
     seq = []
     t = 0
     for pp, steps, art in riff:
@@ -235,7 +257,16 @@ def _mk_lead(wname):
             x = G.o2.render_sequence(G._odin_patch(sel), seq, total)
         else:
             x = G.dx.render_sequence(sel, seq, total)
-        return x / (np.abs(x).max() + 1e-9) * 0.9
+        x = x / (np.abs(x).max() + 1e-9)
+        # IN CONTEXT (director: a naked line always sounds like a
+        # lesson): the lead sits over its fight — wall + drums bed at
+        # low gain, lead upfront
+        bed = _context(id(ev), ev)
+        n = max(len(x), len(bed))
+        mix = np.zeros(n)
+        mix[:len(bed)] += bed * 0.30
+        mix[:len(x)] += x * 0.95
+        return mix / (np.abs(mix).max() + 1e-9) * 0.9
     return r
 
 

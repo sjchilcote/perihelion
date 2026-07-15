@@ -48,6 +48,15 @@ STEP = BAR / 16
 
 MELODIES = {"dies_irae": DIES_IRAE_STROPHE, **MELODY_MENU}
 
+# major-family tunes clash with the album's minor/phrygian register
+# (director's ear + pitch-content classification, 2026-07-14): offer a
+# parallel-mode recast of each alongside the original for A/B
+from harmony import recast as _recast          # noqa: E402
+_BRIGHT = ["requiem_introit", "veni_creator", "viderunt_omnes",
+           "old_100th", "ein_feste_burg", "ad_mortem"]
+for _n in _BRIGHT:
+    MELODIES[_n + "_dark"] = _recast(MELODIES[_n], "aeolian")
+
 # ---- preset tables (presets-first law) ------------------------------------
 CHOIR = ("Pads", "Choir Aahs 1 [RS]")
 ORGAN_HOLY = ("Organ", "Church Organ")
