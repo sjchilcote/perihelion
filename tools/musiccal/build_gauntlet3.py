@@ -110,34 +110,49 @@ def lane_with_alcove(b: LevelBuilder, idx: int) -> dict:
                 pieces=(A, b1, b2, b3, Cc))
 
 
+def trapezoid(b: LevelBuilder, x0: float, yc: float, length: float,
+              w_in: float, w_out: float, seed: int,
+              kind: str = "corridor") -> tuple[int, int, int]:
+    """Convex taper: west edge w_in, east edge w_out; the width change
+    happens in the WALLS, both portals stay rigid (equal edge lengths).
+    Returns (room, west_edge_idx, east_edge_idx)."""
+    x1 = x0 + length
+    verts = [(x0, yc - w_in / 2), (x0, yc + w_in / 2),
+             (x1, yc + w_out / 2), (x1, yc - w_out / 2)]
+    r = b.room(verts, detail_seed=seed, kind=kind)
+    return r, 0, 2
+
+
 def hourglass(b: LevelBuilder, x0: float, yc: float, length: float,
               w_in: float, w_out: float, waist: float, seed: int,
               kind: str = "corridor") -> tuple[int, int, int]:
-    """A room whose WALLS pinch to `waist` while both portal edges match
-    their neighbors exactly (rigid m9s — the director's no-scaling-
-    transforms order; the geometry chokes, the portal never scales).
-    Returns (room, west_edge_idx, east_edge_idx)."""
-    xm = x0 + length / 2
-    x1 = x0 + length
-    verts = [(x0, yc - w_in / 2), (x0, yc + w_in / 2),
-             (xm, yc + waist / 2), (x1, yc + w_out / 2),
-             (x1, yc - w_out / 2), (xm, yc - waist / 2)]
-    r = b.room(verts, detail_seed=seed, kind=kind)
-    return r, 0, 3
+    """Engine rooms are CONVEX: the pinch is TWO trapezoids whose shared
+    portal IS the waist (waist<->waist, rigid). The choke is literally
+    the doorway. Returns (west room used only for entry bookkeeping is
+    not needed) -> (in_room, west_edge, out_room|east_edge packing):
+    returns (in_room, in_west_edge, out_room, out_east_edge)."""
+    half = length / 2
+    r1, w1, e1 = trapezoid(b, x0, yc, half, w_in, waist, seed, kind)
+    r2, w2, e2 = trapezoid(b, x0 + half, yc, half, waist, w_out,
+                           seed + 1, kind)
+    b.connect(r1, e1, r2, w2)
+    return r1, w1, r2, e2
 
 
 def choke(b: LevelBuilder, idx: int, w_in: float, w_out: float) -> tuple:
     yc = BAND_Y + idx * BAND_SPACING + LANE_W / 2
     x0 = idx * 4000.0 + LANE_LEN + 250.0
-    r, we, ee = hourglass(b, x0, yc, CHOKE_LEN * 2, w_in, w_out, CHOKE_W,
-                          LEVEL_SEED + 7200 + idx)
-    b.light(r, (x0 + CHOKE_LEN, yc),
+    r1, we, r2, ee = hourglass(b, x0, yc, CHOKE_LEN * 2, w_in, w_out,
+                               CHOKE_W, LEVEL_SEED + 7200 + idx * 2)
+    b.light(r1, (x0 + CHOKE_LEN * 0.5, yc),
             color=(210, 160, 130), intensity=0.9, radius=150.0)
-    b.entity(r, "sentry", (x0 + CHOKE_LEN * 0.5, yc - CHOKE_W * 0.2))
-    b.entity(r, "sentry", (x0 + CHOKE_LEN * 0.5, yc + CHOKE_W * 0.2))
-    b.entity(r, "sentry", (x0 + CHOKE_LEN * 1.6, yc))
-    b.entity(r, "medkit", (x0 + CHOKE_LEN * 1.2, yc))
-    return r, we, ee
+    b.light(r2, (x0 + CHOKE_LEN * 1.5, yc),
+            color=(210, 160, 130), intensity=0.9, radius=150.0)
+    b.entity(r1, "sentry", (x0 + CHOKE_LEN * 0.45, yc - 14))
+    b.entity(r1, "sentry", (x0 + CHOKE_LEN * 0.45, yc + 14))
+    b.entity(r2, "sentry", (x0 + CHOKE_LEN * 1.55, yc))
+    b.entity(r1, "medkit", (x0 + CHOKE_LEN * 0.3, yc))
+    return r1, we, r2, ee
 
 
 def populate(level: dict, spawn_free: set, n_total: int, min_sep: float,
@@ -222,6 +237,94 @@ def _edge_len_of(b: LevelBuilder, room: int, edge: int) -> float:
     return _m.hypot(x2 - x1, y2 - y1)
 
 
+def _rigidify(level: dict) -> int:
+    """Force EVERY portal rigid (equal edge lengths -> pure isometry m9;
+    director: 'get rid of all the scaling transforms'). The lane/choke/
+    adapter chain is authored rigid; the residual mismatches live INSIDE
+    the copied source arenas. Fix: stretch the shorter edge symmetrically
+    about its midpoint to the longer length — only on a side whose
+    neighboring edges carry no portal (so no other seam changes), and
+    only if the room stays convex. Returns seams fixed; raises if any
+    seam is left scaled."""
+    rooms = level["rooms"]
+    conns = level["connects"] + level.get("connects_x", [])
+
+    def edge_vec(r, e):
+        vs = rooms[r]["verts"]
+        (x1, y1), (x2, y2) = vs[e], vs[(e + 1) % len(vs)]
+        return x1, y1, x2, y2, math.hypot(x2 - x1, y2 - y1)
+
+    portal_edges = set()
+    for r1, e1, r2, e2 in conns:
+        portal_edges.add((r1, e1))
+        portal_edges.add((r2, e2))
+
+    def convex(vs):
+        n = len(vs)
+        sign = 0.0
+        for i in range(n):
+            ax, ay = vs[i]
+            bx, by = vs[(i + 1) % n]
+            cx, cy = vs[(i + 2) % n]
+            cr = (bx - ax) * (cy - by) - (by - ay) * (cx - bx)
+            if abs(cr) < 1e-9:
+                continue
+            if sign == 0.0:
+                sign = cr
+            elif sign * cr < 0:
+                return False
+        return True
+
+    def try_stretch(r, e, target):
+        """Re-length edge e of room r to `target` by moving only
+        endpoints whose OTHER edge is not a portal: symmetric when both
+        neighbors are free, else slide the single free endpoint."""
+        vs = rooms[r]["verts"]
+        n = len(vs)
+        start_free = (r, (e - 1) % n) not in portal_edges
+        end_free = (r, (e + 1) % n) not in portal_edges
+        if not (start_free or end_free):
+            return False
+        x1, y1, x2, y2, ln = edge_vec(r, e)
+        ux, uy = (x2 - x1) / ln, (y2 - y1) / ln
+        new = [list(v) for v in vs]
+        if start_free and end_free:
+            mx, my = (x1 + x2) / 2, (y1 + y2) / 2
+            new[e] = [mx - ux * target / 2, my - uy * target / 2]
+            new[(e + 1) % n] = [mx + ux * target / 2,
+                                my + uy * target / 2]
+        elif start_free:      # slide the start vertex away from the end
+            new[e] = [x2 - ux * target, y2 - uy * target]
+        else:                 # slide the end vertex away from the start
+            new[(e + 1) % n] = [x1 + ux * target, y1 + uy * target]
+        if not convex(new):
+            return False
+        rooms[r]["verts"] = new
+        return True
+
+    fixed = 0
+    for r1, e1, r2, e2 in conns:
+        l1 = edge_vec(r1, e1)[4]
+        l2 = edge_vec(r2, e2)[4]
+        if abs(l2 / l1 - 1.0) <= 0.005:
+            continue
+        (rs, es), tgt = ((r1, e1), l2) if l1 < l2 else ((r2, e2), l1)
+        (rl, el) = (r2, e2) if l1 < l2 else (r1, e1)
+        if try_stretch(rs, es, tgt) or \
+                try_stretch(rl, el, min(l1, l2)):
+            fixed += 1
+        else:
+            raise ValueError(
+                f"cannot rigidify seam {r1}:{e1}<->{r2}:{e2} "
+                f"({l1:.1f} vs {l2:.1f}) without touching another portal")
+    for r1, e1, r2, e2 in conns:
+        l1 = edge_vec(r1, e1)[4]
+        l2 = edge_vec(r2, e2)[4]
+        if abs(l2 / l1 - 1.0) > 0.005:
+            raise ValueError(f"seam still scaled: {r1}:{e1}<->{r2}:{e2}")
+    return fixed
+
+
 def build(n_total: int, min_sep: float, seed: int):
     b = LevelBuilder("GAUNTLET III — TACTICAL CALIBRATION", tier=3,
                      ambience="amb_drone_late")
@@ -250,17 +353,17 @@ def build(n_total: int, min_sep: float, seed: int):
         for nr, sv in BG.TEXTURE_MAP.items():
             texture_map[str(nr)] = sv
         entry_len = _edge_len_of(b, info["entry"][0], info["entry"][1])
-        ck, ck_w, ck_e = choke(b, i, LANE_W, entry_len)
-        protected.add(ck)
-        b.connect(ln["east_room"], E_EDGE, ck, ck_w)
-        b.connect(ck, ck_e, info["entry"][0], info["entry"][1])
+        ck1, ck_w, ck2, ck_e = choke(b, i, LANE_W, entry_len)
+        protected.add(ck1)
+        protected.add(ck2)
+        b.connect(ln["east_room"], E_EDGE, ck1, ck_w)
+        b.connect(ck2, ck_e, info["entry"][0], info["entry"][1])
         # adapter after the arena: exit edge length -> LANE_W, rigid
         exit_len = _edge_len_of(b, info["exit"][0], info["exit"][1])
         yc = BAND_Y + i * BAND_SPACING + LANE_W / 2
-        ad, ad_w, ad_e = hourglass(
+        ad, ad_w, ad_e = trapezoid(
             b, i * 4000.0 + LANE_LEN + 900.0, yc, 160.0, exit_len,
-            LANE_W, min(exit_len, LANE_W) * 0.9,
-            LEVEL_SEED + 7300 + i)
+            LANE_W, LEVEL_SEED + 7300 + i)
         protected.add(ad)
         b.connect(info["exit"][0], info["exit"][1], ad, ad_w)
         prev_room, prev_edge = ad, ad_e
@@ -277,6 +380,9 @@ def build(n_total: int, min_sep: float, seed: int):
     level = b.to_dict()
     level["alert_hops"] = 1
     level["texture_map"] = texture_map
+    n_rigid = _rigidify(level)
+    print(f"rigidified {n_rigid} residual scaled seams "
+          f"(all portals now pure isometries)")
     placed, fails, counts = populate(level, protected, n_total, min_sep,
                                      seed, boost=lane_rooms)
     return level, placed, fails, counts
