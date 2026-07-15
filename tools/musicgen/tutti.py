@@ -1,26 +1,21 @@
-"""The tutti — one COMPLETE track per STEM_COMPOSITION_DESIGN.
+"""Tutti — complete tracks, each telling a DIFFERENT story.
 
-    uv run python tools/musicgen/tutti.py [melody] [out.wav]
+    uv run python tools/musicgen/tutti.py [melody|all]
 
-Through-composed form (the design's section ladder), every voice from
-the director-approved cast: Delay Lama monk, TR-909, chug wall, and the
-Vital picks (vital_bank.SLOTS). Harmony from harmony.py progressions;
-riffs from riffs.py; the album's stage (wall wide L/R, spine center,
-holy wet), pump, binary transitions with authored fills.
-
-Form (110 bpm):
-  S1 vigil     8 bars  bed + monk statement (sanctuary) + bells
-  S2 entry     8 bars  fill -> half-time drums + wall/bass on 'pressure'
-                       + monk held above + defiant organ answers
-  S3 develop   8 bars  'swagger' groove: FM bass + lead fragments +
-                       busier kit; monk rests (lead carries the tune)
-  S4 peak      8 bars  riser -> sting -> 'ratchet' tutti: everything,
-                       choir above, lunge bar of aimed dissonance
-  S5 outro     4 bars  vacuum: bed + monk tail + bell, ring out
-
-The judge loop (director's directive 2026-07-15): pro-tier Gemini on
-the COMPLETE track, "1-10, finished professional piece evoking the
-brief? what gaps remain" — iterate on the gaps, nothing locked down.
+Director's variety laws (2026-07-15):
+- no track shares more than TWO elements with any other (checked by
+  check_uniqueness(), run before every batch);
+- every element axis is cast per track: wall voice, basses, choir,
+  flourish, bell variant, drum kit (style/kick-knob/snare/hats), drone
+  spine, lead, progressions, accent templates, seeds;
+- STRUCTURE varies: each recipe declares its own form from typed
+  sections — vigil / ritual (drum-less, the album's Chant-of-Trust
+  move) / entry / develop / rebuild (one element, layers added) /
+  peak / outro;
+- titles on-theme (PROVISIONAL — the director edits them);
+- Delay Lama = spice: distant, processed, always EMERGES (6s ramp);
+- transitions: producer's pull + riser/reverse tells; never a
+  master-bus chop; drone spine survives everything.
 """
 from __future__ import annotations
 
@@ -36,6 +31,7 @@ import generate_bank as G          # noqa: E402
 import gordon_chain as gc          # noqa: E402
 import harmony                     # noqa: E402
 import riffs                       # noqa: E402
+import specimen_kit as SP          # noqa: E402
 import tr909_kit as K              # noqa: E402
 import vital_bank as VB            # noqa: E402
 import voices                      # noqa: E402
@@ -46,66 +42,140 @@ BPM = 110.0
 BAR = 240.0 / BPM
 STEP = BAR / 16
 
-# form: (name, bars, progression) — overridden per recipe
-FORM = [("vigil", 8, "vigil"), ("entry", 8, "pressure"),
-        ("develop", 8, "swagger"), ("peak", 8, "ratchet"),
-        ("outro", 4, "vigil")]
-
-# ---- variety recipes (director 2026-07-15: "never repeats itself
-# more than once every few minutes") — authored per melody, logged.
-# keys: progs (S2/S3/S4), accents (entry, develop, peak), lead, spine
-# (5 drone textures), seeds (wall takes + rng)
-RECIPES = {
-    "dies_irae": dict(progs=("pressure", "swagger", "ratchet"),
-                      accents=("A", "B", "C"), lead="lead_rail",
-                      spine=("Daphne Oram 2", "Faulty Connection",
-                             "Taiga", "St. George", "Ether"),
-                      seeds=(11, 22, 33, 44, 7)),
-    "media_vita": dict(progs=("pressure", "grind", "pressure"),
-                       accents=("B", "A", "C"), lead="lead_hole",
-                       spine=("Ether", "Machine Drone", "Lysergic",
-                              "St. George", "Daphne Oram 2"),
-                       seeds=(13, 24, 35, 46, 9)),
-    "vexilla_regis": dict(progs=("ratchet", "swagger", "ratchet"),
-                          accents=("A", "C", "A"), lead="lead_rail",
-                          spine=("Taiga", "Faulty Connection",
-                                 "MissingNo", "Lysergic", "Ether"),
-                          seeds=(15, 26, 37, 48, 11)),
-    "idumea": dict(progs=("swagger", "swagger", "grind"),
-                   accents=("C", "B", "C"), lead="lead_smg",
-                   spine=("Faux", "Boass", "Digivice",
-                          "Machine Drone", "Taiga"),
-                   seeds=(17, 28, 39, 50, 13)),
-    "pange_lingua": dict(progs=("grind", "pressure", "lunge"),
-                         accents=("B", "A", "C"), lead="lead_tau",
-                         spine=("Lysergic", "St. George", "Ether",
-                                "Faulty Connection", "Machine Drone"),
-                         seeds=(19, 30, 41, 52, 15)),
-    "lhomme_arme": dict(progs=("ratchet", "swagger", "pressure"),
-                        accents=("A", "B", "A"), lead="lead_shotgun",
-                        spine=("Machine Drone", "Taiga", "Boass",
-                               "Daphne Oram 2", "St. George"),
-                        seeds=(21, 32, 43, 54, 17)),
-    "old_100th_dark": dict(progs=("grind", "pressure", "ratchet"),
-                           accents=("B", "C", "B"), lead="lead_pistol",
-                           spine=("St. George", "Lysergic",
-                                  "Faulty Connection", "Ether", "Taiga"),
-                           seeds=(23, 34, 45, 56, 19)),
-}
-DEFAULT_RECIPE = RECIPES["dies_irae"]
+_ACC = {"A": riffs.ACCENTS_A, "B": riffs.ACCENTS_B, "C": riffs.ACCENTS_C}
 _SPINE_BANK = {"Daphne Oram 2": "tngkaos", "Ether": "tngkaos",
                "Boass": "tngkaos", "Machine Drone": "5years",
                "Faulty Connection": "5years", "Taiga": "5years",
                "St. George": "5years", "Lysergic": "5years",
                "MissingNo": "5years", "Faux": "5years",
                "Digivice": "5years"}
-_ACC = {"A": riffs.ACCENTS_A, "B": riffs.ACCENTS_B, "C": riffs.ACCENTS_C}
+
+# ---------------------------------------------------------------------------
+# Recipes — one per track; forms differ in SHAPE, not just content.
+# form: list of (section_type, bars, progression)
+# ---------------------------------------------------------------------------
+RECIPES = {
+    "dies_irae": dict(
+        title="Day of Wrath, Day of Rust",
+        form=[("vigil", 8, "vigil"), ("entry", 8, "pressure"),
+              ("develop", 8, "swagger"), ("peak", 8, "ratchet"),
+              ("outro", 4, "vigil")],
+        accents=("A", "B", "C"), lead="lead_rail",
+        wall=("5years", "Supersync"), bass=("5years", "Heavy"),
+        fm=("5years", "FM Bass 1"), choir=("5years", "Choir Pad"),
+        flour=("5years", "Hoover"), bell=("authored", 0),
+        kit=dict(style="half", kick=(25, 25, 50), snare="snare",
+                 hats="eighth"),
+        spine=("Daphne Oram 2", "Faulty Connection", "Taiga",
+               "St. George", "Ether"), seeds=(11, 22, 33, 44, 7)),
+    "media_vita": dict(
+        title="In the Midst of Life (Chant of the Vigil)",
+        form=[("vigil", 8, "vigil"), ("ritual", 8, "pressure"),
+              ("entry", 8, "grind"), ("peak", 8, "pressure"),
+              ("vigil", 4, "vigil")],
+        accents=("B", "A", "C"), lead="lead_hole",
+        wall=("5years", "Reso Poly"), bass=("5years", "Sub Fall"),
+        fm=("5years", "Nicotine"), choir=("5years", "Laika"),
+        flour=("5years", "Injustice"), bell=("authored", -5),
+        kit=dict(style="doom", kick=(50, 0, 75), snare="rim",
+                 hats="quarter"),
+        spine=("Ether", "Machine Drone", "Lysergic", "St. George",
+               "Daphne Oram 2"), seeds=(13, 24, 35, 46, 9)),
+    "vexilla_regis": dict(
+        title="The Banners Advance (Chant of the March)",
+        form=[("entry", 8, "ratchet"), ("develop", 8, "swagger"),
+              ("ritual", 6, "vigil"), ("peak", 8, "ratchet"),
+              ("outro", 4, "vigil")],
+        accents=("A", "C", "A"), lead="lead_smg",
+        wall=("5years", "Knowledge"), bass=("5years", "Galatheae"),
+        fm=("5years", "Core Robot"), choir=("5years", "Monument"),
+        flour=("5years", "Splatter"), bell=("tubular", 0),
+        kit=dict(style="march", kick=(0, 50, 50), snare="snare",
+                 hats="sixteenth"),
+        spine=("Taiga", "Faulty Connection", "MissingNo", "Lysergic",
+               "Ether"), seeds=(15, 26, 37, 48, 11)),
+    "idumea": dict(
+        title="And Am I Born to Die?",
+        form=[("develop", 8, "swagger"), ("ritual", 6, "vigil"),
+              ("peak", 8, "grind"), ("develop", 6, "swagger"),
+              ("outro", 4, "vigil")],
+        accents=("C", "B", "C"), lead="lead_pistol",
+        wall=("5years", "Tesla Coil"), bass=("5years", "Aqualung"),
+        fm=("5years", "Donk"), choir=("5years", "Cretacic"),
+        flour=("5years", "Headache"), bell=("none", 0),
+        kit=dict(style="groove", kick=(25, 25, 25), snare="clap",
+                 hats="offbeat"),
+        spine=("Faux", "Boass", "Digivice", "Machine Drone", "Taiga"),
+        seeds=(17, 28, 39, 50, 13)),
+    "pange_lingua": dict(
+        title="Sing, My Tongue, of Broken Steel",
+        form=[("vigil", 6, "vigil"), ("rebuild", 8, "grind"),
+              ("entry", 8, "pressure"), ("peak", 8, "lunge"),
+              ("ritual", 4, "vigil")],
+        accents=("B", "A", "C"), lead="lead_tau",
+        wall=("5years", "Malfunction"), bass=("tngkaos", "Fat Bass"),
+        fm=("5years", "Acid Bass 3"), choir=("5years", "Melloflute"),
+        flour=("5years", "Cryogen"), bell=("spec_imp", 0),
+        kit=dict(style="half", kick=(75, 50, 25), snare="snare+clap",
+                 hats="sparse"),
+        spine=("Lysergic", "St. George", "Ether", "Faulty Connection",
+               "Machine Drone"), seeds=(19, 30, 41, 52, 15)),
+    "lhomme_arme": dict(
+        title="The Armed Man Must Be Feared",
+        form=[("entry", 8, "ratchet"), ("peak", 8, "swagger"),
+              ("ritual", 6, "pressure"), ("peak", 8, "ratchet"),
+              ("outro", 4, "vigil")],
+        accents=("A", "B", "A"), lead="lead_shotgun",
+        wall=("5years", "Movie Intro"), bass=("5years", "Follin"),
+        fm=("5years", "Supersync"), choir=("5years", "Museum"),
+        flour=("5years", "Western"), bell=("authored", 7),
+        kit=dict(style="dbeat", kick=(25, 75, 50), snare="snare+clap",
+                 hats="offbeat"),
+        spine=("Machine Drone", "Taiga", "Boass", "Daphne Oram 2",
+               "St. George"), seeds=(21, 32, 43, 54, 17)),
+    "old_100th_dark": dict(
+        title="All Machines Here Below",
+        form=[("ritual", 8, "vigil"), ("develop", 8, "grind"),
+              ("entry", 6, "pressure"), ("peak", 8, "ratchet"),
+              ("outro", 4, "vigil")],
+        accents=("B", "C", "B"), lead="lead_gland",
+        wall=("5years", "Home Run"), bass=("5years", "Bamboo"),
+        fm=("5years", "Sonar"), choir=("5years", "Hypercube PAD"),
+        flour=("5years", "Gecko"), bell=("ride", 0),
+        kit=dict(style="groove", kick=(50, 25, 75), snare="rim",
+                 hats="quarter"),
+        spine=("St. George", "Lysergic", "Faulty Connection", "Ether",
+               "Taiga"), seeds=(23, 34, 45, 56, 19)),
+}
 
 
-def sec_time(i):
-    t = sum(b for _, b, _ in FORM[:i]) * BAR
-    return t
+def check_uniqueness(max_shared: int = 2):
+    """No pair of tracks shares more than max_shared elements."""
+    def axes(r):
+        return {
+            "lead": r["lead"], "wall": r["wall"], "bass": r["bass"],
+            "fm": r["fm"], "choir": r["choir"], "flour": r["flour"],
+            "bell": r["bell"][0], "kit_style": r["kit"]["style"],
+            "kick": r["kit"]["kick"], "snare": r["kit"]["snare"],
+            "hats": r["kit"]["hats"], "accents": r["accents"],
+            "spine": frozenset(r["spine"]),
+            "shape": tuple(s for s, _, _ in r["form"]),
+        }
+    names = list(RECIPES)
+    worst = 0
+    for i, a in enumerate(names):
+        for b in names[i + 1:]:
+            aa, bb = axes(RECIPES[a]), axes(RECIPES[b])
+            shared = [k for k in aa if aa[k] == bb[k]]
+            worst = max(worst, len(shared))
+            if len(shared) > max_shared:
+                raise AssertionError(f"{a} vs {b} share {shared}")
+    return worst
 
+
+# ---------------------------------------------------------------------------
+# element renderers
+# ---------------------------------------------------------------------------
 
 def place(buf, x, t_s, g=1.0):
     i = int(t_s * SR)
@@ -115,13 +185,10 @@ def place(buf, x, t_s, g=1.0):
 
 
 def drum_bus(d):
-    """The album's drum-bus decay signature (v2, judge gaps: thin/dry):
-    parallel saturation for weight, subtle bitcrush, short metallic
-    space, gentle low emphasis."""
     import synth as sy
-    par = np.tanh(d * 4.0)                        # parallel weight
+    par = np.tanh(d * 4.0)
     crush = sy.bitcrush(d, bits=10, rate_divisor=3) * 0.5
-    room = gc._spring_reverb(d, mix=1.0) * 0.22   # metallic space
+    room = gc._spring_reverb(d, mix=1.0) * 0.22
     y = d * 0.9 + par * 0.8 + crush + room
     return y / (np.abs(y).max() + 1e-9) * np.abs(d).max() * 1.15
 
@@ -133,70 +200,106 @@ def _knock():
         * np.exp(-np.arange(m) / (0.09 * SR))
 
 
-def drums_half(n_bars, rng, fills_at=()):
-    d = np.zeros(int(n_bars * BAR * SR) + SR)
-    kick = K.kick_knob(25, 25, 50)
-    kick = kick + np.pad(_knock() * 0.9, (0, max(0, len(kick) - int(0.28 * SR))))[:len(kick)]
-    for bar in range(n_bars):
-        if bar in fills_at:                      # authored fill bar
-            for pos in range(8, 16):
-                v = 0.4 + 0.6 * (pos - 8) / 7    # crescendo roll
-                K.place(d, K.hit("snare", v, rng), bar * BAR + pos * STEP)
-            K.place(d, kick, bar * BAR)
-            continue
-        for pos, vel, inst in [(0, 1.0, "kick"), (8, .95, "snare"),
-                               (4, .85, "kick"), (12, .5, "kick")]:
-            x = kick * (0.6 + 0.4 * vel) if inst == "kick" \
-                else K.hit("snare", vel, rng)
-            K.place(d, x, bar * BAR + pos * STEP)
-        for pos in range(0, 16, 2):
-            acc = .75 if pos % 8 == 4 else (.5 if pos % 4 == 0 else .35)
-            acc *= 1 + rng.normal(0, 0.12)        # hat life (judge gap)
-            K.place(d, K.hit("chh", max(.15, acc), rng),
-                    bar * BAR + pos * STEP)
-        if bar % 2 == 1:
-            K.place(d, K.hit("ohh", .7, rng), bar * BAR + 14 * STEP)
-        if bar % 4 == 2:                          # syncopated kick var
-            K.place(d, K.kick_knob(25, 25, 25) * .7,
-                    bar * BAR + 10 * STEP)
-        if bar >= n_bars // 2:                    # back-half: metal ride
-            import synth as sy
-            for pos in (2, 6, 10, 14):
-                r_hit = sy.bitcrush(K.hit("ride", .5, rng), bits=9)
-                K.place(d, r_hit * .5, bar * BAR + pos * STEP)
-    return d
+def _snare_hit(kind, vel, rng):
+    if kind == "snare":
+        return K.hit("snare", vel, rng)
+    if kind == "clap":
+        return K.hit("clap", vel, rng)
+    if kind == "rim":
+        return K.hit("rim", min(1.0, vel * 1.2), rng)
+    x1, x2 = K.hit("snare", vel, rng), K.hit("clap", vel * .8, rng)
+    n = max(len(x1), len(x2))
+    y = np.zeros(n)
+    y[:len(x1)] += x1
+    y[:len(x2)] += x2
+    return y
 
 
-def drums_groove(n_bars, rng, fills_at=()):
+def _hat_positions(hats):
+    return {"eighth": list(range(0, 16, 2)),
+            "quarter": [0, 4, 8, 12],
+            "sixteenth": list(range(16)),
+            "offbeat": [2, 6, 10, 14],
+            "sparse": [0, 6, 8, 14]}[hats]
+
+
+_KICKPAT = {"half": [(0, 1.0), (4, .85), (12, .5)],
+            "groove": [(0, 1.0), (4, .9), (8, 1.0), (12, .9)],
+            "doom": [(0, 1.0), (7, .8)],
+            "march": [(0, 1.0), (4, .9), (8, .95), (12, .9)],
+            "dbeat": [(0, 1.0), (3, .7), (8, 1.0), (11, .7)]}
+_SNPAT = {"half": [8], "groove": [4, 12], "doom": [8],
+          "march": [4, 12], "dbeat": [4, 12]}
+
+
+def drums(rec, n_bars, rng, fills_at=()):
+    kit = rec["kit"]
     d = np.zeros(int(n_bars * BAR * SR) + SR)
-    kick = K.kick_knob(25, 25, 25)
+    kick = K.kick_knob(*kit["kick"])
+    kick = kick + np.pad(_knock() * 0.9,
+                         (0, max(0, len(kick) - int(0.28 * SR))))[:len(kick)]
+    hatpos = _hat_positions(kit["hats"])
     for bar in range(n_bars):
         if bar in fills_at:
-            for pos in range(0, 16, 2):
-                v = 0.35 + 0.65 * pos / 15
-                K.place(d, K.hit("snare", v, rng), bar * BAR + pos * STEP)
+            for pos in range(8, 16):
+                v = 0.4 + 0.6 * (pos - 8) / 7
+                K.place(d, _snare_hit(kit["snare"], v, rng),
+                        bar * BAR + pos * STEP)
+            K.place(d, kick, bar * BAR)
             continue
-        for pos in (0, 4, 8, 12):
-            K.place(d, kick, bar * BAR + pos * STEP)
-        for pos in (4, 12):
-            K.place(d, K.hit("clap", .8, rng), bar * BAR + pos * STEP)
-        for pos in range(16):
-            acc = .6 if pos % 4 == 2 else .3
-            K.place(d, K.hit("chh", acc, rng), bar * BAR + pos * STEP)
+        for pos, vel in _KICKPAT[kit["style"]]:
+            K.place(d, kick * (0.6 + 0.4 * vel), bar * BAR + pos * STEP)
+        for pos in _SNPAT[kit["style"]]:
+            K.place(d, _snare_hit(kit["snare"], .95, rng),
+                    bar * BAR + pos * STEP)
+        for pos in hatpos:
+            acc = (.75 if pos % 8 == 4 else .45) * (1 + rng.normal(0, .12))
+            K.place(d, K.hit("chh", max(.15, acc), rng),
+                    bar * BAR + pos * STEP)
+        if kit["style"] == "march" and bar % 2 == 1:   # military ruff
+            for pos in (14, 15):
+                K.place(d, _snare_hit(kit["snare"], .4, rng),
+                        bar * BAR + pos * STEP)
+        if bar >= n_bars // 2:                          # back-half metal
+            import synth as sy
+            for pos in (2, 10):
+                K.place(d, sy.bitcrush(K.hit("ride", .5, rng), bits=9) * .5,
+                        bar * BAR + pos * STEP)
     return d
 
 
-def wall_take(riff, seed, drive):
-    """SYNTH wall (director: chug samples scuffed): the riff through a
-    Vital voice into the guitar amp+cab chain. Double-track realism =
-    per-take micro-offsets (a second performance), not jitter within
-    the groove's feel."""
+def bell_render(rec, vel=0.6):
+    variant, shift = rec["bell"]
+    if variant == "none":
+        return np.zeros(64)
+    if variant == "authored":
+        x = bell_hit(vel)
+        if shift:
+            n = int(len(x) / 2 ** (shift / 12.0))
+            x = np.interp(np.linspace(0, len(x) - 1, n),
+                          np.arange(len(x)), x)
+        return x
+    if variant == "tubular":
+        y = VB.render_seq("5years", "Tubular Bells",
+                          [(62 + shift, 0.0, 2.5, 100)], 2.5, 2.0)
+        return y / (np.abs(y).max() + 1e-9) * vel
+    if variant == "spec_imp":
+        for cat, nm, f, midi, bpm in SP.catalog("IMP"):
+            if nm == "Crackle Impactor":
+                return SP.load(str(f)) * vel
+    if variant == "ride":
+        return K.hit("ride", vel, np.random.default_rng(1)) * 1.4
+    raise ValueError(variant)
+
+
+def wall_take(rec, riff, seed, drive):
     import synth as sy
     rng = np.random.default_rng(seed)
+    first_take = seed in (rec["seeds"][0], rec["seeds"][2])
     seq = []
     t = 0
     for p, steps, art in riff:
-        off = float(rng.normal(0, 0.004)) if seed != 11 else 0.0
+        off = 0.0 if first_take else float(rng.normal(0, 0.004))
         if art == "open":
             for iv, vv in ((12, 118), (19, 104), (24, 88)):
                 seq.append((38 + p + iv, max(0.0, t * STEP + off),
@@ -205,15 +308,12 @@ def wall_take(riff, seed, drive):
             seq.append((38 + p, max(0.0, t * STEP + off),
                         STEP * 0.9, 96 if t % 16 else 118))
         t += steps
-    total = t * STEP
-    out = VB.render_seq(*VB.SLOTS["wall"], seq, total, 0.4)
+    out = VB.render_seq(*rec["wall"], seq, t * STEP, 0.4)
     out = voices.amp(out * 0.6 / (np.abs(out).max() + 1e-9), drive)
     return sy.highpass(out, 120)
 
 
 def _sub_layer(seq, total_s):
-    """Saturated sine sub tracking the bass gates (judge gap: layer
-    distorted sub under the weak synth bass)."""
     n = int((total_s + 0.5) * SR)
     out = np.zeros(n)
     for note, t0, d, v in seq:
@@ -226,16 +326,13 @@ def _sub_layer(seq, total_s):
     return out
 
 
-def vb_seq(slot, seq, total, tail=1.0):
-    x = VB.render_seq(*VB.SLOTS[slot], seq, total, tail)
+def vb_seq_raw(bank_stem, seq, total, tail=1.0):
+    x = VB.render_seq(*bank_stem, seq, total, tail)
     return x / (np.abs(x).max() + 1e-9)
 
 
 def _pull(x, end_s, fade_ms=35):
-    """The producer's pre-drop PULL: this lane STOPS at end_s (short
-    fade, its space/ring elsewhere carries on) — musical subtraction,
-    never a master-bus amplitude chop (director: the ducked vacuum
-    'sounds even more like something broke')."""
+    """The producer's pre-drop PULL: this lane stops, its space rings."""
     y = x.copy()
     e = int(end_s * SR)
     f = int(fade_ms * SR / 1000)
@@ -246,253 +343,304 @@ def _pull(x, end_s, fade_ms=35):
 
 
 def _boundary_tell(C, t_s, rng):
-    """The album's seam grammar: a riser that EXITS at the boundary +
-    an impact ON it (judge gap: transitions abrupt at every seam)."""
     import synth as sy
     rn = int(1.0 * BAR * SR)
     riser = sy.pink_noise(1.0 * BAR, seed=int(t_s))[:rn] \
         * np.linspace(0.05, 0.9, rn) ** 2
     place(C, sy.highpass(riser, 800) * 0.7, t_s - BAR)
     rev = G.hall(K.hit("crash", 0.8, rng), 1.5).T.mean(axis=1)[::-1]
-    place(C, rev[-int(BAR * SR):] * 0.6, t_s - BAR)   # reverse-verb whoosh
+    place(C, rev[-int(BAR * SR):] * 0.6, t_s - BAR)
     place(C, K.hit("crash", 0.85, rng), t_s, 0.9)
     boom = np.sin(2 * np.pi * 55 * np.arange(int(0.5 * SR)) / SR) \
         * np.exp(-np.arange(int(0.5 * SR)) / (0.12 * SR))
     place(C, boom * 0.9, t_s)
 
 
-def compose(mel_name: str):
-    events = G.MELODIES[mel_name]
-    rec = RECIPES.get(mel_name, DEFAULT_RECIPE)
-    prog2, prog3, prog4 = rec["progs"]
-    acc2, acc3, acc4 = (_ACC[a] for a in rec["accents"])
-    s1, s2, s3, s4, s5 = rec["seeds"]
-    rng = np.random.default_rng(s5)
-    total_s = sec_time(len(FORM)) + 6.0
-    n = int(total_s * SR)
-    L = np.zeros(n)
-    R = np.zeros(n)
-    C = np.zeros(n)                    # mono spine, added to both
+# ---------------------------------------------------------------------------
+# section renderers — each writes into ctx buffers at ctx["t"]
+# ---------------------------------------------------------------------------
 
-    chant_step = 60.0 / 72.0 / 4
+def _bass_seq_from_riff(riff, base=26):
+    seq, t = [], 0
+    for pp, steps, art in riff:
+        seq.append((base + pp, t * STEP,
+                    STEP * steps * (0.92 if art == "mute" else 1.6),
+                    118 if art == "open" else 96))
+        t += steps
+    return seq, t * STEP
 
-    # ---- S1 vigil: bed + monk + bells --------------------------------
-    t1 = sec_time(0)
-    bed = vb_seq("bed_t2", [(36, 0.0, 16 * BAR, 100),
-                            (24, 0.0, 16 * BAR, 90)], 16 * BAR, 0.0)
-    duck_env = np.ones(len(bed))
-    duck_env[int(8 * BAR * SR):] = 0.45           # bed yields to the band
-    place(C, bed * 0.30 * duck_env, t1)
-    vows = [None if p is None else (-0.5 if d >= 8 else 0.2)
-            for p, d in events]
-    monk = G.render_vocal(events, chant_step, base_midi=50, vowels=vows)
-    monk /= np.abs(monk).max() + 1e-9
+
+def _monk_enter(ctx, t0, gain=0.5, ramp_s=6.0):
+    monk = ctx["monk"]
+    ramp = np.minimum(1, np.arange(len(monk)) / (ramp_s * SR)) ** 1.5
+    place(ctx["C"], monk * ramp * gain, t0 + BAR)
+    ctx["monk_used"] = True
+
+
+def sec_vigil(ctx, bars, prog):
+    rec, C, t0 = ctx["rec"], ctx["C"], ctx["t"]
+    if not ctx["monk_used"]:
+        _monk_enter(ctx, t0)
+        head = [(pp, d) for pp, d in ctx["events"] if pp is not None][:8]
+        cs, tt = [], BAR
+        for pp, d in head:
+            cs.append((62 + pp, tt, d * ctx["chant_step"] * 1.1, 96))
+            tt += d * ctx["chant_step"]
+        ch = vb_seq_raw(rec["choir"], cs, bars * BAR, 1.5)
+        place(C, G.hall(ch, 1.6).T.mean(axis=1) * 0.45, t0)
+    place(C, G.hall(bell_render(rec), 1.4).T.mean(axis=1) * 0.5,
+          t0 + 2 * BAR)
+    place(C, G.hall(bell_render(rec, 0.4), 1.4).T.mean(axis=1) * 0.4,
+          t0 + (bars - 2) * BAR)
+
+
+def sec_ritual(ctx, bars, prog):
+    """Drum-less: choir chords + monk + sparse flourish stabs."""
+    rec, C, t0 = ctx["rec"], ctx["C"], ctx["t"]
+    roots = harmony.roots_16(prog, bars)
+    cs = []
+    for bar in range(bars):
+        r = roots[bar * 16]
+        for nn in (50 + r, 57 + r, 62 + r):
+            cs.append((nn, bar * BAR, BAR * 0.97, 96))
+    ch = vb_seq_raw(rec["choir"], cs, bars * BAR, 1.5)
+    place(C, G.hall(ch, 1.7).T.mean(axis=1) * 0.5, t0)
+    if not ctx["monk_used"]:
+        _monk_enter(ctx, t0)
+    else:
+        place(C, ctx["monk_far"] * 0.4, t0 + BAR)
+    fl = []
+    for bar in range(1, bars, 2):
+        r = roots[bar * 16]
+        fl.append((62 + r, bar * BAR + 8 * STEP, 3 * STEP, 100))
+    if fl:
+        x = vb_seq_raw(rec["flour"], fl, bars * BAR, 0.5)
+        place(C, x * 0.3, t0)
+
+
+def sec_entry(ctx, bars, prog):
+    rec, C, L, R, t0 = ctx["rec"], ctx["C"], ctx["L"], ctx["R"], ctx["t"]
+    rng = ctx["rng"]
     import synth as sy
-    harsh = sy.highpass(sy.lowpass(monk, 4500), 1800)
-    monk = monk - 0.8 * harsh                     # tame the pierce
-    import synth as sy2
-    monk = sy2.lowpass(monk, 5000)                # dark, never harsh
-    monk_wet = G.hall(monk, 2.4).T.mean(axis=1)   # deep in the hall
-    ramp = np.minimum(1, np.arange(len(monk_wet)) / (6.0 * SR)) ** 1.5
-    place(C, monk_wet * ramp * 0.5, t1 + BAR)     # EMERGES (director:
-    #                                 jarring when it starts up)
-    head = [(pp, d) for pp, d in events if pp is not None][:8]
-    cs1 = []
-    tt = BAR
-    for pp, d in head:
-        cs1.append((62 + pp, tt, d * chant_step * 1.1, 96))
-        tt += d * chant_step
-    ch1 = vb_seq("choir", cs1, 16 * BAR, 1.5)
-    place(C, G.hall(ch1, 1.6).T.mean(axis=1) * 0.45, t1)
-    bells = np.zeros(int(8 * BAR * SR))
-    place(bells, bell_hit(0.6), 2 * BAR)
-    place(bells, bell_hit(0.4), 6 * BAR)
-    place(C, G.hall(bells, 1.4).T.mean(axis=1) * 0.5, t1)
-
-    # ---- S2 entry: fill -> band on 'pressure', monk above -------------
-    t2 = sec_time(1)
-    _boundary_tell(C, t2, rng)
-    fill = drums_half(1, rng, fills_at=(0,))
-    place(C, drum_bus(fill) * 0.7, t2 - BAR)                  # the lead-in bar
-    dh = drums_half(8, rng)
-    place(C, drum_bus(dh) * 0.7, t2)
-    roots = harmony.roots_16(prog2, 8)
-    riff = riffs.riff_16(events, n_bars=8, accents=acc2,
+    acc = _ACC[rec["accents"][0]]
+    if t0 > 0:
+        fill = drums(rec, 1, rng, fills_at=(0,))
+        place(C, drum_bus(fill) * 0.7, t0 - BAR)
+    dh = drums(rec, bars, rng)
+    place(C, drum_bus(dh) * 0.7, t0)
+    roots = harmony.roots_16(prog, bars)
+    riff = riffs.riff_16(ctx["events"], n_bars=bars, accents=acc,
                          chord_roots=roots)
-    wl = wall_take(riff, s1, 18.0)
-    wr = wall_take(riff, s2, 19.0)
+    s = rec["seeds"]
+    wl = wall_take(rec, riff, s[0], 18.0)
+    wr = wall_take(rec, riff, s[1], 19.0)
     wl = gc.sidechain_duck(wl, dh[:len(wl)], amount=0.35, release_s=0.1)
     wr = gc.sidechain_duck(wr, dh[:len(wr)], amount=0.35, release_s=0.1)
-    place(L, wl * 0.7, t2)
-    place(R, wr * 0.7, t2)
-    bseq = []
-    t = 0
-    for pp, steps, art in riff:
-        bseq.append((26 + pp, t * STEP, STEP * steps *
-                     (0.92 if art == "mute" else 1.6),
-                     118 if art == "open" else 96))
-        t += steps
-    import synth as sy
-    bass = sy.highpass(vb_seq("bass_deep", bseq, 8 * BAR, 0.4), 90)
-    sub = sy.lowpass(_sub_layer(bseq, 8 * BAR), 90)
+    place(L, wl * 0.7, t0)
+    place(R, wr * 0.7, t0)
+    bseq, btot = _bass_seq_from_riff(riff)
+    bass = sy.highpass(vb_seq_raw(rec["bass"], bseq, btot, 0.4), 90)
+    sub = sy.lowpass(_sub_layer(bseq, btot), 90)
     m = min(len(bass), len(sub))
     bass = bass[:m] + sub[:m] * 0.55
     bass = gc.sidechain_duck(bass, dh[:len(bass)], amount=0.45,
                              release_s=0.12)
-    place(C, bass * 0.85, t2)
-    # monk continues over the band (started in S1, runs ~27s = into S2)
-    # defiant organ answers in the chant's long rests (S2 only)
-    ans = riffs.lead_phrase([(p, d) for p, d in events if p is not None][:6],
-                            factor=2)
-    oseq = []
-    t = 6 * BAR                # answer AFTER the chant's line ends
-    #                           (judge: mid-range clash ~0:50)
+    place(C, bass * 0.85, t0)
+    if ctx["monk_used"]:
+        place(C, ctx["monk_far"] * 0.3, t0 + 2 * BAR)
+    else:
+        _monk_enter(ctx, t0 + 2 * BAR, gain=0.35)
+    ans = riffs.lead_phrase(
+        [(p, d) for p, d in ctx["events"] if p is not None][:6], factor=2)
+    fl, tt = [], (bars - 2) * BAR
     for p, d in ans:
-        oseq.append((50 + p, t, d * STEP * 1.2, 110))
-        t += d * STEP
-    organ = vb_seq("organ_defiant", oseq, 8 * BAR, 0.5)
-    organ = gc.sidechain_duck(organ, dh[:len(organ)], amount=0.3,
-                              release_s=0.1)
-    place(C, organ * 0.4, t2)
+        fl.append((50 + p, tt, d * STEP * 1.2, 110))
+        tt += d * STEP
+    x = vb_seq_raw(rec["flour"], fl, bars * BAR, 0.5)
+    x = gc.sidechain_duck(x, dh[:len(x)], amount=0.3, release_s=0.1)
+    place(C, x * 0.4, t0)
 
-    # ---- S3 develop: swagger groove, lead carries fragments -----------
-    t3 = sec_time(2)
-    _boundary_tell(C, t3, rng)
-    dg = drums_groove(8, rng, fills_at=(7,))
-    dg_p = _pull(dg, 8 * BAR - 0.5 * BAR)
-    place(C, drum_bus(dg_p) * 0.7, t3)
-    roots3 = harmony.roots_16(prog3, 8)
-    r3 = riffs.riff_16(events, n_bars=8, accents=acc3,
-                       chord_roots=roots3)
-    fseq = []
-    t = 0
-    for pp, steps, art in r3:
-        fseq.append((38 + pp, t * STEP, STEP * steps * 0.9,
-                     116 if art == "open" else 92))
-        t += steps
-    fm = vb_seq("bass_fm", fseq, 8 * BAR, 0.3)
+
+def sec_develop(ctx, bars, prog):
+    rec, C, t0 = ctx["rec"], ctx["C"], ctx["t"]
+    rng = ctx["rng"]
+    acc = _ACC[rec["accents"][1]]
+    dg = drums(rec, bars, rng, fills_at=(bars - 1,))
+    dgp = _pull(dg, bars * BAR - 0.5 * BAR) if ctx["next_is_peak"] else dg
+    place(C, drum_bus(dgp) * 0.7, t0)
+    roots = harmony.roots_16(prog, bars)
+    r3 = riffs.riff_16(ctx["events"], n_bars=bars, accents=acc,
+                       chord_roots=roots)
+    fseq, ftot = _bass_seq_from_riff(r3, base=38)
+    fm = vb_seq_raw(rec["fm"], fseq, ftot, 0.3)
     fm = gc.sidechain_duck(fm, dg[:len(fm)], amount=0.4, release_s=0.1)
-    place(C, _pull(fm, 8 * BAR - 0.5 * BAR) * 0.6, t3)
+    if ctx["next_is_peak"]:
+        fm = _pull(fm, bars * BAR - 0.5 * BAR)
+    place(C, fm * 0.6, t0)
     frag = riffs.lead_phrase(
-        [(p, d) for p, d in events if p is not None][:8], factor=2)
+        [(p, d) for p, d in ctx["events"] if p is not None][:8], factor=2)
     lseq = []
-    t = 0.0
-    for k in range(2):                              # stated twice
+    for k in range(max(1, bars // 4)):
         tt = k * 4 * BAR
-        t = tt
         for p, d in frag:
-            lseq.append((62 + p, t, (d + 0.5) * STEP, 108))
-            t += d * STEP
-    lead = vb_seq(rec["lead"], lseq, 8 * BAR, 0.5)
+            lseq.append((62 + p, tt, (d + 0.5) * STEP, 108))
+            tt += d * STEP
+    lead = vb_seq_raw(VB.SLOTS[rec["lead"]], lseq, bars * BAR, 0.5)
     lead = gc.sidechain_duck(lead, dg[:len(lead)], amount=0.3,
                              release_s=0.1)
-    place(C, _pull(lead, 8 * BAR - 0.5 * BAR) * 0.5, t3)
-    # the church NEVER leaves (judge: S3 'loses the motif'; the album
-    # holds the chant ~84% of runtime): distant choir pedal + a monk
-    # phrase echoing far back in the hall
-    c3 = vb_seq("choir", [(50, 0.0, 8 * BAR, 90), (57, 0.0, 8 * BAR, 84)],
-                8 * BAR, 1.0)
+    if ctx["next_is_peak"]:
+        lead = _pull(lead, bars * BAR - 0.5 * BAR)
+    place(C, lead * 0.5, t0)
+    cs = [(50, 0.0, bars * BAR, 90), (57, 0.0, bars * BAR, 84)]
+    c3 = vb_seq_raw(rec["choir"], cs, bars * BAR, 1.0)
     c3 = G.hall(c3, 1.8).T.mean(axis=1)
     c3 = gc.sidechain_duck(c3, dg[:len(c3)], amount=0.5, release_s=0.1)
-    place(C, c3 * 0.3, t3)
-    monk_far = G.hall(monk[:int(10 * chant_step * 16 * SR)], 2.5).T.mean(axis=1)
-    place(C, monk_far * 0.35, t3 + 3 * BAR)
+    place(C, c3 * 0.3, t0)
 
-    # ---- riser into the peak ------------------------------------------
+
+def sec_rebuild(ctx, bars, prog):
+    """One element alone, layers admitted every 2 bars (album 07 blk03)."""
+    rec, C, t0 = ctx["rec"], ctx["C"], ctx["t"]
+    rng = ctx["rng"]
+    roots = harmony.roots_16(prog, bars)
+    r = riffs.riff_16(ctx["events"], n_bars=bars,
+                      accents=_ACC[rec["accents"][1]], chord_roots=roots)
+    fseq, ftot = _bass_seq_from_riff(r, base=38)
+    fm = vb_seq_raw(rec["fm"], fseq, ftot, 0.3)
+    place(C, fm * 0.55, t0)
+    dh = drums(rec, bars, rng)
+    n_in = int(2 * BAR * SR)
+    dh2 = dh.copy()
+    dh2[:n_in] *= np.linspace(0, 1, n_in) ** 2
+    place(C, drum_bus(dh2) * 0.6, t0)
+    wl = wall_take(rec, r, rec["seeds"][2], 17.0)
+    keep = (bars - 2) * BAR
+    wl2 = np.zeros_like(wl)
+    wl2[int(keep * SR):] = wl[int(keep * SR):]
+    place(ctx["L"], wl2 * 0.6, t0)
+    place(ctx["R"], wl2 * 0.6, t0)
+
+
+def sec_peak(ctx, bars, prog):
+    rec, C, L, R, t0 = ctx["rec"], ctx["C"], ctx["L"], ctx["R"], ctx["t"]
+    rng = ctx["rng"]
     import synth as sy
     rn = int(2 * BAR * SR)
     riser = sy.pink_noise(2 * BAR, seed=3)[:rn] * np.linspace(0.1, 1, rn) ** 2
-    place(C, riser * 0.5, sec_time(3) - 2 * BAR)
-
-    # ---- S4 peak: ratchet tutti ----------------------------------------
-    t4 = sec_time(3)
-    sting = np.zeros(int(2 * BAR * SR))
-    place(sting, K.hit("crash", 1.0, rng), 0)
-    place(sting, bell_hit(1.0), 0)
-    place(C, sting * 0.8, t4)
-    dh4 = drums_half(8, rng, fills_at=(7,))
-    place(C, drum_bus(dh4) * 0.75, t4)
-    roots4 = harmony.roots_16(prog4, 8)
-    # lunge bar: bar 6 of the peak spends the tritone
-    lunge = harmony.roots_16("lunge", 2)
-    roots4[6 * 16:8 * 16] = lunge
-    r4 = riffs.riff_16(events, n_bars=8, accents=acc4,
-                       chord_roots=roots4)
-    wl4 = wall_take(r4, s3, 20.0)
-    wr4 = wall_take(r4, s4, 21.0)
+    place(C, riser * 0.5, t0 - 2 * BAR)
+    place(C, K.hit("crash", 1.0, rng), t0, 0.8)
+    place(C, G.hall(bell_render(rec, 1.0), 1.2).T.mean(axis=1) * 0.6, t0)
+    dh4 = drums(rec, bars, rng, fills_at=(bars - 1,))
+    place(C, drum_bus(dh4) * 0.75, t0)
+    acc = _ACC[rec["accents"][2]]
+    roots = harmony.roots_16(prog, bars)
+    if prog != "lunge" and bars >= 8:
+        roots[6 * 16:8 * 16] = harmony.roots_16("lunge", 2)
+    r4 = riffs.riff_16(ctx["events"], n_bars=bars, accents=acc,
+                       chord_roots=roots)
+    s = rec["seeds"]
+    wl4 = wall_take(rec, r4, s[2], 20.0)
+    wr4 = wall_take(rec, r4, s[3], 21.0)
     wl4 = gc.sidechain_duck(wl4, dh4[:len(wl4)], amount=0.35, release_s=0.1)
     wr4 = gc.sidechain_duck(wr4, dh4[:len(wr4)], amount=0.35, release_s=0.1)
-    place(L, wl4 * 0.8, t4)
-    place(R, wr4 * 0.8, t4)
-    b4 = []
-    t = 0
-    for pp, steps, art in r4:
-        b4.append((26 + pp, t * STEP, STEP * steps *
-                   (0.92 if art == "mute" else 1.6),
-                   120 if art == "open" else 100))
-        t += steps
-    bass4 = sy.highpass(vb_seq("bass_deep", b4, 8 * BAR, 0.4), 90)
-    sub4 = sy.lowpass(_sub_layer(b4, 8 * BAR), 90)
+    place(L, wl4 * 0.8, t0)
+    place(R, wr4 * 0.8, t0)
+    b4, btot = _bass_seq_from_riff(r4)
+    bass4 = sy.highpass(vb_seq_raw(rec["bass"], b4, btot, 0.4), 90)
+    sub4 = sy.lowpass(_sub_layer(b4, btot), 90)
     m4 = min(len(bass4), len(sub4))
     bass4 = bass4[:m4] + sub4[:m4] * 0.6
     bass4 = gc.sidechain_duck(bass4, dh4[:len(bass4)], amount=0.45,
                               release_s=0.12)
-    place(C, bass4 * 0.95, t4)
-    # choir + monk held above the peak (melody-continuity law)
-    cseq = []
-    for bar in range(8):
-        root = roots4[bar * 16]
+    place(C, bass4 * 0.95, t0)
+    cs = []
+    for bar in range(bars):
+        root = roots[bar * 16]
         for nn in (62 + root, 69 + root):
-            cseq.append((nn, bar * BAR, BAR * 0.97, 100))
-    choir = vb_seq("choir", cseq, 8 * BAR, 1.0)
-    choir_wet = G.hall(choir, 1.3).T.mean(axis=1)
-    choir_wet = sy.highpass(choir_wet, 300)
-    choir_wet = gc.sidechain_duck(choir_wet, dh4[:len(choir_wet)],
-                                  amount=0.5, release_s=0.12)
-    place(C, choir_wet * 0.5, t4)
-    monk2 = G.hall(monk, 2.0).T.mean(axis=1)      # distant even at peak
-    monk2 = gc.sidechain_duck(monk2, dh4[:len(monk2)],
-                              amount=0.5, release_s=0.12)
+            cs.append((nn, bar * BAR, BAR * 0.97, 100))
+    choir = vb_seq_raw(rec["choir"], cs, bars * BAR, 1.0)
+    cw = sy.highpass(G.hall(choir, 1.3).T.mean(axis=1), 300)
+    cw = gc.sidechain_duck(cw, dh4[:len(cw)], amount=0.5, release_s=0.12)
+    place(C, cw * 0.5, t0)
+    monk2 = ctx["monk_far"]
     ramp2 = np.minimum(1, np.arange(len(monk2)) / (4.0 * SR)) ** 1.5
-    place(C, monk2 * ramp2 * 0.4, t4)
-
-    # ---- S5 outro: vacuum + ring --------------------------------------
-    t5 = sec_time(4)
-    place(C, K.hit("crash", 0.9, rng), t5)        # choke into the vacuum
-    bed5 = vb_seq("bed_t2", [(36, 0.0, 5 * BAR, 90)], 5 * BAR, 0.0)
-    place(C, bed5 * 0.3, t5)
-    place(C, G.hall(np.concatenate([bell_hit(0.7),
-                                    np.zeros(int(BAR * SR))]),
-                    1.5).T.mean(axis=1) * 0.5, t5)
+    m2 = gc.sidechain_duck(monk2 * ramp2, dh4[:len(monk2)],
+                           amount=0.5, release_s=0.12)
+    place(C, m2 * 0.4, t0)
 
 
-    # ---- drone spine: a different texture per section (director:
-    # "experiment with drone textures... a lot of dynamic character
-    # for cheap"), from the picks' measured top sustainers; survives
-    # every vacuum -----------------------------------------------------
-    import synth as sy3
+def sec_outro(ctx, bars, prog):
+    rec, C, t0 = ctx["rec"], ctx["C"], ctx["t"]
+    rng = ctx["rng"]
+    place(C, K.hit("crash", 0.9, rng), t0)
+    place(C, G.hall(bell_render(rec, 0.7), 1.5).T.mean(axis=1) * 0.5,
+          t0 + 0.5 * BAR)
+
+
+SECS = {"vigil": sec_vigil, "ritual": sec_ritual, "entry": sec_entry,
+        "develop": sec_develop, "rebuild": sec_rebuild, "peak": sec_peak,
+        "outro": sec_outro}
+_BAND = {"entry", "develop", "peak", "rebuild"}
+
+
+# ---------------------------------------------------------------------------
+
+def compose(mel_name: str):
+    events = G.MELODIES[mel_name]
+    rec = RECIPES[mel_name]
+    form = rec["form"]
+    rng = np.random.default_rng(rec["seeds"][4])
+    total_s = sum(b for _, b, _ in form) * BAR + 6.0
+    n = int(total_s * SR)
+    L, R, C = np.zeros(n), np.zeros(n), np.zeros(n)
+
+    chant_step = 60.0 / 72.0 / 4
+    import synth as sy
+    vows = [None if p is None else (-0.5 if d >= 8 else 0.2)
+            for p, d in events]
+    monk_raw = G.render_vocal(events, chant_step, base_midi=50, vowels=vows)
+    monk_raw /= np.abs(monk_raw).max() + 1e-9
+    monk_raw = sy.lowpass(monk_raw, 5000)
+    harsh = sy.highpass(sy.lowpass(monk_raw, 4500), 1800)
+    monk_raw = monk_raw - 0.8 * harsh
+    ctx = dict(rec=rec, events=events, L=L, R=R, C=C, rng=rng, t=0.0,
+               monk=G.hall(monk_raw, 2.4).T.mean(axis=1),
+               monk_far=G.hall(monk_raw, 2.0).T.mean(axis=1),
+               chant_step=chant_step, monk_used=False,
+               next_is_peak=False)
+
+    t = 0.0
+    for i, (stype, bars, prog) in enumerate(form):
+        ctx["t"] = t
+        ctx["next_is_peak"] = (i + 1 < len(form)
+                               and form[i + 1][0] == "peak")
+        prev_band = i > 0 and form[i - 1][0] in _BAND
+        if i > 0 and stype in _BAND and not prev_band:
+            _boundary_tell(C, t, rng)
+        SECS[stype](ctx, bars, prog)
+        t += bars * BAR
+
+    # drone spine: one texture per section, survives everything
+    D = np.zeros(n)
     gains = (0.20, 0.16, 0.14, 0.18, 0.20)
     notes = (36, 24, 36, 24, 36)
-    SPINE = [(_SPINE_BANK[nm], nm, notes[i], gains[i])
-             for i, nm in enumerate(rec["spine"])]
-    D = np.zeros(n)
-    for i, (bank, stem, note, gain) in enumerate(SPINE):
-        bars = FORM[i][1]
+    tt = 0.0
+    for i, (stype, bars, prog) in enumerate(form):
+        nm = rec["spine"][i % len(rec["spine"])]
         dur = bars * BAR
-        y = VB.render_seq(bank, stem, [(note, 0.0, dur, 96)],
-                          dur, tail_s=1.0)
-        y = sy3.lowpass(y / (np.abs(y).max() + 1e-9), 1800)
+        y = VB.render_seq(_SPINE_BANK[nm], nm,
+                          [(notes[i % 5], 0.0, dur, 96)], dur, tail_s=1.0)
+        y = sy.lowpass(y / (np.abs(y).max() + 1e-9), 1800)
         e = int(0.4 * SR)
         y[:e] *= np.linspace(0, 1, e)
-        place(D, y * gain, sec_time(i))
+        place(D, y * gains[i % 5], tt)
+        tt += dur
     C = C + D
 
-    # ---- master: cohesive space (judge gap: flat/dry spatialization) --
     mono = (L + R) * 0.5 + C
-    glue = G.hall(mono, 0.5).T.mean(axis=1)       # one shared room
+    glue = G.hall(mono, 0.5).T.mean(axis=1)
     C = C + 0.38 * glue[:len(C)]
     st = np.stack([L + C, R + C], axis=1)
-    import synth as sy
     st[:, 0] = sy.highpass(st[:, 0], 28)
     st[:, 1] = sy.highpass(st[:, 1], 28)
     st = np.tanh(st * 0.6) / np.tanh(0.6)
@@ -504,14 +652,24 @@ def compose(mel_name: str):
     return st
 
 
+def slug(title):
+    import re
+    return re.sub(r"[^a-z0-9]+", "_", title.lower()).strip("_")
+
+
 def main():
     import soundfile as sf
-    mel = sys.argv[1] if len(sys.argv) > 1 else "dies_irae"
-    out = sys.argv[2] if len(sys.argv) > 2 else f"out/tutti_{mel}_v1.wav"
-    st = compose(mel)
-    Path(out).parent.mkdir(exist_ok=True)
-    sf.write(out, st.astype(np.float32), SR)
-    print(f"{out}: {len(st)/SR:.1f}s")
+    arg = sys.argv[1] if len(sys.argv) > 1 else "dies_irae"
+    names = list(RECIPES) if arg == "all" else [arg]
+    worst = check_uniqueness()
+    print(f"uniqueness ok (worst pair shares {worst} elements)", flush=True)
+    for mel in names:
+        st = compose(mel)
+        out = Path("out") / f"track_{slug(RECIPES[mel]['title'])}.wav"
+        out.parent.mkdir(exist_ok=True)
+        sf.write(str(out), st.astype(np.float32), SR)
+        print(f"{RECIPES[mel]['title']!r} ({mel}): {out} "
+              f"{len(st)/SR:.1f}s", flush=True)
 
 
 if __name__ == "__main__":
