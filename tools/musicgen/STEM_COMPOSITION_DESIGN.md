@@ -100,6 +100,15 @@ LOG every alternative passed up in the Decision Log below. If a demo
 displeases, the logged alternatives are the first candidates rendered
 for comparison. Nothing is relitigated from memory.
 
+## 6.5 The Delay Lama law (director's ear, 2026-07-15)
+
+"It has to be a spice, not the main ingredient." The monk is ALWAYS
+distant, background, heavily processed (deep in the hall, harsh band
+tamed, modest gain). The loud dry monk clashes; the quiet distant one
+works. Foreground melody duty belongs to the leads/choir; the monk is
+the haunting behind them. (Converges with the grounded judge's
+"vocal detached on top of the backing" complaint.)
+
 ## 7. Decision log (alternatives we passed up)
 
 Format: date | decision | chosen | passed up | revisit trigger.

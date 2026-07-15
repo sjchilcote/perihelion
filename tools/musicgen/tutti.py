@@ -109,6 +109,11 @@ def drums_half(n_bars, rng, fills_at=()):
         if bar % 4 == 2:                          # syncopated kick var
             K.place(d, K.kick_knob(25, 25, 25) * .7,
                     bar * BAR + 10 * STEP)
+        if bar >= n_bars // 2:                    # back-half: metal ride
+            import synth as sy
+            for pos in (2, 6, 10, 14):
+                r_hit = sy.bitcrush(K.hit("ride", .5, rng), bits=9)
+                K.place(d, r_hit * .5, bar * BAR + pos * STEP)
     return d
 
 
@@ -176,6 +181,16 @@ def vb_seq(slot, seq, total, tail=1.0):
     return x / (np.abs(x).max() + 1e-9)
 
 
+def _pre_drop_vacuum(bufs, t_s, dur_s=0.55):
+    a = int((t_s - dur_s) * SR)
+    b = int(t_s * SR)
+    fade = np.linspace(1, 0, 2000)
+    for buf in bufs:
+        if 0 <= a < b <= len(buf):
+            buf[a - 2000:a] *= fade
+            buf[a:b] = 0.0
+
+
 def _boundary_tell(C, t_s, rng):
     """The album's seam grammar: a riser that EXITS at the boundary +
     an impact ON it (judge gap: transitions abrupt at every seam)."""
@@ -207,7 +222,9 @@ def compose(mel_name: str):
     t1 = sec_time(0)
     bed = vb_seq("bed_t2", [(36, 0.0, 16 * BAR, 100),
                             (24, 0.0, 16 * BAR, 90)], 16 * BAR, 0.0)
-    place(C, bed * 0.30, t1)           # bed runs S1+S2, fades later
+    duck_env = np.ones(len(bed))
+    duck_env[int(8 * BAR * SR):] = 0.45           # bed yields to the band
+    place(C, bed * 0.30 * duck_env, t1)
     vows = [None if p is None else (-0.5 if d >= 8 else 0.2)
             for p, d in events]
     monk = G.render_vocal(events, chant_step, base_midi=50, vowels=vows)
@@ -215,8 +232,18 @@ def compose(mel_name: str):
     import synth as sy
     harsh = sy.highpass(sy.lowpass(monk, 4500), 1800)
     monk = monk - 0.8 * harsh                     # tame the pierce
-    monk_wet = G.hall(monk, 2.2).T.mean(axis=1)
-    place(C, monk_wet * 0.9, t1 + BAR)
+    import synth as sy2
+    monk = sy2.lowpass(monk, 5000)                # dark, never harsh
+    monk_wet = G.hall(monk, 2.4).T.mean(axis=1)   # deep in the hall
+    place(C, monk_wet * 0.5, t1 + BAR)            # spice, not lead
+    head = [(pp, d) for pp, d in events if pp is not None][:8]
+    cs1 = []
+    tt = BAR
+    for pp, d in head:
+        cs1.append((62 + pp, tt, d * chant_step * 1.1, 96))
+        tt += d * chant_step
+    ch1 = vb_seq("choir", cs1, 16 * BAR, 1.5)
+    place(C, G.hall(ch1, 1.6).T.mean(axis=1) * 0.45, t1)
     bells = np.zeros(int(8 * BAR * SR))
     place(bells, bell_hit(0.6), 2 * BAR)
     place(bells, bell_hit(0.4), 6 * BAR)
@@ -252,7 +279,7 @@ def compose(mel_name: str):
     bass = bass[:m] + sub[:m] * 0.55
     bass = gc.sidechain_duck(bass, dh[:len(bass)], amount=0.45,
                              release_s=0.12)
-    place(C, bass * 0.65, t2)
+    place(C, bass * 0.85, t2)
     # monk continues over the band (started in S1, runs ~27s = into S2)
     # defiant organ answers in the chant's long rests (S2 only)
     ans = riffs.lead_phrase([(p, d) for p, d in events if p is not None][:6],
@@ -349,7 +376,7 @@ def compose(mel_name: str):
     bass4 = bass4[:m4] + sub4[:m4] * 0.6
     bass4 = gc.sidechain_duck(bass4, dh4[:len(bass4)], amount=0.45,
                               release_s=0.12)
-    place(C, bass4 * 0.7, t4)
+    place(C, bass4 * 0.95, t4)
     # choir + monk held above the peak (melody-continuity law)
     cseq = []
     for bar in range(8):
@@ -362,10 +389,10 @@ def compose(mel_name: str):
     choir_wet = gc.sidechain_duck(choir_wet, dh4[:len(choir_wet)],
                                   amount=0.5, release_s=0.12)
     place(C, choir_wet * 0.5, t4)
-    monk2 = G.hall(monk, 1.1).T.mean(axis=1)      # holy = always wet
+    monk2 = G.hall(monk, 2.0).T.mean(axis=1)      # distant even at peak
     monk2 = gc.sidechain_duck(monk2, dh4[:len(monk2)],
-                              amount=0.45, release_s=0.12)
-    place(C, monk2 * 0.6, t4)
+                              amount=0.5, release_s=0.12)
+    place(C, monk2 * 0.4, t4)
 
     # ---- S5 outro: vacuum + ring --------------------------------------
     t5 = sec_time(4)
@@ -376,6 +403,10 @@ def compose(mel_name: str):
                                     np.zeros(int(BAR * SR))]),
                     1.5).T.mean(axis=1) * 0.5, t5)
 
+    # pre-drop vacuums: half-bar of dead air before the two big drops
+    _pre_drop_vacuum([L, R, C], sec_time(1))
+    _pre_drop_vacuum([L, R, C], sec_time(3))
+
     # ---- master: cohesive space (judge gap: flat/dry spatialization) --
     mono = (L + R) * 0.5 + C
     glue = G.hall(mono, 0.5).T.mean(axis=1)       # one shared room
@@ -384,7 +415,7 @@ def compose(mel_name: str):
     import synth as sy
     st[:, 0] = sy.highpass(st[:, 0], 28)
     st[:, 1] = sy.highpass(st[:, 1], 28)
-    st = np.tanh(st * 0.75) / np.tanh(0.75)
+    st = np.tanh(st * 0.6) / np.tanh(0.6)
     g = 10 ** ((-15.0 - voices.lufs(st.mean(axis=1))) / 20.0)
     st *= g
     pk = np.abs(st).max()
