@@ -31,6 +31,8 @@ def main(argv=None) -> None:
                         help=argparse.SUPPRESS)
     parser.add_argument("--start-chunk", type=int, default=0,
                         help=argparse.SUPPRESS)
+    parser.add_argument("--zoom", type=float, default=None,
+                        help="camera zoom override (default 1.35)")
     parser.add_argument("--music-bank", type=str, default=None,
                         help="path to a dynamic-music bank dir (album_*)")
     parser.add_argument("--no-music", action="store_true",

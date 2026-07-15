@@ -63,53 +63,81 @@ def lane_with_alcove(b: LevelBuilder, idx: int) -> dict:
     seg_len = LANE_LEN / 3
     A = b.rect(x0, y, seg_len, LANE_W,
                seed=LEVEL_SEED + 7000 + idx, kind="corridor")
-    Bm = b.rect(x0 + seg_len, y, seg_len, LANE_W,
+    # middle piece = 90 | 170 | 90 so the alcove portal is 170<->170
+    # (rigid — no scaled seams anywhere authored)
+    m0 = x0 + seg_len
+    b1 = b.rect(m0, y, 90, LANE_W,
                 seed=LEVEL_SEED + 7010 + idx, kind="corridor")
+    b2 = b.rect(m0 + 90, y, ALCOVE, LANE_W,
+                seed=LEVEL_SEED + 7011 + idx, kind="corridor")
+    b3 = b.rect(m0 + 90 + ALCOVE, y, seg_len - 90 - ALCOVE, LANE_W,
+                seed=LEVEL_SEED + 7012 + idx, kind="corridor")
     Cc = b.rect(x0 + 2 * seg_len, y, seg_len, LANE_W,
                 seed=LEVEL_SEED + 7020 + idx, kind="corridor")
-    b.connect(A, E_EDGE, Bm, W_EDGE)
-    b.connect(Bm, E_EDGE, Cc, W_EDGE)
-    ax = x0 + seg_len + (seg_len - ALCOVE) / 2
+    b.connect(A, E_EDGE, b1, W_EDGE)
+    b.connect(b1, E_EDGE, b2, W_EDGE)
+    b.connect(b2, E_EDGE, b3, W_EDGE)
+    b.connect(b3, E_EDGE, Cc, W_EDGE)
+    Bm = b2
+    ax = m0 + 90
     alc = b.rect(ax, y - ALCOVE, ALCOVE, ALCOVE,
                  seed=LEVEL_SEED + 7100 + idx, kind="storage")
-    b.connect_pts(Bm, (ax + ALCOVE / 2, y), alc, (ax + ALCOVE / 2, y))
+    b.connect(b2, 3, alc, 1)      # north edge 170 <-> alcove south 170
     seg = seg_len
+    bmx = ax + ALCOVE / 2
     b.entity(A, "sentry", (x0 + seg * 0.5, y + 18))
-    b.entity(Bm, "sentry", (x0 + seg * 1.5, y + 18))
+    b.entity(Bm, "sentry", (bmx, y + 18))
     b.entity(Cc, "sentry", (x0 + 2 * seg + seg * 0.5, y + 18))
     b.entity(A, "medkit", (x0 + seg * 0.3, y + LANE_W * 0.5))
-    b.entity(Bm, "medkit", (x0 + seg * 1.5, y + LANE_W * 0.5))
+    b.entity(Bm, "medkit", (bmx, y + LANE_W * 0.5))
     b.entity(Cc, "medkit", (x0 + 2 * seg + seg * 0.7, y + LANE_W * 0.5))
-    b.entity(Bm, "ammo_9mm", (x0 + seg * 1.5, y + LANE_W * 0.3))
-    b.entity(Bm, "ammo_shell", (x0 + seg * 1.5, y + LANE_W * 0.7))
-    b.entity(Bm, "ammo_cell", (x0 + seg * 1.4, y + LANE_W * 0.5))
+    b.entity(Bm, "ammo_9mm", (bmx - 30, y + LANE_W * 0.3))
+    b.entity(Bm, "ammo_shell", (bmx + 30, y + LANE_W * 0.7))
+    b.entity(Bm, "ammo_cell", (bmx, y + LANE_W * 0.65))
     b.entity(alc, "sentry", (ax + ALCOVE * 0.5, y - ALCOVE * 0.65))
     b.entity(alc, "medkit", (ax + ALCOVE * 0.5, y - ALCOVE * 0.35))
     b.entity(alc, "ammo_9mm", (ax + ALCOVE * 0.25, y - ALCOVE * 0.4))
     b.entity(alc, "ammo_shell", (ax + ALCOVE * 0.75, y - ALCOVE * 0.4))
     b.entity(alc, "ammo_cell", (ax + ALCOVE * 0.5, y - ALCOVE * 0.5))
-    b.connect(Cc, S_EDGE, A, S_EDGE)      # the non-Euclidean fold
-    for r, fx in ((A, 0.5), (Bm, 0.5), (Cc, 0.5)):
-        rx = {A: x0, Bm: x0 + seg_len, Cc: x0 + 2 * seg_len}[r]
-        b.light(r, (rx + seg_len * fx, y + LANE_W / 2),
+    b.connect(Cc, S_EDGE, A, S_EDGE)      # the fold: 350<->350, rigid
+    for r, rx in ((A, x0 + seg_len * 0.5), (b2, bmx),
+                  (Cc, x0 + 2 * seg_len + seg_len * 0.5)):
+        b.light(r, (rx, y + LANE_W / 2),
                 color=(170, 185, 210), intensity=0.8, radius=240.0)
     b.light(alc, (ax + ALCOVE / 2, y - ALCOVE / 2),
             color=(120, 220, 150), intensity=1.0, radius=200.0)
-    return dict(west_room=A, east_room=Cc, alc=alc, pieces=(A, Bm, Cc))
+    return dict(west_room=A, east_room=Cc, alc=alc,
+                pieces=(A, b1, b2, b3, Cc))
 
 
-def choke(b: LevelBuilder, idx: int) -> int:
-    y = BAND_Y + idx * BAND_SPACING + (LANE_W - CHOKE_W) / 2
+def hourglass(b: LevelBuilder, x0: float, yc: float, length: float,
+              w_in: float, w_out: float, waist: float, seed: int,
+              kind: str = "corridor") -> tuple[int, int, int]:
+    """A room whose WALLS pinch to `waist` while both portal edges match
+    their neighbors exactly (rigid m9s — the director's no-scaling-
+    transforms order; the geometry chokes, the portal never scales).
+    Returns (room, west_edge_idx, east_edge_idx)."""
+    xm = x0 + length / 2
+    x1 = x0 + length
+    verts = [(x0, yc - w_in / 2), (x0, yc + w_in / 2),
+             (xm, yc + waist / 2), (x1, yc + w_out / 2),
+             (x1, yc - w_out / 2), (xm, yc - waist / 2)]
+    r = b.room(verts, detail_seed=seed, kind=kind)
+    return r, 0, 3
+
+
+def choke(b: LevelBuilder, idx: int, w_in: float, w_out: float) -> tuple:
+    yc = BAND_Y + idx * BAND_SPACING + LANE_W / 2
     x0 = idx * 4000.0 + LANE_LEN + 250.0
-    r = b.rect(x0, y, CHOKE_LEN, CHOKE_W,
-               seed=LEVEL_SEED + 7200 + idx, kind="corridor")
-    b.light(r, (x0 + CHOKE_LEN / 2, y + CHOKE_W / 2),
+    r, we, ee = hourglass(b, x0, yc, CHOKE_LEN * 2, w_in, w_out, CHOKE_W,
+                          LEVEL_SEED + 7200 + idx)
+    b.light(r, (x0 + CHOKE_LEN, yc),
             color=(210, 160, 130), intensity=0.9, radius=150.0)
-    b.entity(r, "sentry", (x0 + CHOKE_LEN * 0.2, y + CHOKE_W * 0.3))
-    b.entity(r, "sentry", (x0 + CHOKE_LEN * 0.2, y + CHOKE_W * 0.7))
-    b.entity(r, "sentry", (x0 + CHOKE_LEN * 0.8, y + CHOKE_W * 0.5))
-    b.entity(r, "medkit", (x0 + CHOKE_LEN * 0.7, y + CHOKE_W * 0.5))
-    return r
+    b.entity(r, "sentry", (x0 + CHOKE_LEN * 0.5, yc - CHOKE_W * 0.2))
+    b.entity(r, "sentry", (x0 + CHOKE_LEN * 0.5, yc + CHOKE_W * 0.2))
+    b.entity(r, "sentry", (x0 + CHOKE_LEN * 1.6, yc))
+    b.entity(r, "medkit", (x0 + CHOKE_LEN * 1.2, yc))
+    return r, we, ee
 
 
 def populate(level: dict, spawn_free: set, n_total: int, min_sep: float,
@@ -186,6 +214,14 @@ def populate(level: dict, spawn_free: set, n_total: int, min_sep: float,
     return placed, fails, counts
 
 
+def _edge_len_of(b: LevelBuilder, room: int, edge: int) -> float:
+    vs = b.data["rooms"][room]["verts"]
+    import math as _m
+    x1, y1 = vs[edge % len(vs)]
+    x2, y2 = vs[(edge + 1) % len(vs)]
+    return _m.hypot(x2 - x1, y2 - y1)
+
+
 def build(n_total: int, min_sep: float, seed: int):
     b = LevelBuilder("GAUNTLET III — TACTICAL CALIBRATION", tier=3,
                      ambience="amb_drone_late")
@@ -200,28 +236,38 @@ def build(n_total: int, min_sep: float, seed: int):
     protected.add(spawn)
 
     prev_room, prev_edge = spawn, E_EDGE
-    last_exit = None
     lane_rooms = set()
     for i, seg in enumerate(SEGMENTS):
         ln = lane_with_alcove(b, i)
         lane_rooms.update(ln.get("pieces", ()))
         protected.add(ln["alc"])
         b.connect(prev_room, prev_edge, ln["west_room"], W_EDGE)
-        ck = choke(b, i)
-        protected.add(ck)
-        b.connect(ln["east_room"], E_EDGE, ck, W_EDGE)
+        # arena first: the choke's east portal must MATCH the arena's
+        # entry edge length exactly (rigid m9 — no scaling transforms)
         BG.TEXTURE_MAP.clear()
         info = add_segment(b, seg, (i + 1) * 20000.0, 0.0,
                            keep=set(), seg_idx=i)
         for nr, sv in BG.TEXTURE_MAP.items():
             texture_map[str(nr)] = sv
-        b.connect(ck, E_EDGE, info["entry"][0], info["entry"][1])
-        prev_room, prev_edge = info["exit"]
-        last_exit = info["exit"]
+        entry_len = _edge_len_of(b, info["entry"][0], info["entry"][1])
+        ck, ck_w, ck_e = choke(b, i, LANE_W, entry_len)
+        protected.add(ck)
+        b.connect(ln["east_room"], E_EDGE, ck, ck_w)
+        b.connect(ck, ck_e, info["entry"][0], info["entry"][1])
+        # adapter after the arena: exit edge length -> LANE_W, rigid
+        exit_len = _edge_len_of(b, info["exit"][0], info["exit"][1])
+        yc = BAND_Y + i * BAND_SPACING + LANE_W / 2
+        ad, ad_w, ad_e = hourglass(
+            b, i * 4000.0 + LANE_LEN + 900.0, yc, 160.0, exit_len,
+            LANE_W, min(exit_len, LANE_W) * 0.9,
+            LEVEL_SEED + 7300 + i)
+        protected.add(ad)
+        b.connect(info["exit"][0], info["exit"][1], ad, ad_w)
+        prev_room, prev_edge = ad, ad_e
 
     out = b.rect(30 * 4000.0, BAND_Y, 260, LANE_W,
                  seed=LEVEL_SEED + 8999, kind="storage")
-    b.connect(last_exit[0], last_exit[1], out, W_EDGE)
+    b.connect(prev_room, prev_edge, out, W_EDGE)
     b.exit(out, (30 * 4000.0 + 130, BAND_Y + LANE_W / 2))
     b.light(out, (30 * 4000.0 + 130, BAND_Y + LANE_W / 2),
             color=(150, 200, 160), intensity=1.0, radius=220.0)

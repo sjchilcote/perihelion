@@ -170,6 +170,9 @@ def build_debug_level() -> Level:
     return b.build()
 
 
+ZOOM_BASE = [1.35]     # --zoom overrides (dev/capture)
+
+
 class GameScene(menus.Scene):
     def __init__(self, level: Level, seed: int, player_state: dict | None = None,
                  level_path: str | None = None, difficulty: str = "normal"):
@@ -183,7 +186,8 @@ class GameScene(menus.Scene):
         self.session = GameSession(level, seed=seed, player_state=player_state,
                                    difficulty=difficulty,
                                    screen=(INTERNAL_W, INTERNAL_H),
-                                   zoom=1.35 * INTERNAL_RES_ZOOM_SCALE)
+                                   zoom=ZOOM_BASE[0]
+                                   * INTERNAL_RES_ZOOM_SCALE)
         # stage tier drives the music's bed selection (music.py rich mode)
         self.session.music_tier = getattr(level, "tier", 1)
         self.renderer = Renderer(self.session)
@@ -323,6 +327,8 @@ class App:
         self.args = args
         self.internal = pygame.Surface((INTERNAL_W, INTERNAL_H))
         self.clock = pygame.time.Clock()
+        if getattr(args, "zoom", None):
+            ZOOM_BASE[0] = float(args.zoom)
         self.audio = Audio(mute=args.mute)
         from .music import MusicSystem
         self._MusicSystem = MusicSystem

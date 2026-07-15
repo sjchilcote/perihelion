@@ -46,7 +46,8 @@ WEAPONS: dict[str, dict] = {
                     ammo="shell", per=1, sound="shotgun_fire", kick=7.0),
     "rail": dict(dmg=42, cd=84, ammo="cell", per=1, sound="rail_fire", pierce=3, kick=5.0),
     "lightning": dict(dmg=26, cd=None, speed=720.0, sound="lightning_fire",
-                      radius=110.0, force=1500.0),
+                      radius=220.0, force=1500.0, arc_range=150.0,
+                      arc_dmg=16, max_arcs=18),
     "tau": dict(dmg=9, cd=7, speed=1900.0, spread=math.radians(2.0), pellets=1,
                 ammo="cell", per=1, sound="tau_fire", kick=2.6, bounces=2),
     "hole": dict(cd=18, sound="terminal_open"),
@@ -1295,12 +1296,19 @@ class GameSession:
                             ty + ny * (d["radius"] + 2), 14.0))
 
     def _detonate_dart(self, bid: int, room: int, x: float, y: float):
+        """The lightning cannon IS the crowd-control option (director,
+        2026-07-16): the blast kills weak enemies anywhere inside it
+        (falloff floor keeps damage above husk hp), then CHAIN ARCS walk
+        the bolt down the packed file — one shot into a choke takes out
+        15-20 of the weakest."""
         w = WEAPONS["lightning"]
         self.fx.append(("lightning", room, x, y, w["radius"]))
         self._snd("lightning_fire", room, (x, y), 1.0)
         self._shake(9.0)
         self._hitstop(5)
         self._decal(room, "scorch", x, y, 22.0)
+        struck: list[tuple[float, float]] = [(x, y)]
+        hit_ids: set[int] = set()
         for eid in list(self.sim.room_entities(room)):
             e = self.enemies.get(eid)
             if not e:
@@ -1313,7 +1321,33 @@ class GameSession:
             nx, ny = ((ex - x) / d, (ey - y) / d) if d > 1e-6 else (1.0, 0.0)
             self.sim.set_vel(eid, evx + nx * w["force"] * fall,
                              evy + ny * w["force"] * fall)
-            self._damage_enemy(eid, w["dmg"] * (0.4 + 0.6 * fall), (nx, ny), 0.0)
+            self._damage_enemy(eid, w["dmg"] * (0.6 + 0.4 * fall),
+                               (nx, ny), 0.0)
+            struck.append((ex, ey))
+            hit_ids.add(eid)
+        # chain arcs: hop to the nearest unstruck enemy within arc range
+        # of ANY struck point, up to max_arcs — the bolt walks the file
+        arcs = 0
+        while arcs < w["max_arcs"]:
+            best = None
+            for eid in list(self.sim.room_entities(room)):
+                if eid in hit_ids or eid not in self.enemies:
+                    continue
+                if not self.sim.exists(eid):
+                    continue
+                _, ex, ey, _, _, _, _ = self.sim.get(eid)
+                dmin = min(math.hypot(ex - sx, ey - sy)
+                           for sx, sy in struck)
+                if dmin <= w["arc_range"] and                         (best is None or dmin < best[0]):
+                    best = (dmin, eid, ex, ey)
+            if best is None:
+                break
+            _, eid, ex, ey = best
+            hit_ids.add(eid)
+            struck.append((ex, ey))
+            self.fx.append(("lightning", room, ex, ey, 40.0))
+            self._damage_enemy(eid, w["arc_dmg"], (0.0, 0.0), 0.0)
+            arcs += 1
 
     # ------------------------------------------------------------------
 
