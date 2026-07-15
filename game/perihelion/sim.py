@@ -151,7 +151,13 @@ PICKUPS: dict[str, dict] = {
 # than the player, a much larger AI change this directive doesn't ask
 # for. See `spawn_sentry` / `_sentry_tick`.
 SENTRIES: dict[str, dict] = {
-    "sentry": dict(radius=7.0, dmg=12, cd=20, range=260.0, spin_up=10,
+    # dmg/cd retuned 2026-07-16 (gauntlet III): a 3-gun choke field must
+    # GRIND a pulled wave -- at 12dmg/20cd the field lost to one warden+
+    # brute pack arriving together (measured -52hp/5s burst deaths at
+    # the field in 16/20 calibration runs); the sentry hazard is the
+    # director's intended player-buff lever ("environmental hazards ...
+    # lure enemies to"), so the guns bite for real now
+    "sentry": dict(radius=7.0, dmg=18, cd=14, range=300.0, spin_up=10,
                    bolt_speed=1400.0, alert_snd="pistol_fire"),
 }
 

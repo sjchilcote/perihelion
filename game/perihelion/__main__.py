@@ -35,6 +35,9 @@ def main(argv=None) -> None:
                         help="camera zoom override (default 1.35)")
     parser.add_argument("--music-bank", type=str, default=None,
                         help="path to a dynamic-music bank dir (album_*)")
+    parser.add_argument("--loadout", choices=["full"], default=None,
+                        help="start with the calibration loadout "
+                             "(all weapons, deep ammo, HP 100)")
     parser.add_argument("--no-music", action="store_true",
                         help="disable the dynamic music system")
     args = parser.parse_args(argv)

@@ -34,6 +34,7 @@ levels standalone.
 
 from __future__ import annotations
 
+import collections
 import math
 from random import Random
 
@@ -169,6 +170,17 @@ class HumanBot(_UnstickMixin, Bot):
         # re-perceive cycle across a portal still accumulates)
         self._combat_streak = 0
         self._last_contact_tick = -10_000
+        # OH-SHIT retreat (director 2026-07-16: the bot "repeatedly
+        # charges in to dark rooms with 50+ enemies... instead of
+        # kiting them in to the nearby turrets"): facing a swarm, fall
+        # back to the last sentry field passed and fight from there.
+        self._ohshit_room: int | None = None
+        self._ohshit_ticks = 0
+        self._ohshit_quiet = 0
+        self._standoff = False
+        self._last_kills = 0
+        self._last_kill_tick = 0
+        self._threats_total = 0
         # policy set by the tactician (or defaults); see design doc §7
         self.policy = dict(movement="advance-carefully", risk="normal",
                             target_priority=None)
@@ -255,20 +267,53 @@ class HumanBot(_UnstickMixin, Bot):
         co_room = [e for e in perceived if e["room"] == proom]
         distant = [e for e in perceived if e["room"] != proom]
 
+        kills = session.metrics.get("kills", 0)
+        if kills != self._last_kills:
+            self._last_kills = kills
+            self._last_kill_tick = tick
+        self._threats_total = len(co_room) + len(distant)
+        self._update_ohshit(session, snapshot, proom,
+                            self._threats_total, tick)
+
         if co_room:
             self._pause_ticks = 0  # combat preempts any threshold ritual
             self._lookaround_ticks = 0
             self._combat_streak += 1
             self._last_contact_tick = tick
             inp = self._combat_input(session, snapshot, co_room, px, py)
+            if self._ohshit_room is not None and not self._standoff:
+                # OH-SHIT: fall back toward the sentry field, firing the
+                # whole way -- never trade toe-to-toe with a swarm. The
+                # heavy-standoff backpedal outranks the anchor, though:
+                # navigating back to the guns while a warden shares the
+                # room walks you INTO the burst (the room-49 deaths).
+                mx_, my_ = self._nav_room_move(session, snapshot, px, py,
+                                               self._ohshit_room)
+                if mx_ or my_:
+                    inp.mx, inp.my = mx_, my_
             # sustained-pressure escape (ported from AggroBot): a fight
             # that has accumulated ~10s of net pressure -- including the
             # portal ping-pong pattern where contact keeps dropping and
             # re-acquiring -- gets walked out toward the exit while firing
-            if self._combat_streak > 60 * 10:
+            elif self._combat_streak > 60 * 10:
                 mx_, my_ = self._nav_exit_move(session, snapshot, px, py)
                 if mx_ or my_:
                     inp.mx, inp.my = mx_, my_
+            return self._apply_unstick(px, py, inp)
+
+        if self._ohshit_room is not None:
+            # swarm spotted ahead (or still chasing): do NOT close on it;
+            # withdraw to the sentry field and let it come to the guns
+            # (once there, `_nav_room_move` anchors on the sentries, so
+            # the bot holds inside the field instead of advancing)
+            inp = InputFrame()
+            inp.mx, inp.my = self._nav_room_move(session, snapshot, px, py,
+                                                 self._ohshit_room)
+            if distant:
+                ds = self._distant_threat_input(session, snapshot, distant,
+                                                visible_screens, px, py)
+                inp.ax, inp.ay = ds.ax, ds.ay   # eyes on the swarm,
+            self._last_contact_tick = tick      # feet toward the guns
             return self._apply_unstick(px, py, inp)
 
         if distant:
@@ -373,7 +418,14 @@ class HumanBot(_UnstickMixin, Bot):
         headed (usually exactly the room the threat was spotted in)."""
         medkits = [p for p in snapshot["pickups"]
                    if p["kind"] == "medkit" and 0 <= p["hops"] <= 3]
-        if snapshot["hp"] < 60 and medkits:
+        # top-up discipline: a medkit in the CURRENT room is a trivial
+        # detour -- grab it before the red zone (attrition finding: the
+        # bot walked past same-room medkits at hp 62 and died of the
+        # drip two rooms later). 70 is the SIM's own consume ceiling
+        # (`_pickup_scan`: "leave it for later"); chasing one above that
+        # is an infinite orbit. Cross-room detours keep the old bar.
+        heal_bar = 70 if any(p["hops"] == 0 for p in medkits) else 60
+        if snapshot["hp"] < heal_bar and medkits:
             target = None
             if self._med_target is not None:
                 target = next((p for p in medkits
@@ -513,6 +565,124 @@ class HumanBot(_UnstickMixin, Bot):
                 if cost < best_cost:
                     best, best_cost = c, cost
         return best if best is not None else target
+
+    # -- OH-SHIT swarm retreat (director 2026-07-16) --------------------
+
+    OHSHIT_N = 5         # this many perceived threats = a swarm, not a fight
+    OHSHIT_CLEAR = 1     # pressure low again: resume the objective
+    OHSHIT_TICKS = 60 * 12
+
+    def _update_ohshit(self, session: GameSession, snapshot: dict,
+                       proom: int, n_threats: int, tick: int) -> None:
+        """Facing a swarm, a competent player doesn't walk into it -- he
+        falls back to the last sentry field he passed and makes the swarm
+        cross the guns. Enter on OHSHIT_N perceived threats; leave when
+        the pressure has thinned to OHSHIT_CLEAR or the clock runs out
+        (never anchor forever on a stalemate)."""
+        hp = snapshot["hp"]
+        if self._ohshit_room is not None:
+            self._ohshit_ticks -= 1
+            # COMMITTED withdrawal: perception blips to zero through the
+            # walls the instant the bot backs out of sight, and clearing
+            # on that blip caused a 1s-period enter/clear thrash (seed
+            # 1002 pinballed rooms 48<->50 for 27s, then advanced into
+            # the hub and died in 4s). Clear only on SUSTAINED quiet.
+            if n_threats > self.OHSHIT_CLEAR or hp < 45.0:
+                self._ohshit_quiet = 0
+            else:
+                self._ohshit_quiet += 1
+            done = self._ohshit_quiet >= 120
+            # stalemate breaker: holding at the guns only pays while the
+            # wave actually comes. 15s with zero kills means the pull
+            # failed (idle enemies out of alert range) -- a player gives
+            # up waiting and goes to them (5 timeout runs at 15min were
+            # exactly this loiter, one of them 174/180 kills from done)
+            stale = (snapshot["tick"] - self._last_kill_tick > 60 * 15 and
+                     hp >= 55.0)
+            if done or stale or self._ohshit_ticks <= 0:
+                self._ohshit_room = None
+            return
+        # pull-to-the-guns doctrine (the 0/20 attrition findings, in
+        # order: the bot never saw 8 at once under alert_hops=1 and bled
+        # to death 2-3 at a time; then died in one -43hp/s burst walking
+        # into a 9-enemy hub at hp 74). ANY real contact beyond a
+        # skirmish gets dragged back onto the sentry field -- wake a
+        # batch, fall back, let the funnel and the guns grind it, step
+        # forward again. The gauntlet is fought AT the chokes.
+        if not (n_threats >= 3 or (hp < 60.0 and n_threats >= 1)):
+            return
+        # the sentry fields already walked through (a player remembers
+        # the turrets he passed, not ones he hasn't seen yet). Prefer the
+        # STRONGEST nearby field, not the nearest room with any gun: the
+        # choke pair puts 1 sentry in the throat and 2 (plus the medkit)
+        # in the wide antechamber behind it -- anchoring in the throat
+        # was 16/20 deaths at room 50, face-first in the funnel stream.
+        guns = collections.Counter()
+        for tid in session.sentries:
+            if session.sim.exists(tid):
+                guns[session.sim.get_room(tid)] += 1
+        best, best_score = None, -(1 << 20)
+        for r, n_guns in guns.items():
+            if r not in self._visited_rooms:
+                continue
+            h = session.sim.hop_distance(proom, r)
+            if not 0 <= h <= 6:
+                continue
+            # long rooms are worth extra: the kite lane is where a
+            # warden's point-blank radial burst can't reach you and a
+            # rail line stays open (the seed-1001 death: pulled the
+            # warden into the 120u choke throat and stood in the burst)
+            try:
+                vs = session.level.room_verts[r]
+                xs = [v[0] for v in vs]
+                ys = [v[1] for v in vs]
+                long_dim = max(max(xs) - min(xs), max(ys) - min(ys))
+            except Exception:
+                long_dim = 0.0
+            score = n_guns * 3 - h + (3 if long_dim >= 300.0 else 0)
+            if score > best_score:
+                best, best_score = r, score
+        if best is not None:
+            self._ohshit_room = best
+            self._ohshit_ticks = self.OHSHIT_TICKS
+
+    def _nav_room_move(self, session: GameSession, snapshot: dict,
+                       px: float, py: float, target_room: int
+                       ) -> tuple[float, float]:
+        """Terrain-aware movement toward `target_room`; inside it, anchor
+        just off the nearest sentry (fight from behind the guns)."""
+        proom = snapshot["room"]
+        if proom == target_room:
+            # hurt and standing next to a medkit: grab it first, then
+            # hold at the guns -- the choke IS the resupply point
+            if snapshot["hp"] < 60.0:
+                meds = [p["pos"] for p in snapshot.get("pickups", [])
+                        if p.get("kind") == "medkit" and
+                        p.get("room") == proom]
+                if meds:
+                    gx, gy = min(meds, key=lambda a: _dist(a, (px, py)))
+                    way = self._steer_target(session, proom, (px, py),
+                                             (gx, gy))
+                    return nav_to_point(session, px, py, way)
+            anchors = []
+            for tid in session.sentries:
+                if session.sim.exists(tid) and \
+                        session.sim.get_room(tid) == proom:
+                    _, sx, sy, *_ = session.sim.get(tid)
+                    anchors.append((sx, sy))
+            if not anchors:
+                return (0.0, 0.0)
+            gx, gy = min(anchors, key=lambda a: _dist(a, (px, py)))
+            if _dist((gx, gy), (px, py)) < 34.0:
+                return (0.0, 0.0)      # in the field: stand and shoot
+            goal = (gx, gy)
+        else:
+            edge = session.sim.next_edge(proom, target_room)
+            if edge is None or edge < 0:
+                return (0.0, 0.0)
+            goal = session.sim.edge_midpoint(proom, edge)
+        way = self._steer_target(session, proom, (px, py), goal)
+        return nav_to_point(session, px, py, way)
 
     def _nav_exit_move(self, session: GameSession, snapshot: dict,
                         px: float, py: float) -> tuple[float, float]:
@@ -678,8 +848,24 @@ class HumanBot(_UnstickMixin, Bot):
 
     def _combat_input(self, session: GameSession, snapshot: dict,
                        perceived: list[dict], px: float, py: float) -> InputFrame:
+        self._standoff = False
         self._update_flank_escape(perceived, snapshot["hp"], px, py)
-        if self._escape_ticks > 0:
+        # PAIN OVERRIDES EVERYTHING (director 2026-07-16: the bot "will
+        # hold fire on an enemy currently touch-hurting it to shoot at a
+        # more distant enemy that can't harm it"). An enemy in contact
+        # range is hurting us NOW -- it outranks focus hysteresis, the
+        # escape-path pool, everything. A human being bitten shoots the
+        # thing biting him.
+        urgent = []
+        for e in perceived:
+            er = session.sim.get_radius(e["id"]) \
+                if session.sim.exists(e["id"]) else 8.0
+            if _dist(e["pos"], (px, py)) < er + 26.0:
+                urgent.append(e)
+        if urgent:
+            nearest = min(urgent, key=lambda e: _dist(e["pos"], (px, py)))
+            self._focus_id = nearest["id"]
+        elif self._escape_ticks > 0:
             # while escaping, shoot whatever blocks the escape path
             edx, edy = self._escape_dir
             in_path = [e for e in perceived
@@ -728,23 +914,62 @@ class HumanBot(_UnstickMixin, Bot):
             if session.sim.exists(nearest["id"]) else 8.0
         cam_scale = math.hypot(*necore.mat_apply_dir(session.cam, 1.0, 0.0)) or 1.0
         allowed_px = max(6.0 * self.skill, target_r * 0.9 * cam_scale)
-        inp.fire = self._flinch_ticks == 0 and screen_err < allowed_px
+        # flinch suppresses aimed fire -- but not point-blank panic fire:
+        # a player being chewed on mashes the trigger through the flinch
+        # (the miss cost at contact range is nil and holding fire on the
+        # thing biting you is the machine tell the director called out)
+        inp.fire = (screen_err < allowed_px and
+                    (self._flinch_ticks == 0 or dist < 55.0))
 
         want = choose_weapon(snapshot, dist, len(perceived))
+        # the lightning cannon IS the crowd-control answer (director):
+        # when a wave is stacked and the implant is charged, pull it out
+        # and dump the blast -- with tau in hand, `inp.alt` charges tau
+        # instead, so the implant could never discharge in exactly the
+        # swarm moment it exists for
+        if (len(perceived) >= 5 and snapshot["lightning_ready"]
+                and "lightning" in snapshot["weapons"]):
+            want = WEAPON_ORDER.index("lightning") + 1
         cur = WEAPON_ORDER.index(snapshot["weapon"]) + 1 \
             if snapshot["weapon"] in WEAPON_ORDER else 0
         self._weapon_want_ticks = self._weapon_want_ticks + 1 \
             if want == self._weapon_want else 0
         self._weapon_want = want
         inp.weapon = want if (want == cur or self._weapon_want_ticks >= 12) else 0
-        inp.alt = (len(perceived) >= 3 and snapshot["lightning_ready"]
-                   and "lightning" in snapshot["weapons"])
+        # discharge doctrine: the implant recharges in 9s; in a gauntlet
+        # a player rides the cooldown. The old >=3 co-room gate meant
+        # ZERO discharges in a full 15-minute run (measured, seed 1002)
+        # -- the pull-to-the-guns doctrine keeps co-room contact at 1-2
+        # while the real wave stacks just behind the portal, which is
+        # exactly the moment to dump the blast into the funnel.
+        inp.alt = (snapshot["lightning_ready"]
+                   and "lightning" in snapshot["weapons"]
+                   and snapshot["weapon"] != "tau"
+                   and (len(perceived) >= 2 or self._threats_total >= 4))
 
         weapon_name = WEAPON_ORDER[inp.weapon - 1] if inp.weapon else snapshot["weapon"]
         ux, uy = dx / dist, dy / dist
         perp = (-uy, ux)
         pressure = min(1.0, len(perceived) / 3.0) + (0.0 if snapshot["hp"] > 40 else 0.4)
-        if self._escape_ticks > 0:
+        # opportunistic mid-fight heal (0/20 attrition finding: 4 heals
+        # in a 96s run with 30 medkits on the map -- healing only ever
+        # happened in no-threat windows that a dense gauntlet never
+        # grants). A hurt player who sees a medkit in the room weaves to
+        # it WHILE firing; he does not finish the fight first.
+        med_goal = None
+        if snapshot["hp"] < 65.0 and not urgent:
+            meds = [p["pos"] for p in snapshot.get("pickups", [])
+                    if p.get("kind") == "medkit" and
+                    p.get("room") == snapshot["room"] and
+                    _dist(p["pos"], (px, py)) < 320.0]
+            if meds:
+                med_goal = min(meds, key=lambda a: _dist(a, (px, py)))
+        if med_goal is not None:
+            way = self._steer_target(session, snapshot["room"], (px, py),
+                                      med_goal)
+            move_room = _norm((way[0] - px, way[1] - py)) \
+                if _dist(way, (px, py)) > 1e-6 else (0.0, 0.0)
+        elif self._escape_ticks > 0:
             # committed flank escape, steered around in-room terrain
             gx = px + self._escape_dir[0] * 80.0
             gy = py + self._escape_dir[1] * 80.0
@@ -754,6 +979,22 @@ class HumanBot(_UnstickMixin, Bot):
                 if _dist(way, (px, py)) > 1e-6 else self._escape_dir
         elif weapon_name == "knife":
             move_room = (ux, uy)
+        elif nearest.get("kind") in ("warden", "brute"):
+            # heavies are a RANGE DUEL, not a footrace: turning tail on
+            # a warden means eating spit through three rooms (seed 1000:
+            # hp 77 -> dead across a 5s retreat, run down mid-flight).
+            # Hold the rail band -- back off inside 170, close outside
+            # 260, strafe between -- and keep the trigger down.
+            self._standoff = True
+            if dist < 170.0:
+                move_room = (-ux, -uy)
+            elif dist > 260.0:
+                move_room = (ux, uy)
+            else:
+                move_room = (perp[0] * self._strafe_sign + 0.15 * -ux,
+                             perp[1] * self._strafe_sign + 0.15 * -uy)
+                if self._strafe_rng.random() < 0.02:
+                    self._strafe_sign *= -1
         elif dist < 60.0 or snapshot["hp"] < 30:
             move_room = (-ux, -uy)  # disengage / backpedal-while-firing when hurt
         elif dist > 140.0:

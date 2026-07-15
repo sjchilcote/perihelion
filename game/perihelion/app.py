@@ -638,6 +638,10 @@ class App:
 
     def start_level_index(self, idx: int) -> None:
         state = self.save_data.get("states", {}).get(str(idx))
+        if getattr(self.args, "loadout", None) == "full":
+            from .testkit.loadouts import FULL_LOADOUT
+            state = dict(FULL_LOADOUT)   # calibration parity: recorded
+            #    runs must reproduce tune_pass_rate farm runs exactly
         self._start_streamed(idx, state)
 
     def _load_and_play(self, idx: int, carried_state: dict | None) -> None:

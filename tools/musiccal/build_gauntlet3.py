@@ -182,6 +182,9 @@ def populate(level: dict, spawn_free: set, n_total: int, min_sep: float,
     kind_pts = {k: [] for k in MIX}
     kind_rooms = {i: {} for i in range(n_rooms)}
     placed = fails = 0
+    # (tried pushing wardens to the back third, 2026-07-16: pass rate
+    # went 6/20 -> 0/20 -- concentrating the heavies is strictly worse
+    # than the Gauntlet-II spread; keep DEPTH_MIN as measured)
     for kind in pool:
         dmin = DEPTH_MIN.get(kind, 0.0)
         allowed = [i for i in range(n_rooms)

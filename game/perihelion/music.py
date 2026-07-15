@@ -535,6 +535,15 @@ class MusicSystem:
             self._lp = tuple(l + a * (r - l)
                              for l, r in zip(self._lp, raw))
             self.vals = tuple(round(v, 3) for v in self._lp)
+        # 10Hz value telemetry, raw AND filtered (offline overlays --
+        # the pre/post-filter meters in playtest videos): fires only
+        # when a recorder tap is attached, costs nothing in normal play
+        if getattr(self.bank, "tap", None) is not None and \
+                session.tick_count % 6 == 0:
+            self._tap("music_valsraw",
+                      "%.3f,%.3f,%.3f" % tuple(raw), 1.0)
+            self._tap("music_valslp",
+                      "%.3f,%.3f,%.3f" % tuple(self.vals), 1.0)
         tension = self.inputs["tension"]
 
         if tension > self._riser_gain + 1e-6:

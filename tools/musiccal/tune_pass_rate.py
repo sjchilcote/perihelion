@@ -17,12 +17,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "game"))
 
-FULL_LOADOUT = dict(
-    weapons=["knife", "pistol", "smg", "shotgun", "rail", "lightning",
-             "tau", "hole", "scrap", "gland"],
-    ammo={"9mm": 400, "shell": 80, "cell": 120, "components": 60},
-    max_hp=100, hp=100, dmg_taken_mul=1.0,
-)
+from perihelion.testkit.loadouts import FULL_LOADOUT  # noqa: E402
 
 
 def one(args):

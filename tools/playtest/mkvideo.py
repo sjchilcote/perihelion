@@ -281,15 +281,140 @@ def build_mix(events_path: Path, duration_s: float, out_wav: Path) -> None:
         w.writeframes(pcm.tobytes())
 
 
-def encode(rec: Path, fps: int, scale: int, mix_wav: Path, out: Path) -> None:
-    vf = f"scale={640 * scale}:{360 * scale}:flags=neighbor"
+def encode(rec: Path, fps: int, scale: int, mix_wav: Path, out: Path,
+           frames_dir: Path | None = None, prescaled: bool = False) -> None:
+    src = (frames_dir or rec) / "frame_%06d.png"
     cmd = ["ffmpeg", "-y", "-v", "error",
-           "-framerate", str(fps), "-i", str(rec / "frame_%06d.png"),
+           "-framerate", str(fps), "-i", str(src),
            "-i", str(mix_wav),
            "-c:v", "libx264", "-preset", "medium", "-crf", "20",
-           "-pix_fmt", "yuv420p", "-vf", vf,
-           "-c:a", "aac", "-b:a", "160k", "-shortest", str(out)]
+           "-pix_fmt", "yuv420p"]
+    if not prescaled:
+        cmd += ["-vf", f"scale={640 * scale}:{360 * scale}:flags=neighbor"]
+    cmd += ["-c:a", "aac", "-b:a", "160k", "-shortest", str(out)]
     subprocess.run(cmd, check=True)
+
+
+# --- music-telemetry overlay (director 2026-07-16: "pop up meters for
+# the three factors both pre and post filter on the right hand side, as
+# well as a visualizer showing the lanes and what tracks are playing in
+# them") -------------------------------------------------------------
+
+FACTOR_COLORS = {          # match the value battery's identities
+    "PRAYER": (110, 190, 255),
+    "CONTEMPT": (255, 110, 100),
+    "STALWART": (255, 190, 90),
+}
+LANE_ORDER = ["bed", "drums", "holy", "groove", "wall", "bass", "lead"]
+LANE_COLORS = {
+    "bed": (140, 140, 170), "drums": (230, 160, 90),
+    "holy": (110, 190, 255), "groove": (255, 110, 100),
+    "wall": (255, 190, 90), "bass": (170, 130, 220),
+    "lead": (130, 220, 150),
+}
+
+
+def _series(events: list, kind: str) -> list[tuple[float, tuple]]:
+    out = []
+    for e in events:
+        if e["kind"] == kind:
+            out.append((e["t"], tuple(float(x)
+                                      for x in e["name"].split(","))))
+    return out
+
+
+def _bar_series(events: list) -> list[tuple[float, dict]]:
+    out = []
+    for e in events:
+        if e["kind"] != "music_bar":
+            continue
+        lanes = {}
+        for part in e["name"].split("|")[1:]:
+            ln, key, gain = part.rsplit(":", 2)
+            lanes[ln] = (key, float(gain))
+        out.append((e["t"], lanes))
+    return out
+
+
+def _at(series, t, default):
+    """Latest sample at or before t (series is time-ordered)."""
+    lo, hi = 0, len(series)
+    while lo < hi:
+        mid = (lo + hi) // 2
+        if series[mid][0] <= t:
+            lo = mid + 1
+        else:
+            hi = mid
+    return series[lo - 1][1] if lo else default
+
+
+def overlay_frames(rec: Path, events: list, fps: int, scale: int,
+                   out_dir: Path) -> int:
+    """Composite the music-telemetry panel onto every frame at output
+    resolution. Returns the frame count."""
+    from PIL import Image, ImageDraw, ImageFont
+    raw_s = _series(events, "music_valsraw")
+    lp_s = _series(events, "music_valslp")
+    bars = _bar_series(events)
+    W, H = 640 * scale, 360 * scale
+    panel_w = 116 * scale            # ~18% of frame width
+    px0 = W - panel_w
+    font = ImageFont.truetype(str(FONT), 8 * scale)
+    small = ImageFont.truetype(str(FONT), 7 * scale)
+    frames = sorted(rec.glob("frame_*.png"))
+    # panel stops below the lane rows -- the ammo HUD lives bottom-right
+    panel_h = (6 + 12 + 3 * 22 + 4 + 12 + len(LANE_ORDER) * 17 + 8) * scale
+    panel = Image.new("RGBA", (panel_w, panel_h), (8, 8, 14, 150))
+    for k, fp in enumerate(frames):
+        t = k / fps
+        im = Image.open(fp).convert("RGB").resize((W, H), Image.NEAREST)
+        im.paste(Image.new("RGB", (panel_w, H), (8, 8, 14)), (px0, 0),
+                 panel)
+        d = ImageDraw.Draw(im)
+        y = 6 * scale
+        d.text((px0 + 6 * scale, y), "FACTORS  raw/filt", font=font,
+               fill=(200, 200, 210))
+        y += 12 * scale
+        raw = _at(raw_s, t, (0.0, 0.0, 0.0))
+        lp = _at(lp_s, t, (0.0, 0.0, 0.0))
+        bw = panel_w - 12 * scale
+        for i, name in enumerate(("PRAYER", "CONTEMPT", "STALWART")):
+            col = FACTOR_COLORS[name]
+            dim = tuple(c // 2 for c in col)
+            d.text((px0 + 6 * scale, y), name, font=small, fill=col)
+            y += 9 * scale
+            x = px0 + 6 * scale
+            d.rectangle([x, y, x + bw, y + 3 * scale], fill=(30, 30, 40))
+            d.rectangle([x, y, x + int(bw * min(1.0, raw[i])),
+                         y + 3 * scale], fill=dim)
+            y += 4 * scale
+            d.rectangle([x, y, x + bw, y + 5 * scale], fill=(30, 30, 40))
+            d.rectangle([x, y, x + int(bw * min(1.0, lp[i])),
+                         y + 5 * scale], fill=col)
+            y += 9 * scale
+        y += 4 * scale
+        d.text((px0 + 6 * scale, y), "LANES", font=font,
+               fill=(200, 200, 210))
+        y += 12 * scale
+        lanes = _at(bars, t, {})
+        for ln in LANE_ORDER:
+            key, gain = lanes.get(ln, (None, 0.0))
+            col = LANE_COLORS[ln]
+            live = key not in (None, "None", "silence") and gain > 0.001
+            name = key if live else "-"
+            d.text((px0 + 6 * scale, y), ln, font=small,
+                   fill=col if live else (90, 90, 100))
+            d.text((px0 + 38 * scale, y), str(name)[:14], font=small,
+                   fill=(220, 220, 230) if live else (90, 90, 100))
+            y += 9 * scale
+            x = px0 + 6 * scale
+            d.rectangle([x, y, x + bw, y + 4 * scale], fill=(30, 30, 40))
+            if live:
+                d.rectangle([x, y, x + int(bw * min(1.0, gain)),
+                             y + 4 * scale], fill=col)
+            y += 8 * scale
+        im.save(out_dir / f"frame_{k:06d}.png")
+    return len(frames)
 
 
 FONT = Path(__file__).resolve().parents[2] / "game" / "assets" / "fonts" / "FSEX300.ttf"
@@ -331,6 +456,9 @@ def main(argv=None) -> int:
     p.add_argument("--fps", type=int, default=30,
                    help="must be 60/record-every used at capture time")
     p.add_argument("--scale", type=int, default=2)
+    p.add_argument("--overlay", action="store_true",
+                   help="burn in the music-telemetry panel (factor "
+                        "meters pre/post filter + lane visualizer)")
     p.add_argument("--segments", default=None,
                    help='"a-b,c-d" spans in seconds to cut and join')
     p.add_argument("--labels", default=None,
@@ -346,14 +474,27 @@ def main(argv=None) -> int:
     mix_wav = rec / "mix.wav"
     build_mix(rec / "events.jsonl", duration, mix_wav)
 
+    frames_dir = None
+    prescaled = False
+    if args.overlay:
+        events = [json.loads(l)
+                  for l in (rec / "events.jsonl").read_text().splitlines()]
+        frames_dir = rec / "overlay_frames"
+        frames_dir.mkdir(exist_ok=True)
+        n = overlay_frames(rec, events, args.fps, args.scale, frames_dir)
+        prescaled = True
+        print(f"[mkvideo] overlay burned into {n} frames")
+
     out = Path(args.out)
     if args.segments:
         full = rec / "full.mp4"
-        encode(rec, args.fps, args.scale, mix_wav, full)
+        encode(rec, args.fps, args.scale, mix_wav, full,
+               frames_dir, prescaled)
         labels = args.labels.split(",") if args.labels else None
         cut_segments(full, args.segments, out, labels)
     else:
-        encode(rec, args.fps, args.scale, mix_wav, out)
+        encode(rec, args.fps, args.scale, mix_wav, out,
+               frames_dir, prescaled)
     print(f"[mkvideo] wrote {out} ({duration:.0f}s source)")
     return 0
 
