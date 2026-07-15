@@ -91,24 +91,24 @@ Dexed class), a drumkit VST or 909-style kit, processing VSTs throughout.
 Game integration: NOT in this program (album mode first, per directive).
 The kept input engine consumes the artist's or v2 stems later, unchanged.
 
-## 3.5 OPEN ITEM — headless preset selection on downloaded synths
+## 3.5 SOLVED — headless preset selection (was the director's blocker)
 
-Both preset synths are DOWNLOADED and LOAD headless; selecting factory
-presets is blocked at precisely-mapped points (timeboxed per the
-no-rabbithole rule; a dedicated session picks up here):
-- **Odin2** (+260 factory .odin patches fetched): state = VC2!/XML/
-  IComponent → JUCE-b64 (codec built+verified) → VC2! + XML `<Odin>`
-  tree; .odin files are the BINARY ValueTree of the same data. Next step:
-  a JUCE binary-ValueTree→XML converter (~1h, format in juce_ValueTree
-  writeToStream), then the existing graft applies.
-- **Dexed** (32-voice factory cartridge visible): `program` param and
-  MIDI program_change both ignored by the engine headless; state graft of
-  currentProgram PERSISTS on readback but the render ignores it (and the
-  param re-application stomps state at prepare). Next levers: swap the
-  dexedBlob sysex (cartridge-level, program 0 = chosen voice), or a
-  ~50-line JUCE render host built from source (no sudo needed).
-- M3 proceeds meanwhile on proven voices (monk, 909, chug wall, Dragonfly
-  spaces; Surge drone as the one designed-not-preset element, flagged).
+Both synths now select factory presets headless, render-diff + probe
+verified (2026-07-14):
+- **Odin2**: juce_valuetree.py converts the binary-ValueTree .odin files
+  to the XML `<Odin>` form the plugin state carries (format transcribed
+  from fetched JUCE 7.0.12 sources, full-parse validated); graft via the
+  verified JUCE-b64 codec. All 260 factory patches load — readback shows
+  251/253 params applied (only live modwheel/pitchbend differ).
+- **Dexed**: the engine renders from dexedBlob's `base64:program`
+  attribute (the UNPACKED current voice), not the cartridge and not the
+  `program` param. dexed_host.set_program() reorders the chosen packed
+  voice into cartridge slot 0 (checksum fixed) AND grafts its unpacked
+  155-byte VCED into base64:program (unpack validated byte-for-byte
+  against Dexed's own blob for voice 0). Voices audibly switch.
+- Instrument tables live in generate_bank.py (presets-first): Odin2
+  Church Organ / 666-001-Organ / Choir Aahs / Drones tiers / Bass +
+  Dexed DX7 voices for two weapon leads.
 
 ## 4. Risks & their planned handling
 
