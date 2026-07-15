@@ -181,16 +181,18 @@ def vb_seq(slot, seq, total, tail=1.0):
     return x / (np.abs(x).max() + 1e-9)
 
 
-def _pre_drop_vacuum(bufs, t_s, dur_s=0.55):
-    """Duck-to-floor, NOT silence (director: full silence reads as the
-    game hitching; the drone spine below survives untouched)."""
-    a = int((t_s - dur_s) * SR)
-    b = int(t_s * SR)
-    fade = np.linspace(1, 0.12, 2000)
-    for buf in bufs:
-        if 0 <= a < b <= len(buf):
-            buf[a - 2000:a] *= fade
-            buf[a:b] *= 0.12
+def _pull(x, end_s, fade_ms=35):
+    """The producer's pre-drop PULL: this lane STOPS at end_s (short
+    fade, its space/ring elsewhere carries on) — musical subtraction,
+    never a master-bus amplitude chop (director: the ducked vacuum
+    'sounds even more like something broke')."""
+    y = x.copy()
+    e = int(end_s * SR)
+    f = int(fade_ms * SR / 1000)
+    if 0 < e < len(y):
+        y[e - f:e] *= np.linspace(1, 0, f)
+        y[e:] = 0.0
+    return y
 
 
 def _boundary_tell(C, t_s, rng):
@@ -237,7 +239,9 @@ def compose(mel_name: str):
     import synth as sy2
     monk = sy2.lowpass(monk, 5000)                # dark, never harsh
     monk_wet = G.hall(monk, 2.4).T.mean(axis=1)   # deep in the hall
-    place(C, monk_wet * 0.5, t1 + BAR)            # spice, not lead
+    ramp = np.minimum(1, np.arange(len(monk_wet)) / (6.0 * SR)) ** 1.5
+    place(C, monk_wet * ramp * 0.5, t1 + BAR)     # EMERGES (director:
+    #                                 jarring when it starts up)
     head = [(pp, d) for pp, d in events if pp is not None][:8]
     cs1 = []
     tt = BAR
@@ -301,7 +305,8 @@ def compose(mel_name: str):
     t3 = sec_time(2)
     _boundary_tell(C, t3, rng)
     dg = drums_groove(8, rng, fills_at=(7,))
-    place(C, drum_bus(dg) * 0.7, t3)
+    dg_p = _pull(dg, 8 * BAR - 0.5 * BAR)
+    place(C, drum_bus(dg_p) * 0.7, t3)
     roots3 = harmony.roots_16("swagger", 8)
     r3 = riffs.riff_16(events, n_bars=8, accents=riffs.ACCENTS_B,
                        chord_roots=roots3)
@@ -313,7 +318,7 @@ def compose(mel_name: str):
         t += steps
     fm = vb_seq("bass_fm", fseq, 8 * BAR, 0.3)
     fm = gc.sidechain_duck(fm, dg[:len(fm)], amount=0.4, release_s=0.1)
-    place(C, fm * 0.6, t3)
+    place(C, _pull(fm, 8 * BAR - 0.5 * BAR) * 0.6, t3)
     frag = riffs.lead_phrase(
         [(p, d) for p, d in events if p is not None][:8], factor=2)
     lseq = []
@@ -327,7 +332,7 @@ def compose(mel_name: str):
     lead = vb_seq("lead_rail", lseq, 8 * BAR, 0.5)
     lead = gc.sidechain_duck(lead, dg[:len(lead)], amount=0.3,
                              release_s=0.1)
-    place(C, lead * 0.5, t3)
+    place(C, _pull(lead, 8 * BAR - 0.5 * BAR) * 0.5, t3)
     # the church NEVER leaves (judge: S3 'loses the motif'; the album
     # holds the chant ~84% of runtime): distant choir pedal + a monk
     # phrase echoing far back in the hall
@@ -394,7 +399,8 @@ def compose(mel_name: str):
     monk2 = G.hall(monk, 2.0).T.mean(axis=1)      # distant even at peak
     monk2 = gc.sidechain_duck(monk2, dh4[:len(monk2)],
                               amount=0.5, release_s=0.12)
-    place(C, monk2 * 0.4, t4)
+    ramp2 = np.minimum(1, np.arange(len(monk2)) / (4.0 * SR)) ** 1.5
+    place(C, monk2 * ramp2 * 0.4, t4)
 
     # ---- S5 outro: vacuum + ring --------------------------------------
     t5 = sec_time(4)
@@ -405,9 +411,6 @@ def compose(mel_name: str):
                                     np.zeros(int(BAR * SR))]),
                     1.5).T.mean(axis=1) * 0.5, t5)
 
-    # pre-drop vacuums duck to the floor before the two big drops
-    _pre_drop_vacuum([L, R, C], sec_time(1))
-    _pre_drop_vacuum([L, R, C], sec_time(3))
 
     # ---- drone spine: a different texture per section (director:
     # "experiment with drone textures... a lot of dynamic character
