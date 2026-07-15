@@ -603,6 +603,17 @@ class App:
             self.game.show_hints = True
 
     def _start_streamed(self, start_chunk: int, carried_state: dict | None) -> None:
+        if getattr(self.args, "loadout", None) == "full":
+            # calibration parity: recorded runs must reproduce
+            # tune_pass_rate farm runs exactly. This is the single
+            # chokepoint every start path funnels through (menu,
+            # autoplay, --level); the first landing put it only on the
+            # menu path and every '--loadout full' bot recording
+            # silently ran knife+pistol (caught by the shadow-run
+            # divergence hunt: ammo {'9mm': 48} vs the full kit).
+            import copy
+            from .testkit.loadouts import FULL_LOADOUT
+            carried_state = copy.deepcopy(FULL_LOADOUT)
         from .stream import WorldStreamer
         paths = self.campaign_levels()
         if not paths:
@@ -638,10 +649,6 @@ class App:
 
     def start_level_index(self, idx: int) -> None:
         state = self.save_data.get("states", {}).get(str(idx))
-        if getattr(self.args, "loadout", None) == "full":
-            from .testkit.loadouts import FULL_LOADOUT
-            state = dict(FULL_LOADOUT)   # calibration parity: recorded
-            #    runs must reproduce tune_pass_rate farm runs exactly
         self._start_streamed(idx, state)
 
     def _load_and_play(self, idx: int, carried_state: dict | None) -> None:
