@@ -741,6 +741,7 @@ class GameSession:
                           vy + ay_ * PLAYER_ACCEL * self._accel_mul * DT)
         # fire
         if inp.fire and self.cooldown <= 0:
+            self.last_fire_tick = self.tick_count
             self._fire(proom, px, py)
         # alt: tau charge when tau is in hand, lightning implant otherwise
         if self.weapon == "tau" and "tau" in self.weapons:

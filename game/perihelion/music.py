@@ -81,6 +81,9 @@ def read_inputs(session) -> dict:
     aggro = enemies whose AI is actively engaged (not idle/waking/lurk).
     """
     proom = session.player_room()
+    lf = getattr(session, "last_fire_tick", None)
+    player_hot = lf is not None and \
+        (session.tick_count - lf) < 3 * TICKS_PER_S
     aggro = []
     tension = 0.0
     for eid, e in session.enemies.items():
@@ -93,8 +96,12 @@ def read_inputs(session) -> dict:
             except Exception:
                 pass
             continue
-        if state in ("idle", "waking"):
+        if state == "idle":
             continue
+        if state == "waking" and not player_hot:
+            continue    # unaware enemies join the fight only once the
+            #             player opens fire (music follows HIS aggression
+            #             too, not just the AI's)
         try:
             room = session.sim.get_room(eid)
         except Exception:
