@@ -21,7 +21,7 @@ FULL_LOADOUT = dict(
     weapons=["knife", "pistol", "smg", "shotgun", "rail", "lightning",
              "tau", "hole", "scrap", "gland"],
     ammo={"9mm": 400, "shell": 80, "cell": 120, "components": 60},
-    max_hp=125, hp=125, dmg_taken_mul=0.5,
+    max_hp=100, hp=100, dmg_taken_mul=1.0,
 )
 
 
@@ -65,7 +65,7 @@ def main():
     ap.add_argument("--skill", type=float, default=None)
     ap.add_argument("--max-ticks", type=int, default=60 * 60 * 8)
     ap.add_argument("--hp-buff", type=int, default=0)
-    ap.add_argument("--resist", type=float, default=0.5)
+    ap.add_argument("--resist", type=float, default=1.0)
     ap.add_argument("--workers", type=int, default=10)
     a = ap.parse_args()
     if a.skill is None:

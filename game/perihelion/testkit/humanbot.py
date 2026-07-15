@@ -126,6 +126,7 @@ class HumanBot(_UnstickMixin, Bot):
         self._strafe_sign = 1
         self._strafe_rng = Random(spawn.randrange(1 << 30))
         self._weapon_want = 0
+        self._room_long_axis = None
         self._weapon_want_ticks = 0
         # navigation humanization state (design doc §3/§4)
         self._nav_rng = Random(spawn.randrange(1 << 30))
@@ -218,6 +219,14 @@ class HumanBot(_UnstickMixin, Bot):
 
         # room bookkeeping: entering a never-seen room starts a curiosity
         # look-around beat (design doc §6)
+        try:
+            vs = session.level.room_verts[proom]
+            xs = [v[0] for v in vs]
+            ys = [v[1] for v in vs]
+            w, h = max(xs) - min(xs), max(ys) - min(ys)
+            self._room_long_axis = (1.0, 0.0) if w >= h else (0.0, 1.0)
+        except Exception:
+            self._room_long_axis = None
         if proom not in self._visited_rooms:
             if self._visited_rooms:  # not the spawn room
                 self._lookaround_ticks = self._nav_rng.randint(*LOOKAROUND_TICKS)
@@ -613,6 +622,31 @@ class HumanBot(_UnstickMixin, Bot):
             return
         threats = [e for e in perceived
                    if _dist(e["pos"], (px, py)) < self.FLANK_RANGE]
+        # OUTNUMBERED KITE (2026-07-16, dense-gauntlet recalibration): a
+        # competent player facing a swarm backpedals — through the lane,
+        # the sentry field, the choke — instead of trading into it. Same
+        # committed-escape machinery as the flank case, longer leg.
+        if len(threats) >= 6 and hp < 65.0:
+            vx = vy = 0.0
+            for e in threats:
+                dx, dy = e["pos"][0] - px, e["pos"][1] - py
+                d = math.hypot(dx, dy) or 1e-6
+                vx -= dx / d / d
+                vy -= dy / d / d
+            vmag = math.hypot(vx, vy) or 1e-6
+            vx, vy = vx / vmag, vy / vmag
+            # kite ALONG the room's long axis (a human backpedals down
+            # the corridor, through the sentry field / the fold — not
+            # into a wall); project the away-vector onto the axis
+            ax_dir = self._room_long_axis
+            if ax_dir is not None:
+                dot = vx * ax_dir[0] + vy * ax_dir[1]
+                if abs(dot) > 0.25:
+                    s = 1.0 if dot > 0 else -1.0
+                    vx, vy = ax_dir[0] * s, ax_dir[1] * s
+            self._escape_dir = (vx, vy)
+            self._escape_ticks = self._nav_rng.randint(90, 140)
+            return
         if len(threats) < 2 or hp >= self.FLANK_HP:
             return
         angles = sorted(math.atan2(e["pos"][1] - py, e["pos"][0] - px)
