@@ -46,10 +46,60 @@ BPM = 110.0
 BAR = 240.0 / BPM
 STEP = BAR / 16
 
-# form: (name, bars, progression)
+# form: (name, bars, progression) — overridden per recipe
 FORM = [("vigil", 8, "vigil"), ("entry", 8, "pressure"),
         ("develop", 8, "swagger"), ("peak", 8, "ratchet"),
         ("outro", 4, "vigil")]
+
+# ---- variety recipes (director 2026-07-15: "never repeats itself
+# more than once every few minutes") — authored per melody, logged.
+# keys: progs (S2/S3/S4), accents (entry, develop, peak), lead, spine
+# (5 drone textures), seeds (wall takes + rng)
+RECIPES = {
+    "dies_irae": dict(progs=("pressure", "swagger", "ratchet"),
+                      accents=("A", "B", "C"), lead="lead_rail",
+                      spine=("Daphne Oram 2", "Faulty Connection",
+                             "Taiga", "St. George", "Ether"),
+                      seeds=(11, 22, 33, 44, 7)),
+    "media_vita": dict(progs=("pressure", "grind", "pressure"),
+                       accents=("B", "A", "C"), lead="lead_hole",
+                       spine=("Ether", "Machine Drone", "Lysergic",
+                              "St. George", "Daphne Oram 2"),
+                       seeds=(13, 24, 35, 46, 9)),
+    "vexilla_regis": dict(progs=("ratchet", "swagger", "ratchet"),
+                          accents=("A", "C", "A"), lead="lead_rail",
+                          spine=("Taiga", "Faulty Connection",
+                                 "MissingNo", "Lysergic", "Ether"),
+                          seeds=(15, 26, 37, 48, 11)),
+    "idumea": dict(progs=("swagger", "swagger", "grind"),
+                   accents=("C", "B", "C"), lead="lead_smg",
+                   spine=("Faux", "Boass", "Digivice",
+                          "Machine Drone", "Taiga"),
+                   seeds=(17, 28, 39, 50, 13)),
+    "pange_lingua": dict(progs=("grind", "pressure", "lunge"),
+                         accents=("B", "A", "C"), lead="lead_tau",
+                         spine=("Lysergic", "St. George", "Ether",
+                                "Faulty Connection", "Machine Drone"),
+                         seeds=(19, 30, 41, 52, 15)),
+    "lhomme_arme": dict(progs=("ratchet", "swagger", "pressure"),
+                        accents=("A", "B", "A"), lead="lead_shotgun",
+                        spine=("Machine Drone", "Taiga", "Boass",
+                               "Daphne Oram 2", "St. George"),
+                        seeds=(21, 32, 43, 54, 17)),
+    "old_100th_dark": dict(progs=("grind", "pressure", "ratchet"),
+                           accents=("B", "C", "B"), lead="lead_pistol",
+                           spine=("St. George", "Lysergic",
+                                  "Faulty Connection", "Ether", "Taiga"),
+                           seeds=(23, 34, 45, 56, 19)),
+}
+DEFAULT_RECIPE = RECIPES["dies_irae"]
+_SPINE_BANK = {"Daphne Oram 2": "tngkaos", "Ether": "tngkaos",
+               "Boass": "tngkaos", "Machine Drone": "5years",
+               "Faulty Connection": "5years", "Taiga": "5years",
+               "St. George": "5years", "Lysergic": "5years",
+               "MissingNo": "5years", "Faux": "5years",
+               "Digivice": "5years"}
+_ACC = {"A": riffs.ACCENTS_A, "B": riffs.ACCENTS_B, "C": riffs.ACCENTS_C}
 
 
 def sec_time(i):
@@ -213,7 +263,11 @@ def _boundary_tell(C, t_s, rng):
 
 def compose(mel_name: str):
     events = G.MELODIES[mel_name]
-    rng = np.random.default_rng(7)
+    rec = RECIPES.get(mel_name, DEFAULT_RECIPE)
+    prog2, prog3, prog4 = rec["progs"]
+    acc2, acc3, acc4 = (_ACC[a] for a in rec["accents"])
+    s1, s2, s3, s4, s5 = rec["seeds"]
+    rng = np.random.default_rng(s5)
     total_s = sec_time(len(FORM)) + 6.0
     n = int(total_s * SR)
     L = np.zeros(n)
@@ -262,11 +316,11 @@ def compose(mel_name: str):
     place(C, drum_bus(fill) * 0.7, t2 - BAR)                  # the lead-in bar
     dh = drums_half(8, rng)
     place(C, drum_bus(dh) * 0.7, t2)
-    roots = harmony.roots_16("pressure", 8)
-    riff = riffs.riff_16(events, n_bars=8, accents=riffs.ACCENTS_A,
+    roots = harmony.roots_16(prog2, 8)
+    riff = riffs.riff_16(events, n_bars=8, accents=acc2,
                          chord_roots=roots)
-    wl = wall_take(riff, 11, 18.0)
-    wr = wall_take(riff, 22, 19.0)
+    wl = wall_take(riff, s1, 18.0)
+    wr = wall_take(riff, s2, 19.0)
     wl = gc.sidechain_duck(wl, dh[:len(wl)], amount=0.35, release_s=0.1)
     wr = gc.sidechain_duck(wr, dh[:len(wr)], amount=0.35, release_s=0.1)
     place(L, wl * 0.7, t2)
@@ -307,8 +361,8 @@ def compose(mel_name: str):
     dg = drums_groove(8, rng, fills_at=(7,))
     dg_p = _pull(dg, 8 * BAR - 0.5 * BAR)
     place(C, drum_bus(dg_p) * 0.7, t3)
-    roots3 = harmony.roots_16("swagger", 8)
-    r3 = riffs.riff_16(events, n_bars=8, accents=riffs.ACCENTS_B,
+    roots3 = harmony.roots_16(prog3, 8)
+    r3 = riffs.riff_16(events, n_bars=8, accents=acc3,
                        chord_roots=roots3)
     fseq = []
     t = 0
@@ -329,7 +383,7 @@ def compose(mel_name: str):
         for p, d in frag:
             lseq.append((62 + p, t, (d + 0.5) * STEP, 108))
             t += d * STEP
-    lead = vb_seq("lead_rail", lseq, 8 * BAR, 0.5)
+    lead = vb_seq(rec["lead"], lseq, 8 * BAR, 0.5)
     lead = gc.sidechain_duck(lead, dg[:len(lead)], amount=0.3,
                              release_s=0.1)
     place(C, _pull(lead, 8 * BAR - 0.5 * BAR) * 0.5, t3)
@@ -358,14 +412,14 @@ def compose(mel_name: str):
     place(C, sting * 0.8, t4)
     dh4 = drums_half(8, rng, fills_at=(7,))
     place(C, drum_bus(dh4) * 0.75, t4)
-    roots4 = harmony.roots_16("ratchet", 8)
+    roots4 = harmony.roots_16(prog4, 8)
     # lunge bar: bar 6 of the peak spends the tritone
     lunge = harmony.roots_16("lunge", 2)
     roots4[6 * 16:8 * 16] = lunge
-    r4 = riffs.riff_16(events, n_bars=8, accents=riffs.ACCENTS_C,
+    r4 = riffs.riff_16(events, n_bars=8, accents=acc4,
                        chord_roots=roots4)
-    wl4 = wall_take(r4, 33, 20.0)
-    wr4 = wall_take(r4, 44, 21.0)
+    wl4 = wall_take(r4, s3, 20.0)
+    wr4 = wall_take(r4, s4, 21.0)
     wl4 = gc.sidechain_duck(wl4, dh4[:len(wl4)], amount=0.35, release_s=0.1)
     wr4 = gc.sidechain_duck(wr4, dh4[:len(wr4)], amount=0.35, release_s=0.1)
     place(L, wl4 * 0.8, t4)
@@ -417,11 +471,10 @@ def compose(mel_name: str):
     # for cheap"), from the picks' measured top sustainers; survives
     # every vacuum -----------------------------------------------------
     import synth as sy3
-    SPINE = [("tngkaos", "Daphne Oram 2", 36, 0.20),
-             ("5years", "Faulty Connection", 24, 0.16),
-             ("5years", "Taiga", 36, 0.14),
-             ("5years", "St. George", 24, 0.18),
-             ("tngkaos", "Ether", 36, 0.20)]
+    gains = (0.20, 0.16, 0.14, 0.18, 0.20)
+    notes = (36, 24, 36, 24, 36)
+    SPINE = [(_SPINE_BANK[nm], nm, notes[i], gains[i])
+             for i, nm in enumerate(rec["spine"])]
     D = np.zeros(n)
     for i, (bank, stem, note, gain) in enumerate(SPINE):
         bars = FORM[i][1]
