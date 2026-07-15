@@ -116,3 +116,12 @@ Format: date | decision | chosen | passed up | revisit trigger.
   long-note reductions | lead doubles chant in unison (rejected:
   foreground collision) | peaks feel thin without unison doubling ->
   try octave-doubling at peak tutti only.
+- 2026-07-14 | anti-MIDI language | the ALBUM'S OWN (measured + pro-tier
+  piano-roll reconstruction): strict grid, flat velocity + downbeat
+  accents, zero legato in rhythm section, binary gates (ring or chopped
+  silence), two independent takes hard L/R, bass in perfect unison with
+  guitar | generic forum humanization (timing jitter, per-note velocity
+  randomness) | if the director still hears "MIDI" after the album
+  language lands, revisit jitter ONLY for drums fills / lead phrasing.
+  Note: audio_judge probes downmix mono (-ac 1) and cannot hear
+  double-tracking; stereo stems are judged by ear only.
