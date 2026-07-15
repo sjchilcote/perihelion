@@ -236,6 +236,12 @@ class MusicSystem:
         # MANUAL mode and scripted scenes); None = heuristic battery
         self.override_vals = None
         self.vals = (1.0, 0.0, 0.0)
+        # low-pass on the battery (director 2026-07-16): the music must
+        # not wake for a fight shorter than a bar — tau = one bar, so a
+        # 0.3s trash pop peaks ~0.1x and decays below threshold before
+        # the next boundary, while a real fight reaches ~63% in one bar
+        # and the transition controller shapes the arrival from there
+        self._lp = (1.0, 0.0, 0.0)
         self.inputs: dict = {}
         self._applied = (1.0, 0.0, 0.0)
         self._last_bar = -1
@@ -520,7 +526,15 @@ class MusicSystem:
         self._ensure_started(session.tick_count)
         self.inputs = read_inputs(session)
         self.inputs["tier"] = getattr(session, "music_tier", 1)
-        self.vals = self.override_vals or values(self.inputs)
+        raw = self.override_vals or values(self.inputs)
+        if self.override_vals:
+            self.vals = raw                    # manual = direct control
+            self._lp = raw
+        else:
+            a = (1.0 / TICKS_PER_S) / self.bar_s
+            self._lp = tuple(l + a * (r - l)
+                             for l, r in zip(self._lp, raw))
+            self.vals = tuple(round(v, 3) for v in self._lp)
         tension = self.inputs["tension"]
 
         if tension > self._riser_gain + 1e-6:

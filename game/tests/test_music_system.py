@@ -126,7 +126,15 @@ def ticks_per_bar():
     return int(BAR_S * TICKS_PER_S) + 1
 
 
+def _sustain(ms, session_fn, ticks):
+    for k in range(ticks):
+        ms.update(session_fn(k))
+
+
 def test_application_only_at_bar_boundaries():
+    # contract update 2026-07-16 (director): values are LOW-PASSED with
+    # a one-bar tau — the music must not wake for a fight shorter than a
+    # bar; SUSTAINED threat drives application
     ms = MusicSystem(audio_bank=SimpleNamespace(_ready=False, tap=None),
                      enabled=True)
     ms.update(make_session({}, {}, tick=1))
@@ -134,10 +142,13 @@ def test_application_only_at_bar_boundaries():
     heavy = {1: awake("brute"), 2: awake("brute"), 3: awake("warden")}
     rooms = {1: 0, 2: 0, 3: 0}
     ms.update(make_session(heavy, rooms, tick=2))
-    assert ms.vals[2] > 0.7                  # the VALUE rides immediately
-    assert ms._applied[2] < 0.15             # the MUSIC waits for the bar
-    ms.update(make_session(heavy, rooms, tick=ticks_per_bar()))
-    assert ms._applied[2] > 0.7              # applied at the bar line
+    assert ms.vals[2] < 0.15                 # low-pass: no instant wake
+    assert ms._applied[2] < 0.15
+    # sustain the fight for two bars of ticks -> value risen + applied
+    _sustain(ms, lambda k: make_session(heavy, rooms, tick=3 + k),
+             2 * ticks_per_bar())
+    assert ms.vals[2] > 0.5                  # sustained fight registered
+    assert ms._applied[2] > 0.5              # and applied at a bar line
 
 
 def test_hard_rise_stings():
@@ -148,7 +159,10 @@ def test_hard_rise_stings():
     ms.update(make_session({}, {}, tick=1))
     heavy = {1: awake("brute"), 2: awake("brute"), 3: awake("warden")}
     rooms = {1: 0, 2: 0, 3: 0}
-    ms.update(make_session(heavy, rooms, tick=ticks_per_bar()))
+    # a SUSTAINED heavy assault still stings within ~2 bars (the smoothed
+    # rise crosses STING_RISE across a bar boundary)
+    _sustain(ms, lambda k: make_session(heavy, rooms, tick=2 + k),
+             2 * ticks_per_bar())
     assert any(k == "music_sting" for k, _ in taps)
     assert any(k == "music_vals" for k, _ in taps)
 
