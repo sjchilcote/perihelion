@@ -56,9 +56,15 @@ def _state_template():
 
 
 def load_patch(patch_path: Path):
+    """Convert the binary-ValueTree .odin patch to the XML form the
+    plugin's state actually carries (VC2! + u32 len + XML <Odin>),
+    then graft into <IComponent>."""
+    from juce_valuetree import binary_to_xml
     p = _plugin()
     st, a, b = _state_template()
-    enc = juce_b64encode(patch_path.read_bytes())
+    xml = binary_to_xml(patch_path.read_bytes()).encode()
+    inner = b"VC2!" + struct.pack("<I", len(xml)) + xml
+    enc = juce_b64encode(inner)
     new = st[:a] + enc + st[b:]
     ns = bytearray(new)
     ns[4:8] = struct.pack("<I", struct.unpack("<I", st[4:8])[0]
