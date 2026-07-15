@@ -151,6 +151,9 @@ def room_center(b: LevelBuilder, room: int) -> tuple[float, float]:
     return (sum(v[0] for v in vs) / len(vs), sum(v[1] for v in vs) / len(vs))
 
 
+TEXTURE_MAP: dict[int, list] = {}
+
+
 def add_segment(b: LevelBuilder, seg: dict, dx: float, dy: float,
                  keep: set[int], seg_idx: int) -> dict:
     """Copies seg's rooms + enemy entities (only those `room_pos` indices
@@ -172,6 +175,8 @@ def add_segment(b: LevelBuilder, seg: dict, dx: float, dy: float,
         new_idx = b.room(verts, detail_seed=LEVEL_SEED + old_idx,
                           kind=r.get("kind", "generic"))
         old_to_new[old_idx] = new_idx
+        TEXTURE_MAP[new_idx] = [seg["src"], old_idx]   # provenance ->
+        #   the source room's bespoke floor texture renders here too
         enemy_ents = [e for e in r.get("entities", []) if e["type"] in ENEMY_KINDS]
         kept_ents = [e for j, e in enumerate(enemy_ents)
                      if (seg_idx, old_idx, j) in keep]
@@ -355,6 +360,27 @@ def main(argv=None) -> int:
                zones={str(k): v for k, v in stats["zones"].items()})
     meta_path.parent.mkdir(parents=True, exist_ok=True)
     meta_path.write_text(json.dumps(meta, indent=1))
+    # presentation pass (the level must be WATCHABLE, not just
+    # simulable): texture provenance + a dim fill light in every room
+    # that has none — sim-neutral (lighting/textures feed no AI)
+    lv = json.loads(Path(args.out).read_text())
+    lv["texture_map"] = {str(k): v for k, v in TEXTURE_MAP.items()}
+    lit = {l["room"] for l in lv.get("lights", [])}
+    for i, room in enumerate(lv["rooms"]):
+        if i in lit:
+            continue
+        vs = room["verts"]
+        cx = sum(v[0] for v in vs) / len(vs)
+        cy = sum(v[1] for v in vs) / len(vs)
+        span = max(max(v[0] for v in vs) - min(v[0] for v in vs),
+                   max(v[1] for v in vs) - min(v[1] for v in vs))
+        lv.setdefault("lights", []).append(dict(
+            room=i, pos=[cx, cy], color=[150, 170, 200],
+            intensity=0.55, radius=max(120.0, span * 0.7),
+            kind="static"))
+    Path(args.out).write_text(json.dumps(lv, indent=1))
+    print(f"presentation: texture_map {len(TEXTURE_MAP)} rooms, "
+          f"fill lights added to {len(lv['rooms']) - len(lit)} rooms")
 
     print(f"{args.out}: {lvl.name!r} rooms={len(lvl.room_verts)} "
           f"connects={len(lvl.connects)} enemies={stats['total_enemies']} "

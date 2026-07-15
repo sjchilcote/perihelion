@@ -100,6 +100,7 @@ class Level:
     terminals: list[TerminalSpec]
     lights: list[LightSpec]
     ambience: str
+    texture_map: dict = None
     # Per-room descent scalar 0..1 (how deep into the station this room
     # sits). In streamed campaigns WorldStreamer owns this list: chunk k of
     # N gets k/(N-1) and transit-spine rooms get the midpoint of the chunks
@@ -245,6 +246,8 @@ def level_from_dict(data: dict) -> Level:
         terminals=terminals,
         lights=lights,
         ambience=data.get("ambience", "amb_drone_early"),
+        texture_map={int(k): tuple(v) for k, v in
+                     data.get("texture_map", {}).items()},
     )
 
 

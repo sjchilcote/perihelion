@@ -174,10 +174,14 @@ class WorldStreamer:
         levels/*.json) and never carry a texture."""
         for c in self.chunks:
             if c["offset"] <= room < c["offset"] + c["n_rooms"]:
+                local = room - c["offset"]
+                tm = getattr(c["level"], "texture_map", None)
+                if tm and local in tm:
+                    return tuple(tm[local])
                 level_id = getattr(c["level"], "level_id", "") or ""
                 if not level_id:
                     return None
-                return (level_id, room - c["offset"])
+                return (level_id, local)
             if c["spine_rooms"] and room in c["spine_rooms"]:
                 return None
         return None

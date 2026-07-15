@@ -350,16 +350,6 @@ class App:
                                  tick_clock=bool(getattr(args, "record",
                                                          None)))
 
-    def rotate_music(self):
-        """Next album bank (called on level/chunk change)."""
-        if len(self._music_banks) < 2:
-            return
-        self._music_i = (self._music_i + 1) % len(self._music_banks)
-        self.music.stop()
-        self.music = self._MusicSystem(
-            self.audio, enabled=self.music.enabled,
-            bank_dir=self._music_banks[self._music_i],
-            tick_clock=self.music.tick_clock)
         self.debug = bool(args.fps)
         self.running = True
 
@@ -417,6 +407,17 @@ class App:
             self.audio.tap = self._audio_tap
 
         self._start_scene()
+
+    def rotate_music(self):
+        """Next album bank (called on level/chunk change)."""
+        if len(self._music_banks) < 2:
+            return
+        self._music_i = (self._music_i + 1) % len(self._music_banks)
+        self.music.stop()
+        self.music = self._MusicSystem(
+            self.audio, enabled=self.music.enabled,
+            bank_dir=self._music_banks[self._music_i],
+            tick_clock=self.music.tick_clock)
 
     def _audio_tap(self, kind: str, name: str, vol: float, pan: float) -> None:
         if self._rec is None:
