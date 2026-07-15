@@ -271,6 +271,9 @@ class HumanBot(_UnstickMixin, Bot):
         if kills != self._last_kills:
             self._last_kills = kills
             self._last_kill_tick = tick
+        # (hop-limiting this count was tried at the wide camera -- fewer
+        # timeouts but 0/20 pass: the far-sighted early retreat is what
+        # keeps the bot alive. Count everything perceived.)
         self._threats_total = len(co_room) + len(distant)
         self._update_ohshit(session, snapshot, proom,
                             self._threats_total, tick)

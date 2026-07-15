@@ -29,7 +29,15 @@ def one(args):
     state["max_hp"] = state["hp"] = FULL_LOADOUT["max_hp"] + hp_buff
     state["dmg_taken_mul"] = resist
     level = load_level(Path(level_path))
-    s = GameSession(level, seed=seed, player_state=state)
+    # CAMERA PARITY (2026-07-16): HumanBot perception is the renderer's
+    # own portal-visibility query -- it sees exactly the camera frustum.
+    # Farming at the sim default (480x270, zoom 1.35) measured a
+    # different bot than the shipped camera (640x360, zoom 0.45, the
+    # director's 3x-zoomed-out order): seed 1011 complete/176 kills at
+    # the narrow camera, timeout/103 at the real one. Calibration runs
+    # AT the shipping camera or it calibrates nothing.
+    s = GameSession(level, seed=seed, player_state=state,
+                    screen=(640, 360), zoom=0.45)
     bot = HumanBot(seed, skill=skill)
     t = 0
     import collections
