@@ -137,27 +137,27 @@ def drums_groove(n_bars, rng, fills_at=()):
 
 
 def wall_take(riff, seed, drive):
+    """SYNTH wall (director: chug samples scuffed): the riff through a
+    Vital voice into the guitar amp+cab chain. Double-track realism =
+    per-take micro-offsets (a second performance), not jitter within
+    the groove's feel."""
     import synth as sy
     rng = np.random.default_rng(seed)
-    total = sum(s for _, s, _ in riff)
-    out = np.zeros(int(total * STEP * SR) + SR)
+    seq = []
     t = 0
     for p, steps, art in riff:
+        off = float(rng.normal(0, 0.004)) if seed != 11 else 0.0
         if art == "open":
-            for iv, g in ((12, 1.0), (19, 0.8), (24, 0.55)):
-                place(out, voices.chug_note(rng, p + iv,
-                                            STEP * steps * 1.8, 0.0, g),
-                      t * STEP)
+            for iv, vv in ((12, 118), (19, 104), (24, 88)):
+                seq.append((38 + p + iv, max(0.0, t * STEP + off),
+                            STEP * steps * 1.6, vv))
         else:
-            h = voices.chug_note(rng, p, STEP * 1.05, 0.85,
-                                 1.0 if t % 16 == 0 else 0.62)
-            n_gate = int(STEP * 0.92 * SR)
-            if len(h) > n_gate:
-                h = h[:n_gate].copy()
-                h[-132:] *= np.linspace(1, 0, 132)
-            place(out, h, t * STEP)
+            seq.append((38 + p, max(0.0, t * STEP + off),
+                        STEP * 0.9, 96 if t % 16 else 118))
         t += steps
-    out = voices.amp(out * 0.75 / (np.abs(out).max() + 1e-9), drive)
+    total = t * STEP
+    out = VB.render_seq(*VB.SLOTS["wall"], seq, total, 0.4)
+    out = voices.amp(out * 0.6 / (np.abs(out).max() + 1e-9), drive)
     return sy.highpass(out, 120)
 
 
@@ -182,13 +182,15 @@ def vb_seq(slot, seq, total, tail=1.0):
 
 
 def _pre_drop_vacuum(bufs, t_s, dur_s=0.55):
+    """Duck-to-floor, NOT silence (director: full silence reads as the
+    game hitching; the drone spine below survives untouched)."""
     a = int((t_s - dur_s) * SR)
     b = int(t_s * SR)
-    fade = np.linspace(1, 0, 2000)
+    fade = np.linspace(1, 0.12, 2000)
     for buf in bufs:
         if 0 <= a < b <= len(buf):
             buf[a - 2000:a] *= fade
-            buf[a:b] = 0.0
+            buf[a:b] *= 0.12
 
 
 def _boundary_tell(C, t_s, rng):
@@ -403,9 +405,31 @@ def compose(mel_name: str):
                                     np.zeros(int(BAR * SR))]),
                     1.5).T.mean(axis=1) * 0.5, t5)
 
-    # pre-drop vacuums: half-bar of dead air before the two big drops
+    # pre-drop vacuums duck to the floor before the two big drops
     _pre_drop_vacuum([L, R, C], sec_time(1))
     _pre_drop_vacuum([L, R, C], sec_time(3))
+
+    # ---- drone spine: a different texture per section (director:
+    # "experiment with drone textures... a lot of dynamic character
+    # for cheap"), from the picks' measured top sustainers; survives
+    # every vacuum -----------------------------------------------------
+    import synth as sy3
+    SPINE = [("tngkaos", "Daphne Oram 2", 36, 0.20),
+             ("5years", "Faulty Connection", 24, 0.16),
+             ("5years", "Taiga", 36, 0.14),
+             ("5years", "St. George", 24, 0.18),
+             ("tngkaos", "Ether", 36, 0.20)]
+    D = np.zeros(n)
+    for i, (bank, stem, note, gain) in enumerate(SPINE):
+        bars = FORM[i][1]
+        dur = bars * BAR
+        y = VB.render_seq(bank, stem, [(note, 0.0, dur, 96)],
+                          dur, tail_s=1.0)
+        y = sy3.lowpass(y / (np.abs(y).max() + 1e-9), 1800)
+        e = int(0.4 * SR)
+        y[:e] *= np.linspace(0, 1, e)
+        place(D, y * gain, sec_time(i))
+    C = C + D
 
     # ---- master: cohesive space (judge gap: flat/dry spatialization) --
     mono = (L + R) * 0.5 + C

@@ -35,6 +35,11 @@ SO = S / "vital/VitalInstaller/lib/vst/Vital.so"   # REAL Vital
 # (picks-first law); name-flavor fit by me, his lab bake-off is the
 # gate. Runners-up = the rest of the picks file.
 SLOTS: dict[str, tuple[str, str]] = {
+    # the WALL: synth (director 2026-07-15: the chug sample is scuffed,
+    # internal hard cuts — "find a suitable synthesizer"); rendered
+    # through the guitar amp+cab chain, double-tracked with per-take
+    # micro-offsets. Alternates: Reso Poly, Nicotine, Knowledge.
+    "wall": ("5years", "Supersync"),
     # core basses
     "bass_deep": ("5years", "Heavy"),
     "bass_fm": ("5years", "FM Bass 1"),
