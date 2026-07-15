@@ -219,3 +219,19 @@ reasoning as the soundfonts above):
   choke + phasing combos). Free download, free for personal & commercial
   use per their site; NO redistribution — samples scratchpad-only, only
   our renders are committed.
+
+## Vitalium (Vital engine, open-source fork)
+- Source: DISTRHO-Ports via Arch `extra/distrho-ports-vst` package
+  (vitalium.so, VST2), extracted to scratchpad — not installed.
+- License: GPLv3. OFFLINE AUTHORING ONLY, never shipped in the game
+  (same policy as Dragonfly). Renders are ours.
+- Hosted by tools/musicgen/vst2_host.py (ctypes VST2 host, offline).
+- State chunk == the .vital preset JSON format (+NUL): community
+  .vital presets load verbatim via effSetChunk. CHECK EACH PACK'S
+  LICENSE before use; log here.
+
+## Tyrell N6 (u-he, freeware)
+- Linux VST2 .so in scratchpad. Loads + initializes under vst2_host;
+  PARKED: stalls at first processReplacing (next lever: effStartProcess
+  opcode 71 before rendering). u-he freeware EULA: free use, no
+  redistribution — binary stays in scratchpad.
