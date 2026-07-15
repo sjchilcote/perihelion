@@ -57,19 +57,77 @@ def _plugin():
     return pedalboard.load_plugin(str(VST))
 
 
-def program_names():
-    return list(_plugin().parameters["program"].valid_values)
-
-
-def set_program(n: int):
+def _cartridge():
+    """(outer_state, xml_span, sysex_span_in_xml, sysex_bytes)."""
     p = _plugin()
     outer = bytes(p.raw_state)
     m = re.search(rb"<IComponent>(.*?)</IComponent>", outer, re.S)
     inner = _jdec(m.group(1).decode())
     assert inner[:4] == b"VC2!", inner[:8]
     xml = inner[8:]
-    new_xml = re.sub(rb'currentProgram="\d+"',
-                     f'currentProgram="{int(n)}"'.encode(), xml, count=1)
+    ms = re.search(rb'sysex="([^"]*)"', xml)
+    syx = _jdec(ms.group(1).decode())
+    assert syx[:6] == b"\xf0\x43\x00\x09\x20\x00" and len(syx) == 4104, \
+        (len(syx), syx[:6].hex())
+    return outer, m, xml, ms, syx
+
+
+def program_names():
+    _, _, _, _, syx = _cartridge()
+    return [syx[6 + i * 128 + 118:6 + i * 128 + 128]
+            .decode("ascii", "replace").strip() for i in range(32)]
+
+
+def unpack_voice(pv: bytes) -> bytes:
+    """DX7 packed voice (128 B) -> unpacked VCED (155 B).
+
+    Validated byte-for-byte against Dexed's own base64:program blob for
+    factory voice 0.
+    """
+    out = bytearray()
+    for op in range(6):
+        b = pv[op * 17:(op + 1) * 17]
+        out += b[:11]
+        out += bytes([b[11] & 3, (b[11] >> 2) & 3,        # curves L R
+                      b[12] & 7,                          # rate scaling
+                      b[13] & 3, (b[13] >> 2) & 7,        # AMS, KVS
+                      b[14],                              # output level
+                      b[15] & 1, (b[15] >> 1) & 31,       # mode, coarse
+                      b[16], (b[12] >> 3) & 15])          # fine, detune
+    g = pv[102:]
+    out += g[:8]                                          # pitch EG
+    out += bytes([g[8] & 31, g[9] & 7, (g[9] >> 3) & 1])  # alg, fb, oks
+    out += g[10:14]                                       # LFO s/d/pmd/amd
+    out += bytes([g[14] & 1, (g[14] >> 1) & 7,            # lfo sync, wave
+                  (g[14] >> 4) & 7, g[15]])               # pms, transpose
+    out += g[16:26]                                       # name
+    return bytes(out)
+
+
+def set_program(n: int):
+    """Make factory voice n the SOUNDING voice.
+
+    The engine renders from dexedBlob's base64:program (unpacked current
+    voice), not from the cartridge or the `program` parameter — so graft
+    BOTH: voice n reordered into cartridge slot 0 (checksum fixed) and
+    voice n unpacked into the program blob (its 6-byte tail — op switches
+    etc. — kept verbatim).
+    """
+    p = _plugin()
+    outer, m, xml, ms, syx = _cartridge()
+    data = bytearray(syx[6:6 + 4096])
+    n = int(n)
+    v = bytes(data[n * 128:(n + 1) * 128])
+    del data[n * 128:(n + 1) * 128]
+    data[0:0] = v
+    chk = (-sum(data)) & 0x7F
+    new_syx = syx[:6] + bytes(data) + bytes([chk, 0xF7])
+    new_xml = xml[:ms.start(1)] + _jenc(new_syx) + xml[ms.end(1):]
+    mp = re.search(rb'base64:program="([^"]*)"', new_xml)
+    old_prog = _jdec(mp.group(1).decode())
+    new_prog = unpack_voice(v) + old_prog[155:]
+    new_xml = (new_xml[:mp.start(1)] + _jenc(new_prog)
+               + new_xml[mp.end(1):])
     new_inner = b"VC2!" + struct.pack("<I", len(new_xml)) + new_xml
     enc = _jenc(new_inner)
     new_outer = outer[:m.start(1)] + enc + outer[m.end(1):]
