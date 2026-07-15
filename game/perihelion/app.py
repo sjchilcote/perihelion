@@ -325,11 +325,38 @@ class App:
         self.clock = pygame.time.Clock()
         self.audio = Audio(mute=args.mute)
         from .music import MusicSystem
+        self._MusicSystem = MusicSystem
+        # --music-bank: a single bank dir, or a dir OF album_* banks to
+        # ROTATE through per level/chunk (variety law: the soundtrack
+        # never repeats itself within a few minutes)
+        mb = getattr(args, "music_bank", None)
+        self._music_banks = []
+        if mb:
+            mbp = Path(mb)
+            if (mbp / "bank.json").exists():
+                self._music_banks = [mbp]
+            else:
+                self._music_banks = sorted(
+                    q for q in mbp.glob("album_*")
+                    if (q / "bank.json").exists())
+        self._music_i = -1
         self.music = MusicSystem(self.audio,
                                  enabled=not getattr(args, "no_music", False),
-                                 bank_dir=getattr(args, "music_bank", None),
+                                 bank_dir=(self._music_banks[0]
+                                           if self._music_banks else None),
                                  tick_clock=bool(getattr(args, "record",
                                                          None)))
+
+    def rotate_music(self):
+        """Next album bank (called on level/chunk change)."""
+        if len(self._music_banks) < 2:
+            return
+        self._music_i = (self._music_i + 1) % len(self._music_banks)
+        self.music.stop()
+        self.music = self._MusicSystem(
+            self.audio, enabled=self.music.enabled,
+            bank_dir=self._music_banks[self._music_i],
+            tick_clock=self.music.tick_clock)
         self.debug = bool(args.fps)
         self.running = True
 
@@ -592,6 +619,7 @@ class App:
             self.save_data.setdefault("states", {})[str(chunk_idx)] = \
                 game.streamer.entry_states[game.streamer.current]
             self._persist_save()
+            self.rotate_music()          # a new depth gets a new hymn
 
         game.streamer.on_chunk_entered = on_entered
         self.game = game
