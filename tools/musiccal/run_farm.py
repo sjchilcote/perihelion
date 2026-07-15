@@ -104,7 +104,18 @@ def run_one(level_path: str, seed: int, bot_name: str, skill: float,
     t_wall0 = time.perf_counter()
     level_path = Path(level_path)
     level = load_level(level_path)
-    session = GameSession(level, seed=seed, player_state=dict(MID_GAME_STATE))
+    state = dict(MID_GAME_STATE)
+    if level_path.name == "gauntlet_cal2.json":
+        import json as _j
+        meta = _j.loads((Path(__file__).parent /
+                         "gauntlet2_meta.json").read_text())
+        lo = meta["loadout"]
+        state = dict(weapons=["knife", "pistol", "smg", "shotgun", "rail",
+                              "lightning", "tau", "hole", "scrap",
+                              "gland"],
+                     ammo=dict(lo["ammo"]), max_hp=lo["hp"], hp=lo["hp"],
+                     dmg_taken_mul=lo["dmg_taken_mul"])
+    session = GameSession(level, seed=seed, player_state=state)
     if bot_name == "human":
         bot = HumanBot(seed, skill=skill)
     elif bot_name == "aggro":
@@ -121,8 +132,8 @@ def run_one(level_path: str, seed: int, bot_name: str, skill: float,
         skill=skill if bot_name == "human" else None,
         level=str(level_path.relative_to(ROOT)) if level_path.is_absolute()
         else str(level_path),
-        level_sha256=_level_sha(level_path), player_state=MID_GAME_STATE,
-        max_hp=MID_GAME_STATE["max_hp"], fields=TICK_FIELDS,
+        level_sha256=_level_sha(level_path), player_state=state,
+        max_hp=state["max_hp"], fields=TICK_FIELDS,
         enemy_fields=ENEMY_FIELDS, pickup_fields=PICKUP_FIELDS,
         git_rev=_git_rev(), max_ticks=max_ticks,
     )
