@@ -480,6 +480,12 @@ class MusicSystem:
             gains = self._bar_gains()
             for lname, lane in self._lanes.items():
                 lane.set_gain(gains.get(lname, 0.0), master)
+            # offline-reconstruction tap (mkvideo): the FULL per-bar
+            # decision — position + every lane's content and gain
+            detail = f"{self._bar_idx}|" + "|".join(
+                f"{ln}:{la.key}:{la.gain:.3f}"
+                for ln, la in sorted(self._lanes.items()))
+            self._tap("music_bar", detail, 1.0)
 
     def _update_legacy(self, session):
         bar = int((session.tick_count / TICKS_PER_S) / self.bar_s)

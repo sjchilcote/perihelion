@@ -71,6 +71,89 @@ MUSIC_BANK = Path(__file__).resolve().parents[2] / \
     "game/perihelion/assets/music/hymn01"
 
 
+def _load_stem(p: Path) -> np.ndarray:
+    with wave.open(str(p)) as w:
+        data = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16)
+        ch = w.getnchannels()
+    data = data.astype(np.float32) / 32767.0
+    return data.reshape(-1, ch) if ch == 2 else \
+        np.stack([data, data], axis=1)
+
+
+def _mix_music_rich(mix, events, duration_s, bank: Path) -> bool:
+    """Offline twin of the CHUNK-QUEUE mixer: music_bar taps carry the
+    full per-bar decision (bar index + every lane's content and gain);
+    each bar we place that bar's slice of the selected stem at the tap
+    time with the tapped gain. Riser/sting from their own taps."""
+    meta = json.loads((bank / "bank.json").read_text())
+    bars = int(meta["bars"])
+    bar_s = 240.0 / float(meta["bpm"])
+    bar_evs = [e for e in events if e["kind"] == "music_bar"]
+    if not bar_evs:
+        return False
+    stems: dict[str, np.ndarray] = {}
+
+    def stem(key):
+        if key in ("silence", "None", None):
+            return None
+        if key not in stems:
+            f = bank / f"{key}.wav"
+            stems[key] = _load_stem(f) if f.exists() else None
+        return stems[key]
+
+    n_total = len(mix)
+    bar_n = int(bar_s * RATE)
+    # bar 0 plays from t=0 with the first tap's lane set (the engine
+    # starts lanes before the first boundary tap fires)
+    first = bar_evs[0]
+    seq = [dict(t=max(0.0, first["t"] - bar_s), detail=first["name"],
+                bar0=True)] + \
+        [dict(t=e["t"], detail=e["name"], bar0=False) for e in bar_evs]
+    for k, ev in enumerate(seq):
+        parts = ev["detail"].split("|")
+        bar_idx = (int(parts[0]) - (0 if ev["bar0"] else 0)) % bars
+        if ev["bar0"]:
+            bar_idx = (int(parts[0]) - 1) % bars
+        s0 = int(ev["t"] * RATE)
+        if s0 >= n_total:
+            break
+        for lane in parts[1:]:
+            ln, key, gain = lane.rsplit(":", 2)[0], \
+                lane.rsplit(":", 2)[1], float(lane.rsplit(":", 2)[2])
+            if gain <= 0.001:
+                continue
+            snd = stem(key)
+            if snd is None:
+                continue
+            a = min(bar_idx * bar_n, len(snd) - 1)
+            b = min(a + bar_n, len(snd))
+            seg = snd[a:b]
+            n = min(len(seg), n_total - s0)
+            g = min(1.0, gain) * 0.8
+            mix[s0:s0 + n, 0] += seg[:n, 0] * g
+            mix[s0:s0 + n, 1] += seg[:n, 1] * g
+    # riser: continuous loop under its tapped gain envelope
+    rp = bank / "riser.wav"
+    riser_evs = [e for e in events if e["kind"] == "music_riser"]
+    if rp.exists() and riser_evs:
+        snd = _load_stem(rp)
+        env = np.zeros(n_total, dtype=np.float32)
+        tl = [(0.0, 0.0)] + [(e["t"], float(e["name"])) for e in riser_evs]
+        for i, (ts, val) in enumerate(tl):
+            te = tl[i + 1][0] if i + 1 < len(tl) else duration_s
+            env[int(ts * RATE):min(int(te * RATE), n_total)] = val * 0.85
+        looped = np.tile(snd, (int(np.ceil(n_total / len(snd))), 1))[:n_total]
+        mix[:, 0] += looped[:, 0] * env
+        mix[:, 1] += looped[:, 1] * env
+    sp = bank / "sting.wav"
+    if sp.exists():
+        sdata = _load_stem(sp).mean(axis=1)
+        for e in events:
+            if e["kind"] == "music_sting":
+                _place(mix, sdata, e["t"], 0.8, 0.8)
+    return True
+
+
 def _mix_music(mix: np.ndarray, events: list, duration_s: float) -> None:
     """Rebuild the dynamic-music mix from the logged music taps —
     the offline twin of game/perihelion/music.py's live mixer. Stems loop
@@ -79,6 +162,12 @@ def _mix_music(mix: np.ndarray, events: list, duration_s: float) -> None:
     at tap time); the riser follows its logged gain; stings land at their
     logged instants."""
     mevents = [e for e in events if e["kind"].startswith("music")]
+    # rich chunk-queue bank? (album banks carry bank.json + bar taps)
+    import os
+    rich = os.environ.get("MKVIDEO_MUSIC_BANK")
+    if rich and Path(rich).exists() and (Path(rich) / "bank.json").exists():
+        if _mix_music_rich(mix, events, duration_s, Path(rich)):
+            return
     if not MUSIC_BANK.exists():
         return
     # music runs from level start (prayer) even if no state change was

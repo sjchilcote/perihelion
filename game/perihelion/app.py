@@ -184,6 +184,8 @@ class GameScene(menus.Scene):
                                    difficulty=difficulty,
                                    screen=(INTERNAL_W, INTERNAL_H),
                                    zoom=1.35 * INTERNAL_RES_ZOOM_SCALE)
+        # stage tier drives the music's bed selection (music.py rich mode)
+        self.session.music_tier = getattr(level, "tier", 1)
         self.renderer = Renderer(self.session)
         self.hud = HUD()
         # one-line functional system prompt ("objective" fx), drawn
@@ -324,7 +326,8 @@ class App:
         self.audio = Audio(mute=args.mute)
         from .music import MusicSystem
         self.music = MusicSystem(self.audio,
-                                 enabled=not getattr(args, "no_music", False))
+                                 enabled=not getattr(args, "no_music", False),
+                                 bank_dir=getattr(args, "music_bank", None))
         self.debug = bool(args.fps)
         self.running = True
 
