@@ -226,6 +226,15 @@ def populate(level: dict, spawn_free: set, n_total: int, min_sep: float,
             if any(math.hypot(x - qx, yy - qy) < ksep
                    for qx, qy in kind_pts[kind]):
                 continue
+            # warden+brute arriving as one wave was the death signature
+            # (23/13 of 20 deaths had them together): the heavies are
+            # placed apart CROSS-kind too -- each is a fight, the pair
+            # is an execution (move, don't thin)
+            if kind in ("warden", "brute"):
+                other = "brute" if kind == "warden" else "warden"
+                if any(math.hypot(x - qx, yy - qy) < 500.0 * sep_scale
+                       for qx, qy in kind_pts[other]):
+                    continue
             rooms[ri]["entities"].append(dict(type=kind, pos=[x, yy]))
             placed_pts[ri].append((x, yy))
             kind_pts[kind].append((x, yy))
@@ -390,6 +399,21 @@ def build(n_total: int, min_sep: float, seed: int):
     level = b.to_dict()
     level["alert_hops"] = 1
     level["texture_map"] = texture_map
+    # forward resupply: with the lane guns gone (safe rooms 5x sparser)
+    # the mid-run died of attrition -- 0/80 completions, ~350 dmg taken
+    # vs ~6 heals found. Medkits INSIDE the arena chains reward pushing
+    # through instead of kiting back; a kit every ~3rd combat room.
+    n_med = 0
+    for i, r in enumerate(level["rooms"]):
+        if i in protected or i % 3 or i in lane_rooms:
+            continue
+        vs = r["verts"]
+        cx = sum(v[0] for v in vs) / len(vs)
+        cy = sum(v[1] for v in vs) / len(vs)
+        r.setdefault("entities", []).append(
+            dict(type="medkit", pos=[cx, cy]))
+        n_med += 1
+    print(f"forward resupply: +{n_med} arena medkits")
     n_rigid = _rigidify(level)
     print(f"rigidified {n_rigid} residual scaled seams "
           f"(all portals now pure isometries)")

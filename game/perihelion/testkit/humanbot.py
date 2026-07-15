@@ -678,7 +678,10 @@ class HumanBot(_UnstickMixin, Bot):
             if r not in self._visited_rooms:
                 continue
             h = session.sim.hop_distance(proom, r)
-            if not 0 <= h <= 6:
+            # sparse strongpoints sit further apart now; a warden pull
+            # is worth a longer trek than a trash-wave fallback
+            budget = 8 if self._warden_hunting else 6
+            if not 0 <= h <= budget:
                 continue
             # long rooms are worth extra: the kite lane is where a
             # warden's point-blank radial burst can't reach you and a
