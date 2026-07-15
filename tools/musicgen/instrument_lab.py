@@ -38,6 +38,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "soundgen"))
 import generate_bank as G                     # noqa: E402
 import riffs                                  # noqa: E402
 import harmony                                # noqa: E402
+import vital_bank as VB                       # noqa: E402
 
 SR = 44100
 CACHE = Path("/tmp/claude-1000/-home-login-PycharmProjects-"
@@ -101,32 +102,37 @@ def r_monk(ev):
 
 def r_choir(ev):
     roots = G.bar_roots(ev, 4)
-    x = G.phrase_on([(r, 16) for r in roots], lambda p, d: G.o2.render_notes(
-        G._odin_patch(G.CHOIR), [50 + p, 57 + p], d, tail_s=1.5), gap=0.1)
+    seq = []
+    for bar, r in enumerate(roots):
+        for n in (50 + r, 57 + r):
+            seq.append((n, bar * G.BAR, G.BAR * 0.97, 100))
+    x = VB.render_seq(*VB.SLOTS["choir"], seq, 4 * G.BAR, tail_s=1.5)
     return G.hall(x / (np.abs(x).max() + 1e-9), 1.3).T
 
 
 def r_organ_holy(ev):
     roots = G.bar_roots(ev, 4)
-    x = G.phrase_on([(r, 16) for r in roots], lambda p, d: G.o2.render_notes(
-        G._odin_patch(G.ORGAN_HOLY), [26 + p, 38 + p, 45 + p], d,
-        tail_s=1.0), gap=0.1)
+    seq = []
+    for bar, r in enumerate(roots):
+        for n in (26 + r, 38 + r, 45 + r):
+            seq.append((n, bar * G.BAR, G.BAR * 0.97, 100))
+    x = VB.render_seq(*VB.SLOTS["organ_holy"], seq, 4 * G.BAR, tail_s=1.2)
     return G.hall(x / (np.abs(x).max() + 1e-9), 1.1).T
 
 
 def r_organ_def(ev):
     """Defiant organ: melody accents only (the riff's open slots),
     stabbed dry — the machine shouting the tune's skeleton."""
-    riff = riffs.riff_16(ev, n_bars=4, accents=riffs.ACCENTS_B, pedal=0)
-    x = np.zeros(int(4 * G.BAR * SR) + SR)
-    p = G._odin_patch(G.ORGAN_DEFIANT)
+    riff = riffs.riff_16(ev, n_bars=4, accents=riffs.ACCENTS_B,
+                         chord_roots=harmony.roots_16("pressure", 4))
+    seq = []
     t = 0
     for pp, steps, art in riff:
         if art == "open":
-            y = G.o2.render_notes(p, [50 + pp, 57 + pp],
-                                  G.STEP * steps * 1.4, tail_s=0.3)
-            G.place_mono(x, y, t * G.STEP)
+            for n in (50 + pp, 57 + pp):
+                seq.append((n, t * G.STEP, G.STEP * steps * 1.4, 112))
         t += steps
+    x = VB.render_seq(*VB.SLOTS["organ_defiant"], seq, t * G.STEP)
     return x / (np.abs(x).max() + 1e-9) * 0.9
 
 
@@ -202,11 +208,9 @@ def r_drums(ev):
 
 def r_bass_deep(ev):
     roots = G.bar_roots(ev, 4)
-    x = np.zeros(int(4 * G.BAR * SR) + SR)
-    for bar, r in enumerate(roots):
-        y = G.o2.render_notes(G._odin_patch(G.BASS_DEEP), [26 + r],
-                              G.BAR * 0.95, tail_s=0.3)
-        G.place_mono(x, y, bar * G.BAR)
+    seq = [(26 + r, bar * G.BAR, G.BAR * 0.95, 110)
+           for bar, r in enumerate(roots)]
+    x = VB.render_seq(*VB.SLOTS["bass_deep"], seq, 4 * G.BAR)
     return x / (np.abs(x).max() + 1e-9) * 0.9
 
 
@@ -225,14 +229,16 @@ def r_bass_fm(ev):
         seq.append((38 + pp, t * G.STEP, gate * G.STEP, vel))
         t += steps
     total = t * G.STEP
-    x = G.o2.render_sequence(_patch_path(G.BASS_FM), seq, total)
+    x = VB.render_seq(*VB.SLOTS["bass_fm"], seq, total)
     return x / (np.abs(x).max() + 1e-9) * 0.9
 
 
 def _mk_bed(tier):
     def r(ev):
-        y = G.o2.render_notes(G._odin_patch(G.BEDS[tier]),
-                              [38 - 2 * (tier - 1)], 5.0, tail_s=2.0)
+        n = 38 - 2 * (tier - 1)
+        y = VB.render_seq(*VB.SLOTS[f"bed_t{tier}"],
+                          [(n, 0.0, 5.0, 100), (n - 12, 0.0, 5.0, 90)],
+                          5.0, tail_s=2.5)
         return y / (np.abs(y).max() + 1e-9) * 0.85
     return r
 
@@ -253,10 +259,7 @@ def _mk_lead(wname):
                             (d + 0.5) * G.STEP, 108))
             t += d
         total = t * G.STEP
-        if kind == "odin":
-            x = G.o2.render_sequence(G._odin_patch(sel), seq, total)
-        else:
-            x = G.dx.render_sequence(sel, seq, total)
+        x = VB.render_seq(*VB.SLOTS[f"lead_{wname}"], seq, total)
         x = x / (np.abs(x).max() + 1e-9)
         # IN CONTEXT (director: a naked line always sounds like a
         # lesson): the lead sits over its fight — wall + drums bed at
@@ -275,13 +278,13 @@ def _mk_cell(ename):
 
     def r(ev):
         roots = G.bar_roots(ev, 4)
-        p = G._odin_patch(patch_sel)
-        x = np.zeros(int(4 * G.BAR * SR) + SR)
+        seq = []
         for bar, rt in enumerate(roots):
             for pos, semi, dsteps in cells:
-                y = G.o2.render_notes(p, [38 + rt + semi],
-                                      dsteps * G.STEP * 0.9, tail_s=0.25)
-                G.place_mono(x, y, bar * G.BAR + pos * G.STEP)
+                seq.append((38 + rt + semi,
+                            bar * G.BAR + pos * G.STEP,
+                            dsteps * G.STEP * 0.9, 106))
+        x = VB.render_seq(*VB.SLOTS[f"cell_{ename}"], seq, 4 * G.BAR)
         return x / (np.abs(x).max() + 1e-9) * 0.9
     return r
 

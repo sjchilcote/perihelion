@@ -31,9 +31,42 @@ SO = S / "vital/VitalInstaller/lib/vst/Vital.so"   # REAL Vital
 #     (Vitalium = 1.0.x engine, mangles 1.5.x presets to a
 #      fallback tone — director caught it by ear 2026-07-15)
 
-# slot -> (bank, preset). PROVISIONAL until the scout finishes; the
-# lab bake-off is the director's gate. None = keep pending.
-SLOTS: dict[str, tuple[str, str] | None] = {}
+# slot -> (bank, preset). ALL drawn from director_picks.json
+# (picks-first law); name-flavor fit by me, his lab bake-off is the
+# gate. Runners-up = the rest of the picks file.
+SLOTS: dict[str, tuple[str, str]] = {
+    # core basses
+    "bass_deep": ("5years", "Heavy"),
+    "bass_fm": ("5years", "FM Bass 1"),
+    # enemy bass cells — each kind finally tellable by TIMBRE
+    "cell_mite": ("5years", "Short Pulse Bass"),
+    "cell_husk": ("5years", "Rubber Bass"),
+    "cell_spitter": ("5years", "Acid Bass 3"),
+    "cell_shrieker": ("5years", "Rave Alarm"),
+    "cell_brute": ("tngkaos", "Fat Bass"),
+    "cell_warden": ("5years", "Sub Fall"),
+    "cell_flicker": ("5years", "Malfunction"),
+    # weapon leads
+    "lead_knife": ("5years", "Elastic"),
+    "lead_pistol": ("5years", "Hypercube PLUCK"),
+    "lead_smg": ("5years", "Techtonics"),
+    "lead_shotgun": ("5years", "Splatter"),
+    "lead_rail": ("5years", "Magnetic Separation"),
+    "lead_lightning": ("5years", "Tesla Coil"),
+    "lead_tau": ("5years", "Exabyte"),
+    "lead_hole": ("5years", "Fifth Revival"),
+    "lead_scrap": ("tngkaos", "Dirty  Fonk"),
+    "lead_gland": ("5years", "Tuvan"),
+    # holy / defiant voices
+    "choir": ("5years", "Choir Pad"),
+    "organ_holy": ("5years", "Heaven's Gate"),
+    "organ_defiant": ("tngkaos", "Medieval Punk"),
+    # stage beds by descent
+    "bed_t1": ("5years", "Machine Drone"),
+    "bed_t2": ("tngkaos", "Dark mood 1"),
+    "bed_t3": ("5years", "Distress Signal"),
+    "bed_t4": ("5years", "Evil"),
+}
 
 
 def preset_path(bank: str, stem: str) -> Path:
