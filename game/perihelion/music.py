@@ -153,10 +153,18 @@ class MusicSystem:
         self.vals = (1.0, 0.0, 0.0)
         self.inputs: dict = {}
         self._applied = (1.0, 0.0, 0.0)
+        # inputs snapshotted at the bar line — the ONLY inputs the rich
+        # lanes may read (Tower-of-Torment law: nothing enters except on
+        # a bar; a mid-bar aggro waits for the next bar line)
+        self._applied_inputs: dict = {}
         self._last_bar = -1
         self._channels = {}
         self._sting = None
+        self._pending_sting = False
         self._started = False
+        self._t0_tick = None      # tick when the loops actually started —
+        #                           the audio's bar 0; the bar clock is
+        #                           anchored HERE, not at tick 0
         self._riser_gain = 0.0
         self._live: dict = {}
 
@@ -169,7 +177,7 @@ class MusicSystem:
             names += [p.stem for p in sorted(self.bank_dir.glob("bass_*.wav"))]
         return names
 
-    def _ensure_started(self):
+    def _ensure_started(self, tick: int = 0):
         if self._started or not self.enabled or not self.has_bank:
             return
         self._started = True
@@ -180,16 +188,21 @@ class MusicSystem:
             names = self._loop_names()
             if pygame.mixer.get_num_channels() < 8 + len(names):
                 pygame.mixer.set_num_channels(8 + len(names))
+            # load EVERYTHING first: decode time between play() calls
+            # would stagger the loops' bar 0 (they must start inside the
+            # same mixer buffer to stay phase-locked)
+            sounds = []
             for i, name in enumerate(names):
                 fn = self.bank_dir / f"{name}.wav"
-                if not fn.exists():
-                    continue
-                snd = pygame.mixer.Sound(str(fn))
-                ch = pygame.mixer.Channel(4 + i)
+                if fn.exists():
+                    sounds.append((name, pygame.mixer.Channel(4 + i),
+                                   pygame.mixer.Sound(str(fn))))
+            for name, ch, snd in sounds:
                 ch.play(snd, loops=-1)
                 ch.set_volume(0.0)
                 self._channels[name] = ch
             self._sting = pygame.mixer.Sound(str(self.bank_dir / "sting.wav"))
+            self._t0_tick = tick
         except Exception as exc:
             print(f"[music] start failed, logging only: {exc}",
                   file=sys.stderr)
@@ -210,10 +223,11 @@ class MusicSystem:
                    "riser": self._riser_gain * 0.85}
         if self.rich:
             combat = max(c, d) ** 0.5
-            tier = int(self.inputs.get("tier", 1))
-            weapon = str(self.inputs.get("weapon", "?"))
+            snap = self._applied_inputs or self.inputs
+            tier = int(snap.get("tier", 1))
+            weapon = str(snap.get("weapon", "?"))
             kinds = {}
-            for kind, same_room in self.inputs.get("aggro", []):
+            for kind, same_room in snap.get("aggro", []):
                 kinds[kind] = kinds.get(kind, 0) + (1.0 if same_room
                                                     else 0.4)
             for name in self._channels:
@@ -248,10 +262,15 @@ class MusicSystem:
             tap(kind, detail, vol, 0.5)
 
     # -- per-tick update --------------------------------------------------
+    def music_time(self, tick: int) -> float:
+        """Seconds since the loops' bar 0 (the audio's own clock)."""
+        t0 = self._t0_tick if self._t0_tick is not None else 0
+        return (tick - t0) / TICKS_PER_S
+
     def update(self, session):
         if not self.enabled:
             return
-        self._ensure_started()
+        self._ensure_started(session.tick_count)
         self.inputs = read_inputs(session)
         self.inputs["tier"] = getattr(session, "music_tier", 1)
         self.vals = self.override_vals or values(self.inputs)
@@ -263,19 +282,29 @@ class MusicSystem:
         elif tension <= 1e-6 and self._riser_gain > 1e-6:
             self._riser_gain = 0.0
             self._tap("music_riser", "0.00", 0.0)
-            self._sting_now()                      # release on the pounce
+            self._pending_sting = True             # release on the pounce
 
-        bar = int((session.tick_count / TICKS_PER_S) / self.bar_s)
+        # the bar clock counts from when the AUDIO started, so every
+        # quantized move lands on an audible bar line
+        t = self.music_time(session.tick_count)
+        bar = int(t / self.bar_s)
         if bar != self._last_bar:
             self._last_bar = bar
             prev = self._applied
             self._applied = self.vals
+            self._applied_inputs = dict(self.inputs)
             if (self.vals[2] - prev[2] >= STING_RISE or
                     self.vals[1] - prev[1] >= STING_RISE):
-                self._sting_now()                  # hard rise = a wall
+                self._pending_sting = True         # hard rise = a wall
             if self._applied != prev:
                 p, c, d = self._applied
                 self._tap("music_vals", f"{p:.3f},{c:.3f},{d:.3f}", 1.0)
+        # stings land on the 8th grid, never mid-air
+        if self._pending_sting:
+            eighth = self.bar_s / 8.0
+            if t % eighth < (1.5 / TICKS_PER_S):
+                self._pending_sting = False
+                self._sting_now()
         self._apply()
 
     def _sting_now(self):

@@ -241,8 +241,8 @@ def main():
         ms.update(sess)
         sess.tick_count += 1
 
-        # ---- beat clock + shooting --------------------------------------
-        t_s = sess.tick_count / 60.0
+        # ---- beat clock + shooting (the audio's clock, not tick 0) ------
+        t_s = ms.music_time(sess.tick_count)
         eighth = ms.bar_s / 8.0
         beat_i = int(t_s / eighth)
         on_beat = (t_s % eighth) < 0.05
