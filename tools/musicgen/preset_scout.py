@@ -83,7 +83,7 @@ def phase_render():
     import soundfile as sf
     from vst2_host import Vst2Synth
     OUT.mkdir(exist_ok=True)
-    so = S / "vitalium/usr/lib/vst/vitalium.so"
+    so = S / "vital/VitalInstaller/lib/vst/Vital.so"
     synth = Vst2Synth(so)
     todo = []
     for bank, p in all_presets():

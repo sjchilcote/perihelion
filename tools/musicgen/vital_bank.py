@@ -27,7 +27,9 @@ BANKS = {
     "tngkaos": S / "tngkaos/TngKaos/Presets",
     "5years": S / "fiveyears/5 Years of Vital/Presets",
 }
-SO = S / "vitalium/usr/lib/vst/vitalium.so"
+SO = S / "vital/VitalInstaller/lib/vst/Vital.so"   # REAL Vital
+#     (Vitalium = 1.0.x engine, mangles 1.5.x presets to a
+#      fallback tone — director caught it by ear 2026-07-15)
 
 # slot -> (bank, preset). PROVISIONAL until the scout finishes; the
 # lab bake-off is the director's gate. None = keep pending.

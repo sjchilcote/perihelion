@@ -243,3 +243,11 @@ reasoning as the soundfonts above):
 - 82 samples, 19 keyed. Wired via tools/musicgen/specimen_kit.py;
   lab alternates: ATMO->beds, IMP->stings, RISE->risers, keyed
   BASS->riff sampler voice.
+
+## Vital (Matt Tytel, free tier)
+- Downloaded by the director with his vital.audio account
+  (VitalInstaller.zip). Free-tier EULA: free to use; binaries stay in
+  the scratchpad, never redistributed/committed.
+- Replaces Vitalium as the render engine for .vital banks: Vitalium's
+  1.0.x engine mangles 1.5.x presets into a fallback tone (measured:
+  cross-preset correlation 0.86 -> ~0.00 on real Vital 1.5.5).
