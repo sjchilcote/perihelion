@@ -258,11 +258,20 @@ def main():
     def cache_path(mel, slot):
         return CACHE / f"{mel}__{slot}.wav"
 
-    def render_slot(mel, slot_name, fn):
+    def play_once(cp, slot_name):
+        snd = pygame.mixer.Sound(str(cp))
+        pygame.mixer.stop()
+        snd.play()                       # loops=0: exactly one pass
+        with lock:
+            state["playing"] = slot_name
+
+    def render_slot(mel, slot_name, fn, play):
         import soundfile as sf
         cp = cache_path(mel, slot_name)
         try:
             if not cp.exists():
+                with lock:
+                    state["status"][(mel, slot_name)] = "rendering..."
                 x = fn(G.MELODIES[mel])
                 if x.ndim == 1:
                     x = np.stack([x, x], axis=1)
@@ -270,11 +279,8 @@ def main():
                          .astype(np.int16), SR, subtype="PCM_16")
             with lock:
                 state["status"][(mel, slot_name)] = "ready"
-            snd = pygame.mixer.Sound(str(cp))
-            pygame.mixer.stop()
-            snd.play()
-            with lock:
-                state["playing"] = slot_name
+            if play:
+                play_once(cp, slot_name)
         except Exception as exc:
             with lock:
                 state["status"][(mel, slot_name)] = f"ERR {exc}"[:60]
@@ -282,24 +288,33 @@ def main():
 
     def worker():
         while True:
-            mel, name, fn = jobs.get()
-            render_slot(mel, name, fn)
+            mel, name, fn, play = jobs.get()
+            render_slot(mel, name, fn, play)
 
     threading.Thread(target=worker, daemon=True).start()
+
+    def prerender_all(mel):
+        """No clicking to generate: everything for this melody renders
+        in the background as soon as it's selected."""
+        for name, _p, _m, fn in slots:
+            key = (mel, name)
+            if cache_path(mel, name).exists():
+                state["status"][key] = "ready"
+            elif not state["status"].get(key):
+                state["status"][key] = "queued"
+                jobs.put((mel, name, fn, False))
 
     def click_slot(i):
         mel = melodies[state["mel_i"]]
         name, _preset, _mat, fn = slots[i]
-        key = (mel, name)
-        if state["status"].get(key, "").startswith("queue") or \
-                state["status"].get(key, "").startswith("render"):
-            return
-        if cache_path(mel, name).exists():
-            state["status"][key] = "rendering..."   # instant replay path
+        cp = cache_path(mel, name)
+        if cp.exists():
+            play_once(cp, name)         # plays exactly once
         else:
-            state["status"][key] = f"queued ({jobs.qsize()})" \
-                if jobs.qsize() else "rendering..."
-        jobs.put((mel, name, fn))
+            state["status"][(mel, name)] = "queued (will play)"
+            jobs.put((mel, name, fn, True))
+
+    prerender_all(melodies[0])
 
     rows_top = 46
     row_h = 21
@@ -314,14 +329,17 @@ def main():
                     running = False
                 elif ev.key == pygame.K_UP:
                     state["mel_i"] = (state["mel_i"] - 1) % len(melodies)
+                    prerender_all(melodies[state["mel_i"]])
                 elif ev.key == pygame.K_DOWN:
                     state["mel_i"] = (state["mel_i"] + 1) % len(melodies)
+                    prerender_all(melodies[state["mel_i"]])
             elif ev.type == pygame.MOUSEBUTTONDOWN:
                 x, y = ev.pos
                 if x < 220:
                     i = (y - rows_top) // 25
                     if 0 <= i < len(melodies):
                         state["mel_i"] = i
+                        prerender_all(melodies[i])
                 elif x > 240:
                     i = (y - rows_top) // row_h
                     if 0 <= i < len(slots):
