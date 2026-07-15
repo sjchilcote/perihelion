@@ -9,21 +9,10 @@ from the selected melody. Renders are cached per (melody, slot) in the
 scratchpad; first click on a row renders in the background (row shows
 "rendering..."), then plays.
 
-Slots and their planned material:
-  monk        Delay Lama            the chant itself (free 72bpm grid)
-  choir       Odin2 Choir Aahs      chord tones of the pedal/progression
-  organ_holy  Odin2 Church Organ    progression, with 16' low octave
-  organ_def   Odin2 666-001-Organ   defiant stabs in the chant's rests
-  bell        authored bell         phrase-end tolls
-  wall        chug kit (samples)    pedal-point 8ths on bar roots
-  drums       TR-909 (real)         half-time backbone
-  bass_deep   Odin2 DeepBass        pedal whole notes
-  bass_fm     Odin2 Growly FM       driving 8ths on the pedal
-  bed_t1..t4  Odin2 Drones          stage drones by descent
-  lead_*      per-weapon presets    call-and-response ANSWER: the chant's
-                                    opening figure, up an octave, placed
-                                    in the first rest window
-  cell_*      per-enemy patterns    that enemy's bassline cell
+Slot instruments are read from vital_bank.SLOTS (the director's
+picks through real Vital) — the UI labels come from that table, so
+what you read is what renders. Non-synth voices: monk = Delay Lama,
+wall = chug kit samples, drums = TR-909, bell = authored.
 """
 from __future__ import annotations
 
@@ -381,7 +370,15 @@ def build_slots():
         slots.append((f"cell_{e}", G.ENEMY_CELLS[e][1][1],
                       "that enemy's bass cell", _mk_cell(e)))
     slots += _specimen_slots()
-    return slots
+    # the label NEVER lies: any slot cast in vital_bank.SLOTS shows its
+    # actual preset (single source of truth), not a hardcoded string
+    fixed = []
+    for name, preset, mat, fn in slots:
+        if name in VB.SLOTS:
+            bank, stem = VB.SLOTS[name]
+            preset = f"Vital: {stem} [{bank}]"
+        fixed.append((name, preset, mat, fn))
+    return fixed
 
 
 def cache_path(mel, slot):
