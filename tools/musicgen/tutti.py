@@ -184,6 +184,15 @@ def place(buf, x, t_s, g=1.0):
         buf[i:i + len(seg)] += seg * g
 
 
+def lp(ctx, lane, buf, x, t_s, g=1.0):
+    """place() that ALSO captures into the named lane buffer when the
+    compose pass is collecting stems (bank mode)."""
+    place(buf, x, t_s, g)
+    lanes = ctx.get("lanes")
+    if lanes is not None:
+        place(lanes[lane], x, t_s, g)
+
+
 def drum_bus(d):
     import synth as sy
     par = np.tanh(d * 4.0)
@@ -342,18 +351,19 @@ def _pull(x, end_s, fade_ms=35):
     return y
 
 
-def _boundary_tell(C, t_s, rng):
+def _boundary_tell(ctx, t_s, rng):
     import synth as sy
+    C = ctx["C"]
     rn = int(1.0 * BAR * SR)
     riser = sy.pink_noise(1.0 * BAR, seed=int(t_s))[:rn] \
         * np.linspace(0.05, 0.9, rn) ** 2
-    place(C, sy.highpass(riser, 800) * 0.7, t_s - BAR)
+    lp(ctx, "tells", C, sy.highpass(riser, 800) * 0.7, t_s - BAR)
     rev = G.hall(K.hit("crash", 0.8, rng), 1.5).T.mean(axis=1)[::-1]
-    place(C, rev[-int(BAR * SR):] * 0.6, t_s - BAR)
-    place(C, K.hit("crash", 0.85, rng), t_s, 0.9)
+    lp(ctx, "tells", C, rev[-int(BAR * SR):] * 0.6, t_s - BAR)
+    lp(ctx, "tells", C, K.hit("crash", 0.85, rng), t_s, 0.9)
     boom = np.sin(2 * np.pi * 55 * np.arange(int(0.5 * SR)) / SR) \
         * np.exp(-np.arange(int(0.5 * SR)) / (0.12 * SR))
-    place(C, boom * 0.9, t_s)
+    lp(ctx, "tells", C, boom * 0.9, t_s)
 
 
 # ---------------------------------------------------------------------------
@@ -373,7 +383,7 @@ def _bass_seq_from_riff(riff, base=26):
 def _monk_enter(ctx, t0, gain=0.5, ramp_s=6.0):
     monk = ctx["monk"]
     ramp = np.minimum(1, np.arange(len(monk)) / (ramp_s * SR)) ** 1.5
-    place(ctx["C"], monk * ramp * gain, t0 + BAR)
+    lp(ctx, "holy", ctx["C"], monk * ramp * gain, t0 + BAR)
     ctx["monk_used"] = True
 
 
@@ -387,11 +397,11 @@ def sec_vigil(ctx, bars, prog):
             cs.append((62 + pp, tt, d * ctx["chant_step"] * 1.1, 96))
             tt += d * ctx["chant_step"]
         ch = vb_seq_raw(rec["choir"], cs, bars * BAR, 1.5)
-        place(C, G.hall(ch, 1.6).T.mean(axis=1) * 0.45, t0)
-    place(C, G.hall(bell_render(rec), 1.4).T.mean(axis=1) * 0.5,
-          t0 + 2 * BAR)
-    place(C, G.hall(bell_render(rec, 0.4), 1.4).T.mean(axis=1) * 0.4,
-          t0 + (bars - 2) * BAR)
+        lp(ctx, "holy", C, G.hall(ch, 1.6).T.mean(axis=1) * 0.45, t0)
+    lp(ctx, "holy", C, G.hall(bell_render(rec), 1.4).T.mean(axis=1) * 0.5,
+       t0 + 2 * BAR)
+    lp(ctx, "holy", C, G.hall(bell_render(rec, 0.4), 1.4).T.mean(axis=1) * 0.4,
+       t0 + (bars - 2) * BAR)
 
 
 def sec_ritual(ctx, bars, prog):
@@ -404,18 +414,18 @@ def sec_ritual(ctx, bars, prog):
         for nn in (50 + r, 57 + r, 62 + r):
             cs.append((nn, bar * BAR, BAR * 0.97, 96))
     ch = vb_seq_raw(rec["choir"], cs, bars * BAR, 1.5)
-    place(C, G.hall(ch, 1.7).T.mean(axis=1) * 0.5, t0)
+    lp(ctx, "holy", C, G.hall(ch, 1.7).T.mean(axis=1) * 0.5, t0)
     if not ctx["monk_used"]:
         _monk_enter(ctx, t0)
     else:
-        place(C, ctx["monk_far"] * 0.4, t0 + BAR)
+        lp(ctx, "holy", C, ctx["monk_far"] * 0.4, t0 + BAR)
     fl = []
     for bar in range(1, bars, 2):
         r = roots[bar * 16]
         fl.append((62 + r, bar * BAR + 8 * STEP, 3 * STEP, 100))
     if fl:
         x = vb_seq_raw(rec["flour"], fl, bars * BAR, 0.5)
-        place(C, x * 0.3, t0)
+        lp(ctx, "flour", C, x * 0.3, t0)
 
 
 def sec_entry(ctx, bars, prog):
@@ -425,9 +435,9 @@ def sec_entry(ctx, bars, prog):
     acc = _ACC[rec["accents"][0]]
     if t0 > 0:
         fill = drums(rec, 1, rng, fills_at=(0,))
-        place(C, drum_bus(fill) * 0.7, t0 - BAR)
+        lp(ctx, "drums", C, drum_bus(fill) * 0.7, t0 - BAR)
     dh = drums(rec, bars, rng)
-    place(C, drum_bus(dh) * 0.7, t0)
+    lp(ctx, "drums", C, drum_bus(dh) * 0.7, t0)
     roots = harmony.roots_16(prog, bars)
     riff = riffs.riff_16(ctx["events"], n_bars=bars, accents=acc,
                          chord_roots=roots)
@@ -436,8 +446,8 @@ def sec_entry(ctx, bars, prog):
     wr = wall_take(rec, riff, s[1], 19.0)
     wl = gc.sidechain_duck(wl, dh[:len(wl)], amount=0.35, release_s=0.1)
     wr = gc.sidechain_duck(wr, dh[:len(wr)], amount=0.35, release_s=0.1)
-    place(L, wl * 0.7, t0)
-    place(R, wr * 0.7, t0)
+    lp(ctx, "wall_L", L, wl * 0.7, t0)
+    lp(ctx, "wall_R", R, wr * 0.7, t0)
     bseq, btot = _bass_seq_from_riff(riff)
     bass = sy.highpass(vb_seq_raw(rec["bass"], bseq, btot, 0.4), 90)
     sub = sy.lowpass(_sub_layer(bseq, btot), 90)
@@ -445,9 +455,9 @@ def sec_entry(ctx, bars, prog):
     bass = bass[:m] + sub[:m] * 0.55
     bass = gc.sidechain_duck(bass, dh[:len(bass)], amount=0.45,
                              release_s=0.12)
-    place(C, bass * 0.85, t0)
+    lp(ctx, "bass", C, bass * 0.85, t0)
     if ctx["monk_used"]:
-        place(C, ctx["monk_far"] * 0.3, t0 + 2 * BAR)
+        lp(ctx, "holy", C, ctx["monk_far"] * 0.3, t0 + 2 * BAR)
     else:
         _monk_enter(ctx, t0 + 2 * BAR, gain=0.35)
     ans = riffs.lead_phrase(
@@ -458,7 +468,7 @@ def sec_entry(ctx, bars, prog):
         tt += d * STEP
     x = vb_seq_raw(rec["flour"], fl, bars * BAR, 0.5)
     x = gc.sidechain_duck(x, dh[:len(x)], amount=0.3, release_s=0.1)
-    place(C, x * 0.4, t0)
+    lp(ctx, "flour", C, x * 0.4, t0)
 
 
 def sec_develop(ctx, bars, prog):
@@ -467,7 +477,7 @@ def sec_develop(ctx, bars, prog):
     acc = _ACC[rec["accents"][1]]
     dg = drums(rec, bars, rng, fills_at=(bars - 1,))
     dgp = _pull(dg, bars * BAR - 0.5 * BAR) if ctx["next_is_peak"] else dg
-    place(C, drum_bus(dgp) * 0.7, t0)
+    lp(ctx, "drums", C, drum_bus(dgp) * 0.7, t0)
     roots = harmony.roots_16(prog, bars)
     r3 = riffs.riff_16(ctx["events"], n_bars=bars, accents=acc,
                        chord_roots=roots)
@@ -476,7 +486,7 @@ def sec_develop(ctx, bars, prog):
     fm = gc.sidechain_duck(fm, dg[:len(fm)], amount=0.4, release_s=0.1)
     if ctx["next_is_peak"]:
         fm = _pull(fm, bars * BAR - 0.5 * BAR)
-    place(C, fm * 0.6, t0)
+    lp(ctx, "fm", C, fm * 0.6, t0)
     frag = riffs.lead_phrase(
         [(p, d) for p, d in ctx["events"] if p is not None][:8], factor=2)
     lseq = []
@@ -490,12 +500,12 @@ def sec_develop(ctx, bars, prog):
                              release_s=0.1)
     if ctx["next_is_peak"]:
         lead = _pull(lead, bars * BAR - 0.5 * BAR)
-    place(C, lead * 0.5, t0)
+    lp(ctx, "lead", C, lead * 0.5, t0)
     cs = [(50, 0.0, bars * BAR, 90), (57, 0.0, bars * BAR, 84)]
     c3 = vb_seq_raw(rec["choir"], cs, bars * BAR, 1.0)
     c3 = G.hall(c3, 1.8).T.mean(axis=1)
     c3 = gc.sidechain_duck(c3, dg[:len(c3)], amount=0.5, release_s=0.1)
-    place(C, c3 * 0.3, t0)
+    lp(ctx, "holy", C, c3 * 0.3, t0)
 
 
 def sec_rebuild(ctx, bars, prog):
@@ -507,18 +517,18 @@ def sec_rebuild(ctx, bars, prog):
                       accents=_ACC[rec["accents"][1]], chord_roots=roots)
     fseq, ftot = _bass_seq_from_riff(r, base=38)
     fm = vb_seq_raw(rec["fm"], fseq, ftot, 0.3)
-    place(C, fm * 0.55, t0)
+    lp(ctx, "fm", C, fm * 0.55, t0)
     dh = drums(rec, bars, rng)
     n_in = int(2 * BAR * SR)
     dh2 = dh.copy()
     dh2[:n_in] *= np.linspace(0, 1, n_in) ** 2
-    place(C, drum_bus(dh2) * 0.6, t0)
+    lp(ctx, "drums", C, drum_bus(dh2) * 0.6, t0)
     wl = wall_take(rec, r, rec["seeds"][2], 17.0)
     keep = (bars - 2) * BAR
     wl2 = np.zeros_like(wl)
     wl2[int(keep * SR):] = wl[int(keep * SR):]
-    place(ctx["L"], wl2 * 0.6, t0)
-    place(ctx["R"], wl2 * 0.6, t0)
+    lp(ctx, "wall_L", ctx["L"], wl2 * 0.6, t0)
+    lp(ctx, "wall_R", ctx["R"], wl2 * 0.6, t0)
 
 
 def sec_peak(ctx, bars, prog):
@@ -527,11 +537,11 @@ def sec_peak(ctx, bars, prog):
     import synth as sy
     rn = int(2 * BAR * SR)
     riser = sy.pink_noise(2 * BAR, seed=3)[:rn] * np.linspace(0.1, 1, rn) ** 2
-    place(C, riser * 0.5, t0 - 2 * BAR)
-    place(C, K.hit("crash", 1.0, rng), t0, 0.8)
-    place(C, G.hall(bell_render(rec, 1.0), 1.2).T.mean(axis=1) * 0.6, t0)
+    lp(ctx, "tells", C, riser * 0.5, t0 - 2 * BAR)
+    lp(ctx, "tells", C, K.hit("crash", 1.0, rng), t0, 0.8)
+    lp(ctx, "holy", C, G.hall(bell_render(rec, 1.0), 1.2).T.mean(axis=1) * 0.6, t0)
     dh4 = drums(rec, bars, rng, fills_at=(bars - 1,))
-    place(C, drum_bus(dh4) * 0.75, t0)
+    lp(ctx, "drums", C, drum_bus(dh4) * 0.75, t0)
     acc = _ACC[rec["accents"][2]]
     roots = harmony.roots_16(prog, bars)
     if prog != "lunge" and bars >= 8:
@@ -543,8 +553,8 @@ def sec_peak(ctx, bars, prog):
     wr4 = wall_take(rec, r4, s[3], 21.0)
     wl4 = gc.sidechain_duck(wl4, dh4[:len(wl4)], amount=0.35, release_s=0.1)
     wr4 = gc.sidechain_duck(wr4, dh4[:len(wr4)], amount=0.35, release_s=0.1)
-    place(L, wl4 * 0.8, t0)
-    place(R, wr4 * 0.8, t0)
+    lp(ctx, "wall_L", L, wl4 * 0.8, t0)
+    lp(ctx, "wall_R", R, wr4 * 0.8, t0)
     b4, btot = _bass_seq_from_riff(r4)
     bass4 = sy.highpass(vb_seq_raw(rec["bass"], b4, btot, 0.4), 90)
     sub4 = sy.lowpass(_sub_layer(b4, btot), 90)
@@ -552,7 +562,7 @@ def sec_peak(ctx, bars, prog):
     bass4 = bass4[:m4] + sub4[:m4] * 0.6
     bass4 = gc.sidechain_duck(bass4, dh4[:len(bass4)], amount=0.45,
                               release_s=0.12)
-    place(C, bass4 * 0.95, t0)
+    lp(ctx, "bass", C, bass4 * 0.95, t0)
     cs = []
     for bar in range(bars):
         root = roots[bar * 16]
@@ -561,20 +571,20 @@ def sec_peak(ctx, bars, prog):
     choir = vb_seq_raw(rec["choir"], cs, bars * BAR, 1.0)
     cw = sy.highpass(G.hall(choir, 1.3).T.mean(axis=1), 300)
     cw = gc.sidechain_duck(cw, dh4[:len(cw)], amount=0.5, release_s=0.12)
-    place(C, cw * 0.5, t0)
+    lp(ctx, "holy", C, cw * 0.5, t0)
     monk2 = ctx["monk_far"]
     ramp2 = np.minimum(1, np.arange(len(monk2)) / (4.0 * SR)) ** 1.5
     m2 = gc.sidechain_duck(monk2 * ramp2, dh4[:len(monk2)],
                            amount=0.5, release_s=0.12)
-    place(C, m2 * 0.4, t0)
+    lp(ctx, "holy", C, m2 * 0.4, t0)
 
 
 def sec_outro(ctx, bars, prog):
     rec, C, t0 = ctx["rec"], ctx["C"], ctx["t"]
     rng = ctx["rng"]
-    place(C, K.hit("crash", 0.9, rng), t0)
-    place(C, G.hall(bell_render(rec, 0.7), 1.5).T.mean(axis=1) * 0.5,
-          t0 + 0.5 * BAR)
+    lp(ctx, "tells", C, K.hit("crash", 0.9, rng), t0)
+    lp(ctx, "holy", C, G.hall(bell_render(rec, 0.7), 1.5).T.mean(axis=1) * 0.5,
+       t0 + 0.5 * BAR)
 
 
 SECS = {"vigil": sec_vigil, "ritual": sec_ritual, "entry": sec_entry,
@@ -585,7 +595,11 @@ _BAND = {"entry", "develop", "peak", "rebuild"}
 
 # ---------------------------------------------------------------------------
 
-def compose(mel_name: str):
+LANE_NAMES = ("holy", "drums", "wall_L", "wall_R", "bass",
+              "fm", "lead", "flour", "tells", "spine")
+
+
+def compose(mel_name: str, collect_lanes: bool = False):
     events = G.MELODIES[mel_name]
     rec = RECIPES[mel_name]
     form = rec["form"]
@@ -603,7 +617,10 @@ def compose(mel_name: str):
     monk_raw = sy.lowpass(monk_raw, 5000)
     harsh = sy.highpass(sy.lowpass(monk_raw, 4500), 1800)
     monk_raw = monk_raw - 0.8 * harsh
+    lanes = ({nm: np.zeros(n) for nm in LANE_NAMES}
+             if collect_lanes else None)
     ctx = dict(rec=rec, events=events, L=L, R=R, C=C, rng=rng, t=0.0,
+               lanes=lanes,
                monk=G.hall(monk_raw, 2.4).T.mean(axis=1),
                monk_far=G.hall(monk_raw, 2.0).T.mean(axis=1),
                chant_step=chant_step, monk_used=False,
@@ -616,7 +633,7 @@ def compose(mel_name: str):
                                and form[i + 1][0] == "peak")
         prev_band = i > 0 and form[i - 1][0] in _BAND
         if i > 0 and stype in _BAND and not prev_band:
-            _boundary_tell(C, t, rng)
+            _boundary_tell(ctx, t, rng)
         SECS[stype](ctx, bars, prog)
         t += bars * BAR
 
@@ -634,6 +651,8 @@ def compose(mel_name: str):
         e = int(0.4 * SR)
         y[:e] *= np.linspace(0, 1, e)
         place(D, y * gains[i % 5], tt)
+        if lanes is not None:
+            place(lanes["spine"], y * gains[i % 5], tt)
         tt += dur
     C = C + D
 
@@ -649,6 +668,8 @@ def compose(mel_name: str):
     pk = np.abs(st).max()
     if pk > 10 ** (-1.0 / 20):
         st *= 10 ** (-1.0 / 20) / pk
+    if collect_lanes:
+        return st, lanes, ctx
     return st
 
 
