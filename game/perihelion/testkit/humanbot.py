@@ -103,6 +103,17 @@ HARD_TURN_SCALE = 0.75         # was 0.55: gentler shed when it does trigger
 DISTANT_GLANCE_RADIUS = 30.0
 DISTANT_GLANCE_STEP = 2.5
 
+# Per-weapon fire tolerance (director 2026-07-16: "ABSURDLY hesitant to
+# fire... rather die with 999 ammo than fire the shotgun from anything
+# less than knife-fight range"). The old gate demanded rail precision
+# from every gun. A weapon's acceptable lateral miss = flat slop + a
+# cone term growing with range, in WORLD units, scaled by skill/4.
+WEAPON_AIM_SLOP = {"knife": 26.0, "pistol": 7.0, "smg": 10.0,
+                   "shotgun": 18.0, "rail": 4.5, "lightning": 40.0,
+                   "tau": 22.0, "hole": 12.0, "scrap": 18.0,
+                   "gland": 12.0}
+WEAPON_AIM_CONE = {"shotgun": 0.14, "smg": 0.07, "scrap": 0.10}
+
 
 class HumanBot(_UnstickMixin, Bot):
     """Perception -> policy -> reactive executor -> MouseModel input
@@ -124,6 +135,8 @@ class HumanBot(_UnstickMixin, Bot):
         self._flinch_rng = Random(spawn.randrange(1 << 30))
         self._aim_world_angle = 0.0  # last aim direction in room space
         self._med_target = None
+        self._med_since = 0
+        self._med_blacklist: dict = {}
         self._strafe_sign = 1
         self._strafe_rng = Random(spawn.randrange(1 << 30))
         self._weapon_want = 0
@@ -174,16 +187,16 @@ class HumanBot(_UnstickMixin, Bot):
         # charges in to dark rooms with 50+ enemies... instead of
         # kiting them in to the nearby turrets"): facing a swarm, fall
         # back to the last sentry field passed and fight from there.
-        self._ohshit_room: int | None = None
-        self._ohshit_ticks = 0
-        self._ohshit_quiet = 0
         self._pressure_hist = collections.deque()
-        self._ohshit_cooldown = 0
-        self._ohshit_winning = 0
+        self._retreat_cooldown = 0   # suppress re-rise after a stalemate
+        # motor-schema arbitration state (BBR/Arkin, director 2026-07-16:
+        # behaviors emit vectors, gains weight them, output = the sum --
+        # the retreat LEVEL is continuous, not a latched mode)
+        self._retreat_gain = 0.0
+        self._retreat_room: int | None = None
         self._warden_hunting = False
         self._settle_focus = None
         self._settle_until = 0
-        self._standoff = False
         self._last_kills = 0
         self._last_kill_tick = 0
         self._threats_total = 0
@@ -287,72 +300,107 @@ class HumanBot(_UnstickMixin, Bot):
         self._warden_hunting = any(
             e.get("kind") == "warden" and e.get("state") == "hunt"
             for e in co_room + distant)
-        self._update_ohshit(session, snapshot, proom,
-                            self._threats_total, tick)
 
+        # ---- motor-schema arbitration (BBR/Arkin; director's order:
+        # "a 'move routine' and a 'fight routine' whose vectors
+        # weighted-sum, with the weights determined by the situation").
+        # Each behavior emits a room-space vector; gains are continuous
+        # functions of the situation; the command = the normalized sum.
+        # The only ballistic override left is the flank-escape reflex
+        # (a triggered, temporally-extended schema) and unstick.
+        self._retreat_gain_update(session, snapshot, tick)
+        rg = self._retreat_gain
+        n_co_hunt = sum(1 for e in co_room
+                        if e.get("state") in ("hunt", "waking"))
+
+        fight_vec = (0.0, 0.0)
+        fight_gain = 0.0
         if co_room:
-            self._pause_ticks = 0  # combat preempts any threshold ritual
+            self._pause_ticks = 0   # combat preempts every ritual
             self._lookaround_ticks = 0
             self._combat_streak += 1
             self._last_contact_tick = tick
-            inp = self._combat_input(session, snapshot, co_room, px, py)
-            if self._ohshit_room is not None and not self._standoff:
-                # OH-SHIT: fall back toward the sentry field, firing the
-                # whole way -- never trade toe-to-toe with a swarm. The
-                # heavy-standoff backpedal outranks the anchor, though:
-                # navigating back to the guns while a warden shares the
-                # room walks you INTO the burst (the room-49 deaths).
-                mx_, my_ = self._nav_room_move(session, snapshot, px, py,
-                                               self._ohshit_room)
-                if mx_ or my_:
-                    inp.mx, inp.my = mx_, my_
-            # sustained-pressure escape (ported from AggroBot): a fight
-            # that has accumulated ~10s of net pressure -- including the
-            # portal ping-pong pattern where contact keeps dropping and
-            # re-acquiring -- gets walked out toward the exit while firing
-            elif self._combat_streak > 60 * 10:
-                mx_, my_ = self._nav_exit_move(session, snapshot, px, py)
-                if mx_ or my_:
-                    inp.mx, inp.my = mx_, my_
-            return self._apply_unstick(px, py, inp)
-
-        if self._ohshit_room is not None:
-            # swarm spotted ahead (or still chasing): do NOT close on it;
-            # withdraw to the sentry field and let it come to the guns
-            # (once there, `_nav_room_move` anchors on the sentries, so
-            # the bot holds inside the field instead of advancing)
+            inp, fvx, fvy = self._combat_input(session, snapshot,
+                                               co_room, px, py)
+            fight_vec = (fvx, fvy)
+            # footwork weight grows with how crowded the fight is, and
+            # yields ground to the retreat schema as the fight sours
+            fight_gain = min(1.0, 0.75 + 0.12 * n_co_hunt) * \
+                max(0.45, 1.0 - 0.5 * rg)
+        else:
+            self._combat_streak = max(0, self._combat_streak - 2)
             inp = InputFrame()
-            inp.mx, inp.my = self._nav_room_move(session, snapshot, px, py,
-                                                 self._ohshit_room)
             if distant:
-                ds = self._distant_threat_input(session, snapshot, distant,
-                                                visible_screens, px, py)
-                inp.ax, inp.ay = ds.ax, ds.ay   # eyes on the swarm,
-            self._last_contact_tick = tick      # feet toward the guns
+                self._pause_ticks = 0
+                self._lookaround_ticks = 0
+                self._last_contact_tick = tick
+                ds = self._distant_threat_input(session, snapshot,
+                                                distant, visible_screens,
+                                                px, py)
+                inp.ax, inp.ay = ds.ax, ds.ay   # eyes on what's coming
+
+        # retreat-to-guns schema
+        ret_vec = (0.0, 0.0)
+        if rg > 0.05:
+            if self._retreat_room is None or tick % 30 == 0:
+                self._retreat_room = self._best_field(session, proom)
+            if self._retreat_room is not None:
+                ret_vec = self._nav_room_move(session, snapshot, px, py,
+                                              self._retreat_room)
+
+        # advance schema: the objective (medkit when hurt, else exit) --
+        # always some forward intent, damped by pressure and retreat
+        # a live co-room fight all but zeroes forward objective pull --
+        # the blend must never read as running past enemies (the
+        # arbitration's first cut at 0.28/hunter left 0.72 advance with
+        # one hunter on screen and the bot toured the gauntlet shooting
+        # over its shoulder: 19 kills in 200s)
+        n_dist_hunt = sum(1 for e in distant
+                          if e.get("state") in ("hunt", "waking"))
+        # damping counts EVERY perceived co-room enemy: aggro-only is
+        # the retreat rule, not license to stroll past a fight plinking
+        # idle targets on the move (that leak re-created run-past)
+        adv_gain = max(0.08, 1.0 - rg - 0.5 * len(co_room)
+                       - 0.2 * min(3, n_dist_hunt))
+        adv_vec = self._objective_move(session, snapshot, px, py, proom)
+
+        RG_W = float(__import__('os').environ.get('BOT_RG_W', '1.15'))
+        vx = fight_gain * fight_vec[0] + RG_W * rg * ret_vec[0] + \
+            adv_gain * adv_vec[0]
+        vy = fight_gain * fight_vec[1] + RG_W * rg * ret_vec[1] + \
+            adv_gain * adv_vec[1]
+        # flank-escape reflex: ballistic, dominates while it runs
+        if self._escape_ticks > 0 and co_room:
+            gx = px + self._escape_dir[0] * 80.0
+            gy = py + self._escape_dir[1] * 80.0
+            way = self._steer_target(session, proom, (px, py), (gx, gy))
+            ex_, ey_ = _norm((way[0] - px, way[1] - py)) \
+                if _dist(way, (px, py)) > 1e-6 else self._escape_dir
+            vx = vx * 0.25 + ex_
+            vy = vy * 0.25 + ey_
+        # pace policy: fights and committed retreats run at FULL speed
+        # (a 0.75-gain backpedal moved ~100 u/s against 153 u/s mites --
+        # diluted magnitude was the perma-chew), but a lone advance
+        # schema keeps its gain as its pace -- blanket renormalization
+        # erased the caution signal and the bot sprinted the whole lane
+        # in 3s, waking three segments at once (old/new comparison,
+        # seed 1002). All schema vectors are already screen-space.
+        mag = math.hypot(vx, vy)
+        if mag > 1e-6:
+            speed = min(1.0, mag)
+            if fight_gain > 0.45 or rg > 0.45:
+                speed = max(speed, 0.95)
+            inp.mx, inp.my = vx / mag * speed, vy / mag * speed
+        else:
+            inp.mx, inp.my = 0.0, 0.0
+
+        if co_room or distant:
+            if not co_room:
+                inp.mx, inp.my = self._humanize_move(inp.mx, inp.my)
             return self._apply_unstick(px, py, inp)
 
-        if distant:
-            # A threat plainly on screen cancels every ritual just like a
-            # co-room one -- never run PAST something the bot can see
-            # coming. It just can't be fired on yet: every weapon's hit
-            # test is room-scoped (`sim._fire`/`_fire_rail` resolve
-            # targets from `room_entities(proom)` / a raycast rooted at
-            # `proom`), so "firing" here could never connect and would
-            # just be an ammo-waste, spray-at-nothing tell. Orient and
-            # close the distance instead; `co_room` above takes over --
-            # fire included -- the tick it's actually reached.
-            self._pause_ticks = 0
-            self._lookaround_ticks = 0
-            self._escape_ticks = 0
-            self._last_contact_tick = tick
-            inp = self._distant_threat_input(session, snapshot, distant,
-                                              visible_screens, px, py)
-            return self._apply_unstick(px, py, inp)
-
-        self._combat_streak = max(0, self._combat_streak - 2)
+        # calm: rituals may run on top of the blended (advance) command
         self._escape_ticks = 0
-        inp = InputFrame()
-        inp.mx, inp.my = self._objective_move(session, snapshot, px, py, proom)
 
         # room-entry protocol (design doc §3): pause at the threshold of
         # unexplored territory and lamp-sweep it from the doorway. A hurt
@@ -442,18 +490,34 @@ class HumanBot(_UnstickMixin, Bot):
         heal_bar = 70 if any(p["hops"] == 0 for p in medkits) else 60
         if snapshot["hp"] < heal_bar and medkits:
             target = None
+            # give-up timer: a medkit the bot has chased for 8s without
+            # reaching is unreachable in practice (terrain, fold seams)
+            # -- blacklist it briefly instead of orbiting forever
+            if self._med_target is not None and \
+                    snapshot["tick"] - self._med_since > 480:
+                self._med_blacklist[self._med_target] = \
+                    snapshot["tick"] + 1800
+                self._med_target = None
+            medkits = [p for p in medkits
+                       if self._med_blacklist.get(
+                           (p["room"], p["pos"]), 0) < snapshot["tick"]]
             if self._med_target is not None:
                 target = next((p for p in medkits
                                if (p["room"], p["pos"]) == self._med_target),
                               None)
             if target is None:
+                if not medkits:
+                    self._med_target = None
+                    return self._nav_exit_move(session, snapshot, px, py)
                 target = min(medkits, key=lambda p: (p["hops"], p["room"]))
                 self._med_target = (target["room"], target["pos"])
+                self._med_since = snapshot["tick"]
             if target["room"] == proom:
                 goal = target["pos"]
             else:
                 edge = session.sim.next_edge(proom, target["room"])
-                goal = session.sim.edge_midpoint(proom, edge) if edge >= 0 else None
+                goal = self._portal_goal(session, proom, edge) \
+                    if edge >= 0 else None
             if goal is None:
                 return (0.0, 0.0)
             way = self._steer_target(session, proom, (px, py), goal)
@@ -581,114 +645,68 @@ class HumanBot(_UnstickMixin, Bot):
                     best, best_cost = c, cost
         return best if best is not None else target
 
-    # -- OH-SHIT swarm retreat (director 2026-07-16) --------------------
+    # -- retreat-to-guns schema (BBR rework of the OH-SHIT latch) ------
 
-    OHSHIT_N = 5         # this many perceived threats = a swarm, not a fight
-    OHSHIT_CLEAR = 1     # pressure low again: resume the objective
-    OHSHIT_TICKS = 60 * 12
-
-    def _update_ohshit(self, session: GameSession, snapshot: dict,
-                       proom: int, n_threats: int, tick: int) -> None:
-        """Facing a swarm, a competent player doesn't walk into it -- he
-        falls back to the last sentry field he passed and makes the swarm
-        cross the guns. Enter on OHSHIT_N perceived threats; leave when
-        the pressure has thinned to OHSHIT_CLEAR or the clock runs out
-        (never anchor forever on a stalemate)."""
+    def _retreat_gain_update(self, session, snapshot, tick: int) -> None:
+        """Continuous 'the fight is being lost' level in [0,1]. Rises
+        fast on losing signals (aggro influx outpacing kills while
+        engaged, a hunting warden, hurt under pressure), decays slowly
+        -- faster once kills outpace influx. Replaces the latched
+        OH-SHIT mode: the retreat VECTOR's weight is this gain, so
+        falling back blends with fighting instead of snapping."""
         hp = snapshot["hp"]
-        self._pressure_hist.append((snapshot["tick"], n_threats,
+        n = self._threats_total
+        self._pressure_hist.append((tick, n,
                                     session.metrics.get("kills", 0)))
         while self._pressure_hist and \
-                snapshot["tick"] - self._pressure_hist[0][0] > 120:
+                tick - self._pressure_hist[0][0] > 120:
             self._pressure_hist.popleft()
         t0, n0, k0 = self._pressure_hist[0]
-        influx = n_threats - n0
+        influx = n - n0
         killed = session.metrics.get("kills", 0) - k0
-        if self._ohshit_room is not None:
-            self._ohshit_ticks -= 1
-            # win-trend release: the trigger is rate-based, the release
-            # must be too -- kills outpacing influx means the fight
-            # turned; holding the retreat through a fight the bot is
-            # winning is what kept OH-SHIT at 40% of the run
-            if killed > influx and killed > 0 and hp >= 40.0:
-                self._ohshit_winning += 1
-            else:
-                self._ohshit_winning = 0
-            if self._ohshit_winning >= 60:
-                self._ohshit_room = None
-                self._ohshit_winning = 0
-                return
-            # COMMITTED withdrawal: perception blips to zero through the
-            # walls the instant the bot backs out of sight, and clearing
-            # on that blip caused a 1s-period enter/clear thrash (seed
-            # 1002 pinballed rooms 48<->50 for 27s, then advanced into
-            # the hub and died in 4s). Clear only on SUSTAINED quiet.
-            if n_threats > self.OHSHIT_CLEAR or hp < 45.0:
-                self._ohshit_quiet = 0
-            else:
-                self._ohshit_quiet += 1
-            done = self._ohshit_quiet >= 120
-            # stalemate breaker: holding at the guns only pays while the
-            # wave actually comes. 15s with zero kills means the pull
-            # failed (idle enemies out of alert range) -- a player gives
-            # up waiting and goes to them (5 timeout runs at 15min were
-            # exactly this loiter, one of them 174/180 kills from done)
-            # staleness breaks camp at ANY hp: a hurt bot that gated
-            # this on hp >= 55 camped a dead stalemate for 900s (seed
-            # 1011) -- if they are not coming, waiting is just a slower
-            # death, so go fight carefully instead. A stale break also
-            # suppresses re-triggering for 10s: without the cooldown the
-            # same standoff re-armed the instant the clock reset.
-            stale = snapshot["tick"] - self._last_kill_tick > 60 * 15
-            if done or stale or self._ohshit_ticks <= 0:
-                self._ohshit_room = None
-                if stale:
-                    self._ohshit_cooldown = snapshot["tick"] + 600
-            return
-        # trigger rule (director 2026-07-16): OH-SHIT only when the
-        # fight is being LOST -- the rate at which aggroed enemies pile
-        # on exceeds the rate they die. A steady grind (influx <= kills)
-        # is a fight, not an emergency; the bot stands and wins it.
-        # ... and only for a fight he's actually IN: influx always beats
-        # kills in the first second of a wave (kills lag aggro), so an
-        # instant trigger made every first contact a retreat and OH-SHIT
-        # still owned 35-54% of the run. Stand and fight first; fall
-        # back when the trend is still bad after real engagement.
-        if snapshot["tick"] < self._ohshit_cooldown:
-            return
-        engaged = self._combat_streak > 90
-        losing = n_threats >= 3 and influx > killed and engaged
-        hurt_and_pressed = hp < 45.0 and n_threats >= 2
-        # a HUNTING warden is an emergency at any count: 19/20 farm
-        # deaths had one in the room, and a solo duel in an open lane is
-        # a coin the bot keeps losing -- the one monster that outguns
-        # you is exactly what the turret pocket exists for
-        heavy_hunting = self._warden_hunting
-        if not (losing or hurt_and_pressed or heavy_hunting):
-            return
-        # the sentry fields already walked through (a player remembers
-        # the turrets he passed, not ones he hasn't seen yet). Prefer the
-        # STRONGEST nearby field, not the nearest room with any gun: the
-        # choke pair puts 1 sentry in the throat and 2 (plus the medkit)
-        # in the wide antechamber behind it -- anchoring in the throat
-        # was 16/20 deaths at room 50, face-first in the funnel stream.
+
+        lose = 0.0
+        if tick >= self._retreat_cooldown:
+            if n >= 3 and influx > killed and self._combat_streak > 90:
+                lose += 0.6
+            if self._warden_hunting:
+                lose += 0.5
+            if hp < 45.0 and n >= 2:
+                lose += 0.5
+        lose = min(1.0, lose)
+        if lose > self._retreat_gain:
+            a = 0.08                        # rise ~0.25s to level
+        elif killed > influx and killed > 0:
+            a = 0.035                       # fight turned: let go quicker
+        else:
+            a = 0.012                       # otherwise ease off slowly
+        self._retreat_gain += a * (lose - self._retreat_gain)
+        if self._retreat_gain < 0.05:
+            self._retreat_room = None
+        # stalemate: a high retreat level that produces no kills for 15s
+        # means they are not coming -- drop it and go fight carefully
+        if self._retreat_gain > 0.5 and \
+                tick - self._last_kill_tick > 60 * 15:
+            self._retreat_gain = 0.0
+            self._retreat_room = None
+            self._retreat_cooldown = tick + 600
+
+    def _best_field(self, session: GameSession, proom: int) -> int | None:
+        """Strongest reachable sentry field among rooms already seen:
+        gun count dominates, hops discount, long rooms get a bonus (the
+        kite lane is where a warden's burst can't corner you)."""
         guns = collections.Counter()
         for tid in session.sentries:
             if session.sim.exists(tid):
                 guns[session.sim.get_room(tid)] += 1
         best, best_score = None, -(1 << 20)
+        budget = 8 if self._warden_hunting else 6
         for r, n_guns in guns.items():
             if r not in self._visited_rooms:
                 continue
             h = session.sim.hop_distance(proom, r)
-            # sparse strongpoints sit further apart now; a warden pull
-            # is worth a longer trek than a trash-wave fallback
-            budget = 8 if self._warden_hunting else 6
             if not 0 <= h <= budget:
                 continue
-            # long rooms are worth extra: the kite lane is where a
-            # warden's point-blank radial burst can't reach you and a
-            # rail line stays open (the seed-1001 death: pulled the
-            # warden into the 120u choke throat and stood in the burst)
             try:
                 vs = session.level.room_verts[r]
                 xs = [v[0] for v in vs]
@@ -699,9 +717,26 @@ class HumanBot(_UnstickMixin, Bot):
             score = n_guns * 3 - h + (3 if long_dim >= 300.0 else 0)
             if score > best_score:
                 best, best_score = r, score
-        if best is not None:
-            self._ohshit_room = best
-            self._ohshit_ticks = self.OHSHIT_TICKS
+        return best
+
+    def _portal_goal(self, session: GameSession, proom: int,
+                     edge: int) -> tuple[float, float]:
+        """A point BEYOND the portal edge, not on it: steering at the
+        edge midpoint itself is a knife-edge attractor -- the tick you
+        arrive the room flips, the goal flips with it, and the bot
+        surfs the seam forever (seed 1002 spent 800s sliding along the
+        fold at y=74.x). Overshooting along the outward direction
+        carries the crossing through."""
+        mx_, my_ = session.sim.edge_midpoint(proom, edge)
+        try:
+            vs = session.level.room_verts[proom]
+            cx = sum(v[0] for v in vs) / len(vs)
+            cy = sum(v[1] for v in vs) / len(vs)
+            dx, dy = mx_ - cx, my_ - cy
+            d = math.hypot(dx, dy) or 1.0
+            return (mx_ + dx / d * 40.0, my_ + dy / d * 40.0)
+        except Exception:
+            return (mx_, my_)
 
     def _nav_room_move(self, session: GameSession, snapshot: dict,
                        px: float, py: float, target_room: int
@@ -737,7 +772,7 @@ class HumanBot(_UnstickMixin, Bot):
             edge = session.sim.next_edge(proom, target_room)
             if edge is None or edge < 0:
                 return (0.0, 0.0)
-            goal = session.sim.edge_midpoint(proom, edge)
+            goal = self._portal_goal(session, proom, edge)
         way = self._steer_target(session, proom, (px, py), goal)
         return nav_to_point(session, px, py, way)
 
@@ -753,7 +788,7 @@ class HumanBot(_UnstickMixin, Bot):
             edge = snapshot.get("exit_next_edge", -1)
             if edge < 0:
                 return (0.0, 0.0)
-            goal = session.sim.edge_midpoint(proom, edge)
+            goal = self._portal_goal(session, proom, edge)
         way = self._steer_target(session, proom, (px, py), goal)
         return nav_to_point(session, px, py, way)
 
@@ -904,8 +939,7 @@ class HumanBot(_UnstickMixin, Bot):
         self._escape_ticks = self._nav_rng.randint(50, 80)
 
     def _combat_input(self, session: GameSession, snapshot: dict,
-                       perceived: list[dict], px: float, py: float) -> InputFrame:
-        self._standoff = False
+                       perceived: list[dict], px: float, py: float):
         self._update_flank_escape(perceived, snapshot["hp"], px, py)
         # PAIN OVERRIDES EVERYTHING (director 2026-07-16: the bot "will
         # hold fire on an enemy currently touch-hurting it to shoot at a
@@ -1016,15 +1050,21 @@ class HumanBot(_UnstickMixin, Bot):
         # camera 24px was a 53u slop -- the bot pulled the trigger with
         # the cursor half a room off the target ("its aim is strangely
         # bad", director 2026-07-16)
-        allowed_px = max(6.0 * self.skill * (cam_scale / 1.35),
-                         target_r * 0.9 * cam_scale)
-        # flinch suppresses aimed fire -- but not point-blank panic fire:
-        # a player being chewed on mashes the trigger through the flinch
-        # (the miss cost at contact range is nil and holding fire on the
-        # thing biting you is the machine tell the director called out)
+        held = snapshot["weapon"]
+        # the flat slop scales IN with range: at contact the silhouette
+        # rules (a shotgun 0.5 rad off at 11u genuinely misses a mite --
+        # full flat slop there let flinch-junk shots pass the gate and a
+        # 4hp mite chewed the bot for six straight seconds, seed 1005);
+        # at range the cone term takes over and does the forgiving
+        slop = WEAPON_AIM_SLOP.get(held, 8.0) * min(1.0, dist / 140.0) \
+            + WEAPON_AIM_CONE.get(held, 0.0) * dist
+        allowed_world = target_r * 0.9 + slop * (self.skill / 4.0)
+        allowed_px = max(3.0, allowed_world * cam_scale)
+        # no flinch hard-block: flinch already kicks the aim angle, and
+        # the ray gate scores the kicked ray honestly -- a flinched shot
+        # that still crosses the silhouette is a shot a human takes
         inp.fire = (screen_err < allowed_px and
-                    snapshot["tick"] >= self._settle_until and
-                    (self._flinch_ticks == 0 or dist < 55.0))
+                    snapshot["tick"] >= self._settle_until)
 
         want = choose_weapon(snapshot, dist, len(perceived))
         # the lightning cannon IS the crowd-control answer (director):
@@ -1090,7 +1130,6 @@ class HumanBot(_UnstickMixin, Bot):
             # hp 77 -> dead across a 5s retreat, run down mid-flight).
             # Hold the rail band -- back off inside 170, close outside
             # 260, strafe between -- and keep the trigger down.
-            self._standoff = True
             if dist < 170.0:
                 move_room = (-ux, -uy)
             elif dist > 260.0:
@@ -1117,5 +1156,5 @@ class HumanBot(_UnstickMixin, Bot):
                 self._strafe_sign *= -1
         mvx, mvy = _norm(move_room)
         sx, sy = necore.mat_apply_dir(session.cam, mvx, mvy)
-        inp.mx, inp.my = _norm((sx, sy))
-        return inp
+        fvx, fvy = _norm((sx, sy))
+        return inp, fvx, fvy
