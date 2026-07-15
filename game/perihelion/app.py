@@ -327,7 +327,9 @@ class App:
         from .music import MusicSystem
         self.music = MusicSystem(self.audio,
                                  enabled=not getattr(args, "no_music", False),
-                                 bank_dir=getattr(args, "music_bank", None))
+                                 bank_dir=getattr(args, "music_bank", None),
+                                 tick_clock=bool(getattr(args, "record",
+                                                         None)))
         self.debug = bool(args.fps)
         self.running = True
 

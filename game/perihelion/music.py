@@ -192,8 +192,14 @@ class ChunkLane:
 class MusicSystem:
     """Continuous-value engine + chunk-queued musical application."""
 
-    def __init__(self, audio_bank, enabled: bool = True, bank_dir=None):
+    def __init__(self, audio_bank, enabled: bool = True, bank_dir=None,
+                 tick_clock: bool = False):
+        # tick_clock: headless/recording mode — decisions advance on the
+        # DETERMINISTIC tick grid and nothing plays (offline rebuild
+        # supplies the audio); the live audio-hardware clock would race
+        # ahead whenever the recording loop runs slower than realtime
         self.bank = audio_bank
+        self.tick_clock = tick_clock
         # the INPUT engine always runs (values, taps, riser logic — the
         # part the director kept); only the MIXER needs stems on disk.
         self.enabled = enabled
@@ -268,6 +274,26 @@ class MusicSystem:
             return
         self._started = True
         if not getattr(self.bank, "_ready", False):
+            return
+        if self.rich and self.tick_clock:
+            stems = {q.stem for q in self.bank_dir.glob("*.wav")}
+
+            class _SimLane:
+                def __init__(self, variants):
+                    self.variants = dict.fromkeys(variants | {"silence"})
+                    self.key = None
+                    self.gain = 0.0
+            self._lanes = {
+                "bed": _SimLane({s for s in stems if s.startswith("bed_")}),
+                "holy": _SimLane({"prayer"}),
+                "groove": _SimLane({"contempt"}),
+                "wall": _SimLane({"stalwart"}),
+                "lead": _SimLane({s for s in stems
+                                  if s.startswith("lead_")}),
+                "bass": _SimLane({s for s in stems
+                                  if s.startswith("bass_")}),
+            }
+            self._boundary_tick = 0
             return
         import pygame
         try:
@@ -451,6 +477,31 @@ class MusicSystem:
                 self._sting_now()
 
     def _update_rich(self, session):
+        if self.tick_clock:
+            t = session.tick_count / TICKS_PER_S
+            bar = int(t / self.bar_s)
+            if bar != self._bar_idx or self._boundary_tick == 0:
+                self._bar_idx = bar
+                self._boundary_tick = session.tick_count or 1
+                prev = self._applied
+                self._applied = self.vals
+                self._applied_inputs = dict(self.inputs)
+                if (self.vals[2] - prev[2] >= STING_RISE or
+                        self.vals[1] - prev[1] >= STING_RISE):
+                    self._pending_sting = True
+                if self._applied != prev:
+                    p, c, d = self._applied
+                    self._tap("music_vals", f"{p:.3f},{c:.3f},{d:.3f}", 1.0)
+                sel = self._select_content()
+                gains = self._bar_gains()
+                for lname, lane in self._lanes.items():
+                    lane.key = sel[lname]
+                    lane.gain = gains.get(lname, 0.0)
+                detail = f"{self._bar_idx}|" + "|".join(
+                    f"{ln}:{la.key}:{la.gain:.3f}"
+                    for ln, la in sorted(self._lanes.items()))
+                self._tap("music_bar", detail, 1.0)
+            return
         master = getattr(self.bank, "master", 1.0)
         rc = getattr(self, "_riser_ch", None)
         if rc is not None:
