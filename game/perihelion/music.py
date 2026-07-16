@@ -301,6 +301,47 @@ def dominant_kind(aggro) -> str | None:
 ROTATE_BARS = 44
 
 
+from dataclasses import dataclass  # noqa: E402
+
+
+@dataclass(frozen=True)
+class BankMeta:
+    """A rich bank's form, as one immutable value (director 2026-07-17:
+    'situations like the clobbered section map should be rendered
+    UNREPRESENTABLE'). There is exactly one loader, it validates or
+    raises, and MusicSystem exposes the fields through read-only
+    properties -- a stray `self.sections = []` is now an AttributeError
+    at the assignment site, not a silently dead form-steering system."""
+    bar_s: float
+    n_bars: int
+    sections: tuple      # (("vigil", 0, 8), ...) -- never empty
+
+
+def load_bank_meta(bank_dir: Path) -> BankMeta:
+    """THE loader for bank.json. Required keys, validated ranges, no
+    neutral defaults: a missing bpm used to silently run the bank at
+    140, missing sections silently disabled form steering."""
+    import json
+    bj = bank_dir / "bank.json"
+    raw = json.loads(bj.read_text())
+    try:
+        bpm = float(raw["bpm"])
+        bars = int(raw["bars"])
+        sections = tuple((str(s), int(a), int(b))
+                         for s, a, b in raw["sections"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError(f"{bj}: missing/malformed required field "
+                         f"({exc!r})") from None
+    if bpm <= 0 or bars <= 0 or not sections:
+        raise ValueError(f"{bj}: bpm={bpm} bars={bars} "
+                         f"sections={sections!r}")
+    for s, a, b in sections:
+        if not 0 <= a < b <= bars:
+            raise ValueError(f"{bj}: section {s!r} [{a},{b}) outside "
+                             f"the {bars}-bar form")
+    return BankMeta(240.0 / bpm, bars, sections)
+
+
 class ChunkLane:
     """One voice of the arrangement — the director's ChunkedMusicPlayer
     mechanism (pyweek-28 musicplayer.queue_chunk, generalized): a channel
@@ -387,14 +428,13 @@ class MusicSystem:
             and (any(self.bank_dir.glob("*.wav"))
                  or any(self.bank_dir.glob("*.ogg")))
         self.rich = (self.bank_dir / "bank.json").exists()
-        self.bar_s = BAR_S
-        self.n_bars = 0
-        self.sections = []
-        if self.rich:
-            self._load_bank_meta()   # bpm/bars AND the section map --
-            #   sections were only ever loaded in the tick-clock
-            #   rotation branch, so form steering was DEAD in live play
-            #   (workflow review, 2026-07-17)
+        # ONE immutable meta value; bar_s/n_bars/sections are read-only
+        # properties over it. (Two generations of silent breakage lived
+        # here: sections only loaded in the tick-clock rotation branch,
+        # then a duplicate `self.sections = []` clobbering the loaded
+        # map. Neither state is expressible anymore.)
+        self._meta: BankMeta | None = \
+            load_bank_meta(self.bank_dir) if self.rich else None
         # manual override for the value triple (the audition instrument's
         # MANUAL mode and scripted scenes); None = heuristic battery
         self.override_vals = None
@@ -422,11 +462,7 @@ class MusicSystem:
         self._xfade_tgt = 0.0
         self._xfade_dwelled = False
         # form steering (boss law): position in the form, jumped to the
-        # PEAK section at stalwart >= 0.88, back to vigil when becalmed.
-        # (a duplicate `self.sections = []` here used to CLOBBER the
-        # map _load_bank_meta had just loaded -- steering stayed dead
-        # until the first rotation reloaded it; that unsteered first
-        # bank period is where F002291's wrap-through-intro lived)
+        # PEAK section at stalwart >= 0.88, back to vigil when becalmed
         self._form_idx = 0
         self.inputs: dict = {}
         self._applied = (1.0, 0.0, 0.0)
@@ -483,12 +519,17 @@ class MusicSystem:
                              if "overlay_boss" in stems else set()),
         }
 
-    def _load_bank_meta(self) -> None:
-        import json
-        meta = json.loads((self.bank_dir / "bank.json").read_text())
-        self.bar_s = 240.0 / float(meta.get("bpm", BPM))
-        self.n_bars = int(meta.get("bars", 0))
-        self.sections = list(meta.get("sections", []))
+    @property
+    def bar_s(self) -> float:
+        return self._meta.bar_s if self._meta else BAR_S
+
+    @property
+    def n_bars(self) -> int:
+        return self._meta.n_bars if self._meta else 0
+
+    @property
+    def sections(self) -> tuple:
+        return self._meta.sections if self._meta else ()
 
     def _section_range(self, stype: str):
         for s, a, b in self.sections:
@@ -697,66 +738,60 @@ class MusicSystem:
             self._tap("music_bank", self.bank_dir.name, 1.0)
             return
         import pygame
-        try:
-            sting_f = next((self.bank_dir / f"sting.{ext}"
-                            for ext in ("wav", "ogg")
-                            if (self.bank_dir / f"sting.{ext}").exists()),
-                           None)
-            self._sting = pygame.mixer.Sound(str(sting_f)) if sting_f \
-                else None
-            stab_f = next((self.bank_dir / f"stab.{ext}"
-                           for ext in ("wav", "ogg")
-                           if (self.bank_dir / f"stab.{ext}").exists()),
-                          None)
-            self._stab = pygame.mixer.Sound(str(stab_f)) if stab_f \
-                else None
-            if not self.rich:
-                self._start_legacy()
-                return
-            chunks = self._slice_bank()
-            lane_defs = self._lane_defs(chunks)
-            riser_ch_idx = 4 + len(lane_defs)
-            if pygame.mixer.get_num_channels() < riser_ch_idx + 13:
-                pygame.mixer.set_num_channels(riser_ch_idx + 13)
-            # channels 0..riser are MUSIC/system territory: reserve
-            # them from SFX auto-allocation (Sound.play() steals the
-            # longest-running channel under load -- i.e. a music lane;
-            # and one-shots landing on ch2/3 got hard-cut by the next
-            # stab/sting). 12 channels remain as the SFX pool.
-            pygame.mixer.set_reserved(riser_ch_idx + 1)
-            master = getattr(self.bank, "master_vol", 1.0)
-            lane_defs = {k: v for k, v in lane_defs.items()
-                         if v is not None}
-            for i, (lname, variants) in enumerate(lane_defs.items()):
-                lane = ChunkLane(pygame.mixer.Channel(4 + i), variants,
-                                 self.n_bars)
-                self._lanes[lname] = lane
-            # riser: continuous tension effect on its own loop channel
-            riser_fn = next((self.bank_dir / f"riser.{e}"
-                             for e in ("wav", "ogg")
-                             if (self.bank_dir / f"riser.{e}").exists()),
-                            self.bank_dir / "riser.wav")
-            self._riser_ch = None
-            if riser_fn.exists():
-                snd = pygame.mixer.Sound(str(riser_fn))
-                self._riser_ch = pygame.mixer.Channel(4 + len(lane_defs))
-                self._riser_ch.play(snd, loops=-1)
-                self._riser_ch.set_volume(0.0)
-            # first bar's content from current state, all started in one
-            # tight pass (everything is pre-sliced by now)
-            sel = self._select_content()
-            gains = self._bar_gains()
-            for lname, lane in self._lanes.items():
-                lane.gain = gains.get(lname, 0.0)
-                lane.start(sel.get(lname, "silence"), master)
-            self._bar_idx = 0
-            self._boundary_tick = tick
-            self._tap("music_bank", self.bank_dir.name, 1.0)
-        except Exception as exc:
-            print(f"[music] start failed, logging only: {exc}",
-                  file=sys.stderr)
-            self._lanes = {}
-            self._channels = {}
+        sting_f = next((self.bank_dir / f"sting.{ext}"
+                        for ext in ("wav", "ogg")
+                        if (self.bank_dir / f"sting.{ext}").exists()),
+                       None)
+        self._sting = pygame.mixer.Sound(str(sting_f)) if sting_f \
+            else None
+        stab_f = next((self.bank_dir / f"stab.{ext}"
+                       for ext in ("wav", "ogg")
+                       if (self.bank_dir / f"stab.{ext}").exists()),
+                      None)
+        self._stab = pygame.mixer.Sound(str(stab_f)) if stab_f \
+            else None
+        if not self.rich:
+            self._start_legacy()
+            return
+        chunks = self._slice_bank()
+        lane_defs = self._lane_defs(chunks)
+        riser_ch_idx = 4 + len(lane_defs)
+        if pygame.mixer.get_num_channels() < riser_ch_idx + 13:
+            pygame.mixer.set_num_channels(riser_ch_idx + 13)
+        # channels 0..riser are MUSIC/system territory: reserve
+        # them from SFX auto-allocation (Sound.play() steals the
+        # longest-running channel under load -- i.e. a music lane;
+        # and one-shots landing on ch2/3 got hard-cut by the next
+        # stab/sting). 12 channels remain as the SFX pool.
+        pygame.mixer.set_reserved(riser_ch_idx + 1)
+        master = self.bank.master_vol
+        lane_defs = {k: v for k, v in lane_defs.items()
+                     if v is not None}
+        for i, (lname, variants) in enumerate(lane_defs.items()):
+            lane = ChunkLane(pygame.mixer.Channel(4 + i), variants,
+                             self.n_bars)
+            self._lanes[lname] = lane
+        # riser: continuous tension effect on its own loop channel
+        riser_fn = next((self.bank_dir / f"riser.{e}"
+                         for e in ("wav", "ogg")
+                         if (self.bank_dir / f"riser.{e}").exists()),
+                        self.bank_dir / "riser.wav")
+        self._riser_ch = None
+        if riser_fn.exists():
+            snd = pygame.mixer.Sound(str(riser_fn))
+            self._riser_ch = pygame.mixer.Channel(4 + len(lane_defs))
+            self._riser_ch.play(snd, loops=-1)
+            self._riser_ch.set_volume(0.0)
+        # first bar's content from current state, all started in one
+        # tight pass (everything is pre-sliced by now)
+        sel = self._select_content()
+        gains = self._bar_gains()
+        for lname, lane in self._lanes.items():
+            lane.gain = gains.get(lname, 0.0)
+            lane.start(sel[lname], master)
+        self._bar_idx = 0
+        self._boundary_tick = tick
+        self._tap("music_bank", self.bank_dir.name, 1.0)
 
     def _select_content(self) -> dict:
         """Which variant each lane queues next — from CURRENT state (a
@@ -779,32 +814,26 @@ class MusicSystem:
         if getattr(self, "_kit_boss", False) and "drums_boss" in \
                 lanes.get("drums", ChunkLane(None, {}, 1)).variants:
             drums_key = "drums_boss"      # 0.8 tier: the serious kit
-        sel = {
+        # DERIVED from the lanes dict: every existing lane gets a
+        # selection BY CONSTRUCTION (a lane the planner forgot cannot
+        # be expressed -- a missing 'lead2' key here once KeyError'd
+        # _ensure_started and live play silently ran with no music).
+        # lead2 stays silent: the crossfade splitter owns it.
+        sel = {ln: "silence" for ln in lanes}
+        want = {
             "drums": drums_key if max(c, d) > 0.03 else "silence",
-            "boss": "overlay_boss"
-            if (st_now >= 0.88 and "overlay_boss" in lanes.get(
-                "boss", ChunkLane(None, {}, 1)).variants) else "silence",
-            "bed": f"bed_t{tier}"
-            if f"bed_t{tier}" in lanes.get("bed", ChunkLane(None, {}, 1)
-                                           ).variants else "silence",
+            "boss": "overlay_boss" if st_now >= 0.88 else "silence",
+            "bed": f"bed_t{tier}",
             "holy": "prayer",
             "groove": "contempt" if c > 0.03 else "silence",
             "wall": "stalwart" if d > 0.03 else "silence",
-            "lead": f"lead_{weapon}"
-            if combat > 0.05 and
-            f"lead_{weapon}" in lanes.get("lead", ChunkLane(None, {}, 1)
-                                          ).variants else "silence",
-            # lead2 is OWNED by the crossfade splitter; it starts
-            # silent. (missing key here KeyError'd _ensure_started --
-            # LIVE play fell back to logging-only, i.e. no music at
-            # all in-game since dual-lead landed. The videos never
-            # showed it: recordings use the tick-clock path.)
-            "lead2": "silence",
-            "bass": f"bass_{kind}"
-            if kind is not None and
-            f"bass_{kind}" in lanes.get("bass", ChunkLane(None, {}, 1)
-                                        ).variants else "silence",
+            "lead": f"lead_{weapon}" if combat > 0.05 else "silence",
+            "bass": f"bass_{kind}" if kind is not None else "silence",
         }
+        for ln, key in want.items():
+            lane = lanes.get(ln)
+            if lane is not None and key in lane.variants:
+                sel[ln] = key
         return sel
 
     def _bar_gains(self) -> dict:
@@ -889,7 +918,7 @@ class MusicSystem:
                    "stalwart": d ** 0.5,
                    "riser": self._riser_gain * 0.85}
         fall_rate = dt / (1.5 * self.bar_s)
-        master = getattr(self.bank, "master_vol", 1.0)
+        master = self.bank.master_vol
         for name in ("prayer", "contempt", "stalwart", "riser"):
             cur = self._live.get(name, targets[name])
             tgt = targets[name]
@@ -1058,7 +1087,7 @@ class MusicSystem:
                         max(self.vals[1], self.vals[2]) <= 0.15:
                     self._bank_i = (self._bank_i + 1) % len(self._bank_dirs)
                     self.bank_dir = self._bank_dirs[self._bank_i]
-                    self._load_bank_meta()
+                    self._meta = load_bank_meta(self.bank_dir)
                     self._lanes = self._sim_lanes()
                     self._bank_bar0 = bar
                     self._form_idx = 0
@@ -1173,7 +1202,7 @@ class MusicSystem:
                         for ln, la in sorted(self._lanes.items()))
                 self._tap("music_bar", detail, 1.0)
             return
-        master = getattr(self.bank, "master_vol", 1.0)
+        master = self.bank.master_vol
         rc = getattr(self, "_riser_ch", None)
         if rc is not None:
             rc.set_volume(max(0.0, min(1.0,
@@ -1379,11 +1408,9 @@ class MusicSystem:
 
     def _decode_bank(self, dir_) -> dict:
         """Worker-thread half: pure soundfile/numpy, no pygame."""
-        import json as _json
         import numpy as np
         import soundfile as sf
-        meta = _json.loads((dir_ / "bank.json").read_text())
-        n_bars = int(meta.get("bars", 0))
+        n_bars = load_bank_meta(dir_).n_bars   # validated, no defaults
         files = {f.stem: f for f in sorted(dir_.glob("*.wav"))}
         for f in sorted(dir_.glob("*.ogg")):
             files.setdefault(f.stem, f)
@@ -1417,13 +1444,13 @@ class MusicSystem:
         dir_, n_bars = self._decoded["__meta__"]
         self._bank_i = self._bank_dirs.index(dir_)
         self.bank_dir = dir_
-        self.n_bars = n_bars
-        self._load_bank_meta()       # sections for the NEW bank
+        self._meta = load_bank_meta(dir_)    # the NEW bank's form
+        assert n_bars == self._meta.n_bars, (dir_, n_bars)
         self._form_idx = 0           # mirror the tick-clock handoff
         chunks = self._next_chunks
         lane_defs = {k: v for k, v in self._lane_defs(chunks).items()
                      if v is not None}
-        master = getattr(self.bank, "master_vol", 1.0)
+        master = self.bank.master_vol
         sel = self._select_content()
         gains = self._bar_gains()
         for lname, lane in self._lanes.items():
@@ -1444,7 +1471,7 @@ class MusicSystem:
                 # ~100% PRAYER, when it IS the mix
                 lane.fadein_ticks = int(self.bar_s * TICKS_PER_S)
                 lane.fadein_total = lane.fadein_ticks
-            lane.start(sel.get(lname, "silence"), master)
+            lane.start(sel[lname], master)
         try:
             sting_f = next((dir_ / f"sting.{ext}"
                             for ext in ("wav", "ogg")
@@ -1493,7 +1520,7 @@ class MusicSystem:
             try:
                 pygame.mixer.Channel(2).play(self._stab)
                 pygame.mixer.Channel(2).set_volume(
-                    0.7 * getattr(self.bank, "master_vol", 1.0))
+                    0.7 * self.bank.master_vol)
             except Exception:
                 pass
 
@@ -1514,7 +1541,7 @@ class MusicSystem:
             try:
                 pygame.mixer.Channel(3).play(self._sting)
                 pygame.mixer.Channel(3).set_volume(
-                    0.8 * getattr(self.bank, "master_vol", 1.0))
+                    0.8 * self.bank.master_vol)
             except Exception:
                 pass
 

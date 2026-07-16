@@ -161,7 +161,7 @@ def test_application_only_at_bar_boundaries():
     # contract update 2026-07-16 (director): values are LOW-PASSED with
     # a one-bar tau — the music must not wake for a fight shorter than a
     # bar; SUSTAINED threat drives application
-    ms = MusicSystem(audio_bank=SimpleNamespace(_ready=False, tap=None),
+    ms = MusicSystem(audio_bank=SimpleNamespace(_ready=False, master_vol=1.0, tap=None),
                      enabled=True)
     ms.update(make_session({}, {}, tick=1))
     assert ms._applied[0] == 1.0
@@ -179,7 +179,7 @@ def test_application_only_at_bar_boundaries():
 def test_massive_spike_passes_immediately():
     # the NONLINEAR filter (director's rule, task #34): a heavy wave
     # appearing at once snaps stalwart through the low-pass on the spot
-    ms = MusicSystem(audio_bank=SimpleNamespace(_ready=False, tap=None),
+    ms = MusicSystem(audio_bank=SimpleNamespace(_ready=False, master_vol=1.0, tap=None),
                      enabled=True)
     ms.update(make_session({}, {}, tick=1))
     heavy = {1: awake("brute"), 2: awake("brute"), 3: awake("warden")}
@@ -193,7 +193,7 @@ def test_hard_rise_stings():
     # riser one-shot, whose release IS the sting -- within ~3 bars of
     # the wave appearing
     taps = []
-    bank = SimpleNamespace(_ready=False,
+    bank = SimpleNamespace(_ready=False, master_vol=1.0,
                            tap=lambda k, d, v, p: taps.append((k, d)))
     ms = MusicSystem(audio_bank=bank, enabled=True)
     ms.update(make_session({}, {}, tick=1))
@@ -210,7 +210,7 @@ def test_riser_only_on_sudden_rise():
     # -- a lurking flicker is a sustain and must NOT hold one up
     # (F002718: the 8-second flat pink-noise blast)
     taps = []
-    bank = SimpleNamespace(_ready=False,
+    bank = SimpleNamespace(_ready=False, master_vol=1.0,
                            tap=lambda k, d, v, p: taps.append((k, d)))
     ms = MusicSystem(audio_bank=bank, enabled=True)
     lurk = {1: dict(kind="flicker", state="lurk")}
@@ -236,7 +236,7 @@ def test_death_halts_music():
     # "the music is the Commando's thinking and feeling -- when he
     # dies, it dies" (director 2026-07-17)
     taps = []
-    bank = SimpleNamespace(_ready=False,
+    bank = SimpleNamespace(_ready=False, master_vol=1.0,
                            tap=lambda k, d, v, p: taps.append((k, d)))
     ms = MusicSystem(audio_bank=bank, enabled=True)
     heavy = {1: awake("brute"), 2: awake("warden")}
@@ -259,7 +259,7 @@ def test_death_halts_music():
 def test_deterministic_tap_log():
     def run():
         taps = []
-        bank = SimpleNamespace(_ready=False,
+        bank = SimpleNamespace(_ready=False, master_vol=1.0,
                                tap=lambda k, d, v, p: taps.append((k, d, v)))
         ms = MusicSystem(audio_bank=bank, enabled=True)
         heavy = {1: awake("brute"), 2: awake("warden")}
@@ -336,3 +336,76 @@ def test_combat_keeps_form_out_of_calm_sections():
     last = [int(d.split("|")[0]) for k, d in taps if k == "music_bar"]
     assert any(p in range(0, 8) for p in last[-6:]), \
         "becalmed music returns to the vigil"
+
+
+# --- unrepresentable-state contracts (director 2026-07-17) --------------
+
+def _shipped(name="album_dies_irae"):
+    from pathlib import Path
+    return (Path(__file__).resolve().parents[1] / "assets/music" / name)
+
+
+def test_bank_meta_is_read_only():
+    # "situations like the clobbered section map should be rendered
+    # unrepresentable": meta is one frozen value behind read-only
+    # properties -- the historical `self.sections = []` clobber is now
+    # an AttributeError at the assignment site
+    import pytest
+    taps = []
+    ms = _rich_ms(taps)
+    assert ms.sections, "rich bank must load a section map at init"
+    for attr, val in (("sections", []), ("bar_s", 1.0), ("n_bars", 0)):
+        with pytest.raises(AttributeError):
+            setattr(ms, attr, val)
+
+
+def test_all_shipped_banks_valid_and_tiled():
+    from perihelion.music import shipped_banks, load_bank_meta
+    banks = shipped_banks()
+    assert banks, "no shipped banks found"
+    for d in banks:
+        meta = load_bank_meta(d)
+        spans = sorted((a, b) for _s, a, b in meta.sections)
+        assert spans[0][0] == 0 and spans[-1][1] == meta.n_bars, d.name
+        for (a1, b1), (a2, b2) in zip(spans, spans[1:]):
+            assert b1 == a2, f"{d.name}: gap/overlap at bar {b1}"
+
+
+def test_bank_meta_missing_fields_raise(tmp_path):
+    import json
+    import pytest
+    from perihelion.music import load_bank_meta
+    (tmp_path / "bank.json").write_text(json.dumps(
+        {"bpm": 110.0, "bars": 32}))          # no sections
+    with pytest.raises(ValueError):
+        load_bank_meta(tmp_path)
+    (tmp_path / "bank.json").write_text(json.dumps(
+        {"bars": 32, "sections": [["vigil", 0, 32]]}))   # no bpm
+    with pytest.raises(ValueError):
+        load_bank_meta(tmp_path)
+
+
+def test_live_start_contract():
+    # the regression net for the lead2 KeyError: a REAL rich-mixer
+    # start under the dummy audio driver. Any exception propagates
+    # (the blanket except that turned 'no music at all' into one
+    # stderr line is gone) and every lane must come up selected.
+    import os
+    os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
+    os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+    import pygame
+    pygame.mixer.pre_init(44100, -16, 2)
+    pygame.mixer.init()
+    try:
+        bank = SimpleNamespace(_ready=True, master_vol=1.0, tap=None)
+        ms = MusicSystem(bank, enabled=True, bank_dirs=[_shipped()],
+                         tick_clock=False)
+        ms._ensure_started(0)
+        assert ms._lanes, "rich live start must build lanes"
+        assert "lead2" in ms._lanes
+        for ln, lane in ms._lanes.items():
+            assert lane.key is not None, f"lane {ln} never started"
+        assert pygame.mixer.get_num_channels() >= 4 + len(ms._lanes) + 13
+        ms.stop()
+    finally:
+        pygame.mixer.quit()

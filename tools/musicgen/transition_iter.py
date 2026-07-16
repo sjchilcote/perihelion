@@ -79,7 +79,7 @@ def run_scenario(name, traj) -> list:
     def tap(kind, detail, vol, pan):
         events.append(dict(t=now[0] / 60.0, kind=kind,
                            name=detail, vol=vol, pan=pan))
-    bank = SimpleNamespace(_ready=True, tap=tap, master=1.0)
+    bank = SimpleNamespace(_ready=True, tap=tap, master_vol=1.0)
     ms = MusicSystem(bank, enabled=True, bank_dirs=[BANK],
                      tick_clock=True)
     bar_ticks = int(ms.bar_s * TICKS_PER_S)
