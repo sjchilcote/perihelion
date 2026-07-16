@@ -185,13 +185,47 @@ def read_inputs(session) -> dict:
     )
 
 
+def battery_terms(inputs: dict) -> tuple[dict, dict]:
+    """Named contributions: (danger_terms, mow_terms). The debug DAW
+    overlay shows the top-3 of each -- WHY the meters read what they
+    read (director 2026-07-17)."""
+    danger: dict = {}
+    mow: dict = {}
+    for kind, hops in inputs["aggro"]:
+        if hops == 0:
+            danger[f"{kind}"] = danger.get(f"{kind}", 0.0) \
+                + DANGER_CO.get(kind, 1.0)
+        elif hops == 1:
+            danger[f"{kind}+1"] = danger.get(f"{kind}+1", 0.0) \
+                + DANGER_ADJ.get(kind, 0.3)
+        else:
+            danger[f"{kind}+2"] = danger.get(f"{kind}+2", 0.0) \
+                + 0.15 * DANGER_ADJ.get(kind, 0.3)
+    if inputs.get("crowd"):
+        danger["crowd"] = CROWD_W * inputs["crowd"]
+    if inputs.get("influx_rate"):
+        danger["influx"] = INFLUX_W * inputs["influx_rate"]
+    if inputs.get("dmg_rate"):
+        danger["dmg"] = DMG_W * inputs["dmg_rate"]
+    if inputs.get("fire_duty"):
+        danger["firing"] = FIRED_W * inputs["fire_duty"]
+        mow["firing"] = FIRE_MOW_W * inputs["fire_duty"]
+    if inputs.get("kill_rate"):
+        mow["kills"] = KILL_W * inputs["kill_rate"]
+    trash = sum(1 for k, h in inputs["aggro"]
+                if h == 0 and k in WEAK_KINDS)
+    if trash:
+        mow["trash"] = TRASH_W * trash
+    return danger, mow
+
+
 def values(inputs: dict) -> tuple[float, float, float]:
     """(prayer, contempt, stalwart), each 0-1, corpus-fitted battery.
 
     - stalwart = the odds as they measurably ARE: kind-weighted hunters
       (adjacent heavies nearly full weight), crowd pressure, aggro
-      influx, scream recency, damage flow, and the player's own trigger
-      (sustained firing measurably precedes damage).
+      influx, damage flow, and the player's own trigger (sustained
+      firing measurably precedes damage).
     - contempt = damage OUTPUT, an independent axis (director
       2026-07-16): trigger duty + kill flow. A boss fight reads
       stalwart AND contempt at once; only silence reads neither.
@@ -338,11 +372,12 @@ class MusicSystem:
         self.rich = (self.bank_dir / "bank.json").exists()
         self.bar_s = BAR_S
         self.n_bars = 0
+        self.sections = []
         if self.rich:
-            import json
-            meta = json.loads((self.bank_dir / "bank.json").read_text())
-            self.bar_s = 240.0 / float(meta.get("bpm", BPM))
-            self.n_bars = int(meta.get("bars", 0))
+            self._load_bank_meta()   # bpm/bars AND the section map --
+            #   sections were only ever loaded in the tick-clock
+            #   rotation branch, so form steering was DEAD in live play
+            #   (workflow review, 2026-07-17)
         # manual override for the value triple (the audition instrument's
         # MANUAL mode and scripted scenes); None = heuristic battery
         self.override_vals = None
@@ -476,6 +511,11 @@ class MusicSystem:
             elif weapon_key == self._lead_b:
                 self._xfade_tgt = 1.0
             elif self._lead_a is None or self._xfade <= 0.5:
+                if self._lead_a is not None and \
+                        self._lead_b not in (None, weapon_key) and \
+                        self._xfade > 0.15:
+                    self._tap("music_int",
+                              f"lead2:{self._lead_b}>{weapon_key}", 1.0)
                 self._lead_b = weapon_key if self._lead_a is not None \
                     else self._lead_b
                 if self._lead_a is None:
@@ -484,6 +524,10 @@ class MusicSystem:
                 else:
                     self._xfade_tgt = 1.0
             else:
+                if self._lead_a not in (None, weapon_key) and \
+                        self._xfade < 0.85:
+                    self._tap("music_int",
+                              f"lead:{self._lead_a}>{weapon_key}", 1.0)
                 self._lead_a = weapon_key
                 self._xfade_tgt = 0.0
         step = 0.25
@@ -596,7 +640,7 @@ class MusicSystem:
             lane_defs = self._lane_defs(chunks)
             if pygame.mixer.get_num_channels() < 8 + len(lane_defs) + 1:
                 pygame.mixer.set_num_channels(8 + len(lane_defs) + 1)
-            master = getattr(self.bank, "master", 1.0)
+            master = getattr(self.bank, "master_vol", 1.0)
             lane_defs = {k: v for k, v in lane_defs.items()
                          if v is not None}
             for i, (lname, variants) in enumerate(lane_defs.items()):
@@ -641,9 +685,15 @@ class MusicSystem:
         kind = dominant_kind(self.inputs.get("aggro", []))
         lanes = self._lanes
         st_now = self._applied[2] if hasattr(self, "_applied") else 0.0
+        # hysteresis latch (workflow review): a naked 0.8 threshold
+        # flipped the whole kit every bar when stalwart hovered there
+        if st_now >= 0.8:
+            self._kit_boss = True
+        elif st_now < 0.7:
+            self._kit_boss = False
         drums_key = "drums"
-        if st_now >= 0.8 and "drums_boss" in lanes.get(
-                "drums", ChunkLane(None, {}, 1)).variants:
+        if getattr(self, "_kit_boss", False) and "drums_boss" in \
+                lanes.get("drums", ChunkLane(None, {}, 1)).variants:
             drums_key = "drums_boss"      # 0.8 tier: the serious kit
         sel = {
             "drums": drums_key if max(c, d) > 0.03 else "silence",
@@ -751,7 +801,7 @@ class MusicSystem:
                    "stalwart": d ** 0.5,
                    "riser": self._riser_gain * 0.85}
         fall_rate = dt / (1.5 * self.bar_s)
-        master = getattr(self.bank, "master", 1.0)
+        master = getattr(self.bank, "master_vol", 1.0)
         for name in ("prayer", "contempt", "stalwart", "riser"):
             cur = self._live.get(name, targets[name])
             tgt = targets[name]
@@ -829,6 +879,19 @@ class MusicSystem:
                       "%.3f,%.3f,%.3f" % tuple(raw), 1.0)
             self._tap("music_valslp",
                       "%.3f,%.3f,%.3f" % tuple(self.vals), 1.0)
+            dt_, mt_ = battery_terms(self.inputs)
+            top = lambda d: ",".join(
+                f"{k}={v:.1f}" for k, v in
+                sorted(d.items(), key=lambda q: -q[1])[:3])
+            agg = self.inputs.get("aggro", [])
+            co = sum(1 for _k, h in agg if h == 0)
+            adj = sum(1 for _k, h in agg if h == 1)
+            self._tap("music_dbg",
+                      f"st:{top(dt_)}|ct:{top(mt_)}"
+                      f"|agg:co={co},adj={adj},far={len(agg)-co-adj}"
+                      f"|xf:{self._xfade:.2f}"
+                      f"|form:{self._form_idx % max(1, self.n_bars)}",
+                      1.0)
         tension = self.inputs["tension"]
         if raw[2] >= 0.88:
             tension = max(tension, 0.7)    # the boss holds the riser up
@@ -883,6 +946,7 @@ class MusicSystem:
                 boss_release = prev[2] >= 0.75 and \
                     self._applied[2] < 0.3
                 if boss_release:
+                    self._tap("music_rel", "boss_release", 1.0)
                     self._sting_now(force=True)
                 self._form_idx += 1
                 steer = self._steer_form()
@@ -904,6 +968,9 @@ class MusicSystem:
                     prev_key = lane.key
                     nk = sel.get(lname, "silence")
                     if boss_release and lname in ("wall", "boss", "drums", "bass", "lead", "lead2", "groove"):
+                        if lane.key not in (None, "silence"):
+                            self._tap("music_int",
+                                      f"{lname}:{lane.key}>RELEASE", 1.0)
                         lane.key = "silence"
                         lane.gain = 0.0
                         lane._tapkey = None
@@ -932,6 +999,15 @@ class MusicSystem:
                         lane._tapkey = f"{prev_key}~f"  # ONE farewell
                         lane._farewelled = True
                         continue
+                    if nk != prev_key and \
+                            prev_key not in (None, "silence") and \
+                            nk not in (None, "silence"):
+                        # planner-intentional content interrupt: the
+                        # debug overlay flashes this lane (director:
+                        # 'whether the planner is shutting the drums
+                        # down early, or something interrupted playback')
+                        self._tap("music_int",
+                                  f"{lname}:{prev_key}>{nk}", 1.0)
                     lane.key = nk
                     ng = gains.get(lname, 0.0)
                     if ng < lane.gain and lane.gain > 0.1:
@@ -945,7 +1021,7 @@ class MusicSystem:
                         for ln, la in sorted(self._lanes.items()))
                 self._tap("music_bar", detail, 1.0)
             return
-        master = getattr(self.bank, "master", 1.0)
+        master = getattr(self.bank, "master_vol", 1.0)
         rc = getattr(self, "_riser_ch", None)
         if rc is not None:
             rc.set_volume(max(0.0, min(1.0,
@@ -954,6 +1030,7 @@ class MusicSystem:
         # pending chunk, so a mid-bar state change still lands exactly
         # on the next bar line; each lane keeps its own position
         sel = self._select_content()
+        sel_raw = dict(sel)   # planner intent BEFORE the farewell glue
         # farewell-bar law (director 2026-07-16: no hard stops back to
         # calm): a lane whose content would cut to silence instead
         # plays ONE more bar of what it was playing, fading to nothing
@@ -1021,6 +1098,7 @@ class MusicSystem:
                         # needs no fade
                         lane.fadein_ticks = bar_ticks
                         lane.fadein_total = bar_ticks
+                        lane.ch.set_volume(0.0)   # no first-tick pop
             # boss stabs: a hit on the 4-bar grid while the boss lives
             # (dedicated stab sample -- the sting carries the BELL, and
             # a bell every 4 bars over a full mix read as sample spam)
@@ -1047,10 +1125,18 @@ class MusicSystem:
                     lane.set_gain(0.0, master)
                     lane.gain = 0.0
                     continue
-                dying = sel.get(lname) == lane.key and \
-                    lane.key not in (None, "silence") and g <= 0.02 \
-                    and lane.gain > 0.05 and lane.fade_ticks == 0
-                if dying:
+                # LIVE dying gate now mirrors tick-clock exactly
+                # (workflow review: the old g<=0.02 gate needed values
+                # two orders of magnitude lower than the tick path's
+                # selection gate -- recordings cut off cleanly where
+                # live droned on at 0.05 forever): planner says
+                # silence -> glide 0.65x/bar, farewell at <=0.15
+                raw_silent = sel_raw.get(lname) == "silence" and \
+                    lane.key not in (None, "silence")
+                if raw_silent and lane.fade_ticks == 0:
+                    if lane.gain > 0.15:
+                        lane.set_gain(lane.gain * 0.65, master)
+                        continue
                     lane.fade_ticks = bar_ticks    # the farewell bar
                     lane.fade_total = bar_ticks
                     continue                       # fade owns the volume
@@ -1096,7 +1182,12 @@ class MusicSystem:
                 except Exception as exc:
                     print(f"[music] rotation decode failed: {exc}",
                           file=sys.stderr)
-                    self._decoded = {}
+                    # full reset: retry on a later window instead of
+                    # wedging rotation for the rest of the session
+                    self._decoded = None
+                    self._next_chunks = None
+                    self._next_names = None
+                    self._decode_thread = None
             self._decode_thread = threading.Thread(target=_decode,
                                                    daemon=True)
             self._decode_thread.start()
@@ -1153,23 +1244,28 @@ class MusicSystem:
         self._bank_i = self._bank_dirs.index(dir_)
         self.bank_dir = dir_
         self.n_bars = n_bars
+        self._load_bank_meta()       # sections for the NEW bank
+        self._form_idx = 0           # mirror the tick-clock handoff
         chunks = self._next_chunks
         lane_defs = {k: v for k, v in self._lane_defs(chunks).items()
                      if v is not None}
-        master = getattr(self.bank, "master", 1.0)
+        master = getattr(self.bank, "master_vol", 1.0)
         sel = self._select_content()
         gains = self._bar_gains()
         for lname, lane in self._lanes.items():
             defs = lane_defs.get(lname)
             if defs is None:
+                lane.ch.stop()       # the new bank has no such lane:
+                lane.key = None      # silence it, don't let it keep
+                lane.gain = 0.0      # playing the OLD bank's stems
                 continue
             lane.variants = defs
             lane.n = n_bars
             lane.gain = gains.get(lname, 0.0)
             lane.ch.stop()
-            lane.start(sel.get(lname, "silence"), master)
             lane.fadein_ticks = int(self.bar_s * TICKS_PER_S)
             lane.fadein_total = lane.fadein_ticks
+            lane.start(sel.get(lname, "silence"), master)
         try:
             sting_f = next((dir_ / f"sting.{ext}"
                             for ext in ("wav", "ogg")
@@ -1221,7 +1317,7 @@ class MusicSystem:
             try:
                 pygame.mixer.Channel(2).play(self._stab)
                 pygame.mixer.Channel(2).set_volume(
-                    0.7 * getattr(self.bank, "master", 1.0))
+                    0.7 * getattr(self.bank, "master_vol", 1.0))
             except Exception:
                 pass
 
@@ -1242,7 +1338,7 @@ class MusicSystem:
             try:
                 pygame.mixer.Channel(3).play(self._sting)
                 pygame.mixer.Channel(3).set_volume(
-                    0.8 * getattr(self.bank, "master", 1.0))
+                    0.8 * getattr(self.bank, "master_vol", 1.0))
             except Exception:
                 pass
 

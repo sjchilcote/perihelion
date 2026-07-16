@@ -208,13 +208,22 @@ def _mix_music_rich(mix, events, duration_s) -> bool:
         for i, (ts, val) in enumerate(tl):
             te = tl[i + 1][0] if i + 1 < len(tl) else duration_s
             env[int(ts * RATE):min(int(te * RATE), n_total)] = val * 0.85
-        bk = bank_at(riser_evs[0]["t"])
-        rsnd = stem(bk, "riser") if bk else None
-        if rsnd is not None:
-            looped = np.tile(rsnd, (int(np.ceil(n_total / len(rsnd))),
-                                    1))[:n_total]
-            mix[:, 0] += looped[:, 0] * env
-            mix[:, 1] += looped[:, 1] * env
+        # the riser ROTATES with the bank (was pinned to the first
+        # bank's stem for the whole video -- workflow review)
+        marks = [0.0] + [e["t"] for e in bank_evs] + [duration_s]
+        for a, b in zip(marks[:-1], marks[1:]):
+            s0, s1 = int(a * RATE), min(int(b * RATE), n_total)
+            if s1 <= s0:
+                continue
+            bk = bank_at(a + 1e-3)
+            rsnd = stem(bk, "riser") if bk else None
+            if rsnd is None:
+                continue
+            span = s1 - s0
+            looped = np.tile(rsnd, (int(np.ceil(span / len(rsnd))),
+                                    1))[:span]
+            mix[s0:s1, 0] += looped[:, 0] * env[s0:s1]
+            mix[s0:s1, 1] += looped[:, 1] * env[s0:s1]
     for e in events:
         if e["kind"] == "music_sting":
             bk = bank_at(e["t"])
@@ -430,72 +439,146 @@ def _at(series, t, default):
 
 def overlay_frames(rec: Path, events: list, fps: int, scale: int,
                    out_dir: Path) -> int:
-    """Composite the music-telemetry panel onto every frame at output
-    resolution. Returns the frame count."""
+    """DAW-style debug panel (director 2026-07-17): frame counter,
+    per-factor top-3 subfactor contributions, aggro census, crossfade,
+    form position, and per-lane NOW + NEXT strips that FLASH on
+    planner-intentional interrupts -- so a silent lane can be read as
+    'the planner stopped it' vs 'playback broke'."""
     from PIL import Image, ImageDraw, ImageFont
     raw_s = _series(events, "music_valsraw")
     lp_s = _series(events, "music_valslp")
     bars = _bar_series(events)
+    dbg_s = [(e["t"], e["name"]) for e in events
+             if e["kind"] == "music_dbg"]
+    int_s = [(e["t"], e["name"]) for e in events
+             if e["kind"] == "music_int"]
+    jump_s = [(e["t"], e["name"]) for e in events
+              if e["kind"] in ("music_jump", "music_rel")]
+    bank_s = [(e["t"], e["name"]) for e in events
+              if e["kind"] == "music_bank"]
     W, H = 640 * scale, 360 * scale
-    panel_w = 116 * scale            # ~18% of frame width
+    panel_w = 152 * scale
     px0 = W - panel_w
     font = ImageFont.truetype(str(FONT), 8 * scale)
     small = ImageFont.truetype(str(FONT), 7 * scale)
+    tiny = ImageFont.truetype(str(FONT), 6 * scale)
     frames = sorted(rec.glob("frame_*.png"))
-    # panel stops below the lane rows -- the ammo HUD lives bottom-right
-    panel_h = (6 + 12 + 3 * 22 + 4 + 12 + len(LANE_ORDER) * 17 + 8) * scale
-    panel = Image.new("RGBA", (panel_w, panel_h), (8, 8, 14, 150))
+    panel_h = H  # debug build: the full DAW column
+    panel = Image.new("RGBA", (panel_w, panel_h), (8, 8, 14, 165))
+
+    def at_txt(series, t, default=""):
+        best = default
+        for tt, v in series:
+            if tt <= t:
+                best = v
+            else:
+                break
+        return best
+
     for k, fp in enumerate(frames):
         t = k / fps
         im = Image.open(fp).convert("RGB").resize((W, H), Image.NEAREST)
         im.paste(Image.new("RGB", (panel_w, panel_h), (8, 8, 14)),
                  (px0, 0), panel)
         d = ImageDraw.Draw(im)
-        y = 6 * scale
-        d.text((px0 + 6 * scale, y), "FACTORS  raw/filt", font=font,
-               fill=(200, 200, 210))
-        y += 12 * scale
+        x = px0 + 5 * scale
+        y = 4 * scale
+        # -- transport bar: frame counter / time / bank / form pos --
+        dbg = at_txt(dbg_s, t)
+        parts = dict(pp.split(":", 1) for pp in dbg.split("|")) \
+            if dbg else {}
+        bank = at_txt(bank_s, t, "?").replace("album_", "")
+        d.text((x, y), f"F{k:06d}  {t:7.2f}s", font=font,
+               fill=(240, 240, 200))
+        y += 11 * scale
+        d.text((x, y), f"{bank}  bar {parts.get('form', '?')}  "
+                       f"xf {parts.get('xf', '-')}",
+               font=small, fill=(170, 170, 190))
+        y += 11 * scale
+        # -- factors with top-3 subfactor readouts --
         raw = _at(raw_s, t, (0.0, 0.0, 0.0))
         lp = _at(lp_s, t, (0.0, 0.0, 0.0))
-        bw = panel_w - 12 * scale
+        bw = panel_w - 10 * scale
+        subs = {"PRAYER": "", "CONTEMPT": parts.get("ct", ""),
+                "STALWART": parts.get("st", "")}
         for i, name in enumerate(("PRAYER", "CONTEMPT", "STALWART")):
             col = FACTOR_COLORS[name]
             dim = tuple(c // 2 for c in col)
-            d.text((px0 + 6 * scale, y), name, font=small, fill=col)
-            y += 9 * scale
-            x = px0 + 6 * scale
-            d.rectangle([x, y, x + bw, y + 3 * scale], fill=(30, 30, 40))
+            d.text((x, y), name, font=small, fill=col)
+            y += 8 * scale
+            d.rectangle([x, y, x + bw, y + 2 * scale], fill=(30, 30, 40))
             d.rectangle([x, y, x + int(bw * min(1.0, raw[i])),
-                         y + 3 * scale], fill=dim)
-            y += 4 * scale
-            d.rectangle([x, y, x + bw, y + 5 * scale], fill=(30, 30, 40))
+                         y + 2 * scale], fill=dim)
+            y += 3 * scale
+            d.rectangle([x, y, x + bw, y + 4 * scale], fill=(30, 30, 40))
             d.rectangle([x, y, x + int(bw * min(1.0, lp[i])),
-                         y + 5 * scale], fill=col)
-            y += 9 * scale
-        y += 4 * scale
-        d.text((px0 + 6 * scale, y), "LANES", font=font,
+                         y + 4 * scale], fill=col)
+            y += 5 * scale
+            if subs[name]:
+                d.text((x + 2 * scale, y), subs[name][:34], font=tiny,
+                       fill=(150, 150, 160))
+                y += 7 * scale
+            y += 2 * scale
+        # -- aggro census --
+        d.text((x, y), f"AGGRO {parts.get('agg', '-')}", font=small,
+               fill=(220, 160, 120))
+        y += 11 * scale
+        # -- lanes: NOW / NEXT, flash on interrupts --
+        d.text((x, y), "LANES        now        next", font=small,
                fill=(200, 200, 210))
-        y += 12 * scale
-        lanes = _at(bars, t, {})
+        y += 10 * scale
+        lanes_now = _at(bars, t, {})
+        nxt = {}
+        for tt, ln in bars:
+            if tt > t:
+                nxt = ln
+                break
+        recent_int = {nm.split(":", 1)[0] for tt, nm in int_s
+                      if 0 <= t - tt < 0.45}
+        jump_flash = any(0 <= t - tt < 0.45 for tt, _ in jump_s)
         for ln in LANE_ORDER:
-            key, gain = lanes.get(ln, (None, 0.0))
+            key, gain = lanes_now.get(ln, (None, 0.0))
+            nkey, ngain = nxt.get(ln, (None, 0.0))
             col = LANE_COLORS[ln]
             live = key not in (None, "None", "silence") and gain > 0.001
-            name = key if live else "-"
-            d.text((px0 + 6 * scale, y), ln, font=small,
+            fading = isinstance(key, str) and key.endswith("~f")
+            kdisp = (key[:-2] + "*FADE" if fading else (key or "-")) \
+                if live or fading else "-"
+            ndisp = (nkey or "-") if nkey not in (None, "None",
+                                                  "silence") else "-"
+            row_y = y
+            if ln in recent_int or (jump_flash and live):
+                d.rectangle([x - 2 * scale, row_y - scale,
+                             x + bw + 2 * scale, row_y + 14 * scale],
+                            outline=(255, 60, 60), width=scale)
+            d.text((x, y), ln[:5], font=tiny,
                    fill=col if live else (90, 90, 100))
-            d.text((px0 + 38 * scale, y), str(name)[:14], font=small,
-                   fill=(220, 220, 230) if live else (90, 90, 100))
-            y += 9 * scale
-            x = px0 + 6 * scale
-            d.rectangle([x, y, x + bw, y + 4 * scale], fill=(30, 30, 40))
+            d.text((x + 26 * scale, y), str(kdisp)[:13], font=tiny,
+                   fill=(230, 230, 240) if live else (100, 100, 110))
+            d.text((x + 92 * scale, y), str(ndisp)[:11], font=tiny,
+                   fill=(140, 140, 150))
+            y += 7 * scale
+            d.rectangle([x, y, x + bw, y + 3 * scale], fill=(28, 28, 38))
             if live:
                 d.rectangle([x, y, x + int(bw * min(1.0, gain)),
-                             y + 4 * scale], fill=col)
-            y += 8 * scale
-        # JPEG: a full-gauntlet run is ~22k frames; PNG at 720p would
-        # need ~5GB of scratch, q92 JPEG a third of that, and x264 at
-        # crf 20 masks the difference
+                             y + 3 * scale], fill=col)
+            if ndisp != "-":
+                yy = y + 4 * scale
+                d.rectangle([x, yy, x + int(bw * min(1.0, ngain)),
+                             yy + scale], fill=tuple(c // 2 for c in col))
+                y += 2 * scale
+            y += 6 * scale
+        # -- event ticker --
+        evs = [(tt, "INT " + nm) for tt, nm in int_s if 0 <= t - tt < 2.5]
+        evs += [(tt, "JMP/REL " + nm) for tt, nm in jump_s
+                if 0 <= t - tt < 2.5]
+        evs += [(tt, kind.upper()) for tt, kind in
+                [(e["t"], e["kind"][6:]) for e in events
+                 if e["kind"] in ("music_sting", "music_stab")]
+                if 0 <= t - tt < 2.5]
+        for tt, txt in sorted(evs)[-3:]:
+            d.text((x, y), txt[:36], font=tiny, fill=(255, 120, 120))
+            y += 7 * scale
         im.save(out_dir / f"frame_{k:06d}.jpg", quality=92)
     return len(frames)
 
