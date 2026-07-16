@@ -68,7 +68,7 @@ def battery(rows, p):
     kill = ema(g("kills_delta"), 30.0)
     hp = g("hp")
     danger = danger + p["CROWD_W"] * crowd + p["INFLUX_W"] * influx * 10 \
-        + p["SCREAM_W"] * scream + p["DMG_W"] * dmg * 10 \
+        + 0.0 * scream + p["DMG_W"] * dmg * 10 \
         + p["FIRED_W"] * fire
     stal = 1.0 - np.exp(-danger / p["KNEE"])
     mow = p["KILL_W"] * kill * 10 + p["FIRE_W"] * fire \

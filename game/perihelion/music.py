@@ -80,7 +80,11 @@ DANGER_ADJ = {"warden": 8.5, "brute": 0.3, "flicker": 0.2, "husk": 0.8,
               "mite": 0.3, "spitter": 0.3, "shrieker": 0.1}
 CROWD_W = 27.5           # per unit inverse-distance mass (co-room)
 INFLUX_W = 3.0           # per newly-aggroed enemy per second (3s EMA)
-SCREAM_W = 5.84          # scream recency (1 at scream, 0 after 5s)
+# (scream term REMOVED, director 2026-07-16: screams correlate with
+# danger because they coincide with entering full rooms -- a
+# confounder, not a source. A distant off-camera scream carries no
+# threat; the influx/count terms carry the real thing when the woken
+# wave actually arrives.)
 DMG_W = 0.13             # per hp/s taken (3s EMA)
 FIRED_W = 9.96           # player's own trigger duty (1s EMA)
 DANGER_KNEE = 14.0
@@ -163,11 +167,6 @@ def read_inputs(session) -> dict:
                 crowd += 1.0 / max(_m.hypot(ex - px, ey - py), 10.0)
             except Exception:
                 pass
-    lscream = getattr(session, "last_scream_tick", None)
-    scream_recent = 0.0
-    if lscream is not None:
-        scream_recent = max(0.0, 1.0 - (session.tick_count - lscream)
-                            / (5.0 * TICKS_PER_S))
     return dict(
         level=getattr(session, "level_name", "?"),
         weapon=getattr(session, "weapon", None) or
@@ -175,7 +174,6 @@ def read_inputs(session) -> dict:
         aggro=aggro,
         aggro_ids=aggro_ids,
         crowd=round(crowd, 4),
-        scream_recent=round(scream_recent, 3),
         firing_now=firing_now,
         hp=getattr(session, "hp", 100.0),
         tension=tension,
@@ -212,7 +210,6 @@ def values(inputs: dict) -> tuple[float, float, float]:
             danger += 0.15 * DANGER_ADJ.get(kind, 0.3)
     danger += CROWD_W * inputs.get("crowd", 0.0)
     danger += INFLUX_W * inputs.get("influx_rate", 0.0)
-    danger += SCREAM_W * inputs.get("scream_recent", 0.0)
     danger += DMG_W * inputs.get("dmg_rate", 0.0)
     danger += FIRED_W * inputs.get("fire_duty", 0.0)
     stalwart = 1.0 - math.exp(-danger / DANGER_KNEE)
