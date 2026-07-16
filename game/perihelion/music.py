@@ -638,8 +638,15 @@ class MusicSystem:
                 return
             chunks = self._slice_bank()
             lane_defs = self._lane_defs(chunks)
-            if pygame.mixer.get_num_channels() < 8 + len(lane_defs) + 1:
-                pygame.mixer.set_num_channels(8 + len(lane_defs) + 1)
+            riser_ch_idx = 4 + len(lane_defs)
+            if pygame.mixer.get_num_channels() < riser_ch_idx + 13:
+                pygame.mixer.set_num_channels(riser_ch_idx + 13)
+            # channels 0..riser are MUSIC/system territory: reserve
+            # them from SFX auto-allocation (Sound.play() steals the
+            # longest-running channel under load -- i.e. a music lane;
+            # and one-shots landing on ch2/3 got hard-cut by the next
+            # stab/sting). 12 channels remain as the SFX pool.
+            pygame.mixer.set_reserved(riser_ch_idx + 1)
             master = getattr(self.bank, "master_vol", 1.0)
             lane_defs = {k: v for k, v in lane_defs.items()
                          if v is not None}
