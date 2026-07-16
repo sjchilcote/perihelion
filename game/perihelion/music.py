@@ -130,6 +130,11 @@ FALL_STEP = 0.65             # per-bar multiplier on a falling lane gain
 # only death stops it (director 2026-07-17).
 HEAVY_LANES = ("wall", "boss", "drums", "bass", "lead", "lead2",
                "groove")
+# rhythmic lanes EXIT CLEAN on the bar line instead of fading
+# (Gemini A/B 2026-07-17, 4/4 consistent rationale: an amplitude-fade
+# on an active drum loop reads as a DJ fader, not composition --
+# percussion stops at the boundary, sustained material rings out)
+CLEAN_EXIT_LANES = ("drums",)
 # nonlinear filter (director's rule): MASSIVE spikes pass immediately,
 # ambiguous encounters must persist through the one-bar low-pass
 SPIKE_JUMP = 0.30            # raw-vs-filtered stalwart gap that snaps
@@ -527,10 +532,15 @@ class MusicSystem:
             # combat floor: mid-fight the form never drifts into calm
             # or outro material -- loop back into the develop band at
             # the composed section boundary (seamless, no arrival cut)
-            if self._section_at(pos) not in self._COMBAT_SECTIONS:
-                dev = self._section_range("develop") or \
-                    self._section_range("entry")
-                if dev is not None:
+            dev = self._section_range("develop") or \
+                self._section_range("entry")
+            if dev is not None:
+                if self._section_at(pos) not in self._COMBAT_SECTIONS:
+                    return (dev[0], "loop")
+                if pos == dev[1] - 1 and st < 0.85:
+                    # ordinary fights LOOP develop; walking on into
+                    # peak material is reserved for the boss tier
+                    # ("save the really hard stuff for when it counts")
                     return (dev[0], "loop")
             return None
         if becalmed:
@@ -552,9 +562,18 @@ class MusicSystem:
                 settled = all(self._live.get(n, 0.0) <= 0.25
                               for n in ("wall", "groove", "drums",
                                         "bass", "lead", "lead2"))
-                if in_band and pos % 2 == 0 and settled and \
-                        self._calm_bars >= 4:
-                    return (a, "jump")
+                if in_band:
+                    if pos % 2 == 0 and settled and \
+                            self._calm_bars >= 4:
+                        return (a, "jump")
+                    # still exhaling: HOLD position -- loop the section
+                    # we fought in rather than walking into fresh
+                    # (hotter) material at decaying gains (the S1
+                    # regression: the form drifted into PEAK mid-
+                    # comedown and the release read as a late cut)
+                    for s_, aa, bb in self.sections:
+                        if aa <= pos < bb and pos == bb - 1:
+                            return (aa, "loop")
         return None
 
     def _lead_split(self, weapon_key, base_gain: float):
@@ -1074,6 +1093,7 @@ class MusicSystem:
                     prev_key = lane.key
                     nk = sel.get(lname, "silence")
                     if boss_release and lname in HEAVY_LANES and \
+                            lname not in CLEAN_EXIT_LANES and \
                             lane.key not in (None, "silence") and \
                             lane.gain > 0.02:
                         # ONE-BAR COMEDOWN (F003993): every heavy lane
@@ -1091,6 +1111,14 @@ class MusicSystem:
                             lane.key = "silence"
                             lane._tapkey = None
                             continue
+                    if nk == "silence" and \
+                            prev_key not in (None, "silence") and \
+                            lname in CLEAN_EXIT_LANES:
+                        lane.key = "silence"   # percussion exits CLEAN
+                        lane.gain = 0.0        # on the bar line
+                        lane._tapkey = None
+                        self._live[lname] = 0.0
+                        continue
                     if nk == "silence" and \
                             prev_key not in (None, "silence") and \
                             lane.gain > 0.05:
@@ -1146,6 +1174,8 @@ class MusicSystem:
         for lname, lane in self._lanes.items():
             if sel.get(lname) == "silence" and \
                     lane.key not in (None, "silence"):
+                if lname in CLEAN_EXIT_LANES:
+                    continue                   # percussion stops clean
                 if lane.fade_ticks > 0:
                     sel[lname] = lane.key      # farewell bar in flight
                 elif lane.gain > 0.05:
@@ -1234,11 +1264,17 @@ class MusicSystem:
             for lname, lane in self._lanes.items():
                 g = gains.get(lname, 0.0)
                 if boss_release and lname in HEAVY_LANES and \
+                        lname not in CLEAN_EXIT_LANES and \
                         lane.key not in (None, "silence") and \
                         lane.gain > 0.02 and lane.fade_ticks == 0:
                     lane.fade_ticks = bar_ticks    # one-bar comedown
                     lane.fade_total = bar_ticks
                     self._live[lname] = 0.0        # rebuild from silence
+                    continue
+                if lname in CLEAN_EXIT_LANES and \
+                        sel_raw.get(lname) == "silence":
+                    self._live[lname] = 0.0        # clean bar-line stop
+                    lane.set_gain(0.0, master)
                     continue
                 # LIVE dying gate now mirrors tick-clock exactly
                 # (workflow review: the old g<=0.02 gate needed values

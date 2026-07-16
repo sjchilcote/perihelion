@@ -99,17 +99,26 @@ def _resolve_bank(name: str) -> Path | None:
     return None
 
 
-def _mix_music_rich(mix, events, duration_s) -> bool:
+def _mix_music_rich(out_mix, events, duration_s) -> bool:
     """Offline twin of the CHUNK-QUEUE mixer: music_bar taps carry the
     full per-bar decision (form-local bar index + every lane's content
     and gain), and music_bank taps carry the ENGINE's own bank rotation
     (director 2026-07-16: the engine mixes and matches; no env var).
-    Riser/sting from their own taps, from the bank active at the time."""
+    Riser/sting from their own taps, from the bank active at the time.
+    music_halt taps (death) cut ALL music dead until the engine
+    restarts. Seamless loop steers tap music_jump with a '~s' suffix
+    and get NO arrival ramp; true jumps ramp every lane EXCEPT
+    holy/bed -- PRAYER never stops (director 2026-07-17)."""
     bank_evs = [e for e in events if e["kind"] == "music_bank"]
     bar_evs = [e for e in events if e["kind"] == "music_bar"]
-    jump_ts = [e["t"] for e in events if e["kind"] == "music_jump"]
+    jump_ts = [e["t"] for e in events if e["kind"] == "music_jump"
+               and not str(e["name"]).endswith("~s")]
+    halt_ts = [e["t"] for e in events if e["kind"] == "music_halt"]
     if not bar_evs or not bank_evs:
         return False
+    # music renders into its own buffer so a death halt can cut it
+    # sample-exactly without touching SFX
+    mix = np.zeros_like(out_mix)
 
     banks: dict[str, dict] = {}
 
@@ -189,7 +198,8 @@ def _mix_music_rich(mix, events, duration_s) -> bool:
             g = min(1.0, gain) * 0.8
             if fade:
                 env = np.linspace(1.0, 0.0, n, dtype=np.float32)
-            elif ramp_in:
+            elif ramp_in and ln not in ("holy", "bed"):
+                # the through-line lanes never dip for an arrival
                 env = np.linspace(0.0, 1.0, n, dtype=np.float32)
             else:
                 env = None
@@ -235,6 +245,16 @@ def _mix_music_rich(mix, events, duration_s) -> bool:
             ssnd = stem(bk, "stab") if bk else None
             if ssnd is not None:
                 _place(mix, ssnd.mean(axis=1), e["t"], 0.7, 0.7)
+    # death halts (music_halt): the music stops DEAD -- zero everything
+    # from the halt until the engine's next restart bar (if any)
+    for ht in halt_ts:
+        resume = next((e["t"] for e in bar_evs if e["t"] > ht),
+                      duration_s + 1.0)
+        h0 = max(0, int(ht * RATE))
+        h1 = min(n_total, int(resume * RATE))
+        if h1 > h0:
+            mix[h0:h1] = 0.0
+    out_mix += mix
     return True
 
 
