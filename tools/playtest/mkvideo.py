@@ -151,6 +151,8 @@ def _mix_music_rich(mix, events, duration_s) -> bool:
     seq = [dict(t=max(0.0, first["t"] - (bk0["bar_s"] if bk0 else 2.0)),
                 detail=first["name"], bar0=True)] + \
         [dict(t=e["t"], detail=e["name"], bar0=False) for e in bar_evs]
+    prev_idx = None
+    prev_bank = None
     for ev in seq:
         bk = bank_at(ev["t"])
         if bk is None:
@@ -160,6 +162,13 @@ def _mix_music_rich(mix, events, duration_s) -> bool:
         bar_idx = int(parts[0]) % bk["bars"]
         if ev["bar0"]:
             bar_idx = (int(parts[0]) - 1) % bk["bars"]
+        # arrival fade-in: a form jump or bank rotation lands mid-
+        # phrase for composed voices -- ramp the discontinuous bar in
+        # (mirrors the live engine's arrival breath)
+        ramp_in = (prev_bank is not None and bk is not prev_bank) or \
+            (prev_idx is not None and
+             bar_idx not in ((prev_idx + 1) % bk["bars"], prev_idx))
+        prev_idx, prev_bank = bar_idx, bk
         s0 = int(ev["t"] * RATE)
         if s0 >= n_total:
             break
@@ -181,6 +190,11 @@ def _mix_music_rich(mix, events, duration_s) -> bool:
             g = min(1.0, gain) * 0.8
             if fade:
                 env = np.linspace(1.0, 0.0, n, dtype=np.float32)
+            elif ramp_in:
+                env = np.linspace(0.0, 1.0, n, dtype=np.float32)
+            else:
+                env = None
+            if env is not None:
                 mix[s0:s0 + n, 0] += seg[:n, 0] * g * env
                 mix[s0:s0 + n, 1] += seg[:n, 1] * g * env
             else:
@@ -208,6 +222,11 @@ def _mix_music_rich(mix, events, duration_s) -> bool:
             ssnd = stem(bk, "sting") if bk else None
             if ssnd is not None:
                 _place(mix, ssnd.mean(axis=1), e["t"], 0.8, 0.8)
+        elif e["kind"] == "music_stab":
+            bk = bank_at(e["t"])
+            ssnd = stem(bk, "stab") if bk else None
+            if ssnd is not None:
+                _place(mix, ssnd.mean(axis=1), e["t"], 0.7, 0.7)
     return True
 
 

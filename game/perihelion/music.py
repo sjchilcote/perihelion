@@ -267,6 +267,8 @@ class ChunkLane:
         self.gain = 0.0
         self.fade_ticks = 0               # farewell-bar fade-out state
         self.fade_total = 1
+        self.fadein_ticks = 0             # arrival fade-in (jumps/rotation)
+        self.fadein_total = 1
 
     def start(self, key: str, master_vol: float):
         self.key = key
@@ -378,6 +380,7 @@ class MusicSystem:
         self._riser_gain = 0.0
         self._pending_sting = False
         self._sting = None
+        self._stab = None
         # transition controller (STEM_COMPOSITION_DESIGN §4): per-lane
         # build programs — {lane: [gain_step_per_bar..., target]}; the
         # derivative of the value triple picks the program length
@@ -574,6 +577,12 @@ class MusicSystem:
                             if (self.bank_dir / f"sting.{ext}").exists()),
                            None)
             self._sting = pygame.mixer.Sound(str(sting_f)) if sting_f \
+                else None
+            stab_f = next((self.bank_dir / f"stab.{ext}"
+                           for ext in ("wav", "ogg")
+                           if (self.bank_dir / f"stab.{ext}").exists()),
+                          None)
+            self._stab = pygame.mixer.Sound(str(stab_f)) if stab_f \
                 else None
             if not self.rich:
                 self._start_legacy()
@@ -866,7 +875,7 @@ class MusicSystem:
                 if tgt is not None:
                     self._form_idx = tgt
                 if self._applied[2] >= 0.88 and self._form_idx % 4 == 0:
-                    self._pending_sting = True
+                    self._stab_now()
                 sel = self._select_content()
                 gains = self._bar_gains()
                 wkey = sel.get("lead")
@@ -921,7 +930,7 @@ class MusicSystem:
         for lname, lane in self._lanes.items():
             if lane.tickfill(sel[lname]) and lname == "bed":
                 boundary = True
-        # per-tick farewell fades
+        # per-tick farewell fade-outs and arrival fade-ins
         bar_ticks = max(1, int(self.bar_s * TICKS_PER_S))
         for lane in self._lanes.values():
             if lane.fade_ticks > 0:
@@ -930,6 +939,10 @@ class MusicSystem:
                 lane.ch.set_volume(max(0.0, lane.gain * master * f))
                 if lane.fade_ticks == 0:
                     lane.gain = 0.0
+            elif lane.fadein_ticks > 0:
+                lane.fadein_ticks -= 1
+                f = 1.0 - lane.fadein_ticks / max(1, lane.fadein_total)
+                lane.ch.set_volume(max(0.0, lane.gain * master * f))
         if boundary:
             # a bar line just sounded: this is the ONLY place values are
             # applied and gains move (the audio is the clock)
@@ -950,9 +963,16 @@ class MusicSystem:
                 self._form_idx = tgt
                 for lane in self._lanes.values():
                     lane.seek(tgt)
+                    # arrival breath: a jump lands mid-phrase for any
+                    # composed voice (the Lama's entrances live in the
+                    # stem) -- fade the new position in over one bar
+                    lane.fadein_ticks = bar_ticks
+                    lane.fadein_total = bar_ticks
             # boss stabs: a hit on the 4-bar grid while the boss lives
+            # (dedicated stab sample -- the sting carries the BELL, and
+            # a bell every 4 bars over a full mix read as sample spam)
             if self._applied[2] >= 0.88 and self._form_idx % 4 == 0:
-                self._pending_sting = True
+                self._stab_now()
             gains = self._bar_gains()
             # dual-lead crossfade split (bar-stepped, equal power)
             wkey = sel.get("lead")
@@ -1087,11 +1107,18 @@ class MusicSystem:
             lane.gain = gains.get(lname, 0.0)
             lane.ch.stop()
             lane.start(sel.get(lname, "silence"), master)
+            lane.fadein_ticks = int(self.bar_s * TICKS_PER_S)
+            lane.fadein_total = lane.fadein_ticks
         try:
             sting_f = next((dir_ / f"sting.{ext}"
                             for ext in ("wav", "ogg")
                             if (dir_ / f"sting.{ext}").exists()), None)
             self._sting = pygame.mixer.Sound(str(sting_f)) if sting_f \
+                else None
+            stab_f = next((dir_ / f"stab.{ext}"
+                           for ext in ("wav", "ogg")
+                           if (dir_ / f"stab.{ext}").exists()), None)
+            self._stab = pygame.mixer.Sound(str(stab_f)) if stab_f \
                 else None
             riser_fn = next((dir_ / f"riser.{e}" for e in ("wav", "ogg")
                              if (dir_ / f"riser.{e}").exists()), None)
@@ -1125,6 +1152,17 @@ class MusicSystem:
                 p, c, d = self._applied
                 self._tap("music_vals", f"{p:.3f},{c:.3f},{d:.3f}", 1.0)
         self._apply_legacy()
+
+    def _stab_now(self):
+        self._tap("music_stab", "stab", 1.0)
+        if self._stab is not None and self._lanes:
+            import pygame
+            try:
+                pygame.mixer.Channel(2).play(self._stab)
+                pygame.mixer.Channel(2).set_volume(
+                    0.7 * getattr(self.bank, "master", 1.0))
+            except Exception:
+                pass
 
     def _sting_now(self):
         self._tap("music_sting", "sting", 1.0)

@@ -93,6 +93,16 @@ def build(mel: str):
     overlay[:len(dread)] += dread * 0.28
     _write(outdir / "overlay_boss.wav", overlay, n)
 
+    # --- stab: the 4-bar boss hit. Crash + kick + low tom -- NO BELL
+    # (the sting carries the bell; stabbing it every 4 bars read as
+    # "someone spamming a bell sample over the music", director) ---
+    stab = np.zeros(int(1.5 * BAR * SR))
+    T.place(stab, K.hit("crash", 1.0, rng), 0, 0.9)
+    T.place(stab, K.hit("kick", 1.0, rng), 0, 1.0)
+    T.place(stab, K.hit("kick", 0.9, rng), 0.02, 0.8)
+    T.place(stab, K.hit("snare", 0.8, rng), 0.012, 0.5)
+    _write(outdir / "stab.wav", stab, len(stab))
+
     # --- section map into bank.json (dev + shipped) ---
     secs = sections_of(rec)
     for d in (outdir, SHIPPED / f"album_{mel}"):
