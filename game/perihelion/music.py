@@ -440,6 +440,7 @@ class MusicSystem:
         self._riser_peak = 0.0
         self._riser_last = -10 ** 9
         self._calm_bars = 0           # consecutive becalmed boundaries
+        self._boss_hot = False        # latched at applied st>=0.75
         self._halted = False          # death: the music dies with him
         self._pending_sting = False
         self._sting = None
@@ -951,10 +952,12 @@ class MusicSystem:
         self.inputs["kill_rate"] = round(self._ema_kill, 4)
         self.inputs["fire_duty"] = round(self._ema_fire, 4)
         raw = self.override_vals or values(self.inputs)
-        # pre-filter suddenness: how far raw intensity leads the
-        # one-bar low-pass RIGHT NOW. Read it BEFORE the nonlinear
-        # filter snaps -- a snapped spike would hide its own suddenness
-        spike_gap = max(raw[1] - self._lp[1], raw[2] - self._lp[2])
+        # pre-filter suddenness: how far raw DANGER leads the one-bar
+        # low-pass RIGHT NOW. Read it BEFORE the nonlinear filter
+        # snaps -- a snapped spike would hide its own suddenness.
+        # STALWART only: contempt spikes are the player's own trigger
+        # (a first recording fired ~19 risers, one per trash mow)
+        spike_gap = raw[2] - self._lp[2]
         if self.override_vals:
             self.vals = raw                    # manual = direct control
             self._lp = raw
@@ -1070,9 +1073,16 @@ class MusicSystem:
                 if self._applied != prev:
                     p, c, d = self._applied
                     self._tap("music_vals", f"{p:.3f},{c:.3f},{d:.3f}", 1.0)
-                boss_release = prev[2] >= 0.75 and \
-                    self._applied[2] < 0.3
+                # boss release LATCHES at >=0.75 and fires when the
+                # filtered value lands below 0.3 -- the old single-bar
+                # cliff test (prev>=0.75 AND cur<0.3) could never
+                # trigger through the one-bar low-pass on real decays:
+                # music_rel had NEVER fired in a real recording
+                if self._applied[2] >= 0.75:
+                    self._boss_hot = True
+                boss_release = self._boss_hot and self._applied[2] < 0.3
                 if boss_release:
+                    self._boss_hot = False
                     self._tap("music_rel", "boss_release", 1.0)
                     self._sting_now(force=True)
                 self._form_idx += 1
@@ -1219,8 +1229,11 @@ class MusicSystem:
             # heavy lane plays one farewell bar fading to nothing.
             # The instant everything-stop "sounded like someone
             # accidentally hit NEXT on the music player".
-            boss_release = prev[2] >= 0.75 and self._applied[2] < 0.3
+            if self._applied[2] >= 0.75:
+                self._boss_hot = True    # latch: see tick-path comment
+            boss_release = self._boss_hot and self._applied[2] < 0.3
             if boss_release:
+                self._boss_hot = False
                 self._tap("music_rel", "boss_release", 1.0)
                 self._sting_now(force=True)
             if self._applied != prev:
