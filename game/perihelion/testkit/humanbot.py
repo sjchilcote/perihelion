@@ -107,16 +107,6 @@ HARD_TURN_SCALE = 0.75         # was 0.55: gentler shed when it does trigger
 DISTANT_GLANCE_RADIUS = 30.0
 DISTANT_GLANCE_STEP = 2.5
 
-# Per-weapon fire tolerance (director 2026-07-16: "ABSURDLY hesitant to
-# fire... rather die with 999 ammo than fire the shotgun from anything
-# less than knife-fight range"). The old gate demanded rail precision
-# from every gun. A weapon's acceptable lateral miss = flat slop + a
-# cone term growing with range, in WORLD units, scaled by skill/4.
-WEAPON_AIM_SLOP = {"knife": 26.0, "pistol": 7.0, "smg": 10.0,
-                   "shotgun": 18.0, "rail": 4.5, "lightning": 40.0,
-                   "tau": 22.0, "hole": 12.0, "scrap": 18.0,
-                   "gland": 12.0}
-WEAPON_AIM_CONE = {"shotgun": 0.14, "smg": 0.07, "scrap": 0.10}
 
 
 class HumanBot(_UnstickMixin, Bot):
@@ -201,8 +191,6 @@ class HumanBot(_UnstickMixin, Bot):
         self._entry_caution = False
         self._planted = False
         self._warden_hunting = False
-        self._settle_focus = None
-        self._settle_until = 0
         self._last_kills = 0
         self._last_kill_tick = 0
         self._threats_total = 0
@@ -413,6 +401,27 @@ class HumanBot(_UnstickMixin, Bot):
                 if _dist(way, (px, py)) > 1e-6 else self._escape_dir
             vx = vx * 0.25 + ex_
             vy = vy * 0.25 + ey_
+        # CONTACT-EVASION REFLEX (director 2026-07-16: "it still loves
+        # letting enemies touch it. 'Move away from melee enemy within
+        # 30 px' needs to have overriding priority"). Subsumption layer:
+        # any enemy inside touch range overrides the whole blend -- move
+        # directly away from the local contact mass at full speed, gun
+        # still on the closest (aim is unaffected).
+        evade_x = evade_y = 0.0
+        for e in co_room:
+            d = _dist(e["pos"], (px, py))
+            if d < 45.0:
+                w = 1.0 / max(d, 4.0)
+                evade_x -= (e["pos"][0] - px) * w / max(d, 4.0)
+                evade_y -= (e["pos"][1] - py) * w / max(d, 4.0)
+        if evade_x or evade_y:
+            em = math.hypot(evade_x, evade_y)
+            sxe, sye = necore.mat_apply_dir(session.cam,
+                                            evade_x / em, evade_y / em)
+            sm = math.hypot(sxe, sye) or 1.0
+            inp.mx, inp.my = sxe / sm, sye / sm
+            return self._apply_unstick(px, py, inp)
+
         # pace policy: fights and committed retreats run at FULL speed
         # (a 0.75-gain backpedal moved ~100 u/s against 153 u/s mites --
         # diluted magnitude was the perma-chew), but a lone advance
@@ -987,57 +996,19 @@ class HumanBot(_UnstickMixin, Bot):
         # range is hurting us NOW -- it outranks focus hysteresis, the
         # escape-path pool, everything. A human being bitten shoots the
         # thing biting him.
-        urgent = []
-        for e in perceived:
-            er = session.sim.get_radius(e["id"]) \
-                if session.sim.exists(e["id"]) else 8.0
-            if _dist(e["pos"], (px, py)) < er + 26.0:
-                urgent.append(e)
-        if urgent:
-            nearest = min(urgent, key=lambda e: _dist(e["pos"], (px, py)))
-            self._focus_id = nearest["id"]
-        elif self._escape_ticks > 0:
-            # while escaping, shoot whatever blocks the escape path
-            edx, edy = self._escape_dir
-            in_path = [e for e in perceived
-                       if (lambda dx, dy, d: (dx * edx + dy * edy) / d > 0.2)(
-                           e["pos"][0] - px, e["pos"][1] - py,
-                           _dist(e["pos"], (px, py)) or 1e-6)]
-            pool = in_path or perceived
-            nearest = min(pool, key=lambda e: _dist(e["pos"], (px, py)))
-            self._focus_id = nearest["id"]
+        # FIRE POLICY (director 2026-07-16): "If enemy in LOS, point at
+        # closest enemy, hold down trigger." No urgency tiers, no
+        # escape-path pools -- closest wins, with only enough hysteresis
+        # to stop per-tick ties from flickering the cursor.
+        closest = min(perceived, key=lambda e: _dist(e["pos"], (px, py)))
+        focus = next((e for e in perceived if e["id"] == self._focus_id),
+                     None)
+        if focus is not None and _dist(focus["pos"], (px, py)) <= \
+                1.15 * _dist(closest["pos"], (px, py)):
+            nearest = focus
         else:
-            # single-threaded attention with hysteresis: stay on the
-            # current focus unless it's gone or something is decisively
-            # closer (1.5x) -- a human doesn't retarget on a per-tick tie
-            closest = min(perceived, key=lambda e: _dist(e["pos"], (px, py)))
-            focus = next((e for e in perceived if e["id"] == self._focus_id),
-                         None)
-            if focus is not None and _dist(focus["pos"], (px, py)) <= \
-                    1.5 * _dist(closest["pos"], (px, py)):
-                nearest = focus
-            else:
-                nearest = closest
-            self._focus_id = nearest["id"]
-        # sight-settle (director 2026-07-16: "a certain delay between
-        # pointing at a target and firing" -- the measured retarget->
-        # fire gap was 1 TICK, a 16ms trigger reflex): a new focus
-        # samples a 120-220ms settle before the trigger may drop
-        if nearest["id"] != self._settle_focus:
-            # transferring to an adjacent, already-tracked target is a
-            # short micro-adjust (~50-80ms); acquiring a fresh or far
-            # target is the full 120-220ms sight picture
-            near_transfer = False
-            if self._settle_focus is not None:
-                prev = next((e for e in perceived
-                             if e["id"] == self._settle_focus), None)
-                if prev is not None and \
-                        _dist(prev["pos"], nearest["pos"]) < 130.0:
-                    near_transfer = True
-            self._settle_focus = nearest["id"]
-            self._settle_until = snapshot["tick"] + \
-                (self._flinch_rng.randint(3, 5) if near_transfer
-                 else self._flinch_rng.randint(7, 13))
+            nearest = closest
+        self._focus_id = nearest["id"]
         ex, ey = nearest["pos"]
         dx, dy = ex - px, ey - py
         dist = math.hypot(dx, dy) or 1e-6
@@ -1066,45 +1037,12 @@ class HumanBot(_UnstickMixin, Bot):
         # relative to the true (un-flinched) target position on screen --
         # mouse lag, overshoot, and flinch all show up here as misses,
         # rather than as a separately-computed "true" aim error
-        # error = LATERAL miss at the target's range (would this aim RAY
-        # cross the silhouette?), not cursor-to-target point distance --
-        # with the min aim extension the cursor legitimately parks past
-        # a point-blank target, which is a perfect shot, not a 14px miss
-        true_ax, true_ay = necore.mat_apply(session.cam, ex, ey)
-        pax, pay = necore.mat_apply(session.cam, px, py)
-        cdx, cdy = cur_ax - pax, cur_ay - pay
-        cmag = math.hypot(cdx, cdy)
-        edx, edy = true_ax - pax, true_ay - pay
-        if cmag < 1e-6:
-            screen_err = math.hypot(cur_ax - true_ax, cur_ay - true_ay)
-        elif cdx * edx + cdy * edy <= 0.0:
-            screen_err = 1e9          # aiming AWAY from it: never fire
-        else:
-            screen_err = abs(cdx * edy - cdy * edx) / cmag
-        target_r = session.sim.get_radius(nearest["id"]) \
-            if session.sim.exists(nearest["id"]) else 8.0
-        cam_scale = math.hypot(*necore.mat_apply_dir(session.cam, 1.0, 0.0)) or 1.0
-        # the skill floor is a WORLD-space tolerance (authored as 6px/
-        # skill-point at the 1.35 default zoom = ~4.4u each). Leaving it
-        # in raw pixels made zoom part of the skill: at the shipped 0.45
-        # camera 24px was a 53u slop -- the bot pulled the trigger with
-        # the cursor half a room off the target ("its aim is strangely
-        # bad", director 2026-07-16)
-        held = snapshot["weapon"]
-        # the flat slop scales IN with range: at contact the silhouette
-        # rules (a shotgun 0.5 rad off at 11u genuinely misses a mite --
-        # full flat slop there let flinch-junk shots pass the gate and a
-        # 4hp mite chewed the bot for six straight seconds, seed 1005);
-        # at range the cone term takes over and does the forgiving
-        slop = WEAPON_AIM_SLOP.get(held, 8.0) * min(1.0, dist / 140.0) \
-            + WEAPON_AIM_CONE.get(held, 0.0) * dist
-        allowed_world = target_r * 0.9 + slop * (self.skill / 4.0)
-        allowed_px = max(3.0, allowed_world * cam_scale)
-        # no flinch hard-block: flinch already kicks the aim angle, and
-        # the ray gate scores the kicked ray honestly -- a flinched shot
-        # that still crosses the silhouette is a shot a human takes
-        inp.fire = (screen_err < allowed_px and
-                    snapshot["tick"] >= self._settle_until)
+        # trigger: HELD. The pointing is the MouseModel's problem; misses
+        # while the cursor swings are honest human misses. (Every prior
+        # gate -- ray-lateral, per-weapon slop, sight-settle -- measured
+        # as some flavor of "ABSURDLY gunshy", director, three rounds
+        # running.)
+        inp.fire = True
 
         want = choose_weapon(snapshot, dist, len(perceived))
         # the lightning cannon IS the crowd-control answer (director):
@@ -1142,7 +1080,7 @@ class HumanBot(_UnstickMixin, Bot):
         # grants). A hurt player who sees a medkit in the room weaves to
         # it WHILE firing; he does not finish the fight first.
         med_goal = None
-        if snapshot["hp"] < 65.0 and not urgent:
+        if snapshot["hp"] < 65.0 and dist > 40.0:
             meds = [p["pos"] for p in snapshot.get("pickups", [])
                     if p.get("kind") == "medkit" and
                     p.get("room") == snapshot["room"] and

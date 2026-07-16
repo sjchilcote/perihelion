@@ -410,11 +410,15 @@ def test_flanked_choke_is_survived_and_escape_engages():
     the absolute-priority/viewport-perception retune -> seed 18; the
     distant-threat glance-wander retune -> seed 16; the motor-schema
     arbitration rework, 2026-07-16 -> seed 8; the arbitration gain
-    retune (pace policy + co-room damping) -> seed 4, current). Each
+    retune (pace policy + co-room damping) -> seed 4; the hold-the-
+    trigger fire policy -> seed 1; the contact-evasion reflex -> seed
+    4, current). Each
     time, the mechanism itself remained intact and fires on a
-    comparable-or-better fraction of a fresh 79-seed scan (18/79,
-    20/79, 46/79, then 72/79 -- escape blends instead of waiting for
-    a mode boundary) -- only the specific seed drifts.
+    fraction of a fresh 79-seed scan (18/79, 20/79, 46/79, 72/79,
+    50/79 -- then 6/79 after the contact-evasion reflex landed: the
+    LOWER layer now prevents most of the emergencies the escape used
+    to cure, which is subsumption working as intended; the mechanism
+    still fires when genuinely boxed).
     If this breaks again, re-scan rather than assume the escape policy
     regressed."""
     level = build_flanked_choke_level()
