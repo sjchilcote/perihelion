@@ -251,3 +251,15 @@ reasoning as the soundfonts above):
 - Replaces Vitalium as the render engine for .vital banks: Vitalium's
   1.0.x engine mangles 1.5.x presets into a fallback tone (measured:
   cross-preset correlation 0.86 -> ~0.00 on real Vital 1.5.5).
+
+## Ylanne Vinyl Church Bells (Joonas Ylanne / AV-Ylanne, v1.1)
+- Provided by the director (Downloads zip; Decent Sampler freeware).
+  License (Readme.txt): freeware; "free to use the sounds in your
+  music and projects, including commercial work"; may NOT resell,
+  redistribute, or repackage the instrument or its contents. Samples
+  stay in the scratchpad ($S/bells/); only rendered stings (sting.wav
+  per bank) are committed.
+- ChurchBell1.wav (Puolimatkan chapel bell, vinyl-recorded) is the
+  source of the sting bell: measured perceived strike ~C5 (+22 cents),
+  resampled down 34.2 semitones to strike MIDI 38 (D2, 73.4 Hz; hum
+  partial ~37 Hz) via tools/musicgen/bell_sting.py.
