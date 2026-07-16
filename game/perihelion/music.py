@@ -1165,6 +1165,14 @@ class MusicSystem:
                 pass
 
     def _sting_now(self):
+        # punctuation, not a metronome: the nonlinear spike-pass made
+        # STING_RISE fire on every snapped wave (81 stings in a 259s
+        # run). One sting per 8 bars, full stop.
+        tick = self._boundary_tick
+        if tick - getattr(self, "_last_sting_tick", -99999) < \
+                8 * self.bar_s * TICKS_PER_S:
+            return
+        self._last_sting_tick = tick
         self._tap("music_sting", "sting", 1.0)
         if self._sting is not None and (self._lanes or self._channels):
             import pygame

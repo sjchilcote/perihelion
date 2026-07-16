@@ -82,7 +82,12 @@ def build(mel: str):
         sub_seq.append((26 + r, t0, BAR * 0.95, 112))          # sub root
         sub_seq.append((26 + r, t0 + BAR / 2, BAR * 0.45, 100))
         if bar % 2 == 0:
-            dread_seq.append((38 + r + 6, t0, BAR * 1.9, 84))  # tritone
+            # octave pedal, not tritone: Gemini comparative judge
+            # (overlay_iter.py, 2026-07-16) scored the tritone
+            # coherence 3/10 ('mix-ruining dissonant mud' -- exactly
+            # the clash the director heard) and the octave 10/10
+            # coherence, 9/10 menace, zero clash
+            dread_seq.append((38 + r + 12, t0, BAR * 1.9, 84))
     sub = VB.render_seq(*rec["bass"], sub_seq, total_bars * BAR, 0.6)
     dread = VB.render_seq(*rec["wall"], dread_seq, total_bars * BAR, 0.5)
     sub = sub / (np.abs(sub).max() + 1e-9)
@@ -90,8 +95,20 @@ def build(mel: str):
     L = max(len(sub), len(dread), n)
     overlay = np.zeros(L, dtype=np.float64)
     overlay[:len(sub)] += sub * 0.75
-    overlay[:len(dread)] += dread * 0.28
+    overlay[:len(dread)] += dread * 0.22
     _write(outdir / "overlay_boss.wav", overlay, n)
+
+    # --- sting rebuilt: swell-entry (Gemini sting_iter verdict: the
+    # bare crash+bell read as "a random audio glitch" 3/10; the same
+    # bell telegraphed by a reversed-cymbal swell scored 9/10 -- things
+    # ARRIVE, the producer's-pull law again) ---
+    crash = K.hit("crash", 1.0, rng)
+    rev = crash[::-1] * np.linspace(0.0, 1.0, len(crash)) ** 1.5
+    stg = np.zeros(int(2.5 * BAR * SR))
+    T.place(stg, rev * 0.7, 0)
+    T.place(stg, K.hit("crash", 1.0, rng), len(rev) / SR * 0.92)
+    T.place(stg, T.bell_render(rec, 0.8), len(rev) / SR * 0.92)
+    _write(outdir / "sting.wav", stg, len(stg))
 
     # --- stab: the 4-bar boss hit. Crash + kick + low tom -- NO BELL
     # (the sting carries the bell; stabbing it every 4 bars read as
