@@ -113,7 +113,11 @@ def test_blends_are_native():
     inp = read_inputs(make_session(enemies, rooms))
     inp.update(fire_duty=0.8, kill_rate=1.0)
     p, c, s = values(inp)
-    assert s > 0.3 and c > 0.03, "blend must be expressible"
+    # threshold recalibrated 2026-07-17: firing no longer feeds danger
+    # (firing -> CONTEMPT, danger -> STALWART), so the same pack reads
+    # ~0.26 stalwart from the enemies alone -- the blend law is that
+    # BOTH axes are live at once, not a specific magnitude
+    assert s > 0.2 and c > 0.03, "blend must be expressible"
 
 
 def test_prayer_floor_never_breaks():
@@ -185,6 +189,9 @@ def test_massive_spike_passes_immediately():
 
 
 def test_hard_rise_stings():
+    # new grammar (director 2026-07-17): a sudden heavy rise fires the
+    # riser one-shot, whose release IS the sting -- within ~3 bars of
+    # the wave appearing
     taps = []
     bank = SimpleNamespace(_ready=False,
                            tap=lambda k, d, v, p: taps.append((k, d)))
@@ -192,35 +199,61 @@ def test_hard_rise_stings():
     ms.update(make_session({}, {}, tick=1))
     heavy = {1: awake("brute"), 2: awake("brute"), 3: awake("warden")}
     rooms = {1: 0, 2: 0, 3: 0}
-    # a SUSTAINED heavy assault still stings within ~2 bars (the smoothed
-    # rise crosses STING_RISE across a bar boundary)
     _sustain(ms, lambda k: make_session(heavy, rooms, tick=2 + k),
-             2 * ticks_per_bar())
+             3 * ticks_per_bar())
     assert any(k == "music_sting" for k, _ in taps)
     assert any(k == "music_vals" for k, _ in taps)
 
 
-def test_riser_releases_with_sting():
+def test_riser_only_on_sudden_rise():
+    # director 2026-07-17: risers fire ONLY on sudden intensity rises
+    # -- a lurking flicker is a sustain and must NOT hold one up
+    # (F002718: the 8-second flat pink-noise blast)
     taps = []
     bank = SimpleNamespace(_ready=False,
                            tap=lambda k, d, v, p: taps.append((k, d)))
     ms = MusicSystem(audio_bank=bank, enabled=True)
     lurk = {1: dict(kind="flicker", state="lurk")}
-    rooms = {1: 0}
-    ms.update(make_session(lurk, rooms, tick=1))
-    assert ms._riser_gain > 0.0
-    # pounce clearly mid-8th (an 8th is ~12.9 ticks at 140bpm; tick 6 is
-    # ~5 ticks past the tick-1 bar line, outside the on-grid window)
-    pounce = {1: dict(kind="flicker", state="hunt")}
-    ms.update(make_session(pounce, rooms, tick=6))
+    ms.update(make_session(lurk, {1: 0}, tick=1))
     assert ms._riser_gain == 0.0
-    # the sting is QUANTIZED: it must NOT fire mid-air, and must land
-    # within the next 8th-note of the bar grid
-    assert not any(k == "music_sting" for k, _ in taps)
-    eighth_ticks = int(round(60.0 * ms.bar_s / 8.0)) + 1
-    for t in range(7, 7 + eighth_ticks):
-        ms.update(make_session(pounce, rooms, tick=t))
+    # a heavy wave appearing at once IS sudden: a bounded one-shot arc
+    heavy = {1: awake("brute"), 2: awake("brute"), 3: awake("warden")}
+    rooms = {1: 0, 2: 0, 3: 0}
+    ms.update(make_session(heavy, rooms, tick=2))
+    assert ms._riser_env > 0
+    peak_seen = 0.0
+    for t in range(3, 3 + int(2.3 * ticks_per_bar())):
+        ms.update(make_session(heavy, rooms, tick=t))
+        peak_seen = max(peak_seen, ms._riser_gain)
+    # the arc completed (no sustain) and released into the sting
+    assert ms._riser_env == 0 and ms._riser_gain == 0.0
+    assert peak_seen > 0.4
+    assert any(k == "music_riser" and d == "0.00" for k, d in taps)
     assert any(k == "music_sting" for k, _ in taps)
+
+
+def test_death_halts_music():
+    # "the music is the Commando's thinking and feeling -- when he
+    # dies, it dies" (director 2026-07-17)
+    taps = []
+    bank = SimpleNamespace(_ready=False,
+                           tap=lambda k, d, v, p: taps.append((k, d)))
+    ms = MusicSystem(audio_bank=bank, enabled=True)
+    heavy = {1: awake("brute"), 2: awake("warden")}
+    rooms = {1: 0, 2: 0}
+    _sustain(ms, lambda k: make_session(heavy, rooms, tick=1 + k),
+             ticks_per_bar())
+    ms._started = True          # unit stand-in for a running mixer
+    n_before = len(taps)
+    ms.update(make_session(heavy, rooms, hp=0.0,
+                           tick=1 + ticks_per_bar()))
+    assert ("music_halt", "death") in taps[n_before:]
+    assert ms._riser_gain == 0.0 and not ms._pending_sting
+    # dead stays silent: no further taps of any kind
+    n_halt = len(taps)
+    ms.update(make_session(heavy, rooms, hp=0.0,
+                           tick=2 + ticks_per_bar()))
+    assert len(taps) == n_halt
 
 
 def test_deterministic_tap_log():
@@ -238,3 +271,68 @@ def test_deterministic_tap_log():
                                    rooms, tick=t))
         return taps
     assert run() == run()
+
+
+# --- form/release grammar (tick-clock, real shipped bank) ---------------
+
+def _rich_ms(taps):
+    from pathlib import Path
+    bank_dir = (Path(__file__).resolve().parents[1]
+                / "assets/music/album_dies_irae")
+    bank = SimpleNamespace(_ready=True, master_vol=1.0,
+                           tap=lambda k, d, v, p: taps.append((k, d)))
+    return MusicSystem(bank, enabled=True, bank_dirs=[bank_dir],
+                       tick_clock=True)
+
+
+def _drive(ms, vals, bars, t0):
+    ms.override_vals = vals
+    bar_ticks = int(ms.bar_s * TICKS_PER_S)
+    t = t0
+    for _ in range(bars * bar_ticks):
+        t += 1
+        ms.update(make_session({}, {}, tick=t))
+    return t
+
+
+def test_boss_release_is_one_bar_comedown():
+    # F003993 (director 2026-07-17): the end of a boss fight is a
+    # one-bar farewell fade under the toll -- never an instant
+    # everything-stop -- and the chant NEVER stops
+    taps = []
+    ms = _rich_ms(taps)
+    t = _drive(ms, (0.12, 0.6, 0.95), 8, 0)
+    t = _drive(ms, (1.0, 0.0, 0.0), 4, t)
+    assert any(k == "music_rel" for k, _ in taps)
+    rel_i = next(i for i, (k, _) in enumerate(taps) if k == "music_rel")
+    bar_after = next(d for k, d in taps[rel_i:] if k == "music_bar")
+    assert "~f" in bar_after, "heavy lanes take a farewell bar"
+    assert ">RELEASE" not in " ".join(
+        d for k, d in taps if k == "music_int")
+    for k, d in taps:
+        if k != "music_bar":
+            continue
+        holy = next(p for p in d.split("|")[1:] if p.startswith("holy:"))
+        _, key, gain = holy.rsplit(":", 2)
+        assert key.startswith("prayer") and float(gain) > 0.3, \
+            f"PRAYER never stops: {d}"
+
+
+def test_combat_keeps_form_out_of_calm_sections():
+    # F002291: mid-fight the form wrapped through outro into the
+    # composed intro and the chant fell silent; combat must keep the
+    # form inside entry/develop/peak
+    taps = []
+    ms = _rich_ms(taps)
+    t = _drive(ms, (0.3, 0.55, 0.5), 44, 0)     # a long fight
+    bars = [d for k, d in taps if k == "music_bar"]
+    combat_ok = range(8, 32)                     # entry+develop+peak
+    for d in bars[3:]:                           # skip the spin-up
+        pos = int(d.split("|")[0])
+        assert pos in combat_ok, f"form drifted to calm bar {pos}"
+    # and deep calm comes home to the vigil once settled
+    taps.clear()
+    _drive(ms, (1.0, 0.0, 0.0), 24, t)
+    last = [int(d.split("|")[0]) for k, d in taps if k == "music_bar"]
+    assert any(p in range(0, 8) for p in last[-6:]), \
+        "becalmed music returns to the vigil"

@@ -36,9 +36,10 @@ ChunkedMusicPlayer from pyweek-28, generalized to N lanes):
     is no free-running loop and no tick-derived bar counter in the rich
     path.
 
-The Shepard riser follows TENSION continuously (dormant flickers the
-sensors barely show) and releases with a sting quantized to the 8th
-grid the instant the threat commits.
+The riser fires ONLY on a sudden intensity rise (a spike the one-bar
+filter hasn't absorbed, or a mass-aggro influx): a bounded 2-bar
+one-shot arc that releases into a sting quantized to the 8th grid.
+It never sustains (director 2026-07-17).
 
 Deterministic given a recording; logged through the audio tap stream so
 tools/playtest/mkvideo.py rebuilds the exact mix offline.
@@ -91,7 +92,13 @@ INFLUX_W = 3.0           # per newly-aggroed enemy per second (3s EMA)
 # threat; the influx/count terms carry the real thing when the woken
 # wave actually arrives.)
 DMG_W = 0.13             # per hp/s taken (3s EMA)
-FIRED_W = 9.96           # player's own trigger duty (1s EMA)
+# FIRED_W removed from danger (design override, director 2026-07-17:
+# "firing causes CONTEMPT, danger causes STALWART"). The corpus fitted
+# 9.96 because firing precedes damage -- but that correlation belongs
+# to the enemies present, which the kind/crowd/influx terms already
+# count. A poorly-aimed burst at a lone lurker must not read as a
+# whole fight (F004235).
+FIRED_W = 0.0
 DANGER_KNEE = 17.0       # waves cap ~0.88; only boss wardens clear 0.9
 # CONTEMPT axis (BASE DEFINITIONS ADJUSTED, director 2026-07-16):
 # contempt = damage OUTPUT ("you are doing a lot of damage"), stalwart
@@ -115,7 +122,14 @@ WEAK_KINDS = {"mite", "husk"}
 OTHER_ROOM_FACTOR = 0.35     # dominant_kind's room discount only
 PRAYER_FLOOR = 0.12          # the urgency pulse never fully stops
 STING_RISE = 0.35            # a value jump this big in one bar = a wall
-FALL_STEP = 0.35             # per-bar multiplier on a falling lane gain
+FALL_STEP = 0.65             # per-bar multiplier on a falling lane gain
+#   (unified with the judged 0.65x glide -- the old 0.35x fall and the
+#   instant "pull" both read as someone hitting NEXT, F003993)
+# lanes that carry combat material -- the ones a release fades out.
+# holy is NEVER here: PRAYER is the one continuous through-line and
+# only death stops it (director 2026-07-17).
+HEAVY_LANES = ("wall", "boss", "drums", "bass", "lead", "lead2",
+               "groove")
 # nonlinear filter (director's rule): MASSIVE spikes pass immediately,
 # ambiguous encounters must persist through the one-bar low-pass
 SPIKE_JUMP = 0.30            # raw-vs-filtered stalwart gap that snaps
@@ -208,7 +222,6 @@ def battery_terms(inputs: dict) -> tuple[dict, dict]:
     if inputs.get("dmg_rate"):
         danger["dmg"] = DMG_W * inputs["dmg_rate"]
     if inputs.get("fire_duty"):
-        danger["firing"] = FIRED_W * inputs["fire_duty"]
         mow["firing"] = FIRE_MOW_W * inputs["fire_duty"]
     if inputs.get("kill_rate"):
         mow["kills"] = KILL_W * inputs["kill_rate"]
@@ -250,7 +263,6 @@ def values(inputs: dict) -> tuple[float, float, float]:
     danger += CROWD_W * inputs.get("crowd", 0.0)
     danger += INFLUX_W * inputs.get("influx_rate", 0.0)
     danger += DMG_W * inputs.get("dmg_rate", 0.0)
-    danger += FIRED_W * inputs.get("fire_duty", 0.0)
     stalwart = 1.0 - math.exp(-danger / DANGER_KNEE)
 
     mow = KILL_W * inputs.get("kill_rate", 0.0) \
@@ -405,14 +417,25 @@ class MusicSystem:
         self._xfade_tgt = 0.0
         self._xfade_dwelled = False
         # form steering (boss law): position in the form, jumped to the
-        # PEAK section at stalwart >= 0.88, back to vigil when becalmed
+        # PEAK section at stalwart >= 0.88, back to vigil when becalmed.
+        # (a duplicate `self.sections = []` here used to CLOBBER the
+        # map _load_bank_meta had just loaded -- steering stayed dead
+        # until the first rotation reloaded it; that unsteered first
+        # bank period is where F002291's wrap-through-intro lived)
         self._form_idx = 0
-        self.sections: list = []
         self.inputs: dict = {}
         self._applied = (1.0, 0.0, 0.0)
         self._last_bar = -1
         self._started = False
+        # riser one-shot envelope (director 2026-07-17: risers ONLY on
+        # sudden intensity rises -- a bounded arc, never a sustain)
         self._riser_gain = 0.0
+        self._riser_env = 0
+        self._riser_total = 1
+        self._riser_peak = 0.0
+        self._riser_last = -10 ** 9
+        self._calm_bars = 0           # consecutive becalmed boundaries
+        self._halted = False          # death: the music dies with him
         self._pending_sting = False
         self._sting = None
         self._stab = None
@@ -467,15 +490,30 @@ class MusicSystem:
                 return (a, b)
         return None
 
+    def _section_at(self, pos: int) -> str | None:
+        for s, a, b in self.sections:
+            if a <= pos < b:
+                return s
+        return None
+
+    # sections the form may occupy while a fight is live -- the wrap
+    # through outro into the composed intro silenced the chant
+    # mid-battle (F002291: bar 35 -> 0 with warheads still flying)
+    _COMBAT_SECTIONS = ("entry", "develop", "peak")
+
     def _steer_form(self) -> int | None:
         """Form steering at a bar line: returns a jump target index or
         None. Boss engagement (stalwart >= 0.88) pulls the form to the
-        PEAK section and loops it; deep calm returns to vigil/ritual.
-        Jumps only land on even form positions -- half-phrase grain."""
+        PEAK section and loops it; live combat keeps the form inside
+        combat material; deep calm returns to vigil/ritual once the
+        mix has actually settled. Jumps only land on even form
+        positions -- half-phrase grain."""
         if not self.sections:
             return None
         p_, c_, st = self._applied
         pos = self._form_idx % max(1, self.n_bars)
+        becalmed = st <= 0.25 and c_ <= 0.25 and p_ >= 0.8
+        self._calm_bars = self._calm_bars + 1 if becalmed else 0
         peak = self._section_range("peak")
         if st >= 0.88 and peak is not None:
             a, b = peak
@@ -485,7 +523,17 @@ class MusicSystem:
             elif pos == b - 1:
                 return (a, "loop")   # loop the peak while the boss lives
             return None
-        if st <= 0.25 and c_ <= 0.25 and p_ >= 0.8:
+        if max(c_, st) >= 0.35:
+            # combat floor: mid-fight the form never drifts into calm
+            # or outro material -- loop back into the develop band at
+            # the composed section boundary (seamless, no arrival cut)
+            if self._section_at(pos) not in self._COMBAT_SECTIONS:
+                dev = self._section_range("develop") or \
+                    self._section_range("entry")
+                if dev is not None:
+                    return (dev[0], "loop")
+            return None
+        if becalmed:
             vig = self._section_range("vigil") or \
                 self._section_range("ritual")
             if vig is not None:
@@ -496,8 +544,17 @@ class MusicSystem:
                     #   dip-cycle (each re-entry jumped home again with
                     #   a fresh arrival fade)
                 in_band = not (a <= pos < b)
-                if in_band and pos % 2 == 0:
-                    return (a, "jump")   # come home ONCE; loop after
+                # come home ONCE -- but only after the comedown has
+                # finished (calm has held for a phrase AND every heavy
+                # lane's glide has landed). Jumping while lanes were
+                # still exhaling was F003993/F005171: the arrival cut
+                # read as someone hitting NEXT mid-release.
+                settled = all(self._live.get(n, 0.0) <= 0.25
+                              for n in ("wall", "groove", "drums",
+                                        "bass", "lead", "lead2"))
+                if in_band and pos % 2 == 0 and settled and \
+                        self._calm_bars >= 4:
+                    return (a, "jump")
         return None
 
     def _lead_split(self, weapon_key, base_gain: float):
@@ -771,19 +828,17 @@ class MusicSystem:
             cur = self._live.get(name, 0.0)
             if tgt > cur:
                 cur = min(tgt, cur + max_rise)
-            elif cur - tgt >= 0.5:
-                cur = tgt                           # the pull
             else:
+                # falls ALWAYS glide (0.65x/bar exhale). The old
+                # instant "pull" on hard drops was the NEXT-button
+                # sound (F003993) -- rises get walls, falls breathe.
                 cur = tgt if cur * FALL_STEP < 0.02 else \
                     max(tgt, cur * FALL_STEP)
             out[name] = min(cur, 1.0)
         self._live = out
-        # riser rides an in-flight build
-        building = any(out[n] < want.get(n, 0) - 0.05 for n in out)
-        if building and self._riser_gain < 0.6:
-            self._riser_gain = max(self._riser_gain, 0.45)
-        elif not building and self.inputs.get("tension", 0) <= 1e-6:
-            self._riser_gain = 0.0
+        # (riser no longer rides builds -- it is a one-shot envelope
+        # on SUDDEN rises only, owned by update(); the old sustain
+        # was F002718's 8-second flat noise blast)
         out["boss"] = min(1.0, max(0.0, (self._applied[2] - 0.88)
                                      / 0.10)) * 0.9
         return out
@@ -833,6 +888,17 @@ class MusicSystem:
     def update(self, session):
         if not self.enabled:
             return
+        if getattr(session, "hp", 100.0) <= 0.0:
+            # death (director 2026-07-17): the music is the Commando's
+            # thinking and feeling -- when he dies, it dies. Instantly,
+            # all of it, even the chant: the ONE exception to
+            # PRAYER-never-stops.
+            if not self._halted and self._started:
+                self._halted = True
+                self._tap("music_halt", "death", 1.0)
+                self.stop()
+            return
+        self._halted = False
         self._ensure_started(session.tick_count)
         self.inputs = read_inputs(session)
         self.inputs["tier"] = getattr(session, "music_tier", 1)
@@ -860,6 +926,10 @@ class MusicSystem:
         self.inputs["kill_rate"] = round(self._ema_kill, 4)
         self.inputs["fire_duty"] = round(self._ema_fire, 4)
         raw = self.override_vals or values(self.inputs)
+        # pre-filter suddenness: how far raw intensity leads the
+        # one-bar low-pass RIGHT NOW. Read it BEFORE the nonlinear
+        # filter snaps -- a snapped spike would hide its own suddenness
+        spike_gap = max(raw[1] - self._lp[1], raw[2] - self._lp[2])
         if self.override_vals:
             self.vals = raw                    # manual = direct control
             self._lp = raw
@@ -899,17 +969,35 @@ class MusicSystem:
                       f"|xf:{self._xfade:.2f}"
                       f"|form:{self._form_idx % max(1, self.n_bars)}",
                       1.0)
-        tension = self.inputs["tension"]
-        if raw[2] >= 0.88:
-            tension = max(tension, 0.7)    # the boss holds the riser up
-
-        if tension > self._riser_gain + 1e-6:
-            self._riser_gain = tension
-            self._tap("music_riser", f"{tension:.2f}", tension)
-        elif tension <= 1e-6 and self._riser_gain > 1e-6:
-            self._riser_gain = 0.0
-            self._tap("music_riser", "0.00", 0.0)
-            self._pending_sting = True             # release on the pounce
+        # RISER (director 2026-07-17): fires ONLY on a SUDDEN intensity
+        # rise -- a spike the one-bar filter hasn't absorbed yet, or a
+        # mass-aggro influx. It is a bounded 2-bar one-shot arc
+        # (attack, release into the sting), never a sustain: lurking
+        # flickers, boss presence and slow builds no longer hold it up.
+        # The old sustains were F002718's "random blast of flat,
+        # unarticulated white noise" -- 8+ seconds of pink noise at a
+        # fixed gain.
+        bar_ticks_f = self.bar_s * TICKS_PER_S
+        if (spike_gap >= SPIKE_JUMP or
+                self._ema_influx >= SPIKE_INFLUX) and \
+                self._riser_env <= 0 and self.override_vals is None and \
+                session.tick_count - self._riser_last >= 8 * bar_ticks_f:
+            self._riser_env = int(2.0 * bar_ticks_f)
+            self._riser_total = self._riser_env
+            self._riser_peak = min(0.9, 0.45 + max(0.0, spike_gap))
+            self._riser_last = session.tick_count
+        if self._riser_env > 0:
+            self._riser_env -= 1
+            x = 1.0 - self._riser_env / max(1, self._riser_total)
+            env = (x / 0.6) if x < 0.6 else (1.0 - (x - 0.6) / 0.4)
+            self._riser_gain = self._riser_peak * max(0.0, env)
+            if self._riser_env == 0:
+                self._riser_gain = 0.0
+                self._tap("music_riser", "0.00", 0.0)
+                self._pending_sting = True     # release on the pounce
+            elif session.tick_count % 6 == 0:
+                self._tap("music_riser", f"{self._riser_gain:.2f}",
+                          self._riser_gain)
 
         if self._lanes:
             self._update_rich(session)
@@ -931,9 +1019,15 @@ class MusicSystem:
             if bar != self._bar_idx or self._boundary_tick == 0:
                 self._bar_idx = bar
                 self._boundary_tick = session.tick_count or 1
-                # bar-line bank handoff (engine-owned mixing/matching)
+                # bar-line bank handoff (engine-owned mixing/matching).
+                # Once due, it WAITS for ~100% PRAYER: never switch
+                # tracks when tension is high (director 2026-07-17 --
+                # the mid-battle dies_irae -> idumea rotation was the
+                # buildup-to-letdown at F002718).
                 if len(self._bank_dirs) > 1 and \
-                        bar - self._bank_bar0 >= ROTATE_BARS:
+                        bar - self._bank_bar0 >= ROTATE_BARS and \
+                        self.vals[0] >= 0.95 and \
+                        max(self.vals[1], self.vals[2]) <= 0.15:
                     self._bank_i = (self._bank_i + 1) % len(self._bank_dirs)
                     self.bank_dir = self._bank_dirs[self._bank_i]
                     self._load_bank_meta()
@@ -944,9 +1038,10 @@ class MusicSystem:
                 prev = self._applied
                 self._applied = self.vals
                 self._applied_inputs = dict(self.inputs)
-                if (self.vals[2] - prev[2] >= STING_RISE or
-                        self.vals[1] - prev[1] >= STING_RISE):
-                    self._pending_sting = True
+                # (value-jump stings removed: the riser one-shot owns
+                # sudden rises now and releases into its own sting --
+                # double punctuation for the same event was the ~20s
+                # sting metronome)
                 if self._applied != prev:
                     p, c, d = self._applied
                     self._tap("music_vals", f"{p:.3f},{c:.3f},{d:.3f}", 1.0)
@@ -961,6 +1056,10 @@ class MusicSystem:
                     self._form_idx = steer[0]
                     if steer[1] == "jump":
                         self._tap("music_jump", str(steer[0]), 1.0)
+                    else:
+                        # seamless loop steer: visible in the debug
+                        # ticker, but the mixer must NOT arrival-ramp
+                        self._tap("music_jump", f"{steer[0]}~s", 1.0)
                 if self._applied[2] >= 0.88 and self._form_idx % 4 == 0:
                     self._stab_now()
                 sel = self._select_content()
@@ -974,20 +1073,22 @@ class MusicSystem:
                 for lname, lane in self._lanes.items():
                     prev_key = lane.key
                     nk = sel.get(lname, "silence")
-                    if boss_release and lname in ("wall", "boss", "drums", "bass", "lead", "lead2", "groove"):
-                        if lane.key not in (None, "silence"):
-                            self._tap("music_int",
-                                      f"{lname}:{lane.key}>RELEASE", 1.0)
-                        lane.key = "silence"
-                        lane.gain = 0.0
-                        lane._tapkey = None
-                        lane._farewelled = False
+                    if boss_release and lname in HEAVY_LANES and \
+                            lane.key not in (None, "silence") and \
+                            lane.gain > 0.02:
+                        # ONE-BAR COMEDOWN (F003993): every heavy lane
+                        # plays one more bar fading to nothing under
+                        # the toll -- never the instant everything-stop
+                        # that sounded like someone hitting NEXT
+                        lane._tapkey = f"{lane.key}~f"
+                        lane._farewelled = True
+                        self._live[lname] = 0.0   # rebuilds from silence
                         continue
                     if getattr(lane, "_farewelled", False):
                         lane._farewelled = False
+                        lane.gain = 0.0   # the farewell bar landed at 0
                         if nk == "silence":
                             lane.key = "silence"
-                            lane.gain = 0.0
                             lane._tapkey = None
                             continue
                     if nk == "silence" and \
@@ -1075,16 +1176,16 @@ class MusicSystem:
             self._boundary_tick = session.tick_count
             prev = self._applied
             self._applied = self.vals
-            if (self.vals[2] - prev[2] >= STING_RISE or
-                    self.vals[1] - prev[1] >= STING_RISE):
-                self._pending_sting = True         # hard rise = a wall
-            # BOSS RELEASE (A/B judged, 2026-07-16): full-tutti material
-            # earns a full STOP on the bar line, punctuated by the bell
-            # toll ringing over the chant -- a mechanical glide of
-            # maximal material judged worse, 2/2. Moderate combat keeps
-            # the glide.
+            # (value-jump stings removed -- the riser one-shot owns
+            # sudden rises and releases into its own sting)
+            # BOSS RELEASE, reworked (director's ear over the judge,
+            # F003993): a ONE-BAR COMEDOWN under the toll -- every
+            # heavy lane plays one farewell bar fading to nothing.
+            # The instant everything-stop "sounded like someone
+            # accidentally hit NEXT on the music player".
             boss_release = prev[2] >= 0.75 and self._applied[2] < 0.3
             if boss_release:
+                self._tap("music_rel", "boss_release", 1.0)
                 self._sting_now(force=True)
             if self._applied != prev:
                 p, c, d = self._applied
@@ -1096,13 +1197,18 @@ class MusicSystem:
                 self._form_idx = tgt
                 if skind == "jump":
                     self._tap("music_jump", str(tgt), 1.0)
-                for lane in self._lanes.values():
+                else:
+                    self._tap("music_jump", f"{tgt}~s", 1.0)
+                for lname, lane in self._lanes.items():
                     lane.seek(tgt)
-                    if skind == "jump":
+                    if skind == "jump" and lname not in ("holy", "bed"):
                         # arrival breath: a cross-section jump lands
                         # mid-phrase for composed voices; a same-
                         # section LOOP is a composed boundary and
-                        # needs no fade
+                        # needs no fade. holy/bed are EXEMPT always:
+                        # zeroing the chant for an arrival fade was the
+                        # PRAYER hard-stop the director heard at
+                        # F003993 -- the through-line never dips.
                         lane.fadein_ticks = bar_ticks
                         lane.fadein_total = bar_ticks
                         lane.ch.set_volume(0.0)   # no first-tick pop
@@ -1127,10 +1233,12 @@ class MusicSystem:
                 self._lanes["lead"].tickfill(ka)
             for lname, lane in self._lanes.items():
                 g = gains.get(lname, 0.0)
-                if boss_release and lname in ("wall", "boss", "drums", "bass", "lead", "lead2", "groove"):
-                    g = 0.0            # the full stop, ON the beat
-                    lane.set_gain(0.0, master)
-                    lane.gain = 0.0
+                if boss_release and lname in HEAVY_LANES and \
+                        lane.key not in (None, "silence") and \
+                        lane.gain > 0.02 and lane.fade_ticks == 0:
+                    lane.fade_ticks = bar_ticks    # one-bar comedown
+                    lane.fade_total = bar_ticks
+                    self._live[lname] = 0.0        # rebuild from silence
                     continue
                 # LIVE dying gate now mirrors tick-clock exactly
                 # (workflow review: the old g<=0.02 gate needed values
@@ -1207,7 +1315,11 @@ class MusicSystem:
                                        for seg in self._decoded[name]]
         if boundary and self._bar_idx >= ROTATE_BARS and \
                 self._decoded is not None and self._next_names is not None \
-                and not self._next_names:
+                and not self._next_names and \
+                self._applied[0] >= 0.95 and \
+                max(self._applied[1], self._applied[2]) <= 0.15:
+            # once due, the handoff WAITS for ~100% PRAYER -- never
+            # switch tracks when tension is high (director 2026-07-17)
             self._switch_bank(session)
 
     def _decode_bank(self, dir_) -> dict:
@@ -1270,8 +1382,13 @@ class MusicSystem:
             lane.n = n_bars
             lane.gain = gains.get(lname, 0.0)
             lane.ch.stop()
-            lane.fadein_ticks = int(self.bar_s * TICKS_PER_S)
-            lane.fadein_total = lane.fadein_ticks
+            if lname not in ("holy", "bed"):
+                # holy/bed enter the new bank at full gain on the bar
+                # line -- a musical handoff, not a dip: the chant is
+                # the through-line and the rotation only ever fires at
+                # ~100% PRAYER, when it IS the mix
+                lane.fadein_ticks = int(self.bar_s * TICKS_PER_S)
+                lane.fadein_total = lane.fadein_ticks
             lane.start(sel.get(lname, "silence"), master)
         try:
             sting_f = next((dir_ / f"sting.{ext}"
@@ -1309,9 +1426,6 @@ class MusicSystem:
             self._bar_idx = bar
             prev = self._applied
             self._applied = self.vals
-            if (self.vals[2] - prev[2] >= STING_RISE or
-                    self.vals[1] - prev[1] >= STING_RISE):
-                self._pending_sting = True
             if self._applied != prev:
                 p, c, d = self._applied
                 self._tap("music_vals", f"{p:.3f},{c:.3f},{d:.3f}", 1.0)
@@ -1356,6 +1470,17 @@ class MusicSystem:
             except Exception:
                 pass
         self._lanes.clear()
+        if self._sting is not None or self._stab is not None:
+            # silence in-flight sting/stab one-shots too (channels 2/3)
+            try:
+                import pygame
+                pygame.mixer.Channel(2).stop()
+                pygame.mixer.Channel(3).stop()
+            except Exception:
+                pass
+        self._pending_sting = False
+        self._riser_env = 0
+        self._riser_gain = 0.0
         rc = getattr(self, "_riser_ch", None)
         if rc is not None:
             try:
