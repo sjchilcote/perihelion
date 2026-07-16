@@ -160,8 +160,8 @@ def read_inputs(session) -> dict:
     crowd = 0.0         # inverse-distance mass of co-room hunters
     tension = 0.0
     for eid, e in session.enemies.items():
-        kind = e.get("kind")
-        state = e.get("state", "idle")
+        kind = e["kind"]
+        state = e["state"]
         if kind == "flicker" and state == "lurk":
             try:
                 if session.sim.get_room(eid) == proom:
@@ -191,6 +191,10 @@ def read_inputs(session) -> dict:
                 crowd += 1.0 / max(_m.hypot(ex - px, ey - py), 10.0)
             except Exception:
                 pass
+    # COMPLETE input dict: every key the battery reads exists here
+    # (EMA rates are 0.0 until the engine overwrites them) -- so the
+    # battery reads strictly, and a missing key is a crash, not a
+    # silently becalmed music system
     return dict(
         level=getattr(session, "level_name", "?"),
         weapon=getattr(session, "weapon", None) or
@@ -199,8 +203,9 @@ def read_inputs(session) -> dict:
         aggro_ids=aggro_ids,
         crowd=round(crowd, 4),
         firing_now=firing_now,
-        hp=getattr(session, "hp", 100.0),
+        hp=session.hp,
         tension=tension,
+        influx_rate=0.0, dmg_rate=0.0, kill_rate=0.0, fire_duty=0.0,
     )
 
 
@@ -213,22 +218,22 @@ def battery_terms(inputs: dict) -> tuple[dict, dict]:
     for kind, hops in inputs["aggro"]:
         if hops == 0:
             danger[f"{kind}"] = danger.get(f"{kind}", 0.0) \
-                + DANGER_CO.get(kind, 1.0)
+                + DANGER_CO[kind]
         elif hops == 1:
             danger[f"{kind}+1"] = danger.get(f"{kind}+1", 0.0) \
-                + DANGER_ADJ.get(kind, 0.3)
+                + DANGER_ADJ[kind]
         else:
             danger[f"{kind}+2"] = danger.get(f"{kind}+2", 0.0) \
-                + 0.15 * DANGER_ADJ.get(kind, 0.3)
-    if inputs.get("crowd"):
+                + 0.15 * DANGER_ADJ[kind]
+    if inputs["crowd"]:
         danger["crowd"] = CROWD_W * inputs["crowd"]
-    if inputs.get("influx_rate"):
+    if inputs["influx_rate"]:
         danger["influx"] = INFLUX_W * inputs["influx_rate"]
-    if inputs.get("dmg_rate"):
+    if inputs["dmg_rate"]:
         danger["dmg"] = DMG_W * inputs["dmg_rate"]
-    if inputs.get("fire_duty"):
+    if inputs["fire_duty"]:
         mow["firing"] = FIRE_MOW_W * inputs["fire_duty"]
-    if inputs.get("kill_rate"):
+    if inputs["kill_rate"]:
         mow["kills"] = KILL_W * inputs["kill_rate"]
     trash = sum(1 for k, h in inputs["aggro"]
                 if h == 0 and k in WEAK_KINDS)
@@ -258,26 +263,26 @@ def values(inputs: dict) -> tuple[float, float, float]:
     trash = 0
     for kind, hops in inputs["aggro"]:
         if hops == 0:
-            danger += DANGER_CO.get(kind, 1.0)
+            danger += DANGER_CO[kind]
             if kind in WEAK_KINDS:
                 trash += 1
         elif hops == 1:
-            danger += DANGER_ADJ.get(kind, 0.3)
+            danger += DANGER_ADJ[kind]
         else:
-            danger += 0.15 * DANGER_ADJ.get(kind, 0.3)
-    danger += CROWD_W * inputs.get("crowd", 0.0)
-    danger += INFLUX_W * inputs.get("influx_rate", 0.0)
-    danger += DMG_W * inputs.get("dmg_rate", 0.0)
+            danger += 0.15 * DANGER_ADJ[kind]
+    danger += CROWD_W * inputs["crowd"]
+    danger += INFLUX_W * inputs["influx_rate"]
+    danger += DMG_W * inputs["dmg_rate"]
     stalwart = 1.0 - math.exp(-danger / DANGER_KNEE)
 
-    mow = KILL_W * inputs.get("kill_rate", 0.0) \
-        + FIRE_MOW_W * inputs.get("fire_duty", 0.0) \
+    mow = KILL_W * inputs["kill_rate"] \
+        + FIRE_MOW_W * inputs["fire_duty"] \
         + TRASH_W * trash
     contempt = 1.0 - math.exp(-mow / MOW_KNEE)
 
     prayer = max(PRAYER_FLOOR,
                  1.0 - min(1.0, danger / ENGAGE_KNEE
-                           + FIRE_PRAY * inputs.get("fire_duty", 0.0)))
+                           + FIRE_PRAY * inputs["fire_duty"]))
     return (round(prayer, 3), round(contempt, 3), round(stalwart, 3))
 
 
@@ -286,7 +291,7 @@ def dominant_kind(aggro) -> str | None:
     weight among engaged enemies (same-room weighted up)."""
     totals: dict[str, float] = {}
     for kind, hops in aggro:
-        w = THREAT_WEIGHT.get(kind, 1.0) * (1.0 if hops == 0
+        w = THREAT_WEIGHT[kind] * (1.0 if hops == 0
                                             else OTHER_ROOM_FACTOR)
         totals[kind] = totals.get(kind, 0.0) + w
     if not totals:
@@ -475,6 +480,8 @@ class MusicSystem:
         self._riser_total = 1
         self._riser_peak = 0.0
         self._riser_last = -10 ** 9
+        self._riser_ch = None
+        self._riser_snd = None
         self._calm_bars = 0           # consecutive becalmed boundaries
         self._boss_hot = False        # latched at applied st>=0.75
         self._halted = False          # death: the music dies with him
@@ -771,23 +778,25 @@ class MusicSystem:
             lane = ChunkLane(pygame.mixer.Channel(4 + i), variants,
                              self.n_bars)
             self._lanes[lname] = lane
-        # riser: continuous tension effect on its own loop channel
+        # riser: a reserved channel, TRIGGERED one-shot (the stem is a
+        # reversed bell that swells into its own strike; it plays from
+        # the top on each sudden-rise event, never loops)
         riser_fn = next((self.bank_dir / f"riser.{e}"
                          for e in ("wav", "ogg")
                          if (self.bank_dir / f"riser.{e}").exists()),
                         self.bank_dir / "riser.wav")
         self._riser_ch = None
+        self._riser_snd = None
         if riser_fn.exists():
-            snd = pygame.mixer.Sound(str(riser_fn))
+            self._riser_snd = pygame.mixer.Sound(str(riser_fn))
             self._riser_ch = pygame.mixer.Channel(4 + len(lane_defs))
-            self._riser_ch.play(snd, loops=-1)
             self._riser_ch.set_volume(0.0)
         # first bar's content from current state, all started in one
         # tight pass (everything is pre-sliced by now)
         sel = self._select_content()
         gains = self._bar_gains()
         for lname, lane in self._lanes.items():
-            lane.gain = gains.get(lname, 0.0)
+            lane.gain = gains[lname]
             lane.start(sel[lname], master)
         self._bar_idx = 0
         self._boundary_tick = tick
@@ -896,7 +905,10 @@ class MusicSystem:
         # was F002718's 8-second flat noise blast)
         out["boss"] = min(1.0, max(0.0, (self._applied[2] - 0.88)
                                      / 0.10)) * 0.9
-        return out
+        # COMPLETE by construction: one gain per existing lane (lead2
+        # is 0.0 until the crossfade splitter fills it) -- consumers
+        # index strictly, a forgotten lane is a KeyError not a 0.0
+        return {ln: out.get(ln, 0.0) for ln in self._lanes}
 
     # -- legacy 4-loop mixer (pre-rich banks) ------------------------------
     def _start_legacy(self):
@@ -943,7 +955,7 @@ class MusicSystem:
     def update(self, session):
         if not self.enabled:
             return
-        if getattr(session, "hp", 100.0) <= 0.0:
+        if session.hp <= 0.0:
             # death (director 2026-07-17): the music is the Commando's
             # thinking and feeling -- when he dies, it dies. Instantly,
             # all of it, even the chant: the ONE exception to
@@ -956,7 +968,7 @@ class MusicSystem:
         self._halted = False
         self._ensure_started(session.tick_count)
         self.inputs = read_inputs(session)
-        self.inputs["tier"] = getattr(session, "music_tier", 1)
+        self.inputs["tier"] = session.music_tier
         # engine EMAs (per-second rates; taus: 3s flows, 1s trigger)
         ids = set(self.inputs.pop("aggro_ids", ()))
         new_aggro = len(ids - self._prev_aggro_ids)
@@ -965,7 +977,7 @@ class MusicSystem:
         dmg = max(0.0, (self._prev_hp - hp)) if self._prev_hp is not None \
             else 0.0
         self._prev_hp = hp
-        kills = getattr(session, "metrics", {}).get("kills", 0)
+        kills = session.metrics["kills"]
         kd = max(0, kills - self._prev_kills)
         self._prev_kills = kills
         a3 = 1.0 / (3.0 * TICKS_PER_S)
@@ -1043,11 +1055,18 @@ class MusicSystem:
             self._riser_total = self._riser_env
             self._riser_peak = min(0.9, 0.45 + max(0.0, spike_gap))
             self._riser_last = session.tick_count
+            rc = getattr(self, "_riser_ch", None)
+            if rc is not None and self._riser_snd is not None:
+                rc.play(self._riser_snd)   # ONE-SHOT from the top: the
+                #   riser is a reversed bell (director 2026-07-17) that
+                #   swells into its own strike exactly at arc end,
+                #   answered by the sting toll
         if self._riser_env > 0:
             self._riser_env -= 1
-            x = 1.0 - self._riser_env / max(1, self._riser_total)
-            env = (x / 0.6) if x < 0.6 else (1.0 - (x - 0.6) / 0.4)
-            self._riser_gain = self._riser_peak * max(0.0, env)
+            # the stem is self-enveloped (reversed bell): FLAT gain, no
+            # attack/release reshaping -- the old release ramp would
+            # fade out the swell right at its payoff
+            self._riser_gain = self._riser_peak
             if self._riser_env == 0:
                 self._riser_gain = 0.0
                 self._tap("music_riser", "0.00", 0.0)
@@ -1131,7 +1150,7 @@ class MusicSystem:
                 wkey = sel.get("lead")
                 ka, ga, kb, gb = self._lead_split(
                     None if wkey in (None, "silence") else wkey,
-                    gains.get("lead", 0.0))
+                    gains["lead"])
                 sel["lead"], gains["lead"] = ka, ga
                 sel["lead2"], gains["lead2"] = kb, gb
                 for lname, lane in self._lanes.items():
@@ -1190,7 +1209,7 @@ class MusicSystem:
                         self._tap("music_int",
                                   f"{lname}:{prev_key}>{nk}", 1.0)
                     lane.key = nk
-                    ng = gains.get(lname, 0.0)
+                    ng = gains[lname]
                     if ng < lane.gain and lane.gain > 0.1:
                         ng = max(ng, round(lane.gain * 0.65, 3))
                     lane.gain = ng
@@ -1300,7 +1319,7 @@ class MusicSystem:
             wkey = sel.get("lead")
             ka, ga, kb, gb = self._lead_split(
                 None if wkey in (None, "silence") else wkey,
-                gains.get("lead", 0.0))
+                gains["lead"])
             gains["lead"] = ga
             gains["lead2"] = gb
             if "lead2" in self._lanes:
@@ -1310,7 +1329,7 @@ class MusicSystem:
                 sel["lead"] = ka
                 self._lanes["lead"].tickfill(ka)
             for lname, lane in self._lanes.items():
-                g = gains.get(lname, 0.0)
+                g = gains[lname]
                 if boss_release and lname in HEAVY_LANES and \
                         lname not in CLEAN_EXIT_LANES and \
                         lane.key not in (None, "silence") and \
@@ -1454,7 +1473,7 @@ class MusicSystem:
         sel = self._select_content()
         gains = self._bar_gains()
         for lname, lane in self._lanes.items():
-            defs = lane_defs.get(lname)
+            defs = lane_defs.get(lname)   # a lane the NEW bank lacks
             if defs is None:
                 lane.ch.stop()       # the new bank has no such lane:
                 lane.key = None      # silence it, don't let it keep
@@ -1462,7 +1481,7 @@ class MusicSystem:
                 continue
             lane.variants = defs
             lane.n = n_bars
-            lane.gain = gains.get(lname, 0.0)
+            lane.gain = gains[lname]
             lane.ch.stop()
             if lname not in ("holy", "bed"):
                 # holy/bed enter the new bank at full gain on the bar
@@ -1487,8 +1506,7 @@ class MusicSystem:
                              if (dir_ / f"riser.{e}").exists()), None)
             if riser_fn is not None and self._riser_ch is not None:
                 self._riser_ch.stop()
-                self._riser_ch.play(pygame.mixer.Sound(str(riser_fn)),
-                                    loops=-1)
+                self._riser_snd = pygame.mixer.Sound(str(riser_fn))
                 self._riser_ch.set_volume(0.0)
         except Exception as exc:
             print(f"[music] rotation sting/riser reload failed: {exc}",

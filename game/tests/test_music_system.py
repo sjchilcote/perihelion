@@ -30,12 +30,16 @@ class FakeSim:
 
 
 def make_session(enemies, rooms, hp=100.0, proom=0, tick=0):
+    # models the FULL session contract the engine reads strictly
+    # (fail-fast law: fakes that under-declare the contract are lies)
     s = SimpleNamespace()
     s.enemies = enemies
     s.sim = FakeSim(rooms)
     s.hp = hp
     s.tick_count = tick
     s.player_room = lambda: proom
+    s.metrics = {"kills": 0}
+    s.music_tier = 1
     return s
 
 
@@ -409,3 +413,48 @@ def test_live_start_contract():
         ms.stop()
     finally:
         pygame.mixer.quit()
+
+
+def test_unknown_enemy_kind_crashes():
+    # fail-fast law (director 2026-07-17): a new enemy kind without
+    # battery weights is a missing DESIGN DECISION. The old
+    # .get(kind, 1.0) would have silently scored it like a husk.
+    import pytest
+    s = make_session({1: dict(kind="gribbler", state="hunt")}, {1: 0})
+    with pytest.raises(KeyError):
+        values(read_inputs(s))
+
+
+def test_underdeclared_session_crashes():
+    # a session missing part of the contract must crash the engine
+    # immediately, not run it on neutral defaults
+    import pytest
+    ms = MusicSystem(audio_bank=SimpleNamespace(
+        _ready=False, master_vol=1.0, tap=None), enabled=True)
+    s = make_session({}, {})
+    del s.metrics
+    with pytest.raises(AttributeError):
+        ms.update(s)
+
+
+def test_shipped_prayer_stems_never_go_quiet():
+    # the monk is ONE continuous voice (director 2026-07-17: dropouts
+    # and clashing monks were in the samples themselves) -- every
+    # shipped prayer stem must hold a per-bar floor vs its own median
+    import numpy as np
+    import soundfile as sf
+    from perihelion.music import shipped_banks, load_bank_meta
+    for d in shipped_banks():
+        meta = load_bank_meta(d)
+        f = next(q for ext in ("wav", "ogg")
+                 for q in [d / f"prayer.{ext}"] if q.exists())
+        x, sr = sf.read(str(f), dtype="float32")
+        if x.ndim == 2:
+            x = x.mean(axis=1)
+        n = int(meta.bar_s * sr)
+        rms = np.array([np.sqrt((x[i * n:(i + 1) * n] ** 2).mean()
+                                + 1e-12) for i in range(meta.n_bars)])
+        med = float(np.median(rms))
+        db = 20 * np.log10(rms / med)
+        assert db.min() > -15, \
+            f"{d.name}: quiet bars {[(i, round(v,1)) for i, v in enumerate(db) if v <= -15]}"

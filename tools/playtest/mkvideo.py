@@ -210,8 +210,10 @@ def _mix_music_rich(out_mix, events, duration_s) -> bool:
             else:
                 mix[s0:s0 + n, 0] += seg[:n, 0] * g
                 mix[s0:s0 + n, 1] += seg[:n, 1] * g
-    # riser: continuous loop under its tapped gain envelope, from the
-    # bank active at each tap
+    # riser: ONE-SHOT placed at each envelope onset (the stem is a
+    # self-enveloped reversed bell that swells into its own strike;
+    # the engine triggers it from the top per sudden-rise event --
+    # tiling a loop under the envelope was the old pink-noise design)
     riser_evs = [e for e in events if e["kind"] == "music_riser"]
     if riser_evs:
         env = np.zeros(n_total, dtype=np.float32)
@@ -219,22 +221,19 @@ def _mix_music_rich(out_mix, events, duration_s) -> bool:
         for i, (ts, val) in enumerate(tl):
             te = tl[i + 1][0] if i + 1 < len(tl) else duration_s
             env[int(ts * RATE):min(int(te * RATE), n_total)] = val * 0.85
-        # the riser ROTATES with the bank (was pinned to the first
-        # bank's stem for the whole video -- workflow review)
-        marks = [0.0] + [e["t"] for e in bank_evs] + [duration_s]
-        for a, b in zip(marks[:-1], marks[1:]):
-            s0, s1 = int(a * RATE), min(int(b * RATE), n_total)
-            if s1 <= s0:
-                continue
-            bk = bank_at(a + 1e-3)
-            rsnd = stem(bk, "riser") if bk else None
-            if rsnd is None:
-                continue
-            span = s1 - s0
-            looped = np.tile(rsnd, (int(np.ceil(span / len(rsnd))),
-                                    1))[:span]
-            mix[s0:s1, 0] += looped[:, 0] * env[s0:s1]
-            mix[s0:s1, 1] += looped[:, 1] * env[s0:s1]
+        prev_v = 0.0
+        for e in riser_evs:
+            v = float(e["name"])
+            if v > 0.01 and prev_v <= 0.01:
+                bk = bank_at(e["t"])
+                rsnd = stem(bk, "riser") if bk else None
+                s0 = int(e["t"] * RATE)
+                if rsnd is not None and s0 < n_total:
+                    seg = rsnd[:n_total - s0]
+                    sc = env[s0:s0 + len(seg)]
+                    mix[s0:s0 + len(seg), 0] += seg[:, 0] * sc
+                    mix[s0:s0 + len(seg), 1] += seg[:, 1] * sc
+            prev_v = v
     for e in events:
         if e["kind"] == "music_sting":
             bk = bank_at(e["t"])
@@ -645,21 +644,31 @@ def _build_lane_timelines(events: list,
     return timelines
 
 
-def _lane_wave_rgb(tl: np.ndarray, t0: float, t1: float, width: int,
+def _lane_wave_rgb(tl: np.ndarray, b0: int, k_bpp: int, width: int,
                    height: int, color: tuple, bg: tuple) -> np.ndarray:
-    """Vectorized DAW-style min/max waveform for one lane's time window --
-    no per-pixel Python loop, so 12 lanes x thousands of frames stays
-    cheap (director: "~8000 frames must complete in minutes, not
-    hours")."""
+    """Vectorized DAW-style min/max waveform for one lane's window of
+    width*k_bpp peak bins starting at bin b0 -- no per-pixel Python
+    loop, so 12 lanes x thousands of frames stays cheap (director:
+    "~8000 frames must complete in minutes, not hours").
+
+    b0 MUST be a multiple of k_bpp (the caller quantizes): each pixel
+    column then aggregates the same fixed group of k_bpp consecutive
+    bins on every frame, so the waveform translates rigidly as it
+    scrolls instead of re-rendering with a different fractional phase
+    (director 2026-07-17: the shimmer/aliasing complaint)."""
     n_bins = len(tl)
-    cols = (t0 + (np.arange(width) + 0.5) / width * (t1 - t0)) * LANE_PEAK_HZ
-    idx = cols.astype(np.int64)
-    valid = (idx >= 0) & (idx < n_bins)
-    seg = tl[np.clip(idx, 0, n_bins - 1)].copy()
-    seg[~valid] = 0.0
+    span = width * k_bpp
+    seg = np.zeros((span, 2), dtype=np.float32)
+    a = max(0, b0)
+    b = min(n_bins, b0 + span)
+    if b > a:
+        seg[a - b0:b - b0] = tl[a:b]
+    seg = seg.reshape(width, k_bpp, 2)
+    col_min = seg[:, :, 0].min(axis=1)
+    col_max = seg[:, :, 1].max(axis=1)
     half = height / 2.0
-    top = np.clip(half - seg[:, 1] * half, 0, height - 1).astype(np.int32)
-    bot = np.clip(half - seg[:, 0] * half, 0, height - 1).astype(np.int32)
+    top = np.clip(half - col_max * half, 0, height - 1).astype(np.int32)
+    bot = np.clip(half - col_min * half, 0, height - 1).astype(np.int32)
     lo, hi = np.minimum(top, bot), np.maximum(top, bot)
     rows = np.arange(height)[:, None]
     mask = (rows >= lo[None, :]) & (rows <= hi[None, :])
@@ -751,6 +760,14 @@ def overlay_frames(rec: Path, events: list, fps: int, scale: int,
     frames = sorted(rec.glob("frame_*.png"))
     duration_s = len(frames) / fps
     timelines = _build_lane_timelines(events, duration_s)
+    # autoscale each lane by its GLOBAL peak over the whole timeline so
+    # quiet stems (holy) are readable; deliberately NOT per visible
+    # window, which would pump the apparent level as content scrolls by
+    # (director correction 2026-07-17 #2)
+    for tl_arr in timelines.values():
+        pk = float(np.abs(tl_arr).max())
+        if pk > 1e-6:
+            tl_arr /= pk
     ticker = _ticker_events(events)
     halts = _halt_intervals(events, duration_s)
 
@@ -775,7 +792,14 @@ def overlay_frames(rec: Path, events: list, fps: int, scale: int,
 
     bw = panel_w - 10 * scale
     wf_h = 8 * scale
-    ph_frac = 2.0 / 7.0    # playhead position in the now-2s..now+5s window
+    # scrolling window ~ now-2s..now+5s, but quantized to whole peak
+    # bins with a FIXED integer bins-per-pixel: a given audio bin always
+    # maps to the same relative pixel, so the waveform translates
+    # rigidly as it scrolls instead of re-rendering with a different
+    # fractional phase every frame (director correction 2026-07-17 #3,
+    # the shimmer complaint)
+    win_s, pre_s = 7.0, 2.0
+    k_bpp = max(1, round(win_s * LANE_PEAK_HZ / bw))
     last_next: dict[str, str | None] = {ln: None for ln in LANE_ORDER}
     last_change_t: dict[str, float] = {ln: -10.0 for ln in LANE_ORDER}
 
@@ -847,32 +871,24 @@ def overlay_frames(rec: Path, events: list, fps: int, scale: int,
         jump_flash = any(0 <= t - tt < 0.45 for tt, _ in jump_true_s)
         riser_now = _at(riser_s, t, (0.0,))[0]
 
+        # window start bin, quantized to a multiple of bins-per-pixel so
+        # pixel columns aggregate the SAME bin groups on every frame
+        b0 = (int(np.floor((t - pre_s) * LANE_PEAK_HZ)) // k_bpp) * k_bpp
+        ph_px = int((t * LANE_PEAK_HZ - b0) / k_bpp)
+
         for ln in LANE_ORDER:
             row_top = y
             if in_halt:
-                d.rectangle([x, y, x + bw, y + wf_h], fill=(16, 16, 20))
-                y += wf_h + 1 * scale
                 d.text((x, y), f"{ln[:4]:<4s} -", font=tiny,
                        fill=(70, 70, 76))
                 y += 7 * scale + 1 * scale
+                d.rectangle([x, y, x + bw, y + wf_h], fill=(16, 16, 20))
+                y += wf_h + 1 * scale
                 continue
-
-            arr = _lane_wave_rgb(timelines[ln], t - 2.0, t + 5.0, bw, wf_h,
-                                 LANE_COLORS[ln], (20, 20, 26))
-            im.paste(Image.fromarray(arr), (x, y))
-            ph_x = x + int(bw * ph_frac)
-            d.line([(ph_x, y), (ph_x, y + wf_h)], fill=(255, 255, 255),
-                  width=max(1, scale // 2))
 
             key, gain, fade = lanes_now.get(ln, (None, 0.0, False))
             live_chunk = ln in CHUNK_LANES and \
                 key not in (None, "None", "silence") and gain > 0.001
-            if ln in recent_int or (jump_flash and live_chunk):
-                d.rectangle([x - 2 * scale, row_top - scale,
-                            x + bw + 2 * scale,
-                            row_top + wf_h + 7 * scale + 2 * scale],
-                           outline=(255, 60, 60), width=scale)
-            y += wf_h + 1 * scale
 
             if ln in CHUNK_LANES:
                 if key in (None, "None"):
@@ -883,27 +899,34 @@ def overlay_frames(rec: Path, events: list, fps: int, scale: int,
                     now_txt = f"{key}[{bidx}]" + ("~F" if fade else "")
                 nkey, ngain, _ = nxt_lanes.get(ln, (None, 0.0, False))
                 if nkey in (None, "None"):
-                    next_txt = "-"
+                    next_key = "-"
                 elif nkey == "silence":
-                    next_txt = "silence"
+                    next_key = "silence"
                 else:
-                    next_txt = f"{nkey}[{nxt_bidx}]"
+                    next_key = nkey
+                next_txt = f"{next_key}[{nxt_bidx}]" \
+                    if next_key not in ("-", "silence") else next_key
             elif ln == "riser":
                 now_txt = f"{riser_now:.2f}" if riser_now > 0.001 else "-"
-                next_txt = "-"
+                next_key = next_txt = "-"
             else:  # sting / stab: one-shots, no schedule to look ahead at
                 trig = _last_at_or_before(
                     sting_ts if ln == "sting" else stab_ts, t)
                 now_txt = "hit" if trig is not None and t - trig < 0.3 \
                     else "-"
-                next_txt = "-"
+                next_key = next_txt = "-"
 
-            if next_txt != "-" and last_next[ln] != next_txt:
+            # NEXT flash only when the queued KEY is overridden
+            # (silence>drums, drums>silence, bass_warden>bass_spitter);
+            # natural advance drums[1]>drums[2] keeps the same key and
+            # must NOT flash (director correction 2026-07-17 #1)
+            if last_next[ln] is not None and next_key != last_next[ln]:
                 last_change_t[ln] = t
-            if next_txt != "-":
-                last_next[ln] = next_txt
+            last_next[ln] = next_key
             flash = (t - last_change_t[ln]) < 0.3
 
+            # text row ABOVE its waveform strip (director correction
+            # 2026-07-17 #4: label-to-strip pairing was ambiguous)
             d.text((x, y), ln[:4], font=tiny, fill=LANE_COLORS[ln])
             d.text((x + 20 * scale, y), f"now:{now_txt}"[:20], font=tiny,
                   fill=(230, 230, 240))
@@ -911,6 +934,19 @@ def overlay_frames(rec: Path, events: list, fps: int, scale: int,
             d.text((x + 95 * scale, y), f"nxt:{next_txt}"[:18], font=tiny,
                   fill=nx_col)
             y += 7 * scale + 1 * scale
+
+            arr = _lane_wave_rgb(timelines[ln], b0, k_bpp, bw, wf_h,
+                                 LANE_COLORS[ln], (20, 20, 26))
+            im.paste(Image.fromarray(arr), (x, y))
+            ph_x = x + ph_px
+            d.line([(ph_x, y), (ph_x, y + wf_h)], fill=(255, 255, 255),
+                  width=max(1, scale // 2))
+            y += wf_h + 1 * scale
+
+            if ln in recent_int or (jump_flash and live_chunk):
+                d.rectangle([x - 2 * scale, row_top - scale,
+                             x + bw + 2 * scale, y - scale],
+                            outline=(255, 60, 60), width=scale)
 
         # -- event ticker (last ~3 events, 2.5s window) --
         evs = [(tt, txt, col) for tt, txt, col in ticker if 0 <= t - tt < 2.5]
