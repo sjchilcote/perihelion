@@ -92,17 +92,29 @@ def build_sting(rec, rng, variant: str = "swell") -> np.ndarray:
     return out
 
 
+def build_riser(rec) -> np.ndarray:
+    """The riser IS the bell, reversed (director 2026-07-17): the same
+    deep on-key bell played backwards swells for exactly 2 bars and
+    ends at its own strike -- the engine triggers it as a one-shot so
+    the swell's payoff lands right where the sting toll answers."""
+    r0 = harmony.roots_16(rec["form"][0][2], 1)[0]
+    bell = deep_bell(38.0 + r0, max_s=2.0 * BAR)
+    rev = bell[::-1]
+    return rev / (np.abs(rev).max() + 1e-9) * 0.9
+
+
 def render():
     for mel in T.RECIPES:
         rec = T.RECIPES[mel]
-        rng = np.random.default_rng(rec["seeds"][0]
-                                    if rec.get("seeds") else 11)
+        rng = np.random.default_rng(rec["seeds"][0])
         stg = build_sting(rec, rng, "swell")
-        for root in (BANKS, SHIPPED):
-            d = root / f"album_{mel}"
-            if (d / "bank.json").exists():
-                _write(d / "sting.wav", stg, len(stg))
-        print(f"[{mel}] deep-bell sting written")
+        rsr = build_riser(rec)
+        d = BANKS / f"album_{mel}"
+        if (d / "bank.json").exists():
+            _write(d / "sting.wav", stg, len(stg))
+            _write(d / "riser.wav", rsr, len(rsr))
+        print(f"[{mel}] deep-bell sting + reversed-bell riser written")
+        # (shipping to game/assets is ship_banks.py's job -- one path)
 
 
 def judge():

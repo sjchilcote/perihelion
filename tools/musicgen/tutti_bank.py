@@ -51,6 +51,21 @@ def _write(path, x, trim_n):
     print(f"  {path.name:22s} {len(x)/SR:6.1f}s", flush=True)
 
 
+def _assert_no_silent_bars(x, total_bars, name, floor_db=-15.0):
+    """FAIL FAST at build time (director 2026-07-17): a stem whose
+    composed content vanishes for whole bars ships a lie -- the engine
+    holds the lane 'on' while nothing sounds. Crash the build."""
+    n_bar = int(BAR * SR)
+    rms = np.array([np.sqrt((x[i * n_bar:(i + 1) * n_bar] ** 2).mean()
+                            + 1e-12) for i in range(total_bars)])
+    med = float(np.median(rms))
+    bad = [(i, round(20 * np.log10(r / med), 1)) for i, r in
+           enumerate(rms) if 20 * np.log10(r / med) < floor_db]
+    if bad:
+        raise ValueError(f"{name}: bars {bad} fall below "
+                         f"{floor_db}dB of the stem median")
+
+
 def build(mel: str, outdir: Path):
     rec = T.RECIPES[mel]
     total_bars = sum(b for _, b, _ in rec["form"])
@@ -60,7 +75,9 @@ def build(mel: str, outdir: Path):
 
     _st, lanes, ctx = T.compose(mel, collect_lanes=True)
 
-    _write(outdir / "prayer.wav", lanes["holy"] + lanes["spine"] * 0.3, n)
+    prayer = lanes["holy"] + lanes["spine"] * 0.3
+    _assert_no_silent_bars(prayer[:n], total_bars, f"{mel}/prayer")
+    _write(outdir / "prayer.wav", prayer, n)
     stal = np.stack([lanes["wall_L"] + lanes["bass"] + lanes["tells"],
                      lanes["wall_R"] + lanes["bass"] + lanes["tells"]],
                     axis=1)
@@ -72,16 +89,16 @@ def build(mel: str, outdir: Path):
     for tier in range(1, 5):
         _write(outdir / f"bed_t{tier}.wav", lanes["spine"], n)
 
-    import synth as sy
-    rn = int(2 * BAR * SR)
-    riser = sy.pink_noise(2 * BAR, seed=3)[:rn] * \
-        np.linspace(0.15, 1.0, rn) ** 2
-    _write(outdir / "riser.wav", riser, rn)
-    rng = np.random.default_rng(5)
-    stg = np.zeros(int(2 * BAR * SR))
-    T.place(stg, K.hit("crash", 1.0, rng), 0)
-    T.place(stg, T.bell_render(rec, 0.9), 0)
+    # sting + riser come from THE bell (bell_sting.py is the single
+    # source: deep on-key chapel bell; the riser is the same bell
+    # reversed). If the Ylanne sample is missing this CRASHES the
+    # build -- the bell is part of the bank, not an optional garnish.
+    import bell_sting as BS
+    rng = np.random.default_rng(rec["seeds"][0])
+    stg = BS.build_sting(rec, rng, "swell")
     _write(outdir / "sting.wav", stg, len(stg))
+    rsr = BS.build_riser(rec)
+    _write(outdir / "riser.wav", rsr, len(rsr))
 
     # weapon leads: the develop-lead line re-voiced per weapon across
     # the whole form (same phrase logic as sec_develop)
@@ -115,8 +132,16 @@ def build(mel: str, outdir: Path):
         x = x / (np.abs(x).max() + 1e-9)
         _write(outdir / f"bass_{kind}.wav", x * 0.8, n)
 
+    secs, pos = [], 0
+    for stype, bars, _p in rec["form"]:
+        secs.append([stype, pos, pos + bars])
+        pos += bars
+    # sections written AT THE SOURCE: the engine's strict loader
+    # refuses a sectionless bank.json, so a bank rebuilt without the
+    # boss_stems pass can no longer ship a silently steering-less form
     (outdir / "bank.json").write_text(json.dumps(
-        dict(melody=mel, title=rec["title"], bpm=T.BPM, bars=total_bars)))
+        dict(melody=mel, title=rec["title"], bpm=T.BPM, bars=total_bars,
+             sections=secs)))
     print("bank complete", flush=True)
 
 

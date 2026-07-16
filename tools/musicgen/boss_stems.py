@@ -54,8 +54,7 @@ def build(mel: str):
 
     # --- drums_boss: base lane + subdivision + crash grid ---
     _st, lanes, _ctx = T.compose(mel, collect_lanes=True)
-    rng = np.random.default_rng(rec["seeds"][0] if rec.get("seeds")
-                                else 11)
+    rng = np.random.default_rng(rec["seeds"][0])
     over = np.zeros(len(lanes["drums"]), dtype=np.float64)
     for bar in range(total_bars):
         t0 = bar * BAR
@@ -98,17 +97,9 @@ def build(mel: str):
     overlay[:len(dread)] += dread * 0.22
     _write(outdir / "overlay_boss.wav", overlay, n)
 
-    # --- sting rebuilt: swell-entry (Gemini sting_iter verdict: the
-    # bare crash+bell read as "a random audio glitch" 3/10; the same
-    # bell telegraphed by a reversed-cymbal swell scored 9/10 -- things
-    # ARRIVE, the producer's-pull law again) ---
-    crash = K.hit("crash", 1.0, rng)
-    rev = crash[::-1] * np.linspace(0.0, 1.0, len(crash)) ** 1.5
-    stg = np.zeros(int(2.5 * BAR * SR))
-    T.place(stg, rev * 0.7, 0)
-    T.place(stg, K.hit("crash", 1.0, rng), len(rev) / SR * 0.92)
-    T.place(stg, T.bell_render(rec, 0.8), len(rev) / SR * 0.92)
-    _write(outdir / "sting.wav", stg, len(stg))
+    # (sting is OWNED by bell_sting.py / tutti_bank now: the deep
+    # on-key chapel bell behind a trimmed swell -- rebuilding the old
+    # crash+synth-bell here would silently clobber it)
 
     # --- stab: the 4-bar boss hit. Crash + kick + low tom -- NO BELL
     # (the sting carries the bell; stabbing it every 4 bars read as
