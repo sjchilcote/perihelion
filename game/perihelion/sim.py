@@ -1636,6 +1636,12 @@ class GameSession:
         self._snd("spitter_shoot", room, (ex, ey), 0.9)
 
     def _shrieker_ai(self, eid, e, room, proom, ex, ey, accel):
+        """The alarm caller GOES somewhere (director 2026-07-16: "the
+        shrieker should be _going_ somewhere -- to the nearest cluster
+        of its friends"): it rallies toward the reachable room holding
+        the most allies (count discounted by hops), screaming on the
+        way, steering around terrain like everything else -- the old
+        straight-line flee pinned it into walls."""
         s = self.sim
         d = ENEMIES["shrieker"]
         px, py = self.player_pos()
@@ -1651,12 +1657,44 @@ class GameSession:
                 if 0 <= hd <= 2:
                     oe["state"] = "hunt"
                     oe["buff"] = 60 * 5
-        if room == proom:
-            ddx, ddy = ex - px, ey - py  # away from player
-            dist = math.hypot(ddx, ddy) or 1e-6
-            _, _, _, evx, evy, _, _ = s.get(eid)
-            s.set_dir(eid, ddx / dist, ddy / dist)
-            s.set_vel(eid, evx + ddx / dist * accel * DT, evy + ddy / dist * accel * DT)
+        e["rally_cd"] = e.get("rally_cd", 0) - 1
+        if e["rally_cd"] <= 0 or "rally_room" not in e:
+            e["rally_cd"] = 60
+            counts: dict[int, int] = {}
+            for oid, oe in self.enemies.items():
+                if oid == eid or oe.get("kind") == "shrieker":
+                    continue
+                r = s.get_room(oid)
+                counts[r] = counts.get(r, 0) + 1
+            best, best_score = None, 0.0
+            for r, n in counts.items():
+                hd = s.hop_distance(room, r)
+                if not 0 <= hd <= 5 or r == proom:
+                    continue
+                score = n / (1.0 + hd)
+                if score > best_score:
+                    best, best_score = r, score
+            e["rally_room"] = best
+        rally = e.get("rally_room")
+        _, _, _, evx, evy, _, _ = s.get(eid)
+        if rally is not None and rally != room:
+            edge = s.next_edge(room, rally)
+            if edge >= 0:
+                gx, gy = s.edge_midpoint(room, edge)
+            else:
+                gx, gy = ex - (px - ex), ey - (py - ey)
+        elif room == proom:
+            gx, gy = ex + (ex - px), ey + (ey - py)   # nowhere better:
+            #                                           back off for now
+        else:
+            return                                    # with friends: hold
+        ddx, ddy = gx - ex, gy - ey
+        dist = math.hypot(ddx, ddy) or 1e-6
+        nx, ny = ddx / dist, ddy / dist
+        s.set_dir(eid, nx, ny)
+        sx, sy = s.terrain_avoid_dir(room, ex, ey, d["radius"], nx, ny,
+                                     max(40.0, min(dist, 120.0)))
+        s.set_vel(eid, evx + sx * accel * DT, evy + sy * accel * DT)
 
     # ------------------------------------------------------------------
     # flicker: Adversary-lane ambush predator (LURK/AMBUSH state machine)

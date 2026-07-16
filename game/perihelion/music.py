@@ -63,8 +63,12 @@ TICKS_PER_S = 60.0
 
 # Heuristic battery weights ------------------------------------------------
 THREAT_WEIGHT = {
-    "mite": 0.6, "husk": 1.0, "spitter": 2.0, "shrieker": 2.5,
+    "mite": 0.6, "husk": 1.0, "spitter": 2.0, "shrieker": 0.8,
     "brute": 4.0, "warden": 5.0, "flicker": 3.0,
+    # shrieker was 2.5 -- rated above a spitter while dealing ZERO
+    # damage and fleeing (director: "scares the shit out of the bot for
+    # some reason"). The scream CONSEQUENCES arrive as the woken pack's
+    # own weights; the siren body is worth less than a husk.
 }
 WEAK_KINDS = {"mite", "husk"}
 OTHER_ROOM_FACTOR = 0.35
@@ -163,6 +167,13 @@ def dominant_kind(aggro) -> str | None:
     return max(totals, key=totals.get)
 
 
+# In-level bank rotation (director 2026-07-16: "the engine mixing and
+# matching them", not an env var): every ROTATE_BARS bar lines the
+# engine hands off to the next album bank ON a bar line. ~44 bars at
+# 110bpm is ~96s -- inside the variety law's few-minute window.
+ROTATE_BARS = 44
+
+
 class ChunkLane:
     """One voice of the arrangement — the director's ChunkedMusicPlayer
     mechanism (pyweek-28 musicplayer.queue_chunk, generalized): a channel
@@ -210,7 +221,7 @@ class MusicSystem:
     """Continuous-value engine + chunk-queued musical application."""
 
     def __init__(self, audio_bank, enabled: bool = True, bank_dir=None,
-                 tick_clock: bool = False):
+                 tick_clock: bool = False, bank_dirs=None):
         # tick_clock: headless/recording mode — decisions advance on the
         # DETERMINISTIC tick grid and nothing plays (offline rebuild
         # supplies the audio); the live audio-hardware clock would race
@@ -220,7 +231,19 @@ class MusicSystem:
         # the INPUT engine always runs (values, taps, riser logic — the
         # part the director kept); only the MIXER needs stems on disk.
         self.enabled = enabled
+        self._bank_dirs = [Path(b) for b in bank_dirs] if bank_dirs else []
+        self._bank_i = 0
+        if bank_dir is None and self._bank_dirs:
+            bank_dir = self._bank_dirs[0]
         self.bank_dir = Path(bank_dir) if bank_dir else BANK_DIR
+        # rotation machinery: next bank decodes on a worker thread, then
+        # converts to Sounds one stem per tick -- the switch itself is a
+        # single-boundary lane restart; nothing ever blocks the frame
+        self._decode_thread = None
+        self._decoded = None          # {name: [np segment per bar]} + meta
+        self._next_chunks = None
+        self._next_names = None
+        self._bank_bar0 = 0           # tick-clock absolute-bar offset
         self.has_bank = self.bank_dir.exists() \
             and (any(self.bank_dir.glob("*.wav"))
                  or any(self.bank_dir.glob("*.ogg")))
@@ -261,6 +284,49 @@ class MusicSystem:
         self._live: dict = {}             # lane -> stepped gain
         # legacy mixer state
         self._channels = {}
+
+    def _sim_lanes(self) -> dict:
+        """Name-only lanes for tick-clock (recording) mode."""
+        stems = {q.stem for q in self.bank_dir.glob("*.wav")} | \
+            {q.stem for q in self.bank_dir.glob("*.ogg")}
+
+        class _SimLane:
+            def __init__(self, variants):
+                self.variants = dict.fromkeys(variants | {"silence"})
+                self.key = None
+                self.gain = 0.0
+        return {
+            "drums": _SimLane({"drums"} if "drums" in stems else set()),
+            "bed": _SimLane({s for s in stems if s.startswith("bed_")}),
+            "holy": _SimLane({"prayer"}),
+            "groove": _SimLane({"contempt"}),
+            "wall": _SimLane({"stalwart"}),
+            "lead": _SimLane({s for s in stems if s.startswith("lead_")}),
+            "bass": _SimLane({s for s in stems if s.startswith("bass_")}),
+        }
+
+    def _load_bank_meta(self) -> None:
+        import json
+        meta = json.loads((self.bank_dir / "bank.json").read_text())
+        self.bar_s = 240.0 / float(meta.get("bpm", BPM))
+        self.n_bars = int(meta.get("bars", 0))
+
+    @staticmethod
+    def _lane_defs(chunks: dict) -> dict:
+        beds = sorted(k for k in chunks if k.startswith("bed_t"))
+        leads = sorted(k for k in chunks if k.startswith("lead_"))
+        basses = sorted(k for k in chunks if k.startswith("bass_"))
+        sil = {"silence": chunks["silence"]}
+        return {
+            "drums": ({"drums": chunks["drums"]} | sil)
+            if "drums" in chunks else None,
+            "bed": {k: chunks[k] for k in beds} | sil,
+            "holy": {"prayer": chunks["prayer"]} | sil,
+            "groove": {"contempt": chunks["contempt"]} | sil,
+            "wall": {"stalwart": chunks["stalwart"]} | sil,
+            "lead": {k: chunks[k] for k in leads} | sil,
+            "bass": {k: chunks[k] for k in basses} | sil,
+        }
 
     # -- rich mixer: chunk slicing + lanes --------------------------------
     def _slice_bank(self):
@@ -307,27 +373,9 @@ class MusicSystem:
         if not getattr(self.bank, "_ready", False):
             return
         if self.rich and self.tick_clock:
-            stems = {q.stem for q in self.bank_dir.glob("*.wav")} | \
-                {q.stem for q in self.bank_dir.glob("*.ogg")}
-
-            class _SimLane:
-                def __init__(self, variants):
-                    self.variants = dict.fromkeys(variants | {"silence"})
-                    self.key = None
-                    self.gain = 0.0
-            self._lanes = {
-                "drums": _SimLane({"drums"} if "drums" in stems
-                                  else set()),
-                "bed": _SimLane({s for s in stems if s.startswith("bed_")}),
-                "holy": _SimLane({"prayer"}),
-                "groove": _SimLane({"contempt"}),
-                "wall": _SimLane({"stalwart"}),
-                "lead": _SimLane({s for s in stems
-                                  if s.startswith("lead_")}),
-                "bass": _SimLane({s for s in stems
-                                  if s.startswith("bass_")}),
-            }
+            self._lanes = self._sim_lanes()
             self._boundary_tick = 0
+            self._tap("music_bank", self.bank_dir.name, 1.0)
             return
         import pygame
         try:
@@ -341,23 +389,7 @@ class MusicSystem:
                 self._start_legacy()
                 return
             chunks = self._slice_bank()
-            beds = sorted(k for k in chunks if k.startswith("bed_t"))
-            leads = sorted(k for k in chunks if k.startswith("lead_"))
-            basses = sorted(k for k in chunks if k.startswith("bass_"))
-            lane_defs = {
-                "drums": ({"drums": chunks["drums"]}
-                          | {"silence": chunks["silence"]})
-                if "drums" in chunks else None,
-                "bed": {k: chunks[k] for k in beds} | {"silence": chunks["silence"]},
-                "holy": {"prayer": chunks["prayer"],
-                         "silence": chunks["silence"]},
-                "groove": {"contempt": chunks["contempt"],
-                           "silence": chunks["silence"]},
-                "wall": {"stalwart": chunks["stalwart"],
-                         "silence": chunks["silence"]},
-                "lead": {k: chunks[k] for k in leads} | {"silence": chunks["silence"]},
-                "bass": {k: chunks[k] for k in basses} | {"silence": chunks["silence"]},
-            }
+            lane_defs = self._lane_defs(chunks)
             if pygame.mixer.get_num_channels() < 8 + len(lane_defs) + 1:
                 pygame.mixer.set_num_channels(8 + len(lane_defs) + 1)
             master = getattr(self.bank, "master", 1.0)
@@ -387,6 +419,7 @@ class MusicSystem:
                 lane.start(sel[lname], master)
             self._bar_idx = 0
             self._boundary_tick = tick
+            self._tap("music_bank", self.bank_dir.name, 1.0)
         except Exception as exc:
             print(f"[music] start failed, logging only: {exc}",
                   file=sys.stderr)
@@ -574,6 +607,15 @@ class MusicSystem:
             if bar != self._bar_idx or self._boundary_tick == 0:
                 self._bar_idx = bar
                 self._boundary_tick = session.tick_count or 1
+                # bar-line bank handoff (engine-owned mixing/matching)
+                if len(self._bank_dirs) > 1 and \
+                        bar - self._bank_bar0 >= ROTATE_BARS:
+                    self._bank_i = (self._bank_i + 1) % len(self._bank_dirs)
+                    self.bank_dir = self._bank_dirs[self._bank_i]
+                    self._load_bank_meta()
+                    self._lanes = self._sim_lanes()
+                    self._bank_bar0 = bar
+                    self._tap("music_bank", self.bank_dir.name, 1.0)
                 prev = self._applied
                 self._applied = self.vals
                 self._applied_inputs = dict(self.inputs)
@@ -588,7 +630,7 @@ class MusicSystem:
                 for lname, lane in self._lanes.items():
                     lane.key = sel[lname]
                     lane.gain = gains.get(lname, 0.0)
-                detail = f"{self._bar_idx}|" + "|".join(
+                detail = f"{self._bar_idx - self._bank_bar0}|" + "|".join(
                     f"{ln}:{la.key}:{la.gain:.3f}"
                     for ln, la in sorted(self._lanes.items()))
                 self._tap("music_bar", detail, 1.0)
@@ -628,6 +670,122 @@ class MusicSystem:
                 f"{ln}:{la.key}:{la.gain:.3f}"
                 for ln, la in sorted(self._lanes.items()))
             self._tap("music_bar", detail, 1.0)
+        if len(self._bank_dirs) > 1:
+            self._rotation_tick(boundary, session)
+
+    # -- in-level bank rotation (live) ---------------------------------
+
+    def _rotation_tick(self, boundary: bool, session) -> None:
+        """Bar-line bank handoff with zero frame cost: the next bank
+        decodes on a worker thread ~10 bars ahead, converts to Sounds
+        one stem per tick, and the switch is a synchronized lane
+        restart on the first boundary where everything is ready."""
+        import threading
+        if self._decode_thread is None and \
+                self._bar_idx >= ROTATE_BARS - 10:
+            nxt = self._bank_dirs[(self._bank_i + 1)
+                                  % len(self._bank_dirs)]
+
+            def _decode(dir_=nxt):
+                try:
+                    self._decoded = self._decode_bank(dir_)
+                except Exception as exc:
+                    print(f"[music] rotation decode failed: {exc}",
+                          file=sys.stderr)
+                    self._decoded = {}
+            self._decode_thread = threading.Thread(target=_decode,
+                                                   daemon=True)
+            self._decode_thread.start()
+        if self._decoded and self._next_names:
+            # convert ONE stem's bar segments per tick (main thread owns
+            # pygame); ~26 stems finish well inside the 10-bar window
+            import pygame
+            name = self._next_names.pop()
+            self._next_chunks[name] = [pygame.sndarray.make_sound(seg)
+                                       for seg in self._decoded[name]]
+        if boundary and self._bar_idx >= ROTATE_BARS and \
+                self._decoded is not None and self._next_names is not None \
+                and not self._next_names:
+            self._switch_bank(session)
+
+    def _decode_bank(self, dir_) -> dict:
+        """Worker-thread half: pure soundfile/numpy, no pygame."""
+        import json as _json
+        import numpy as np
+        import soundfile as sf
+        meta = _json.loads((dir_ / "bank.json").read_text())
+        n_bars = int(meta.get("bars", 0))
+        files = {f.stem: f for f in sorted(dir_.glob("*.wav"))}
+        for f in sorted(dir_.glob("*.ogg")):
+            files.setdefault(f.stem, f)
+        out: dict = {}
+        bounds = None
+        for name, fn in sorted(files.items()):
+            if name in ("sting", "riser"):
+                continue
+            data, _sr = sf.read(str(fn), dtype="int16")
+            if data.ndim == 1:
+                data = np.stack([data, data], axis=1)
+            if bounds is None:
+                per = len(data) / max(1, n_bars)
+                bounds = [int(round(k * per)) for k in range(n_bars)] \
+                    + [len(data)]
+            out[name] = [np.ascontiguousarray(data[bounds[k]:bounds[k + 1]])
+                         for k in range(n_bars)]
+        out["silence"] = [np.zeros((bounds[k + 1] - bounds[k], 2),
+                                   dtype="int16") for k in range(n_bars)]
+        out["__meta__"] = (dir_, n_bars)
+        # signal the converter which stems remain (LIFO pop, main thread)
+        self._next_chunks = {}
+        self._next_names = [k for k in out if k != "__meta__"]
+        return out
+
+    def _switch_bank(self, session) -> None:
+        """The handoff itself, on a just-sounded bar line: every lane
+        restarts in the new bank's form at bar 0 -- a track change, on
+        the grid, exactly like the chunk-queue promises."""
+        import pygame
+        dir_, n_bars = self._decoded["__meta__"]
+        self._bank_i = self._bank_dirs.index(dir_)
+        self.bank_dir = dir_
+        self.n_bars = n_bars
+        chunks = self._next_chunks
+        lane_defs = {k: v for k, v in self._lane_defs(chunks).items()
+                     if v is not None}
+        master = getattr(self.bank, "master", 1.0)
+        sel = self._select_content()
+        gains = self._bar_gains()
+        for lname, lane in self._lanes.items():
+            defs = lane_defs.get(lname)
+            if defs is None:
+                continue
+            lane.variants = defs
+            lane.n = n_bars
+            lane.gain = gains.get(lname, 0.0)
+            lane.ch.stop()
+            lane.start(sel.get(lname, "silence"), master)
+        try:
+            sting_f = next((dir_ / f"sting.{ext}"
+                            for ext in ("wav", "ogg")
+                            if (dir_ / f"sting.{ext}").exists()), None)
+            self._sting = pygame.mixer.Sound(str(sting_f)) if sting_f \
+                else None
+            riser_fn = next((dir_ / f"riser.{e}" for e in ("wav", "ogg")
+                             if (dir_ / f"riser.{e}").exists()), None)
+            if riser_fn is not None and self._riser_ch is not None:
+                self._riser_ch.stop()
+                self._riser_ch.play(pygame.mixer.Sound(str(riser_fn)),
+                                    loops=-1)
+                self._riser_ch.set_volume(0.0)
+        except Exception as exc:
+            print(f"[music] rotation sting/riser reload failed: {exc}",
+                  file=sys.stderr)
+        self._bar_idx = 0
+        self._decoded = None
+        self._next_chunks = None
+        self._next_names = None
+        self._decode_thread = None
+        self._tap("music_bank", dir_.name, 1.0)
 
     def _update_legacy(self, session):
         bar = int((session.tick_count / TICKS_PER_S) / self.bar_s)

@@ -638,25 +638,22 @@ def test_human_bot_does_not_run_past_an_enemy_seen_through_a_doorway():
             first_fire = tick
         session.tick(inp)
     assert not session.dead
-    assert first_coroom is not None, "player never reached the husk's room"
     assert pause_ticks_seen == 0, (
         "threshold-pause ritual fired while the husk was on screen through "
         "the doorway -- rituals must never fire while a threat is perceived")
     assert lookaround_ticks_seen == 0, (
         "curiosity-sweep ritual fired while a threat was perceived")
     assert first_fire is not None, "bot never fired at all"
-    # margin covers the director-ordered sight-settle (2026-07-16: a
-    # human has a delay between pointing at a target and firing --
-    # 7-13 ticks on fresh acquisition) on top of mouse convergence; the
-    # contract stays "no fresh SURPRISE re-reaction at co-room" (the
-    # pre-fix bug measured 101 ticks)
-    assert first_fire - first_coroom <= 24, (
-        f"fire lagged co-room by {first_fire - first_coroom} ticks -- the "
-        f"husk was visible well before co-room, so perception latency "
-        f"should already have elapsed by the time the player reached it "
-        f"(sight-settle + trigger, not a fresh surprise reaction)")
-    assert kill_tick is not None and kill_tick - first_coroom <= 120, (
-        "did not kill the husk promptly after reaching it")
+    # Contract evolved with the fire doctrine (director 2026-07-16:
+    # bullets are physics bodies and cross portals -- visible on screen
+    # means shootable). "Does not run past" now means the husk gets
+    # ENGAGED FROM VISIBILITY and dies promptly, whether or not the
+    # player ever shares its room polygon (it usually dies through the
+    # doorway before co-room happens; first_coroom may stay None).
+    assert kill_tick is not None, "husk survived the whole window"
+    assert kill_tick <= 60 * 8, (
+        f"husk not killed until tick {kill_tick} -- engagement from "
+        f"visibility should resolve this fight within seconds")
 
     # "resumes ... once every perceived threat is dead": after the kill,
     # nav toward the objective picks back up rather than staying stalled.

@@ -72,6 +72,11 @@ MUSIC_BANK = Path(__file__).resolve().parents[2] / \
 
 
 def _load_stem(p: Path) -> np.ndarray:
+    if p.suffix == ".ogg":
+        import soundfile as sf
+        data, sr = sf.read(str(p), dtype="float32")
+        assert sr == RATE, f"{p}: {sr}Hz"
+        return data if data.ndim == 2 else np.stack([data, data], axis=1)
     with wave.open(str(p)) as w:
         data = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16)
         ch = w.getnchannels()
@@ -80,40 +85,81 @@ def _load_stem(p: Path) -> np.ndarray:
         np.stack([data, data], axis=1)
 
 
-def _mix_music_rich(mix, events, duration_s, bank: Path) -> bool:
-    """Offline twin of the CHUNK-QUEUE mixer: music_bar taps carry the
-    full per-bar decision (bar index + every lane's content and gain);
-    each bar we place that bar's slice of the selected stem at the tap
-    time with the tapped gain. Riser/sting from their own taps."""
-    meta = json.loads((bank / "bank.json").read_text())
-    bars = int(meta["bars"])
-    bar_s = 240.0 / float(meta["bpm"])
-    bar_evs = [e for e in events if e["kind"] == "music_bar"]
-    if not bar_evs:
-        return False
-    stems: dict[str, np.ndarray] = {}
+MUSIC_ROOTS = [
+    Path(__file__).resolve().parents[2] / "game/assets/music",
+    Path(__file__).resolve().parents[2] / "out/banks",
+]
 
-    def stem(key):
-        if key in ("silence", "None", None):
+
+def _resolve_bank(name: str) -> Path | None:
+    for root in MUSIC_ROOTS:
+        d = root / name
+        if (d / "bank.json").exists():
+            return d
+    return None
+
+
+def _mix_music_rich(mix, events, duration_s) -> bool:
+    """Offline twin of the CHUNK-QUEUE mixer: music_bar taps carry the
+    full per-bar decision (form-local bar index + every lane's content
+    and gain), and music_bank taps carry the ENGINE's own bank rotation
+    (director 2026-07-16: the engine mixes and matches; no env var).
+    Riser/sting from their own taps, from the bank active at the time."""
+    bank_evs = [e for e in events if e["kind"] == "music_bank"]
+    bar_evs = [e for e in events if e["kind"] == "music_bar"]
+    if not bar_evs or not bank_evs:
+        return False
+
+    banks: dict[str, dict] = {}
+
+    def bank_at(t):
+        name = bank_evs[0]["name"]
+        for e in bank_evs:
+            if e["t"] <= t:
+                name = e["name"]
+        if name not in banks:
+            d = _resolve_bank(name)
+            if d is None:
+                print(f"[mkvideo] unknown bank {name!r}", file=sys.stderr)
+                banks[name] = None
+            else:
+                meta = json.loads((d / "bank.json").read_text())
+                banks[name] = dict(dir=d, bars=int(meta["bars"]),
+                                   bar_s=240.0 / float(meta["bpm"]),
+                                   stems={})
+        return banks[name]
+
+    def stem(bk, key):
+        if key in ("silence", "None", None) or bk is None:
             return None
+        stems = bk["stems"]
         if key not in stems:
-            f = bank / f"{key}.wav"
-            stems[key] = _load_stem(f) if f.exists() else None
+            f = None
+            for ext in ("wav", "ogg"):
+                q = bk["dir"] / f"{key}.{ext}"
+                if q.exists():
+                    f = q
+                    break
+            stems[key] = _load_stem(f) if f is not None else None
         return stems[key]
 
     n_total = len(mix)
-    bar_n = int(bar_s * RATE)
     # bar 0 plays from t=0 with the first tap's lane set (the engine
     # starts lanes before the first boundary tap fires)
     first = bar_evs[0]
-    seq = [dict(t=max(0.0, first["t"] - bar_s), detail=first["name"],
-                bar0=True)] + \
+    bk0 = bank_at(first["t"])
+    seq = [dict(t=max(0.0, first["t"] - (bk0["bar_s"] if bk0 else 2.0)),
+                detail=first["name"], bar0=True)] + \
         [dict(t=e["t"], detail=e["name"], bar0=False) for e in bar_evs]
-    for k, ev in enumerate(seq):
+    for ev in seq:
+        bk = bank_at(ev["t"])
+        if bk is None:
+            continue
+        bar_n = int(bk["bar_s"] * RATE)
         parts = ev["detail"].split("|")
-        bar_idx = (int(parts[0]) - (0 if ev["bar0"] else 0)) % bars
+        bar_idx = int(parts[0]) % bk["bars"]
         if ev["bar0"]:
-            bar_idx = (int(parts[0]) - 1) % bars
+            bar_idx = (int(parts[0]) - 1) % bk["bars"]
         s0 = int(ev["t"] * RATE)
         if s0 >= n_total:
             break
@@ -122,7 +168,7 @@ def _mix_music_rich(mix, events, duration_s, bank: Path) -> bool:
                 lane.rsplit(":", 2)[1], float(lane.rsplit(":", 2)[2])
             if gain <= 0.001:
                 continue
-            snd = stem(key)
+            snd = stem(bk, key)
             if snd is None:
                 continue
             a = min(bar_idx * bar_n, len(snd) - 1)
@@ -132,25 +178,28 @@ def _mix_music_rich(mix, events, duration_s, bank: Path) -> bool:
             g = min(1.0, gain) * 0.8
             mix[s0:s0 + n, 0] += seg[:n, 0] * g
             mix[s0:s0 + n, 1] += seg[:n, 1] * g
-    # riser: continuous loop under its tapped gain envelope
-    rp = bank / "riser.wav"
+    # riser: continuous loop under its tapped gain envelope, from the
+    # bank active at each tap
     riser_evs = [e for e in events if e["kind"] == "music_riser"]
-    if rp.exists() and riser_evs:
-        snd = _load_stem(rp)
+    if riser_evs:
         env = np.zeros(n_total, dtype=np.float32)
         tl = [(0.0, 0.0)] + [(e["t"], float(e["name"])) for e in riser_evs]
         for i, (ts, val) in enumerate(tl):
             te = tl[i + 1][0] if i + 1 < len(tl) else duration_s
             env[int(ts * RATE):min(int(te * RATE), n_total)] = val * 0.85
-        looped = np.tile(snd, (int(np.ceil(n_total / len(snd))), 1))[:n_total]
-        mix[:, 0] += looped[:, 0] * env
-        mix[:, 1] += looped[:, 1] * env
-    sp = bank / "sting.wav"
-    if sp.exists():
-        sdata = _load_stem(sp).mean(axis=1)
-        for e in events:
-            if e["kind"] == "music_sting":
-                _place(mix, sdata, e["t"], 0.8, 0.8)
+        bk = bank_at(riser_evs[0]["t"])
+        rsnd = stem(bk, "riser") if bk else None
+        if rsnd is not None:
+            looped = np.tile(rsnd, (int(np.ceil(n_total / len(rsnd))),
+                                    1))[:n_total]
+            mix[:, 0] += looped[:, 0] * env
+            mix[:, 1] += looped[:, 1] * env
+    for e in events:
+        if e["kind"] == "music_sting":
+            bk = bank_at(e["t"])
+            ssnd = stem(bk, "sting") if bk else None
+            if ssnd is not None:
+                _place(mix, ssnd.mean(axis=1), e["t"], 0.8, 0.8)
     return True
 
 
@@ -162,11 +211,10 @@ def _mix_music(mix: np.ndarray, events: list, duration_s: float) -> None:
     at tap time); the riser follows its logged gain; stings land at their
     logged instants."""
     mevents = [e for e in events if e["kind"].startswith("music")]
-    # rich chunk-queue bank? (album banks carry bank.json + bar taps)
-    import os
-    rich = os.environ.get("MKVIDEO_MUSIC_BANK")
-    if rich and Path(rich).exists() and (Path(rich) / "bank.json").exists():
-        if _mix_music_rich(mix, events, duration_s, Path(rich)):
+    # rich chunk-queue recording? the engine taps its own bank rotation
+    # (music_bank events) -- no env vars, no flags (releasable-game law)
+    if any(e["kind"] == "music_bank" for e in events):
+        if _mix_music_rich(mix, events, duration_s):
             return
     if not MUSIC_BANK.exists():
         return
@@ -283,7 +331,9 @@ def build_mix(events_path: Path, duration_s: float, out_wav: Path) -> None:
 
 def encode(rec: Path, fps: int, scale: int, mix_wav: Path, out: Path,
            frames_dir: Path | None = None, prescaled: bool = False) -> None:
-    src = (frames_dir or rec) / "frame_%06d.png"
+    d = frames_dir or rec
+    ext = "jpg" if list(d.glob("frame_000000.jpg")) else "png"
+    src = d / f"frame_%06d.{ext}"
     cmd = ["ffmpeg", "-y", "-v", "error",
            "-framerate", str(fps), "-i", str(src),
            "-i", str(mix_wav),
@@ -368,8 +418,8 @@ def overlay_frames(rec: Path, events: list, fps: int, scale: int,
     for k, fp in enumerate(frames):
         t = k / fps
         im = Image.open(fp).convert("RGB").resize((W, H), Image.NEAREST)
-        im.paste(Image.new("RGB", (panel_w, H), (8, 8, 14)), (px0, 0),
-                 panel)
+        im.paste(Image.new("RGB", (panel_w, panel_h), (8, 8, 14)),
+                 (px0, 0), panel)
         d = ImageDraw.Draw(im)
         y = 6 * scale
         d.text((px0 + 6 * scale, y), "FACTORS  raw/filt", font=font,
@@ -413,7 +463,10 @@ def overlay_frames(rec: Path, events: list, fps: int, scale: int,
                 d.rectangle([x, y, x + int(bw * min(1.0, gain)),
                              y + 4 * scale], fill=col)
             y += 8 * scale
-        im.save(out_dir / f"frame_{k:06d}.png")
+        # JPEG: a full-gauntlet run is ~22k frames; PNG at 720p would
+        # need ~5GB of scratch, q92 JPEG a third of that, and x264 at
+        # crf 20 masks the difference
+        im.save(out_dir / f"frame_{k:06d}.jpg", quality=92)
     return len(frames)
 
 

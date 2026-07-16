@@ -329,10 +329,41 @@ class HumanBot(_UnstickMixin, Bot):
                 self._pause_ticks = 0
                 self._lookaround_ticks = 0
                 self._last_contact_tick = tick
-                ds = self._distant_threat_input(session, snapshot,
-                                                distant, visible_screens,
-                                                px, py)
-                inp.ax, inp.ay = ds.ax, ds.ay   # eyes on what's coming
+                # FIRE THROUGH THE PORTAL (director 2026-07-16: "it only
+                # fires on enemies in the same room polygon. That's no
+                # good"): bullets are physics bodies and cross portals
+                # like everything else -- the old 'room-scoped, would
+                # never connect' rationale was wrong for every
+                # projectile weapon. Visible on screen = shootable:
+                # point at the closest visible enemy, hold the trigger.
+                pax, pay = necore.mat_apply(session.cam, px, py)
+                cand = [visible_screens[e["id"]] for e in distant
+                        if e["id"] in visible_screens]
+                if cand:
+                    tx_, ty_ = min(cand, key=lambda s: math.hypot(
+                        s[0] - pax, s[1] - pay))
+                    cam_scale = math.hypot(*necore.mat_apply_dir(
+                        session.cam, 1.0, 0.0)) or 1.0
+                    dist_est = math.hypot(tx_ - pax, ty_ - pay) / cam_scale
+                    mouse = self._ensure_mouse(tx_, ty_)
+                    inp.ax, inp.ay = mouse.step(tx_, ty_, 1.0 / 60.0)
+                    inp.fire = True
+                    want = choose_weapon(snapshot, dist_est, len(distant))
+                    cur = WEAPON_ORDER.index(snapshot["weapon"]) + 1 \
+                        if snapshot["weapon"] in WEAPON_ORDER else 0
+                    self._weapon_want_ticks = \
+                        self._weapon_want_ticks + 1 \
+                        if want == self._weapon_want else 0
+                    self._weapon_want = want
+                    inp.weapon = want if (want == cur or
+                                          self._weapon_want_ticks >= 12) \
+                        else 0
+                else:
+                    ds = self._distant_threat_input(session, snapshot,
+                                                    distant,
+                                                    visible_screens,
+                                                    px, py)
+                    inp.ax, inp.ay = ds.ax, ds.ay
 
         # retreat-to-guns schema
         ret_vec = (0.0, 0.0)

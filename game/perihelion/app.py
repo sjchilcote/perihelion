@@ -204,7 +204,10 @@ class GameScene(menus.Scene):
         self.logvoice: tuple[str, int] | None = None
 
     def on_enter(self, app) -> None:
-        app.audio.ambience(self.level.ambience)
+        # level ambience drones RETIRED (director 2026-07-16: "the base
+        # level 'drone' -- those can be removed now"): the dynamic music
+        # owns the bed; a second always-on drone under it is mud
+        app.audio.ambience(None)
 
     def _input_frame(self, app) -> InputFrame:
         keys = pygame.key.get_pressed()
@@ -351,8 +354,7 @@ class App:
         self._music_i = -1
         self.music = MusicSystem(self.audio,
                                  enabled=not getattr(args, "no_music", False),
-                                 bank_dir=(self._music_banks[0]
-                                           if self._music_banks else None),
+                                 bank_dirs=self._music_banks or None,
                                  tick_clock=bool(getattr(args, "record",
                                                          None)))
 
@@ -420,9 +422,11 @@ class App:
             return
         self._music_i = (self._music_i + 1) % len(self._music_banks)
         self.music.stop()
+        rotated = self._music_banks[self._music_i:] + \
+            self._music_banks[:self._music_i]
         self.music = self._MusicSystem(
             self.audio, enabled=self.music.enabled,
-            bank_dir=self._music_banks[self._music_i],
+            bank_dirs=rotated,
             tick_clock=self.music.tick_clock)
 
     def _audio_tap(self, kind: str, name: str, vol: float, pan: float) -> None:
@@ -905,7 +909,7 @@ class App:
             elif ev[0] == "locname":
                 game.loc_title = (ev[1], 60 * 4)
             elif ev[0] == "ambience":
-                self.audio.ambience(ev[1])
+                pass    # ambience fx retired -- music owns the bed
         game.shakes = [[m * 0.82, t - 1] for m, t in game.shakes if t > 1 and m > 0.05]
 
         if not was_dead and game.session.dead:
