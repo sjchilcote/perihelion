@@ -25,6 +25,9 @@ class FakeSim:
     def get_room(self, eid):
         return self._rooms[eid]
 
+    def hop_distance(self, a, b):
+        return abs(a - b)
+
 
 def make_session(enemies, rooms, hp=100.0, proom=0, tick=0):
     s = SimpleNamespace()
@@ -52,20 +55,34 @@ def test_empty_room_is_full_prayer():
 
 
 def test_weak_swarm_is_contempt_not_stalwart():
+    # corpus contract (2026-07-16): contempt is mowing HAPPENING -- kill
+    # flow + trigger duty -- not trash merely standing there. Simulate
+    # an active mow via the engine-EMA inputs values() consumes.
     enemies = {i: awake("husk") for i in range(6)}
     rooms = {i: 0 for i in range(6)}
-    p, c, s = vals_for(enemies, rooms)
-    assert c > 0.5, "mowing trash must read as contempt"
-    assert s < 0.6, "trash is not the Test"
-    assert c > s
+    inp = read_inputs(make_session(enemies, rooms))
+    inp.update(fire_duty=0.9, kill_rate=1.5, influx_rate=0.0)
+    p, c, s = values(inp)
+    assert c > 0.15, "mowing trash must read as contempt"
+    assert s < 0.75, "trash is not the Test"
 
 
 def test_heavies_raise_stalwart():
     enemies = {1: awake("brute"), 2: awake("brute"), 3: awake("warden")}
     rooms = {1: 0, 2: 0, 3: 0}
     p, c, s = vals_for(enemies, rooms)
-    assert s > 0.7
-    assert s > c
+    assert s > 0.55        # corpus weights: warden dominates, brutes
+    assert s > c           # are slow and rate low against 5s damage
+
+
+def test_adjacent_warden_is_nearly_coroom():
+    # THE corpus surprise (2026-07-16): a hunting warden one room over
+    # is ~73% of a co-room one; the old 0.35 discount was badly wrong
+    rooms_co, rooms_adj = {1: 0}, {1: 1}
+    _, _, s_co = vals_for({1: awake("warden")}, rooms_co)
+    _, _, s_adj = vals_for({1: awake("warden")}, rooms_adj)
+    assert s_adj > 0.6 * s_co
+    assert s_adj < s_co
 
 
 def test_stalwart_monotone_in_threat():
@@ -77,12 +94,15 @@ def test_stalwart_monotone_in_threat():
     assert s1 < s2 < s3
 
 
-def test_hurt_amplifies_stalwart():
+def test_hurt_does_not_amplify_stalwart():
+    # contract REVERSED by the corpus (2026-07-16): being hurt predicts
+    # LESS future damage (hurt players play safe), so hp no longer
+    # amplifies the danger read -- it only dampens contempt
     enemies = {1: awake("brute"), 2: awake("spitter")}
     rooms = {1: 0, 2: 0}
     _, _, s_healthy = vals_for(enemies, rooms, hp=100)
     _, _, s_hurt = vals_for(enemies, rooms, hp=20)
-    assert s_hurt > s_healthy
+    assert abs(s_hurt - s_healthy) < 1e-9
 
 
 def test_blends_are_native():
@@ -90,8 +110,10 @@ def test_blends_are_native():
     enemies = {1: awake("brute"), 2: awake("brute"),
                3: awake("husk"), 4: awake("husk"), 5: awake("husk")}
     rooms = {i: 0 for i in enemies}
-    p, c, s = vals_for(enemies, rooms)
-    assert s > 0.4 and c > 0.05, "blend must be expressible"
+    inp = read_inputs(make_session(enemies, rooms))
+    inp.update(fire_duty=0.8, kill_rate=1.0)
+    p, c, s = values(inp)
+    assert s > 0.3 and c > 0.03, "blend must be expressible"
 
 
 def test_prayer_floor_never_breaks():
@@ -117,7 +139,7 @@ def test_engine_inputs_complete():
     inp = read_inputs(s)
     assert inp["level"] == "l08"
     assert inp["weapon"] == "shotgun"
-    assert inp["aggro"] == [("husk", True)]
+    assert inp["aggro"] == [("husk", 0)]   # (kind, hops)
 
 
 # --- musical application ------------------------------------------------
@@ -139,16 +161,27 @@ def test_application_only_at_bar_boundaries():
                      enabled=True)
     ms.update(make_session({}, {}, tick=1))
     assert ms._applied[0] == 1.0
+    # a SMALL skirmish must persist through the one-bar tau...
+    small = {1: awake("husk"), 2: awake("husk")}
+    rooms2 = {1: 0, 2: 0}
+    ms.update(make_session(small, rooms2, tick=2))
+    assert ms.vals[2] < 0.15                 # low-pass: no instant wake
+    assert ms._applied[2] < 0.15
+    _sustain(ms, lambda k: make_session(small, rooms2, tick=3 + k),
+             2 * ticks_per_bar())
+    assert ms.vals[2] > 0.10                 # sustained fight registered
+
+
+def test_massive_spike_passes_immediately():
+    # the NONLINEAR filter (director's rule, task #34): a heavy wave
+    # appearing at once snaps stalwart through the low-pass on the spot
+    ms = MusicSystem(audio_bank=SimpleNamespace(_ready=False, tap=None),
+                     enabled=True)
+    ms.update(make_session({}, {}, tick=1))
     heavy = {1: awake("brute"), 2: awake("brute"), 3: awake("warden")}
     rooms = {1: 0, 2: 0, 3: 0}
     ms.update(make_session(heavy, rooms, tick=2))
-    assert ms.vals[2] < 0.15                 # low-pass: no instant wake
-    assert ms._applied[2] < 0.15
-    # sustain the fight for two bars of ticks -> value risen + applied
-    _sustain(ms, lambda k: make_session(heavy, rooms, tick=3 + k),
-             2 * ticks_per_bar())
-    assert ms.vals[2] > 0.5                  # sustained fight registered
-    assert ms._applied[2] > 0.5              # and applied at a bar line
+    assert ms.vals[2] > 0.5, "a massive spike must pass immediately"
 
 
 def test_hard_rise_stings():

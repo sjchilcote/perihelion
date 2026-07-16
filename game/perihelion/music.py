@@ -62,21 +62,50 @@ BAR_S = 240.0 / BPM
 TICKS_PER_S = 60.0
 
 # Heuristic battery weights ------------------------------------------------
+# CORPUS-FITTED (task #34, 2026-07-16): 200 farmed runs, 478k rows,
+# per-unit ridge coefficients against measured 5s-future damage /
+# kill-flow / calm. The surprises the director predicted: an ADJACENT
+# hunting warden is ~73% of a co-room one (the old 0.35 discount was
+# badly wrong for heavies); inverse-distance CROWD pressure and aggro
+# INFLUX are first-class danger terms; a hunting shrieker predicts
+# LESS damage (it is running away); being hurt predicts LESS future
+# damage (hurt players play safe), so the old x1.2 hurt amplifier is
+# gone. Held-out Spearman vs old battery: danger .256/.206,
+# mowing .220/.001, calm .254/.178. See tools/musiccal/tune_battery2.py.
+DANGER_CO = {"warden": 12.0, "brute": 1.0, "flicker": 1.9, "husk": 1.0,
+             "mite": 0.8, "spitter": 0.6, "shrieker": 0.15}
+DANGER_ADJ = {"warden": 8.5, "brute": 0.3, "flicker": 0.2, "husk": 0.8,
+              "mite": 0.3, "spitter": 0.3, "shrieker": 0.1}
+CROWD_W = 27.5           # per unit inverse-distance mass (co-room)
+INFLUX_W = 3.0           # per newly-aggroed enemy per second (3s EMA)
+SCREAM_W = 5.84          # scream recency (1 at scream, 0 after 5s)
+DMG_W = 0.13             # per hp/s taken (3s EMA)
+FIRED_W = 9.96           # player's own trigger duty (1s EMA)
+DANGER_KNEE = 14.0
+KILL_W = 1.44            # per kill/s (3s EMA)
+FIRE_MOW_W = 1.06        # trigger duty, mowing side
+TRASH_W = 0.255          # per weak-kind body sharing the room
+MOW_KNEE = 5.0           # rank-preserving rescale of the fitted 180:
+#                          Spearman is scale-blind but lane gains are
+#                          not -- a typical mow (drive ~4-5) reads ~0.6
+WAVE_CUT = 0.8           # aggro/s that stops reading as mere mowing
+ENGAGE_KNEE = 16.0       # rank-preserving rescale (fitted 39.5 left
+#                          prayer nearly flat in real fights)
+FIRE_PRAY = 0.007
+# bass-lane selection only (dominant_kind), NOT danger:
 THREAT_WEIGHT = {
     "mite": 0.6, "husk": 1.0, "spitter": 2.0, "shrieker": 0.8,
     "brute": 4.0, "warden": 5.0, "flicker": 3.0,
-    # shrieker was 2.5 -- rated above a spitter while dealing ZERO
-    # damage and fleeing (director: "scares the shit out of the bot for
-    # some reason"). The scream CONSEQUENCES arrive as the woken pack's
-    # own weights; the siren body is worth less than a husk.
 }
 WEAK_KINDS = {"mite", "husk"}
-OTHER_ROOM_FACTOR = 0.35
-STALWART_KNEE = 8.0          # weighted threat where stalwart ~ 0.63
-HURT_HP = 40.0
+OTHER_ROOM_FACTOR = 0.35     # dominant_kind's room discount only
 PRAYER_FLOOR = 0.12          # the urgency pulse never fully stops
 STING_RISE = 0.35            # a value jump this big in one bar = a wall
 FALL_STEP = 0.35             # per-bar multiplier on a falling lane gain
+# nonlinear filter (director's rule): MASSIVE spikes pass immediately,
+# ambiguous encounters must persist through the one-bar low-pass
+SPIKE_JUMP = 0.30            # raw-vs-filtered stalwart gap that snaps
+SPIKE_INFLUX = 3.0           # aggro/s that snaps (the scream-wave case)
 
 
 def read_inputs(session) -> dict:
@@ -88,7 +117,14 @@ def read_inputs(session) -> dict:
     lf = getattr(session, "last_fire_tick", None)
     player_hot = lf is not None and \
         (session.tick_count - lf) < 3 * TICKS_PER_S
-    aggro = []
+    firing_now = lf is not None and (session.tick_count - lf) < 8
+    try:
+        px, py = session.player_pos()
+    except Exception:
+        px = py = None
+    aggro = []          # (kind, hops) -- 0 co-room, 1 adjacent, 2 = far
+    aggro_ids = []
+    crowd = 0.0         # inverse-distance mass of co-room hunters
     tension = 0.0
     for eid, e in session.enemies.items():
         kind = e.get("kind")
@@ -108,49 +144,86 @@ def read_inputs(session) -> dict:
             #             too, not just the AI's)
         try:
             room = session.sim.get_room(eid)
+            hops = 0 if room == proom else \
+                session.sim.hop_distance(room, proom)
         except Exception:
             continue
-        aggro.append((kind, room == proom))
+        hops = hops if 0 <= hops <= 1 else 2
+        aggro.append((kind, hops))
+        aggro_ids.append(eid)
+        if hops == 0 and px is not None:
+            try:
+                import math as _m
+                _, ex, ey, *_ = session.sim.get(eid)
+                crowd += 1.0 / max(_m.hypot(ex - px, ey - py), 10.0)
+            except Exception:
+                pass
+    lscream = getattr(session, "last_scream_tick", None)
+    scream_recent = 0.0
+    if lscream is not None:
+        scream_recent = max(0.0, 1.0 - (session.tick_count - lscream)
+                            / (5.0 * TICKS_PER_S))
     return dict(
         level=getattr(session, "level_name", "?"),
         weapon=getattr(session, "weapon", None) or
                getattr(session, "current_weapon", "?"),
         aggro=aggro,
+        aggro_ids=aggro_ids,
+        crowd=round(crowd, 4),
+        scream_recent=round(scream_recent, 3),
+        firing_now=firing_now,
         hp=getattr(session, "hp", 100.0),
         tension=tension,
     )
 
 
 def values(inputs: dict) -> tuple[float, float, float]:
-    """(prayer, contempt, stalwart), each 0-1, from the heuristic battery.
+    """(prayer, contempt, stalwart), each 0-1, corpus-fitted battery.
 
-    - stalwart rises with WEIGHTED threat (soft knee at STALWART_KNEE),
-      amplified when hurt: the odds as the Commando reads them.
-    - contempt rises with engaged WEAK enemies while stalwart stays low
-      and he is healthy: trash being mowed, pride and impatience.
-    - prayer is the room left by the fight, never below PRAYER_FLOOR:
-      contemplation with the mission clock always running.
+    - stalwart = the odds as they measurably ARE: kind-weighted hunters
+      (adjacent heavies nearly full weight), crowd pressure, aggro
+      influx, scream recency, damage flow, and the player's own trigger
+      (sustained firing measurably precedes damage).
+    - contempt = mowing actually happening: kill flow + trigger duty +
+      trash bodies, gated down by stalwart, by a fresh WAVE (influx is
+      not mowing), and by poor health.
+    - prayer = the room the fight leaves over, floored: contemplation
+      with the mission clock always running.
+
+    EMA inputs (influx_rate, dmg_rate, kill_rate, fire_duty) are
+    engine-tracked; absent keys read 0 so a bare snapshot still works.
     """
     import math
-    threat = 0.0        # engagement pressure (everything counts)
-    test_threat = 0.0   # what reads as the Test (weak kinds discounted:
-    #                     a swarm of trash is work, not a trial)
-    weak_n = 0
-    for kind, same_room in inputs["aggro"]:
-        w = THREAT_WEIGHT.get(kind, 1.0)
-        rf = 1.0 if same_room else OTHER_ROOM_FACTOR
-        threat += w * rf
-        test_threat += w * rf * (0.25 if kind in WEAK_KINDS else 1.0)
-        if kind in WEAK_KINDS and same_room:
-            weak_n += 1
+    danger = 0.0
+    trash = 0
+    for kind, hops in inputs["aggro"]:
+        if hops == 0:
+            danger += DANGER_CO.get(kind, 1.0)
+            if kind in WEAK_KINDS:
+                trash += 1
+        elif hops == 1:
+            danger += DANGER_ADJ.get(kind, 0.3)
+        else:
+            danger += 0.15 * DANGER_ADJ.get(kind, 0.3)
+    danger += CROWD_W * inputs.get("crowd", 0.0)
+    danger += INFLUX_W * inputs.get("influx_rate", 0.0)
+    danger += SCREAM_W * inputs.get("scream_recent", 0.0)
+    danger += DMG_W * inputs.get("dmg_rate", 0.0)
+    danger += FIRED_W * inputs.get("fire_duty", 0.0)
+    stalwart = 1.0 - math.exp(-danger / DANGER_KNEE)
+
     hp = inputs["hp"]
-    hurt = max(0.0, (HURT_HP - hp) / HURT_HP)
-    stalwart = 1.0 - math.exp(-(test_threat * (1.0 + 1.2 * hurt))
-                              / STALWART_KNEE)
-    contempt = (1.0 - math.exp(-weak_n / 2.5)) * (1.0 - stalwart) \
-        * (0.5 + 0.5 * min(1.0, hp / 100.0))
-    engaged = min(1.0, threat / 2.0)
-    prayer = max(PRAYER_FLOOR, 1.0 - engaged)
+    mow = KILL_W * inputs.get("kill_rate", 0.0) \
+        + FIRE_MOW_W * inputs.get("fire_duty", 0.0) \
+        + TRASH_W * trash
+    wave_guard = max(0.0, 1.0 - inputs.get("influx_rate", 0.0)
+                     / WAVE_CUT)
+    contempt = (1.0 - math.exp(-mow / MOW_KNEE)) * (1.0 - stalwart) \
+        * wave_guard * (0.5 + 0.5 * min(1.0, hp / 100.0))
+
+    prayer = max(PRAYER_FLOOR,
+                 1.0 - min(1.0, danger / ENGAGE_KNEE
+                           + FIRE_PRAY * inputs.get("fire_duty", 0.0)))
     return (round(prayer, 3), round(contempt, 3), round(stalwart, 3))
 
 
@@ -158,8 +231,8 @@ def dominant_kind(aggro) -> str | None:
     """The enemy kind that owns the bassline: highest total threat
     weight among engaged enemies (same-room weighted up)."""
     totals: dict[str, float] = {}
-    for kind, same_room in aggro:
-        w = THREAT_WEIGHT.get(kind, 1.0) * (1.0 if same_room
+    for kind, hops in aggro:
+        w = THREAT_WEIGHT.get(kind, 1.0) * (1.0 if hops == 0
                                             else OTHER_ROOM_FACTOR)
         totals[kind] = totals.get(kind, 0.0) + w
     if not totals:
@@ -265,6 +338,14 @@ class MusicSystem:
         # the next boundary, while a real fight reaches ~63% in one bar
         # and the transition controller shapes the arrival from there
         self._lp = (1.0, 0.0, 0.0)
+        # engine-side EMA state for the corpus-fitted battery inputs
+        self._prev_aggro_ids: set = set()
+        self._prev_hp = None
+        self._prev_kills = 0
+        self._ema_influx = 0.0     # newly-aggroed enemies per second
+        self._ema_dmg = 0.0        # hp lost per second
+        self._ema_kill = 0.0       # kills per second
+        self._ema_fire = 0.0       # trigger duty, 1s EMA
         self.inputs: dict = {}
         self._applied = (1.0, 0.0, 0.0)
         self._last_bar = -1
@@ -559,14 +640,46 @@ class MusicSystem:
         self._ensure_started(session.tick_count)
         self.inputs = read_inputs(session)
         self.inputs["tier"] = getattr(session, "music_tier", 1)
+        # engine EMAs (per-second rates; taus: 3s flows, 1s trigger)
+        ids = set(self.inputs.pop("aggro_ids", ()))
+        new_aggro = len(ids - self._prev_aggro_ids)
+        self._prev_aggro_ids = ids
+        hp = self.inputs["hp"]
+        dmg = max(0.0, (self._prev_hp - hp)) if self._prev_hp is not None \
+            else 0.0
+        self._prev_hp = hp
+        kills = getattr(session, "metrics", {}).get("kills", 0)
+        kd = max(0, kills - self._prev_kills)
+        self._prev_kills = kills
+        a3 = 1.0 / (3.0 * TICKS_PER_S)
+        a1 = 1.0 / TICKS_PER_S
+        self._ema_influx += a3 * (new_aggro * TICKS_PER_S
+                                  - self._ema_influx)
+        self._ema_dmg += a3 * (dmg * TICKS_PER_S - self._ema_dmg)
+        self._ema_kill += a3 * (kd * TICKS_PER_S - self._ema_kill)
+        self._ema_fire += a1 * ((1.0 if self.inputs.get("firing_now")
+                                 else 0.0) - self._ema_fire)
+        self.inputs["influx_rate"] = round(self._ema_influx, 4)
+        self.inputs["dmg_rate"] = round(self._ema_dmg, 4)
+        self.inputs["kill_rate"] = round(self._ema_kill, 4)
+        self.inputs["fire_duty"] = round(self._ema_fire, 4)
         raw = self.override_vals or values(self.inputs)
         if self.override_vals:
             self.vals = raw                    # manual = direct control
             self._lp = raw
         else:
             a = (1.0 / TICKS_PER_S) / self.bar_s
-            self._lp = tuple(l + a * (r - l)
-                             for l, r in zip(self._lp, raw))
+            lp = [l + a * (r - l) for l, r in zip(self._lp, raw)]
+            # NONLINEAR FILTER (director's rule, task #34): a MASSIVE
+            # spike passes immediately -- a mass-aggro wave (the scream
+            # case) or a raw stalwart far above the filtered line snaps
+            # stalwart up and prayer down on the spot; ambiguous
+            # skirmishes still have to persist through the one-bar tau.
+            if (raw[2] - self._lp[2] >= SPIKE_JUMP or
+                    self._ema_influx >= SPIKE_INFLUX):
+                lp[2] = max(lp[2], raw[2])
+                lp[0] = min(lp[0], raw[0])
+            self._lp = tuple(lp)
             self.vals = tuple(round(v, 3) for v in self._lp)
         # 10Hz value telemetry, raw AND filtered (offline overlays --
         # the pre/post-filter meters in playtest videos): fires only

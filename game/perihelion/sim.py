@@ -1649,6 +1649,7 @@ class GameSession:
             e["scream_cd"] = d["scream_cd"]
             self._snd("shrieker_scream", room, (ex, ey), 1.0)
             self.fx.append(("scream", room, ex, ey))
+            self.last_scream_tick = self.tick_count
             for oid, oe in self.enemies.items():
                 if oid == eid:
                     continue
