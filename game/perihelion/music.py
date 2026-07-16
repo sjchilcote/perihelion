@@ -446,18 +446,23 @@ class MusicSystem:
             a, b = peak
             if not (a <= pos < b):
                 if pos % 2 == 0:
-                    return a
+                    return (a, "jump")
             elif pos == b - 1:
-                return a          # loop the peak while the boss lives
+                return (a, "loop")   # loop the peak while the boss lives
             return None
         if st <= 0.25 and c_ <= 0.25 and p_ >= 0.8:
             vig = self._section_range("vigil") or \
                 self._section_range("ritual")
             if vig is not None:
                 a, b = vig
-                in_band = peak is not None and peak[0] <= pos < peak[1]
+                if pos == b - 1:
+                    return (a, "loop")   # deep calm LOOPS the vigil --
+                    #   walking on into the band sections was the Lama
+                    #   dip-cycle (each re-entry jumped home again with
+                    #   a fresh arrival fade)
+                in_band = not (a <= pos < b)
                 if in_band and pos % 2 == 0:
-                    return a      # becalmed mid-peak: come home
+                    return (a, "jump")   # come home ONCE; loop after
         return None
 
     def _lead_split(self, weapon_key, base_gain: float):
@@ -871,9 +876,11 @@ class MusicSystem:
                     p, c, d = self._applied
                     self._tap("music_vals", f"{p:.3f},{c:.3f},{d:.3f}", 1.0)
                 self._form_idx += 1
-                tgt = self._steer_form()
-                if tgt is not None:
-                    self._form_idx = tgt
+                steer = self._steer_form()
+                if steer is not None:
+                    self._form_idx = steer[0]
+                    if steer[1] == "jump":
+                        self._tap("music_jump", str(steer[0]), 1.0)
                 if self._applied[2] >= 0.88 and self._form_idx % 4 == 0:
                     self._stab_now()
                 sel = self._select_content()
@@ -887,16 +894,34 @@ class MusicSystem:
                 for lname, lane in self._lanes.items():
                     prev_key = lane.key
                     nk = sel.get(lname, "silence")
+                    if getattr(lane, "_farewelled", False):
+                        lane._farewelled = False
+                        if nk == "silence":
+                            lane.key = "silence"
+                            lane.gain = 0.0
+                            lane._tapkey = None
+                            continue
                     if nk == "silence" and \
                             prev_key not in (None, "silence") and \
                             lane.gain > 0.05:
+                        # HIGH -> LOW glides: decay 0.65x per bar first
+                        # (the intense stems 'just fade out slowly',
+                        # director); the farewell bar fires only once
+                        # the glide reaches the floor
+                        if lane.gain > 0.15:
+                            lane.gain = round(lane.gain * 0.65, 3)
+                            lane.key = prev_key
+                            lane._tapkey = None
+                            continue
                         lane.key = prev_key
-                        lane._tapkey = f"{prev_key}~f"  # farewell bar:
-                        #   gain stays = the fade's starting level; the
-                        #   NEXT boundary goes silence/0 naturally
+                        lane._tapkey = f"{prev_key}~f"  # ONE farewell
+                        lane._farewelled = True
                         continue
                     lane.key = nk
-                    lane.gain = gains.get(lname, 0.0)
+                    ng = gains.get(lname, 0.0)
+                    if ng < lane.gain and lane.gain > 0.1:
+                        ng = max(ng, round(lane.gain * 0.65, 3))
+                    lane.gain = ng
                     lane._tapkey = None
                 detail = f"{self._form_idx % max(1, self.n_bars)}|" + \
                     "|".join(
@@ -958,16 +983,21 @@ class MusicSystem:
                 p, c, d = self._applied
                 self._tap("music_vals", f"{p:.3f},{c:.3f},{d:.3f}", 1.0)
             # form steering: boss pull to PEAK / becalmed return
-            tgt = self._steer_form()
-            if tgt is not None:
+            steer = self._steer_form()
+            if steer is not None:
+                tgt, skind = steer
                 self._form_idx = tgt
+                if skind == "jump":
+                    self._tap("music_jump", str(tgt), 1.0)
                 for lane in self._lanes.values():
                     lane.seek(tgt)
-                    # arrival breath: a jump lands mid-phrase for any
-                    # composed voice (the Lama's entrances live in the
-                    # stem) -- fade the new position in over one bar
-                    lane.fadein_ticks = bar_ticks
-                    lane.fadein_total = bar_ticks
+                    if skind == "jump":
+                        # arrival breath: a cross-section jump lands
+                        # mid-phrase for composed voices; a same-
+                        # section LOOP is a composed boundary and
+                        # needs no fade
+                        lane.fadein_ticks = bar_ticks
+                        lane.fadein_total = bar_ticks
             # boss stabs: a hit on the 4-bar grid while the boss lives
             # (dedicated stab sample -- the sting carries the BELL, and
             # a bell every 4 bars over a full mix read as sample spam)
@@ -997,6 +1027,9 @@ class MusicSystem:
                     lane.fade_total = bar_ticks
                     continue                       # fade owns the volume
                 if lane.fade_ticks == 0:
+                    if g < lane.gain and lane.gain > 0.1:
+                        g = max(g, lane.gain * 0.65)   # slow exhale on
+                        #                                the way down
                     lane.set_gain(g, master)
             # offline-reconstruction tap (mkvideo): the FULL per-bar
             # decision -- position + every lane's content and gain

@@ -107,6 +107,7 @@ def _mix_music_rich(mix, events, duration_s) -> bool:
     Riser/sting from their own taps, from the bank active at the time."""
     bank_evs = [e for e in events if e["kind"] == "music_bank"]
     bar_evs = [e for e in events if e["kind"] == "music_bar"]
+    jump_ts = [e["t"] for e in events if e["kind"] == "music_jump"]
     if not bar_evs or not bank_evs:
         return False
 
@@ -162,12 +163,10 @@ def _mix_music_rich(mix, events, duration_s) -> bool:
         bar_idx = int(parts[0]) % bk["bars"]
         if ev["bar0"]:
             bar_idx = (int(parts[0]) - 1) % bk["bars"]
-        # arrival fade-in: a form jump or bank rotation lands mid-
-        # phrase for composed voices -- ramp the discontinuous bar in
-        # (mirrors the live engine's arrival breath)
+        # arrival fade-in: only TRUE jumps (music_jump taps) and bank
+        # rotations ramp -- composed loop points land clean
         ramp_in = (prev_bank is not None and bk is not prev_bank) or \
-            (prev_idx is not None and
-             bar_idx not in ((prev_idx + 1) % bk["bars"], prev_idx))
+            any(abs(ev["t"] - jt) < 0.5 for jt in jump_ts)
         prev_idx, prev_bank = bar_idx, bk
         s0 = int(ev["t"] * RATE)
         if s0 >= n_total:
