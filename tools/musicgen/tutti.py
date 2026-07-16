@@ -381,34 +381,28 @@ def _bass_seq_from_riff(riff, base=26):
 
 
 def _tile_monk(src: np.ndarray, n: int) -> np.ndarray:
-    """ONE continuous monk voice across the whole form: the chant
-    render tiled end-to-start with one-bar equal-power crossfades.
-    (Director 2026-07-17: the dropouts and 'multiple clashing monks'
-    were in the samples themselves -- sections used to PLACE the whole
-    multi-minute render at their own offsets, so copies overlapped and
-    the gaps between copies were silent. Overlap and silence are both
-    unrepresentable now: there is exactly one voice, always sounding.)"""
-    # 0.25s joins: long (bar-length) crossfades put the chant's end
-    # against its own start for a whole bar -- the same two-monk clash
-    # the redesign exists to kill (Gemini in-context caught it). A
-    # quarter second reads as room tail, not a second voice.
-    xf = int(0.25 * SR)
-    if len(src) <= 2 * xf:
-        raise ValueError(f"monk render too short to tile: "
-                         f"{len(src) / SR:.1f}s")
+    """ONE voice, repeating his chant at PHRASE boundaries: the next
+    repetition begins where the previous one's sung content ends, its
+    hall tail riding underneath -- a cantor taking a breath. NEVER a
+    crossfade (two takes of the same voice mid-phrase = the clashing
+    monks) and never a gap (multi-bar silence is the other banned
+    state). The stem's final 0.75 bar fades so the free-running lane's
+    wrap back to bar 0 reads as a breath, not a splice."""
+    a = np.abs(src)
+    pk = float(a.max()) + 1e-12
+    idx = np.where(a > 0.10 * pk)[0]
+    if len(idx) == 0 or idx[-1] < SR:
+        raise ValueError(f"monk render has no content to tile "
+                         f"({len(src) / SR:.1f}s)")
+    dry_end = int(idx[-1])
     out = np.zeros(n)
     pos = 0
-    first = True
     while pos < n:
-        seg = src.copy()
-        if not first:
-            seg[:xf] *= np.linspace(0.0, 1.0, xf) ** 0.5
-        if pos + len(seg) < n:
-            seg[-xf:] *= np.linspace(1.0, 0.0, xf) ** 0.5
-        take = min(len(seg), n - pos)
-        out[pos:pos + take] += seg[:take]
-        pos += len(seg) - xf
-        first = False
+        take = min(len(src), n - pos)
+        out[pos:pos + take] += src[:take]
+        pos += dry_end
+    tail = int(0.75 * BAR * SR)
+    out[-tail:] *= np.linspace(1.0, 0.0, tail)
     return out
 
 
@@ -649,7 +643,7 @@ _BAND = {"entry", "develop", "peak", "rebuild"}
 
 # ---------------------------------------------------------------------------
 
-LANE_NAMES = ("holy", "drums", "wall_L", "wall_R", "bass",
+LANE_NAMES = ("holy", "monk", "drums", "wall_L", "wall_R", "bass",
               "fm", "lead", "flour", "tells", "spine")
 
 
@@ -692,13 +686,21 @@ def compose(mel_name: str, collect_lanes: bool = False):
         SECS[stype](ctx, bars, prog)
         t += bars * BAR
 
-    # THE monk: one continuous voice under the whole form, placed once
-    # with the sections' level automation (never a dropout, never a
-    # second copy). Half-second anti-click head only.
+    # THE monk: one voice. The album master keeps the sections' level
+    # automation (a fixed linear listen); the BANK gets its own "monk"
+    # lane, near-flat -- in-game his loudness belongs to the ENGINE's
+    # prayer value, and his lane free-runs (form steering never
+    # splices a voice; director round 2). Baked automation would be
+    # wrong the moment his clock diverges from the form's.
     henv = ctx["holy_env"]
     click = int(0.5 * SR)
     henv[:click] *= np.linspace(0.0, 1.0, click)
-    lp(ctx, "holy", C, ctx["monk_bed"] * henv, 0.0)
+    place(C, ctx["monk_bed"] * henv, 0.0)
+    if lanes is not None:
+        duck = np.ones(n)
+        duck[:int(3 * BAR * SR)] = 0.35   # the opening statement bars
+        duck[:click] *= np.linspace(0.0, 1.0, click)
+        place(lanes["monk"], ctx["monk_bed"] * duck, 0.0)
 
     # drone spine: one texture per section, survives everything
     D = np.zeros(n)

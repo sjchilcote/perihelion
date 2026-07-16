@@ -189,17 +189,25 @@ def _mix_music_rich(out_mix, events, duration_s) -> bool:
             fade = key.endswith("~f")     # farewell bar: ramp to zero
             if fade:
                 key = key[:-2]
+            lane_idx = bar_idx
+            if "@" in key:
+                # a free-running lane (the monk) carries its OWN
+                # position: never slice the voice by form index
+                key, _, kidx = key.partition("@")
+                lane_idx = int(kidx)
+                if ev["bar0"]:
+                    lane_idx -= 1
             snd = stem(bk, key)
             if snd is None:
                 continue
-            a = min(bar_idx * bar_n, len(snd) - 1)
+            a = min(lane_idx * bar_n, len(snd) - 1)
             b = min(a + bar_n, len(snd))
             seg = snd[a:b]
             n = min(len(seg), n_total - s0)
             g = min(1.0, gain) * 0.8
             if fade:
                 env = np.linspace(1.0, 0.0, n, dtype=np.float32)
-            elif ramp_in and ln not in ("holy", "bed"):
+            elif ramp_in and ln not in ("holy", "bed", "monk"):
                 # the through-line lanes never dip for an arrival
                 env = np.linspace(0.0, 1.0, n, dtype=np.float32)
             else:
@@ -414,12 +422,13 @@ FACTOR_COLORS = {          # match the value battery's identities
     "CONTEMPT": (255, 110, 100),
     "STALWART": (255, 190, 90),
 }
-CHUNK_LANES = ["bed", "drums", "holy", "groove", "wall", "bass",
+CHUNK_LANES = ["bed", "drums", "holy", "monk", "groove", "wall", "bass",
                "lead", "lead2", "boss"]
 LANE_ORDER = CHUNK_LANES + ["riser", "sting", "stab"]
 LANE_COLORS = {
     "bed": (140, 140, 170), "drums": (230, 160, 90),
-    "holy": (110, 190, 255), "groove": (255, 110, 100),
+    "holy": (110, 190, 255), "monk": (90, 230, 230),
+    "groove": (255, 110, 100),
     "wall": (255, 190, 90), "bass": (170, 130, 220),
     "lead": (130, 220, 150), "lead2": (100, 190, 120),
     "boss": (255, 80, 160), "riser": (190, 140, 255),
@@ -456,7 +465,11 @@ def _bar_series(events: list) -> list[tuple[float, tuple[int, dict]]]:
             fade = key.endswith("~f")
             if fade:
                 key = key[:-2]
-            lanes[ln] = (key, float(gain), fade)
+            own = None
+            if "@" in key:      # free-running lane (monk): own clock
+                key, _, kidx = key.partition("@")
+                own = int(kidx)
+            lanes[ln] = (key, float(gain), fade, own)
         out.append((e["t"], (bar_idx, lanes)))
     return out
 
@@ -596,10 +609,16 @@ def _build_lane_timelines(events: list,
                 fade = key.endswith("~f")
                 if fade:
                     key = key[:-2]
+                lane_idx = bar_idx
+                if "@" in key:   # free-running lane: slice by OWN clock
+                    key, _, kidx = key.partition("@")
+                    lane_idx = int(kidx) % bk["bars"]
+                    if ev["bar0"]:
+                        lane_idx = (lane_idx - 1) % bk["bars"]
                 peaks = _stem_peaks(bk, key, stem_cache)
                 if peaks is None:
                     continue
-                a_sample = bar_idx * bar_n
+                a_sample = lane_idx * bar_n
                 a_bin = a_sample // hop
                 b_bin = min(a_bin + max(1, bar_n // hop), len(peaks))
                 seg = _resample_peaks(peaks, a_bin, b_bin, n)
@@ -886,7 +905,8 @@ def overlay_frames(rec: Path, events: list, fps: int, scale: int,
                 y += wf_h + 1 * scale
                 continue
 
-            key, gain, fade = lanes_now.get(ln, (None, 0.0, False))
+            key, gain, fade, own = lanes_now.get(
+                ln, (None, 0.0, False, None))
             live_chunk = ln in CHUNK_LANES and \
                 key not in (None, "None", "silence") and gain > 0.001
 
@@ -896,16 +916,20 @@ def overlay_frames(rec: Path, events: list, fps: int, scale: int,
                 elif key == "silence" or gain <= 0.001:
                     now_txt = "silence"
                 else:
-                    now_txt = f"{key}[{bidx}]" + ("~F" if fade else "")
-                nkey, ngain, _ = nxt_lanes.get(ln, (None, 0.0, False))
+                    now_txt = (f"{key}[{own if own is not None else bidx}]"
+                               + ("~F" if fade else ""))
+                nkey, ngain, _nf, nown = nxt_lanes.get(
+                    ln, (None, 0.0, False, None))
                 if nkey in (None, "None"):
                     next_key = "-"
                 elif nkey == "silence":
                     next_key = "silence"
                 else:
                     next_key = nkey
-                next_txt = f"{next_key}[{nxt_bidx}]" \
-                    if next_key not in ("-", "silence") else next_key
+                next_txt = (f"{next_key}"
+                            f"[{nown if nown is not None else nxt_bidx}]"
+                            if next_key not in ("-", "silence")
+                            else next_key)
             elif ln == "riser":
                 now_txt = f"{riser_now:.2f}" if riser_now > 0.001 else "-"
                 next_key = next_txt = "-"

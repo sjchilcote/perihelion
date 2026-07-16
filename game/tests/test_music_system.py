@@ -192,10 +192,11 @@ def test_massive_spike_passes_immediately():
     assert ms.vals[2] > 0.5, "a massive spike must pass immediately"
 
 
-def test_hard_rise_stings():
-    # new grammar (director 2026-07-17): a sudden heavy rise fires the
-    # riser one-shot, whose release IS the sting -- within ~3 bars of
-    # the wave appearing
+def test_no_reactive_stings_or_risers():
+    # director round 2: a causal engine cannot anticipate a fight --
+    # reactive risers "rise to nothing" and threat-spike stings read
+    # as random bells. A sudden heavy wave now produces NEITHER; both
+    # are planned punctuation (see test_riser_leads_the_peak_jump).
     taps = []
     bank = SimpleNamespace(_ready=False, master_vol=1.0,
                            tap=lambda k, d, v, p: taps.append((k, d)))
@@ -205,35 +206,60 @@ def test_hard_rise_stings():
     rooms = {1: 0, 2: 0, 3: 0}
     _sustain(ms, lambda k: make_session(heavy, rooms, tick=2 + k),
              3 * ticks_per_bar())
-    assert any(k == "music_sting" for k, _ in taps)
+    assert not any(k == "music_sting" for k, _ in taps)
+    assert not any(k == "music_riser" and float(d) > 0 for k, d in taps)
     assert any(k == "music_vals" for k, _ in taps)
 
 
-def test_riser_only_on_sudden_rise():
-    # director 2026-07-17: risers fire ONLY on sudden intensity rises
-    # -- a lurking flicker is a sustain and must NOT hold one up
-    # (F002718: the 8-second flat pink-noise blast)
+def test_riser_leads_the_peak_jump():
+    # the ONE place a swell can resolve into a known downbeat: the
+    # engine's own scheduled boss peak-jump. The jump is held two bars
+    # while the reversed bell swells, then lands as it strikes.
     taps = []
-    bank = SimpleNamespace(_ready=False, master_vol=1.0,
-                           tap=lambda k, d, v, p: taps.append((k, d)))
-    ms = MusicSystem(audio_bank=bank, enabled=True)
-    lurk = {1: dict(kind="flicker", state="lurk")}
-    ms.update(make_session(lurk, {1: 0}, tick=1))
-    assert ms._riser_gain == 0.0
-    # a heavy wave appearing at once IS sudden: a bounded one-shot arc
-    heavy = {1: awake("brute"), 2: awake("brute"), 3: awake("warden")}
-    rooms = {1: 0, 2: 0, 3: 0}
-    ms.update(make_session(heavy, rooms, tick=2))
-    assert ms._riser_env > 0
-    peak_seen = 0.0
-    for t in range(3, 3 + int(2.3 * ticks_per_bar())):
-        ms.update(make_session(heavy, rooms, tick=t))
-        peak_seen = max(peak_seen, ms._riser_gain)
-    # the arc completed (no sustain) and released into the sting
-    assert ms._riser_env == 0 and ms._riser_gain == 0.0
-    assert peak_seen > 0.4
-    assert any(k == "music_riser" and d == "0.00" for k, d in taps)
-    assert any(k == "music_sting" for k, _ in taps)
+    ms = _rich_ms(taps)
+    t = _drive(ms, (1.0, 0.0, 0.0), 4, 0)
+    t = _drive(ms, (0.12, 0.6, 0.95), 8, t)
+    riser_on = [tt for (k, d), tt in
+                [((k, d), i) for i, (k, d) in enumerate(taps)]
+                if k == "music_riser" and float(d) > 0]
+    jumps = [i for i, (k, d) in enumerate(taps)
+             if k == "music_jump" and not d.endswith("~s")]
+    assert riser_on, "boss peak approach must arm the riser"
+    assert jumps, "the peak jump must land"
+    assert riser_on[0] < jumps[0], "the swell LEADS the jump"
+    riser_end = [i for i, (k, d) in enumerate(taps)
+                 if k == "music_riser" and d == "0.00"]
+    assert riser_end and abs(riser_end[0] - jumps[0]) < 40, \
+        "the bell strikes as the jump lands"
+    # and the fight's end tolls exactly once: the boss release
+    _drive(ms, (1.0, 0.0, 0.0), 6, t)
+    rels = [d for k, d in taps if k == "music_rel"]
+    stings = [d for k, d in taps if k == "music_sting"]
+    assert rels == ["boss_release"]
+    assert len(stings) == 1, f"only the release toll: {stings}"
+
+
+def test_monk_lane_is_never_seeked():
+    # the fundamental law (director round 2): you cannot swap between
+    # recordings of a VOICE mid-syllable. The monk advances on his own
+    # clock through every form jump and loop.
+    taps = []
+    ms = _rich_ms(taps)
+    t = _drive(ms, (0.3, 0.55, 0.5), 20, 0)      # loops develop
+    _drive(ms, (0.12, 0.6, 0.95), 10, t)         # jumps to peak
+    monk_idx = []
+    for k, d in taps:
+        if k != "music_bar":
+            continue
+        for part in d.split("|")[1:]:
+            ln, key, _g = part.rsplit(":", 2)
+            if ln == "monk" and key.startswith("monk@"):
+                monk_idx.append(int(key.split("@")[1].split("~")[0]))
+    assert len(monk_idx) >= 25, f"monk missing from taps: {len(monk_idx)}"
+    n = ms.n_bars
+    for a, b in zip(monk_idx, monk_idx[1:]):
+        assert b == (a + 1) % n, \
+            f"the voice was spliced: {a} -> {b}"
 
 
 def test_death_halts_music():

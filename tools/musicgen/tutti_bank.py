@@ -52,18 +52,29 @@ def _write(path, x, trim_n):
 
 
 def _assert_no_silent_bars(x, total_bars, name, floor_db=-15.0):
-    """FAIL FAST at build time (director 2026-07-17): a stem whose
-    composed content vanishes for whole bars ships a lie -- the engine
-    holds the lane 'on' while nothing sounds. Crash the build."""
+    """FAIL FAST at build time: a stem that SUDDENLY GOES SILENT FOR
+    MULTIPLE BARS ships a lie -- the engine holds the lane 'on' while
+    nothing sounds. A single quiet bar is a breath (director round 2:
+    'it doesn't need to be literally constant'); two or more in a row
+    crash the build."""
     n_bar = int(BAR * SR)
     rms = np.array([np.sqrt((x[i * n_bar:(i + 1) * n_bar] ** 2).mean()
                             + 1e-12) for i in range(total_bars)])
     med = float(np.median(rms))
-    bad = [(i, round(20 * np.log10(r / med), 1)) for i, r in
-           enumerate(rms) if 20 * np.log10(r / med) < floor_db]
-    if bad:
-        raise ValueError(f"{name}: bars {bad} fall below "
-                         f"{floor_db}dB of the stem median")
+    db = 20 * np.log10(rms / med)
+    runs, start = [], None
+    for i, v in enumerate(db):
+        if v < floor_db and start is None:
+            start = i
+        elif v >= floor_db and start is not None:
+            if i - start >= 2:
+                runs.append((start, i - 1, round(float(db[start]), 1)))
+            start = None
+    if start is not None and total_bars - start >= 2:
+        runs.append((start, total_bars - 1, round(float(db[start]), 1)))
+    if runs:
+        raise ValueError(f"{name}: silent for multiple bars at "
+                         f"{runs} (below {floor_db}dB of median)")
 
 
 def build(mel: str, outdir: Path):
@@ -75,9 +86,15 @@ def build(mel: str, outdir: Path):
 
     _st, lanes, ctx = T.compose(mel, collect_lanes=True)
 
+    # prayer = the form-locked holy accents (choir + bells) + spine
+    # share; it may legitimately fall silent in sections -- the MONK
+    # lane carries the never-silent through-line now, on its own
+    # free-running clock, and IT gets the dropout validator
     prayer = lanes["holy"] + lanes["spine"] * 0.3
-    _assert_no_silent_bars(prayer[:n], total_bars, f"{mel}/prayer")
     _write(outdir / "prayer.wav", prayer, n)
+    monk = lanes["monk"]
+    _assert_no_silent_bars(monk[:n], total_bars, f"{mel}/monk")
+    _write(outdir / "monk.wav", monk, n)
     stal = np.stack([lanes["wall_L"] + lanes["bass"] + lanes["tells"],
                      lanes["wall_R"] + lanes["bass"] + lanes["tells"]],
                     axis=1)
