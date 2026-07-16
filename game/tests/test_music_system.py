@@ -448,9 +448,12 @@ def _bar_db(x, sr, bar_s, bars):
     return 20 * np.log10(rms + 1e-12)
 
 
-def _runs_below(db, floor):
-    return [(i, i + 1) for i in range(len(db) - 1)
-            if db[i] < floor and db[i + 1] < floor]
+def _runs_below(db, floor, run=2):
+    hits = []
+    for i in range(len(db) - run + 1):
+        if all(db[i + k] < floor for k in range(run)):
+            hits.append((i, i + run - 1))
+    return hits
 
 
 def test_shipped_prayer_never_silent_for_multiple_bars():
@@ -487,6 +490,10 @@ def test_no_stem_chunk_is_obviously_dead():
     # sounds them in combat.
     import soundfile as sf
     from perihelion.music import shipped_banks, load_bank_meta
+    # DEAD means dead: -55dBFS. A quiet drone at -42 is a composed
+    # texture; digital silence is -90. Leads keep their composed
+    # 2-bar call-and-rest phrasing: only 4+ dead bars is wrong there.
+    DEAD = -55.0
     bad = []
     for d in shipped_banks():
         meta = load_bank_meta(d)
@@ -498,7 +505,8 @@ def test_no_stem_chunk_is_obviously_dead():
             if x.ndim == 2:
                 x = x.mean(axis=1)
             db = _bar_db(x, sr, meta.bar_s, meta.n_bars)
-            runs = _runs_below(db, -40.0)
+            run = 4 if st.startswith("lead_") else 2
+            runs = _runs_below(db, DEAD, run=run)
             if runs:
                 bad.append((d.name, st, runs[:4]))
         f = next(q for ext in ("wav", "ogg")
@@ -509,7 +517,7 @@ def test_no_stem_chunk_is_obviously_dead():
         db = _bar_db(x, sr, meta.bar_s, meta.n_bars)
         for sname, a, b in meta.sections:
             if sname in ("entry", "develop", "peak", "rebuild"):
-                runs = _runs_below(db[a:b], -40.0)
+                runs = _runs_below(db[a:b], DEAD)
                 if runs:
                     bad.append((d.name, f"drums[{sname}]", runs[:4]))
     assert not bad, f"obviously dead chunks: {bad}"

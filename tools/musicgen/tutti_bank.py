@@ -111,36 +111,59 @@ def _fill_monk_gaps(prayer, monk_far, total_bars, mel):
     return out
 
 
-def _f0_hz(x) -> float:
-    """Dominant fundamental below 500Hz of a render's first 20s."""
+def _band_ratio(x) -> float:
+    """low-band (40-180Hz) vs lead-band (180-1200Hz) energy of a
+    render's first 20s -- 'did the output land in the right frequency
+    band' as the director framed it. Pitch trackers lied here (noisy
+    patches, subsonic rumble bins); band energy responds monotonically
+    to octave shifts on every voice we probed."""
     seg = x[: int(20 * SR)]
-    F = np.abs(np.fft.rfft(seg * np.hanning(len(seg))))
+    F = np.abs(np.fft.rfft(seg * np.hanning(len(seg)))) ** 2
     fr = np.fft.rfftfreq(len(seg), 1 / SR)
-    F[(fr < 25) | (fr > 500)] = 0.0
-    return float(fr[int(F.argmax())])
+    lo = float(F[(fr >= 40) & (fr < 180)].sum())
+    mid = float(F[(fr >= 180) & (fr < 1200)].sum())
+    return lo / (mid + 1e-9)
 
 
-BASS_BAND = (40.0, 120.0)
+BASS_RATIO = 3.0   # low band must dominate 3:1 -- bass_brute's
+#                    unshifted render measures 2.1 and the director
+#                    heard it competing with the lead, so 2.1 must fail
 
 
 def _render_bass_in_band(voice, seq, total_s, tail, name):
     """Render, MEASURE the output, and re-render an octave down until
-    the fundamental lands in the bass band (director: the bass stems
-    competed with the leads in frequency space -- the PATCH decides
-    the sounding octave, not the MIDI note, so the pipeline verifies
-    the output and shifts; it CRASHES if no octave lands)."""
-    f0 = None
+    the energy actually lands in the bass band (the PATCH decides the
+    sounding octave, not the MIDI note). Crashes if -24 still fails."""
+    ratio = None
     for shift in (0, -12, -24):
-        sq = [(nn + shift, t, d, v) for nn, t, d, v in seq]
+        sq = []
+        for nn, t, d, v in seq:
+            n2 = nn + shift
+            while n2 < 12:      # octave-fold: MIDI can't go negative,
+                n2 += 12        # and pitch class is what matters
+            sq.append((n2, t, d, v))
         x = VB.render_seq(*voice, sq, total_s, tail)
-        f0 = _f0_hz(x)
-        if BASS_BAND[0] <= f0 <= BASS_BAND[1]:
-            if shift:
-                print(f"  {name}: f0 landed {f0:.0f}Hz after "
-                      f"{shift} semitones", flush=True)
+        ratio = _band_ratio(x)
+        if ratio >= BASS_RATIO:
+            print(f"  {name}: band ratio {ratio:.1f} at "
+                  f"{shift} semitones", flush=True)
             return x
-    raise ValueError(f"{name}: fundamental {f0:.0f}Hz outside "
-                     f"{BASS_BAND}Hz at every octave shift")
+    # percussive cells (mite ticks) keep transient energy mid-band at
+    # any pitch: the designed bass voicing for those is the filtered
+    # tick. Lowpass is a SOUND-DESIGN stage here, not error-hiding --
+    # the outcome is still measured and still crashes if wrong.
+    import synth as sy
+    # cutoff must sit BELOW the mid-band boundary (180Hz) or the
+    # residue between cutoff and boundary keeps failing the ratio;
+    # applied twice for slope
+    x = sy.lowpass(sy.lowpass(x, 160), 160)
+    ratio2 = _band_ratio(x)
+    if ratio2 >= BASS_RATIO:
+        print(f"  {name}: band ratio {ratio2:.1f} after -24 + "
+              f"160Hz lowpass x2", flush=True)
+        return x
+    raise ValueError(f"{name}: low/mid ratio {ratio2:.2f} < "
+                     f"{BASS_RATIO} even at -24 + lowpass")
 
 
 def build(mel: str, outdir: Path):
@@ -230,7 +253,9 @@ def build(mel: str, outdir: Path):
     frag = riffs.lead_phrase(
         [(p, d) for p, d in events if p is not None][:8], factor=2)
     lseq = []
-    for k in range(total_bars // 4):
+    for k in range((total_bars + 3) // 4):   # CEIL: 34-bar forms
+    #   left bars 30-33 with no phrase at all (floor division) --
+    #   a 4-bar dead hole in every lead of every 34-bar bank
         tt = k * 4 * BAR
         for pnote, d in frag:
             lseq.append((62 + pnote, tt, (d + 0.5) * STEP, 108))
