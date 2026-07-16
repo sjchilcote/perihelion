@@ -1,5 +1,5 @@
 {
-  "total_cost": 27.966386800000006,
+  "total_cost": 28.4717608,
   "calls": [
     {
       "tool": "audio_judge",
@@ -23392,6 +23392,214 @@
       "model": "google/gemini-3.1-pro-preview",
       "prompt_tokens": 16592,
       "completion_tokens": 1602
+    },
+    {
+      "tool": "musicgen.judge_track_grounded",
+      "cost": 0.022508,
+      "ts": 1784173475.9642904,
+      "model": "google/gemini-3.1-pro-preview",
+      "prompt_tokens": 2362,
+      "completion_tokens": 1482
+    },
+    {
+      "tool": "musicgen.judge_track_grounded",
+      "cost": 0.02497,
+      "ts": 1784173877.5209093,
+      "model": "google/gemini-3.1-pro-preview",
+      "prompt_tokens": 4283,
+      "completion_tokens": 1367
+    },
+    {
+      "tool": "musicgen.judge_track_grounded",
+      "cost": 0.04647,
+      "ts": 1784176579.5907023,
+      "model": "google/gemini-3.1-pro-preview",
+      "prompt_tokens": 5439,
+      "completion_tokens": 2966
+    },
+    {
+      "tool": "musicgen.judge_track_grounded",
+      "cost": 0.038262,
+      "ts": 1784176671.1320422,
+      "model": "google/gemini-3.1-pro-preview",
+      "prompt_tokens": 5439,
+      "completion_tokens": 2282
+    },
+    {
+      "tool": "musicgen.judge_track_grounded",
+      "cost": 0.013702,
+      "ts": 1784176765.2294064,
+      "model": "google/gemini-3.1-pro-preview",
+      "prompt_tokens": 2705,
+      "completion_tokens": 691
+    },
+    {
+      "tool": "musicgen.judge_track_grounded",
+      "cost": 0.014926,
+      "ts": 1784176778.478075,
+      "model": "google/gemini-3.1-pro-preview",
+      "prompt_tokens": 2705,
+      "completion_tokens": 793
+    },
+    {
+      "tool": "musicgen.judge_track_grounded",
+      "cost": 0.018826,
+      "ts": 1784176792.7248614,
+      "model": "google/gemini-3.1-pro-preview",
+      "prompt_tokens": 2705,
+      "completion_tokens": 1118
+    },
+    {
+      "tool": "musicgen.judge_track_grounded",
+      "cost": 0.016522,
+      "ts": 1784176806.6462908,
+      "model": "google/gemini-3.1-pro-preview",
+      "prompt_tokens": 2705,
+      "completion_tokens": 926
+    },
+    {
+      "tool": "musicgen.judge_track_grounded",
+      "cost": 0.014854,
+      "ts": 1784176909.9851346,
+      "model": "google/gemini-3.1-pro-preview",
+      "prompt_tokens": 2705,
+      "completion_tokens": 787
+    },
+    {
+      "tool": "musicgen.judge_track_grounded",
+      "cost": 0.017182,
+      "ts": 1784176923.2957132,
+      "model": "google/gemini-3.1-pro-preview",
+      "prompt_tokens": 2705,
+      "completion_tokens": 981
+    },
+    {
+      "tool": "musicgen.judge_track_grounded",
+      "cost": 0.017146,
+      "ts": 1784176937.3082545,
+      "model": "google/gemini-3.1-pro-preview",
+      "prompt_tokens": 2705,
+      "completion_tokens": 978
+    },
+    {
+      "tool": "musicgen.judge_track_grounded",
+      "cost": 0.016906,
+      "ts": 1784176950.7372513,
+      "model": "google/gemini-3.1-pro-preview",
+      "prompt_tokens": 2705,
+      "completion_tokens": 958
+    },
+    {
+      "tool": "musicgen.judge_track_grounded",
+      "cost": 0.01309,
+      "ts": 1784222111.2709594,
+      "model": "google/gemini-3.1-pro-preview",
+      "prompt_tokens": 2705,
+      "completion_tokens": 640
+    },
+    {
+      "tool": "musicgen.judge_track_grounded",
+      "cost": 0.014218,
+      "ts": 1784222123.648635,
+      "model": "google/gemini-3.1-pro-preview",
+      "prompt_tokens": 2705,
+      "completion_tokens": 734
+    },
+    {
+      "tool": "musicgen.judge_track_grounded",
+      "cost": 0.025126,
+      "ts": 1784222143.9058244,
+      "model": "google/gemini-3.1-pro-preview",
+      "prompt_tokens": 2705,
+      "completion_tokens": 1643
+    },
+    {
+      "tool": "musicgen.judge_track_grounded",
+      "cost": 0.012046,
+      "ts": 1784222154.0729656,
+      "model": "google/gemini-3.1-pro-preview",
+      "prompt_tokens": 2705,
+      "completion_tokens": 553
+    },
+    {
+      "tool": "musicgen.judge_track_grounded",
+      "cost": 0.016018,
+      "ts": 1784222300.313541,
+      "model": "google/gemini-3.1-pro-preview",
+      "prompt_tokens": 2705,
+      "completion_tokens": 884
+    },
+    {
+      "tool": "musicgen.judge_track_grounded",
+      "cost": 0.012802,
+      "ts": 1784222311.7675624,
+      "model": "google/gemini-3.1-pro-preview",
+      "prompt_tokens": 2705,
+      "completion_tokens": 616
+    },
+    {
+      "tool": "musicgen.judge_track_grounded",
+      "cost": 0.018598,
+      "ts": 1784222327.0330102,
+      "model": "google/gemini-3.1-pro-preview",
+      "prompt_tokens": 2705,
+      "completion_tokens": 1099
+    },
+    {
+      "tool": "musicgen.judge_track_grounded",
+      "cost": 0.016248,
+      "ts": 1784222350.654887,
+      "model": "google/gemini-3.1-pro-preview",
+      "prompt_tokens": 2706,
+      "completion_tokens": 903
+    },
+    {
+      "tool": "musicgen.judge_track_grounded",
+      "cost": 0.01789,
+      "ts": 1784222499.5269513,
+      "model": "google/gemini-3.1-pro-preview",
+      "prompt_tokens": 2705,
+      "completion_tokens": 1040
+    },
+    {
+      "tool": "musicgen.judge_track_grounded",
+      "cost": 0.011158,
+      "ts": 1784222509.808689,
+      "model": "google/gemini-3.1-pro-preview",
+      "prompt_tokens": 2705,
+      "completion_tokens": 479
+    },
+    {
+      "tool": "musicgen.judge_track_grounded",
+      "cost": 0.016198,
+      "ts": 1784222522.0943675,
+      "model": "google/gemini-3.1-pro-preview",
+      "prompt_tokens": 2705,
+      "completion_tokens": 899
+    },
+    {
+      "tool": "musicgen.judge_track_grounded",
+      "cost": 0.012142,
+      "ts": 1784222532.5047708,
+      "model": "google/gemini-3.1-pro-preview",
+      "prompt_tokens": 2705,
+      "completion_tokens": 561
+    },
+    {
+      "tool": "musicgen.judge_track_grounded",
+      "cost": 0.029484,
+      "ts": 1784222559.2219663,
+      "model": "google/gemini-3.1-pro-preview",
+      "prompt_tokens": 5172,
+      "completion_tokens": 1595
+    },
+    {
+      "tool": "musicgen.judge_track_grounded",
+      "cost": 0.028082,
+      "ts": 1784224552.2310135,
+      "model": "google/gemini-3.1-pro-preview",
+      "prompt_tokens": 2437,
+      "completion_tokens": 1934
     }
   ]
 }
