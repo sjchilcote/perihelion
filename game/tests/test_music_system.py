@@ -463,17 +463,18 @@ def test_underdeclared_session_crashes():
         ms.update(s)
 
 
-def test_shipped_prayer_stems_never_go_quiet():
-    # the monk is ONE continuous voice (director 2026-07-17: dropouts
-    # and clashing monks were in the samples themselves) -- every
-    # shipped prayer stem must hold a per-bar floor vs its own median
+def test_shipped_monk_stems_never_drop_out():
+    # the through-line contract lives on the MONK stem (the voice,
+    # free-running): a single quiet bar is a breath, but it must never
+    # go silent for MULTIPLE consecutive bars (director round 2).
+    # prayer.wav is the form-locked choir/bells and is sparse by design.
     import numpy as np
     import soundfile as sf
     from perihelion.music import shipped_banks, load_bank_meta
     for d in shipped_banks():
         meta = load_bank_meta(d)
         f = next(q for ext in ("wav", "ogg")
-                 for q in [d / f"prayer.{ext}"] if q.exists())
+                 for q in [d / f"monk.{ext}"] if q.exists())
         x, sr = sf.read(str(f), dtype="float32")
         if x.ndim == 2:
             x = x.mean(axis=1)
@@ -482,5 +483,7 @@ def test_shipped_prayer_stems_never_go_quiet():
                                 + 1e-12) for i in range(meta.n_bars)])
         med = float(np.median(rms))
         db = 20 * np.log10(rms / med)
-        assert db.min() > -15, \
-            f"{d.name}: quiet bars {[(i, round(v,1)) for i, v in enumerate(db) if v <= -15]}"
+        quiet = db < -15
+        runs = [(i, i + 1) for i in range(len(quiet) - 1)
+                if quiet[i] and quiet[i + 1]]
+        assert not runs, f"{d.name}: multi-bar dropouts at {runs}"
