@@ -73,9 +73,8 @@ def battery(rows, p):
     stal = 1.0 - np.exp(-danger / p["KNEE"])
     mow = p["KILL_W"] * kill * 10 + p["FIRE_W"] * fire \
         + p["TRASH_W"] * trash
-    cont = (1.0 - np.exp(-mow / p["MOW_KNEE"])) * (1.0 - stal) \
-        * np.clip(1.0 - influx * 10 / p["WAVE_CUT"], 0.0, 1.0) \
-        * (0.5 + 0.5 * hp / 100.0)
+    cont = 1.0 - np.exp(-mow / p["MOW_KNEE"])   # independent axis:
+    #   no (1-stal) crush, no wave guard, no hp scale (director)
     pray = np.maximum(p["FLOOR"],
                       1.0 - np.minimum(1.0, danger / p["ENGAGE_KNEE"]
                                        + p["FIRE_PRAY"] * fire))
@@ -102,7 +101,8 @@ def main():
                             for i in range(n)], dtype=np.float32)
         fut_kill = np.array([kd[i + 1:i + 1 + HORIZON_KILL].sum()
                              for i in range(n)], dtype=np.float32)
-        mowing = fut_kill * (fut_dmg < 8.0)
+        mowing = fut_kill    # director 2026-07-16: CONTEMPT is damage
+        #   OUTPUT, ungated -- a boss fight is stalwart AND contempt
         calm = ((fut_dmg < 1.0) & (hunters < 0.5)).astype(np.float32)
         cut = n - HORIZON_DMG
         old = np.array([r["cur_vals"] for r in rows[:cut]],

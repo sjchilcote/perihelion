@@ -14,10 +14,12 @@ just (0.7, 0.6, ...) — and the emotional spec still holds:
 
   PRAYER   — praying/contemplating/processing, but the urgency pulse
              never fully stops (floor never reaches zero).
-  CONTEMPT — mowing down weak enemies: confident dismissive groove; the
-             chant does not pause for trash.
-  STALWART — overwhelming odds: the prayer for vengeance; the harmonic
-             floor holds; the cantus firmus persists through the peak.
+  CONTEMPT — damage OUTPUT ("ass-kicking music"): the dismissive
+             groove rides whenever the Commando is dealing it out.
+  STALWART — danger INPUT ("boss music"): doomed odds, hold the line.
+  Independent axes (director's base-definition adjustment,
+  2026-07-16): a boss fight is BOTH high; trash-mowing is contempt
+  alone; being hunted while unable to fight back is stalwart alone.
 
 MIXER ARCHITECTURE (the Tower-of-Torment mechanism — the director's own
 ChunkedMusicPlayer from pyweek-28, generalized to N lanes):
@@ -82,13 +84,16 @@ SCREAM_W = 5.84          # scream recency (1 at scream, 0 after 5s)
 DMG_W = 0.13             # per hp/s taken (3s EMA)
 FIRED_W = 9.96           # player's own trigger duty (1s EMA)
 DANGER_KNEE = 14.0
-KILL_W = 1.44            # per kill/s (3s EMA)
-FIRE_MOW_W = 1.06        # trigger duty, mowing side
-TRASH_W = 0.255          # per weak-kind body sharing the room
-MOW_KNEE = 5.0           # rank-preserving rescale of the fitted 180:
-#                          Spearman is scale-blind but lane gains are
-#                          not -- a typical mow (drive ~4-5) reads ~0.6
-WAVE_CUT = 0.8           # aggro/s that stops reading as mere mowing
+# CONTEMPT axis (BASE DEFINITIONS ADJUSTED, director 2026-07-16):
+# contempt = damage OUTPUT ("you are doing a lot of damage"), stalwart
+# = danger INPUT ("you are doomed, hold out") -- INDEPENDENT axes. A
+# boss fight is BOTH high; the old contempt*(1-stalwart) crush (from
+# the 2026-07-13 brief) is superseded. Refit vs ungated future
+# kill-flow: held-out Spearman 0.471 (old form: 0.068).
+KILL_W = 0.37            # per kill/s (3s EMA)
+FIRE_MOW_W = 5.65        # trigger duty IS the mow signal (fitted)
+TRASH_W = 0.012          # near-zero: bodies standing around are not output
+MOW_KNEE = 1.5
 ENGAGE_KNEE = 16.0       # rank-preserving rescale (fitted 39.5 left
 #                          prayer nearly flat in real fights)
 FIRE_PRAY = 0.007
@@ -184,9 +189,9 @@ def values(inputs: dict) -> tuple[float, float, float]:
       (adjacent heavies nearly full weight), crowd pressure, aggro
       influx, scream recency, damage flow, and the player's own trigger
       (sustained firing measurably precedes damage).
-    - contempt = mowing actually happening: kill flow + trigger duty +
-      trash bodies, gated down by stalwart, by a fresh WAVE (influx is
-      not mowing), and by poor health.
+    - contempt = damage OUTPUT, an independent axis (director
+      2026-07-16): trigger duty + kill flow. A boss fight reads
+      stalwart AND contempt at once; only silence reads neither.
     - prayer = the room the fight leaves over, floored: contemplation
       with the mission clock always running.
 
@@ -212,14 +217,10 @@ def values(inputs: dict) -> tuple[float, float, float]:
     danger += FIRED_W * inputs.get("fire_duty", 0.0)
     stalwart = 1.0 - math.exp(-danger / DANGER_KNEE)
 
-    hp = inputs["hp"]
     mow = KILL_W * inputs.get("kill_rate", 0.0) \
         + FIRE_MOW_W * inputs.get("fire_duty", 0.0) \
         + TRASH_W * trash
-    wave_guard = max(0.0, 1.0 - inputs.get("influx_rate", 0.0)
-                     / WAVE_CUT)
-    contempt = (1.0 - math.exp(-mow / MOW_KNEE)) * (1.0 - stalwart) \
-        * wave_guard * (0.5 + 0.5 * min(1.0, hp / 100.0))
+    contempt = 1.0 - math.exp(-mow / MOW_KNEE)
 
     prayer = max(PRAYER_FLOOR,
                  1.0 - min(1.0, danger / ENGAGE_KNEE
