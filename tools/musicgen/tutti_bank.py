@@ -77,6 +77,72 @@ def _assert_no_silent_bars(x, total_bars, name, floor_db=-15.0):
                          f"{runs} (below {floor_db}dB of median)")
 
 
+
+def _fill_monk_gaps(prayer, monk_far, total_bars, mel):
+    """The ONE monk fix the director actually asked for: the composed
+    holy lane is kept verbatim ('the monk voice you had was perfect'),
+    and any stretch of 2+ quiet bars gets the DISTANT monk drifting in
+    -- from his phrase start, faded, never a mid-phrase splice."""
+    n_bar = int(BAR * SR)
+    out = prayer.copy()
+    rms = np.array([np.sqrt((out[i * n_bar:(i + 1) * n_bar] ** 2).mean()
+                            + 1e-12) for i in range(total_bars)])
+    med = float(np.median(rms))
+    quiet = 20 * np.log10(rms / med) < -15.0
+    i, fills = 0, 0
+    while i < total_bars - 1:
+        if quiet[i] and quiet[i + 1]:
+            j = i
+            while j < total_bars and quiet[j]:
+                j += 1
+            t0 = i * n_bar
+            seg = monk_far[: (j - i) * n_bar + n_bar // 2].copy()
+            fade = int(0.5 * SR)
+            seg[:fade] *= np.linspace(0.0, 1.0, fade)
+            seg[-fade:] *= np.linspace(1.0, 0.0, fade)
+            end = min(len(out), t0 + len(seg))
+            out[t0:end] += seg[:end - t0] * 0.35
+            fills += 1
+            i = j
+        else:
+            i += 1
+    if fills:
+        print(f"  prayer: filled {fills} silent stretch(es)", flush=True)
+    return out
+
+
+def _f0_hz(x) -> float:
+    """Dominant fundamental below 500Hz of a render's first 20s."""
+    seg = x[: int(20 * SR)]
+    F = np.abs(np.fft.rfft(seg * np.hanning(len(seg))))
+    fr = np.fft.rfftfreq(len(seg), 1 / SR)
+    F[(fr < 25) | (fr > 500)] = 0.0
+    return float(fr[int(F.argmax())])
+
+
+BASS_BAND = (40.0, 120.0)
+
+
+def _render_bass_in_band(voice, seq, total_s, tail, name):
+    """Render, MEASURE the output, and re-render an octave down until
+    the fundamental lands in the bass band (director: the bass stems
+    competed with the leads in frequency space -- the PATCH decides
+    the sounding octave, not the MIDI note, so the pipeline verifies
+    the output and shifts; it CRASHES if no octave lands)."""
+    f0 = None
+    for shift in (0, -12, -24):
+        sq = [(nn + shift, t, d, v) for nn, t, d, v in seq]
+        x = VB.render_seq(*voice, sq, total_s, tail)
+        f0 = _f0_hz(x)
+        if BASS_BAND[0] <= f0 <= BASS_BAND[1]:
+            if shift:
+                print(f"  {name}: f0 landed {f0:.0f}Hz after "
+                      f"{shift} semitones", flush=True)
+            return x
+    raise ValueError(f"{name}: fundamental {f0:.0f}Hz outside "
+                     f"{BASS_BAND}Hz at every octave shift")
+
+
 def build(mel: str, outdir: Path):
     rec = T.RECIPES[mel]
     total_bars = sum(b for _, b, _ in rec["form"])
@@ -86,20 +152,57 @@ def build(mel: str, outdir: Path):
 
     _st, lanes, ctx = T.compose(mel, collect_lanes=True)
 
-    # prayer = the form-locked holy accents (choir + bells) + spine
-    # share; it may legitimately fall silent in sections -- the MONK
-    # lane carries the never-silent through-line now, on its own
-    # free-running clock, and IT gets the dropout validator
-    prayer = lanes["holy"] + lanes["spine"] * 0.3
+    # prayer: the ORIGINAL composed monk/choir/bells, verbatim; the
+    # one fix is the gap fill (director: "I just asked you to fix
+    # that one thing")
+    prayer = _fill_monk_gaps(lanes["holy"] + lanes["spine"] * 0.3,
+                             ctx["monk_far"], total_bars, mel)
+    _assert_no_silent_bars(prayer[:n], total_bars, f"{mel}/prayer")
     _write(outdir / "prayer.wav", prayer, n)
-    monk = lanes["monk"]
-    _assert_no_silent_bars(monk[:n], total_bars, f"{mel}/monk")
-    _write(outdir / "monk.wav", monk, n)
-    stal = np.stack([lanes["wall_L"] + lanes["bass"] + lanes["tells"],
-                     lanes["wall_R"] + lanes["bass"] + lanes["tells"]],
-                    axis=1)
-    _write(outdir / "stalwart.wav", stal, n)
-    _write(outdir / "contempt.wav", lanes["fm"] + lanes["flour"], n)
+
+    # stalwart/contempt: FORM-WIDE renders. The album lanes are
+    # section-local (dies_irae's walls are digitally silent through
+    # develop -- any fight the steering parked there lost the chug).
+    # The engine may gain ANY stem at ANY form position, so every
+    # dynamic bank stem must carry content at every position, exactly
+    # like the leads and enemy basses always did.
+    import synth as sy
+    events = GB.MELODIES[mel]
+    roots16 = []
+    for _stype, sbars, prog in rec["form"]:
+        roots16 += harmony.roots_16(prog, sbars)
+    riff = riffs.riff_16(events, n_bars=total_bars,
+                         accents=T._ACC[rec["accents"][0]],
+                         chord_roots=roots16)
+    wl = T.wall_take(rec, riff, rec["seeds"][0], 18.0)
+    wr = T.wall_take(rec, riff, rec["seeds"][1], 19.0)
+    bseq, btot = T._bass_seq_from_riff(riff)
+    wb = sy.highpass(T.vb_seq_raw(rec["bass"], bseq, btot, 0.4), 90)
+    subl = sy.lowpass(T._sub_layer(bseq, btot), 90)
+    m = min(len(wb), len(subl))
+    wb = wb[:m] + subl[:m] * 0.55
+    L_ = np.zeros(n)
+    R_ = np.zeros(n)
+    T.place(L_, wl * 0.7, 0)
+    T.place(R_, wr * 0.7, 0)
+    T.place(L_, wb * 0.6, 0)
+    T.place(R_, wb * 0.6, 0)
+    _write(outdir / "stalwart.wav", np.stack([L_, R_], axis=1), n)
+
+    r3 = riffs.riff_16(events, n_bars=total_bars,
+                       accents=T._ACC[rec["accents"][1]],
+                       chord_roots=roots16)
+    fseq, ftot = T._bass_seq_from_riff(r3, base=38)
+    fm = T.vb_seq_raw(rec["fm"], fseq, ftot, 0.3)
+    fl = []
+    for bar in range(1, total_bars, 2):
+        fl.append((62 + roots16[bar * 16], bar * BAR + 8 * STEP,
+                   3 * STEP, 100))
+    fx = T.vb_seq_raw(rec["flour"], fl, total_bars * BAR, 0.5)
+    C_ = np.zeros(n)
+    T.place(C_, fm * 0.6, 0)
+    T.place(C_, fx * 0.3, 0)
+    _write(outdir / "contempt.wav", C_, n)
     # drums are their OWN lane: any combat tier gets the kit (the v1
     # drums-in-stalwart seam left contempt fights drum-less)
     _write(outdir / "drums.wav", lanes["drums"], n)
@@ -149,7 +252,8 @@ def build(mel: str, outdir: Path):
             for pos, semi, dsteps in cells:
                 seq.append((38 + r + semi, bar * BAR + pos * STEP,
                             dsteps * STEP * 0.9, 106))
-        x = VB.render_seq(*rec["fm"], seq, total_bars * BAR, 0.3)
+        x = _render_bass_in_band(rec["fm"], seq, total_bars * BAR,
+                                 0.3, f"{mel}/bass_{kind}")
         x = x / (np.abs(x).max() + 1e-9)
         _write(outdir / f"bass_{kind}.wav", x * 0.8, n)
 

@@ -239,29 +239,6 @@ def test_riser_leads_the_peak_jump():
     assert len(stings) == 1, f"only the release toll: {stings}"
 
 
-def test_monk_lane_is_never_seeked():
-    # the fundamental law (director round 2): you cannot swap between
-    # recordings of a VOICE mid-syllable. The monk advances on his own
-    # clock through every form jump and loop.
-    taps = []
-    ms = _rich_ms(taps)
-    t = _drive(ms, (0.3, 0.55, 0.5), 20, 0)      # loops develop
-    _drive(ms, (0.12, 0.6, 0.95), 10, t)         # jumps to peak
-    monk_idx = []
-    for k, d in taps:
-        if k != "music_bar":
-            continue
-        for part in d.split("|")[1:]:
-            ln, key, _g = part.rsplit(":", 2)
-            if ln == "monk" and key.startswith("monk@"):
-                monk_idx.append(int(key.split("@")[1].split("~")[0]))
-    assert len(monk_idx) >= 25, f"monk missing from taps: {len(monk_idx)}"
-    n = ms.n_bars
-    for a, b in zip(monk_idx, monk_idx[1:]):
-        assert b == (a + 1) % n, \
-            f"the voice was spliced: {a} -> {b}"
-
-
 def test_death_halts_music():
     # "the music is the Commando's thinking and feeling -- when he
     # dies, it dies" (director 2026-07-17)
@@ -463,27 +440,76 @@ def test_underdeclared_session_crashes():
         ms.update(s)
 
 
-def test_shipped_monk_stems_never_drop_out():
-    # the through-line contract lives on the MONK stem (the voice,
-    # free-running): a single quiet bar is a breath, but it must never
-    # go silent for MULTIPLE consecutive bars (director round 2).
-    # prayer.wav is the form-locked choir/bells and is sparse by design.
+def _bar_db(x, sr, bar_s, bars):
+    import numpy as np
+    n = int(bar_s * sr)
+    rms = np.array([np.sqrt((x[i * n:(i + 1) * n] ** 2).mean() + 1e-12)
+                    for i in range(bars)])
+    return 20 * np.log10(rms + 1e-12)
+
+
+def _runs_below(db, floor):
+    return [(i, i + 1) for i in range(len(db) - 1)
+            if db[i] < floor and db[i + 1] < floor]
+
+
+def test_shipped_prayer_never_silent_for_multiple_bars():
+    # the director's monk law, verbatim: "it doesn't need to be
+    # literally constant, it just needs to not suddenly go silent for
+    # multiple bars." The composed prayer stem (original monk voice,
+    # gap-filled at build) must hold it.
     import numpy as np
     import soundfile as sf
     from perihelion.music import shipped_banks, load_bank_meta
     for d in shipped_banks():
         meta = load_bank_meta(d)
         f = next(q for ext in ("wav", "ogg")
-                 for q in [d / f"monk.{ext}"] if q.exists())
+                 for q in [d / f"prayer.{ext}"] if q.exists())
         x, sr = sf.read(str(f), dtype="float32")
         if x.ndim == 2:
             x = x.mean(axis=1)
-        n = int(meta.bar_s * sr)
-        rms = np.array([np.sqrt((x[i * n:(i + 1) * n] ** 2).mean()
-                                + 1e-12) for i in range(meta.n_bars)])
-        med = float(np.median(rms))
-        db = 20 * np.log10(rms / med)
-        quiet = db < -15
-        runs = [(i, i + 1) for i in range(len(quiet) - 1)
-                if quiet[i] and quiet[i + 1]]
-        assert not runs, f"{d.name}: multi-bar dropouts at {runs}"
+        db = _bar_db(x, sr, meta.bar_s, meta.n_bars)
+        med = float(np.median(db))
+        runs = _runs_below(db - med, -15.0)
+        assert not runs, f"{d.name}/prayer: multi-bar dropouts {runs}"
+
+
+def test_no_stem_chunk_is_obviously_dead():
+    # director: "Add a test that fails if any track chunk is quiet
+    # enough to be obviously wrong." Form steering may play ANY bar of
+    # a dynamic stem, so every dynamic stem must carry content at
+    # every position: no 2+ consecutive bars under -40dBFS. (Caught
+    # live: dies_irae's stalwart was digitally silent through its
+    # develop section -- the chug vanished from every fight the
+    # steering parked there; lhomme_arme's contempt was near-empty
+    # everywhere.) Drums are checked across combat sections only:
+    # their calm-section silence is composed, and the engine only
+    # sounds them in combat.
+    import soundfile as sf
+    from perihelion.music import shipped_banks, load_bank_meta
+    bad = []
+    for d in shipped_banks():
+        meta = load_bank_meta(d)
+        stems = ["stalwart", "contempt", "prayer"] +             [q.stem for q in d.glob("bed_t*.ogg")] +             [q.stem for q in d.glob("lead_*.ogg")] +             [q.stem for q in d.glob("bass_*.ogg")]
+        for st in stems:
+            f = next(q for ext in ("wav", "ogg")
+                     for q in [d / f"{st}.{ext}"] if q.exists())
+            x, sr = sf.read(str(f), dtype="float32")
+            if x.ndim == 2:
+                x = x.mean(axis=1)
+            db = _bar_db(x, sr, meta.bar_s, meta.n_bars)
+            runs = _runs_below(db, -40.0)
+            if runs:
+                bad.append((d.name, st, runs[:4]))
+        f = next(q for ext in ("wav", "ogg")
+                 for q in [d / f"drums.{ext}"] if q.exists())
+        x, sr = sf.read(str(f), dtype="float32")
+        if x.ndim == 2:
+            x = x.mean(axis=1)
+        db = _bar_db(x, sr, meta.bar_s, meta.n_bars)
+        for sname, a, b in meta.sections:
+            if sname in ("entry", "develop", "peak", "rebuild"):
+                runs = _runs_below(db[a:b], -40.0)
+                if runs:
+                    bad.append((d.name, f"drums[{sname}]", runs[:4]))
+    assert not bad, f"obviously dead chunks: {bad}"

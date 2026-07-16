@@ -422,13 +422,12 @@ FACTOR_COLORS = {          # match the value battery's identities
     "CONTEMPT": (255, 110, 100),
     "STALWART": (255, 190, 90),
 }
-CHUNK_LANES = ["bed", "drums", "holy", "monk", "groove", "wall", "bass",
+CHUNK_LANES = ["bed", "drums", "holy", "groove", "wall", "bass",
                "lead", "lead2", "boss"]
 LANE_ORDER = CHUNK_LANES + ["riser", "sting", "stab"]
 LANE_COLORS = {
     "bed": (140, 140, 170), "drums": (230, 160, 90),
-    "holy": (110, 190, 255), "monk": (90, 230, 230),
-    "groove": (255, 110, 100),
+    "holy": (110, 190, 255), "groove": (255, 110, 100),
     "wall": (255, 190, 90), "bass": (170, 130, 220),
     "lead": (130, 220, 150), "lead2": (100, 190, 120),
     "boss": (255, 80, 160), "riser": (190, 140, 255),

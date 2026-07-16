@@ -469,11 +469,9 @@ class MusicSystem:
         # form steering (boss law): position in the form, jumped to the
         # PEAK section at stalwart >= 0.88, back to vigil when becalmed
         self._form_idx = 0
-        self._monk_idx = 0            # the voice's OWN position: free-
-        #                               running, never seeked by form
-        #                               steering, reset only on rotation
         self._pending_jump = 0        # bars until a riser-led peak jump
         self._jump_target = 0
+        self._riser_fade = False
         # COMPLETE initial inputs: _select_content runs at startup
         # before the first read_inputs -- a complete value here lets it
         # read strictly instead of defaulting
@@ -527,7 +525,6 @@ class MusicSystem:
                                if s.startswith("drums")}),
             "bed": _SimLane({s for s in stems if s.startswith("bed_")}),
             "holy": _SimLane({"prayer"}),
-            "monk": _SimLane({"monk"} if "monk" in stems else set()),
             "groove": _SimLane({"contempt"}),
             "wall": _SimLane({"stalwart"}),
             "lead": _SimLane({s for s in stems if s.startswith("lead_")}),
@@ -579,8 +576,14 @@ class MusicSystem:
         if self._pending_jump > 0:
             self._pending_jump -= 1
             if st < 0.75:
-                self._pending_jump = 0   # the pounce died: the swell
-                return steer             # just finishes, no landing
+                self._pending_jump = 0
+                # the pounce died mid-swell: a riser without a landing
+                # must not complete ("it's a TRANSITION" -- a swell to
+                # nothing is worse than no swell). Fade it out fast.
+                self._riser_env = min(self._riser_env,
+                                      int(0.35 * TICKS_PER_S))
+                self._riser_fade = True
+                return steer
             if self._pending_jump == 0:
                 return (self._jump_target, "jump")
             return None                  # the swell owns this bar
@@ -728,14 +731,6 @@ class MusicSystem:
             if "drums" in chunks else None,
             "bed": {k: chunks[k] for k in beds} | sil,
             "holy": {"prayer": chunks["prayer"]} | sil,
-            # the monk is A VOICE: he gets his own free-running lane
-            # (never seeked by form steering -- director 2026-07-17:
-            # "why did you think you could swap between different
-            # recordings of an instrument randomly in the middle of
-            # its voice?"). Form-locked chunks would splice him
-            # mid-syllable at every loop/jump.
-            "monk": ({"monk": chunks["monk"]} | sil)
-            if "monk" in chunks else None,
             "groove": {"contempt": chunks["contempt"]} | sil,
             "wall": {"stalwart": chunks["stalwart"]} | sil,
             "lead": {k: chunks[k] for k in leads} | sil,
@@ -884,7 +879,6 @@ class MusicSystem:
             "boss": "overlay_boss" if st_now >= 0.88 else "silence",
             "bed": f"bed_t{tier}",
             "holy": "prayer",
-            "monk": "monk",       # THE through-line: always sounding
             "groove": "contempt" if c > 0.03 else "silence",
             "wall": "stalwart" if d > 0.03 else "silence",
             "lead": f"lead_{weapon}" if combat > 0.05 else "silence",
@@ -923,9 +917,6 @@ class MusicSystem:
             "drums": 0.9 * combat ** 0.5,
             "bed": 0.55 + 0.35 * p,
             "holy": p ** 0.5,
-            "monk": max(0.35, p) ** 0.5,   # the voice recedes in
-            #   combat but NEVER leaves (floor ~0.59 gain); only death
-            #   silences him
             "groove": c ** 0.5,
             "wall": d ** 0.5,
             "lead": 0.9 * combat ** 0.5,
@@ -1096,10 +1087,15 @@ class MusicSystem:
             self._riser_env -= 1
             # the stem is self-enveloped (reversed bell): FLAT gain, no
             # attack/release reshaping -- the old release ramp would
-            # fade out the swell right at its payoff
-            self._riser_gain = self._riser_peak
+            # fade out the swell right at its payoff. EXCEPT a canceled
+            # pounce: then this is a quick fade to nothing.
+            if getattr(self, "_riser_fade", False):
+                self._riser_gain *= 0.90
+            else:
+                self._riser_gain = self._riser_peak
             if self._riser_env == 0:
                 self._riser_gain = 0.0
+                self._riser_fade = False
                 self._tap("music_riser", "0.00", 0.0)
             elif session.tick_count % 6 == 0:
                 self._tap("music_riser", f"{self._riser_gain:.2f}",
@@ -1132,7 +1128,6 @@ class MusicSystem:
                     self._lanes = self._sim_lanes()
                     self._bank_bar0 = bar
                     self._form_idx = 0
-                    self._monk_idx = 0   # new bank = new performance
                     self._tap("music_bank", self.bank_dir.name, 1.0)
                 prev = self._applied
                 self._applied = self.vals
@@ -1167,11 +1162,7 @@ class MusicSystem:
                         # seamless loop steer: visible in the debug
                         # ticker, but the mixer must NOT arrival-ramp
                         self._tap("music_jump", f"{steer[0]}~s", 1.0)
-                # the VOICE advances on its own clock, always: form
-                # steering never touches him (splicing a voice mid-
-                # syllable was the fundamental bug, director round 2)
-                self._monk_idx = (self._monk_idx + 1) % \
-                    max(1, self.n_bars)
+
                 if self._applied[2] >= 0.88 and self._form_idx % 4 == 0:
                     self._stab_now()
                 sel = self._select_content()
@@ -1243,12 +1234,6 @@ class MusicSystem:
                         ng = max(ng, round(lane.gain * 0.65, 3))
                     lane.gain = ng
                     lane._tapkey = None
-                if "monk" in self._lanes and \
-                        self._lanes["monk"].key == "monk":
-                    # the voice's OWN position rides in the tap: the
-                    # offline mixer must never slice him by form index
-                    self._lanes["monk"]._tapkey = \
-                        f"monk@{self._monk_idx}"
                 detail = f"{self._form_idx % max(1, self.n_bars)}|" + \
                     "|".join(
                         f"{ln}:{getattr(la, '_tapkey', None) or la.key}"
@@ -1325,7 +1310,6 @@ class MusicSystem:
             # form steering: boss pull to PEAK / becalmed return
             steer = self._gate_jump(self._steer_form(),
                                     session.tick_count)
-            self._monk_idx = (self._monk_idx + 1) % max(1, self.n_bars)
             if steer is not None:
                 tgt, skind = steer
                 self._form_idx = tgt
@@ -1334,8 +1318,6 @@ class MusicSystem:
                 else:
                     self._tap("music_jump", f"{tgt}~s", 1.0)
                 for lname, lane in self._lanes.items():
-                    if lname == "monk":
-                        continue     # the voice is NEVER seeked
                     lane.seek(tgt)
                     if skind == "jump" and lname not in ("holy", "bed"):
                         # arrival breath: a cross-section jump lands
@@ -1407,8 +1389,6 @@ class MusicSystem:
             # ("~f" key suffix = this bar is a farewell fade-out)
             def _lk(ln, la):
                 k = la.key
-                if ln == "monk" and k == "monk":
-                    k = f"monk@{(la.next_idx - 1) % max(1, la.n)}"
                 if la.fade_ticks > 0:
                     return f"{k}~f", la.gain
                 return k, la.gain
@@ -1507,7 +1487,6 @@ class MusicSystem:
         self._meta = load_bank_meta(dir_)    # the NEW bank's form
         assert n_bars == self._meta.n_bars, (dir_, n_bars)
         self._form_idx = 0           # mirror the tick-clock handoff
-        self._monk_idx = 0           # new bank = new performance
         chunks = self._next_chunks
         lane_defs = {k: v for k, v in self._lane_defs(chunks).items()
                      if v is not None}
@@ -1525,11 +1504,11 @@ class MusicSystem:
             lane.n = n_bars
             lane.gain = gains[lname]
             lane.ch.stop()
-            if lname not in ("holy", "bed", "monk"):
-                # holy/bed/monk enter the new bank at full gain on the
-                # bar line -- a musical handoff, not a dip: the chant
-                # is the through-line and the rotation only ever fires
-                # at ~100% PRAYER, when it IS the mix
+            if lname not in ("holy", "bed"):
+                # holy/bed enter the new bank at full gain on the bar
+                # line -- a musical handoff, not a dip: the chant is
+                # the through-line and the rotation only ever fires at
+                # ~100% PRAYER, when it IS the mix
                 lane.fadein_ticks = int(self.bar_s * TICKS_PER_S)
                 lane.fadein_total = lane.fadein_ticks
             lane.start(sel[lname], master)

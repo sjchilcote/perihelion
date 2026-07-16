@@ -380,45 +380,10 @@ def _bass_seq_from_riff(riff, base=26):
     return seq, t * STEP
 
 
-def _tile_monk(src: np.ndarray, n: int) -> np.ndarray:
-    """ONE voice, repeating his chant at PHRASE boundaries: the next
-    repetition begins where the previous one's sung content ends, its
-    hall tail riding underneath -- a cantor taking a breath. NEVER a
-    crossfade (two takes of the same voice mid-phrase = the clashing
-    monks) and never a gap (multi-bar silence is the other banned
-    state). The stem's final 0.75 bar fades so the free-running lane's
-    wrap back to bar 0 reads as a breath, not a splice."""
-    a = np.abs(src)
-    pk = float(a.max()) + 1e-12
-    idx = np.where(a > 0.10 * pk)[0]
-    if len(idx) == 0 or idx[-1] < SR:
-        raise ValueError(f"monk render has no content to tile "
-                         f"({len(src) / SR:.1f}s)")
-    dry_end = int(idx[-1])
-    out = np.zeros(n)
-    pos = 0
-    while pos < n:
-        take = min(len(src), n - pos)
-        out[pos:pos + take] += src[:take]
-        pos += dry_end
-    tail = int(0.75 * BAR * SR)
-    out[-tail:] *= np.linspace(1.0, 0.0, tail)
-    return out
-
-
-def holy_level(ctx, t0, dur_s, level, ramp_s=BAR / 2):
-    """Gain automation on the single monk voice -- sections move its
-    LEVEL instead of dropping fresh copies of the clip."""
-    env = ctx["holy_env"]
-    a = max(0, int(t0 * SR))
-    b = min(len(env), int((t0 + dur_s) * SR))
-    if b <= a:
-        return
-    prev = env[a - 1] if a > 0 else env[a]
-    r = min(int(ramp_s * SR), b - a)
-    env[a:b] = level
-    if r > 0:
-        env[a:a + r] = np.linspace(prev, level, r)
+def _monk_enter(ctx, t0, gain=0.5, ramp_s=6.0):
+    monk = ctx["monk"]
+    ramp = np.minimum(1, np.arange(len(monk)) / (ramp_s * SR)) ** 1.5
+    lp(ctx, "holy", ctx["C"], monk * ramp * gain, t0 + BAR)
     ctx["monk_used"] = True
 
 
@@ -428,28 +393,14 @@ def sec_vigil(ctx, bars, prog):
         head = [(pp, d) for pp, d in ctx["events"] if pp is not None][:8]
         cs, tt = [], BAR
         for pp, d in head:
-            # 0.9x duration: at 1.1x every statement note rang into
-            # the next two on the pad's release -- a same-voice pitch
-            # smear the judge kept hearing as 'the chant doubling
-            # itself' (3 rounds, same complaint, autocorr proved no
-            # literal copy existed). The pad's own release supplies
-            # the legato.
-            cs.append((62 + pp, tt, d * ctx["chant_step"] * 0.9, 96))
+            cs.append((62 + pp, tt, d * ctx["chant_step"] * 1.1, 96))
             tt += d * ctx["chant_step"]
         ch = vb_seq_raw(rec["choir"], cs, bars * BAR, 1.5)
         lp(ctx, "holy", C, G.hall(ch, 1.6).T.mean(axis=1) * 0.45, t0)
         # call-and-response, never simultaneous (director: "two vocals
-        # fight for the same aural space"): the choir STATES the line
-        # over a receded monk, and the ONE monk voice comes forward to
-        # answer -- a level move, never a second copy of the clip
-        # statement dip is EFFECTIVELY SILENT: at 0.20 the monk sang
-        # the same melody under the choir at a different pacing --
-        # "unnatural dissonant doubling" (Gemini, twice). The choir
-        # carries those bars' energy for the silent-bar validator.
-        holy_level(ctx, t0, tt + BAR, 0.05)
-        holy_level(ctx, t0 + tt + BAR, bars * BAR - (tt + BAR), 0.5)
-    else:
-        holy_level(ctx, t0, bars * BAR, 0.5)
+        # fight for the same aural space"): the choir STATES the line,
+        # the monk answers after it
+        _monk_enter(ctx, t0 + tt + BAR)
     lp(ctx, "holy", C, G.hall(bell_render(rec), 1.4).T.mean(axis=1) * 0.5,
        t0 + 2 * BAR)
     lp(ctx, "holy", C, G.hall(bell_render(rec, 0.4), 1.4).T.mean(axis=1) * 0.4,
@@ -467,7 +418,10 @@ def sec_ritual(ctx, bars, prog):
             cs.append((nn, bar * BAR, BAR * 0.97, 96))
     ch = vb_seq_raw(rec["choir"], cs, bars * BAR, 1.5)
     lp(ctx, "holy", C, G.hall(ch, 1.7).T.mean(axis=1) * 0.5, t0)
-    holy_level(ctx, t0, bars * BAR, 0.42)
+    if not ctx["monk_used"]:
+        _monk_enter(ctx, t0 + 2 * BAR)
+    else:
+        lp(ctx, "holy", C, ctx["monk_far"] * 0.4, t0 + 2 * BAR)
     fl = []
     for bar in range(1, bars, 2):
         r = roots[bar * 16]
@@ -505,7 +459,10 @@ def sec_entry(ctx, bars, prog):
     bass = gc.sidechain_duck(bass, dh[:len(bass)], amount=0.45,
                              release_s=0.12)
     lp(ctx, "bass", C, bass * 0.85, t0)
-    holy_level(ctx, t0, bars * BAR, 0.32)
+    if ctx["monk_used"]:
+        lp(ctx, "holy", C, ctx["monk_far"] * 0.3, t0 + 2 * BAR)
+    else:
+        _monk_enter(ctx, t0 + 2 * BAR, gain=0.35)
     ans = riffs.lead_phrase(
         [(p, d) for p, d in ctx["events"] if p is not None][:6], factor=2)
     fl, tt = [], (bars - 2) * BAR
@@ -520,9 +477,6 @@ def sec_entry(ctx, bars, prog):
 def sec_develop(ctx, bars, prog):
     rec, C, t0 = ctx["rec"], ctx["C"], ctx["t"]
     rng = ctx["rng"]
-    holy_level(ctx, t0, bars * BAR, 0.32)   # (develop wrote NO monk --
-    #   idumea opens with develop, and its bars 3-7 sat 16-22dB under
-    #   the stem median: the 'monk randomly going quiet' report)
     acc = _ACC[rec["accents"][1]]
     dg = drums(rec, bars, rng, fills_at=(bars - 1,))
     dgp = _pull(dg, bars * BAR - 0.5 * BAR) if ctx["next_is_peak"] else dg
@@ -561,7 +515,6 @@ def sec_rebuild(ctx, bars, prog):
     """One element alone, layers admitted every 2 bars (album 07 blk03)."""
     rec, C, t0 = ctx["rec"], ctx["C"], ctx["t"]
     rng = ctx["rng"]
-    holy_level(ctx, t0, bars * BAR, 0.32)
     roots = harmony.roots_16(prog, bars)
     r = riffs.riff_16(ctx["events"], n_bars=bars,
                       accents=_ACC[rec["accents"][1]], chord_roots=roots)
@@ -622,9 +575,11 @@ def sec_peak(ctx, bars, prog):
     cw = sy.highpass(G.hall(choir, 1.3).T.mean(axis=1), 300)
     cw = gc.sidechain_duck(cw, dh4[:len(cw)], amount=0.5, release_s=0.12)
     lp(ctx, "holy", C, cw * 0.5, t0)
-    holy_level(ctx, t0, (bars // 2) * BAR, 0.26)
-    holy_level(ctx, t0 + (bars // 2) * BAR, (bars - bars // 2) * BAR,
-               0.38)   # the monk rises through the back half of peak
+    monk2 = ctx["monk_far"]
+    ramp2 = np.minimum(1, np.arange(len(monk2)) / (4.0 * SR)) ** 1.5
+    m2 = gc.sidechain_duck(monk2 * ramp2, dh4[:len(monk2)],
+                           amount=0.5, release_s=0.12)
+    lp(ctx, "holy", C, m2 * 0.4, t0 + (bars // 2) * BAR)
 
 
 def sec_outro(ctx, bars, prog):
@@ -643,7 +598,7 @@ _BAND = {"entry", "develop", "peak", "rebuild"}
 
 # ---------------------------------------------------------------------------
 
-LANE_NAMES = ("holy", "monk", "drums", "wall_L", "wall_R", "bass",
+LANE_NAMES = ("holy", "drums", "wall_L", "wall_R", "bass",
               "fm", "lead", "flour", "tells", "spine")
 
 
@@ -667,11 +622,10 @@ def compose(mel_name: str, collect_lanes: bool = False):
     monk_raw = monk_raw - 0.8 * harsh
     lanes = ({nm: np.zeros(n) for nm in LANE_NAMES}
              if collect_lanes else None)
-    monk = G.hall(monk_raw, 2.4).T.mean(axis=1)
     ctx = dict(rec=rec, events=events, L=L, R=R, C=C, rng=rng, t=0.0,
                lanes=lanes,
-               monk_bed=_tile_monk(monk, n),
-               holy_env=np.full(n, 0.35),   # the voice NEVER drops out
+               monk=G.hall(monk_raw, 2.4).T.mean(axis=1),
+               monk_far=G.hall(monk_raw, 2.0).T.mean(axis=1),
                chant_step=chant_step, monk_used=False,
                next_is_peak=False)
 
@@ -685,22 +639,6 @@ def compose(mel_name: str, collect_lanes: bool = False):
             _boundary_tell(ctx, t, rng)
         SECS[stype](ctx, bars, prog)
         t += bars * BAR
-
-    # THE monk: one voice. The album master keeps the sections' level
-    # automation (a fixed linear listen); the BANK gets its own "monk"
-    # lane, near-flat -- in-game his loudness belongs to the ENGINE's
-    # prayer value, and his lane free-runs (form steering never
-    # splices a voice; director round 2). Baked automation would be
-    # wrong the moment his clock diverges from the form's.
-    henv = ctx["holy_env"]
-    click = int(0.5 * SR)
-    henv[:click] *= np.linspace(0.0, 1.0, click)
-    place(C, ctx["monk_bed"] * henv, 0.0)
-    if lanes is not None:
-        duck = np.ones(n)
-        duck[:int(3 * BAR * SR)] = 0.35   # the opening statement bars
-        duck[:click] *= np.linspace(0.0, 1.0, click)
-        place(lanes["monk"], ctx["monk_bed"] * duck, 0.0)
 
     # drone spine: one texture per section, survives everything
     D = np.zeros(n)
