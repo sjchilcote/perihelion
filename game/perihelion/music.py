@@ -686,7 +686,9 @@ class MusicSystem:
         dp = max(c - self._prev_vals[1], d - self._prev_vals[2])
         self._prev_vals = self._applied
         aggro = self.inputs.get("aggro", [])
-        n_aggro = sum(1.0 if sr else 0.4 for _, sr in aggro)
+        # (kind, hops) since the battery refit -- hops==0 is co-room;
+        # the old boolean read had this INVERTED for months of minutes
+        n_aggro = sum(1.0 if hops == 0 else 0.4 for _, hops in aggro)
         combat = max(c, d)
         want = {
             "drums": 0.9 * combat ** 0.5,
@@ -704,7 +706,10 @@ class MusicSystem:
         max_rise = 1.0 if dp >= STING_RISE else 0.35
         for name, tgt in want.items():
             val, floor = FLOOR.get(name, (1.0, 0.0))
-            if val > 0.05:
+            if val > 0.15:
+                # floor gate raised from 0.05 (stable judge signal:
+                # 1-bar blips popped lanes to full floors -- a whisper
+                # of threat must not slam the kit in)
                 tgt = max(tgt, floor)
             cur = self._live.get(name, 0.0)
             if tgt > cur:
@@ -875,6 +880,10 @@ class MusicSystem:
                 if self._applied != prev:
                     p, c, d = self._applied
                     self._tap("music_vals", f"{p:.3f},{c:.3f},{d:.3f}", 1.0)
+                boss_release = prev[2] >= 0.75 and \
+                    self._applied[2] < 0.3
+                if boss_release:
+                    self._sting_now(force=True)
                 self._form_idx += 1
                 steer = self._steer_form()
                 if steer is not None:
@@ -894,6 +903,12 @@ class MusicSystem:
                 for lname, lane in self._lanes.items():
                     prev_key = lane.key
                     nk = sel.get(lname, "silence")
+                    if boss_release and lname in ("wall", "boss", "drums", "bass", "lead", "lead2", "groove"):
+                        lane.key = "silence"
+                        lane.gain = 0.0
+                        lane._tapkey = None
+                        lane._farewelled = False
+                        continue
                     if getattr(lane, "_farewelled", False):
                         lane._farewelled = False
                         if nk == "silence":
@@ -979,6 +994,14 @@ class MusicSystem:
             if (self.vals[2] - prev[2] >= STING_RISE or
                     self.vals[1] - prev[1] >= STING_RISE):
                 self._pending_sting = True         # hard rise = a wall
+            # BOSS RELEASE (A/B judged, 2026-07-16): full-tutti material
+            # earns a full STOP on the bar line, punctuated by the bell
+            # toll ringing over the chant -- a mechanical glide of
+            # maximal material judged worse, 2/2. Moderate combat keeps
+            # the glide.
+            boss_release = prev[2] >= 0.75 and self._applied[2] < 0.3
+            if boss_release:
+                self._sting_now(force=True)
             if self._applied != prev:
                 p, c, d = self._applied
                 self._tap("music_vals", f"{p:.3f},{c:.3f},{d:.3f}", 1.0)
@@ -1019,6 +1042,11 @@ class MusicSystem:
                 self._lanes["lead"].tickfill(ka)
             for lname, lane in self._lanes.items():
                 g = gains.get(lname, 0.0)
+                if boss_release and lname in ("wall", "boss", "drums", "bass", "lead", "lead2", "groove"):
+                    g = 0.0            # the full stop, ON the beat
+                    lane.set_gain(0.0, master)
+                    lane.gain = 0.0
+                    continue
                 dying = sel.get(lname) == lane.key and \
                     lane.key not in (None, "silence") and g <= 0.02 \
                     and lane.gain > 0.05 and lane.fade_ticks == 0
@@ -1197,12 +1225,14 @@ class MusicSystem:
             except Exception:
                 pass
 
-    def _sting_now(self):
+    def _sting_now(self, force: bool = False):
         # punctuation, not a metronome: the nonlinear spike-pass made
         # STING_RISE fire on every snapped wave (81 stings in a 259s
-        # run). One sting per 8 bars, full stop.
+        # run). One sting per 8 bars -- except the boss-release toll,
+        # which is the ending chord and always sounds.
         tick = self._boundary_tick
-        if tick - getattr(self, "_last_sting_tick", -99999) < \
+        if not force and tick - getattr(self, "_last_sting_tick",
+                                        -99999) < \
                 8 * self.bar_s * TICKS_PER_S:
             return
         self._last_sting_tick = tick
