@@ -74,9 +74,14 @@ TICKS_PER_S = 60.0
 # damage (hurt players play safe), so the old x1.2 hurt amplifier is
 # gone. Held-out Spearman vs old battery: danger .256/.206,
 # mowing .220/.001, calm .254/.178. See tools/musiccal/tune_battery2.py.
-DANGER_CO = {"warden": 12.0, "brute": 1.0, "flicker": 1.9, "husk": 1.0,
+# warden weights are DESIGN weights now (director 2026-07-16: wardens
+# live only in boss rooms; STALWART is boss music and must clear 0.9
+# ONLY there) -- raised from the corpus-fitted 12/8.5 so boss fights
+# sit ~2x above the biggest ordinary wave peaks; all other kinds stay
+# corpus-fitted.
+DANGER_CO = {"warden": 20.0, "brute": 1.0, "flicker": 1.9, "husk": 1.0,
              "mite": 0.8, "spitter": 0.6, "shrieker": 0.15}
-DANGER_ADJ = {"warden": 8.5, "brute": 0.3, "flicker": 0.2, "husk": 0.8,
+DANGER_ADJ = {"warden": 14.0, "brute": 0.3, "flicker": 0.2, "husk": 0.8,
               "mite": 0.3, "spitter": 0.3, "shrieker": 0.1}
 CROWD_W = 27.5           # per unit inverse-distance mass (co-room)
 INFLUX_W = 3.0           # per newly-aggroed enemy per second (3s EMA)
@@ -87,7 +92,7 @@ INFLUX_W = 3.0           # per newly-aggroed enemy per second (3s EMA)
 # wave actually arrives.)
 DMG_W = 0.13             # per hp/s taken (3s EMA)
 FIRED_W = 9.96           # player's own trigger duty (1s EMA)
-DANGER_KNEE = 14.0
+DANGER_KNEE = 17.0       # waves cap ~0.88; only boss wardens clear 0.9
 # CONTEMPT axis (BASE DEFINITIONS ADJUSTED, director 2026-07-16):
 # contempt = damage OUTPUT ("you are doing a lot of damage"), stalwart
 # = danger INPUT ("you are doomed, hold out") -- INDEPENDENT axes. A

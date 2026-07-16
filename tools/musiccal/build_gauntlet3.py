@@ -37,9 +37,17 @@ sys.path.insert(0, str(Path(__file__).parent))
 from perihelion.levels import LevelBuilder             # noqa: E402
 import build_gauntlet as BG                            # noqa: E402
 from build_gauntlet import SEGMENTS, add_segment, LEVEL_SEED  # noqa: E402
-from build_gauntlet2 import (MIX, DEPTH_MIN, KIND_SEP_MULT,   # noqa: E402
+from build_gauntlet2 import (DEPTH_MIN, KIND_SEP_MULT,        # noqa: E402
                              ROOM_CAP, poly_area, point_in_poly,
                              dist_to_edges)
+from build_gauntlet2 import MIX as MIX2                        # noqa: E402
+
+# STALWART is boss music (director 2026-07-16): wardens live ONLY in
+# boss rooms now, so stalwart>0.9 is geometrically impossible outside
+# them (a spread warden pushed 0.916 in an open arena). Their spread
+# share moves to brutes -- moved, never thinned.
+MIX = dict(MIX2)
+MIX["brute"] = MIX["brute"] + MIX.pop("warden")
 
 LANE_LEN = 1050.0
 LANE_W = 150.0
@@ -233,7 +241,7 @@ def populate(level: dict, spawn_free: set, n_total: int, min_sep: float,
             if kind in ("warden", "brute"):
                 other = "brute" if kind == "warden" else "warden"
                 if any(math.hypot(x - qx, yy - qy) < 500.0 * sep_scale
-                       for qx, qy in kind_pts[other]):
+                       for qx, qy in kind_pts.get(other, ())):
                     continue
             rooms[ri]["entities"].append(dict(type=kind, pos=[x, yy]))
             placed_pts[ri].append((x, yy))
@@ -344,6 +352,223 @@ def _rigidify(level: dict) -> int:
     return fixed
 
 
+
+# ---------------------------------------------------------------------------
+# BOSS ENCOUNTERS (director 2026-07-16: "splice some big boss
+# encounters in at arbitrary spots, with big complex arenas with
+# corridors leading out... make the corridors LONG, and make each
+# arena unique and complex, with lots of geometry and impossible
+# geometry in the later ones". STALWART must clear 0.9 ONLY here, so
+# every boss fields >=2 wardens; difficulty tunes toward 90% fail.)
+# ---------------------------------------------------------------------------
+
+BOSS_CORRIDOR = 1150.0     # the long walk in, and the long walk out
+CELL = 220.0               # donut/cross cell module
+
+
+def _boss_corridor(b, x, y, w=150.0):
+    r = b.rect(x, y, BOSS_CORRIDOR, w, seed=LEVEL_SEED + int(x) % 9973,
+               kind="corridor")
+    b.light(r, (x + BOSS_CORRIDOR / 2, y + w / 2),
+            color=(140, 120, 120), intensity=0.55, radius=260.0)
+    return r
+
+
+def boss_donut(b, ox, oy, protected):
+    """B1 PILLAR NAVE: a 3x3 grid of rooms with the center cell OMITTED
+    -- one massive pillar the fight rotates around. Positioning: break
+    line of sight on the pillar, never get pinched in a corner cell."""
+    cells = {}
+    for r in range(3):
+        for c in range(3):
+            if (r, c) == (1, 1):
+                continue
+            cells[(r, c)] = b.rect(ox + c * CELL, oy + r * CELL,
+                                   CELL, CELL,
+                                   seed=LEVEL_SEED + 9100 + r * 3 + c,
+                                   kind="hall")
+    for (r, c), room in cells.items():
+        if (r, c + 1) in cells and c + 1 <= 2:
+            b.connect(room, 2, cells[(r, c + 1)], 0)   # E <-> W
+        if (r + 1, c) in cells and r + 1 <= 2:
+            b.connect(room, 1, cells[(r + 1, c)], 3)   # S <-> N
+    for (r, c), room in cells.items():
+        b.light(room, (ox + c * CELL + CELL / 2,
+                       oy + r * CELL + CELL / 2),
+                color=(200, 150, 110), intensity=0.7, radius=200.0)
+    wardens = [((0, 0), (0.5, 0.5)), ((2, 2), (0.5, 0.5)),
+               ((0, 1), (0.5, 0.35)), ((2, 0), (0.5, 0.6))]
+    for (r, c), (fx, fy) in wardens:
+        b.entity(cells[(r, c)], "warden",
+                 (ox + c * CELL + fx * CELL, oy + r * CELL + fy * CELL))
+    for (r, c) in ((0, 2), (2, 0), (0, 1), (2, 1)):
+        b.entity(cells[(r, c)], "spitter",
+                 (ox + c * CELL + CELL * 0.3, oy + r * CELL + CELL * 0.6))
+    for i, (r, c) in enumerate(((1, 0), (1, 2), (0, 1), (2, 1))):
+        b.entity(cells[(r, c)], "husk",
+                 (ox + c * CELL + CELL * (0.25 + 0.15 * i),
+                  oy + r * CELL + CELL * 0.4))
+    b.entity(cells[(0, 2)], "flicker",
+             (ox + 2 * CELL + CELL * 0.6, oy + CELL * 0.3))
+    b.entity(cells[(0, 1)], "brute", (ox + CELL + CELL * 0.7, oy + CELL * 0.6))
+    b.entity(cells[(2, 1)], "brute", (ox + CELL + CELL * 0.3,
+                                      oy + 2 * CELL + CELL * 0.5))
+    b.entity(cells[(1, 2)], "spitter", (ox + 2 * CELL + CELL * 0.7,
+                                        oy + CELL + CELL * 0.5))
+    b.entity(cells[(1, 0)], "spitter", (ox + CELL * 0.3,
+                                        oy + CELL + CELL * 0.3))
+    b.entity(cells[(2, 0)], "flicker",
+             (ox + CELL * 0.3, oy + 2 * CELL + CELL * 0.7))
+    return cells[(1, 0)], 0, cells[(1, 2)], 2   # in W of mid-left, out E
+
+
+def boss_cross(b, ox, oy, protected):
+    """B2 THE CROSS: central vault, four long arms. The wardens hold
+    opposite arms; brutes own the vault. Positioning: fight down ONE
+    arm or be surrounded at the crossing."""
+    cx = b.rect(ox, oy, CELL, CELL, seed=LEVEL_SEED + 9200, kind="hall")
+    arm_w = b.rect(ox - 700, oy, 700, CELL, seed=LEVEL_SEED + 9201,
+                   kind="corridor")
+    arm_e = b.rect(ox + CELL, oy, 700, CELL, seed=LEVEL_SEED + 9202,
+                   kind="corridor")
+    arm_n = b.rect(ox, oy - 700, CELL, 700, seed=LEVEL_SEED + 9203,
+                   kind="corridor")
+    arm_s = b.rect(ox, oy + CELL, CELL, 700, seed=LEVEL_SEED + 9204,
+                   kind="corridor")
+    b.connect(arm_w, 2, cx, 0)
+    b.connect(cx, 2, arm_e, 0)
+    b.connect(arm_n, 1, cx, 3)
+    b.connect(cx, 1, arm_s, 3)
+    b.light(cx, (ox + CELL / 2, oy + CELL / 2),
+            color=(190, 140, 140), intensity=0.8, radius=240.0)
+    b.entity(arm_n, "warden", (ox + CELL / 2, oy - 550))
+    b.entity(arm_s, "warden", (ox + CELL / 2, oy + CELL + 550))
+    b.entity(cx, "warden", (ox + CELL / 2, oy + CELL / 2))
+    for k in range(2):
+        b.entity(cx, "brute", (ox + 40 + k * 140, oy + CELL * 0.25))
+    for k in range(5):
+        b.entity(arm_e, "mite", (ox + CELL + 120 + k * 90,
+                                 oy + 40 + (k % 2) * 140))
+    b.entity(arm_w, "spitter", (ox - 300, oy + CELL / 2))
+    return arm_w, 0, arm_e, 2
+
+
+def boss_ring(b, ox, oy, protected):
+    """B3 MOEBIUS GALLERY: five 90-degree turns closed as if four --
+    450 degrees of corridor that meets itself IMPOSSIBLY. Wardens
+    patrol a loop with no center; kite forever or die cornered."""
+    L, W = 430.0, 150.0
+    segs = []
+    for i in range(5):
+        # alternate horizontal/vertical placement; the CONNECTS define
+        # the true (impossible) topology, placement is just scaffolding
+        if i % 2 == 0:
+            segs.append(b.rect(ox + i * 500, oy, L, W,
+                               seed=LEVEL_SEED + 9300 + i,
+                               kind="corridor"))
+        else:
+            segs.append(b.rect(ox + i * 500, oy + 300, W, L,
+                               seed=LEVEL_SEED + 9300 + i,
+                               kind="corridor"))
+    for i in range(5):
+        j = (i + 1) % 5
+        a, bb = segs[i], segs[j]
+        ea = 2 if i % 2 == 0 else 1          # E of horiz / S of vert
+        eb = 0 if j % 2 == 0 else 3          # W of horiz / N of vert
+        b.connect(a, ea, bb, eb)
+    for i, s in enumerate(segs):
+        x = ox + i * 500 + (L / 2 if i % 2 == 0 else W / 2)
+        y = oy + (W / 2 if i % 2 == 0 else 300 + L / 2)
+        b.light(s, (x, y), color=(150, 130, 180), intensity=0.6,
+                radius=220.0)
+    b.entity(segs[1], "warden", (ox + 500 + W / 2, oy + 300 + L * 0.5))
+    b.entity(segs[3], "warden", (ox + 1500 + W / 2, oy + 300 + L * 0.5))
+    b.entity(segs[4], "warden", (ox + 2000 + W / 2, oy + 300 + L * 0.5))
+    b.entity(segs[0], "flicker", (ox + L * 0.7, oy + W * 0.5))
+    b.entity(segs[2], "shrieker", (ox + 1000 + L * 0.5, oy + W / 2))
+    for k in range(4):
+        b.entity(segs[(k * 2) % 5], "husk",
+                 (ox + ((k * 2) % 5) * 500 + 80 + k * 60, oy + W * 0.4))
+    # entry/exit stubs hang off two ring segments' LONG edges (full-edge
+    # portals: stub length matches the segment's long side exactly)
+    stub_in = b.rect(ox, oy - 300, L, W, seed=LEVEL_SEED + 9310,
+                     kind="corridor")
+    b.connect(stub_in, 1, segs[0], 3)
+    stub_out = b.rect(ox + 1000, oy - 300, L, W,
+                      seed=LEVEL_SEED + 9311, kind="corridor")
+    b.connect(stub_out, 1, segs[2], 3)
+    protected.add(stub_in)
+    protected.add(stub_out)
+    return stub_in, 0, stub_out, 2
+
+
+def boss_dark(b, ox, oy, protected):
+    """B4 VESTIBULE OF TEETH: an UNLIT double-hall with side chapels
+    and a fold -- fleeing forward returns you to the entrance. The
+    dark belongs to the flickers; the wardens own the floor."""
+    hall_l = b.rect(ox, oy, 250, 300, seed=LEVEL_SEED + 9400,
+                    kind="hall")
+    hall_r = b.rect(ox + 250, oy, 250, 300, seed=LEVEL_SEED + 9401,
+                    kind="hall")
+    chap_l = b.rect(ox, oy - 200, 250, 200, seed=LEVEL_SEED + 9402,
+                    kind="chapel")
+    chap_r = b.rect(ox + 250, oy - 200, 250, 200,
+                    seed=LEVEL_SEED + 9403, kind="chapel")
+    vest = b.rect(ox - 300, oy, 300, 300, seed=LEVEL_SEED + 9404,
+                  kind="storage")
+    out = b.rect(ox + 500, oy, 300, 300, seed=LEVEL_SEED + 9405,
+                 kind="storage")
+    b.connect(vest, 2, hall_l, 0)
+    b.connect(hall_l, 2, hall_r, 0)
+    b.connect(hall_r, 2, out, 0)
+    b.connect(chap_l, 1, hall_l, 3)
+    b.connect(chap_r, 1, hall_r, 3)
+    # THE FOLD: the halls' south edges meet each other -- running
+    # "away" through the floor brings you back facing the other hall
+    b.connect(hall_l, 1, hall_r, 1)
+    # no lights. the chapels get a dim candle each; the halls are BLACK
+    b.light(chap_l, (ox + 125, oy - 100), color=(120, 90, 60),
+            intensity=0.5, radius=120.0)
+    b.light(chap_r, (ox + 375, oy - 100), color=(120, 90, 60),
+            intensity=0.5, radius=120.0)
+    b.entity(hall_l, "warden", (ox + 125, oy + 150))
+    b.entity(hall_r, "warden", (ox + 375, oy + 150))
+    b.entity(chap_r, "warden", (ox + 375, oy - 100))
+    for k in range(6):
+        r = (hall_l, hall_r, chap_l)[k % 3]
+        xs = (ox + 60 + (k * 67) % 380, oy + 40 + (k * 53) % 220)
+        b.entity(r, "flicker", xs)
+    b.entity(chap_l, "shrieker", (ox + 60, oy - 60))
+    b.entity(hall_r, "spitter", (ox + 420, oy + 60))
+    b.entity(vest, "warden", (ox - 150, oy + 150))
+    b.entity(hall_l, "spitter", (ox + 60, oy + 250))
+    protected.add(vest)
+    protected.add(out)
+    return vest, 0, out, 2
+
+
+BOSSES = {1: boss_donut, 2: boss_cross, 3: boss_ring, 4: boss_dark}
+
+
+def splice_boss(b, i, prev_room, prev_edge, protected, boss_rooms):
+    # boss_rooms: {boss_index: [room ids]} for per-boss fail attribution
+    """LONG corridor -> boss compound -> LONG corridor, spliced into
+    the chain after segment i."""
+    oy = BAND_Y - 25000.0 - i * 9000.0
+    ox = i * 11000.0
+    n0 = len(b.data["rooms"])
+    cin = _boss_corridor(b, ox - BOSS_CORRIDOR - 400, oy + 60)
+    protected.add(cin)
+    b.connect(prev_room, prev_edge, cin, 0)
+    entry, e_in, exit_, e_out = BOSSES[i](b, ox, oy, protected)
+    b.connect(cin, 2, entry, e_in)
+    cout = _boss_corridor(b, ox + 2600, oy + 60)
+    protected.add(cout)
+    b.connect(exit_, e_out, cout, 0)
+    boss_rooms[i] = list(range(n0, len(b.data["rooms"])))
+    return cout, 2
+
+
 def build(n_total: int, min_sep: float, seed: int):
     b = LevelBuilder("GAUNTLET III — TACTICAL CALIBRATION", tier=3,
                      ambience="amb_drone_late")
@@ -359,6 +584,7 @@ def build(n_total: int, min_sep: float, seed: int):
 
     prev_room, prev_edge = spawn, E_EDGE
     lane_rooms = set()
+    boss_rooms: dict = {}
     for i, seg in enumerate(SEGMENTS):
         ln = lane_with_alcove(b, i)
         lane_rooms.update(ln.get("pieces", ()))
@@ -386,6 +612,10 @@ def build(n_total: int, min_sep: float, seed: int):
         protected.add(ad)
         b.connect(info["exit"][0], info["exit"][1], ad, ad_w)
         prev_room, prev_edge = ad, ad_e
+        if i in BOSSES:
+            prev_room, prev_edge = splice_boss(b, i, prev_room,
+                                               prev_edge, protected,
+                                               boss_rooms)
 
     out = b.rect(30 * 4000.0, BAND_Y, 260, LANE_W,
                  seed=LEVEL_SEED + 8999, kind="storage")
@@ -417,8 +647,11 @@ def build(n_total: int, min_sep: float, seed: int):
     n_rigid = _rigidify(level)
     print(f"rigidified {n_rigid} residual scaled seams "
           f"(all portals now pure isometries)")
-    placed, fails, counts = populate(level, protected, n_total, min_sep,
-                                     seed, boost=lane_rooms)
+    all_boss = {r for rs in boss_rooms.values() for r in rs}
+    placed, fails, counts = populate(level, protected | all_boss,
+                                     n_total, min_sep, seed,
+                                     boost=lane_rooms)
+    level["boss_rooms"] = {str(k): v for k, v in boss_rooms.items()}
     return level, placed, fails, counts
 
 
