@@ -265,6 +265,8 @@ class ChunkLane:
         self.key = None                   # variant selected for the queue
         self.next_idx = 0                 # position the queued chunk holds
         self.gain = 0.0
+        self.fade_ticks = 0               # farewell-bar fade-out state
+        self.fade_total = 1
 
     def start(self, key: str, master_vol: float):
         self.key = key
@@ -287,6 +289,14 @@ class ChunkLane:
             self.key = sel_key            # replace the pending chunk
             self.ch.queue(self.variants[sel_key][self.next_idx % self.n])
         return crossed
+
+    def seek(self, idx: int):
+        """Form jump: the NEXT bar comes from position `idx` -- queue()
+        replaces the pending chunk, so the jump lands exactly on the
+        next bar line, per the chunk-queue grammar."""
+        self.next_idx = idx
+        if self.key is not None and self.ch is not None:
+            self.ch.queue(self.variants[self.key][idx % self.n])
 
     def set_gain(self, gain: float, master_vol: float):
         self.gain = gain
@@ -349,6 +359,18 @@ class MusicSystem:
         self._ema_dmg = 0.0        # hp lost per second
         self._ema_kill = 0.0       # kills per second
         self._ema_fire = 0.0       # trigger duty, 1s EMA
+        # dual-lead crossfade (director 2026-07-16: switching weapons
+        # crossfades leads SLOWLY with a 50/50 deadzone -- a rail/
+        # shotgun fight plays BOTH leads together)
+        self._lead_a: str | None = None
+        self._lead_b: str | None = None
+        self._xfade = 0.0          # 0 = all A, 1 = all B
+        self._xfade_tgt = 0.0
+        self._xfade_dwelled = False
+        # form steering (boss law): position in the form, jumped to the
+        # PEAK section at stalwart >= 0.88, back to vigil when becalmed
+        self._form_idx = 0
+        self.sections: list = []
         self.inputs: dict = {}
         self._applied = (1.0, 0.0, 0.0)
         self._last_bar = -1
@@ -380,13 +402,18 @@ class MusicSystem:
                 self.key = None
                 self.gain = 0.0
         return {
-            "drums": _SimLane({"drums"} if "drums" in stems else set()),
+            "drums": _SimLane({s for s in stems
+                               if s.startswith("drums")}),
             "bed": _SimLane({s for s in stems if s.startswith("bed_")}),
             "holy": _SimLane({"prayer"}),
             "groove": _SimLane({"contempt"}),
             "wall": _SimLane({"stalwart"}),
             "lead": _SimLane({s for s in stems if s.startswith("lead_")}),
+            "lead2": _SimLane({s for s in stems
+                               if s.startswith("lead_")}),
             "bass": _SimLane({s for s in stems if s.startswith("bass_")}),
+            "boss": _SimLane({"overlay_boss"}
+                             if "overlay_boss" in stems else set()),
         }
 
     def _load_bank_meta(self) -> None:
@@ -394,6 +421,81 @@ class MusicSystem:
         meta = json.loads((self.bank_dir / "bank.json").read_text())
         self.bar_s = 240.0 / float(meta.get("bpm", BPM))
         self.n_bars = int(meta.get("bars", 0))
+        self.sections = list(meta.get("sections", []))
+
+    def _section_range(self, stype: str):
+        for s, a, b in self.sections:
+            if s == stype:
+                return (a, b)
+        return None
+
+    def _steer_form(self) -> int | None:
+        """Form steering at a bar line: returns a jump target index or
+        None. Boss engagement (stalwart >= 0.88) pulls the form to the
+        PEAK section and loops it; deep calm returns to vigil/ritual.
+        Jumps only land on even form positions -- half-phrase grain."""
+        if not self.sections:
+            return None
+        p_, c_, st = self._applied
+        pos = self._form_idx % max(1, self.n_bars)
+        peak = self._section_range("peak")
+        if st >= 0.88 and peak is not None:
+            a, b = peak
+            if not (a <= pos < b):
+                if pos % 2 == 0:
+                    return a
+            elif pos == b - 1:
+                return a          # loop the peak while the boss lives
+            return None
+        if st <= 0.25 and c_ <= 0.25 and p_ >= 0.8:
+            vig = self._section_range("vigil") or \
+                self._section_range("ritual")
+            if vig is not None:
+                a, b = vig
+                in_band = peak is not None and peak[0] <= pos < peak[1]
+                if in_band and pos % 2 == 0:
+                    return a      # becalmed mid-peak: come home
+        return None
+
+    def _lead_split(self, weapon_key, base_gain: float):
+        """Advance the dual-lead crossfade one bar; returns
+        (key_a, gain_a, key_b, gain_b). Equal-power split with a sticky
+        50/50 deadzone: alternating weapons parks BOTH leads on."""
+        import math
+        if weapon_key is not None:
+            if weapon_key == self._lead_a:
+                self._xfade_tgt = 0.0
+            elif weapon_key == self._lead_b:
+                self._xfade_tgt = 1.0
+            elif self._lead_a is None or self._xfade <= 0.5:
+                self._lead_b = weapon_key if self._lead_a is not None \
+                    else self._lead_b
+                if self._lead_a is None:
+                    self._lead_a = weapon_key
+                    self._xfade_tgt = 0.0
+                else:
+                    self._xfade_tgt = 1.0
+            else:
+                self._lead_a = weapon_key
+                self._xfade_tgt = 0.0
+        step = 0.25
+        prev = self._xfade
+        d = self._xfade_tgt - prev
+        if abs(d) > 1e-6:
+            nxt = prev + step * (1 if d > 0 else -1)
+            crossed = (prev - 0.5) * (nxt - 0.5) < 0 or abs(nxt - 0.5) < 1e-6
+            if crossed and not self._xfade_dwelled:
+                nxt = 0.5
+                self._xfade_dwelled = True    # the 50/50 deadzone bar
+            elif crossed:
+                self._xfade_dwelled = False
+            self._xfade = min(1.0, max(0.0, nxt))
+        else:
+            self._xfade_dwelled = False
+        ga = base_gain * math.cos(self._xfade * math.pi / 2.0)
+        gb = base_gain * math.sin(self._xfade * math.pi / 2.0)
+        return (self._lead_a or "silence", ga,
+                self._lead_b or "silence", gb)
 
     @staticmethod
     def _lane_defs(chunks: dict) -> dict:
@@ -402,14 +504,18 @@ class MusicSystem:
         basses = sorted(k for k in chunks if k.startswith("bass_"))
         sil = {"silence": chunks["silence"]}
         return {
-            "drums": ({"drums": chunks["drums"]} | sil)
+            "drums": ({k: chunks[k] for k in chunks
+                       if k.startswith("drums")} | sil)
             if "drums" in chunks else None,
             "bed": {k: chunks[k] for k in beds} | sil,
             "holy": {"prayer": chunks["prayer"]} | sil,
             "groove": {"contempt": chunks["contempt"]} | sil,
             "wall": {"stalwart": chunks["stalwart"]} | sil,
             "lead": {k: chunks[k] for k in leads} | sil,
+            "lead2": {k: chunks[k] for k in leads} | sil,
             "bass": {k: chunks[k] for k in basses} | sil,
+            "boss": ({"overlay_boss": chunks["overlay_boss"]} | sil)
+            if "overlay_boss" in chunks else None,
         }
 
     # -- rich mixer: chunk slicing + lanes --------------------------------
@@ -520,8 +626,16 @@ class MusicSystem:
         combat = max(c, d)
         kind = dominant_kind(self.inputs.get("aggro", []))
         lanes = self._lanes
+        st_now = self._applied[2] if hasattr(self, "_applied") else 0.0
+        drums_key = "drums"
+        if st_now >= 0.8 and "drums_boss" in lanes.get(
+                "drums", ChunkLane(None, {}, 1)).variants:
+            drums_key = "drums_boss"      # 0.8 tier: the serious kit
         sel = {
-            "drums": "drums" if max(c, d) > 0.03 else "silence",
+            "drums": drums_key if max(c, d) > 0.03 else "silence",
+            "boss": "overlay_boss"
+            if (st_now >= 0.88 and "overlay_boss" in lanes.get(
+                "boss", ChunkLane(None, {}, 1)).variants) else "silence",
             "bed": f"bed_t{tier}"
             if f"bed_t{tier}" in lanes.get("bed", ChunkLane(None, {}, 1)
                                            ).variants else "silence",
@@ -540,6 +654,7 @@ class MusicSystem:
         return sel
 
     def _bar_gains(self) -> dict:
+        # (boss lane gain handled inline below via _applied stalwart)
         """Transition controller, stateless slew form (v2 — the stored
         build-programs crawled through short skirmishes and never
         re-targeted; taps showed the wall peaking at 0.47):
@@ -593,6 +708,8 @@ class MusicSystem:
             self._riser_gain = max(self._riser_gain, 0.45)
         elif not building and self.inputs.get("tension", 0) <= 1e-6:
             self._riser_gain = 0.0
+        out["boss"] = min(1.0, max(0.0, (self._applied[2] - 0.88)
+                                     / 0.10)) * 0.9
         return out
 
     # -- legacy 4-loop mixer (pre-rich banks) ------------------------------
@@ -694,6 +811,8 @@ class MusicSystem:
             self._tap("music_valslp",
                       "%.3f,%.3f,%.3f" % tuple(self.vals), 1.0)
         tension = self.inputs["tension"]
+        if raw[2] >= 0.88:
+            tension = max(tension, 0.7)    # the boss holds the riser up
 
         if tension > self._riser_gain + 1e-6:
             self._riser_gain = tension
@@ -731,6 +850,7 @@ class MusicSystem:
                     self._load_bank_meta()
                     self._lanes = self._sim_lanes()
                     self._bank_bar0 = bar
+                    self._form_idx = 0
                     self._tap("music_bank", self.bank_dir.name, 1.0)
                 prev = self._applied
                 self._applied = self.vals
@@ -741,14 +861,39 @@ class MusicSystem:
                 if self._applied != prev:
                     p, c, d = self._applied
                     self._tap("music_vals", f"{p:.3f},{c:.3f},{d:.3f}", 1.0)
+                self._form_idx += 1
+                tgt = self._steer_form()
+                if tgt is not None:
+                    self._form_idx = tgt
+                if self._applied[2] >= 0.88 and self._form_idx % 4 == 0:
+                    self._pending_sting = True
                 sel = self._select_content()
                 gains = self._bar_gains()
+                wkey = sel.get("lead")
+                ka, ga, kb, gb = self._lead_split(
+                    None if wkey in (None, "silence") else wkey,
+                    gains.get("lead", 0.0))
+                sel["lead"], gains["lead"] = ka, ga
+                sel["lead2"], gains["lead2"] = kb, gb
                 for lname, lane in self._lanes.items():
-                    lane.key = sel[lname]
+                    prev_key = lane.key
+                    nk = sel.get(lname, "silence")
+                    if nk == "silence" and \
+                            prev_key not in (None, "silence") and \
+                            lane.gain > 0.05:
+                        lane.key = prev_key
+                        lane._tapkey = f"{prev_key}~f"  # farewell bar:
+                        #   gain stays = the fade's starting level; the
+                        #   NEXT boundary goes silence/0 naturally
+                        continue
+                    lane.key = nk
                     lane.gain = gains.get(lname, 0.0)
-                detail = f"{self._bar_idx - self._bank_bar0}|" + "|".join(
-                    f"{ln}:{la.key}:{la.gain:.3f}"
-                    for ln, la in sorted(self._lanes.items()))
+                    lane._tapkey = None
+                detail = f"{self._form_idx % max(1, self.n_bars)}|" + \
+                    "|".join(
+                        f"{ln}:{getattr(la, '_tapkey', None) or la.key}"
+                        f":{la.gain:.3f}"
+                        for ln, la in sorted(self._lanes.items()))
                 self._tap("music_bar", detail, 1.0)
             return
         master = getattr(self.bank, "master", 1.0)
@@ -760,14 +905,36 @@ class MusicSystem:
         # pending chunk, so a mid-bar state change still lands exactly
         # on the next bar line; each lane keeps its own position
         sel = self._select_content()
+        # farewell-bar law (director 2026-07-16: no hard stops back to
+        # calm): a lane whose content would cut to silence instead
+        # plays ONE more bar of what it was playing, fading to nothing
+        # across that bar -- the fade itself is the release
+        for lname, lane in self._lanes.items():
+            if sel.get(lname) == "silence" and \
+                    lane.key not in (None, "silence"):
+                if lane.fade_ticks > 0:
+                    sel[lname] = lane.key      # farewell bar in flight
+                elif lane.gain > 0.05:
+                    sel[lname] = lane.key      # will start fading at
+                    #                            the next boundary
         boundary = False
         for lname, lane in self._lanes.items():
             if lane.tickfill(sel[lname]) and lname == "bed":
                 boundary = True
+        # per-tick farewell fades
+        bar_ticks = max(1, int(self.bar_s * TICKS_PER_S))
+        for lane in self._lanes.values():
+            if lane.fade_ticks > 0:
+                lane.fade_ticks -= 1
+                f = lane.fade_ticks / max(1, lane.fade_total)
+                lane.ch.set_volume(max(0.0, lane.gain * master * f))
+                if lane.fade_ticks == 0:
+                    lane.gain = 0.0
         if boundary:
             # a bar line just sounded: this is the ONLY place values are
             # applied and gains move (the audio is the clock)
             self._bar_idx += 1
+            self._form_idx += 1
             self._boundary_tick = session.tick_count
             prev = self._applied
             self._applied = self.vals
@@ -777,14 +944,54 @@ class MusicSystem:
             if self._applied != prev:
                 p, c, d = self._applied
                 self._tap("music_vals", f"{p:.3f},{c:.3f},{d:.3f}", 1.0)
+            # form steering: boss pull to PEAK / becalmed return
+            tgt = self._steer_form()
+            if tgt is not None:
+                self._form_idx = tgt
+                for lane in self._lanes.values():
+                    lane.seek(tgt)
+            # boss stabs: a hit on the 4-bar grid while the boss lives
+            if self._applied[2] >= 0.88 and self._form_idx % 4 == 0:
+                self._pending_sting = True
             gains = self._bar_gains()
+            # dual-lead crossfade split (bar-stepped, equal power)
+            wkey = sel.get("lead")
+            ka, ga, kb, gb = self._lead_split(
+                None if wkey in (None, "silence") else wkey,
+                gains.get("lead", 0.0))
+            gains["lead"] = ga
+            gains["lead2"] = gb
+            if "lead2" in self._lanes:
+                sel["lead2"] = kb
+                self._lanes["lead2"].tickfill(kb)
+            if ka not in (None, "silence"):
+                sel["lead"] = ka
+                self._lanes["lead"].tickfill(ka)
             for lname, lane in self._lanes.items():
-                lane.set_gain(gains.get(lname, 0.0), master)
+                g = gains.get(lname, 0.0)
+                dying = sel.get(lname) == lane.key and \
+                    lane.key not in (None, "silence") and g <= 0.02 \
+                    and lane.gain > 0.05 and lane.fade_ticks == 0
+                if dying:
+                    lane.fade_ticks = bar_ticks    # the farewell bar
+                    lane.fade_total = bar_ticks
+                    continue                       # fade owns the volume
+                if lane.fade_ticks == 0:
+                    lane.set_gain(g, master)
             # offline-reconstruction tap (mkvideo): the FULL per-bar
-            # decision — position + every lane's content and gain
-            detail = f"{self._bar_idx}|" + "|".join(
-                f"{ln}:{la.key}:{la.gain:.3f}"
-                for ln, la in sorted(self._lanes.items()))
+            # decision -- position + every lane's content and gain
+            # ("~f" key suffix = this bar is a farewell fade-out)
+            def _lk(ln, la):
+                k = la.key
+                if la.fade_ticks > 0:
+                    return f"{k}~f", la.gain
+                return k, la.gain
+            parts = []
+            for ln, la in sorted(self._lanes.items()):
+                k, g = _lk(ln, la)
+                parts.append(f"{ln}:{k}:{g:.3f}")
+            detail = f"{self._form_idx % max(1, self.n_bars)}|" + \
+                "|".join(parts)
             self._tap("music_bar", detail, 1.0)
         if len(self._bank_dirs) > 1:
             self._rotation_tick(boundary, session)

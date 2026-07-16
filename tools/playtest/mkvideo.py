@@ -168,6 +168,9 @@ def _mix_music_rich(mix, events, duration_s) -> bool:
                 lane.rsplit(":", 2)[1], float(lane.rsplit(":", 2)[2])
             if gain <= 0.001:
                 continue
+            fade = key.endswith("~f")     # farewell bar: ramp to zero
+            if fade:
+                key = key[:-2]
             snd = stem(bk, key)
             if snd is None:
                 continue
@@ -176,8 +179,13 @@ def _mix_music_rich(mix, events, duration_s) -> bool:
             seg = snd[a:b]
             n = min(len(seg), n_total - s0)
             g = min(1.0, gain) * 0.8
-            mix[s0:s0 + n, 0] += seg[:n, 0] * g
-            mix[s0:s0 + n, 1] += seg[:n, 1] * g
+            if fade:
+                env = np.linspace(1.0, 0.0, n, dtype=np.float32)
+                mix[s0:s0 + n, 0] += seg[:n, 0] * g * env
+                mix[s0:s0 + n, 1] += seg[:n, 1] * g * env
+            else:
+                mix[s0:s0 + n, 0] += seg[:n, 0] * g
+                mix[s0:s0 + n, 1] += seg[:n, 1] * g
     # riser: continuous loop under its tapped gain envelope, from the
     # bank active at each tap
     riser_evs = [e for e in events if e["kind"] == "music_riser"]
@@ -355,12 +363,14 @@ FACTOR_COLORS = {          # match the value battery's identities
     "CONTEMPT": (255, 110, 100),
     "STALWART": (255, 190, 90),
 }
-LANE_ORDER = ["bed", "drums", "holy", "groove", "wall", "bass", "lead"]
+LANE_ORDER = ["bed", "drums", "holy", "groove", "wall", "bass",
+              "lead", "lead2", "boss"]
 LANE_COLORS = {
     "bed": (140, 140, 170), "drums": (230, 160, 90),
     "holy": (110, 190, 255), "groove": (255, 110, 100),
     "wall": (255, 190, 90), "bass": (170, 130, 220),
-    "lead": (130, 220, 150),
+    "lead": (130, 220, 150), "lead2": (100, 190, 120),
+    "boss": (255, 80, 160),
 }
 
 
@@ -381,6 +391,8 @@ def _bar_series(events: list) -> list[tuple[float, dict]]:
         lanes = {}
         for part in e["name"].split("|")[1:]:
             ln, key, gain = part.rsplit(":", 2)
+            if key.endswith("~f"):
+                key = key[:-2]
             lanes[ln] = (key, float(gain))
         out.append((e["t"], lanes))
     return out

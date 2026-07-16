@@ -1,1 +1,1 @@
-{"melody": "lhomme_arme", "title": "The Armed Man Must Be Feared", "bpm": 110.0, "bars": 34}
+{"melody": "lhomme_arme", "title": "The Armed Man Must Be Feared", "bpm": 110.0, "bars": 34, "sections": [["entry", 0, 8], ["peak", 8, 16], ["ritual", 16, 22], ["peak", 22, 30], ["outro", 30, 34]]}
