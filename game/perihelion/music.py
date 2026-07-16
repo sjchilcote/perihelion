@@ -1067,10 +1067,15 @@ class MusicSystem:
             # attack/release reshaping -- the old release ramp would
             # fade out the swell right at its payoff
             self._riser_gain = self._riser_peak
+            if self._riser_env == int(bar_ticks_f / 8):
+                # arm the sting ONE 8th before the swell ends: the
+                # grid-quantized toll then lands ON the swell's final
+                # peak instead of after a dead gap (the reversed bell
+                # must resolve INTO the strike, not point at it)
+                self._pending_sting = True
             if self._riser_env == 0:
                 self._riser_gain = 0.0
                 self._tap("music_riser", "0.00", 0.0)
-                self._pending_sting = True     # release on the pounce
             elif session.tick_count % 6 == 0:
                 self._tap("music_riser", f"{self._riser_gain:.2f}",
                           self._riser_gain)

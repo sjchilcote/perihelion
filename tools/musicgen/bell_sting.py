@@ -81,7 +81,13 @@ def build_sting(rec, rng, variant: str = "swell") -> np.ndarray:
     rev = rev[-int(0.7 * SR):]
     t_land = len(rev) / SR * 0.92
     if variant == "bare":
+        # ONE bell, one ring -- but a lone 73Hz strike vanishes under
+        # a full combat mix (Gemini: 'completely lacks the resolving
+        # toll'). The same strike's upper octaves give the single
+        # bell its natural bright partials back.
         T.place(out, bell, 0.0)
+        T.place(out, deep_bell(50.0 + r0, max_s=6.0) * 0.4, 0.0)
+        T.place(out, deep_bell(62.0 + r0, max_s=4.0) * 0.12, 0.0)
     elif variant == "swell":
         T.place(out, rev * 0.6, 0)
         T.place(out, bell, t_land)
@@ -100,6 +106,12 @@ def build_riser(rec) -> np.ndarray:
     r0 = harmony.roots_16(rec["form"][0][2], 1)[0]
     bell = deep_bell(38.0 + r0, max_s=2.0 * BAR)
     rev = bell[::-1]
+    # 60ms de-click: reversed audio otherwise ENDS on the strike's
+    # attack sample -- a full-scale one-sample cliff (Gemini heard it
+    # as 'cuts off abruptly before the downbeat'). The resolution is
+    # the sting toll landing on the next 8th.
+    fade = int(0.06 * SR)
+    rev[-fade:] *= np.cos(np.linspace(0, np.pi / 2, fade)) ** 2
     return rev / (np.abs(rev).max() + 1e-9) * 0.9
 
 

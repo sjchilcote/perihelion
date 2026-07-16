@@ -95,7 +95,11 @@ def build(mel: str, outdir: Path):
     # build -- the bell is part of the bank, not an optional garnish.
     import bell_sting as BS
     rng = np.random.default_rng(rec["seeds"][0])
-    stg = BS.build_sting(rec, rng, "swell")
+    # BARE bell (director, verbatim: 'an on-key sample of a large
+    # bell ringing once'): the RISER is the swell now -- a pre-swell
+    # on the sting doubled the gesture and left a dead gap when the
+    # two chained
+    stg = BS.build_sting(rec, rng, "bare")
     _write(outdir / "sting.wav", stg, len(stg))
     rsr = BS.build_riser(rec)
     _write(outdir / "riser.wav", rsr, len(rsr))
