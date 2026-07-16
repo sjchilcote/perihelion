@@ -747,7 +747,7 @@ class MusicSystem:
             gains = self._bar_gains()
             for lname, lane in self._lanes.items():
                 lane.gain = gains.get(lname, 0.0)
-                lane.start(sel[lname], master)
+                lane.start(sel.get(lname, "silence"), master)
             self._bar_idx = 0
             self._boundary_tick = tick
             self._tap("music_bank", self.bank_dir.name, 1.0)
@@ -793,6 +793,12 @@ class MusicSystem:
             if combat > 0.05 and
             f"lead_{weapon}" in lanes.get("lead", ChunkLane(None, {}, 1)
                                           ).variants else "silence",
+            # lead2 is OWNED by the crossfade splitter; it starts
+            # silent. (missing key here KeyError'd _ensure_started --
+            # LIVE play fell back to logging-only, i.e. no music at
+            # all in-game since dual-lead landed. The videos never
+            # showed it: recordings use the tick-clock path.)
+            "lead2": "silence",
             "bass": f"bass_{kind}"
             if kind is not None and
             f"bass_{kind}" in lanes.get("bass", ChunkLane(None, {}, 1)

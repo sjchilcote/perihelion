@@ -55,6 +55,7 @@ def one(args):
             near[e["kind"]] = near.get(e["kind"], 0) + 1
     return dict(seed=seed, outcome="complete" if s.complete else
                 ("death" if s.dead else "timeout"),
+                hp=round(getattr(s, "hp", 0.0), 1),
                 ticks=t, kills=s.metrics["kills"],
                 dmg_taken=round(s.metrics["dmg_taken"], 1),
                 room=snap["room"], near=near,
