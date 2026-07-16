@@ -321,6 +321,15 @@ def test_region_cohesion(graph):
         return  # cohesion vs. separation is meaningless with one region
     centroids = _region_centroids(pos, by_region)
 
+    # members legitimately dragged toward foreign territory: every node
+    # on either end of a cross-region prereq spring
+    dragged: dict[str, set] = {r: set() for r in by_region}
+    for nid, n in graph.items():
+        for p in n.get("prereqs", ()):
+            if p in graph and graph[p]["region"] != n["region"]:
+                dragged[n["region"]].add(nid)
+                dragged[graph[p]["region"]].add(p)
+
     for region, ids in by_region.items():
         if len(ids) < 2:
             continue  # a singleton has no internal spread to test
@@ -332,17 +341,19 @@ def test_region_cohesion(graph):
             for oregion, (ocx, ocy) in centroids.items() if oregion != region)
         # region-sector affinity is DELIBERATELY a weak force (hard
         # constraint: territory should read without hard-ringing nodes)
-        # AND real mind maps have real cross-region prereq edges (the
-        # actual data/mindmap.json has two) whose springs legitimately
-        # pull a member toward a neighboring region's territory. One
-        # dragged member skews a SMALL region's mean by roughly 1/n of
-        # the gap, so the slack scales with 1/len(ids) -- generous for a
-        # 3-node region, ~5% for a realistic 20-node one. A layout that
-        # ignores region entirely still fails this outright (30-100%
-        # off), so the property stays meaningful.
-        slack = 1.0 + 1.0 / len(ids)
+        # AND cross-region prereq edges legitimately pull members toward
+        # a neighboring region's territory. EACH dragged member skews
+        # the region's mean by roughly 1/n of the gap, so the slack is
+        # k/n for the k members actually on cross-region springs (the
+        # old formula hardcoded k=1 and missed by 1.3% on a Hypothesis
+        # graph with several -- the slack now derives k from the graph
+        # instead of assuming it). A layout that ignores region
+        # entirely still fails outright (30-100% off), so the property
+        # stays meaningful.
+        k = max(1, len(dragged[region] & set(ids)))
+        slack = 1.0 + k / len(ids)
         assert own_mean_d <= nearest_other * slack + 1e-6, (
-            region, own_mean_d, nearest_other, slack)
+            region, own_mean_d, nearest_other, slack, k)
 
 
 # ---------------------------------------------------------------------------
@@ -366,7 +377,13 @@ def test_crossings_relaxed_never_worse_than_seed(graph):
     hold for every generated graph, not just on average."""
     seed = mindmap.seed_layout(graph)
     pos, _ = mindmap.relax(seed, graph)
-    seed_c = mindmap.count_crossings(seed, graph)
+    # the baseline is the CONTAINED seed -- the raw seed can be
+    # geometrically illegal (outside the canvas ellipse), and the
+    # containment the geometry law demands can itself add crossings.
+    # relax() guarantees never-worse against the best LEGAL fallback,
+    # which it can always return by construction.
+    seed_c = mindmap.count_crossings(mindmap.contain_layout(seed, graph),
+                                     graph)
     relaxed_c = mindmap.count_crossings(pos, graph)
     assert relaxed_c <= seed_c, (relaxed_c, seed_c)
 

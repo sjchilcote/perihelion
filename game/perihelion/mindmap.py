@@ -1213,6 +1213,26 @@ def live_relax_step(state: LiveState,
     return LiveState(pos=pos_out, vel=vel_out, quiet=quiet, asleep=asleep)
 
 
+def contain_layout(seed: dict[str, tuple[float, float]],
+                   graph: dict[str, dict] | None = None,
+                   ) -> dict[str, tuple[float, float]]:
+    """The geometry laws applied to a layout, as a value: band +
+    ellipse hard containment. This is the best LEGAL baseline to hold
+    relax() to -- seed_layout()'s raw output may sit outside the
+    canvas ellipse (see relax()'s closer comment), so the never-worse
+    guarantee is made against the contained seed, never the raw one."""
+    import numpy as np
+    tbl = graph if graph is not None else nodes()
+    sysd = _build_system(tbl)
+    ids = sysd["ids"]
+    if not ids:
+        return dict(seed)
+    P = np.array([_to_px(seed[nid]) for nid in ids], dtype=np.float64)
+    _hard_contain(P, sysd)
+    return {nid: _to_unit((float(P[k, 0]), float(P[k, 1])))
+            for k, nid in enumerate(ids)}
+
+
 def relax(seed: dict[str, tuple[float, float]],
           graph: dict[str, dict] | None = None,
           iters: int = RELAX_ITERS,
@@ -1390,24 +1410,106 @@ def relax(seed: dict[str, tuple[float, float]],
             F[:, 1] += (P[:, 1] - cy) / dd * bpush
             return F
 
-        best_P, best_c = P, crossings_now
-        for pit in range(_UNCROSS_POLISH_ITERS):
-            F = polish_step(P)
-            pcool = 1.0 - pit / max(1, _UNCROSS_POLISH_ITERS - 1)
-            ptemp = _TEMP_MIN_PX + (_UNCROSS_POLISH_TEMP0 - _TEMP_MIN_PX) * pcool
-            pmag = np.sqrt(np.maximum(F[:, 0] ** 2 + F[:, 1] ** 2, 1e-18))
-            pscale = np.minimum(pmag, ptemp) / pmag
-            P = P + F * pscale[:, None]
-            _hard_contain(P, sysd)
-            c = crossings_of(P)
-            if c <= best_c:
-                best_P, best_c = P.copy(), c
-            if record_every > 0:
-                traj.append(to_frame(P))
-        P = best_P if best_c <= crossings_seed else P0
+        def polish_from(start_P):
+            """Run the uncrossing-polish micro-schedule starting at
+            `start_P` (a COPY is taken; the caller's array is untouched),
+            returning the best (fewest-crossings, ties toward latest)
+            position seen along the way -- including `start_P` itself, so
+            a search that only makes things worse still returns its own
+            valid starting point rather than something worse."""
+            Pp = start_P.copy()
+            bp, bc = Pp.copy(), crossings_of(Pp)
+            for pit in range(_UNCROSS_POLISH_ITERS):
+                F = polish_step(Pp)
+                pcool = 1.0 - pit / max(1, _UNCROSS_POLISH_ITERS - 1)
+                ptemp = _TEMP_MIN_PX + (_UNCROSS_POLISH_TEMP0 - _TEMP_MIN_PX) * pcool
+                pmag = np.sqrt(np.maximum(F[:, 0] ** 2 + F[:, 1] ** 2, 1e-18))
+                pscale = np.minimum(pmag, ptemp) / pmag
+                Pp = Pp + F * pscale[:, None]
+                _hard_contain(Pp, sysd)
+                c = crossings_of(Pp)
+                if c <= bc:
+                    bp, bc = Pp.copy(), c
+                if record_every > 0:
+                    traj.append(to_frame(Pp))
+            return bp, bc
+
+        best_P, best_c = polish_from(P)
+
+        # SECOND search, from the CONTAINED seed -- not just a defensive
+        # extra, but the actual fix for a real gap: seed_layout() places
+        # nodes by radius within their own depth band with NO ellipse
+        # check (depth_bands()'s own docstring documents that the
+        # outermost band's `hi` can legitimately extend past the canvas
+        # ellipse, trusting containment downstream as the "real outer
+        # backstop... in practice"), so `crossings_seed` above -- measured
+        # on the RAW seed, matching what the test measures too -- can be
+        # the crossing count of a position that is not actually legal to
+        # return. Projecting that seed onto its own bounds is not free:
+        # moving even one out-of-band/out-of-ellipse node can add a
+        # crossing (found by direct measurement on a generated 56-node
+        # graph: raw seed 42 crossings, the SAME seed with only its one
+        # out-of-bounds node projected onto the ellipse -- nothing else
+        # touched -- 43), so a search that only ever polishes from wherever
+        # the main schedule's springs/repulsion/region drift happened to
+        # leave things (crossings_now, often FAR worse -- 90 on that same
+        # graph) can legitimately fail to claw back down to a raw count it
+        # was never actually free to return in the first place. A second,
+        # independent local search starting from "the seed, but legal"
+        # instead closes that gap at its source: it begins immediately
+        # adjacent to a near-optimal, already-valid position, so the same
+        # uncrossing force that ordinarily just polishes a few residual
+        # crossings has a real shot at recovering the one containment
+        # added (confirmed on that same 56-node graph: this search alone
+        # reaches 32, comfortably under the raw seed's 42). Cheap and
+        # local, same fixed budget as the first search, never a second
+        # full settle.
+        P0_contained = P0.copy()
+        _hard_contain(P0_contained, sysd)
+        c0 = crossings_of(P0_contained)
+        if c0 <= best_c:
+            best_P, best_c = P0_contained.copy(), c0
+        seed_best_P, seed_best_c = polish_from(P0_contained)
+        if seed_best_c <= best_c:
+            best_P, best_c = seed_best_P, seed_best_c
+
+        # best_P already ranges over {main-schedule polish, contained
+        # seed, contained-seed polish} -- c0 was folded in above -- so
+        # crossings(best_P) <= crossings(P0_contained) BY CONSTRUCTION.
+        # (A final compare against the RAW seed's count used to sit
+        # here: the raw seed can be geometrically ILLEGAL, and when
+        # containment itself added crossings the compare punted to a
+        # worse configuration than best_P -- Hypothesis found relaxed
+        # 95 > raw-seed 93 exactly that way. The guarantee the pipeline
+        # makes, and the test now checks, is against the best LEGAL
+        # baseline: the contained seed.)
+        P = best_P
         if record_every > 0 and to_frame(P) != traj[-1]:
             traj.append(to_frame(P))
 
+    # UNCONDITIONAL final containment: a pure backstop, by this point --
+    # every path P can reach here by (the main schedule's own P, the
+    # polish closer's best_P, or its seed-fallback P0_contained) already
+    # passes through _hard_contain on its own, every iteration or polish
+    # step, including the fallback -- see the closer above, which used to
+    # hand back seed_layout()'s RAW output untouched (test_geometry_
+    # within_bounds's failure: seed_layout() places nodes by radius alone
+    # within their own depth band, with NO ellipse check, trusting
+    # containment downstream as the "real outer backstop... in practice"
+    # per depth_bands()'s own docstring -- a wide/shallow graph's raw seed
+    # can sit unit radius ~1.2 against _BOUNDS_R=0.985, and that backstop
+    # was never actually applied on that one return path). This call
+    # makes containment true BY CONSTRUCTION at relax()'s own return
+    # boundary regardless of which path is taken, instead of relying on
+    # every path upstream to have preserved it correctly -- and it is a
+    # genuine no-op whenever they did: both hard-contain passes are
+    # idempotent projections, so an already-contained P is returned
+    # bit-for-bit unchanged (confirmed against the real map's tuned
+    # regression numbers: seed_c stays 9, relaxed_c stays 5 -- untouched,
+    # since that graph's main schedule alone beats the seed and never
+    # takes the fallback branch above).
+    if n:
+        _hard_contain(P, sysd)
     final = to_frame(P)
     if record_every > 0 and (not traj or traj[-1] != final):
         traj.append(final)
@@ -1644,9 +1746,35 @@ def local_label_layout(positions: dict[str, tuple[float, float]],
            for nid in positions}
     # node discs that can possibly collide with a label box near the
     # camera: prefilter by distance so cost scales with LOCAL density,
-    # not total graph size (the whole point of the local camera).
+    # not total graph size (the whole point of the local camera). The
+    # cutoff MUST be a sound upper bound on "how far from the camera can a
+    # placed box's far edge possibly reach", not a guessed constant: a
+    # flat "+300.0 (generous)" was wrong for this generator's own label
+    # strategy (up to 5 repeats of its longest word, e.g. 5x
+    # "comprehension" -> a 454px-wide box -- measured needed reach ~744px
+    # against the old 556px cutoff), so it silently dropped a disc just
+    # past 556px from near_discs, and a long label's box legitimately
+    # reaching past it went unchecked -- test_local_labels_clear_of_node_
+    # discs's failure. The bound below is derived, not guessed: a node's
+    # label is only ever placed if the node is within LABEL_FADE_U's
+    # elliptical radius of the camera (alpha > 0, or it's `sel`, whose own
+    # box is disc-exempt by design -- see this function's docstring), so
+    # its own screen distance from the camera is at most
+    # LABEL_FADE_U * max(view half-extents) along whichever single axis
+    # carries the whole budget; from there, the anchor search's own worst
+    # case (radius 0/180 degrees, the widest configured anchor offset,
+    # then the box's own half-width and pad) bounds how much farther the
+    # box's far edge can reach past the node. Any disc farther than the
+    # sum can be proven, by the triangle inequality, incapable of
+    # overlapping ANY box this call can place -- so excluding it changes
+    # nothing observable, only the cost of checking it.
+    max_rad = max(rad.values(), default=NODE_R_PX)
+    max_label_w = max((label_size_px(tbl[nid]["label"] if nid in tbl else nid)[0]
+                        for nid in positions), default=0.0)
+    max_box_reach = (max_rad + LABEL_GAP_PX + max(_LOCAL_ANCHOR_RADII_PX)
+                      + max_label_w + LABEL_PAD_PX)
     reach = (max(_VIEW_HALF_W, _VIEW_HALF_H) * LABEL_FADE_U
-             + 300.0)  # + max label extent, generous
+             + max_box_reach + max_rad)  # + max_rad: the disc's own radius
     near_discs = [(world[nid][0], world[nid][1], rad[nid] + 1.0)
                   for nid in positions
                   if math.hypot(world[nid][0] - cw[0], world[nid][1] - cw[1]) <= reach]
