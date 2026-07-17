@@ -6,6 +6,8 @@ requires-python = ">=3.11"
 dependencies = [
     "pygame-ce>=2.5",
     "numpy>=1.26,<2.5",
+    "python-dotenv>=1.2.2",
+    "httpx>=0.28.1",
 ]
 
 [dependency-groups]

@@ -235,6 +235,12 @@ class HumanBot(_UnstickMixin, Bot):
         self._prev_hp = hp
         if self._flinch_ticks > 0:
             self._flinch_ticks -= 1
+        elif self._flinch_angle != 0.0:
+            # Flinch must DECAY: the angle was set on every hit but
+            # never cleared when the ticks expired, so after the first
+            # damage of a run every shot carried a permanent random
+            # bias of up to ~12 degrees, re-rolled per hit.
+            self._flinch_angle = 0.0
 
     def step(self, snapshot: dict, session: GameSession) -> InputFrame:
         proom = snapshot["room"]
