@@ -1,5 +1,5 @@
 {
-  "total_cost": 43.06285279999995,
+  "total_cost": 43.137328799999956,
   "calls": [
     {
       "tool": "audio_judge",
@@ -24768,6 +24768,38 @@
       "model": "google/gemini-3.1-pro-preview",
       "prompt_tokens": 979,
       "completion_tokens": 315
+    },
+    {
+      "tool": "musicgen.judge_track_grounded",
+      "cost": 0.018154,
+      "ts": 1784289416.254762,
+      "model": "google/gemini-3.1-pro-preview",
+      "prompt_tokens": 1151,
+      "completion_tokens": 1321
+    },
+    {
+      "tool": "musicgen.judge_track_grounded",
+      "cost": 0.017086,
+      "ts": 1784289432.1670911,
+      "model": "google/gemini-3.1-pro-preview",
+      "prompt_tokens": 1151,
+      "completion_tokens": 1232
+    },
+    {
+      "tool": "musicgen.judge_track_grounded",
+      "cost": 0.01675,
+      "ts": 1784289448.036939,
+      "model": "google/gemini-3.1-pro-preview",
+      "prompt_tokens": 1151,
+      "completion_tokens": 1204
+    },
+    {
+      "tool": "musicgen.judge_track_grounded",
+      "cost": 0.022486,
+      "ts": 1784289465.1569915,
+      "model": "google/gemini-3.1-pro-preview",
+      "prompt_tokens": 1151,
+      "completion_tokens": 1682
     }
   ]
 }

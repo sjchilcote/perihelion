@@ -33,6 +33,10 @@ COMEUP_DELTA = 0.4   # gain rise per bar that triggers the half-bar
 #                      come-up ramp (slam lead-up law)
 ROTATION_XFADE = True   # A/B toggle: False renders the old hard-cut
 #                         bank handoff (verification only)
+LOOP_SEAM = "clean"      # seamless-loop landing treatment (variant
+#   ranking, 2026-07-17): "clean" = composed loop points land as-is;
+#   "micro" = 100ms equal-power crossfade across the seam;
+#   "comein" = half-bar come-in on the landing bar (all lanes)
 
 
 def _load_wav(name: str, cache: dict) -> np.ndarray | None:
@@ -118,6 +122,8 @@ def _mix_music_rich(out_mix, events, duration_s) -> bool:
     bar_evs = [e for e in events if e["kind"] == "music_bar"]
     jump_ts = [e["t"] for e in events if e["kind"] == "music_jump"
                and not str(e["name"]).endswith("~s")]
+    loop_ts = [e["t"] for e in events if e["kind"] == "music_jump"
+               and str(e["name"]).endswith("~s")]
     halt_ts = [e["t"] for e in events if e["kind"] == "music_halt"]
     riser2_ts = [e["t"] for e in events if e["kind"] == "music_riser2"]
     if not bar_evs or not bank_evs:
@@ -245,6 +251,8 @@ def _mix_music_rich(out_mix, events, duration_s) -> bool:
         # arrival fade-in: TRUE jumps ramp (composed loop points land
         # clean); bank handoffs use the global crossfade window below
         ramp_in = any(abs(ev["t"] - jt) < 0.5 for jt in jump_ts)
+        loop_in = LOOP_SEAM == "comein" and any(
+            abs(ev["t"] - lt) < 0.5 for lt in loop_ts)
         in_xfade = ev["t"] < xfade_in_until - 1e-3
         prev_idx, prev_bank = bar_idx, bk
         prev_ev = ev
@@ -388,6 +396,11 @@ def _mix_music_rich(out_mix, events, duration_s) -> bool:
             elif ramp_in and ln not in ("holy", "bed", "monk"):
                 # the through-line lanes never dip for an arrival
                 env = np.linspace(0.0, 1.0, n, dtype=np.float32)
+            elif loop_in and ln not in ("holy", "bed", "monk"):
+                half = max(1, n // 2)
+                env = np.concatenate([
+                    np.linspace(0.25, 1.0, half, dtype=np.float32),
+                    np.ones(n - half, dtype=np.float32)])
             else:
                 env = None
             if env is not None:
@@ -401,6 +414,16 @@ def _mix_music_rich(out_mix, events, duration_s) -> bool:
     # self-enveloped reversed bell that swells into its own strike;
     # the engine triggers it from the top per sudden-rise event --
     # tiling a loop under the envelope was the old pink-noise design)
+    if LOOP_SEAM == "micro":
+        # 100ms equal-power smear across each seamless-loop seam
+        W = int(0.05 * RATE)
+        for lt in loop_ts:
+            c = int(lt * RATE)
+            if W < c < n_total - W:
+                pre = mix[c - W:c].copy()
+                fade = np.linspace(1.0, 0.0, W, dtype=np.float32)
+                mix[c:c + W] *= (1.0 - fade[::-1])[:, None]
+                mix[c:c + W] += pre * fade[:, None]
     riser_evs = [e for e in events if e["kind"] == "music_riser"]
     if riser_evs:
         env = np.zeros(n_total, dtype=np.float32)
