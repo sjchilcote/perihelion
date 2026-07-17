@@ -191,6 +191,16 @@ class HumanBot(_UnstickMixin, Bot):
         self._entry_caution = False
         self._planted = False
         self._warden_hunting = False
+        # combat locomotion invariant (Sol consult #1 + incident mining
+        # meta-finding "the bot does not MOVE during combat"): if the
+        # feet have not actually displaced during a live co-room fight,
+        # force a committed, collision-aware strafe. Displacement-based
+        # so it catches EVERY freeze mode (planted, cancelled schema
+        # vectors, terrain block) without caring which one it is.
+        self._pos_ring = []          # last ~18 tick positions
+        self._freeze_ticks = 0
+        self._loco_ticks = 0
+        self._loco_dir = (1.0, 0.0)
         self._last_kills = 0
         self._last_kill_tick = 0
         self._threats_total = 0
@@ -458,6 +468,75 @@ class HumanBot(_UnstickMixin, Bot):
             sm = math.hypot(sxe, sye) or 1.0
             inp.mx, inp.my = sxe / sm, sye / sm
             return self._apply_unstick(px, py, inp)
+
+        # COMBAT LOCOMOTION INVARIANT (subsumption, below contact-
+        # evasion): standing still in a live fight is the measured #1
+        # damage source (~270 HP stationary under visible ranged fire,
+        # pixel-identical positions 4-9.5s in 20+ incidents). A short
+        # settle is human; a statue is not. Trigger on ACTUAL feet:
+        # under ~4u displacement across 18 ticks, for 10+ ticks, with
+        # co-room contact -> commit to a collision-aware strafe for
+        # 24-42 ticks at near-full pace. Aim and fire untouched.
+        self._pos_ring.append((px, py))
+        if len(self._pos_ring) > 18:
+            self._pos_ring.pop(0)
+        vis_hunters = [e for e in distant
+                       if e.get("state") in ("hunt", "waking")
+                       and e["id"] in visible_screens]
+        threat_present = bool(co_room) or bool(vis_hunters)
+        if threat_present and len(self._pos_ring) >= 18 and \
+                _dist(self._pos_ring[0], (px, py)) < 8.0:
+            self._freeze_ticks += 1
+        else:
+            self._freeze_ticks = 0
+        if self._loco_ticks > 0 and threat_present:
+            self._loco_ticks -= 1
+            if co_room:
+                gx = px + self._loco_dir[0] * 80.0
+                gy = py + self._loco_dir[1] * 80.0
+                way = self._steer_target(session, proom, (px, py),
+                                         (gx, gy))
+                lx, ly = _norm((way[0] - px, way[1] - py)) \
+                    if _dist(way, (px, py)) > 1e-6 else self._loco_dir
+                # room-space -> screen-space, like the contact-evasion
+                # layer (schema vectors are screen-space by contract)
+                sxl, syl = necore.mat_apply_dir(session.cam, lx, ly)
+                sml = math.hypot(sxl, syl) or 1.0
+                vx, vy = vx * 0.2 + sxl / sml, vy * 0.2 + syl / sml
+            else:
+                # distant threat: _loco_dir is already screen-space
+                # (a portal-visible enemy lives in ANOTHER room's
+                # frame -- never diff its pos against ours)
+                vx = vx * 0.2 + self._loco_dir[0]
+                vy = vy * 0.2 + self._loco_dir[1]
+            if self._freeze_ticks > 12:
+                # committed direction is blocked: flip and recommit
+                self._strafe_sign *= -1
+                self._loco_dir = (-self._loco_dir[0],
+                                  -self._loco_dir[1])
+                self._loco_ticks = 24 + int(self._strafe_rng.random()
+                                            * 18)
+                self._freeze_ticks = 0
+        elif self._freeze_ticks > 10 and threat_present and \
+                self._escape_ticks == 0:
+            if co_room:
+                near = min(co_room,
+                           key=lambda e: _dist(e["pos"], (px, py)))
+                ux_, uy_ = _norm((near["pos"][0] - px,
+                                  near["pos"][1] - py))
+                self._loco_dir = (-uy_ * self._strafe_sign,
+                                  ux_ * self._strafe_sign)
+            else:
+                pax_, pay_ = necore.mat_apply(session.cam, px, py)
+                sx_, sy_ = min(
+                    (visible_screens[e["id"]] for e in vis_hunters),
+                    key=lambda s: math.hypot(s[0] - pax_, s[1] - pay_))
+                ex_, ey_ = _norm((sx_ - pax_, sy_ - pay_))
+                self._loco_dir = (-ey_ * self._strafe_sign,
+                                  ex_ * self._strafe_sign)
+            self._loco_ticks = 24 + int(self._strafe_rng.random() * 18)
+            self._planted = False   # the settle shot is over
+            self._freeze_ticks = 0
 
         # pace policy: fights and committed retreats run at FULL speed
         # (a 0.75-gain backpedal moved ~100 u/s against 153 u/s mites --
