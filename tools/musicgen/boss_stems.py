@@ -29,7 +29,7 @@ import tutti as T                    # noqa: E402
 import tr909_kit as K                # noqa: E402
 import harmony                       # noqa: E402
 import vital_bank as VB              # noqa: E402
-from tutti_bank import _write        # noqa: E402
+from tutti_bank import _write, _fold_tail   # noqa: E402
 
 SR, BAR, STEP = T.SR, T.BAR, T.STEP
 ROOT = Path(__file__).resolve().parents[2]
@@ -69,7 +69,7 @@ def build(mel: str):
         if bar % 4 == 0:
             T.place(over, K.hit("crash", 0.9, rng), t0, 0.9)
     drums_boss = lanes["drums"] * 0.9 + over * 0.55
-    _write(outdir / "drums_boss.wav", drums_boss, n)
+    _write(outdir / "drums_boss.wav", _fold_tail(drums_boss, n), n)
 
     # --- overlay_boss: sub-octave roots + tritone dread pedal ---
     roots = []
@@ -95,7 +95,7 @@ def build(mel: str):
     overlay = np.zeros(L, dtype=np.float64)
     overlay[:len(sub)] += sub * 0.75
     overlay[:len(dread)] += dread * 0.22
-    _write(outdir / "overlay_boss.wav", overlay, n)
+    _write(outdir / "overlay_boss.wav", _fold_tail(overlay, n), n)
 
     # (sting is OWNED by bell_sting.py / tutti_bank now: the deep
     # on-key chapel bell behind a trimmed swell -- rebuilding the old

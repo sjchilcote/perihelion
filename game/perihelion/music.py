@@ -125,6 +125,12 @@ STING_RISE = 0.35            # a value jump this big in one bar = a wall
 FALL_STEP = 0.65             # per-bar multiplier on a falling lane gain
 #   (unified with the judged 0.65x glide -- the old 0.35x fall and the
 #   instant "pull" both read as someone hitting NEXT, F003993)
+MAX_LANES = 9        # fixed lane-channel span: two banks of lane
+#                      channels exist side by side during a rotation
+#                      crossfade (A at 4.., B at 4+MAX_LANES..)
+XFADE_BARS = 2       # rotation crossfade length (director: base-
+#                      melody switches must not hard cut)
+
 # lanes that carry combat material -- the ones a release fades out.
 # holy is NEVER here: PRAYER is the one continuous through-line and
 # only death stops it (director 2026-07-17).
@@ -470,6 +476,9 @@ class MusicSystem:
         # PEAK section at stalwart >= 0.88, back to vigil when becalmed
         self._form_idx = 0
         self._pending_jump = 0        # bars until a riser-led peak jump
+        self._lane_ch_base = 4        # flips each rotation (A/B sets)
+        self._old_lanes = None        # fading continuation of the
+        self._old_ttl = 0             # previous bank during crossfade
         self._jump_target = 0
         self._riser_fade = False
         # COMPLETE initial inputs: _select_content runs at startup
@@ -492,6 +501,14 @@ class MusicSystem:
         self._riser_ch = None
         self._riser_snd = None
         self._calm_bars = 0           # consecutive becalmed boundaries
+        self._quiet_ticks = 10 ** 6   # ticks since aggro was last seen
+        self._slam_now = False        # an ambush slam is in flight
+        self.slam_riser = True        # Gemini-ranked 2/2 (slam_rank):
+        #   the half-bar reversed-bell swell JUSTIFIES the instant
+        #   wall; a come-up ramp on the slam bar over-smooths it
+        self._ambush_window = 0       # ticks left where a spike counts
+        #                               as an AMBUSH (threat out of the
+        #                               dark), not a watched approach
         self._boss_hot = False        # latched at applied st>=0.75
         self._halted = False          # death: the music dies with him
         self._pending_sting = False
@@ -807,7 +824,8 @@ class MusicSystem:
             return
         chunks = self._slice_bank()
         lane_defs = self._lane_defs(chunks)
-        riser_ch_idx = 4 + len(lane_defs)
+        assert len(lane_defs) <= MAX_LANES, sorted(lane_defs)
+        riser_ch_idx = 4 + 2 * MAX_LANES   # room for BOTH lane sets
         if pygame.mixer.get_num_channels() < riser_ch_idx + 13:
             pygame.mixer.set_num_channels(riser_ch_idx + 13)
         # channels 0..riser are MUSIC/system territory: reserve
@@ -820,8 +838,9 @@ class MusicSystem:
         lane_defs = {k: v for k, v in lane_defs.items()
                      if v is not None}
         for i, (lname, variants) in enumerate(lane_defs.items()):
-            lane = ChunkLane(pygame.mixer.Channel(4 + i), variants,
-                             self.n_bars)
+            lane = ChunkLane(
+                pygame.mixer.Channel(self._lane_ch_base + i), variants,
+                self.n_bars)
             self._lanes[lname] = lane
         # riser: a reserved channel, TRIGGERED one-shot (the stem is a
         # reversed bell that swells into its own strike; it plays from
@@ -834,7 +853,7 @@ class MusicSystem:
         self._riser_snd = None
         if riser_fn.exists():
             self._riser_snd = pygame.mixer.Sound(str(riser_fn))
-            self._riser_ch = pygame.mixer.Channel(4 + len(lane_defs))
+            self._riser_ch = pygame.mixer.Channel(riser_ch_idx)
             self._riser_ch.set_volume(0.0)
         # first bar's content from current state, all started in one
         # tight pass (everything is pre-sliced by now)
@@ -1038,21 +1057,47 @@ class MusicSystem:
         self.inputs["kill_rate"] = round(self._ema_kill, 4)
         self.inputs["fire_duty"] = round(self._ema_fire, 4)
         raw = self.override_vals or values(self.inputs)
+        # AMBUSH tracking (director: the slam-cut is ONLY for a boss
+        # hurtling out of the dark -- never a normal fight the player
+        # can see coming). An ambush = aggro appearing after >=2s of
+        # true quiet; the window it opens lasts one bar.
+        if self.inputs["aggro"]:
+            if self._quiet_ticks >= int(2.0 * TICKS_PER_S):
+                self._ambush_window = int(self.bar_s * TICKS_PER_S)
+            self._quiet_ticks = 0
+        else:
+            self._quiet_ticks += 1
+        if self._ambush_window > 0:
+            self._ambush_window -= 1
         if self.override_vals:
             self.vals = raw                    # manual = direct control
             self._lp = raw
         else:
             a = (1.0 / TICKS_PER_S) / self.bar_s
             lp = [l + a * (r - l) for l, r in zip(self._lp, raw)]
-            # NONLINEAR FILTER (director's rule, task #34): a MASSIVE
-            # spike passes immediately -- a mass-aggro wave (the scream
-            # case) or a raw stalwart far above the filtered line snaps
-            # stalwart up and prayer down on the spot; ambiguous
-            # skirmishes still have to persist through the one-bar tau.
+            # NONLINEAR FILTER, ambush-gated (director 2026-07-17
+            # overnight): the slam only fires when the threat came OUT
+            # OF THE DARK -- sudden heavy contact after real quiet,
+            # landing on a calm mix. A watched approach (the player
+            # walking at a compound, waves joining an ongoing fight)
+            # builds through the one-bar tau like everything else.
+            heavy_co = any(h == 0 and DANGER_CO[k] >= 1.9
+                           for k, h in self.inputs["aggro"])
             if (raw[2] - self._lp[2] >= SPIKE_JUMP or
-                    self._ema_influx >= SPIKE_INFLUX):
+                    self._ema_influx >= SPIKE_INFLUX) and                     self._ambush_window > 0 and heavy_co and                     self._applied[2] <= 0.25:
                 lp[2] = max(lp[2], raw[2])
                 lp[0] = min(lp[0], raw[0])
+                self._slam_now = True
+                if getattr(self, "slam_riser", False):
+                    # half-bar micro-riser bridging detection to the
+                    # boundary where the wall lands (variant under
+                    # Gemini ranking; the stem is the reversed bell's
+                    # final half bar)
+                    self._tap("music_riser2", "0.70", 0.7)
+                    rc = self._riser_ch
+                    if rc is not None and                             getattr(self, "_riser_half_snd", None):
+                        rc.play(self._riser_half_snd)
+                        rc.set_volume(0.7 * self.bank.master_vol)
             self._lp = tuple(lp)
             self.vals = tuple(round(v, 3) for v in self._lp)
         # 10Hz value telemetry, raw AND filtered (offline overlays --
@@ -1269,6 +1314,25 @@ class MusicSystem:
         for lname, lane in self._lanes.items():
             if lane.tickfill(sel[lname]) and lname == "bed":
                 boundary = True
+        # rotation-crossfade continuation: the previous bank's lanes
+        # keep queueing their consecutive bars while their fade-out
+        # runs; when the window closes they stop and are dropped
+        if self._old_lanes:
+            self._old_ttl -= 1
+            for lane in self._old_lanes.values():
+                if lane.key not in (None, "silence"):
+                    lane.tickfill(lane.key)
+                if lane.fade_ticks > 0:
+                    lane.fade_ticks -= 1
+                    f = lane.fade_ticks / max(1, lane.fade_total)
+                    lane.ch.set_volume(max(0.0, lane.gain * master * f))
+            if self._old_ttl <= 0:
+                for lane in self._old_lanes.values():
+                    try:
+                        lane.ch.stop()
+                    except Exception:
+                        pass
+                self._old_lanes = None
         # per-tick farewell fade-outs and arrival fade-ins
         bar_ticks = max(1, int(self.bar_s * TICKS_PER_S))
         for lane in self._lanes.values():
@@ -1290,6 +1354,8 @@ class MusicSystem:
             self._boundary_tick = session.tick_count
             prev = self._applied
             self._applied = self.vals
+            slam_bar = self._slam_now
+            self._slam_now = False
             # (value-jump stings removed -- the riser one-shot owns
             # sudden rises and releases into its own sting)
             # BOSS RELEASE, reworked (director's ear over the judge,
@@ -1383,7 +1449,15 @@ class MusicSystem:
                     if g < lane.gain and lane.gain > 0.1:
                         g = max(g, lane.gain * 0.65)   # slow exhale on
                         #                                the way down
+                    big_rise = g >= lane.gain + 0.4 and not slam_bar
                     lane.set_gain(g, master)
+                    if big_rise:
+                        # HALF-BAR COME-UP (director): even the slam
+                        # gets a lead-up -- the wall lands within the
+                        # bar, but never as a zero-width cliff
+                        lane.fadein_ticks = bar_ticks // 2
+                        lane.fadein_total = bar_ticks // 2
+                        lane.ch.set_volume(0.0)
             # offline-reconstruction tap (mkvideo): the FULL per-bar
             # decision -- position + every lane's content and gain
             # ("~f" key suffix = this bar is a farewell fade-out)
@@ -1491,27 +1565,42 @@ class MusicSystem:
         lane_defs = {k: v for k, v in self._lane_defs(chunks).items()
                      if v is not None}
         master = self.bank.master_vol
+        # ROTATION CROSSFADE (director: base-melody switches must not
+        # hard cut): the OLD bank's lanes keep playing their
+        # consecutive continuation on their own channels for
+        # XFADE_BARS under a fade-out, while the NEW bank's lanes
+        # start on the other channel set fading in. The offline mixer
+        # synthesizes the identical overlap from the taps.
+        xfade_ticks = int(XFADE_BARS * self.bar_s * TICKS_PER_S)
+        for lane in self._lanes.values():
+            if lane.key not in (None, "silence") and lane.gain > 0.001:
+                lane.fade_ticks = xfade_ticks
+                lane.fade_total = xfade_ticks
+            else:
+                try:
+                    lane.ch.stop()
+                except Exception:
+                    pass
+        self._old_lanes = self._lanes
+        self._old_ttl = xfade_ticks
+        new_base = 4 + MAX_LANES if self._lane_ch_base == 4 else 4
+        self._lane_ch_base = new_base
+        self._lanes = {}
+        sel = self._select_content()   # note: sel from OLD lane set is
+        #   rebuilt below once lanes exist (variants differ per bank)
+        for i, (lname, variants) in enumerate(lane_defs.items()):
+            lane = ChunkLane(pygame.mixer.Channel(new_base + i),
+                             variants, n_bars)
+            self._lanes[lname] = lane
         sel = self._select_content()
         gains = self._bar_gains()
         for lname, lane in self._lanes.items():
-            defs = lane_defs.get(lname)   # a lane the NEW bank lacks
-            if defs is None:
-                lane.ch.stop()       # the new bank has no such lane:
-                lane.key = None      # silence it, don't let it keep
-                lane.gain = 0.0      # playing the OLD bank's stems
-                continue
-            lane.variants = defs
-            lane.n = n_bars
             lane.gain = gains[lname]
-            lane.ch.stop()
-            if lname not in ("holy", "bed"):
-                # holy/bed enter the new bank at full gain on the bar
-                # line -- a musical handoff, not a dip: the chant is
-                # the through-line and the rotation only ever fires at
-                # ~100% PRAYER, when it IS the mix
-                lane.fadein_ticks = int(self.bar_s * TICKS_PER_S)
-                lane.fadein_total = lane.fadein_ticks
+            lane.fadein_ticks = xfade_ticks   # ALL lanes fade in --
+            lane.fadein_total = xfade_ticks   # the old through-line is
+            #                                   still sounding beneath
             lane.start(sel[lname], master)
+            lane.ch.set_volume(0.0)           # ramp owns the volume
         try:
             sting_f = next((dir_ / f"sting.{ext}"
                             for ext in ("wav", "ogg")
@@ -1591,6 +1680,13 @@ class MusicSystem:
             except Exception:
                 pass
         self._lanes.clear()
+        if self._old_lanes:
+            for lane in self._old_lanes.values():
+                try:
+                    lane.ch.stop()
+                except Exception:
+                    pass
+            self._old_lanes = None
         if self._sting is not None or self._stab is not None:
             # silence in-flight sting/stab one-shots too (channels 2/3)
             try:

@@ -29,6 +29,8 @@ import numpy as np
 
 SFX_DIR = Path(__file__).resolve().parents[2] / "game" / "assets" / "sfx"
 RATE = 44100
+COMEUP_DELTA = 0.4   # gain rise per bar that triggers the half-bar
+#                      come-up ramp (slam lead-up law)
 
 
 def _load_wav(name: str, cache: dict) -> np.ndarray | None:
@@ -115,6 +117,7 @@ def _mix_music_rich(out_mix, events, duration_s) -> bool:
     jump_ts = [e["t"] for e in events if e["kind"] == "music_jump"
                and not str(e["name"]).endswith("~s")]
     halt_ts = [e["t"] for e in events if e["kind"] == "music_halt"]
+    riser2_ts = [e["t"] for e in events if e["kind"] == "music_riser2"]
     if not bar_evs or not bank_evs:
         return False
     # music renders into its own buffer so a death halt can cut it
@@ -155,6 +158,55 @@ def _mix_music_rich(out_mix, events, duration_s) -> bool:
         return stems[key]
 
     n_total = len(mix)
+    XFADE_BARS = 2.0
+    # ROTATION CROSSFADE (director: base-melody switches must not hard
+    # cut): at each bank handoff, the OLD bank's lanes keep playing
+    # their consecutive continuation for 2 bars under a fade-out,
+    # while the new bank's bars fade in over the same window. The
+    # continuation is deterministic (each lane's next bars, same key,
+    # held gain), so it is synthesized here from the last bar tap
+    # before the switch -- no new tap kinds, and old recordings gain
+    # the crossfade on re-render.
+    xfade_in_until = -1.0
+    xfade_in_t0 = 0.0
+
+    def _old_bank_tail(prev_ev, bk_old, t_switch):
+        if prev_ev is None or bk_old is None:
+            return
+        bar_n_o = int(bk_old["bar_s"] * RATE)
+        parts_o = prev_ev["detail"].split("|")
+        base_idx = int(parts_o[0]) % bk_old["bars"]
+        fade_n = int(XFADE_BARS * bk_old["bar_s"] * RATE)
+        for lane in parts_o[1:]:
+            ln, key, gain = lane.rsplit(":", 2)[0], \
+                lane.rsplit(":", 2)[1], float(lane.rsplit(":", 2)[2])
+            if gain <= 0.001:
+                continue
+            if key.endswith("~f"):
+                key = key[:-2]
+            lane_idx = base_idx
+            if "@" in key:
+                key, _, kidx = key.partition("@")
+                lane_idx = int(kidx) % bk_old["bars"]
+            snd = stem(bk_old, key)
+            if snd is None:
+                continue
+            s0 = int(t_switch * RATE)
+            for kbar in range(int(XFADE_BARS)):
+                a = ((lane_idx + 1 + kbar) % bk_old["bars"]) * bar_n_o
+                seg = snd[a:a + bar_n_o]
+                nn = min(len(seg), n_total - s0)
+                if nn <= 0:
+                    break
+                off = s0 - int(t_switch * RATE)
+                env = 1.0 - (off + np.arange(nn, dtype=np.float32)) \
+                    / max(1, fade_n)
+                env = np.clip(env, 0.0, 1.0)
+                g = min(1.0, gain) * 0.8
+                mix[s0:s0 + nn, 0] += seg[:nn, 0] * g * env
+                mix[s0:s0 + nn, 1] += seg[:nn, 1] * g * env
+                s0 += nn
+
     # bar 0 plays from t=0 with the first tap's lane set (the engine
     # starts lanes before the first boundary tap fires)
     first = bar_evs[0]
@@ -164,6 +216,8 @@ def _mix_music_rich(out_mix, events, duration_s) -> bool:
         [dict(t=e["t"], detail=e["name"], bar0=False) for e in bar_evs]
     prev_idx = None
     prev_bank = None
+    prev_ev = None
+    prev_gains: dict = {}
     for ev in seq:
         bk = bank_at(ev["t"])
         if bk is None:
@@ -173,17 +227,24 @@ def _mix_music_rich(out_mix, events, duration_s) -> bool:
         bar_idx = int(parts[0]) % bk["bars"]
         if ev["bar0"]:
             bar_idx = (int(parts[0]) - 1) % bk["bars"]
-        # arrival fade-in: only TRUE jumps (music_jump taps) and bank
-        # rotations ramp -- composed loop points land clean
-        ramp_in = (prev_bank is not None and bk is not prev_bank) or \
-            any(abs(ev["t"] - jt) < 0.5 for jt in jump_ts)
+        if prev_bank is not None and bk is not prev_bank:
+            _old_bank_tail(prev_ev, prev_bank, ev["t"])
+            xfade_in_t0 = ev["t"]
+            xfade_in_until = ev["t"] + XFADE_BARS * bk["bar_s"]
+        # arrival fade-in: TRUE jumps ramp (composed loop points land
+        # clean); bank handoffs use the global crossfade window below
+        ramp_in = any(abs(ev["t"] - jt) < 0.5 for jt in jump_ts)
+        in_xfade = ev["t"] < xfade_in_until - 1e-3
         prev_idx, prev_bank = bar_idx, bk
+        prev_ev = ev
         s0 = int(ev["t"] * RATE)
         if s0 >= n_total:
             break
+        new_gains = {}
         for lane in parts[1:]:
             ln, key, gain = lane.rsplit(":", 2)[0], \
                 lane.rsplit(":", 2)[1], float(lane.rsplit(":", 2)[2])
+            new_gains[ln] = gain
             if gain <= 0.001:
                 continue
             fade = key.endswith("~f")     # farewell bar: ramp to zero
@@ -205,8 +266,28 @@ def _mix_music_rich(out_mix, events, duration_s) -> bool:
             seg = snd[a:b]
             n = min(len(seg), n_total - s0)
             g = min(1.0, gain) * 0.8
+            prev_g = prev_gains.get(ln, 0.0)
+            slam_bar = any(0 <= ev["t"] - rt <= bk["bar_s"] + 0.1
+                           for rt in riser2_ts)
             if fade:
                 env = np.linspace(1.0, 0.0, n, dtype=np.float32)
+            elif not ev["bar0"] and gain >= prev_g + COMEUP_DELTA \
+                    and not slam_bar:
+                # half-bar come-up on big rises (incl. ambush slams):
+                # ramp from the previous level, then flat
+                half = max(1, n // 2)
+                env = np.concatenate([
+                    np.linspace(min(1.0, prev_g / max(gain, 1e-6)),
+                                1.0, half, dtype=np.float32),
+                    np.ones(n - half, dtype=np.float32)])
+            elif in_xfade:
+                # bank handoff: ALL lanes (incl. holy/bed -- the OLD
+                # bank's through-line is still sounding underneath)
+                # ride one continuous 0->1 ramp across the 2-bar window
+                xn = max(1, int((xfade_in_until - xfade_in_t0) * RATE))
+                a0 = (ev["t"] - xfade_in_t0) * RATE
+                env = np.clip((a0 + np.arange(n, dtype=np.float32))
+                              / xn, 0.0, 1.0)
             elif ramp_in and ln not in ("holy", "bed", "monk"):
                 # the through-line lanes never dip for an arrival
                 env = np.linspace(0.0, 1.0, n, dtype=np.float32)
@@ -218,6 +299,7 @@ def _mix_music_rich(out_mix, events, duration_s) -> bool:
             else:
                 mix[s0:s0 + n, 0] += seg[:n, 0] * g
                 mix[s0:s0 + n, 1] += seg[:n, 1] * g
+        prev_gains = new_gains
     # riser: ONE-SHOT placed at each envelope onset (the stem is a
     # self-enveloped reversed bell that swells into its own strike;
     # the engine triggers it from the top per sudden-rise event --
@@ -253,6 +335,14 @@ def _mix_music_rich(out_mix, events, duration_s) -> bool:
             ssnd = stem(bk, "stab") if bk else None
             if ssnd is not None:
                 _place(mix, ssnd.mean(axis=1), e["t"], 0.7, 0.7)
+    for e in events:
+        if e["kind"] == "music_riser2":
+            bk = bank_at(e["t"])
+            rsnd = stem(bk, "riser_half") if bk else None
+            s0 = int(e["t"] * RATE)
+            if rsnd is not None and s0 < n_total:
+                seg = rsnd[:n_total - s0]
+                mix[s0:s0 + len(seg)] += seg * (float(e["name"]) * 0.85)
     # death halts (music_halt): the music stops DEAD -- zero everything
     # from the halt until the engine's next restart bar (if any)
     for ht in halt_ts:

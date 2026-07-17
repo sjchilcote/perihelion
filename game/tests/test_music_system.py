@@ -180,16 +180,35 @@ def test_application_only_at_bar_boundaries():
     assert ms.vals[2] > 0.10                 # sustained fight registered
 
 
-def test_massive_spike_passes_immediately():
-    # the NONLINEAR filter (director's rule, task #34): a heavy wave
-    # appearing at once snaps stalwart through the low-pass on the spot
-    ms = MusicSystem(audio_bank=SimpleNamespace(_ready=False, master_vol=1.0, tap=None),
-                     enabled=True)
-    ms.update(make_session({}, {}, tick=1))
+def test_slam_is_ambush_only():
+    # director overnight goal: the slam-cut is ONLY for a threat
+    # hurtling out of the dark. From real quiet, sudden heavy co-room
+    # contact snaps the filter; the SAME wave arriving while a fight
+    # is already live builds through the one-bar tau instead.
     heavy = {1: awake("brute"), 2: awake("brute"), 3: awake("warden")}
     rooms = {1: 0, 2: 0, 3: 0}
-    ms.update(make_session(heavy, rooms, tick=2))
-    assert ms.vals[2] > 0.5, "a massive spike must pass immediately"
+    # ambush: 3s of true quiet, then the wave -> snap
+    ms = MusicSystem(audio_bank=SimpleNamespace(
+        _ready=False, master_vol=1.0, tap=None), enabled=True)
+    _sustain(ms, lambda k: make_session({}, {}, tick=1 + k),
+             int(3 * TICKS_PER_S))
+    t0 = int(3 * TICKS_PER_S) + 1
+    ms.update(make_session(heavy, rooms, tick=t0))
+    assert ms.vals[2] > 0.5, "an ambush must slam immediately"
+    # watched approach: a small fight is already live, the wave joins
+    # -> NO slam, the rise goes through the low-pass
+    ms2 = MusicSystem(audio_bank=SimpleNamespace(
+        _ready=False, master_vol=1.0, tap=None), enabled=True)
+    small = {9: awake("husk")}
+    rooms2 = {9: 0, 1: 0, 2: 0, 3: 0}
+    _sustain(ms2, lambda k: make_session(small, rooms2, tick=1 + k),
+             int(3 * TICKS_PER_S))
+    both = dict(heavy)
+    both[9] = awake("husk")
+    ms2.update(make_session(both, rooms2,
+                            tick=int(3 * TICKS_PER_S) + 1))
+    assert ms2.vals[2] < 0.4, \
+        "a watched wave must build, never slam"
 
 
 def test_no_reactive_stings_or_risers():

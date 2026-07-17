@@ -115,16 +115,30 @@ def build_riser(rec) -> np.ndarray:
     return rev / (np.abs(rev).max() + 1e-9) * 0.9
 
 
+def build_riser_half(rec) -> np.ndarray:
+    """Half-bar micro-riser for AMBUSH slams (director overnight goal:
+    even the panic slam gets 'maybe half a bar of come up and/or a
+    half-bar riser'): the reversed bell's final half bar -- pure
+    swell into strike."""
+    full = build_riser(rec)
+    half = full[-int(0.5 * BAR * SR):].copy()
+    fade = int(0.03 * SR)
+    half[:fade] *= np.linspace(0.0, 1.0, fade)
+    return half
+
+
 def render():
     for mel in T.RECIPES:
         rec = T.RECIPES[mel]
         rng = np.random.default_rng(rec["seeds"][0])
         stg = build_sting(rec, rng, "swell")
         rsr = build_riser(rec)
+        rh = build_riser_half(rec)
         d = BANKS / f"album_{mel}"
         if (d / "bank.json").exists():
             _write(d / "sting.wav", stg, len(stg))
             _write(d / "riser.wav", rsr, len(rsr))
+            _write(d / "riser_half.wav", rh, len(rh))
         print(f"[{mel}] deep-bell sting + reversed-bell riser written")
         # (shipping to game/assets is ship_banks.py's job -- one path)
 

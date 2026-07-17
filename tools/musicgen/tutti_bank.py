@@ -38,6 +38,20 @@ import vital_bank as VB             # noqa: E402
 from tutti import BAR, SR, STEP     # noqa: E402
 
 
+def _dc_kill(x):
+    """10Hz highpass at the write chokepoint: DC rides in from some
+    patches (lhomme overlay pedal measured 0.065 mean, per-bar up to
+    0.11) and every bar-boundary gain step on a DC pedestal is an
+    audible click -- 'pops on every clip transition'. 10Hz leaves
+    40Hz sub-bass untouched."""
+    from scipy.signal import butter, sosfilt
+    sos = butter(2, 10.0, btype="highpass", fs=SR, output="sos")
+    if x.ndim == 2:
+        return np.stack([sosfilt(sos, x[:, 0]),
+                         sosfilt(sos, x[:, 1])], axis=1)
+    return sosfilt(sos, x)
+
+
 def _fold_tail(x, trim_n):
     """FL-style loopable render (director 2026-07-16): the render runs
     past the form end to catch the instruments' sustain; that extra
@@ -58,7 +72,26 @@ def _fold_tail(x, trim_n):
         tail[-fade:] *= env[:, None]
     else:
         tail[-fade:] *= env
-    x[:bar_n] = x[:bar_n] + tail
+    # RELEASE-LEVEL CAP (director: chunk0 came out 'way louder than
+    # the rest' -- pad voices release at near-sustain level, so the
+    # raw sum can double the head's energy). The folded bar may sit
+    # at most ~+1dB over the stem's median bar; the added tail is
+    # scaled to fit (decorrelated-power estimate, then verified).
+    n_bar2 = bar_n
+    def _rms(seg):
+        return float(np.sqrt((seg ** 2).mean() + 1e-12))
+    body = x[:n_bar2]
+    bars = max(1, trim_n // n_bar2)
+    med = float(np.median([_rms(x[i * n_bar2:(i + 1) * n_bar2])
+                           for i in range(bars)]))
+    cap = med * 1.12
+    b, t = _rms(body), _rms(tail)
+    k = 1.0
+    if t > 1e-6 and (b ** 2 + t ** 2) ** 0.5 > cap:
+        k = max(0.0, (max(0.0, cap ** 2 - b ** 2)) ** 0.5 / t)
+    x[:n_bar2] = body + tail * k
+    if _rms(x[:n_bar2]) > cap * 1.15 and k > 0:   # verify, correct once
+        x[:n_bar2] = body + tail * (k * 0.6)
     return x
 
 
@@ -66,7 +99,11 @@ def _write(path, x, trim_n):
     import soundfile as sf
     if x.ndim == 1:
         x = np.stack([x, x], axis=1)
-    x = _fold_tail(x, trim_n)
+    x = _dc_kill(x)
+    dc = np.abs(x[:trim_n].mean(axis=0)).max()
+    if dc > 0.003:
+        raise ValueError(f"{path.name}: residual DC {dc:.4f} after "
+                         f"highpass -- pops on every gain step")
     x = x[:trim_n]
     pk = np.abs(x).max()
     if pk > 1.0:
@@ -231,9 +268,11 @@ def build(mel: str, outdir: Path):
     for _stype, sbars, _prog in rec["form"]:
         landing.append(pos)
         pos += sbars
-    prayer = _fill_monk_gaps(lanes["holy"] + lanes["spine"] * 0.3,
-                             ctx["monk_far"], total_bars, mel,
-                             landing_bars=landing)
+    # fold FIRST, then gap/landing analysis on the folded audio --
+    # stacking the landing fill under the fold double-filled bar 0
+    prayer_full = _fold_tail(lanes["holy"] + lanes["spine"] * 0.3, n)
+    prayer = _fill_monk_gaps(prayer_full, ctx["monk_far"], total_bars,
+                             mel, landing_bars=landing)
     _assert_no_silent_bars(prayer[:n], total_bars, f"{mel}/prayer")
     _write(outdir / "prayer.wav", prayer, n)
 
@@ -264,7 +303,8 @@ def build(mel: str, outdir: Path):
     T.place(R_, wr * 0.7, 0)
     T.place(L_, wb * 0.6, 0)
     T.place(R_, wb * 0.6, 0)
-    _write(outdir / "stalwart.wav", np.stack([L_, R_], axis=1), n)
+    _write(outdir / "stalwart.wav",
+           _fold_tail(np.stack([L_, R_], axis=1), n), n)
 
     r3 = riffs.riff_16(events, n_bars=total_bars,
                        accents=T._ACC[rec["accents"][1]],
@@ -279,12 +319,13 @@ def build(mel: str, outdir: Path):
     C_ = np.zeros(n + int(BAR * SR))
     T.place(C_, fm * 0.6, 0)
     T.place(C_, fx * 0.3, 0)
-    _write(outdir / "contempt.wav", C_, n)
+    _write(outdir / "contempt.wav", _fold_tail(C_, n), n)
     # drums are their OWN lane: any combat tier gets the kit (the v1
     # drums-in-stalwart seam left contempt fights drum-less)
-    _write(outdir / "drums.wav", lanes["drums"], n)
+    _write(outdir / "drums.wav", _fold_tail(lanes["drums"].copy(), n), n)
+    spine_folded = _fold_tail(lanes["spine"].copy(), n)
     for tier in range(1, 5):
-        _write(outdir / f"bed_t{tier}.wav", lanes["spine"], n)
+        _write(outdir / f"bed_t{tier}.wav", spine_folded, n)
 
     # sting + riser come from THE bell (bell_sting.py is the single
     # source: deep on-key chapel bell; the riser is the same bell
@@ -319,7 +360,7 @@ def build(mel: str, outdir: Path):
             continue
         x = VB.render_seq(*sel, lseq, total_bars * BAR, 2.5)
         x = x / (np.abs(x).max() + 1e-9)
-        _write(outdir / f"{w}.wav", x * 0.8, n)
+        _write(outdir / f"{w}.wav", _fold_tail(x * 0.8, n), n)
 
     # enemy cells on the recipe's fm voice, over the form's own roots
     roots = []
@@ -334,7 +375,7 @@ def build(mel: str, outdir: Path):
         x = _render_bass_in_band(rec["fm"], seq, total_bars * BAR,
                                  2.5, f"{mel}/bass_{kind}")
         x = x / (np.abs(x).max() + 1e-9)
-        _write(outdir / f"bass_{kind}.wav", x * 0.8, n)
+        _write(outdir / f"bass_{kind}.wav", _fold_tail(x * 0.8, n), n)
 
     secs, pos = [], 0
     for stype, bars, _p in rec["form"]:
