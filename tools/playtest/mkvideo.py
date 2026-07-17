@@ -301,6 +301,16 @@ def _mix_music_rich(out_mix, events, duration_s) -> bool:
                         ca = min(ci * bar_n, len(cont) - 1)
                         cseg = cont[ca:ca + bar_n]
                         cn = min(len(cseg), n_total - s0)
+                        crms = float(np.sqrt((cseg[:cn] ** 2).mean()
+                                             + 1e-12))
+                        if crms < 1e-3:
+                            # the phrase he was singing has nothing
+                            # left to say (jump FROM a pre-entrance
+                            # bar): no tail, and no come-in either --
+                            # a 0-start crossfade against a silent
+                            # tail IS the dip-then-lurch (387s cycle)
+                            cont = None
+                    if cont is not None:
                         # half-bar exit: a full fading bar of the old
                         # phrase read as "doubled voice overlap" in
                         # the first A/B round -- the crossfade window

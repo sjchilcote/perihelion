@@ -140,8 +140,11 @@ def _assert_no_silent_bars(x, total_bars, name, floor_db=-15.0):
 
 
 
+_LAST_FILLS_TRACK = None
+
+
 def _fill_monk_gaps(prayer, monk_far, total_bars, mel,
-                    landing_bars=()):
+                    landing_bars=(), voice=None, monk_near=None):
     """The composed holy lane is kept verbatim ('the monk voice you
     had was perfect'); two kinds of hole get the DISTANT monk drifting
     in -- from his phrase start, faded, never a mid-phrase splice:
@@ -151,13 +154,30 @@ def _fill_monk_gaps(prayer, monk_far, total_bars, mel,
       every session start), so a breath there is a pothole -- the
       52.35s cut-to-nothing was the becalmed return landing on
       prayer[0] at -37dBFS.
+
+    DETECTION RUNS ON THE VOICE, NOT THE COMPOSITE (2026-07-17, the
+    night's hardest-won lesson): prayer = voice + spine*0.3, and the
+    spine underlay kept every bar's RMS healthy while the VOICE sat
+    in composed multi-bar rests -- the full-mix probe heard "cut-out
+    -> gone 5-10s -> slam-in" at the SAME form positions across two
+    different runs while every composite-RMS check said "present."
+    Pass the bare holy lane as `voice`; fills are still summed into
+    the composite.
     """
     n_bar = int(BAR * SR)
     out = prayer.copy()
-    rms = np.array([np.sqrt((out[i * n_bar:(i + 1) * n_bar] ** 2).mean()
+    det = voice if voice is not None else out
+    rms = np.array([np.sqrt((det[i * n_bar:(i + 1) * n_bar] ** 2).mean()
                             + 1e-12) for i in range(total_bars)])
-    med = float(np.median(rms))
+    # median over SOUNDING bars only: with sparse phrase placement
+    # the rests would drag a global median down and hide themselves
+    snd_bars = rms[rms > 1e-4]
+    med = float(np.median(snd_bars)) if len(snd_bars) else 1e-4
     db = 20 * np.log10(rms / med)
+    if voice is not None:
+        print("  voice map (dB rel sounding median): " +
+              " ".join(f"{i}:{v:.0f}" for i, v in enumerate(db)),
+              flush=True)
     # -15 rel median is the CODIFIED floor (same as the build crash
     # alarm). A -11 experiment filled media_vita's composed pianissimo
     # bars 4-5 and LOST the labeled A/B at that spot three rounds
@@ -167,6 +187,7 @@ def _fill_monk_gaps(prayer, monk_far, total_bars, mel,
     QUIET_DB = -15.0
     quiet = db < QUIET_DB
     fills = 0
+    fills_track = np.zeros_like(out)
     for lb in landing_bars:
         if lb < total_bars and db[lb] < -12.0:
             t0 = lb * n_bar
@@ -176,10 +197,14 @@ def _fill_monk_gaps(prayer, monk_far, total_bars, mel,
             seg[-fade:] *= np.linspace(1.0, 0.0, fade)
             end = min(len(out), t0 + len(seg))
             out[t0:end] += seg[:end - t0] * 0.4
+            fills_track[t0:end] += seg[:end - t0] * 0.4
             fills += 1
-    # recompute after landing fills so gap detection sees them
-    rms = np.array([np.sqrt((out[i * n_bar:(i + 1) * n_bar] ** 2).mean()
-                            + 1e-12) for i in range(total_bars)])
+    # recompute after landing fills so gap detection sees them --
+    # fills count as voice (they ARE the distant monk)
+    det2 = (det + fills_track) if voice is not None else out
+    rms = np.array([np.sqrt((det2[i * n_bar:(i + 1) * n_bar] ** 2)
+                            .mean() + 1e-12)
+                    for i in range(total_bars)])
     quiet = 20 * np.log10(rms / med) < QUIET_DB
     i = 0
     while i < total_bars - 1:
@@ -188,7 +213,29 @@ def _fill_monk_gaps(prayer, monk_far, total_bars, mel,
             while j < total_bars and quiet[j]:
                 j += 1
             t0 = i * n_bar
-            seg = monk_far[: (j - i) * n_bar + n_bar // 2].copy()
+            # the CLOSE monk, not the distant one: a hall-washed dark
+            # voice at 0.5 disappears under the battle wall (probe
+            # heard "completely absent" straight through the first
+            # distant-monk fills) -- the composed sung bars use the
+            # close voice and stay audible in the same mix
+            src = monk_near if monk_near is not None else monk_far
+            need = (j - i) * n_bar + n_bar // 2
+            # slice from the render's most CONTINUOUSLY-SUNG stretch,
+            # not from its head: taken from bar 0, the chant's own
+            # internal phrase rests landed exactly on the hole being
+            # patched (idumea bars 5-6 got the melody's rest bars --
+            # the probe heard the "fill" and it was silence)
+            sb = max(1, len(src) // n_bar - (need // n_bar + 1))
+            bar_rms = [np.sqrt((src[k * n_bar:(k + 1) * n_bar] ** 2)
+                               .mean() + 1e-12)
+                       for k in range(len(src) // n_bar)]
+            best, best_score = 0, -1.0
+            for st in range(sb):
+                w = bar_rms[st:st + need // n_bar + 1]
+                sc = min(w) if w else 0.0
+                if sc > best_score:
+                    best, best_score = st, sc
+            seg = src[best * n_bar: best * n_bar + need].copy()
             fade = int(0.5 * SR)
             seg[:fade] *= np.linspace(0.0, 1.0, fade)
             # exit over a FULL BAR: the 0.5s exit chopped monk_far
@@ -198,13 +245,22 @@ def _fill_monk_gaps(prayer, monk_far, total_bars, mel,
             xfade = min(len(seg), n_bar)
             seg[-xfade:] *= np.linspace(1.0, 0.0, xfade)
             end = min(len(out), t0 + len(seg))
-            out[t0:end] += seg[:end - t0] * 0.35
+            # 0.5, not 0.35: these are VOICE-REST bridges that must
+            # stay audible under a combat mix, not calm-landing dabs
+            # 1.0: measured -17.5dBFS at 0.6 vs sung bars -14 --
+            # ~6dB under what survives a heavy develop mix (the probe
+            # called healthy-gain fill bars "completely absent");
+            # _write's peak guard owns clipping safety
+            out[t0:end] += seg[:end - t0] * 1.0
+            fills_track[t0:end] += seg[:end - t0] * 1.0
             fills += 1
             i = j
         else:
             i += 1
     if fills:
         print(f"  prayer: filled {fills} silent stretch(es)", flush=True)
+    global _LAST_FILLS_TRACK
+    _LAST_FILLS_TRACK = fills_track
     return out
 
 
@@ -299,8 +355,27 @@ def build(mel: str, outdir: Path):
         tail[-fade:] *= env[:, None] if tail.ndim == 2 else env
         _write(outdir / "prayer_tail.wav", tail, bar_n)
     prayer = _fill_monk_gaps(prayer_raw, ctx["monk_far"], total_bars,
-                             mel, landing_bars=landing)
+                             mel, landing_bars=landing,
+                             voice=lanes["monksig"],
+                             monk_near=ctx["monk"])
     _assert_no_silent_bars(prayer[:n], total_bars, f"{mel}/prayer")
+    # FAIL FAST on chant coverage: after fills, no bar-pair may lack
+    # an audible CLOSE-monk presence (monksig + the fills). This is
+    # the alarm that was missing the whole night of 2026-07-17 --
+    # every audio-level proxy said "present" while listeners heard
+    # the chant vanish for 5-10s stretches.
+    cov = lanes["monksig"][:n] + _LAST_FILLS_TRACK[:n]
+    bar_n2 = int(BAR * SR)
+    cr = np.array([np.sqrt((cov[i * bar_n2:(i + 1) * bar_n2] ** 2)
+                           .mean() + 1e-12) for i in range(total_bars)])
+    cs = cr[cr > 1e-4]
+    cmed = float(np.median(cs)) if len(cs) else 1e-4
+    cdb = 20 * np.log10(cr / cmed)
+    holes = [i for i in range(total_bars - 1)
+             if cdb[i] < -15.0 and cdb[i + 1] < -15.0]
+    if holes:
+        raise ValueError(f"{mel}: chant coverage holes at bar pairs "
+                         f"{holes} -- the fills did not close them")
     _write(outdir / "prayer.wav", prayer, n)
 
     # stalwart/contempt: FORM-WIDE renders. The album lanes are
@@ -425,6 +500,16 @@ def build(mel: str, outdir: Path):
         dict(melody=mel, title=rec["title"], bpm=T.BPM, bars=total_bars,
              sections=secs)))
     print("bank complete", flush=True)
+    # AUTO-SHIP: out/banks and game/assets/music are two copies of the
+    # same truth, and the night of 2026-07-17 proved the failure mode:
+    # every render after midnight mixed from a stale shipped copy while
+    # the rebuilt wavs sat unheard in out/banks -- the director listened
+    # to a "fixed" video containing none of the fixes. A build that does
+    # not ship is a build that never happened; the divergence window is
+    # now structurally zero. (ship_banks is mtime-incremental: only the
+    # stems this build changed get re-encoded.)
+    import ship_banks
+    ship_banks.main()
 
 
 if __name__ == "__main__":

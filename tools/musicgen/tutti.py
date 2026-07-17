@@ -193,6 +193,21 @@ def lp(ctx, lane, buf, x, t_s, g=1.0):
         place(lanes[lane], x, t_s, g)
 
 
+def monksig(ctx, x, t_s, g=1.0):
+    """Ground-truth marker: mirrors a CLOSE monk placement into the
+    detection-only 'monksig' lane. Adds NOTHING to the audible mix --
+    the gap-fill law reads this lane to know where the chant is
+    actually CARRYING; every audio-derived detector failed (spine
+    underlay, choir pads and hall tails all keep bar-RMS healthy
+    through his composed rests). monk_far placements deliberately do
+    NOT count: a sidechain-ducked distant wash under full drums reads
+    as texture, not the chant (media_vita's develop "coverage" was
+    exactly that, and the full-mix probe heard 10s of absence)."""
+    lanes = ctx.get("lanes")
+    if lanes is not None:
+        place(lanes["monksig"], x, t_s, g)
+
+
 def drum_bus(d):
     import synth as sy
     par = np.tanh(d * 4.0)
@@ -384,6 +399,7 @@ def _monk_enter(ctx, t0, gain=0.5, ramp_s=6.0):
     monk = ctx["monk"]
     ramp = np.minimum(1, np.arange(len(monk)) / (ramp_s * SR)) ** 1.5
     lp(ctx, "holy", ctx["C"], monk * ramp * gain, t0 + BAR)
+    monksig(ctx, monk * ramp * gain, t0 + BAR)
     ctx["monk_used"] = True
 
 
@@ -599,7 +615,7 @@ _BAND = {"entry", "develop", "peak", "rebuild"}
 # ---------------------------------------------------------------------------
 
 LANE_NAMES = ("holy", "drums", "wall_L", "wall_R", "bass",
-              "fm", "lead", "flour", "tells", "spine")
+              "fm", "lead", "flour", "tells", "spine", "monksig")
 
 
 def compose(mel_name: str, collect_lanes: bool = False):

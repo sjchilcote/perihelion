@@ -814,6 +814,7 @@ class MusicSystem:
 
     @staticmethod
     def _load_holy_tail(bank_dir):
+        import pygame
         fn = next((bank_dir / f"prayer_tail.{e}" for e in ("wav", "ogg")
                    if (bank_dir / f"prayer_tail.{e}").exists()), None)
         return pygame.mixer.Sound(str(fn)) if fn is not None else None
@@ -980,9 +981,26 @@ class MusicSystem:
             # the boss tier: nothing below 0.75, full voice by 0.95;
             # the normal rise law shapes the arrival, and after the
             # kill it resolves seamlessly into full prayer.
+            # THE MONK IS NEVER BURIED (director, confirmed by the
+            # 2026-07-17 full-mix Gemini probe of debug12: seven
+            # cut-out -> gone 5-10s -> slam-in cycles, five of them
+            # at healthy gain -- MASKING, not absence: p**0.5 gave
+            # 0.35-0.6 while wall/drums rode ~1.0, 6-9dB under the
+            # band). Combat now CARRIES him as counterpoint -- the
+            # war-chant principle generalized down the danger scale:
+            #   calm      -> p**0.5           (full prayer)
+            #   fight     -> 0.7*combat**0.5  (present, under the
+            #                                  0.85 'equal voice')
+            #   peak d    -> 0.85 war chant   (full force)
+            # war-chant term ramps from d=0.60, not 0.75: crossing a
+            # 0.75 threshold downward mid-fight was a CLIFF (holy
+            # target 0.85 -> 0.65 while the band still roared -- the
+            # probe heard him "abruptly disappear mid-phrase" at the
+            # d-crossing, every time a boss tier cooled one notch)
             "holy": max(p ** 0.5,
-                        0.85 * min(1.0, (d - 0.75) / 0.20)
-                        if d > 0.75 else 0.0),   # 0.85 ceiling:
+                        0.7 * combat ** 0.5,
+                        0.85 * min(1.0, (d - 0.60) / 0.35)
+                        if d > 0.60 else 0.0),   # 0.85 ceiling:
             #   ranked 2/2 'a defiant and EQUAL voice' -- 1.0 rode
             #   over and masked the riff (director: 'emphasize the
             #   sassy, defiant counterpoint', not ride over)
@@ -1005,13 +1023,29 @@ class MusicSystem:
                 tgt = max(tgt, floor)
             cur = self._live.get(name, 0.0)
             if tgt > cur:
-                cur = min(tgt, cur + max_rise)
+                # an ESTABLISHED voice returns as a SWELL, never a
+                # lurch: holy above 0.3 rises at most 0.12/bar even
+                # when a spike walls the band in (the full-mix
+                # probe's third act -- "suddenly jolts back in at
+                # full volume" -- was the generic 0.35 rise landing
+                # on an exposed post-fight mix). Entrances from
+                # silence keep the generic rise: a session start or
+                # re-entry is an attack, not a lurch.
+                rise = 0.12 if name == "holy" and cur > 0.3 \
+                    else max_rise
+                cur = min(tgt, cur + rise)
             else:
                 # falls ALWAYS glide (0.65x/bar exhale). The old
                 # instant "pull" on hard drops was the NEXT-button
                 # sound (F003993) -- rises get walls, falls breathe.
-                cur = tgt if cur * FALL_STEP < 0.02 else \
-                    max(tgt, cur * FALL_STEP)
+                # The VOICE breathes slower still: -0.08/bar max (a
+                # diminuendo, never a vanish -- 0.65x/bar sank him
+                # under a still-roaring band in two bars).
+                if name == "holy" and cur > 0.3:
+                    cur = max(tgt, cur - 0.08)
+                else:
+                    cur = tgt if cur * FALL_STEP < 0.02 else \
+                        max(tgt, cur * FALL_STEP)
             out[name] = min(cur, 1.0)
         self._live = out
         # (riser no longer rides builds -- it is a one-shot envelope
