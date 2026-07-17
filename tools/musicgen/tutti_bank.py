@@ -320,9 +320,18 @@ def build(mel: str, outdir: Path):
     T.place(C_, fm * 0.6, 0)
     T.place(C_, fx * 0.3, 0)
     _write(outdir / "contempt.wav", _fold_tail(C_, n), n)
-    # drums are their OWN lane: any combat tier gets the kit (the v1
-    # drums-in-stalwart seam left contempt fights drum-less)
-    _write(outdir / "drums.wav", _fold_tail(lanes["drums"].copy(), n), n)
+    # drums: FORM-WIDE kit render (the album lane is composed-silent
+    # in calm sections, but drums are selectable from combat>0.03
+    # while the combat floor only steers >=0.35 -- a sub-threshold
+    # skirmish in a ritual bar played audible-gain drums pointed at
+    # silence). The ENGINE gates drums by combat; the stem must have
+    # the kit everywhere.
+    rngd = np.random.default_rng(rec["seeds"][2])
+    dh_full = T.drums(rec, total_bars, rngd,
+                      fills_at=tuple(range(7, total_bars, 8)))
+    kit = np.zeros(n + int(BAR * SR))
+    T.place(kit, T.drum_bus(dh_full) * 0.7, 0)
+    _write(outdir / "drums.wav", _fold_tail(kit, n), n)
     spine_folded = _fold_tail(lanes["spine"].copy(), n)
     for tier in range(1, 5):
         _write(outdir / f"bed_t{tier}.wav", spine_folded, n)
@@ -337,7 +346,8 @@ def build(mel: str, outdir: Path):
     # bell ringing once'): the RISER is the swell now -- a pre-swell
     # on the sting doubled the gesture and left a dead gap when the
     # two chained
-    stg = BS.build_sting(rec, rng, "bare")
+    stg = BS.build_sting_amen(rec, rng)   # ranked 4/4: the choir
+    #                                        resolves; no bell overlay
     _write(outdir / "sting.wav", stg, len(stg))
     rsr = BS.build_riser(rec)
     _write(outdir / "riser.wav", rsr, len(rsr))

@@ -115,6 +115,35 @@ def build_riser(rec) -> np.ndarray:
     return rev / (np.abs(rev).max() + 1e-9) * 0.9
 
 
+def build_sting_halled(rec, rng) -> np.ndarray:
+    """The bell fired THROUGH the song's own room: rendered into the
+    same hall as the holy lane, ducked -4dB -- punctuation that lives
+    inside the mix instead of a sound effect on top (director
+    overnight goal)."""
+    import generate_bank as G
+    bare = build_sting(rec, rng, "bare")
+    x = G.hall(bare, 2.4).T.mean(axis=1)
+    return x / (np.abs(x).max() + 1e-9) * 0.63
+
+
+def build_sting_amen(rec, rng) -> np.ndarray:
+    """No bell: the CHOIR resolves -- a two-chord amen cadence on the
+    track's own choir voice, through the holy hall. The most
+    'part of the song' punctuation possible: the song itself says
+    amen at the kill."""
+    import generate_bank as G
+    r0 = harmony.roots_16(rec["form"][0][2], 1)[0]
+    cs = [(50 + r0 + 5, 0.0, 1.2 * BAR, 92),     # subdominant color
+          (57 + r0 + 5, 0.0, 1.2 * BAR, 88),
+          (50 + r0, 1.0 * BAR, 2.2 * BAR, 96),   # home
+          (57 + r0, 1.0 * BAR, 2.2 * BAR, 92),
+          (62 + r0, 1.0 * BAR, 2.2 * BAR, 88)]
+    import vital_bank as VB
+    ch = VB.render_seq(*rec["choir"], cs, 3.5 * BAR, 1.5)
+    x = G.hall(ch, 2.0).T.mean(axis=1)
+    return x / (np.abs(x).max() + 1e-9) * 0.7
+
+
 def build_riser_half(rec) -> np.ndarray:
     """Half-bar micro-riser for AMBUSH slams (director overnight goal:
     even the panic slam gets 'maybe half a bar of come up and/or a
@@ -131,7 +160,9 @@ def render():
     for mel in T.RECIPES:
         rec = T.RECIPES[mel]
         rng = np.random.default_rng(rec["seeds"][0])
-        stg = build_sting(rec, rng, "swell")
+        # AMEN adoption (sting_rank, 4/4 across 2 contexts x 2 reps):
+        # the release punctuation is the track's choir cadence
+        stg = build_sting_amen(rec, rng)
         rsr = build_riser(rec)
         rh = build_riser_half(rec)
         d = BANKS / f"album_{mel}"

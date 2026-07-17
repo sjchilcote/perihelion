@@ -188,6 +188,18 @@ def read_inputs(session) -> dict:
         except Exception:
             continue
         hops = hops if 0 <= hops <= 1 else 2
+        if hops != 0 and px is not None:
+            # MELEE-CONTACT override (frame-consistency sweep: a
+            # warden in melee read as adjacent-room -- non-euclidean
+            # portals put its center in the next polygon while its
+            # body touched the player). Contact danger IS co-room.
+            try:
+                import math as _m
+                _, ex, ey, *_ = session.sim.get(eid)
+                if _m.hypot(ex - px, ey - py) < 60.0:
+                    hops = 0
+            except Exception:
+                pass
         aggro.append((kind, hops))
         aggro_ids.append(eid)
         if hops == 0 and px is not None:

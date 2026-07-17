@@ -52,10 +52,16 @@ def build(mel: str):
     outdir = BANKS / f"album_{mel}"
     print(f"[{rec['title']}] boss stems -> {outdir}", flush=True)
 
-    # --- drums_boss: base lane + subdivision + crash grid ---
-    _st, lanes, _ctx = T.compose(mel, collect_lanes=True)
+    # --- drums_boss: FORM-WIDE base kit + subdivision + crash grid
+    # (matches the bank's form-wide drums stem; the album lane is
+    # composed-silent in calm sections) ---
+    rngd = np.random.default_rng(rec["seeds"][2])
+    dh_full = T.drums(rec, total_bars, rngd,
+                      fills_at=tuple(range(7, total_bars, 8)))
+    base_kit = np.zeros(n + int(BAR * SR))
+    T.place(base_kit, T.drum_bus(dh_full) * 0.7, 0)
     rng = np.random.default_rng(rec["seeds"][0])
-    over = np.zeros(len(lanes["drums"]), dtype=np.float64)
+    over = np.zeros(len(base_kit), dtype=np.float64)
     for bar in range(total_bars):
         t0 = bar * BAR
         for s16 in range(16):
@@ -68,7 +74,7 @@ def build(mel: str):
                     0.8)
         if bar % 4 == 0:
             T.place(over, K.hit("crash", 0.9, rng), t0, 0.9)
-    drums_boss = lanes["drums"] * 0.9 + over * 0.55
+    drums_boss = base_kit * 0.9 + over * 0.55
     _write(outdir / "drums_boss.wav", _fold_tail(drums_boss, n), n)
 
     # --- overlay_boss: sub-octave roots + tritone dread pedal ---
