@@ -475,6 +475,12 @@ def test_shipped_prayer_never_silent_for_multiple_bars():
         med = float(np.median(db))
         runs = _runs_below(db - med, -15.0)
         assert not runs, f"{d.name}/prayer: multi-bar dropouts {runs}"
+        # LANDING bars (section starts) are where form steering jumps
+        # to -- a quiet bar there is a pothole, not a breath (the
+        # 52.35s becalmed return landed on prayer[0] at -37dBFS)
+        for _sname, a, _b in meta.sections:
+            assert db[a] - med > -12.0, \
+                f"{d.name}/prayer: landing bar {a} at {db[a]-med:.1f}dB"
 
 
 def test_no_stem_chunk_is_obviously_dead():

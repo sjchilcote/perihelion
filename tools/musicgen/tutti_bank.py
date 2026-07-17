@@ -78,18 +78,41 @@ def _assert_no_silent_bars(x, total_bars, name, floor_db=-15.0):
 
 
 
-def _fill_monk_gaps(prayer, monk_far, total_bars, mel):
-    """The ONE monk fix the director actually asked for: the composed
-    holy lane is kept verbatim ('the monk voice you had was perfect'),
-    and any stretch of 2+ quiet bars gets the DISTANT monk drifting in
-    -- from his phrase start, faded, never a mid-phrase splice."""
+def _fill_monk_gaps(prayer, monk_far, total_bars, mel,
+                    landing_bars=()):
+    """The composed holy lane is kept verbatim ('the monk voice you
+    had was perfect'); two kinds of hole get the DISTANT monk drifting
+    in -- from his phrase start, faded, never a mid-phrase splice:
+    - stretches of 2+ quiet bars (a single quiet bar is a breath);
+    - any quiet LANDING bar (section starts): form steering jumps to
+      those exact bars (every home-coming, every vigil-loop pass,
+      every session start), so a breath there is a pothole -- the
+      52.35s cut-to-nothing was the becalmed return landing on
+      prayer[0] at -37dBFS.
+    """
     n_bar = int(BAR * SR)
     out = prayer.copy()
     rms = np.array([np.sqrt((out[i * n_bar:(i + 1) * n_bar] ** 2).mean()
                             + 1e-12) for i in range(total_bars)])
     med = float(np.median(rms))
+    db = 20 * np.log10(rms / med)
+    quiet = db < -15.0
+    fills = 0
+    for lb in landing_bars:
+        if lb < total_bars and db[lb] < -12.0:
+            t0 = lb * n_bar
+            seg = monk_far[: 2 * n_bar].copy()
+            fade = int(0.4 * SR)
+            seg[:fade] *= np.linspace(0.0, 1.0, fade)
+            seg[-fade:] *= np.linspace(1.0, 0.0, fade)
+            end = min(len(out), t0 + len(seg))
+            out[t0:end] += seg[:end - t0] * 0.4
+            fills += 1
+    # recompute after landing fills so gap detection sees them
+    rms = np.array([np.sqrt((out[i * n_bar:(i + 1) * n_bar] ** 2).mean()
+                            + 1e-12) for i in range(total_bars)])
     quiet = 20 * np.log10(rms / med) < -15.0
-    i, fills = 0, 0
+    i = 0
     while i < total_bars - 1:
         if quiet[i] and quiet[i + 1]:
             j = i
@@ -178,8 +201,14 @@ def build(mel: str, outdir: Path):
     # prayer: the ORIGINAL composed monk/choir/bells, verbatim; the
     # one fix is the gap fill (director: "I just asked you to fix
     # that one thing")
+    landing = []
+    pos = 0
+    for _stype, sbars, _prog in rec["form"]:
+        landing.append(pos)
+        pos += sbars
     prayer = _fill_monk_gaps(lanes["holy"] + lanes["spine"] * 0.3,
-                             ctx["monk_far"], total_bars, mel)
+                             ctx["monk_far"], total_bars, mel,
+                             landing_bars=landing)
     _assert_no_silent_bars(prayer[:n], total_bars, f"{mel}/prayer")
     _write(outdir / "prayer.wav", prayer, n)
 
