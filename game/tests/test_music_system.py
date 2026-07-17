@@ -565,3 +565,31 @@ def test_no_stem_chunk_is_obviously_dead():
                 if runs:
                     bad.append((d.name, f"drums[{sname}]", runs[:4]))
     assert not bad, f"obviously dead chunks: {bad}"
+
+
+def test_war_chant_at_peak_stalwart():
+    # director 2026-07-17: at maximum STALWART the monk comes back in
+    # full force -- the war chant rides over the boss mix. Receded in
+    # ordinary fights, full voice at the peak, resolving into full
+    # prayer after the kill.
+    taps = []
+    ms = _rich_ms(taps)
+    t = _drive(ms, (0.12, 0.6, 0.55), 6, 0)      # ordinary heavy fight
+    def holy_gain():
+        for k, d in reversed(taps):
+            if k == "music_bar":
+                for part in d.split("|")[1:]:
+                    ln, key, g = part.rsplit(":", 2)
+                    if ln == "holy":
+                        return float(g)
+        return None
+    mid = holy_gain()
+    assert mid is not None and mid < 0.6, f"receded in a fight: {mid}"
+    t = _drive(ms, (0.12, 0.6, 0.97), 8, t)      # the impossible enemy
+    peak = holy_gain()
+    assert peak is not None and 0.75 < peak <= 0.87, \
+        f"war chant = EQUAL counterpoint voice (0.85 ranked): {peak}"
+    _drive(ms, (1.0, 0.0, 0.0), 8, t)            # the kill: into prayer
+    after = holy_gain()
+    assert after is not None and after > 0.9, \
+        f"resolves into full prayer: {after}"

@@ -947,7 +947,20 @@ class MusicSystem:
         want = {
             "drums": 0.9 * combat ** 0.5,
             "bed": 0.55 + 0.35 * p,
-            "holy": p ** 0.5,
+            # WAR CHANT (director 2026-07-17): at maximum STALWART
+            # the monk returns IN FULL FORCE -- the chant becomes the
+            # Commando's internal war chant against an impossible
+            # enemy, riding OVER the full boss mix (the counterpoint
+            # that was a happy accident, made law). Ramps in across
+            # the boss tier: nothing below 0.75, full voice by 0.95;
+            # the normal rise law shapes the arrival, and after the
+            # kill it resolves seamlessly into full prayer.
+            "holy": max(p ** 0.5,
+                        0.85 * min(1.0, (d - 0.75) / 0.20)
+                        if d > 0.75 else 0.0),   # 0.85 ceiling:
+            #   ranked 2/2 'a defiant and EQUAL voice' -- 1.0 rode
+            #   over and masked the riff (director: 'emphasize the
+            #   sassy, defiant counterpoint', not ride over)
             "groove": c ** 0.5,
             "wall": d ** 0.5,
             "lead": 0.9 * combat ** 0.5,
