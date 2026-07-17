@@ -89,6 +89,11 @@ the next bar line. Gains step only at heard boundaries.
   rendered output (the patch decides the sounding octave, not the MIDI
   note) and re-renders an octave down/up until the fundamental lands in
   band (bass lane: 40–120 Hz); it crashes if no octave lands.
+- DC law: every stem passes a 10Hz highpass at write; residual DC
+  >0.003 crashes the build (a DC pedestal clicks at every gain step —
+  "pops on every clip transition").
+- Fold cap: the folded bar 0 sits ≤ ~+1dB over the stem's median bar
+  (pad releases at near-sustain level otherwise double the head).
 - Build-time validators (crash, don't warn): no dynamic stem may be quiet
   for 2+ consecutive bars ("it doesn't need to be literally constant, it
   just needs to not suddenly go silent for multiple bars"); prayer holds
@@ -123,8 +128,14 @@ band), peak (boss), outro. At bar lines the playhead may steer:
 
 ## 5. Transitions (judged grammar)
 
-- Rises get walls: gains rise ≤0.35/bar normally; a spike lands the full
-  wall in one bar. Presence floor ~0.4 while a value is live.
+- Rises get walls: gains rise ≤0.35/bar normally. The SLAM (instant
+  wall) is AMBUSH-ONLY: heavy co-room contact arriving after ≥2s of
+  true quiet onto a calm mix — a watched approach always builds
+  through the tau ("never during a normal fight"). The slam's lead-up
+  is a half-bar reversed-bell micro-riser into the instant wall
+  (Gemini-ranked 2/2: the swell JUSTIFIES the cliff; a come-up ramp
+  on the slam bar over-smooths it). Ordinary ≥0.4 gain steps get a
+  half-bar come-up. Presence floor ~0.4 while a value is live.
 - Falls breathe: 0.65×/bar glide, then ONE farewell bar fading to zero.
 - **Percussion exits CLEAN on the bar line** (amplitude-fading an active
   drum loop reads as a DJ fader); sustained material glides and farewells.
