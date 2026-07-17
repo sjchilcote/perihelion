@@ -77,6 +77,14 @@ the next bar line. Gains step only at heard boundaries.
   renders of the same material. Sparse stems are legal only for content
   the engine itself gates (drums sound only in combat; choir/bell accents
   ride inside prayer).
+- **Loopable-render law (FL trick, director)**: every stem render runs
+  one chunk past the form end to catch the instruments' sustain, and
+  that tail chunk is summed into chunk[0] -- wraps and jumps landing
+  on bar 0 carry the ringing tail instead of a hard cut. (The rewrite
+  should generalize this with an engine-side TAIL VOICE: on any
+  discontinuous steer, play the head of the bar that WOULD have
+  followed, faded, under the landing -- correct ring for arbitrary
+  jump pairs, incl. landings that aren't bar 0.)
 - Register law: each lane owns a frequency band. The build MEASURES the
   rendered output (the patch decides the sounding octave, not the MIDI
   note) and re-renders an octave down/up until the fundamental lands in

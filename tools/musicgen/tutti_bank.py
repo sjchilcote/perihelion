@@ -38,10 +38,35 @@ import vital_bank as VB             # noqa: E402
 from tutti import BAR, SR, STEP     # noqa: E402
 
 
+def _fold_tail(x, trim_n):
+    """FL-style loopable render (director 2026-07-16): the render runs
+    past the form end to catch the instruments' sustain; that extra
+    chunk is SUMMED into chunk[0] before trimming, so any wrap or jump
+    landing on bar 0 carries the ringing tail instead of a hard cut.
+    (Linear playback just hears a slightly richer opening bar --
+    exactly what an FL loopable render sounds like.)"""
+    bar_n = int(BAR * SR)
+    if len(x) < trim_n + bar_n // 4:
+        return x                     # nothing rendered past the form
+    tail = np.array(x[trim_n:trim_n + bar_n], dtype=x.dtype, copy=True)
+    if len(tail) < bar_n:
+        pad = [(0, bar_n - len(tail))] + [(0, 0)] * (x.ndim - 1)
+        tail = np.pad(tail, pad)
+    fade = int(0.1 * SR)
+    env = np.linspace(1.0, 0.0, fade)
+    if x.ndim == 2:
+        tail[-fade:] *= env[:, None]
+    else:
+        tail[-fade:] *= env
+    x[:bar_n] = x[:bar_n] + tail
+    return x
+
+
 def _write(path, x, trim_n):
     import soundfile as sf
     if x.ndim == 1:
         x = np.stack([x, x], axis=1)
+    x = _fold_tail(x, trim_n)
     x = x[:trim_n]
     pk = np.abs(x).max()
     if pk > 1.0:
@@ -233,8 +258,8 @@ def build(mel: str, outdir: Path):
     subl = sy.lowpass(T._sub_layer(bseq, btot), 90)
     m = min(len(wb), len(subl))
     wb = wb[:m] + subl[:m] * 0.55
-    L_ = np.zeros(n)
-    R_ = np.zeros(n)
+    L_ = np.zeros(n + int(BAR * SR))   # +1 bar so the sustain past
+    R_ = np.zeros(n + int(BAR * SR))   # the form end exists to fold
     T.place(L_, wl * 0.7, 0)
     T.place(R_, wr * 0.7, 0)
     T.place(L_, wb * 0.6, 0)
@@ -251,7 +276,7 @@ def build(mel: str, outdir: Path):
         fl.append((62 + roots16[bar * 16], bar * BAR + 8 * STEP,
                    3 * STEP, 100))
     fx = T.vb_seq_raw(rec["flour"], fl, total_bars * BAR, 0.5)
-    C_ = np.zeros(n)
+    C_ = np.zeros(n + int(BAR * SR))
     T.place(C_, fm * 0.6, 0)
     T.place(C_, fx * 0.3, 0)
     _write(outdir / "contempt.wav", C_, n)
@@ -292,7 +317,7 @@ def build(mel: str, outdir: Path):
     for w, sel in VB.SLOTS.items():
         if not w.startswith("lead_"):
             continue
-        x = VB.render_seq(*sel, lseq, total_bars * BAR, 0.5)
+        x = VB.render_seq(*sel, lseq, total_bars * BAR, 2.5)
         x = x / (np.abs(x).max() + 1e-9)
         _write(outdir / f"{w}.wav", x * 0.8, n)
 
@@ -307,7 +332,7 @@ def build(mel: str, outdir: Path):
                 seq.append((38 + r + semi, bar * BAR + pos * STEP,
                             dsteps * STEP * 0.9, 106))
         x = _render_bass_in_band(rec["fm"], seq, total_bars * BAR,
-                                 0.3, f"{mel}/bass_{kind}")
+                                 2.5, f"{mel}/bass_{kind}")
         x = x / (np.abs(x).max() + 1e-9)
         _write(outdir / f"bass_{kind}.wav", x * 0.8, n)
 
