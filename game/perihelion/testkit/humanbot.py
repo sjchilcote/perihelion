@@ -439,28 +439,6 @@ class HumanBot(_UnstickMixin, Bot):
             adv_gain * adv_vec[0]
         vy = fight_gain * fight_vec[1] + RG_W * rg * ret_vec[1] + \
             adv_gain * adv_vec[1]
-        # CRITICAL DISENGAGE (2026-07-17 dawn, four-death frame review:
-        # "the bot never disengages" -- froze at 10 HP with two
-        # heptagons in contact; sat out a clean 2s retreat window at
-        # 3 HP). At critical HP with threats close, or with 2+ enemies
-        # already at melee range, commit the existing escape reflex
-        # away from the local threat mass -- the one motor pattern the
-        # bot provably lacks at the moment it dies.
-        if self._escape_ticks == 0 and co_room:
-            close = [e for e in co_room
-                     if _dist(e["pos"], (px, py)) < 120.0]
-            very_close = [e for e in co_room
-                          if _dist(e["pos"], (px, py)) < 60.0]
-            if (snapshot["hp"] <= 25 and close) or len(very_close) >= 2:
-                ax = ay = 0.0
-                for e in (very_close or close):
-                    d = max(4.0, _dist(e["pos"], (px, py)))
-                    ax -= (e["pos"][0] - px) / d
-                    ay -= (e["pos"][1] - py) / d
-                am = math.hypot(ax, ay)
-                if am > 1e-6:
-                    self._escape_dir = (ax / am, ay / am)
-                    self._escape_ticks = 90
         # flank-escape reflex: ballistic, dominates while it runs
         if self._escape_ticks > 0 and co_room:
             gx = px + self._escape_dir[0] * 80.0
