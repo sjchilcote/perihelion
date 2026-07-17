@@ -34,13 +34,19 @@ import mkvideo as MK                                # noqa: E402
 from judge_track import _ask_multi, _stereo_mp3    # noqa: E402
 from prayer_probe import isolate_holy              # noqa: E402
 
-# defect timestamps from the 2026-07-17 isolated sweep of finalrec2
+# defect timestamps from the 2026-07-17 sweeps of finalrec2: the five
+# isolated-channel seam defects plus the full-mix probe's original
+# cut-out->gone->slam-in cycle points (13/63/108/281)
 DEFECTS = [
+    (13.0, "cycle: vigil-loop monk hole"),
     (33.5, "slam at the 22->16 develop jump"),
     (53.5, "doubled voice entering bar 0 from 17"),
+    (63.0, "cycle: dies_irae bars 22-27 voice rest"),
+    (108.0, "cycle: idumea vigil pre-entrance hole"),
     (121.5, "gain-snap splice in the vigil swell"),
     (175.5, "dead stretch + slam entrance at full gain"),
     (232.0, "splice at the 18->0 loop wrap"),
+    (281.5, "cycle: lhomme loop->0 landing"),
 ]
 WIN = 16.0   # seconds per window, defect centered
 
