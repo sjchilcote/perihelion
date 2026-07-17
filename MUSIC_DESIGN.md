@@ -6,6 +6,10 @@ arrived at, delete all code and start over from the design." This documents
 WHAT the system is and WHY each law exists. It is the specification for the
 clean-room rewrite; the current implementation is the disposable prototype.
 
+(External-facing counterpart: `MUSIC_AUTHORING.md` — the authoring contract
+for composers delivering banks, with `tools/musicgen/check_bank.py` as its
+enforceable checklist.)
+
 ## 1. Philosophy
 
 The music is the Commando's thinking and feeling. It is NOT a state machine:
