@@ -41,6 +41,7 @@ def main():
     pygame.display.set_mode((640, 360))
 
     from perihelion.audio import Audio
+    from perihelion.hud import HUD
     from perihelion.levels import load_level
     from perihelion.music import MUSIC_ROOT, MusicSystem
     from perihelion.render import Renderer
@@ -77,6 +78,7 @@ def main():
     music = MusicSystem(audio, enabled=True, bank_dirs=banks or None,
                         tick_clock=True)
     renderer = Renderer(session)
+    hud = HUD()
     surf = pygame.Surface((640, 360))
 
     saved = 0
@@ -91,6 +93,7 @@ def main():
         music.update(session)
         if t % a.every == 0:
             renderer.draw(surf)
+            hud.draw(surf, session)
             pygame.image.save(surf,
                               str(out / f"frame_{saved:06d}.png"))
             saved += 1
