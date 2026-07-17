@@ -209,6 +209,25 @@ def test_slam_is_ambush_only():
                             tick=int(3 * TICKS_PER_S) + 1))
     assert ms2.vals[2] < 0.4, \
         "a watched wave must build, never slam"
+    # developing fight: first contact is a FAR spitter, the heavies
+    # arrive a second later -- the 0.3s contact window has closed, so
+    # no slam (the 7/17 night recording caught the one-bar window
+    # slamming 1.8s into a watched horde fight)
+    ms3 = MusicSystem(audio_bank=SimpleNamespace(
+        _ready=False, master_vol=1.0, tap=None), enabled=True)
+    _sustain(ms3, lambda k: make_session({}, {}, tick=1 + k),
+             int(3 * TICKS_PER_S))
+    t0 = int(3 * TICKS_PER_S) + 1
+    far = {5: awake("spitter")}
+    rooms3 = {5: 3, 1: 0, 2: 0, 3: 0}
+    _sustain(ms3, lambda k: make_session(far, rooms3, tick=t0 + k),
+             int(TICKS_PER_S))                 # 1s of far contact
+    lp_before = ms3.vals[2]
+    late = dict(far)
+    late.update(heavy)
+    ms3.update(make_session(late, rooms3, tick=t0 + int(TICKS_PER_S) + 1))
+    assert ms3.vals[2] < lp_before + 0.3, \
+        "late heavies in a developing fight must not slam"
 
 
 def test_no_reactive_stings_or_risers():

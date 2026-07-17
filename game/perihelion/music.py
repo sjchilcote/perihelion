@@ -1071,11 +1071,14 @@ class MusicSystem:
         raw = self.override_vals or values(self.inputs)
         # AMBUSH tracking (director: the slam-cut is ONLY for a boss
         # hurtling out of the dark -- never a normal fight the player
-        # can see coming). An ambush = aggro appearing after >=2s of
-        # true quiet; the window it opens lasts one bar.
+        # can see coming). An ambush means the FIRST CONTACT itself is
+        # the heavy arriving: the window is 0.3s from the moment aggro
+        # appears after >=2s of true quiet. (A one-bar window let a
+        # far spitter open it and a slam fire 1.8s into a watched
+        # horde fight -- measured in the 7/17 night recording.)
         if self.inputs["aggro"]:
             if self._quiet_ticks >= int(2.0 * TICKS_PER_S):
-                self._ambush_window = int(self.bar_s * TICKS_PER_S)
+                self._ambush_window = int(0.3 * TICKS_PER_S)
             self._quiet_ticks = 0
         else:
             self._quiet_ticks += 1

@@ -31,6 +31,8 @@ SFX_DIR = Path(__file__).resolve().parents[2] / "game" / "assets" / "sfx"
 RATE = 44100
 COMEUP_DELTA = 0.4   # gain rise per bar that triggers the half-bar
 #                      come-up ramp (slam lead-up law)
+ROTATION_XFADE = True   # A/B toggle: False renders the old hard-cut
+#                         bank handoff (verification only)
 
 
 def _load_wav(name: str, cache: dict) -> np.ndarray | None:
@@ -227,7 +229,8 @@ def _mix_music_rich(out_mix, events, duration_s) -> bool:
         bar_idx = int(parts[0]) % bk["bars"]
         if ev["bar0"]:
             bar_idx = (int(parts[0]) - 1) % bk["bars"]
-        if prev_bank is not None and bk is not prev_bank:
+        if prev_bank is not None and bk is not prev_bank and \
+                ROTATION_XFADE:
             _old_bank_tail(prev_ev, prev_bank, ev["t"])
             xfade_in_t0 = ev["t"]
             xfade_in_until = ev["t"] + XFADE_BARS * bk["bar_s"]
