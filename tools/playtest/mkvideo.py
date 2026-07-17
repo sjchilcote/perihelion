@@ -220,6 +220,13 @@ def _mix_music_rich(out_mix, events, duration_s) -> bool:
     prev_bank = None
     prev_ev = None
     prev_gains: dict = {}
+    # the monk's continuity state: his previous bar position + gain.
+    # Form steering re-addresses every lane mid-phrase; for pads and
+    # riffs the seam is masked, for the SOLO VOICE it is a mid-syllable
+    # cut (isolated-channel sweep: 9dB slam at the 22->16 jump).
+    prev_holy = None      # (key, lane_idx, gain)
+    holy_tail_until = -1.0   # one tail at a time: back-to-back steers
+    #   (17->0->16) overlapped two tails = "overlapping phrases"
     for ev in seq:
         bk = bank_at(ev["t"])
         if bk is None:
@@ -234,6 +241,7 @@ def _mix_music_rich(out_mix, events, duration_s) -> bool:
             _old_bank_tail(prev_ev, prev_bank, ev["t"])
             xfade_in_t0 = ev["t"]
             xfade_in_until = ev["t"] + XFADE_BARS * bk["bar_s"]
+            prev_holy = None   # rotation crossfade owns this seam
         # arrival fade-in: TRUE jumps ramp (composed loop points land
         # clean); bank handoffs use the global crossfade window below
         ramp_in = any(abs(ev["t"] - jt) < 0.5 for jt in jump_ts)
@@ -249,6 +257,9 @@ def _mix_music_rich(out_mix, events, duration_s) -> bool:
                 lane.rsplit(":", 2)[1], float(lane.rsplit(":", 2)[2])
             new_gains[ln] = gain
             if gain <= 0.001:
+                if ln == "holy":
+                    prev_holy = None   # a silent bar breaks phrase
+                    #                    continuity; no stale tails
                 continue
             fade = key.endswith("~f")     # farewell bar: ramp to zero
             if fade:
@@ -270,10 +281,83 @@ def _mix_music_rich(out_mix, events, duration_s) -> bool:
             n = min(len(seg), n_total - s0)
             g = min(1.0, gain) * 0.8
             prev_g = prev_gains.get(ln, 0.0)
+            holy_jump_in = False
+            if ln == "holy" and not ev["bar0"] and not in_xfade and \
+                    prev_holy is not None and prev_holy[0] == key and \
+                    prev_holy[2] > 0.1 and n > 0:
+                pk, pidx, pg = prev_holy
+                nxt = (pidx + 1) % bk["bars"]
+                if nxt != lane_idx and ev["t"] >= holy_tail_until:
+                    # JUMP: the monk finishes (a fading bar of) the
+                    # phrase he was actually singing while the new
+                    # position enters -- never a mid-syllable cut
+                    if pidx == bk["bars"] - 1:
+                        cont = stem(bk, "prayer_tail")
+                        ci = 0
+                    else:
+                        cont = snd
+                        ci = nxt
+                    if cont is not None:
+                        ca = min(ci * bar_n, len(cont) - 1)
+                        cseg = cont[ca:ca + bar_n]
+                        cn = min(len(cseg), n_total - s0)
+                        # half-bar exit: a full fading bar of the old
+                        # phrase read as "doubled voice overlap" in
+                        # the first A/B round -- the crossfade window
+                        # is half a bar on both sides
+                        chalf = max(1, cn // 2)
+                        cenv = np.concatenate([
+                            np.linspace(1.0, 0.0, chalf,
+                                        dtype=np.float32),
+                            np.zeros(cn - chalf, dtype=np.float32)])
+                        cg = min(1.0, pg) * 0.8
+                        mix[s0:s0 + cn, 0] += cseg[:cn, 0] * cg * cenv
+                        mix[s0:s0 + cn, 1] += cseg[:cn, 1] * cg * cenv
+                        holy_jump_in = True   # tail sounding: the
+                        #   come-in below is a true crossfade, never
+                        #   a dip in the voice
+                        # window = the tail's actual half-bar fade:
+                        # back-to-back steers one bar apart may each
+                        # take a tail (the first is silent by then)
+                        holy_tail_until = ev["t"] + bk["bar_s"] * 0.5
+                elif lane_idx == 0 and pidx == bk["bars"] - 1:
+                    # true loop WRAP: the release tail of the final
+                    # bar rings into bar 0 (FL loopable render), now
+                    # overlaid here instead of baked into chunk[0]
+                    # where it doubled the voice on every jump home
+                    tsnd = stem(bk, "prayer_tail")
+                    if tsnd is not None:
+                        tn = min(len(tsnd), n_total - s0)
+                        tg = min(1.0, pg) * 0.8
+                        mix[s0:s0 + tn, 0] += tsnd[:tn, 0] * tg
+                        mix[s0:s0 + tn, 1] += tsnd[:tn, 1] * tg
+            if ln == "holy":
+                prev_holy = (key, lane_idx, gain)
             slam_bar = any(0 <= ev["t"] - rt <= bk["bar_s"] + 0.1
                            for rt in riser2_ts)
             if fade:
                 env = np.linspace(1.0, 0.0, n, dtype=np.float32)
+            elif holy_jump_in:
+                # jump landing: the voice crossfades -- the outgoing
+                # phrase's tail (overlaid above) fades while the new
+                # bar comes in over a half bar. The sum never dips,
+                # so PRAYER never stops; the entrance-content slam
+                # (33.5s: quiet bar into hot landing, +6dB step no
+                # gain envelope can touch) becomes a swell.
+                half = max(1, n // 2)
+                env = np.concatenate([
+                    np.linspace(0.0, 1.0, half, dtype=np.float32),
+                    np.ones(n - half, dtype=np.float32)])
+            elif ln == "holy" and not ev["bar0"] and not in_xfade \
+                    and prev_g > 0.05 and abs(gain - prev_g) > 0.02:
+                # the solo voice NEVER steps: every battery-driven
+                # gain change glides across the full bar (a +0.29
+                # snap read as a +5dB splice on the isolated sweep;
+                # steps other lanes mask are mid-syllable on a voice).
+                # Entrances from silence keep their composed attack.
+                env = np.linspace(
+                    min(2.0, prev_g / max(gain, 1e-6)), 1.0, n,
+                    dtype=np.float32)
             elif not ev["bar0"] and gain >= prev_g + COMEUP_DELTA \
                     and not slam_bar:
                 # half-bar come-up on big rises (incl. ambush slams):

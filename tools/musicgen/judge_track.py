@@ -74,14 +74,23 @@ def _stereo_mp3(src: Path, out: Path, max_s: float = 100.0):
 
 
 def _ask_multi(clips, prompt: str, model: str = MODEL,
-               attempts: int = 3) -> dict:
+               attempts: int = 3, labels=None) -> dict:
+    """labels: optional per-clip text markers ("Clip A", ...) inserted
+    IMMEDIATELY BEFORE each audio block. Without them the model must
+    guess which attachment is which -- for same-passage A/B pairs the
+    letter mapping degenerates to a coin flip (2026-07-17: two A/B
+    rounds unblinded backwards at one probe point before this was
+    caught). Any letter-referencing prompt should pass labels."""
     import urllib.request
     import audio_judge
     last = None
     for _ in range(attempts):
         try:
             content = [{"type": "text", "text": prompt}]
-            for c in clips:
+            for i, c in enumerate(clips):
+                if labels is not None:
+                    content.append({"type": "text",
+                                    "text": f"{labels[i]}:"})
                 content.append(audio_judge._audio_block(c))
             body = {"model": model,
                     "messages": [{"role": "user", "content": content}],

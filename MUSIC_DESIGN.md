@@ -158,8 +158,14 @@ random bell"). Punctuation exists only where the engine knows the future:
   peak-jump. The jump is held two bars under the swell and lands as the
   bell strikes. If the boss dies mid-swell, the riser fades out fast — a
   swell must never complete into nothing.
-- **Sting** = the boss-release toll only: one deep on-key chapel bell
-  (Ylanne sample, strike ~D2, hum ~37Hz), zero leading silence.
+- **Sting** = the boss-release only, and it is the CHOIR-AMEN CADENCE
+  (subdominant dyad resolving to the home triad in the track's own choir
+  through the hall; sting_rank 4/4 over every bell variant — "resolves
+  the tension using the track's own instrumentation"). The deep chapel
+  bell (Ylanne, strike ~D2, hum ~37Hz) is RETIRED from stings; it
+  survives only reversed, as the riser. (Ruling recorded because stale
+  bell-sting comments linger in older source — the amen superseded the
+  bell on 2026-07-17 and this document is authoritative.)
 - 8-bar cooldown as a backstop; the toll bypasses it.
 
 ## 7. Death
@@ -210,3 +216,24 @@ is a new performance.
   peak entries to 4-bar phrase boundaries.
 - Gauntlet III design tension (separate program): 90%-fail bosses vs
   "winning session video" — needs a director ruling; numbers in memory.
+- **The monk seam problem (2026-07-17 isolated-channel sweep + patch).**
+  A form-addressed solo voice is structurally at war with "PRAYER never
+  stops": every steer re-addresses him mid-syllable, every battery move
+  steps his level mid-word, and a baked loop-fold in chunk[0] doubles
+  him on every jump home. The debug-phase patch (shipped): the voice
+  never steps (full-bar gain glides), every discontinuous steer plays
+  the chunk that WOULD have followed as a one-bar fading tail voice,
+  and the loop tail ships as a separate `prayer_tail` stem overlaid
+  only on the true wrap. The REWRITE-grade answer (Sol consult,
+  independently converged on the same tail-voice mechanism, then went
+  further): a phrase-voice scheduler — the monk becomes immutable
+  phrase objects (launch anchors, length, modal function, compatible
+  sections) that queue their chunks strictly in sequence and CANNOT be
+  re-addressed mid-phrase by construction; steering fades the outgoing
+  phrase while the landing's phrase launches. Continuity becomes an
+  audible invariant instead of a teleporting recording. Sol's other
+  keepers for the rewrite: phrase-aware steering (jump targets chosen
+  on the 4-bar phrase grid; harmonic legality checked), composed
+  CONTEMPT×STALWART interaction rather than independent gains, and a
+  salience layer above raw value-to-gain mapping. Full text:
+  out/consults/sol_music/answer.md.

@@ -111,7 +111,8 @@ def main():
             "second WITHIN the clip (or 'clean'). Respond ONLY with "
             "JSON: {\"clips\": {\"A\": [{\"at_s\": 3.5, \"defect\": "
             "\"...\"}] or [], ...}}")
-        res = _ask_multi(clips, prompt)
+        res = _ask_multi(clips, prompt,
+                         labels=[chr(65 + i) for i in range(len(clips))])
         for i, t0 in enumerate(grp):
             items = res.get("clips", {}).get(chr(65 + i), [])
             for it in items if isinstance(items, list) else []:

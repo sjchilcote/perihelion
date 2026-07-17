@@ -512,6 +512,11 @@ class MusicSystem:
         self._riser_last = -10 ** 9
         self._riser_ch = None
         self._riser_snd = None
+        self._holy_tail_ch = None     # the monk's seam voice (live)
+        self._holy_tail_snd = None
+        self._holy_tail_arm = None
+        self._holy_prev_pos = None
+        self._holy_glide = None
         self._calm_bars = 0           # consecutive becalmed boundaries
         self._quiet_ticks = 10 ** 6   # ticks since aggro was last seen
         self._slam_now = False        # an ambush slam is in flight
@@ -807,6 +812,12 @@ class MusicSystem:
         chunks["silence"] = sil
         return chunks
 
+    @staticmethod
+    def _load_holy_tail(bank_dir):
+        fn = next((bank_dir / f"prayer_tail.{e}" for e in ("wav", "ogg")
+                   if (bank_dir / f"prayer_tail.{e}").exists()), None)
+        return pygame.mixer.Sound(str(fn)) if fn is not None else None
+
     def _ensure_started(self, tick: int = 0):
         if self._started or not self.enabled or not self.has_bank:
             return
@@ -838,14 +849,15 @@ class MusicSystem:
         lane_defs = self._lane_defs(chunks)
         assert len(lane_defs) <= MAX_LANES, sorted(lane_defs)
         riser_ch_idx = 4 + 2 * MAX_LANES   # room for BOTH lane sets
-        if pygame.mixer.get_num_channels() < riser_ch_idx + 13:
-            pygame.mixer.set_num_channels(riser_ch_idx + 13)
-        # channels 0..riser are MUSIC/system territory: reserve
+        holy_tail_idx = riser_ch_idx + 1   # the monk's phrase-tail voice
+        if pygame.mixer.get_num_channels() < riser_ch_idx + 14:
+            pygame.mixer.set_num_channels(riser_ch_idx + 14)
+        # channels 0..holy_tail are MUSIC/system territory: reserve
         # them from SFX auto-allocation (Sound.play() steals the
         # longest-running channel under load -- i.e. a music lane;
         # and one-shots landing on ch2/3 got hard-cut by the next
         # stab/sting). 12 channels remain as the SFX pool.
-        pygame.mixer.set_reserved(riser_ch_idx + 1)
+        pygame.mixer.set_reserved(holy_tail_idx + 1)
         master = self.bank.master_vol
         lane_defs = {k: v for k, v in lane_defs.items()
                      if v is not None}
@@ -867,6 +879,19 @@ class MusicSystem:
             self._riser_snd = pygame.mixer.Sound(str(riser_fn))
             self._riser_ch = pygame.mixer.Channel(riser_ch_idx)
             self._riser_ch.set_volume(0.0)
+        # the monk's SEAM VOICE (isolated-channel sweep, 2026-07-17):
+        # form steering re-addresses every lane mid-phrase -- masked
+        # on pads and riffs, a mid-syllable cut on the solo voice. On
+        # a holy re-address the chunk that WOULD have followed plays
+        # one fading bar here; on the true loop wrap the final bar's
+        # release tail (prayer_tail stem, no longer baked into
+        # chunk[0] where it doubled the voice on every jump home)
+        # rings into bar 0.
+        self._holy_tail_ch = pygame.mixer.Channel(holy_tail_idx)
+        self._holy_tail_snd = self._load_holy_tail(self.bank_dir)
+        self._holy_tail_arm = None
+        self._holy_prev_pos = None
+        self._holy_glide = None
         # first bar's content from current state, all started in one
         # tight pass (everything is pre-sliced by now)
         sel = self._select_content()
@@ -1363,6 +1388,18 @@ class MusicSystem:
                 self._old_lanes = None
         # per-tick farewell fade-outs and arrival fade-ins
         bar_ticks = max(1, int(self.bar_s * TICKS_PER_S))
+        gl = getattr(self, "_holy_glide", None)
+        if gl is not None:
+            f0, f1, left, total = gl
+            left -= 1
+            hl = self._lanes.get("holy")
+            if hl is not None and hl.fade_ticks == 0 and \
+                    hl.fadein_ticks == 0:
+                w = 1.0 - left / max(1, total)
+                hl.ch.set_volume(max(0.0, min(
+                    1.0, (f0 + (f1 - f0) * w) * master)))
+            self._holy_glide = (f0, f1, left, total) if left > 0 \
+                else None
         for lane in self._lanes.values():
             if lane.fade_ticks > 0:
                 lane.fade_ticks -= 1
@@ -1380,6 +1417,38 @@ class MusicSystem:
             self._bar_idx += 1
             self._form_idx += 1
             self._boundary_tick = session.tick_count
+            # monk seam voice: fire an armed steer-tail (one fading
+            # bar), and lay the release tail over the true loop wrap
+            tc = getattr(self, "_holy_tail_ch", None)
+            arm = getattr(self, "_holy_tail_arm", None)
+            if arm is not None:
+                snd, g0, fading = arm
+                self._holy_tail_arm = None
+                if tc is not None and snd is not None:
+                    tc.set_volume(max(0.0, min(1.0, g0 * master)))
+                    tc.play(snd)
+                    if fading:
+                        tc.fadeout(int(self.bar_s * 500))
+                        # jump-landing crossfade: with his tail voice
+                        # sounding, a half-bar come-in on the landing
+                        # bar is a true crossfade -- the summed voice
+                        # never dips (PRAYER law intact) and the
+                        # entrance-content slam becomes a swell
+                        hl0 = self._lanes.get("holy")
+                        bt = max(1, int(self.bar_s * TICKS_PER_S))
+                        if hl0 is not None and hl0.fade_ticks == 0:
+                            hl0.fadein_ticks = bt // 2
+                            hl0.fadein_total = bt // 2
+                            hl0.ch.set_volume(0.0)
+            hl = self._lanes.get("holy")
+            if hl is not None:
+                pos = (hl.next_idx - 1) % hl.n
+                if pos == 0 and self._holy_prev_pos == hl.n - 1 and \
+                        hl.gain > 0.1 and tc is not None and \
+                        self._holy_tail_snd is not None:
+                    tc.set_volume(max(0.0, min(1.0, hl.gain * master)))
+                    tc.play(self._holy_tail_snd)   # self-decaying
+                self._holy_prev_pos = pos
             prev = self._applied
             self._applied = self.vals
             slam_bar = self._slam_now
@@ -1411,6 +1480,23 @@ class MusicSystem:
                     self._tap("music_jump", str(tgt), 1.0)
                 else:
                     self._tap("music_jump", f"{tgt}~s", 1.0)
+                hl = self._lanes.get("holy")
+                _tc = getattr(self, "_holy_tail_ch", None)
+                if hl is not None and hl.gain > 0.1 and \
+                        hl.key not in (None, "silence") and \
+                        tgt % hl.n != hl.next_idx % hl.n and \
+                        self._holy_tail_arm is None and \
+                        not (_tc is not None and _tc.get_busy()):
+                    # one tail at a time -- back-to-back steers
+                    # (17->0->16) overlapped two tails and read as
+                    # "overlapping phrases" in the labeled A/B
+                    # the monk finishes the phrase he was singing:
+                    # arm his continuation (fires at the boundary
+                    # where the re-addressed bar actually starts)
+                    ci = hl.next_idx % hl.n
+                    snd = self._holy_tail_snd if ci == 0 else \
+                        hl.variants[hl.key][ci]
+                    self._holy_tail_arm = (snd, hl.gain, True)
                 for lname, lane in self._lanes.items():
                     lane.seek(tgt)
                     if skind == "jump" and lname not in ("holy", "bed"):
@@ -1478,6 +1564,18 @@ class MusicSystem:
                         g = max(g, lane.gain * 0.65)   # slow exhale on
                         #                                the way down
                     big_rise = g >= lane.gain + 0.4 and not slam_bar
+                    if lname == "holy" and lane.fadein_ticks == 0 and \
+                            lane.gain > 0.05 and \
+                            abs(g - lane.gain) > 0.02:
+                        # the solo voice NEVER steps: battery-driven
+                        # gain moves glide across the full bar (a
+                        # step other lanes mask is mid-syllable on a
+                        # voice; mkvideo mirrors this offline).
+                        # Entrances from silence keep their attack.
+                        self._holy_glide = (lane.gain, g, bar_ticks,
+                                            bar_ticks)
+                        lane.gain = g   # target; volume driven per tick
+                        continue
                     lane.set_gain(g, master)
                     if big_rise:
                         # HALF-BAR COME-UP (director): even the slam
@@ -1649,6 +1747,10 @@ class MusicSystem:
         except Exception as exc:
             print(f"[music] rotation sting/riser reload failed: {exc}",
                   file=sys.stderr)
+        self._holy_tail_snd = self._load_holy_tail(dir_)
+        self._holy_tail_arm = None
+        self._holy_prev_pos = None
+        self._holy_glide = None
         self._bar_idx = 0
         self._decoded = None
         self._next_chunks = None
@@ -1732,7 +1834,15 @@ class MusicSystem:
                 rc.stop()
             except Exception:
                 pass
-            self._riser_ch = None
+        tc = getattr(self, "_holy_tail_ch", None)
+        if tc is not None:
+            try:
+                tc.stop()
+            except Exception:
+                pass
+        self._holy_tail_arm = None
+        self._holy_glide = None
+        self._riser_ch = None
         for ch in self._channels.values():
             try:
                 ch.stop()

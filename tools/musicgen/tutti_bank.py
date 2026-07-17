@@ -158,7 +158,14 @@ def _fill_monk_gaps(prayer, monk_far, total_bars, mel,
                             + 1e-12) for i in range(total_bars)])
     med = float(np.median(rms))
     db = 20 * np.log10(rms / med)
-    quiet = db < -15.0
+    # -15 rel median is the CODIFIED floor (same as the build crash
+    # alarm). A -11 experiment filled media_vita's composed pianissimo
+    # bars 4-5 and LOST the labeled A/B at that spot three rounds
+    # running -- a quiet composed passage is not a dropout, and a fill
+    # that fades away mid-stretch reads worse than honest quiet. The
+    # law's scope is corrupted/silent samples, not soft bars.
+    QUIET_DB = -15.0
+    quiet = db < QUIET_DB
     fills = 0
     for lb in landing_bars:
         if lb < total_bars and db[lb] < -12.0:
@@ -173,7 +180,7 @@ def _fill_monk_gaps(prayer, monk_far, total_bars, mel,
     # recompute after landing fills so gap detection sees them
     rms = np.array([np.sqrt((out[i * n_bar:(i + 1) * n_bar] ** 2).mean()
                             + 1e-12) for i in range(total_bars)])
-    quiet = 20 * np.log10(rms / med) < -15.0
+    quiet = 20 * np.log10(rms / med) < QUIET_DB
     i = 0
     while i < total_bars - 1:
         if quiet[i] and quiet[i + 1]:
@@ -184,7 +191,12 @@ def _fill_monk_gaps(prayer, monk_far, total_bars, mel,
             seg = monk_far[: (j - i) * n_bar + n_bar // 2].copy()
             fade = int(0.5 * SR)
             seg[:fade] *= np.linspace(0.0, 1.0, fade)
-            seg[-fade:] *= np.linspace(1.0, 0.0, fade)
+            # exit over a FULL BAR: the 0.5s exit chopped monk_far
+            # mid-phrase ("abruptly chops the vocal mid-syllable",
+            # labeled A/B at the 175.5s fill) -- the fill must leave
+            # as a fade, not an edit
+            xfade = min(len(seg), n_bar)
+            seg[-xfade:] *= np.linspace(1.0, 0.0, xfade)
             end = min(len(out), t0 + len(seg))
             out[t0:end] += seg[:end - t0] * 0.35
             fills += 1
@@ -268,10 +280,25 @@ def build(mel: str, outdir: Path):
     for _stype, sbars, _prog in rec["form"]:
         landing.append(pos)
         pos += sbars
-    # fold FIRST, then gap/landing analysis on the folded audio --
-    # stacking the landing fill under the fold double-filled bar 0
-    prayer_full = _fold_tail(lanes["holy"] + lanes["spine"] * 0.3, n)
-    prayer = _fill_monk_gaps(prayer_full, ctx["monk_far"], total_bars,
+    # PRAYER ships its loop tail as a SEPARATE stem instead of the
+    # baked fold: chunk[0] with a baked tail plays a phantom second
+    # voice whenever form steering JUMPS to bar 0 from mid-form (the
+    # 53.5s doubled-voice defect on the isolated-channel sweep, entry
+    # 17->0). The mixer/engine overlay prayer_tail only on the true
+    # last->0 wrap; every other lane keeps the baked fold (a doubled
+    # pad release is inaudible; a doubled monk is not).
+    prayer_raw = lanes["holy"] + lanes["spine"] * 0.3
+    bar_n = int(BAR * SR)
+    if len(prayer_raw) >= n + bar_n // 4:
+        tail = np.array(prayer_raw[n:n + bar_n], copy=True)
+        if len(tail) < bar_n:
+            tail = np.pad(tail, [(0, bar_n - len(tail))] +
+                          [(0, 0)] * (tail.ndim - 1))
+        fade = int(0.1 * SR)
+        env = np.linspace(1.0, 0.0, fade)
+        tail[-fade:] *= env[:, None] if tail.ndim == 2 else env
+        _write(outdir / "prayer_tail.wav", tail, bar_n)
+    prayer = _fill_monk_gaps(prayer_raw, ctx["monk_far"], total_bars,
                              mel, landing_bars=landing)
     _assert_no_silent_bars(prayer[:n], total_bars, f"{mel}/prayer")
     _write(outdir / "prayer.wav", prayer, n)
