@@ -125,7 +125,8 @@ def main():
         "\"per\": {\"A\": \"one clause\", ...}, \"verdict\": "
         "\"one sentence\"}")
     for rep in range(2):
-        res = _ask_multi([clips[labels[k]] for k in "ABCD"], prompt)
+        res = _ask_multi([clips[labels[k]] for k in "ABCD"], prompt,
+                         labels=[f"Clip {c}" for c in "ABCD"])
         print(json.dumps(res, indent=1), flush=True)
 
 

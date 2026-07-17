@@ -94,7 +94,8 @@ def main():
             "{\"ranking\": [best..worst of A,B,C,D], \"per\": {\"A\": "
             "\"one clause\", ...}, \"verdict\": \"one sentence\"}")
         for rep in range(2):
-            res = _ask_multi([clips[k] for k in order], prompt)
+            res = _ask_multi([clips[k] for k in order], prompt,
+                             labels=[f"Clip {c}" for c in "ABCD"])
             print(f"context {ci} ({mel}) rep {rep}:",
                   json.dumps(res, indent=1), flush=True)
 
