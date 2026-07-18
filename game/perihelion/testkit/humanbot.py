@@ -913,6 +913,34 @@ class HumanBot(_UnstickMixin, Bot):
             way = self._steer_target(session, proom, (px, py), goal)
             return nav_to_point(session, px, py, way)
         self._med_target = None
+        # AMMO DISCIPLINE (2026-07-18): half the deep deaths were
+        # KNIFE-in-hand with every pool at zero — the bot walked past
+        # stocked lanes/alcoves all run. Low pools divert to the
+        # nearest matching ammo box exactly like medkits do.
+        ammo = snapshot.get("ammo", {})
+        want_kinds = []
+        if ammo.get("9mm", 0) < 90:
+            want_kinds.append("ammo_9mm")
+        if ammo.get("shell", 0) < 14:
+            want_kinds.append("ammo_shell")
+        if ammo.get("cell", 0) < 30:
+            want_kinds.append("ammo_cell")
+        if want_kinds:
+            boxes = [p for p in snapshot["pickups"]
+                     if p["kind"] in want_kinds and 0 <= p["hops"] <= 3]
+            if boxes:
+                target = min(boxes, key=lambda p: (p["hops"],
+                                                   p["room"]))
+                if target["room"] == proom:
+                    goal = target["pos"]
+                else:
+                    edge = session.sim.next_edge(proom, target["room"])
+                    goal = self._portal_goal(session, proom, edge) \
+                        if edge >= 0 else None
+                if goal is not None:
+                    way = self._steer_target(session, proom, (px, py),
+                                             goal)
+                    return nav_to_point(session, px, py, way)
         return self._nav_exit_move(session, snapshot, px, py)
 
     def _distant_threat_input(self, session: GameSession, snapshot: dict,

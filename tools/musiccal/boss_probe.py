@@ -92,6 +92,9 @@ def one(args):
             death_room_kind = "?"
         death_co = sorted(v["kind"] for k, v in session.enemies.items()
                           if session.sim.get_room(k) == proom)[:8]
+        snap = session.snapshot()
+        death_ammo = {k: v for k, v in snap.get("ammo", {}).items()}
+        death_weapon = snap.get("weapon")
 
     # ---- boss-music analysis from the captured taps -------------------
     boss_bars = []      # (t, boss_gain, drums_key)
@@ -128,6 +131,8 @@ def one(args):
                 wardens_down=n_wardens0 - wardens_left,
                 n_wardens=n_wardens0,
                 death_room=death_room_kind, death_co=death_co,
+                death_ammo=locals().get("death_ammo"),
+                death_weapon=locals().get("death_weapon"),
                 boss_runs=[(round(r["t0"], 1), round(r["t1"], 1),
                             r["bars"], round(r["peak"], 2), r["kit"])
                            for r in runs],
@@ -161,13 +166,17 @@ def main():
                       for t0, t1, b, p, k in r["boss_runs"]) or "-"
         dc = ",".join(r.get("death_co") or []) or "-"
         dg = r.get("diag") or {}
+        am = r.get("death_ammo") or {}
+        wstr = (f" w={r.get('death_weapon')} "
+                f"ammo={sum(am.values()) if am else '-'}") \
+            if r["outcome"] == "death" else ""
         print(f"seed {r['seed']}: {r['outcome']:8s} "
               f"t={r['ticks']/60:5.0f}s kills={r['kills']:3d} "
               f"wardens {r['wardens_down']}/{r['n_wardens']} "
               f"full_triggers={r['full_triggers']} "
               f"death={r['death_room']}[{dc}] "
               f"fun={dg.get('funnel',0)} dod={dg.get('dodge',0)} "
-              f"runs: {rt}")
+              f"runs: {rt}{wstr}")
     print(f"\nclear rate {len(clears)}/{len(results)} "
           f"({100*len(clears)/max(1,len(results)):.0f}%)")
     if clears:
