@@ -200,7 +200,12 @@ DROP_TABLES = {
     "spitter": [(0.30, "ammo_shell"), (0.08, "medkit")],
     "brute": [(0.55, "ammo_cell"), (0.25, "medkit")],
     "shrieker": [(0.5, "ammo_9mm")],
-    "warden": [],
+    # the boss carries the spoils: a guaranteed cache ON the kill —
+    # Sol 2 §6's encounter-clear recovery, attached to the victory
+    # itself. Flight recorder: late deaths were wounded bots pinned
+    # at boss doors with the map's medkits long consumed.
+    "warden": [(1.0, "medkit"), (1.0, "ammo_9mm"), (1.0, "ammo_shell"),
+               (0.5, "ammo_cell")],
     "flicker": [(0.4, "ammo_9mm"), (0.1, "medkit")],
 }
 
