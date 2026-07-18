@@ -1269,8 +1269,14 @@ class HumanBot(_UnstickMixin, Bot):
         if ammo.get("cell", 0) < 30:
             want_kinds.append("ammo_cell")
         if want_kinds:
+            # quiet windows buy restock range, same as medkits: the
+            # 13/14-warden near-clear died dueling the last boss at 8
+            # cells while its own warden-spoil cell boxes lay at old
+            # kill sites a few hops back
+            ammo_hops = 6 if self._threats_total == 0 else 3
             boxes = [p for p in snapshot["pickups"]
-                     if p["kind"] in want_kinds and 0 <= p["hops"] <= 3]
+                     if p["kind"] in want_kinds
+                     and 0 <= p["hops"] <= ammo_hops]
             if boxes:
                 target = min(boxes, key=lambda p: (p["hops"],
                                                    p["room"]))
