@@ -204,6 +204,7 @@ class HumanBot(_UnstickMixin, Bot):
         self._entry_caution = False
         self._planted = False
         self._warden_hunting = False
+        self._warden_seen: set[int] = set()
         # combat locomotion invariant (Sol consult #1 + incident mining
         # meta-finding "the bot does not MOVE during combat"): if the
         # feet have not actually displaced during a live co-room fight,
@@ -380,6 +381,11 @@ class HumanBot(_UnstickMixin, Bot):
         self._threats_total = sum(
             1 for e in co_room + distant
             if e.get("state") in ("hunt", "waking"))
+        # wind the listening clock: live threats now = no quiet
+        # crossing of a blind waist for the next 5s (sound-pull
+        # arrivals are en route)
+        if self._threats_total > 0:
+            self._listen_t = tick + 300
         self._warden_hunting = any(
             e.get("kind") == "warden" and e.get("state") == "hunt"
             for e in co_room + distant)
@@ -524,6 +530,19 @@ class HumanBot(_UnstickMixin, Bot):
                             and e.get("state") == "hunt"
                             for e in co_room)
                         and n_co_hunt >= 4)
+        # FIRST-SIGHT RECOIL (single-pull doctrine): compound wardens
+        # are only noise-coupled at 1 hop — a brawl fought 2+ rooms
+        # down the Z-hall wakes nobody else. Every multi-warden
+        # disaster starts the same way: the bot keeps walking after
+        # first warden sight until 2-3 have LOS-engaged at once. The
+        # first time each NEW warden is perceived, recoil hard; the
+        # one that engaged follows alone into the kite, the rest stay
+        # asleep.
+        for e in co_room + distant:
+            if e.get("kind") == "warden" and \
+                    e["id"] not in self._warden_seen:
+                self._warden_seen.add(e["id"])
+                trig = True
         # LIVE PURSUIT WEIGHT: the wave one hop back counts — episode
         # accounting (2026-07-18, 8 seeds): pack fights of 1-2 cost
         # 4.6hp; EVERY engagement of 5+ cost ~100hp (death). The old
@@ -537,7 +556,15 @@ class HumanBot(_UnstickMixin, Bot):
         n_pursuit = n_co_hunt + sum(
             1 for e in distant
             if e.get("state") in ("hunt", "waking"))
-        if (trig or (self._funnel_hold > 0 and n_pursuit >= 5)) \
+        # a warden PAIR keeps the withdrawal latched the whole way to
+        # the guns — two same-speed anchors cannot be killed in a bare
+        # corridor kite (double-pull deaths, rounds 16-18); the sentry
+        # field can (3x18dmg ~= a warden per 7s of field time)
+        n_ward_hunt = sum(1 for e in co_room + distant
+                          if e.get("kind") == "warden"
+                          and e.get("state") in ("hunt", "waking"))
+        if (trig or (self._funnel_hold > 0
+                     and (n_pursuit >= 5 or n_ward_hunt >= 2))) \
                 and self._escape_ticks == 0 and trail:
             self._funnel_hold = 240
             if trig:
@@ -583,13 +610,21 @@ class HumanBot(_UnstickMixin, Bot):
             # strongest reachable field instead of pacing the trail.
             if n_pursuit >= 5 or self._warden_hunting:
                 fr = self._best_field(session, proom)
-                if fr is not None and fr != proom and \
-                        0 < session.sim.hop_distance(proom, fr) <= 5:
+                if fr is None:
+                    self.diag["gr_nofield"] = \
+                        self.diag.get("gr_nofield", 0) + 1
+                elif fr != proom and \
+                        0 < session.sim.hop_distance(proom, fr) <= 8:
                     fedge = session.sim.next_edge(proom, fr)
                     if fedge >= 0:
                         port = session.sim.room_portals(proom)[fedge]
                         if port is not None and occ.get(port[0], 0) < 4:
                             fdest = port[0]
+                            self.diag["gunrun"] = \
+                                self.diag.get("gunrun", 0) + 1
+                        else:
+                            self.diag["gr_blocked"] = \
+                                self.diag.get("gr_blocked", 0) + 1
             # a fighting WITHDRAWAL: keep going ~240u past the door
             # and around the bends — standing at the doorway for four
             # seconds was the stall (Sol: kill the single-file
@@ -630,6 +665,17 @@ class HumanBot(_UnstickMixin, Bot):
         # door with the gun up until the hold expires; do not stroll
         # back into the arena the moment it looks locally clear
         if self._funnel_hold > 0:
+            adv_gain = min(adv_gain, 0.02)
+        # FINISH THE PULL (single-pull doctrine, part 2): while a
+        # hunting warden is within 3 hops it WILL close (137 vs our
+        # 133) — advancing now walks into the next warden's sight
+        # line and turns one pull into a train (measured: every
+        # multi-warden death). The pulled anchor gets finished first;
+        # the objective can wait the ~20s that takes.
+        if any(e.get("kind") == "warden"
+               and e.get("state") in ("hunt", "waking")
+               and 0 <= e.get("hops", 9) <= 3
+               for e in co_room + distant):
             adv_gain = min(adv_gain, 0.02)
         # doorway discipline: 67% of all damage landed within 1.5s of a
         # room entry (measured, seed 1054) -- the blind stumble. Any
@@ -707,8 +753,19 @@ class HumanBot(_UnstickMixin, Bot):
                     has_med = any(p["kind"] == "medkit"
                                   and 0 <= p.get("hops", 9) <= 3
                                   for p in snapshot["pickups"])
-                    if not armed and not (snapshot["hp"] < 70
-                                          and has_med):
+                    # LISTENING HOLD (sound-pull doctrine): our own
+                    # approach gunfire alerts 1 hop — whatever it
+                    # woke is already walking here. Crossing the
+                    # waist NOW meets it in the open on ITS ground
+                    # plus whatever else gains LOS at the mouth.
+                    # Wait out a quiet window at the choke first:
+                    # the pulled arrivals come to our gun single-
+                    # file, and only a genuinely quiet compound gets
+                    # entered. (The clock is wound in the main flow —
+                    # any perceived hunter or shot fired resets it.)
+                    listening = tick < getattr(self, "_listen_t", 0)
+                    if (not armed and not (snapshot["hp"] < 70
+                                           and has_med)) or listening:
                         hold = (mx_, my_, pd)
                         break
                 if len(beyond) >= 3 and self._hold_break <= 0:
@@ -1327,7 +1384,13 @@ class HumanBot(_UnstickMixin, Bot):
             if n >= 3 and influx > killed and self._combat_streak > 90:
                 lose += 0.6
             if self._warden_hunting:
-                lose += 0.5
+                # honest-game calibration: a hunting warden IS a lost
+                # local fight — it closes at 137 vs our 133 and cannot
+                # be finished in a bare corridor before its compound
+                # converges; the one deep run of the r19 bank (354s,
+                # 4 wardens down) was the seed whose retreat drive
+                # saturated and carried the fight to the sentry field
+                lose += 0.85
             if hp < 45.0 and n >= 2:
                 lose += 0.5
         lose = min(1.0, lose)
@@ -1359,7 +1422,15 @@ class HumanBot(_UnstickMixin, Bot):
         best, best_score = None, -(1 << 20)
         budget = 8 if self._warden_hunting else 6
         for r, n_guns in guns.items():
-            if r not in self._visited_rooms:
+            # a field counts as KNOWN if we walked it or walked past
+            # its mouth — the alcoves are side pockets off the lanes,
+            # and requiring entry left the bot blind to every gun room
+            # it strolled by (gr_nofield dominated the guns-run diag,
+            # 340-1969 ticks/run of "no field known" while alcoves sat
+            # one door off the trail)
+            if r not in self._visited_rooms and not any(
+                    p is not None and p[0] in self._visited_rooms
+                    for p in session.sim.room_portals(r)):
                 continue
             h = session.sim.hop_distance(proom, r)
             if not 0 <= h <= budget:
