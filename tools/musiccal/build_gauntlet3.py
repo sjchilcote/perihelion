@@ -491,9 +491,8 @@ def boss_cross(b, ox, oy, protected):
     b.entity(arm_n, "warden", (ox + CELL / 2, oy - 550), tether=1)
     b.entity(arm_s, "warden", (ox + CELL / 2, oy + CELL + 550), tether=1)
     b.entity(cx, "warden", (ox + CELL / 2, oy + CELL / 2), tether=1)
-    for k in range(2):
-        b.entity(cx, "brute", (ox + 40 + k * 140, oy + CELL * 0.25))
-    for k in range(5):
+    b.entity(cx, "brute", (ox + 40, oy + CELL * 0.25))
+    for k in range(3):
         b.entity(arm_e, "mite", (ox + CELL + 120 + k * 90,
                                  oy + 40 + (k % 2) * 140))
     b.entity(arm_w, "spitter", (ox - 300, oy + CELL / 2))
@@ -533,7 +532,7 @@ def boss_ring(b, ox, oy, protected):
     b.entity(segs[4], "warden", (ox + 2000 + W / 2, oy + 300 + L * 0.5), tether=1)
     b.entity(segs[0], "flicker", (ox + L * 0.7, oy + W * 0.5))
     b.entity(segs[2], "shrieker", (ox + 1000 + L * 0.5, oy + W / 2))
-    for k in range(4):
+    for k in range(2):
         b.entity(segs[(k * 2) % 5], "husk",
                  (ox + ((k * 2) % 5) * 500 + 80 + k * 60, oy + W * 0.4))
     # entry/exit stubs hang off two ring segments' LONG edges (full-edge
@@ -581,12 +580,11 @@ def boss_dark(b, ox, oy, protected):
     b.entity(hall_l, "warden", (ox + 125, oy + 150), tether=1)
     b.entity(hall_r, "warden", (ox + 375, oy + 150), tether=1)
     b.entity(chap_r, "warden", (ox + 375, oy - 100), tether=1)
-    for k in range(6):
+    for k in range(4):
         r = (hall_l, hall_r, chap_l)[k % 3]
         xs = (ox + 60 + (k * 67) % 380, oy + 40 + (k * 53) % 220)
         b.entity(r, "flicker", xs)
     b.entity(chap_l, "shrieker", (ox + 60, oy - 60))
-    b.entity(hall_r, "spitter", (ox + 420, oy + 60))
     b.entity(vest, "warden", (ox - 150, oy + 150), tether=1)
     b.entity(hall_l, "spitter", (ox + 60, oy + 250))
     protected.add(vest)

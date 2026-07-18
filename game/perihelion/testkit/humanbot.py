@@ -35,6 +35,7 @@ levels standalone.
 from __future__ import annotations
 
 import collections
+import os
 import math
 from random import Random
 
@@ -465,11 +466,19 @@ class HumanBot(_UnstickMixin, Bot):
         # runs locked backward forever), but a single mobile chaser
         # at low hp still withdraws — that rule carried the first
         # full clear
-        live_threat = n_co_hunt >= 1 or any(
-            e.get("state") in ("hunt", "waking")
-            and e.get("kind") != "warden" for e in distant)
-        trig = live_threat and (snapshot["hp"] < hp_line
-                                or n_co_hunt >= 5)
+        # A/B via BOT_FUNNEL_FORM: 'co' = hp trigger needs a co-room
+        # chaser (kills the distant-visibility lock, 3 timeouts);
+        # 'dist' = distant non-warden hunters also arm it (round-3
+        # form that measured 34%/2.6-trigger clears). n=64 decides.
+        if os.environ.get("BOT_FUNNEL_FORM", "co") == "dist":
+            live_threat = n_co_hunt >= 1 or any(
+                e.get("state") in ("hunt", "waking")
+                and e.get("kind") != "warden" for e in distant)
+            trig = live_threat and (snapshot["hp"] < hp_line
+                                    or n_co_hunt >= 5)
+        else:
+            trig = ((n_co_hunt >= 1 and snapshot["hp"] < hp_line)
+                    or n_co_hunt >= 5)
         if trig and self._escape_ticks == 0 and trail:
             self._funnel_hold = 240
             self._funnel_rooms = 0
