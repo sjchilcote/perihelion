@@ -70,14 +70,53 @@ def one(args):
     n_wardens0 = sum(1 for e in session.enemies.values()
                      if e["kind"] == "warden")
     t = 0
+    flight = []     # per-6-tick: (t, proom, hp, warden_hp, n_hunt)
     while t < max_ticks and not session.dead and not session.complete:
         snap = session.snapshot()
         inp = bot.step(snap, session)
         session.tick(inp)
         audio.handle_sounds(session, session.fx)
         music.update(session)
+        if t % 6 == 0:
+            proom_ = snap.get("room")
+            whp = max((e["hp"] for e in snap.get("enemies", ())
+                       if e["kind"] == "warden"
+                       and e["room"] == proom_), default=None)
+            nh = sum(1 for e in snap.get("enemies", ())
+                     if e["room"] == proom_ and e["kind"] != "warden"
+                     and e["state"] in ("hunt", "waking"))
+            flight.append((t, proom_, snap.get("hp"), whp, nh))
         tick[0] += 1
         t += 1
+    # ---- encounter records (Sol 2 §1, lean): a contiguous span of
+    # co-room warden samples = one encounter
+    encounters = []
+    cur = None
+    for ft, fr, fhp, fwhp, fnh in flight:
+        if fwhp is not None:
+            if cur is None or fr != cur["room"] or \
+                    ft - cur["last_t"] > 360:
+                cur = dict(room=fr, t0=ft, hp0=fhp, whp0=fwhp,
+                           last_t=ft, hp_end=fhp, whp_end=fwhp,
+                           whp_355=None, max_hunt=fnh)
+                encounters.append(cur)
+            cur["last_t"] = ft
+            cur["hp_end"] = fhp
+            cur["whp_end"] = fwhp
+            cur["max_hunt"] = max(cur["max_hunt"], fnh)
+            if cur["whp_355"] is None and ft - cur["t0"] >= 355:
+                cur["whp_355"] = fwhp
+    enc_out = []
+    for e in encounters:
+        if e["last_t"] - e["t0"] < 60:
+            continue                # a walk-past, not a fight
+        won = e["whp_end"] is not None and e["whp_end"] <= 0.0
+        enc_out.append(dict(
+            t0=round(e["t0"] / 60.0, 1),
+            dur=round((e["last_t"] - e["t0"]) / 60.0, 1),
+            hp0=e["hp0"], hp_end=e["hp_end"],
+            whp0=round(e["whp0"]), whp_355=e["whp_355"],
+            max_hunt=e["max_hunt"]))
 
     outcome = ("complete" if session.complete
                else "death" if session.dead else "timeout")
@@ -133,6 +172,7 @@ def one(args):
                 death_room=death_room_kind, death_co=death_co,
                 death_ammo=locals().get("death_ammo"),
                 death_weapon=locals().get("death_weapon"),
+                encounters=enc_out,
                 boss_runs=[(round(r["t0"], 1), round(r["t1"], 1),
                             r["bars"], round(r["peak"], 2), r["kit"])
                            for r in runs],

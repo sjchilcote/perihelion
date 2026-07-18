@@ -1,2 +1,4 @@
 pygame-ce>=2.5
 numpy<2.5,>=1.26
+python-dotenv>=1.2.2
+httpx>=0.28.1

@@ -32,6 +32,7 @@ game/perihelion/testkit/bots.py
 game/perihelion/testkit/graphs.py
 game/perihelion/testkit/harness.py
 game/perihelion/testkit/humanbot.py
+game/perihelion/testkit/loadouts.py
 game/perihelion/testkit/mouse_model.py
 game/perihelion/testkit/perception.py
 game/perihelion/testkit/perf.py
@@ -48,6 +49,8 @@ game/tests/test_editor.py
 game/tests/test_flicker_campaign_placement.py
 game/tests/test_flicker_harness.py
 game/tests/test_flicker_lurker.py
+game/tests/test_gauntlet_calibration.py
+game/tests/test_gauntlet_level.py
 game/tests/test_hole_tau.py
 game/tests/test_human_bot.py
 game/tests/test_level_winding.py
@@ -65,6 +68,7 @@ game/tests/test_render_headless.py
 game/tests/test_render_textures.py
 game/tests/test_root_invariance.py
 game/tests/test_seamless.py
+game/tests/test_sentry_turret.py
 game/tests/test_stream.py
 game/tests/test_terrain_light_shadows.py
 game/tests/test_testkit.py
