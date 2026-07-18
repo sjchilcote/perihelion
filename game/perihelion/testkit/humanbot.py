@@ -580,7 +580,11 @@ class HumanBot(_UnstickMixin, Bot):
                         break
                 if portal[0] in self._visited_rooms:
                     continue
-                if len(beyond) >= 3:
+                if len(beyond) >= 3 and self._hold_break <= 0:
+                    # crowd holds honor the commit breaker too — this
+                    # branch never checked it, so break windows never
+                    # opened for crowd sieges (timeout trajectories
+                    # bit-identical across three breaker changes)
                     hold = (mx_, my_, pd)
                     break
                 if pd < 90.0:
@@ -611,14 +615,23 @@ class HumanBot(_UnstickMixin, Bot):
             self._hold_ticks += 1
             if self._hold_ticks > 1500:
                 # break the siege: THROUGH the door when healthy,
-                # AWAY to a far medkit when not (Sol 2 §6 — stuck
-                # sieges at hp<70 with no local kit stood 11+
-                # minutes, measured thold 40-46k ticks)
-                self._hold_break = 900 if snapshot["hp"] >= 70 \
-                    else 1400
+                # AWAY to a far medkit when not (Sol 2 §6). After
+                # three failed cycles, commit at any hp >= 40: the
+                # measured brawl odds at 60-80 entry are 84-88%,
+                # and a guaranteed timeout is 0%.
+                self._hold_cycles = getattr(self, "_hold_cycles",
+                                            0) + 1
+                if snapshot["hp"] >= 70 or \
+                        (self._hold_cycles >= 3
+                         and snapshot["hp"] >= 40):
+                    self._hold_break = 900
+                else:
+                    self._hold_break = 1400
                 self._hold_ticks = 0
         else:
             self._hold_ticks = 0
+            if snapshot["hp"] >= 90:
+                self._hold_cycles = 0
         if self._hold_break > 0:
             self._hold_break -= 1
         adv_vec = self._objective_move(session, snapshot, px, py, proom)
