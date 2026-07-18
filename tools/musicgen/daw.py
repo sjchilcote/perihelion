@@ -83,13 +83,14 @@ class StemContractError(Exception):
     """A stem file the game/mixer contract cannot accept."""
 
 
-def _bank_playable(meta) -> bool:
-    """The mixer's minimum contract: numeric bpm + bars. Older banks
-    (bars/bpm/melody, no sections) pass — sections are display-only
-    and OPTIONAL everywhere in this tool; a bank.json without bpm or
-    bars cannot be sliced at all."""
+def _bank_valid(meta) -> bool:
+    """THE bank.json schema: bpm, bars, sections. One schema, no
+    partial acceptance — an incomplete file is data to be fixed, and
+    the gate says so instead of letting a half-described bank in."""
     try:
-        return float(meta["bpm"]) > 0 and int(meta["bars"]) > 0
+        return float(meta["bpm"]) > 0 and int(meta["bars"]) > 0 \
+            and isinstance(meta["sections"], list) \
+            and len(meta["sections"]) > 0
     except (KeyError, TypeError, ValueError):
         return False
 
@@ -203,15 +204,15 @@ class Project:
                 ok = False
                 if d is not None:
                     try:
-                        ok = _bank_playable(json.loads(
+                        ok = _bank_valid(json.loads(
                             (d / "bank.json").read_text()))
                     except Exception:
                         ok = False
                 if not ok:
                     raise SystemExit(
-                        f"--use {nm}: not a playable bank (needs "
-                        f"bank.json with bpm + bars) under "
-                        f"{[str(r) for r in MK.MUSIC_ROOTS]}")
+                        f"--use {nm}: not a usable bank (needs "
+                        f"bank.json with bpm + bars + sections) "
+                        f"under {[str(r) for r in MK.MUSIC_ROOTS]}")
             out, bi = [], -1
             for e in self.events:
                 if e["kind"] == "music_bank":
@@ -252,7 +253,7 @@ class Project:
                     meta = json.loads((d / "bank.json").read_text())
                 except Exception:
                     meta = None
-                if meta is not None and not _bank_playable(meta):
+                if meta is not None and not _bank_valid(meta):
                     meta = None     # health() names the reason in red
                 if meta is None:
                     d = None
@@ -347,10 +348,10 @@ class Project:
         if not meta:
             return ""
         idx = self.bar_at(t)[1] % int(meta["bars"])
-        for s, a, b in meta.get("sections", ()):
-            if a <= idx < b:        # sections are OPTIONAL metadata:
-                return s            # legacy banks have none (the
-        return ""                   # KeyError here crashed the app)
+        for s, a, b in meta["sections"]:    # _bank_valid guarantees
+            if a <= idx < b:                # sections exist wherever
+                return s                    # a meta survives parse
+        return ""
 
     def xfade_at(self, t):
         for t0, t1, old, new in self.xfades:
@@ -390,10 +391,10 @@ class Project:
                     meta = json.loads((d / "bank.json").read_text())
                 except Exception:
                     d = None
-            if meta is not None and not _bank_playable(meta):
-                msgs.append((f"{name}: bank.json has no usable "
-                             f"bpm/bars — those spans play SILENCE",
-                             "err"))
+            if meta is not None and not _bank_valid(meta):
+                msgs.append((f"{name}: incomplete bank.json (needs "
+                             f"bpm + bars + sections) — those spans "
+                             f"play SILENCE", "err"))
                 continue
             if meta is None or d is None:
                 msgs.append((f"bank not found: {name} — those spans "
@@ -1171,7 +1172,7 @@ class App:
         if c is not None and c[0] == st:
             return c[1]
         try:
-            ok = _bank_playable(json.loads(
+            ok = _bank_valid(json.loads(
                 (d / "bank.json").read_text()))
         except Exception:
             ok = False
@@ -1444,8 +1445,9 @@ class App:
                 for r, name, ok in self._picker_rows:
                     if r.collidepoint(x, y):
                         if not ok:
-                            self._note(f"{name}: bank.json has no "
-                                       f"usable bpm/bars — can't "
+                            self._note(f"{name}: incomplete bank.json"
+                                       f" (needs bpm + bars + "
+                                       f"sections) — fix the file to "
                                        f"score with it", "warn")
                             return True     # picker stays open
                         self.picker = False
@@ -2162,7 +2164,7 @@ class App:
                     pygame.draw.rect(scr, (60, 55, 35), r)
                 label = nm or f"(as recorded: {orig})"
                 if not ok:
-                    label += "  (incompatible bank.json)"
+                    label += "  (incomplete bank.json)"
                 self.txt(label, r.x + 6, r.y + 3,
                          (255, 240, 200) if cur
                          else (200, 200, 210) if ok

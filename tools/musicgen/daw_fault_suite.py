@@ -670,7 +670,7 @@ def f_cli(app):
          str(REC), "--use", "album_nope"], capture_output=True,
         text=True, env=env, timeout=60)
     assert r.returncode != 0
-    assert "not a playable bank" in r.stderr
+    assert "not a usable bank" in r.stderr
     assert "Traceback" not in r.stderr, r.stderr
 
 
@@ -823,26 +823,35 @@ def f_new_bank(app):
     assert "fresh_delivery" not in app.available_banks()
 
 
-@force("legacy bank.json (no sections) scores WITHOUT crashing; "
-       "broken bank.json is gated")
-def f_legacy_bank(app):
-    # the director's crash: out/banks legacy schema = bars/bpm/melody
-    leg = BANKROOT / "legacy_m1"
-    leg.mkdir()
-    (leg / "bank.json").write_text(json.dumps(
-        dict(bars=8, bpm=110.0, melody="x")))
-    wwav(leg / "prayer.wav", tone(220.0, N_BAR * BARS))
+@force("ONE bank.json schema: incomplete files gated with the fix "
+       "named; a complete one-section bank scores")
+def f_incomplete_bank(app):
+    # a single-loop bank with the COMPLETE schema (the out/banks
+    # single-loop builds after the 2026-07-18 data fix)
+    good = BANKROOT / "single_loop"
+    good.mkdir()
+    (good / "bank.json").write_text(json.dumps(dict(
+        melody="x", title="tutti_x_loop", bpm=110.0, bars=8,
+        sections=[["develop", 0, 8]])))
+    wwav(good / "prayer.wav", tone(220.0, N_BAR * BARS))
+    # an incomplete one (no sections): data to be FIXED, not admitted
     bro = BANKROOT / "broken_bank"
     bro.mkdir()
-    (bro / "bank.json").write_text(json.dumps(dict(melody="y")))
+    (bro / "bank.json").write_text(json.dumps(
+        dict(melody="y", bpm=110.0, bars=8)))
+    # fixture root only: the real repo's banks would push the
+    # fixture's rows past the picker's visible cap
+    real_roots = MK.MUSIC_ROOTS[:]
+    MK.MUSIC_ROOTS[:] = [BANKROOT]
     a2 = mk_app()
     try:
         ready(a2)
         names = a2.available_banks()
-        assert "legacy_m1" in names and "broken_bank" in names
-        assert a2._bank_ok("legacy_m1"), "legacy bank wrongly gated"
-        assert not a2._bank_ok("broken_bank"), "broken bank passed"
-        # the picker dims the broken one; clicking it must be a no-op
+        assert "single_loop" in names and "broken_bank" in names
+        assert a2._bank_ok("single_loop"), "complete bank gated"
+        assert not a2._bank_ok("broken_bank"), \
+            "incomplete bank.json passed the gate"
+        # the picker dims the incomplete one; clicking names the fix
         a2.picker = True
         a2.draw()
         r, nm, ok = next(row for row in a2._picker_rows
@@ -850,26 +859,26 @@ def f_legacy_bank(app):
         assert not ok
         a2.handle(pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1,
                                      pos=(r.centerx, r.centery)))
-        assert a2._use == {} and has_note(a2, "bpm/bars")
+        assert a2._use == {} and has_note(a2, "incomplete bank.json")
         a2.picker = False
-        # the crash path itself: score a pass with the legacy bank —
-        # parse, section_at, draw, render must all survive
-        a2.set_bank("legacy_m1", pass_idx=0)
-        assert a2.proj.section_at(0.1) == ""    # KeyError site
+        # the complete single-loop bank scores end to end
+        a2.set_bank("single_loop", pass_idx=0)
+        assert a2.proj.section_at(0.1) == "develop"
         a2.draw()
         ready(a2)
-        assert a2.proj.banks[0][2] == "legacy_m1"
+        assert a2.proj.banks[0][2] == "single_loop"
         pf = peak_freq(a2.player.buf, 0.2, BAR_S)
-        assert abs(pf - 220.0) < 15, "legacy bank did not sound"
-        # CLI-style use of the broken bank exits cleanly, no traceback
+        assert abs(pf - 220.0) < 15, "single-loop bank did not sound"
+        # Project refuses the incomplete one cleanly, no traceback
         try:
             daw.Project(REC, use={0: "broken_bank"})
-            raise AssertionError("broken bank accepted by Project")
+            raise AssertionError("incomplete bank accepted by Project")
         except SystemExit as exc:
-            assert "playable" in str(exc)
+            assert "sections" in str(exc)
     finally:
+        MK.MUSIC_ROOTS[:] = real_roots
         close(a2)
-        shutil.rmtree(leg)
+        shutil.rmtree(good)
         shutil.rmtree(bro)
         (REC / "daw_session.json").unlink(missing_ok=True)
 
@@ -930,7 +939,7 @@ def main():
               f_renamed_bank, f_bankjson_edit, f_scrub_race,
               f_overview_align, f_xfade, f_farewell, f_marks,
               f_no_taps, f_cli, f_recall, f_ab, f_end_restart,
-              f_anchor, f_features, f_new_bank, f_legacy_bank,
+              f_anchor, f_features, f_new_bank, f_incomplete_bank,
               f_render_modal, f_quit_purity]
     for fn in forces:
         t0 = time.time()
