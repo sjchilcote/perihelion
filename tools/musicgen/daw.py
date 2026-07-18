@@ -30,7 +30,6 @@ from __future__ import annotations
 
 import argparse
 import bisect
-import io
 import json
 import subprocess
 import sys
@@ -499,49 +498,184 @@ class Player:
                 return False
 
 
-class VideoMonitor:
-    """Frame-at-playhead from the rendered mp4 (ffmpeg seek, async).
+class VideoPlayer:
+    """REAL video playback for the monitor panes — not frame-grabbing.
 
-    Honesty rules: a missing file or dead ffmpeg is one red line, not
-    a silent non-feature; frames are keyed by (time, file mtime) so a
-    regenerated mp4 can't serve stale frames; the drawn frame carries
-    its own timestamp so staleness is visible (dim + lag badge).
-    Seek accuracy: -ss before -i measured byte-identical to output
-    seek on this ffmpeg (3 probe points across a 16.7s GOP) — the
-    fast form is exact."""
+    One persistent ffmpeg process decodes forward from the playhead
+    and pipes raw frames; every draw presents the frame whose pts
+    matches the audio clock. The shipped mp4 is natively 15fps and
+    decodes ~12x realtime here, so playback is every-frame smooth,
+    and seeks/scrubs simply restart the stream (rate-limited) and are
+    on-frame in ~0.2s. Paused shows the exact playhead frame from the
+    SAME pipeline — there is no separate still-extraction path.
 
-    def __init__(self, video: Path | None, size=(320, 180),
-                 big=(640, 360)):
+    Honesty rules survive the rewrite: missing file / dead ffmpeg is
+    one red line, not a silent non-feature; a regenerated mp4 restarts
+    the stream (mtime watch); the presented frame carries its pts so
+    staleness is visible (dim + lag badge)."""
+
+    SIZE = (640, 360)               # decode size = lightbox size
+    BUFFER = 30                     # ~2s ahead; the pipe throttles
+
+    def __init__(self, video: Path | None):
         self.err = None
-        self.size = size
-        self.big_size = big             # the mp4's native resolution
+        self.size = self.SIZE
         self.video = None
         if video is not None:
             if video.exists():
                 self.video = video
             else:
                 self.err = f"video unavailable (not found: {video})"
-        self.cache: dict = {}           # (q, mtime) -> small surf
-        self.native: dict = {}          # (q, mtime) -> native surf
-        self.want = None
-        self.cur = None                 # (surf, q) — SMALL frames only
-        self._up = (None, None)         # one-slot upscaled-frame cache
-        self.busy_since = None
-        self._fail = 0
-        self._cv = threading.Condition()
-        self._mtime = self.video.stat().st_mtime_ns if self.video else 0
+        self.fps = 15.0
+        self._frames = deque()      # (pts, surf) decoded, unpresented
+        self._flock = threading.Lock()
+        self._shown = None          # (pts, surf) currently presented
+        self._mini = (None, None)   # one-slot 320x180 downscale cache
+        self._gen = 0
+        self._proc = None
+        self._t0 = 0.0
+        self._start_wall = 0.0
+        self._last_start = 0.0
+        self._fails = 0
+        self._mtime = 0
         self._stat_t = time.time()
-        self._worker_t = None
-        self.start_worker()
+        if self.video:
+            self._mtime = self.video.stat().st_mtime_ns
+            try:
+                out = subprocess.run(
+                    ["ffprobe", "-v", "error", "-select_streams", "v",
+                     "-show_entries", "stream=r_frame_rate", "-of",
+                     "csv=p=0", str(self.video)],
+                    capture_output=True, timeout=10).stdout.decode()
+                num, _, den = out.strip().partition("/")
+                self.fps = float(num) / float(den or 1)
+            except Exception:
+                pass                # fallback only affects pts spacing
 
-    def start_worker(self):
-        if self.video and (self._worker_t is None
-                           or not self._worker_t.is_alive()):
-            self.err = None
-            self._fail = 0
-            self._worker_t = threading.Thread(target=self._worker,
-                                              daemon=True)
-            self._worker_t.start()
+    # ---- stream lifecycle ------------------------------------------------
+    def _start(self, t0):
+        self._gen += 1
+        gen = self._gen
+        self._kill()
+        with self._flock:
+            self._frames.clear()
+        t0 = max(0.0, t0)
+        try:
+            self._proc = subprocess.Popen(
+                ["ffmpeg", "-v", "error", "-ss", f"{t0:.3f}",
+                 "-i", str(self.video),
+                 "-vf", f"scale={self.size[0]}:{self.size[1]}",
+                 "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        except FileNotFoundError:
+            self.err = "video unavailable (ffmpeg not found)"
+            self._proc = None
+            return
+        self._t0 = t0
+        self._start_wall = self._last_start = time.time()
+        threading.Thread(target=self._reader,
+                         args=(self._proc, t0, gen),
+                         daemon=True).start()
+
+    def _kill(self):
+        if self._proc is not None:
+            try:
+                self._proc.kill()
+            except OSError:
+                pass
+            self._proc = None
+
+    def stop(self):
+        self._gen += 1
+        self._kill()
+
+    def retry(self):
+        """R after a video failure: forget it and stream fresh."""
+        self.err = None
+        self._fails = 0
+        self.stop()
+
+    def _reader(self, p, t0, gen):
+        fsz = self.size[0] * self.size[1] * 3
+        n = 0
+        while gen == self._gen:
+            if len(self._frames) >= self.BUFFER:
+                time.sleep(0.02)    # full buffer: the pipe stalls
+                continue            # ffmpeg for us — zero CPU parked
+            data = p.stdout.read(fsz)
+            if not data or len(data) < fsz:
+                break
+            surf = pygame.image.frombuffer(data, self.size, "RGB")
+            try:
+                surf = surf.convert()
+            except pygame.error:
+                pass
+            with self._flock:
+                self._frames.append((t0 + n / self.fps, surf))
+            n += 1
+        if gen != self._gen:
+            return
+        if n == 0 and p.poll() not in (None, 0):
+            self._fails += 1
+            if self._fails >= 3:
+                cause = ""
+                try:
+                    cause = p.stderr.read(200).decode().strip()[:60]
+                except Exception:
+                    pass
+                self.err = ("video unavailable "
+                            f"({cause or 'decode failed'})")
+        elif n > 0:
+            self._fails = 0
+
+    # ---- presentation ----------------------------------------------------
+    def _covered(self, t):
+        """Can the running stream serve t without a restart?"""
+        p = self._proc
+        if p is None:
+            return False
+        with self._flock:
+            newest = self._frames[-1][0] if self._frames else None
+            oldest = self._frames[0][0] if self._frames else None
+        shown = self._shown[0] if self._shown else None
+        if p.poll() is not None and newest is None:
+            # drained: EOF legitimately parks on the last frame;
+            # a failed decode does not get to park
+            return p.returncode == 0 and shown is not None \
+                and t >= shown - 0.6 / self.fps
+        # the lower bound is the frame being PRESENTED — the oldest
+        # buffered frame is the NEXT one, legitimately ahead of t
+        # (judging by it read normal playback as a backward seek and
+        # restarted the stream every rate-limit period)
+        lo = shown if shown is not None else \
+            (oldest if oldest is not None else self._t0)
+        if t < lo - 0.6 / self.fps:
+            return False            # backward seek
+        hi = newest if newest is not None else \
+            self._t0 + (time.time() - self._start_wall) * 6.0
+        return t <= hi + 1.5        # slightly ahead: reader catches up
+
+    def frame_for(self, t):
+        """The (pts, surf) to present at playhead t — audio is the
+        clock. Returns None only while a fresh stream warms up."""
+        if not self.video or self.err:
+            return None
+        self._check_mtime()
+        if not self._covered(t) and \
+                time.time() - self._last_start > 0.25:
+            self._start(t)          # rate-limited: scrub-drag makes
+            #                         at most 4 restarts/s
+        with self._flock:
+            while self._frames and \
+                    self._frames[0][0] <= t + 0.5 / self.fps:
+                self._shown = self._frames.popleft()
+        return self._shown
+
+    def mini(self, surf):
+        if self._mini[0] != id(surf):
+            self._mini = (id(surf), pygame.transform.smoothscale(
+                surf, (320, 180)))
+        return self._mini[1]
 
     def _check_mtime(self):
         if time.time() - self._stat_t < 1.0:
@@ -553,86 +687,9 @@ class VideoMonitor:
             self.err = "video unavailable (file vanished)"
             return
         if mt != self._mtime:
-            self._mtime = mt            # old keys simply never match
-
-    def request(self, t, big: bool = False):
-        if not self.video or self.err:
-            return None
-        self._check_mtime()
-        q = round(t * 2) / 2
-        key = (q, self._mtime)
-        store = self.native if big else self.cache
-        surf = store.get(key)
-        if surf is not None:
-            if not big:
-                # the mini pane's fallback slot holds SMALL frames
-                # only — a native leaked in here once and blitted a
-                # 640x360 copy spilling out below the mini player
-                self.cur = (surf, q)
-            return surf
-        with self._cv:
-            self.want = (q, big, self._mtime)
-            self._cv.notify()
-        if big:
-            # bridge with an upscale while the native extracts —
-            # cached per (key, source): re-scaling every draw frame
-            # made lightbox playback stutter
-            small = self.cache.get(key) or \
-                (self.cur[0] if self.cur else None)
-            if small is None:
-                return None
-            up_key = (key, id(small))
-            if self._up[0] != up_key:
-                self._up = (up_key, pygame.transform.smoothscale(
-                    small, self.big_size))
-            return self._up[1]
-        return self.cur[0] if self.cur else None
-
-    def _worker(self):
-        while True:
-            with self._cv:
-                while self.want is None:
-                    self._cv.wait()
-                (q, big, mt), self.want = self.want, None
-            store = self.native if big else self.cache
-            if (q, mt) in store:
-                continue
-            self.busy_since = time.time()
-            try:
-                r = subprocess.run(
-                    ["ffmpeg", "-v", "error", "-ss", f"{q:.2f}",
-                     "-i", str(self.video), "-frames:v", "1",
-                     "-f", "image2pipe", "-vcodec", "bmp", "-"],
-                    capture_output=True, timeout=10)
-                img = pygame.image.load(io.BytesIO(r.stdout), "f.bmp")
-                surf = pygame.transform.smoothscale(
-                    img, self.big_size if big else self.size)
-            except FileNotFoundError:
-                self.err = "video unavailable (ffmpeg not found)"
-                self.busy_since = None
-                return                  # no spawn storm
-            except Exception as exc:
-                self.busy_since = None
-                self._fail += 1
-                if self._fail >= 5:
-                    cause = ""
-                    try:
-                        cause = (r.stderr or b"").decode()[:60].strip()
-                    except Exception:
-                        pass
-                    self.err = ("video unavailable "
-                                f"({cause or type(exc).__name__})")
-                    return
-                continue
-            self.busy_since = None
-            self._fail = 0
-            cap = 60 if big else 400
-            if len(store) > cap:
-                try:
-                    store.pop(next(iter(store)))
-                except KeyError:
-                    pass
-            store[(q, mt)] = surf
+            self._mtime = mt        # regenerated mp4: stream fresh
+            self._shown = None
+            self.stop()
 
 
 class App:
@@ -657,7 +714,7 @@ class App:
         self.small = pygame.font.SysFont("monospace", 11)
         self.big = pygame.font.SysFont("monospace", 17, bold=True)
         self.player = Player()
-        self.video = VideoMonitor(video)
+        self.video = VideoPlayer(video)
         self.video_note = ""
         # interaction state
         self._goto = None           # typed go-to buffer, None = inactive
@@ -1165,7 +1222,7 @@ class App:
         if self.player.err:
             self.player.retry()
         if self.video.err and self.video.video:
-            self.video.start_worker()
+            self.video.retry()
         self.rebuild("full reload", src="R", reparse=True)
 
     # ---- interaction -----------------------------------------------------
@@ -1425,13 +1482,13 @@ class App:
         for el, r in self._static[2].items():
             self._hit[el] = r
 
+        # ONE frame per draw serves both panes (audio is the clock)
+        vf = self.video.frame_for(t) \
+            if self.video.video and not self.video.err else None
         self._draw_transport(scr, proj, t)
         self._draw_panel(scr, proj, t)
-        if not self.video_big:
-            # the lightbox covers the mini pane; requesting small
-            # frames under it thrashed the worker's single want slot
-            # against the native extraction (audible as stutter)
-            self._draw_video(scr, t)
+        if not self.video_big:      # the lightbox covers the mini pane
+            self._draw_video(scr, t, vf)
 
         # playhead over the static layer
         if v0 <= t <= v1:
@@ -1451,7 +1508,7 @@ class App:
                 self.txt(keyg[0], 50, self.rows[ln] + 13,
                          (120, 120, 135), self.small, maxw=74)
 
-        self._draw_overlays(scr, proj, t)
+        self._draw_overlays(scr, proj, t, vf)
         self._draw_tooltip()
         pygame.display.flip()
 
@@ -1606,7 +1663,7 @@ class App:
                  "? all keys", 128, self.y_marks + 42, (120, 120, 135))
 
     # ---- video pane -------------------------------------------------------
-    def _draw_video(self, scr, t):
+    def _draw_video(self, scr, t, vf):
         vx, vy = self.W - 332, 44
         if self.video.err:
             pygame.draw.rect(scr, (40, 24, 24), (vx, vy, 320, 40))
@@ -1617,28 +1674,21 @@ class App:
             self.txt("no video attached (--video PATH)", vx + 40,
                      vy + 80, (100, 100, 115))
             return
-        fr = self.video.request(t)
-        if fr is not None:
-            scr.blit(fr, (vx, vy))
-            q_shown = self.video.cur[1] if self.video.cur else None
-            lag = abs(q_shown - round(t * 2) / 2) \
-                if q_shown is not None else 0.0
+        if vf is not None:
+            pts, native = vf
+            scr.blit(self.video.mini(native), (vx, vy))
+            lag = abs(pts - t)
             if lag > 1.0:
-                # extraction chases a moving playhead ~1-2s behind by
-                # nature; the dim says "not current", and the counting
-                # badge is reserved for a real stall (walkthrough
-                # finding: a steady counter reads as an error)
+                # a running stream tracks the playhead within a frame;
+                # a visible lag means it is warming up after a seek —
+                # dim says "not current", the badge marks a real stall
                 scr.blit(self._dim_surf(320, 180, 130), (vx, vy))
             if lag > 2.5:
                 self.txt(f"video behind by {lag:.0f}s", vx + 8, vy + 8,
                          STATUS_COL["warn"])
         else:
-            self.txt("extracting frame…", vx + 100, vy + 84,
+            self.txt("starting video…", vx + 100, vy + 84,
                      (120, 120, 135))
-        busy = self.video.busy_since
-        if busy and time.time() - busy > 1.5:
-            self.txt(f"extracting… {time.time() - busy:.0f}s",
-                     vx + 6, vy + 162, STATUS_COL["busy"])
         pygame.draw.rect(scr, (70, 70, 80), (vx, vy, 320, 180), 1)
         self._hit["video_monitor"] = pygame.Rect(vx, vy, 320, 180)
         if self.video_note:
@@ -1877,14 +1927,15 @@ class App:
             lx += 17
 
     # ---- overlays ---------------------------------------------------------
-    def _draw_overlays(self, scr, proj, t):
+    def _draw_overlays(self, scr, proj, t, vf):
         if self.video_big:
-            fr = self.video.request(t, big=True)
-            bw, bh = self.video.big_size
+            bw, bh = self.video.size
             bx, by = (self.W - bw) // 2, (self.H - bh) // 2
             scr.blit(self._dim_surf(self.W, self.H, 170), (0, 0))
-            if fr is not None:
-                scr.blit(fr, (bx, by))
+            if vf is not None:
+                scr.blit(vf[1], (bx, by))
+                if abs(vf[0] - t) > 1.0:
+                    scr.blit(self._dim_surf(bw, bh, 130), (bx, by))
             pygame.draw.rect(scr, (200, 200, 210), (bx, by, bw, bh), 2)
             self.txt("click or ESC to close", bx + 4, by + bh + 6,
                      (170, 170, 180))
@@ -2143,6 +2194,7 @@ class App:
             clock.tick(60)
         self._quit = True
         self._save_session()
+        self.video.stop()           # no orphaned ffmpeg after quit
         pygame.quit()
 
 

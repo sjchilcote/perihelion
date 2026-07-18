@@ -381,73 +381,91 @@ def f_audio_death(app):
     assert app.player.err is None
 
 
-@force("addendum 32 video cache hammer under eviction → no crash")
-def f_cache_race(app):
+@force("video: REAL playback at native rate; frame_for race-free")
+def f_video_playback(app):
     vid = ROOT / "out/gauntlet_winning_session_v1.mp4"
-    vm = daw.VideoMonitor(vid)
-    surf = pygame.Surface((4, 4))
-    for i in range(500):
-        vm.cache[(float(i), vm._mtime)] = surf
-    stop = threading.Event()
+    vp = daw.VideoPlayer(vid)
+    try:
+        assert abs(vp.fps - 15.0) < 0.01, f"probed fps {vp.fps}"
+        # sweep a 3s playback clock; every native frame must present
+        seen = set()
+        t0 = time.time()
+        base = 100.0
+        while time.time() - t0 < 4.0:
+            vf = vp.frame_for(base + (time.time() - t0))
+            if vf is not None:
+                seen.add(round(vf[0], 3))
+            time.sleep(1 / 60)
+        assert len(seen) >= 40, \
+            f"only {len(seen)} distinct frames in ~4s (want ~60 @15fps)"
+        # concurrent frame_for/seek hammer across restarts → no crash
+        errs = []
 
-    def evict():
-        while not stop.is_set():
-            try:
-                vm.cache.pop(next(iter(vm.cache)))
-            except (KeyError, StopIteration):
-                pass
-    th = threading.Thread(target=evict, daemon=True)
-    th.start()
-    for i in range(3000):
-        vm.request((i % 500) / 2.0)
-    stop.set()
+        def hammer():
+            for i in range(200):
+                try:
+                    vp.frame_for(base + (i % 37))
+                except Exception as exc:
+                    errs.append(exc)
+        ths = [threading.Thread(target=hammer) for _ in range(2)]
+        [t.start() for t in ths]
+        [t.join() for t in ths]
+        assert not errs, f"frame_for raced: {errs[0]}"
+        # backward seek restarts and lands on-frame
+        vp.frame_for(50.0)
+        wait(lambda: vp.frame_for(50.0) is not None
+             and abs(vp.frame_for(50.0)[0] - 50.0) < 0.5, 10,
+             "backward seek on-frame")
+    finally:
+        vp.stop()
 
 
 @force("P0.11 ffmpeg missing → one red line, no spawn storm")
 def f_no_ffmpeg(app):
     vid = ROOT / "out/gauntlet_winning_session_v1.mp4"
-    real_run = daw.subprocess.run
+    real_popen = daw.subprocess.Popen
     calls = []
 
     def no_ffmpeg(*a, **k):
         calls.append(1)
         raise FileNotFoundError("ffmpeg")
-    daw.subprocess.run = no_ffmpeg
+    vp = daw.VideoPlayer(vid)
+    daw.subprocess.Popen = no_ffmpeg
     try:
-        vm = daw.VideoMonitor(vid)
-        vm.request(1.0)
-        wait(lambda: vm.err and "ffmpeg not found" in vm.err, 10,
-             "ffmpeg err")
+        vp.frame_for(1.0)
+        assert vp.err and "ffmpeg not found" in vp.err
         n = len(calls)
         for i in range(20):
-            vm.request(float(i))
-        time.sleep(0.5)
+            vp.frame_for(float(i))
         assert len(calls) == n, "spawn storm after ffmpeg death"
     finally:
-        daw.subprocess.run = real_run
+        daw.subprocess.Popen = real_popen
+        vp.stop()
 
 
 @force("P0.11 missing video file → red, not a silent non-feature")
 def f_no_video(app):
-    vm = daw.VideoMonitor(Path("/nonexistent/session.mp4"))
-    assert vm.err and "not found" in vm.err
+    vp = daw.VideoPlayer(Path("/nonexistent/session.mp4"))
+    assert vp.err and "not found" in vp.err
 
 
-@force("addendum 33c mp4 overwrite → cache keys rotate")
+@force("addendum 33c mp4 overwrite → stream restarts on new content")
 def f_mp4_swap(app):
     m = TMP / "tiny.mp4"
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi",
                     "-i", "color=red:s=64x36:d=3", str(m)], check=True)
-    vm = daw.VideoMonitor(m)
-    vm.request(1.0)
-    wait(lambda: any(k[0] == 1.0 for k in vm.cache), 10, "first frame")
-    old_mt = vm._mtime
-    os.utime(m, (time.time() + 5, time.time() + 5))
-    vm._stat_t = 0.0
-    vm.request(1.0)
-    assert vm._mtime != old_mt, "mtime change not observed"
-    wait(lambda: any(k == (1.0, vm._mtime) for k in vm.cache), 10,
-         "re-extraction under the new key")
+    vp = daw.VideoPlayer(m)
+    try:
+        wait(lambda: vp.frame_for(1.0) is not None, 10, "first frame")
+        gen0 = vp._gen
+        os.utime(m, (time.time() + 5, time.time() + 5))
+        vp._stat_t = 0.0
+        vp.frame_for(1.0)
+        assert vp._gen > gen0, "mtime change did not restart the stream"
+        wait(lambda: vp.frame_for(1.0) is not None, 10,
+             "fresh frames after overwrite")
+    finally:
+        vp.stop()
 
 
 @force("addendum 34 wrong-session video → correspondence warning")
@@ -788,7 +806,7 @@ def main():
     ready(app, 60)
     forces = [f_48k, f_24bit, f_aiff, f_misnamed, f_truncated,
               f_slow_copy, f_short_stem, f_watchdog, f_mute_solo,
-              f_spam, f_stale_clip, f_audio_death, f_cache_race,
+              f_spam, f_stale_clip, f_audio_death, f_video_playback,
               f_no_ffmpeg, f_no_video, f_mp4_swap, f_wrong_video,
               f_case, f_mtime_restore, f_muted_reload, f_companion,
               f_renamed_bank, f_bankjson_edit, f_scrub_race,
