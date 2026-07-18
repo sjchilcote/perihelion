@@ -324,19 +324,30 @@ class Project:
         for _, _, name, _, _ in self.banks:
             for root in MK.MUSIC_ROOTS:
                 d = root / name
-                if d.exists() and d not in dirs:
+                # missing dirs stay in the watch list: a renamed bank
+                # must be SEEN coming back (the scan skips them safely)
+                if d not in dirs:
                     dirs.append(d)
         return dirs
 
     def health(self):
         """Per-bank contract warnings (wrong-length stems, missing
-        banks) — cheap header reads only, recomputed every rebuild."""
+        banks) — cheap header reads only, recomputed every rebuild.
+        Resolution is done FRESH here, not from parse-time caches: a
+        bank renamed mid-session must go red on the next rebuild."""
         msgs = []
         seen = set()
-        for _, _, name, meta, d in self.banks:
+        for _, _, name, _meta, _d in self.banks:
             if name in seen:
                 continue
             seen.add(name)
+            d = MK._resolve_bank(name)
+            meta = None
+            if d is not None:
+                try:
+                    meta = json.loads((d / "bank.json").read_text())
+                except Exception:
+                    d = None
             if meta is None or d is None:
                 msgs.append((f"bank not found: {name} — those spans "
                              f"play SILENCE", "err"))
@@ -838,7 +849,10 @@ class App:
             clip = apk > 1.0
             t_loud = float(np.abs(out).max(axis=1).argmax()) / RATE
             db_over = 20.0 * np.log10(apk) if apk > 0 else 0.0
-            buf = (np.clip(out, -1, 1) * 32767).astype(np.int16)
+            # trim to the ruler's span: player end, overview and ruler
+            # must agree on ONE session length (item 42's real root)
+            buf = (np.clip(out[:int(self.proj.dur * RATE)], -1, 1)
+                   * 32767).astype(np.int16)
             ov = self._overview(buf)
             dt = time.time() - t0
             with self._lock:
