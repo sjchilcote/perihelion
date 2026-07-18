@@ -7,7 +7,7 @@ Opens gauntlet_winning_session_v1 (649s, full 4-boss clear) as a DAW
 project window: video monitor, transport, section/bank ruler, the three
 value automation curves, one track strip per lane with its gain
 automation and clip content, and event markers (jumps, risers, slams,
-stings, death halts).
+stings, stabs, death halts).
 
 The mix is rebuilt from the recording's decision log by the SAME
 offline mixer that renders the shipped videos, reading the SAME bank
@@ -20,35 +20,29 @@ back, listen again, iterate. WAV beats OGG on the same name in the
 same folder, so dropping `prayer.wav` next to `prayer.ogg` auditions
 your replacement without deleting the original.
 
-Transport / controls
-  SPACE        play / pause (or click the transport glyph)
-  click/drag   seek / scrub (anywhere in the timeline)
-  LEFT/RIGHT   nudge one bar    (SHIFT: 10 s)
-  HOME / END   start / end
-  M / S boxes  mute / solo a track (click; rebuild is ~1 s)
-  track name   click selects a track; M / S keys then mute/solo it
-  time readout click, type mm:ss (or seconds), ENTER jumps
-  bank title   click: audition a different bank over this session
-  video        click: enlarge / shrink
-  P/C/S labels click: show / hide that curve
-  CLIP         click: reset the clip latch
-  R            force rebuild
-  ESC          close overlay / cancel entry / quit
-Hover any control for a tooltip.
+Press ? in the app for the full key/legend overlay. Highlights:
+  SPACE play/pause · click/drag scrub · arrows bar (SHIFT 10s)
+  , . markers · UP/DOWN sections · + - zoom · drag ruler = loop · L
+  M/S mute/solo · A hear previous mix · G/click clock go-to · C copy
+  B bounce · R full reload/retry · ESC close overlay / quit
 """
 from __future__ import annotations
 
 import argparse
+import bisect
 import io
 import json
 import subprocess
 import sys
 import threading
 import time
+import wave as wavemod
+from collections import deque
 from pathlib import Path
 
 import numpy as np
 import pygame
+import soundfile as sf
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools/playtest"))
@@ -58,65 +52,111 @@ DEFAULT_REC = ROOT / "out/winning_session_v1_rec"
 DEFAULT_VIDEO = ROOT / "out/gauntlet_winning_session_v1.mp4"
 
 RATE = MK.RATE
-CHUNK_S = 0.2
+CHUNK_S = 0.1
 CHUNK = int(CHUNK_S * RATE)
+SETTLE_S = 0.6          # a file must sit still this long before rebuild
 
 LANES = ["holy", "bed", "drums", "wall", "groove", "lead", "lead2",
          "bass", "boss"]
 FX = "fx"          # riser / riser_half / sting / stab as one mute group
 LANE_COL = {
     "holy": (212, 175, 96), "bed": (110, 110, 140),
-    "drums": (200, 120, 70), "wall": (200, 80, 80),
+    "drums": (200, 120, 70), "wall": (205, 85, 85),
     "groove": (220, 160, 90), "lead": (120, 200, 160),
     "lead2": (90, 160, 130), "bass": (140, 110, 200),
     "boss": (230, 70, 110), FX: (170, 170, 170),
 }
 SECT_COL = {
-    "vigil": (60, 80, 110), "ritual": (70, 70, 110),
-    "entry": (110, 100, 60), "develop": (120, 80, 50),
-    "peak": (130, 50, 50), "outro": (60, 90, 70),
-    "rebuild": (70, 90, 90),
+    "vigil": (52, 84, 120), "ritual": (84, 62, 130),
+    "entry": (130, 112, 48), "develop": (140, 84, 40),
+    "peak": (150, 42, 42), "outro": (48, 105, 70),
+    "rebuild": (55, 100, 100),
 }
-VAL_COL = ((120, 170, 220), (220, 160, 90), (200, 80, 80))  # P/C/S
+VAL_COL = ((120, 170, 220), (250, 140, 40), (255, 60, 60))  # P/C/S
+ONE_SHOTS = ("riser", "riser_half", "sting", "stab", "prayer_tail")
+AUDIOISH = (".aiff", ".aif", ".mp3", ".flac", ".m4a", ".opus", ".aac")
+STATUS_COL = {"ok": (140, 220, 140), "busy": (240, 200, 100),
+              "warn": (255, 170, 80), "err": (255, 90, 90)}
 
-# cross-rebuild stem cache keyed by (path, mtime): a rebuild after one
-# replaced file re-decodes ONLY that file (~1s total instead of ~9s)
+
+class StemContractError(Exception):
+    """A stem file the game/mixer contract cannot accept."""
+
+
+# cross-rebuild stem cache keyed by (path, mtime, size): a rebuild
+# after one replaced file re-decodes ONLY that file. Size is in the
+# key because a timestamp-preserving restore (cp -p, git checkout)
+# can collide with a cached mtime and replay stale audio.
 _stem_cache: dict = {}
+_stem_lock = threading.Lock()
 _orig_load_stem = MK._load_stem
 
 
+def _describe_format(info, suffix: str) -> str:
+    bits = {"PCM_16": "16-bit", "PCM_24": "24-bit", "PCM_32": "32-bit",
+            "FLOAT": "32-bit float", "DOUBLE": "64-bit float",
+            "PCM_U8": "8-bit"}.get(info.subtype, info.subtype)
+    return f"{bits} {info.samplerate / 1000:g} kHz"
+
+
 def _cached_load_stem(p):
-    key = (str(p), p.stat().st_mtime_ns)
-    v = _stem_cache.get(key)
-    if v is None:
+    with _stem_lock:
+        st = p.stat()
+        key = (str(p), st.st_mtime_ns, st.st_size)
+        v = _stem_cache.get(key)
+        if v is not None:
+            return v
+        try:
+            info = sf.info(str(p))
+        except Exception as exc:
+            raise StemContractError(
+                f"{p.name}: unreadable ({exc}) — re-export it") from exc
+        if info.samplerate != RATE:
+            raise StemContractError(
+                f"{p.name} is {_describe_format(info, p.suffix)} — "
+                f"export 16-bit 44.1 kHz WAV")
+        if p.suffix.lower() == ".wav" and info.subtype != "PCM_16":
+            raise StemContractError(
+                f"{p.name} is {_describe_format(info, p.suffix)} — "
+                f"export 16-bit 44.1 kHz WAV")
         v = _orig_load_stem(p)
         for k in [k for k in _stem_cache if k[0] == key[0]]:
             del _stem_cache[k]
         _stem_cache[key] = v
-    return v
+        return v
 
 
 MK._load_stem = _cached_load_stem
 
 
-def _apply_mutes(events: list, muted: set) -> list:
+def _apply_mutes(events: list, muted: set, solo: set) -> list:
     """Mute/solo happens in the DECISION LOG, not the mixer: a muted
     lane's bar entries are rewritten to silence and the mixer renders
-    them exactly as if the engine had never played that lane."""
-    if not muted:
+    them exactly as if the engine had never played that lane.
+
+    One rule is the single source of truth for audio AND display
+    (App._is_muted mirrors it): a lane is silenced iff it is muted, or
+    a solo exists and the lane is not in it. Mute wins over solo on
+    the same lane, and unknown lane names cannot leak through a solo.
+    """
+    if not muted and not solo:
         return events
+
+    def dead(ln):
+        return ln in muted or (solo and ln not in solo)
+
     out = []
     for e in events:
         k = e["kind"]
-        if FX in muted and k in ("music_riser", "music_riser2",
-                                 "music_sting", "music_stab"):
+        if k in ("music_riser", "music_riser2", "music_sting",
+                 "music_stab") and dead(FX):
             continue
         if k == "music_bar":
             parts = e["name"].split("|")
             new = [parts[0]]
             for lane in parts[1:]:
                 ln = lane.rsplit(":", 2)[0]
-                new.append(f"{ln}:silence:0.000" if ln in muted else lane)
+                new.append(f"{ln}:silence:0.000" if dead(ln) else lane)
             e = dict(e, name="|".join(new))
         out.append(e)
     return out
@@ -127,8 +167,13 @@ class Project:
 
     def __init__(self, rec: Path, use: str | None = None):
         evfile = rec / "events.jsonl" if rec.is_dir() else rec
-        self.events = [json.loads(l)
-                       for l in evfile.read_text().splitlines()]
+        try:
+            self.events = [json.loads(l) for l in
+                           evfile.read_text().splitlines() if l.strip()]
+        except FileNotFoundError:
+            raise SystemExit(f"recording not found: {evfile}")
+        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+            raise SystemExit(f"can't read {evfile}: {exc}")
         if use:
             # audition ONE bank under this session's decisions: every
             # bank-rotation event is remapped to the named bank (the
@@ -140,7 +185,7 @@ class Project:
                            if e["kind"] == "music_bank" else e
                            for e in self.events]
         self.dur = max(e["t"] for e in self.events) + 2.0
-        self.bars = []          # (t, form_idx, {lane: (key, gain)})
+        self.bars = []      # (t, form_idx, {lane: (key, gain, fade)})
         for e in self.events:
             if e["kind"] != "music_bar":
                 continue
@@ -148,7 +193,11 @@ class Project:
             lanes = {}
             for lane in parts[1:]:
                 ln, key, g = lane.rsplit(":", 2)
-                lanes[ln] = (key, float(g))
+                fade = key.endswith("~f")   # farewell bar: ramps to 0
+                if fade:
+                    key = key[:-2]
+                key = key.partition("@")[0]  # free-running voice index
+                lanes[ln] = (key, float(g), fade)
             self.bars.append((e["t"], int(parts[0]), lanes))
         self.vals = [(e["t"],
                       tuple(float(v) for v in e["name"].split(",")))
@@ -159,8 +208,12 @@ class Project:
             t1 = bank_evs[i + 1]["t"] if i + 1 < len(bank_evs) \
                 else self.dur
             d = MK._resolve_bank(e["name"])
-            meta = json.loads((d / "bank.json").read_text()) \
-                if d else None
+            meta = None
+            if d is not None:
+                try:
+                    meta = json.loads((d / "bank.json").read_text())
+                except Exception:
+                    d = None
             self.banks.append((e["t"], t1, e["name"], meta, d))
         self.marks = [(e["t"], e["kind"], str(e["name"]))
                       for e in self.events
@@ -177,6 +230,57 @@ class Project:
         self.marks += r_on
         ts = [b[0] for b in self.bars]
         self.bar_s = float(np.median(np.diff(ts))) if len(ts) > 2 else 2.18
+        # death-halt spans: music stops DEAD until the next bar tap
+        self.halts = []
+        bar_ts = [b[0] for b in self.bars]
+        for t, kind, _ in self.marks:
+            if kind == "music_halt":
+                nxt = next((bt for bt in bar_ts if bt > t), self.dur)
+                self.halts.append((t, nxt))
+        # riser strike envelopes: the one-shot swells from its onset
+        # into a strike exactly 2 machine bars later
+        self.riser_spans = []
+        for t, kind, _ in self.marks:
+            if kind == "music_riser":
+                _, meta, _ = self.bank_at(t)
+                bs = 240.0 / float(meta["bpm"]) if meta else self.bar_s
+                self.riser_spans.append((t, t + 2.0 * bs))
+        # bank-rotation crossfade windows: for ~2 bars after a switch
+        # the OLD bank's fading continuation is ~half the audible mix
+        self.xfades = []        # (t0, t1, old_title, new_title)
+        for prev_b, cur_b in zip(self.banks, self.banks[1:]):
+            om, nm = prev_b[3], cur_b[3]
+            obs = 240.0 / float(om["bpm"]) if om else self.bar_s
+            self.xfades.append(
+                (cur_b[0], cur_b[0] + 2.0 * obs,
+                 (om or {}).get("title", prev_b[2]),
+                 (nm or {}).get("title", cur_b[2])))
+        # section starts (incl. bank switches) for UP/DOWN navigation
+        self.sect_starts = []
+        prev_sect = None
+        for bt, _, _ in self.bars:
+            s = self.section_at(bt + 0.01)
+            if s != prev_sect:
+                self.sect_starts.append(bt)
+                prev_sect = s
+        # every stem key this session actually plays (base names) —
+        # the watcher's "is this drop even audible?" reference
+        self.played_keys = set()
+        for _, _, lanes in self.bars:
+            for key, g, _ in lanes.values():
+                if key not in ("silence", "None"):
+                    self.played_keys.add(key)
+        kinds = {e["kind"] for e in self.events}
+        if "music_riser" in kinds:
+            self.played_keys.add("riser")
+        if "music_riser2" in kinds:
+            self.played_keys.add("riser_half")
+        if "music_sting" in kinds:
+            self.played_keys.add("sting")
+        if "music_stab" in kinds:
+            self.played_keys.add("stab")
+        if "prayer" in self.played_keys:
+            self.played_keys.add("prayer_tail")
 
     def bank_at(self, t):
         for t0, t1, name, meta, d in self.banks:
@@ -206,6 +310,12 @@ class Project:
                 return s
         return ""
 
+    def xfade_at(self, t):
+        for t0, t1, old, new in self.xfades:
+            if t0 <= t < t1:
+                return old, new
+        return None
+
     def watch_dirs(self):
         """Every folder whose files can change this mix — both music
         roots for each bank name, so a change to a SHADOWED copy can
@@ -218,13 +328,53 @@ class Project:
                     dirs.append(d)
         return dirs
 
+    def health(self):
+        """Per-bank contract warnings (wrong-length stems, missing
+        banks) — cheap header reads only, recomputed every rebuild."""
+        msgs = []
+        seen = set()
+        for _, _, name, meta, d in self.banks:
+            if name in seen:
+                continue
+            seen.add(name)
+            if meta is None or d is None:
+                msgs.append((f"bank not found: {name} — those spans "
+                             f"play SILENCE", "err"))
+                continue
+            n_bar = 240.0 / float(meta["bpm"]) * RATE
+            n_form = n_bar * int(meta["bars"])
+            for f in sorted(d.iterdir()):
+                if f.suffix.lower() not in (".wav", ".ogg") or \
+                        f.stem in ONE_SHOTS:
+                    continue
+                try:
+                    frames = sf.info(str(f)).frames
+                except Exception:
+                    continue    # unreadable → render guard names it
+                if abs(frames - n_form) > 0.005 * n_form:
+                    have = frames / n_bar
+                    msgs.append(
+                        (f"{name}/{f.name} is ~{have:.1f} bars, form "
+                         f"needs {meta['bars']} — later bars silent",
+                         "warn"))
+        return msgs
+
 
 class Player:
     """Chunk-streamed playback with instant seek (the engine's own
-    queue trick, pointed at the rendered session mix)."""
+    queue trick, pointed at the rendered session mix). Every pygame
+    audio call is guarded: an audio-backend death (PipeWire restart,
+    device unplug) sets .err and keeps the last-good playhead instead
+    of killing the process."""
 
     def __init__(self):
-        self.ch = pygame.mixer.Channel(0)
+        self.err = None
+        self._plock = threading.RLock()
+        try:
+            self.ch = pygame.mixer.Channel(0)
+        except pygame.error as exc:
+            self.ch = None
+            self.err = f"audio unavailable: {exc}"
         self.buf = None                # int16 (N, 2)
         self.playing = False
         self.t = 0.0
@@ -232,13 +382,17 @@ class Player:
         self._wall = 0.0
         self._sounds = (None, None)
 
+    def end_t(self):
+        return len(self.buf) / RATE if self.buf is not None else 0.0
+
     def set_buffer(self, buf):
-        was = self.playing
-        t = self.playhead()
-        self.buf = buf
-        self.seek(t)
-        if was:
-            self.play()
+        with self._plock:
+            was = self.playing
+            t = self.playhead()
+            self.buf = buf
+            self.seek(t)
+            if was:
+                self.play()
 
     def _chunk(self, i):
         a = i * CHUNK
@@ -255,111 +409,216 @@ class Player:
         if not self.playing:
             return self.t
         return min(self._idx * CHUNK_S + (time.time() - self._wall),
-                   len(self.buf) / RATE if self.buf is not None else 0)
+                   self.end_t())
 
     def seek(self, t):
-        self.t = max(0.0, t)
-        if self.playing:
-            self._start()
+        with self._plock:
+            self.t = max(0.0, min(t, self.end_t()))
+            if self.playing:
+                self._start()
+
+    def _fail(self, exc):
+        self.t = self._idx * CHUNK_S      # last-good playhead
+        self.playing = False
+        self.err = f"{exc}"
 
     def _start(self):
-        self._idx = int(self.t / CHUNK_S)
-        c0, c1 = self._chunk(self._idx), self._chunk(self._idx + 1)
-        if c0 is None:
-            self.pause()
-            return
-        self.ch.play(c0)
-        if c1 is not None:
-            self.ch.queue(c1)
-        self._sounds = (c0, c1)
-        self._wall = time.time()
+        try:
+            self._idx = int(self.t / CHUNK_S)
+            c0, c1 = self._chunk(self._idx), self._chunk(self._idx + 1)
+            if c0 is None:
+                self.pause()
+                return
+            self.ch.play(c0)
+            if c1 is not None:
+                self.ch.queue(c1)
+            self._sounds = (c0, c1)
+            self._wall = time.time()
+        except (pygame.error, AttributeError) as exc:
+            self._fail(exc)
 
     def play(self):
-        if self.buf is None:
-            return
-        self.playing = True
-        self._start()
+        with self._plock:
+            if self.buf is None or self.err:
+                return
+            if self.t >= self.end_t() - 0.05:
+                self.t = 0.0            # SPACE at the end restarts
+            self.playing = True
+            self._start()
 
     def pause(self):
-        self.t = self.playhead()
-        self.playing = False
-        self.ch.stop()
+        with self._plock:
+            self.t = self.playhead()
+            self.playing = False
+            try:
+                if self.ch is not None:
+                    self.ch.stop()
+            except pygame.error as exc:
+                self._fail(exc)
 
     def poll(self):
-        if not self.playing:
-            return
-        if self.ch.get_queue() is None:
-            self._idx += 1
-            self._wall = time.time()
-            nxt = self._chunk(self._idx + 1)
-            if nxt is not None:
-                self.ch.queue(nxt)
-                self._sounds = (self._sounds[1], nxt)
-            elif not self.ch.get_busy():
-                self.pause()
+        with self._plock:
+            if not self.playing or self.err:
+                return
+            try:
+                if self.ch.get_queue() is None:
+                    self._idx += 1
+                    self._wall = time.time()
+                    nxt = self._chunk(self._idx + 1)
+                    if nxt is not None:
+                        self.ch.queue(nxt)
+                        self._sounds = (self._sounds[1], nxt)
+                    elif not self.ch.get_busy():
+                        self.pause()
+                        self.t = self.end_t()   # designed end state
+            except pygame.error as exc:
+                self._fail(exc)
+
+    def retry(self):
+        """R after an audio failure: re-init the mixer backend."""
+        with self._plock:
+            try:
+                pygame.mixer.quit()
+                pygame.mixer.init(RATE, -16, 2, 512)
+                self.ch = pygame.mixer.Channel(0)
+                self.err = None
+                return True
+            except pygame.error as exc:
+                self.err = f"audio unavailable: {exc}"
+                return False
 
 
 class VideoMonitor:
-    """Frame-at-playhead from the rendered mp4 (ffmpeg seek, async)."""
+    """Frame-at-playhead from the rendered mp4 (ffmpeg seek, async).
+
+    Honesty rules: a missing file or dead ffmpeg is one red line, not
+    a silent non-feature; frames are keyed by (time, file mtime) so a
+    regenerated mp4 can't serve stale frames; the drawn frame carries
+    its own timestamp so staleness is visible (dim + lag badge).
+    Seek accuracy: -ss before -i measured byte-identical to output
+    seek on this ffmpeg (3 probe points across a 16.7s GOP) — the
+    fast form is exact."""
 
     def __init__(self, video: Path | None, size=(320, 180),
                  big=(640, 360)):
-        self.video = video if video and video.exists() else None
+        self.err = None
         self.size = size
         self.big_size = big             # the mp4's native resolution
-        self.cache: dict = {}
-        self.native: dict = {}          # big-mode frames, small cap
+        self.video = None
+        if video is not None:
+            if video.exists():
+                self.video = video
+            else:
+                self.err = f"video unavailable (not found: {video})"
+        self.cache: dict = {}           # (q, mtime) -> small surf
+        self.native: dict = {}          # (q, mtime) -> native surf
         self.want = None
-        self.cur = None
+        self.cur = None                 # (surf, q) — frame + its time
+        self.busy_since = None
+        self._fail = 0
         self._cv = threading.Condition()
-        if self.video:
-            threading.Thread(target=self._worker, daemon=True).start()
+        self._mtime = self.video.stat().st_mtime_ns if self.video else 0
+        self._stat_t = time.time()
+        self._worker_t = None
+        self.start_worker()
+
+    def start_worker(self):
+        if self.video and (self._worker_t is None
+                           or not self._worker_t.is_alive()):
+            self.err = None
+            self._fail = 0
+            self._worker_t = threading.Thread(target=self._worker,
+                                              daemon=True)
+            self._worker_t.start()
+
+    def _check_mtime(self):
+        if time.time() - self._stat_t < 1.0:
+            return
+        self._stat_t = time.time()
+        try:
+            mt = self.video.stat().st_mtime_ns
+        except OSError:
+            self.err = "video unavailable (file vanished)"
+            return
+        if mt != self._mtime:
+            self._mtime = mt            # old keys simply never match
 
     def request(self, t, big: bool = False):
-        if not self.video:
+        if not self.video or self.err:
             return None
+        self._check_mtime()
         q = round(t * 2) / 2
+        key = (q, self._mtime)
         store = self.native if big else self.cache
-        if q in store:
-            self.cur = store[q]
-            return self.cur
+        surf = store.get(key)
+        if surf is not None:
+            self.cur = (surf, q)
+            return surf
         with self._cv:
-            self.want = (q, big)
+            self.want = (q, big, self._mtime)
             self._cv.notify()
-        if big and q in self.cache:     # upscale small while native
-            return pygame.transform.smoothscale(self.cache[q],
-                                                self.big_size)
-        return self.cur                 # last frame while seeking
+        if big:
+            small = self.cache.get(key)
+            if small is not None:       # upscale while native extracts
+                return pygame.transform.smoothscale(small, self.big_size)
+        return self.cur[0] if self.cur else None
 
     def _worker(self):
         while True:
             with self._cv:
                 while self.want is None:
                     self._cv.wait()
-                (q, big), self.want = self.want, None
+                (q, big, mt), self.want = self.want, None
             store = self.native if big else self.cache
-            if q in store:
+            if (q, mt) in store:
                 continue
+            self.busy_since = time.time()
             try:
-                out = subprocess.run(
+                r = subprocess.run(
                     ["ffmpeg", "-v", "error", "-ss", f"{q:.2f}",
                      "-i", str(self.video), "-frames:v", "1",
                      "-f", "image2pipe", "-vcodec", "bmp", "-"],
-                    capture_output=True, timeout=10).stdout
-                img = pygame.image.load(io.BytesIO(out), "f.bmp")
+                    capture_output=True, timeout=10)
+                img = pygame.image.load(io.BytesIO(r.stdout), "f.bmp")
                 surf = pygame.transform.smoothscale(
                     img, self.big_size if big else self.size)
-            except Exception:
+            except FileNotFoundError:
+                self.err = "video unavailable (ffmpeg not found)"
+                self.busy_since = None
+                return                  # no spawn storm
+            except Exception as exc:
+                self.busy_since = None
+                self._fail += 1
+                if self._fail >= 5:
+                    cause = ""
+                    try:
+                        cause = (r.stderr or b"").decode()[:60].strip()
+                    except Exception:
+                        pass
+                    self.err = ("video unavailable "
+                                f"({cause or type(exc).__name__})")
+                    return
                 continue
+            self.busy_since = None
+            self._fail = 0
             cap = 60 if big else 400
             if len(store) > cap:
-                store.pop(next(iter(store)))
-            store[q] = surf
+                try:
+                    store.pop(next(iter(store)))
+                except KeyError:
+                    pass
+            store[(q, mt)] = surf
 
 
 class App:
     def __init__(self, rec: Path, video: Path | None,
                  headless: bool = False, use: str | None = None):
+        # parse the recording BEFORE any window exists: startup
+        # failures are one clean message, not a traceback after a
+        # window flash (P0.13)
+        self.rec = rec
+        self._use = use
+        self.proj = Project(rec, use=use)
         if headless:
             import os
             os.environ["SDL_VIDEODRIVER"] = "dummy"
@@ -370,31 +629,61 @@ class App:
         self.screen = pygame.display.set_mode((self.W, self.H))
         pygame.display.set_caption("PERIHELION session DAW")
         self.font = pygame.font.SysFont("monospace", 13)
+        self.small = pygame.font.SysFont("monospace", 11)
         self.big = pygame.font.SysFont("monospace", 17, bold=True)
-        self.rec = rec
-        self._use = use
-        self.proj = Project(rec, use=use)
         self.player = Player()
         self.video = VideoMonitor(video)
-        # interaction state (affordance-audit pass, 2026-07-18)
+        self.video_note = ""
+        # interaction state
         self._goto = None           # typed go-to buffer, None = inactive
         self.video_big = False
         self.picker = False         # bank-picker overlay open
         self._picker_rows = []      # (rect, bank-name-or-None)
-        self.curve_off: set = set() # hidden P/C/S curves (indices)
+        self.help_on = False
+        self.curve_off: set = set()  # hidden P/C/S curves (indices)
         self.sel = None             # selected track (keyboard M/S)
         self._hit = {}              # element -> rect, rebuilt per draw
         self._hover = (None, 0.0)   # (element, hover-start wall time)
         self.muted: set = set()
         self.solo: set = set()
+        # view / loop
+        self.view = None            # (v0, v1) zoom window; None = all
+        self.loop = None            # (a, b) seconds
+        self.loop_on = False
+        self.dragging = False
+        self._ruler_press = None    # (x, t) pending ruler click/drag
+        self._arrow_held = None     # (key, mod, t0, last_fire)
+        # status machinery — single writer (_set_status), generation
+        # guarded, severity-kinded; everything else derives from work
         self.status = "rendering…"
+        self.status_kind = "busy"
+        self.status_t = time.time()
+        self._slock = threading.Lock()
+        self.notes = deque(maxlen=4)    # (wall_t, text, kind)
+        self.health: list = self.proj.health()
         self.clip = False
-        self.scale = None           # fixed across rebuilds: a louder
-        #                             replacement must SOUND louder
-        self.overview = None
+        self.clip_info = (0.0, 0.0)     # (dB over, t of loudest)
+        self.anchor = None          # loudness anchor: 0.9/peak of the
+        #   FIRST FULL (unmuted) mix, latched once; a louder
+        #   replacement must SOUND louder across rebuilds
+        self.mix_no = 0
+        self.mix_src = "initial"
+        self.mix_at = ""
+        self.cur_mix = None         # (buf, label)
+        self.prev_mix = None        # the A/B undo of a hot-swap
+        self.ab_prev = False
+        self.render_t0 = time.time()
+        self.est_render = None      # seconds; persisted per session
+        self.overview = None        # (bins_L, bins_R)
         self._gen = 0
         self._lock = threading.Lock()
+        self._quit = False
+        self._last_reload = None    # (names, lanes) of last file swap
+        self._static = None         # (key, surface, hitmap) draw cache
+        # watcher state
+        self._watch_dirs = self.proj.watch_dirs()
         self._mtimes = self._scan()
+        self._watch_beat = time.time()
         self._shadow_note = ""
         # timeline geometry
         self.x0, self.x1 = 128, self.W - 12
@@ -408,86 +697,292 @@ class App:
             self.rows[ln] = y
             y += 26
         self.y_marks = y
-        self.rebuild()
-        threading.Thread(target=self._watch, daemon=True).start()
+        self._load_session()
+        if video is not None and video.exists():
+            threading.Thread(target=self._probe_video_len,
+                             daemon=True).start()
+        self.rebuild("rendering…", src="initial")
+        self._watch_thread = threading.Thread(target=self._watch,
+                                              daemon=True)
+        self._watch_thread.start()
+        self._feed_thread = threading.Thread(target=self._feed,
+                                             daemon=True)
+        self._feed_thread.start()
+
+    # ---- status / notes (single writer) ---------------------------------
+    def _set_status(self, text, kind, gen=None):
+        with self._slock:
+            if gen is not None and gen != self._gen:
+                return              # a superseded render may not speak
+            self.status = text
+            self.status_kind = kind
+            self.status_t = time.time()
+
+    def _note(self, text, kind="warn"):
+        self.notes.append((time.time(), text, kind))
+
+    # ---- session recall (§7: make the slip cheap, not the quit) ---------
+    def _session_file(self):
+        base = self.rec if self.rec.is_dir() else self.rec.parent
+        return base / "daw_session.json"
+
+    def _load_session(self):
+        try:
+            s = json.loads(self._session_file().read_text())
+        except Exception:
+            return
+        self.player.t = float(s.get("t", 0.0))
+        self.muted = {ln for ln in s.get("muted", []) if ln}
+        self.solo = {ln for ln in s.get("solo", []) if ln}
+        self.sel = s.get("sel")
+        self.curve_off = set(s.get("curve_off", []))
+        self.loop = tuple(s["loop"]) if s.get("loop") else None
+        self.loop_on = bool(s.get("loop_on")) and self.loop is not None
+        self.view = tuple(s["view"]) if s.get("view") else None
+        self.est_render = s.get("est_render")
+        if self._use is None:       # CLI --use wins over recall
+            self._use = s.get("use")
+            if self._use and MK._resolve_bank(self._use) is None:
+                self._use = None
+            if self._use:
+                self.proj = Project(self.rec, use=self._use)
+        # a restored --use may have replaced self.proj: the watcher
+        # must watch the folders of the project we actually score
+        self._watch_dirs = self.proj.watch_dirs()
+        self._mtimes = self._scan()
+        if s.get("t"):
+            self._note(f"session restored — playhead "
+                       f"{int(s['t']//60)}:{int(s['t']%60):02d}", "ok")
+
+    def _save_session(self):
+        try:
+            self._session_file().write_text(json.dumps(dict(
+                t=self.player.playhead(), muted=sorted(self.muted),
+                solo=sorted(self.solo), sel=self.sel,
+                curve_off=sorted(self.curve_off),
+                loop=list(self.loop) if self.loop else None,
+                loop_on=self.loop_on,
+                view=list(self.view) if self.view else None,
+                est_render=self.est_render, use=self._use)))
+        except OSError as exc:
+            print(f"[daw] session save failed: {exc}", file=sys.stderr)
+
+    def _probe_video_len(self):
+        try:
+            out = subprocess.run(
+                ["ffprobe", "-v", "error", "-show_entries",
+                 "format=duration", "-of", "csv=p=0",
+                 str(self.video.video)],
+                capture_output=True, timeout=10).stdout
+            vd = float(out.strip())
+        except Exception:
+            return
+        if abs(vd - self.proj.dur) > 3.0:
+            self.video_note = (f"video is {vd:.0f}s but recording is "
+                               f"{self.proj.dur:.0f}s — wrong session?")
 
     # ---- render pipeline -------------------------------------------------
-    def rebuild(self, note="rebuilding…"):
+    def rebuild(self, note="rebuilding…", src="edit", reparse=False):
+        if reparse:
+            try:
+                proj = Project(self.rec, use=self._use)
+                self.proj = proj
+                self._watch_dirs = proj.watch_dirs()
+                self._static = None
+            except SystemExit as exc:
+                self._set_status(f"RENDER FAILED: {exc} — R retries",
+                                 "err")
+                return
         self._gen += 1
         gen = self._gen
-        self.status = note
-        evs = _apply_mutes(self.proj.events, self._effective_mutes())
-        threading.Thread(target=self._render, args=(evs, gen),
+        self._set_status(note, "busy")
+        self.render_t0 = time.time()
+        mutes, solo = set(self.muted), set(self.solo)
+        evs = _apply_mutes(self.proj.events, mutes, solo)
+        threading.Thread(target=self._render,
+                         args=(evs, gen, src, not (mutes or solo)),
                          daemon=True).start()
 
-    def _effective_mutes(self):
-        if self.solo:
-            return (set(LANES) | {FX}) - self.solo
-        return set(self.muted)
+    def _is_muted(self, ln):
+        """THE effective-mute rule — same predicate _apply_mutes uses,
+        so audio and display cannot disagree (mute wins over solo)."""
+        return ln in self.muted or (self.solo and ln not in self.solo)
 
-    def _render(self, evs, gen):
-        t0 = time.time()
-        mix = np.zeros((int(self.proj.dur * RATE) + RATE, 2), np.float32)
-        ok = MK._mix_music_rich(mix, evs, self.proj.dur)
-        if gen != self._gen:
-            return                      # superseded by a newer rebuild
-        if not ok:
-            self.status = "NO MUSIC TAPS in this recording"
-            return
-        pk = float(np.abs(mix).max()) or 1.0
-        if self.scale is None:
-            self.scale = 0.9 / pk
-        out = mix * self.scale
-        self.clip = bool(np.abs(out).max() > 1.0)
-        buf = (np.clip(out, -1, 1) * 32767).astype(np.int16)
-        ov = self._overview(buf)
-        with self._lock:
+    def _render(self, evs, gen, src, unmuted):
+        try:
+            time.sleep(0.05)            # coalesce M/S spam cheaply
             if gen != self._gen:
                 return
-            self.player.set_buffer(buf)
-            self.overview = ov
-            self.status = f"ready ({time.time() - t0:.1f}s)"
+            t0 = time.time()
+            self.health = self.proj.health()
+            cold = not _stem_cache
+            mix = np.zeros((int(self.proj.dur * RATE) + RATE, 2),
+                           np.float32)
+            ok = MK._mix_music_rich(mix, evs, self.proj.dur)
+            if gen != self._gen:
+                return                  # superseded by a newer rebuild
+            if not ok:
+                self._set_status("no music taps in this recording — "
+                                 "nothing to play", "err", gen)
+                return
+            pk = float(np.abs(mix).max()) or 1.0
+            if unmuted and self.anchor is None:
+                # latch the loudness anchor ONLY from a full mix: a
+                # mute-during-first-render race must not anchor 0.9 to
+                # a partial mix (set even if this render is already
+                # superseded — the peak is a property of the session)
+                self.anchor = 0.9 / pk
+            scale = self.anchor if self.anchor is not None else 0.9 / pk
+            out = mix * scale
+            apk = float(np.abs(out).max())
+            clip = apk > 1.0
+            t_loud = float(np.abs(out).max(axis=1).argmax()) / RATE
+            db_over = 20.0 * np.log10(apk) if apk > 0 else 0.0
+            buf = (np.clip(out, -1, 1) * 32767).astype(np.int16)
+            ov = self._overview(buf)
+            dt = time.time() - t0
+            with self._lock:
+                if gen != self._gen:
+                    return
+                self.mix_no += 1
+                if self.cur_mix is not None:
+                    self.prev_mix = self.cur_mix
+                self.cur_mix = (buf, f"#{self.mix_no} ({src})")
+                self.ab_prev = False
+                self.player.set_buffer(buf)
+                self.overview = ov
+                # CLIP verdict commits INSIDE the gen-checked lock: a
+                # discarded render may not display its verdict against
+                # a newer, playing mix (addendum 31)
+                self.clip = clip
+                self.clip_info = (db_over, t_loud)
+                self.mix_src = src
+                self.mix_at = time.strftime("%H:%M:%S")
+                self._static = None
+                if cold:
+                    self.est_render = dt
+            self._set_status(f"ready ({dt:.1f}s)", "ok", gen)
+        except StemContractError as exc:
+            self._set_status(f"RENDER FAILED: {exc} — R retries",
+                             "err", gen)
+        except Exception as exc:
+            self._set_status(f"RENDER FAILED: {type(exc).__name__}: "
+                             f"{exc} — R retries", "err", gen)
 
     def _overview(self, buf):
         w = self.x1 - self.x0
-        mono = buf[:, 0].astype(np.float32) / 32767.0
-        n = len(mono) // w * w
-        bins = np.abs(mono[:n].reshape(w, -1)).max(axis=1)
-        return bins
+        n = int(self.proj.dur * RATE)   # bin over the RULER's span,
+        out = []                        # not the buffer's padded tail
+        for chn in (0, 1):
+            mono = buf[:n, chn].astype(np.float32) / 32767.0
+            m = len(mono) // w * w
+            out.append(np.abs(mono[:m].reshape(w, -1)).max(axis=1))
+        return tuple(out)
 
     # ---- file watcher ----------------------------------------------------
     def _scan(self):
         mt = {}
-        for d in self.proj.watch_dirs():
-            for f in list(d.glob("*.wav")) + list(d.glob("*.ogg")) + \
-                    [d / "bank.json"]:
-                if f.exists():
-                    mt[str(f)] = f.stat().st_mtime_ns
+        for d in self._watch_dirs:
+            try:
+                files = list(d.iterdir())
+            except OSError:
+                continue                # renamed/removed bank dir —
+                #                         health() names it in red
+            for f in files:
+                try:
+                    st = f.stat()
+                    mt[str(f)] = (st.st_mtime_ns, st.st_size)
+                except OSError:
+                    pass
         return mt
 
     def _watch(self):
-        while True:
-            time.sleep(0.7)
-            mt = self._scan()
-            changed = [p for p in mt
-                       if mt[p] != self._mtimes.get(p)] + \
-                      [p for p in self._mtimes if p not in mt]
-            if not changed:
-                continue
-            self._mtimes = mt
-            names = ", ".join(Path(p).name for p in changed[:3])
-            # shadow check: does the changed file actually win
-            # resolution? (wav beats ogg in-folder; first MUSIC_ROOT
-            # wins across folders)
-            self._shadow_note = ""
-            for p in changed:
-                pp = Path(p)
-                d = MK._resolve_bank(pp.parent.name)
-                if d is not None and d != pp.parent:
-                    self._shadow_note = (f"⚠ {pp.name} changed in a "
-                                         f"SHADOWED copy — {d} wins")
-            time.sleep(0.3)             # let the writer finish
-            self.rebuild(f"reload: {names}")
+        """Guarded forever-loop: replace-and-hear must never silently
+        stop. Any exception is one visible note, then the loop goes
+        on; the main loop additionally restarts a dead thread."""
+        while not self._quit:
+            try:
+                self._watch_once()
+            except Exception as exc:
+                self._note(f"watcher error: {type(exc).__name__}: "
+                           f"{exc} — recovering", "err")
+                time.sleep(1.0)
+
+    def _watch_once(self):
+        time.sleep(0.7)
+        self._watch_beat = time.time()
+        mt = self._scan()
+        changed = [p for p in mt if mt[p] != self._mtimes.get(p)] + \
+                  [p for p in self._mtimes if p not in mt]
+        if not changed:
+            return
+        self._mtimes = mt
+        relevant, reparse = [], False
+        for p in changed:
+            pp = Path(p)
+            suf = pp.suffix.lower()
+            if pp.name == "bank.json":
+                relevant.append(pp)
+                reparse = True
+            elif suf in (".wav", ".ogg"):
+                exact = (pp.stem in self.proj.played_keys
+                         and pp.suffix == suf)
+                if exact:
+                    relevant.append(pp)
+                elif pp.stem.lower() in self.proj.played_keys:
+                    self._note(f"{pp.name} — case matters here: "
+                               f"rename to {pp.stem.lower()}{suf}",
+                               "warn")
+                elif p in mt:           # ignore deletions of extras
+                    self._note(f"{pp.name} — not a stem this session "
+                               f"plays (session plays: prayer, "
+                               f"bed_t*, lead_*, …)", "warn")
+            elif suf in AUDIOISH and p in mt:
+                self._note(f"{pp.name} ignored — export WAV/OGG",
+                           "warn")
+            elif pp.name == "daw_session.json":
+                pass
+        if not relevant:
+            return
+        names = ", ".join(sorted({p.name for p in relevant})[:3])
+        # acknowledge the save the moment it is seen (addendum 36),
+        # then wait for QUIESCENCE: a slow bounce/multi-file export
+        # rebuilds once, from complete files, not per write chunk
+        self._set_status(f"detected {names} — settling…", "busy")
+        last_change = time.time()
+        while time.time() - last_change < SETTLE_S:
+            time.sleep(0.25)
+            self._watch_beat = time.time()
+            m2 = self._scan()
+            if m2 != self._mtimes:
+                self._mtimes = m2
+                last_change = time.time()
+        # shadow check: does the changed file actually win resolution?
+        # (wav beats ogg in-folder; first MUSIC_ROOT wins across roots)
+        self._shadow_note = ""
+        for pp in relevant:
+            d = MK._resolve_bank(pp.parent.name)
+            if d is not None and d != pp.parent:
+                self._shadow_note = (f"⚠ {pp.name} changed in a "
+                                     f"SHADOWED copy — {d} wins")
+        # which lanes did this touch? (muted-lane + companion notes)
+        stems = {p.stem for p in relevant}
+        lanes = set()
+        for _, _, bl in self.proj.bars:
+            for ln, (key, g, _f) in bl.items():
+                if key in stems:
+                    lanes.add(ln)
+        if stems & set(ONE_SHOTS):
+            lanes.add(FX)
+        self._last_reload = (names, lanes)
+        if "prayer" in stems and "prayer_tail" not in stems and \
+                any((d / "prayer_tail.wav").exists() or
+                    (d / "prayer_tail.ogg").exists()
+                    for d in self._watch_dirs):
+            self._note("new prayer still plays the OLD prayer_tail at "
+                       "loop seams — replace prayer_tail.wav too",
+                       "warn")
+        self.rebuild(f"reload: {names}", src=names, reparse=reparse)
 
     # ---- bank switching (in-app --use) -----------------------------------
     def available_banks(self):
@@ -505,10 +1000,14 @@ class App:
         self.player.pause()
         self._use = name
         self.proj = Project(self.rec, use=name)
+        self._watch_dirs = self.proj.watch_dirs()
         self._mtimes = self._scan()
-        self.scale = None           # fresh loudness anchor per score
+        self.anchor = None          # fresh loudness anchor per score
         self.player.t = min(t, self.proj.dur - 1.0)
-        self.rebuild(f"scoring with {name or 'session banks'}…")
+        self._static = None
+        self._save_session()
+        self.rebuild(f"scoring with {name or 'session banks'}…",
+                     src=f"bank: {name or 'session'}")
 
     def _goto_commit(self):
         txt = (self._goto or "").strip()
@@ -521,9 +1020,122 @@ class App:
                 t = int(m) * 60 + float(s or 0)
             else:
                 t = float(txt)
-            self.player.seek(t)
+            self._seek(t)
         except ValueError:
-            self.status = f"can't read '{txt}' — use mm:ss or seconds"
+            self._set_status(f"can't read '{txt}' — use mm:ss or "
+                             f"seconds", "warn")
+
+    # ---- navigation helpers ---------------------------------------------
+    def _seek(self, t):
+        # input-side seeks share the render-commit lock: scrubbing
+        # during a hot-swap must not race the buffer swap (addendum 37)
+        with self._lock:
+            self.player.seek(max(0.0, min(t, self.proj.dur)))
+
+    def _nudge_bar(self, direction):
+        """Arrow nudge lands on ACTUAL bar taps, not median arithmetic."""
+        ts = [b[0] for b in self.proj.bars]
+        if not ts:
+            return
+        t = self.player.playhead()
+        i = bisect.bisect_right(ts, t + 0.02) - 1
+        j = max(0, min(len(ts) - 1, i + direction))
+        self._seek(ts[j])
+
+    def _jump_mark(self, direction):
+        ts = sorted(t for t, _, _ in self.proj.marks)
+        if not ts:
+            return
+        t = self.player.playhead()
+        nxt = [m for m in ts if m > t + 0.05] if direction > 0 else \
+              [m for m in reversed(ts) if m < t - 0.05]
+        if nxt:
+            self._seek(nxt[0])
+
+    def _jump_sect(self, direction):
+        ts = self.proj.sect_starts
+        if not ts:
+            return
+        t = self.player.playhead()
+        nxt = [m for m in ts if m > t + 0.05] if direction > 0 else \
+              [m for m in reversed(ts) if m < t - 0.05]
+        if nxt:
+            self._seek(nxt[0])
+
+    def _zoom(self, factor):
+        """Stepped zoom about the playhead; the overview strip stays
+        the full-length navigator."""
+        v0, v1 = self.view or (0.0, self.proj.dur)
+        span = (v1 - v0) / factor
+        span = max(5.0, min(self.proj.dur, span))
+        c = self.player.playhead()
+        v0 = max(0.0, min(c - span / 2, self.proj.dur - span))
+        self.view = None if span >= self.proj.dur - 1e-6 \
+            else (v0, v0 + span)
+        self._static = None
+
+    def _copy_timestamp(self):
+        t = self.player.playhead()
+        _, meta, _ = self.proj.bank_at(t)
+        name = (meta or {}).get("title",
+                                self.proj.bank_at(t)[0] or "?")
+        bars = int(meta["bars"]) if meta else 1
+        txt = (f"{int(t//60):02d}:{int(t%60):02d} / bar "
+               f"{self.proj.bar_at(t)[1] % bars} / {name}")
+        for cmd in (["wl-copy"], ["xclip", "-selection", "clipboard"],
+                    ["xsel", "-ib"]):
+            try:
+                subprocess.run(cmd, input=txt.encode(), timeout=3,
+                               check=True, capture_output=True)
+                self._note(f"copied: {txt}", "ok")
+                return
+            except (OSError, subprocess.SubprocessError):
+                continue
+        self._note(f"clipboard unavailable — {txt}", "warn")
+
+    def _bounce(self):
+        with self._lock:
+            buf = self.player.buf
+        if buf is None:
+            self._note("nothing to bounce yet", "warn")
+            return
+        if self.loop_on and self.loop:
+            a, b = self.loop
+        else:
+            a, b = 0.0, len(buf) / RATE
+        seg = buf[int(a * RATE):int(b * RATE)]
+        base = self.rec if self.rec.is_dir() else self.rec.parent
+        fn = base / (f"bounce_{int(a//60):02d}{int(a%60):02d}-"
+                     f"{int(b//60):02d}{int(b%60):02d}.wav")
+        try:
+            with wavemod.open(str(fn), "wb") as w:
+                w.setnchannels(2)
+                w.setsampwidth(2)
+                w.setframerate(RATE)
+                w.writeframes(np.ascontiguousarray(seg).tobytes())
+            self._note(f"bounced {b-a:.1f}s → {fn.name}", "ok")
+        except OSError as exc:
+            self._note(f"bounce failed: {exc}", "err")
+
+    def _toggle_ab(self):
+        if self.prev_mix is None:
+            self._note("no previous mix yet — A/B arms after the "
+                       "first rebuild", "warn")
+            return
+        with self._lock:
+            self.ab_prev = not self.ab_prev
+            buf, _ = self.prev_mix if self.ab_prev else self.cur_mix
+            self.player.set_buffer(buf)
+
+    def _retry_all(self):
+        """R: the one recover-everything gesture."""
+        with _stem_lock:
+            _stem_cache.clear()
+        if self.player.err:
+            self.player.retry()
+        if self.video.err and self.video.video:
+            self.video.start_worker()
+        self.rebuild("full reload", src="R", reparse=True)
 
     # ---- interaction -----------------------------------------------------
     def handle(self, ev):
@@ -538,6 +1150,11 @@ class App:
                 elif ev.unicode and ev.unicode in "0123456789:.":
                     self._goto += ev.unicode
                 return True
+            if self.help_on:
+                if ev.key in (pygame.K_ESCAPE, pygame.K_F1) or \
+                        ev.unicode == "?":
+                    self.help_on = False
+                return True
             if ev.key == pygame.K_ESCAPE:
                 if self.picker:
                     self.picker = False
@@ -545,29 +1162,70 @@ class App:
                     self.video_big = False
                 else:
                     return False
+            elif ev.unicode == "?" or ev.key == pygame.K_F1:
+                self.help_on = True
             elif ev.key == pygame.K_SPACE:
-                (self.player.pause if self.player.playing
-                 else self.player.play)()
+                if self.player.buf is None:
+                    self._note("still rendering the first mix — plays "
+                               "when ready", "busy")
+                else:
+                    (self.player.pause if self.player.playing
+                     else self.player.play)()
             elif ev.key == pygame.K_r:
-                _stem_cache.clear()
-                self.rebuild("full reload")
+                self._retry_all()
+            elif ev.key == pygame.K_a:
+                self._toggle_ab()
+            elif ev.key == pygame.K_g:
+                self._goto = ""
+            elif ev.key == pygame.K_c:
+                self._copy_timestamp()
+            elif ev.key == pygame.K_b:
+                self._bounce()
+            elif ev.key == pygame.K_l:
+                if self.loop:
+                    self.loop_on = not self.loop_on
+                    self._static = None
+                else:
+                    self._note("drag on the ruler to set a loop "
+                               "region first", "warn")
             elif ev.key == pygame.K_m and self.sel:
                 self.muted ^= {self.sel}
-                self.rebuild()
+                self.rebuild(src="mutes")
             elif ev.key == pygame.K_s and self.sel:
                 self.solo ^= {self.sel}
-                self.rebuild()
+                self.rebuild(src="mutes")
+            elif ev.key == pygame.K_COMMA:
+                self._jump_mark(-1)
+            elif ev.key == pygame.K_PERIOD:
+                self._jump_mark(+1)
+            elif ev.key == pygame.K_UP:
+                self._jump_sect(-1)
+            elif ev.key == pygame.K_DOWN:
+                self._jump_sect(+1)
+            elif ev.key in (pygame.K_PLUS, pygame.K_EQUALS,
+                            pygame.K_KP_PLUS):
+                self._zoom(2.0)
+            elif ev.key in (pygame.K_MINUS, pygame.K_KP_MINUS):
+                self._zoom(0.5)
+            elif ev.key == pygame.K_0:
+                self.view = None
+                self._static = None
             elif ev.key in (pygame.K_LEFT, pygame.K_RIGHT):
-                step = 10.0 if ev.mod & pygame.KMOD_SHIFT \
-                    else self.proj.bar_s
-                d = step if ev.key == pygame.K_RIGHT else -step
-                self.player.seek(self.player.playhead() + d)
+                self._arrow_step(ev.key, ev.mod)
+                self._arrow_held = (ev.key, ev.mod,
+                                    time.time() + 0.3, 0.0)
             elif ev.key == pygame.K_HOME:
-                self.player.seek(0.0)
+                self._seek(0.0)
             elif ev.key == pygame.K_END:
-                self.player.seek(self.proj.dur - 5.0)
+                self._seek(self.proj.dur)
+        elif ev.type == pygame.KEYUP:
+            if self._arrow_held and ev.key == self._arrow_held[0]:
+                self._arrow_held = None
         elif ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
             x, y = ev.pos
+            if self.help_on:
+                self.help_on = False
+                return True
             if self.picker:
                 for r, name in self._picker_rows:
                     if r.collidepoint(x, y):
@@ -588,62 +1246,188 @@ class App:
                 elif el == "time_readout":
                     self._goto = ""
                 elif el == "clip_chip":
-                    self.clip = False
+                    if abs(self.player.playhead()
+                           - self.clip_info[1]) < 0.5:
+                        self.clip = False   # 2nd click: reset latch
+                    else:
+                        self._seek(self.clip_info[1])
+                elif el == "ab_chip":
+                    self._toggle_ab()
                 elif el == "bank_title":
                     self.picker = True
                 elif el == "video_monitor":
                     self.video_big = True
+                elif el == "help_glyph":
+                    self.help_on = True
                 elif el.startswith("curve:"):
                     self.curve_off ^= {int(el.split(":")[1])}
+                    self._static = None
                 elif el.startswith("name:"):
                     ln = el.split(":")[1]
                     self.sel = None if self.sel == ln else ln
+                    self._static = None
                 elif el.startswith("mute:"):
                     self.muted ^= {el.split(":")[1]}
-                    self.rebuild()
+                    self.rebuild(src="mutes")
                 elif el.startswith("solo:"):
                     self.solo ^= {el.split(":")[1]}
-                    self.rebuild()
+                    self.rebuild(src="mutes")
                 return True
-            if self.x0 <= x <= self.x1 and \
-                    self.y_ruler <= y <= self.y_marks + 22:
-                self._drag_seek(x)
-                self.dragging = True
+            if self.x0 <= x <= self.x1:
+                if self.y_ruler <= y <= self.y_ruler + 18:
+                    # ruler: click seeks, DRAG sets the loop region
+                    self._ruler_press = (x, self._xt(x))
+                    return True
+                if self.y_wave <= y <= self.y_wave + 60:
+                    # overview strip = absolute navigator (zoom-proof)
+                    f = (x - self.x0) / (self.x1 - self.x0)
+                    self._seek(f * self.proj.dur)
+                    self.dragging = "abs"
+                    return True
+                if self.y_sect <= y <= self.y_marks + 22:
+                    self._seek(self._xt(x))
+                    self.dragging = "view"
         elif ev.type == pygame.MOUSEBUTTONUP:
+            if self._ruler_press is not None:
+                px, pt = self._ruler_press
+                if abs(ev.pos[0] - px) <= 5:
+                    self._seek(pt)          # a click, not a drag
+                self._ruler_press = None
             self.dragging = False
-        elif ev.type == pygame.MOUSEMOTION and \
-                getattr(self, "dragging", False):
-            self._drag_seek(ev.pos[0])
+        elif ev.type == pygame.MOUSEMOTION:
+            if self._ruler_press is not None and \
+                    abs(ev.pos[0] - self._ruler_press[0]) > 5:
+                a, b = sorted((self._ruler_press[1],
+                               self._xt(ev.pos[0])))
+                self.loop = (a, b)
+                self.loop_on = True
+                self._static = None
+            elif getattr(self, "dragging", False) == "abs":
+                f = (ev.pos[0] - self.x0) / (self.x1 - self.x0)
+                self._seek(max(0.0, min(1.0, f)) * self.proj.dur)
+            elif getattr(self, "dragging", False):
+                self._seek(self._xt(ev.pos[0]))
         return True
 
-    def _drag_seek(self, x):
-        f = (x - self.x0) / (self.x1 - self.x0)
-        self.player.seek(max(0.0, min(1.0, f)) * self.proj.dur)
+    def _arrow_step(self, key, mod):
+        if mod & pygame.KMOD_SHIFT:
+            d = 10.0 if key == pygame.K_RIGHT else -10.0
+            self._seek(self.player.playhead() + d)
+        else:
+            self._nudge_bar(+1 if key == pygame.K_RIGHT else -1)
 
     # ---- drawing ----------------------------------------------------------
+    def _view(self):
+        return self.view or (0.0, self.proj.dur)
+
     def _tx(self, t):
+        v0, v1 = self._view()
+        return self.x0 + int((self.x1 - self.x0) * (t - v0)
+                             / max(1e-6, v1 - v0))
+
+    def _xt(self, x):
+        v0, v1 = self._view()
+        f = (x - self.x0) / max(1, self.x1 - self.x0)
+        return v0 + max(0.0, min(1.0, f)) * (v1 - v0)
+
+    def _ox(self, t):
         return self.x0 + int((self.x1 - self.x0) * t / self.proj.dur)
 
-    def txt(self, s, x, y, c=(200, 200, 200), f=None):
-        self.screen.blit((f or self.font).render(s, True, c), (x, y))
+    def txt(self, s, x, y, c=(200, 200, 200), f=None, surf=None,
+            maxw=None):
+        target = surf if surf is not None else self.screen
+        r = (f or self.font).render(s, True, c)
+        if maxw is not None and r.get_width() > maxw:
+            while s and (f or self.font).size(s + "…")[0] > maxw:
+                s = s[:-1]
+            r = (f or self.font).render(s + "…", True, c)
+        target.blit(r, (x, y))
+
+    def _chip(self, s, x, y, kind, hit=None, surf=None, maxw=None):
+        f = self.font
+        cap = min(420, maxw) if maxw is not None else 420
+        while len(s) > 8 and f.size(s)[0] > cap - 10:
+            s = s[:-2]
+        w = f.size(s)[0] + 10
+        col = STATUS_COL[kind]
+        bg = tuple(c // 5 for c in col)
+        target = surf if surf is not None else self.screen
+        pygame.draw.rect(target, bg, (x, y, w, 18))
+        pygame.draw.rect(target, col, (x, y, w, 18), 1)
+        self.txt(s, x + 5, y + 2, col, surf=surf)
+        if hit:
+            self._hit[hit] = pygame.Rect(x, y, w, 18)
+        return x + w + 8
 
     def draw(self):
         scr = self.screen
+        proj = self.proj                # one snapshot per frame
         scr.fill((18, 18, 22))
         self._hit = {}
         t = self.player.playhead()
-        # transport bar
+        v0, v1 = self._view()
+
+        # ---- static timeline layer (P3.27) --------------------------
+        key = (id(proj), self.mix_no, self.view, frozenset(self.muted),
+               frozenset(self.solo), self.sel,
+               frozenset(self.curve_off), self.loop, self.loop_on)
+        if self._static is None or self._static[0] != key:
+            surf = pygame.Surface((self.W, self.H - 236),
+                                  pygame.SRCALPHA)
+            hits = {}
+            self._draw_timeline(surf, hits, proj)
+            self._static = (key, surf, hits)
+        scr.blit(self._static[1], (0, 236))
+        for el, r in self._static[2].items():
+            self._hit[el] = r
+
+        self._draw_transport(scr, proj, t)
+        self._draw_panel(scr, proj, t)
+        self._draw_video(scr, t)
+
+        # playhead over the static layer
+        if v0 <= t <= v1:
+            px = self._tx(t)
+            pygame.draw.line(scr, (255, 255, 255), (px, self.y_ruler),
+                             (px, self.y_marks + 22))
+        opx = self._ox(t)
+        pygame.draw.line(scr, (255, 255, 255), (opx, self.y_wave),
+                         (opx, self.y_wave + 58), 1)
+
+        # per-track stem key at the playhead (P2.24)
+        _, _, blanes = proj.bar_at(t)
+        for ln in LANES:
+            keyg = blanes.get(ln)
+            if keyg and keyg[0] not in ("silence", "None") \
+                    and keyg[1] > 0.001:
+                self.txt(keyg[0], 50, self.rows[ln] + 13,
+                         (120, 120, 135), self.small, maxw=74)
+
+        self._draw_overlays(scr, proj, t)
+        self._draw_tooltip()
+        pygame.display.flip()
+
+    # ---- transport & status ---------------------------------------------
+    def _draw_transport(self, scr, proj, t):
         pygame.draw.rect(scr, (28, 28, 34), (0, 0, self.W, 36))
-        self.txt(">" if not self.player.playing else "||", 14, 8,
-                 (240, 220, 160), self.big)
+        if self.player.buf is None:
+            glyph = "…"
+        elif self.player.playing:
+            glyph = "||"
+        elif t >= self.player.end_t() - 0.05 and self.player.end_t():
+            glyph = "↺"
+        else:
+            glyph = ">"
+        self.txt(glyph, 14, 8, (240, 220, 160), self.big)
         self._hit["play_glyph"] = pygame.Rect(8, 2, 34, 30)
-        bar_t, bar_idx, _ = self.proj.bar_at(t)
-        name, meta, d = self.proj.bank_at(t)
-        sect = self.proj.section_at(t)
+        bar_t, bar_idx, _ = proj.bar_at(t)
+        name, meta, d = proj.bank_at(t)
+        sect = proj.section_at(t)
         if self._goto is not None:
             pygame.draw.rect(scr, (50, 50, 30), (44, 6, 130, 24))
             pygame.draw.rect(scr, (240, 220, 160), (44, 6, 130, 24), 1)
-            self.txt(f"{self._goto}_", 50, 10, (255, 255, 200), self.big)
+            self.txt(f"{self._goto}_", 50, 10, (255, 255, 200),
+                     self.big)
         else:
             mm, ss = divmod(int(t), 60)
             self.txt(f"{mm:02d}:{ss:02d}.{int((t % 1) * 10)}", 48, 10,
@@ -651,159 +1435,394 @@ class App:
         self._hit["time_readout"] = pygame.Rect(44, 6, 130, 24)
         self.txt(f"bar {bar_idx % (meta['bars'] if meta else 1):>2}"
                  f"  {sect:<8}", 180, 10, (240, 220, 160), self.big)
-        title = meta.get("title", name) if meta else str(name)
-        self.txt(f"{title}", 350, 10, (200, 200, 220), self.big)
+        xf = proj.xfade_at(t)
+        if xf:
+            title = f"{xf[0]} → {xf[1]}"    # rotation crossfade: the
+            col = (255, 200, 120)           # OLD bank is still sounding
+        else:
+            title = (meta or {}).get("title", str(name))
+            col = (200, 200, 220)
+        self.txt(title, 350, 10, col, self.big, maxw=290)
         self._hit["bank_title"] = pygame.Rect(346, 4, 300, 28)
-        st_col = (140, 220, 140) if self.status.startswith("ready") \
-            else (240, 200, 100)
-        self.txt(self.status, 700, 12, st_col)
+        # status chip: color-coded, flashes on transition, one writer
+        flash = time.time() - self.status_t < 0.35
+        kind = self.status_kind
+        x = 652
+        if self.player.buf is None and kind == "busy":
+            el = time.time() - self.render_t0
+            s = f"rendering first mix… {el:.0f}s"
+            if self.est_render:
+                frac = min(1.0, el / self.est_render)
+                s += f" ({frac * 100:.0f}%)"
+            x = self._chip(s, x, 9, "busy")
+        else:
+            x = self._chip(self.status, x, 9, kind)
+        if flash:
+            pygame.draw.rect(scr, (255, 255, 255),
+                             (652, 9, x - 660, 18), 1)
+        limit = self.W - 34             # chips never cover the ? glyph
         if self.clip:
-            self.txt("CLIP", 900, 12, (255, 80, 80), self.big)
-            self._hit["clip_chip"] = pygame.Rect(896, 8, 62, 24)
+            db, tl = self.clip_info
+            x = self._chip(f"CLIP +{db:.1f}dB @ {int(tl//60)}:"
+                           f"{int(tl%60):02d}", x, 9, "err",
+                           hit="clip_chip", maxw=limit - x)
+        if self.ab_prev and self.prev_mix:
+            label = self.prev_mix[1].split(" ")[0]
+            x = self._chip(f"hearing PREVIOUS {label} — A returns",
+                           x, 9, "warn", hit="ab_chip", maxw=limit - x)
+        self.txt("?", self.W - 22, 8, (170, 170, 190), self.big)
+        self._hit["help_glyph"] = pygame.Rect(self.W - 28, 2, 26, 30)
+        # line 2: mix identity + liveness chips (all derived)
+        y2 = 40
+        x2 = 12
+        if self.mix_no:
+            self.txt(f"mix #{self.mix_no} · {self.mix_src} · "
+                     f"{self.mix_at}", x2, y2 + 2, (150, 150, 165),
+                     maxw=300)
+            x2 = 320
+        beat = time.time() - self._watch_beat
+        alive = self._watch_thread.is_alive()
+        if not alive:
+            x2 = self._chip("watcher DIED — restarting", x2, y2, "err")
+        elif beat > 5.0:
+            x2 = self._chip(f"watcher stalled {beat:.0f}s", x2, y2,
+                            "warn")
+        else:
+            x2 = self._chip(f"watching {len(self._watch_dirs)} folders"
+                            f" · scanned {beat:.1f}s ago", x2, y2, "ok")
+        if self.player.err:
+            x2 = self._chip(f"AUDIO FAILED: {self.player.err} — R "
+                            f"retries", x2, y2, "err")
         if self._shadow_note:
-            self.txt(self._shadow_note, 320, 40, (255, 160, 80))
-        # info panel
-        self.txt("SESSION  gauntlet_winning_session_v1 — seed 7095, "
-                 "full clear", 12, 60, (240, 220, 160))
-        self.txt(f"length {int(self.proj.dur // 60)}:"
-                 f"{int(self.proj.dur % 60):02d}   "
-                 f"{len(self.proj.bars)} bars   "
-                 f"{len(self.proj.banks)} bank passes", 12, 80)
-        self.txt("banks read from:", 12, 104, (170, 170, 190))
-        yy = 122
+            x2 = self._chip(self._shadow_note, x2, y2, "warn")
+        # muted-lane truth for the last reload (derived, not stored)
+        if self._last_reload:
+            names, lanes = self._last_reload
+            dead = {ln for ln in lanes if self._is_muted(ln)}
+            if dead:
+                self._chip(f"{names} → {'/'.join(sorted(dead))} is "
+                           f"muted — unmute to hear", x2, y2, "warn",
+                           maxw=self.W - 344 - x2)
+        # transient notes (bottom-left of the panel area)
+        yy = 208
+        now = time.time()
+        for ts, text, kind in list(self.notes):
+            if now - ts < 8.0:
+                self.txt(text, 12, yy, STATUS_COL[kind], maxw=780)
+                yy -= 16
+
+    # ---- info panel -------------------------------------------------------
+    def _draw_panel(self, scr, proj, t):
+        rec_name = self.rec.name if self.rec.is_dir() else \
+            self.rec.parent.name
+        self.txt(f"SESSION  {rec_name}", 12, 60, (240, 220, 160))
+        self.txt(f"length {int(proj.dur // 60)}:"
+                 f"{int(proj.dur % 60):02d}   {len(proj.bars)} bars   "
+                 f"{len(proj.banks)} bank passes", 12, 78)
+        yy = 98
         seen = set()
-        for _, _, nm, _, dd in self.proj.banks:
+        for _, _, nm, meta, dd in proj.banks:
             if nm in seen:
                 continue
             seen.add(nm)
-            self.txt(f"{nm:<22} {dd}", 12, yy, (150, 150, 160))
-            yy += 16
-        self.txt("replace any stem file there -> auto-reload at the "
-                 "same playhead", 12, min(yy + 4, 210), (170, 190, 170))
-        self.txt("SPACE play . click/drag scrub . arrows bar (shift "
-                 "10s) . M/S . click clock to type a time . R rebuild "
-                 ". ESC . hover any control for tips",
-                 128, self.y_marks + 28, (120, 120, 135))
-        # video monitor
+            if meta is None:
+                self.txt(f"{nm:<22} NOT FOUND — plays silence", 12, yy,
+                         STATUS_COL["err"], maxw=560)
+            else:
+                spec = (f"{meta['bpm']:g}bpm · {meta['bars']} bars · "
+                        f"stem {240.0 / meta['bpm'] * meta['bars']:.1f}s"
+                        f" · 44.1k/16-bit")
+                self.txt(f"{nm:<22} {spec}", 12, yy, (150, 150, 160),
+                         maxw=560)
+            yy += 15
+            if yy > 175:
+                self.txt(f"… +{len({b[2] for b in proj.banks}) - len(seen)} more",
+                         12, yy, (120, 120, 135))
+                break
+        for msg, kind in self.health[:2]:
+            self.txt(msg, 12, yy, STATUS_COL[kind], maxw=580)
+            yy += 15
+        if len(self.health) > 2:
+            self.txt(f"… +{len(self.health) - 2} more warnings (see "
+                     f"check_bank)", 12, yy, STATUS_COL["warn"])
+            yy += 15
+        self.txt("replace any stem file in a bank folder → auto-reload"
+                 " at the same playhead", 12, min(yy + 2, 192),
+                 (170, 190, 170))
+        self.txt("SPACE play · drag scrub · ,/. markers · ±0 zoom · "
+                 "drag ruler loop · M/S · A prev mix · B bounce · "
+                 "? all keys", 128, self.y_marks + 42, (120, 120, 135))
+
+    # ---- video pane -------------------------------------------------------
+    def _draw_video(self, scr, t):
+        vx, vy = self.W - 332, 44
+        if self.video.err:
+            pygame.draw.rect(scr, (40, 24, 24), (vx, vy, 320, 40))
+            self.txt(self.video.err, vx + 6, vy + 12,
+                     STATUS_COL["err"], maxw=308)
+            return
+        if self.video.video is None:
+            self.txt("no video attached (--video PATH)", vx + 40,
+                     vy + 80, (100, 100, 115))
+            return
         fr = self.video.request(t)
         if fr is not None:
-            scr.blit(fr, (self.W - 332, 44))
-        if self.video.video is not None:
-            pygame.draw.rect(scr, (70, 70, 80),
-                             (self.W - 332, 44, 320, 180), 1)
-            self._hit["video_monitor"] = pygame.Rect(self.W - 332, 44,
-                                                     320, 180)
-        # ruler
-        pygame.draw.rect(scr, (26, 26, 32),
-                         (self.x0, self.y_ruler, self.x1 - self.x0, 16))
-        for m in range(0, int(self.proj.dur) + 1, 30):
-            x = self._tx(m)
-            pygame.draw.line(scr, (80, 80, 95), (x, self.y_ruler),
-                             (x, self.y_ruler + 16))
-            self.txt(f"{m // 60}:{m % 60:02d}", x + 3, self.y_ruler + 1,
-                     (140, 140, 155))
-        # sections + bank spans
-        for t0, t1, nm, meta, _ in self.proj.banks:
-            pygame.draw.line(scr, (240, 220, 160),
-                             (self._tx(t0), self.y_sect),
-                             (self._tx(t0), self.y_marks + 14))
+            scr.blit(fr, (vx, vy))
+            q_shown = self.video.cur[1] if self.video.cur else None
+            lag = abs(q_shown - round(t * 2) / 2) \
+                if q_shown is not None else 0.0
+            if lag > 1.0:
+                dim = pygame.Surface((320, 180), pygame.SRCALPHA)
+                dim.fill((0, 0, 0, 130))
+                scr.blit(dim, (vx, vy))
+                self.txt(f"video lagging {lag:.0f}s", vx + 8, vy + 8,
+                         STATUS_COL["warn"])
+        else:
+            self.txt("extracting frame…", vx + 100, vy + 84,
+                     (120, 120, 135))
+        busy = self.video.busy_since
+        if busy and time.time() - busy > 1.5:
+            self.txt(f"extracting… {time.time() - busy:.0f}s",
+                     vx + 6, vy + 162, STATUS_COL["busy"])
+        pygame.draw.rect(scr, (70, 70, 80), (vx, vy, 320, 180), 1)
+        self._hit["video_monitor"] = pygame.Rect(vx, vy, 320, 180)
+        if self.video_note:
+            self.txt(self.video_note, vx, vy + 184, STATUS_COL["warn"],
+                     maxw=320)
+
+    # ---- timeline (static layer) ------------------------------------------
+    def _draw_timeline(self, surf, hits, proj):
+        off = 236                       # surface y offset
+
+        def T(y):
+            return y - off
+
+        v0, v1 = self._view()
+        span = v1 - v0
+        # ruler with zoom-adaptive ticks
+        pygame.draw.rect(surf, (26, 26, 32),
+                         (self.x0, T(self.y_ruler),
+                          self.x1 - self.x0, 16))
+        step = next((s for s in (1, 5, 10, 30, 60, 120)
+                     if (self.x1 - self.x0) * s / span >= 55), 120)
+        m = int(v0 // step) * step
+        while m <= v1:
+            if m >= v0:
+                x = self._tx(m)
+                pygame.draw.line(surf, (80, 80, 95),
+                                 (x, T(self.y_ruler)),
+                                 (x, T(self.y_ruler) + 16))
+                self.txt(f"{m // 60}:{m % 60:02d}", x + 3,
+                         T(self.y_ruler) + 1, (140, 140, 155),
+                         surf=surf)
+            m += step
+        # loop region on the ruler
+        if self.loop:
+            a, b = self.loop
+            xa, xb = self._tx(max(a, v0)), self._tx(min(b, v1))
+            if xb > xa:
+                col = (120, 220, 160) if self.loop_on else (90, 110, 95)
+                lr = pygame.Surface((xb - xa, 16), pygame.SRCALPHA)
+                lr.fill((*col, 70))
+                surf.blit(lr, (xa, T(self.y_ruler)))
+                pygame.draw.rect(surf, col,
+                                 (xa, T(self.y_ruler), xb - xa, 16), 1)
+        # bank switch lines + labels
+        for t0, t1, nm, meta, _ in proj.banks:
+            if not (v0 - 1 <= t0 <= v1 + 1) or t0 == 0.0:
+                continue
+            x = self._tx(t0)
+            pygame.draw.line(surf, (240, 220, 160), (x, T(self.y_sect)),
+                             (x, T(self.y_marks) + 14))
+        for t0, t1, nm, meta, _ in proj.banks:
+            if t1 < v0 or t0 > v1:
+                continue
+            label = (meta or {}).get("title", nm)
+            self.txt(label, max(self._tx(t0), self.x0) + 3,
+                     T(self.y_marks) + 24, (200, 190, 150), self.small,
+                     surf=surf,
+                     maxw=max(20, self._tx(min(t1, v1))
+                              - max(self._tx(t0), self.x0) - 6))
+        # sections with labels
+        spans = []
         for (bt, bidx, _), nxt in zip(
-                self.proj.bars, self.proj.bars[1:] + [(self.proj.dur,
-                                                       0, {})]):
-            sec = self.proj.section_at(bt + 0.01)
-            x, xe = self._tx(bt), self._tx(nxt[0])
-            pygame.draw.rect(scr, SECT_COL.get(sec, (50, 50, 60)),
-                             (x, self.y_sect, max(1, xe - x), 10))
-        # waveform overview
-        pygame.draw.rect(scr, (24, 24, 30),
-                         (self.x0, self.y_wave, self.x1 - self.x0, 58))
+                proj.bars, proj.bars[1:] + [(proj.dur, 0, {})]):
+            if nxt[0] < v0 or bt > v1:
+                continue
+            sec = proj.section_at(bt + 0.01)
+            if spans and spans[-1][2] == sec:
+                spans[-1] = (spans[-1][0], nxt[0], sec)
+            else:
+                spans.append((bt, nxt[0], sec))
+        for a, b, sec in spans:
+            x, xe = self._tx(max(a, v0)), self._tx(min(b, v1))
+            pygame.draw.rect(surf, SECT_COL.get(sec, (50, 50, 60)),
+                             (x, T(self.y_sect), max(1, xe - x), 10))
+            if xe - x > 44 and sec:
+                self.txt(sec, x + 3, T(self.y_sect) - 1,
+                         (230, 230, 240), self.small, surf=surf,
+                         maxw=xe - x - 4)
+        # rotation-crossfade windows (the OLD bank is still sounding)
+        for t0, t1, old, new in proj.xfades:
+            if t1 < v0 or t0 > v1:
+                continue
+            xa, xb = self._tx(max(t0, v0)), self._tx(min(t1, v1))
+            if xb <= xa:
+                continue
+            band = pygame.Surface((xb - xa, 12), pygame.SRCALPHA)
+            band.fill((255, 200, 120, 60))
+            for i in range(0, xb - xa, 6):
+                pygame.draw.line(band, (255, 200, 120, 140),
+                                 (i, 12), (min(i + 6, xb - xa), 0))
+            surf.blit(band, (xa, T(self.y_sect)))
+        # waveform overview — ALWAYS the full session (navigator)
+        pygame.draw.rect(surf, (24, 24, 30),
+                         (self.x0, T(self.y_wave),
+                          self.x1 - self.x0, 58))
         ov = self.overview
         if ov is not None:
-            mid = self.y_wave + 29
-            for i, v in enumerate(ov):
-                h = int(v * 28)
-                pygame.draw.line(scr, (90, 130, 110),
-                                 (self.x0 + i, mid - h),
-                                 (self.x0 + i, mid + h))
+            mid = T(self.y_wave) + 29
+            for i in range(len(ov[0])):
+                hL = int(ov[0][i] * 27)
+                hR = int(ov[1][i] * 27)
+                pygame.draw.line(surf, (90, 130, 110),
+                                 (self.x0 + i, mid - hL),
+                                 (self.x0 + i, mid))
+                pygame.draw.line(surf, (80, 118, 128),
+                                 (self.x0 + i, mid),
+                                 (self.x0 + i, mid + hR))
+        # halt spans: silence is drawn as silence (full-height red)
+        for ht, resume in proj.halts:
+            xa, xb = self._ox(ht), self._ox(resume)
+            hs = pygame.Surface((max(2, xb - xa), 58), pygame.SRCALPHA)
+            hs.fill((255, 60, 60, 60))
+            surf.blit(hs, (xa, T(self.y_wave)))
+        if self.view:
+            xa = self._ox(v0)
+            xb = self._ox(v1)
+            pygame.draw.rect(surf, (240, 220, 160),
+                             (xa, T(self.y_wave), max(2, xb - xa), 58),
+                             1)
+            self.txt("zoom", xa + 3, T(self.y_wave) + 44,
+                     (240, 220, 160), self.small, surf=surf)
         # value automation (P/C/S)
-        pygame.draw.rect(scr, (24, 24, 30),
-                         (self.x0, self.y_vals, self.x1 - self.x0, 50))
+        pygame.draw.rect(surf, (24, 24, 30),
+                         (self.x0, T(self.y_vals),
+                          self.x1 - self.x0, 50))
         for vi, vname in enumerate(("PRAYER", "CONTEMPT", "STALWART")):
             col = tuple(c // 3 for c in VAL_COL[vi]) \
                 if vi in self.curve_off else VAL_COL[vi]
-            self.txt(vname, 50, self.y_vals + 2 + vi * 15, col)
-            self._hit[f"curve:{vi}"] = pygame.Rect(
+            self.txt(vname, 50, T(self.y_vals) + 2 + vi * 15, col,
+                     surf=surf)
+            hits[f"curve:{vi}"] = pygame.Rect(
                 46, self.y_vals + vi * 15, 80, 15)
+        vis = [(vt, v) for vt, v in proj.vals if v0 <= vt <= v1]
+        stride = max(1, len(vis) // (self.x1 - self.x0))
         for vi in range(3):
             if vi in self.curve_off:
                 continue
-            pts = [(self._tx(vt), self.y_vals + 48 - int(v[vi] * 46))
-                   for vt, v in self.proj.vals[::3]]
+            pts = [(self._tx(vt), T(self.y_vals) + 48 - int(v[vi] * 46))
+                   for vt, v in vis[::stride]]
             if len(pts) > 1:
-                pygame.draw.lines(scr, VAL_COL[vi], False, pts)
+                pygame.draw.lines(surf, VAL_COL[vi], False, pts)
         # lane tracks
         for ln in LANES + [FX]:
-            ry = self.rows[ln]
-            eff_muted = ln in self._effective_mutes()
-            hcol = (255, 240, 200) if ln in self.solo else \
-                (110, 110, 120) if eff_muted else (200, 200, 210)
-            pygame.draw.rect(scr, (60, 40, 40) if ln in self.muted
+            ry = T(self.rows[ln])
+            eff_muted = self._is_muted(ln)
+            hcol = (255, 240, 200) if ln in self.solo and not eff_muted \
+                else (110, 110, 120) if eff_muted else (200, 200, 210)
+            pygame.draw.rect(surf, (60, 40, 40) if ln in self.muted
                              else (36, 36, 44), (4, ry, 18, 16))
             self.txt("M", 8, ry + 1, (255, 150, 150) if ln in self.muted
-                     else (150, 150, 160))
-            self._hit[f"mute:{ln}"] = pygame.Rect(4, ry, 18, 16)
-            pygame.draw.rect(scr, (60, 60, 30) if ln in self.solo
+                     else (150, 150, 160), surf=surf)
+            hits[f"mute:{ln}"] = pygame.Rect(4, self.rows[ln], 18, 16)
+            pygame.draw.rect(surf, (60, 60, 30) if ln in self.solo
                              else (36, 36, 44), (26, ry, 18, 16))
             self.txt("S", 31, ry + 1, (255, 240, 140) if ln in self.solo
-                     else (150, 150, 160))
-            self._hit[f"solo:{ln}"] = pygame.Rect(26, ry, 18, 16)
+                     else (150, 150, 160), surf=surf)
+            hits[f"solo:{ln}"] = pygame.Rect(26, self.rows[ln], 18, 16)
             if self.sel == ln:
-                pygame.draw.rect(scr, (70, 65, 40), (46, ry, 80, 19))
-            self.txt(ln, 50, ry + 2, hcol)
-            self._hit[f"name:{ln}"] = pygame.Rect(46, ry, 80, 19)
-            pygame.draw.rect(scr, (24, 24, 29),
+                pygame.draw.rect(surf, (70, 65, 40), (46, ry, 80, 12))
+            self.txt(ln, 50, ry + 1, hcol, surf=surf)
+            hits[f"name:{ln}"] = pygame.Rect(46, self.rows[ln], 80, 19)
+            pygame.draw.rect(surf, (24, 24, 29),
                              (self.x0, ry, self.x1 - self.x0, 22))
             if ln == FX:
                 continue
             col = LANE_COL[ln]
             dim = 0.25 if eff_muted else 1.0
             for (bt, bidx, lanes), nxt in zip(
-                    self.proj.bars,
-                    self.proj.bars[1:] + [(self.proj.dur, 0, {})]):
-                key, g = lanes.get(ln, ("silence", 0.0))
+                    proj.bars, proj.bars[1:] + [(proj.dur, 0, {})]):
+                if nxt[0] < v0 or bt > v1:
+                    continue
+                key, g, fade = lanes.get(ln, ("silence", 0.0, False))
                 if g <= 0.001 or key == "silence":
                     continue
-                x, xe = self._tx(bt), self._tx(nxt[0])
+                x, xe = self._tx(max(bt, v0)), self._tx(min(nxt[0], v1))
                 h = max(2, int(20 * min(1.0, g)))
                 c = tuple(int(v * (0.35 + 0.65 * g) * dim) for v in col)
-                pygame.draw.rect(scr, c, (x, ry + 21 - h,
-                                          max(1, xe - x), h))
+                if fade and xe - x >= 3:
+                    # farewell bar (~f): the lane RAMPS TO ZERO across
+                    # this bar — drawn as its shape, a right taper
+                    pygame.draw.polygon(surf, c, [
+                        (x, ry + 21), (x, ry + 21 - h),
+                        (xe, ry + 21 - max(1, h // 5)), (xe, ry + 21)])
+                else:
+                    pygame.draw.rect(surf, c, (x, ry + 21 - h,
+                                               max(1, xe - x), h))
         # FX / event markers
-        ry = self.rows[FX]
-        for mt_, kind, nm in self.proj.marks:
+        ry = T(self.rows[FX])
+        for t0, t1 in proj.riser_spans:     # 2-bar swell → strike
+            if t1 < v0 or t0 > v1:
+                continue
+            xa, xb = self._tx(t0), self._tx(t1)
+            pygame.draw.line(surf, (200, 120, 220), (xa, ry + 18),
+                             (xb, ry + 3))
+            pygame.draw.line(surf, (240, 180, 255), (xb, ry + 1),
+                             (xb, ry + 20), 2)
+        for mt_, kind, nm in proj.marks:
+            if not (v0 <= mt_ <= v1):
+                continue
             x = self._tx(mt_)
             if kind == "music_halt":
-                pygame.draw.line(scr, (255, 70, 70), (x, ry),
-                                 (x, ry + 20), 2)
+                pass                        # drawn as full spans below
             elif kind == "music_sting":
-                pygame.draw.circle(scr, (240, 220, 160), (x, ry + 10), 4)
+                pygame.draw.circle(surf, (240, 220, 160),
+                                   (x, ry + 10), 4)
+            elif kind == "music_stab":
+                pygame.draw.polygon(surf, (160, 220, 255),
+                                    [(x, ry + 4), (x + 4, ry + 10),
+                                     (x, ry + 16), (x - 4, ry + 10)])
             elif kind == "music_riser":
-                pygame.draw.polygon(scr, (200, 120, 220),
+                pygame.draw.polygon(surf, (200, 120, 220),
                                     [(x, ry + 18), (x - 4, ry + 4),
                                      (x + 4, ry + 4)])
             elif kind == "music_riser2":
-                pygame.draw.polygon(scr, (255, 120, 80),
+                pygame.draw.polygon(surf, (255, 120, 80),
                                     [(x, ry + 18), (x - 3, ry + 8),
                                      (x + 3, ry + 8)])
             elif kind == "music_jump" and not nm.endswith("~s"):
-                pygame.draw.polygon(scr, (240, 200, 100),
+                pygame.draw.polygon(surf, (240, 200, 100),
                                     [(x, ry + 4), (x - 3, ry + 14),
                                      (x + 3, ry + 14)])
-        # playhead
-        px = self._tx(t)
-        pygame.draw.line(scr, (255, 255, 255), (px, self.y_ruler),
-                         (px, self.y_marks + 22))
-        # ---- overlays --------------------------------------------------
+        # death halts: full-height red spans — silence LOOKS like
+        # silence across every row, not a 20px tick
+        for ht, resume in proj.halts:
+            if resume < v0 or ht > v1:
+                continue
+            xa = self._tx(max(ht, v0))
+            xb = self._tx(min(resume, v1))
+            hs = pygame.Surface((max(2, xb - xa),
+                                 self.y_marks + 22 - self.y_sect),
+                                pygame.SRCALPHA)
+            hs.fill((255, 60, 60, 36))
+            surf.blit(hs, (xa, T(self.y_sect)))
+            pygame.draw.line(surf, (255, 70, 70),
+                             (xa, T(self.y_sect)),
+                             (xa, T(self.y_marks) + 22), 2)
+
+    # ---- overlays ---------------------------------------------------------
+    def _draw_overlays(self, scr, proj, t):
         if self.video_big:
             fr = self.video.request(t, big=True)
             bw, bh = self.video.big_size
@@ -836,15 +1855,99 @@ class App:
                          (255, 240, 200) if cur else (200, 200, 210))
                 self._picker_rows.append((r, nm))
                 yy += 24
-        self._draw_tooltip()
-        pygame.display.flip()
+        if self.help_on:
+            self._draw_help(scr)
+
+    HELP_KEYS = [
+        ("SPACE", "play / pause (at the end: restart)"),
+        ("click/drag", "scrub — timeline seeks in the zoom window; "
+                       "the waveform strip seeks the whole session"),
+        ("LEFT/RIGHT", "previous / next bar (SHIFT: 10 s)"),
+        (", .", "previous / next event marker"),
+        ("UP/DOWN", "previous / next section start"),
+        ("+ - 0", "zoom in / out / reset (about the playhead)"),
+        ("drag ruler", "set loop region;  L  toggles looping"),
+        ("HOME/END", "start / end"),
+        ("M / S", "mute / solo the selected track (click a track "
+                  "name to select; boxes always work)"),
+        ("A", "A/B: hear the PREVIOUS mix (undo of a hot-swap)"),
+        ("G  or click clock", "type a time (mm:ss or seconds), ENTER"),
+        ("C", "copy 'mm:ss / bar / bank' for feedback notes"),
+        ("B", "bounce loop region (or full mix) to a wav"),
+        ("R", "full reload — re-read every file, retry audio/video"),
+        ("ESC", "close overlay / cancel entry / quit (session is "
+                "saved and restored)"),
+    ]
+    HELP_LEGEND = [
+        ((240, 200, 100), "▽", "jump — the form leapt to a new bar "
+                               "(soft loop steers ~s are not drawn)"),
+        ((200, 120, 220), "△+line", "riser: 2-bar swell into its "
+                                    "strike (the tall tick)"),
+        ((255, 120, 80), "△", "half-riser (ambush swell)"),
+        ((240, 220, 160), "●", "sting (win hit)"),
+        ((160, 220, 255), "◆", "stab (damage hit)"),
+        ((255, 70, 70), "▌span", "death halt — ALL music dead until "
+                                 "the next bar tap"),
+        ((255, 200, 120), "hatch", "bank rotation crossfade — the old "
+                                   "bank is still fading out here"),
+    ]
+
+    def _wrap(self, s, maxw):
+        """Word-wrap for the help overlay: help never truncates."""
+        words, lines, cur = s.split(" "), [], ""
+        for w in words:
+            trial = (cur + " " + w).strip()
+            if self.font.size(trial)[0] > maxw and cur:
+                lines.append(cur)
+                cur = w
+            else:
+                cur = trial
+        if cur:
+            lines.append(cur)
+        return lines
+
+    def _draw_help(self, scr):
+        dim = pygame.Surface((self.W, self.H), pygame.SRCALPHA)
+        dim.fill((10, 10, 14, 225))
+        scr.blit(dim, (0, 0))
+        self.txt("KEYS", 80, 40, (240, 220, 160), self.big)
+        y = 74
+        for k, desc in self.HELP_KEYS:
+            self.txt(k, 80, y, (255, 240, 200))
+            for ln in self._wrap(desc, 440):
+                self.txt(ln, 260, y, (190, 190, 200))
+                y += 18
+            y += 8
+        self.txt("MARKERS", 740, 40, (240, 220, 160), self.big)
+        y = 74
+        for col, glyph, desc in self.HELP_LEGEND:
+            self.txt(glyph, 740, y, col)
+            for ln in self._wrap(desc, 450):
+                self.txt(ln, 800, y, (190, 190, 200))
+                y += 18
+            y += 10
+        for para in (
+                "Values vs faders: P/C/S curves are the game's "
+                "DECISIONS; lane heights are the gains it chose.",
+                "Replace-and-hear: overwrite any stem in a bank "
+                "folder — the mix rebuilds at the same playhead."):
+            y += 12
+            for ln in self._wrap(para, 450):
+                self.txt(ln, 740, y, (170, 190, 170))
+                y += 18
+        self.txt("? or ESC closes", 80, self.H - 40, (150, 150, 165))
 
     TOOLTIPS = {
         "play_glyph": "Play / pause (SPACE)",
-        "time_readout": "Click, type a time (mm:ss or seconds), ENTER jumps",
-        "bank_title": "Click: score this session with a different bank",
-        "clip_chip": "Mix hit full scale — click to reset",
+        "time_readout": "Click, type a time (mm:ss or seconds), "
+                        "ENTER jumps",
+        "bank_title": "Click: score this session with a different "
+                      "bank",
+        "clip_chip": "Mix over full scale — click: jump to the "
+                     "loudest point; click again: reset",
+        "ab_chip": "Hearing the previous mix — click or A returns",
         "video_monitor": "Click: enlarge video",
+        "help_glyph": "All keys + marker legend (?)",
         "curve:0": "PRAYER value - click to show/hide the curve",
         "curve:1": "CONTEMPT value - click to show/hide the curve",
         "curve:2": "STALWART value - click to show/hide the curve",
@@ -863,7 +1966,8 @@ class App:
         return None
 
     def _draw_tooltip(self):
-        if self.picker or self.video_big or self._goto is not None:
+        if self.picker or self.video_big or self.help_on or \
+                self._goto is not None:
             return
         mx, my = pygame.mouse.get_pos()
         over = next((el for el, r in self._hit.items()
@@ -886,21 +1990,61 @@ class App:
                          (tx - 6, ty - 4, w + 12, h + 8), 1)
         self.screen.blit(surf, (tx, ty))
 
+    # ---- main loop --------------------------------------------------------
+    def _feed(self):
+        """Audio chunk feed on its own thread: a slow draw or a heavy
+        render can no longer starve playback (P3.25)."""
+        while not self._quit:
+            try:
+                self.player.poll()
+            except Exception as exc:
+                self.player.err = f"{exc}"
+                self.player.playing = False
+            time.sleep(0.03)
+
     def step(self):
-        self.player.poll()
+        # loop-region enforcement
+        if self.loop_on and self.loop and self.player.playing:
+            a, b = self.loop
+            if self.player.playhead() >= b - 0.02:
+                self._seek(a)
+        # follow-playhead while zoomed
+        if self.view and self.player.playing:
+            v0, v1 = self.view
+            t = self.player.playhead()
+            if t > v1 - (v1 - v0) * 0.05 or t < v0:
+                span = v1 - v0
+                nv0 = max(0.0, min(t - span * 0.1,
+                                   self.proj.dur - span))
+                self.view = (nv0, nv0 + span)
+                self._static = None
+        # arrow-key repeat (manual: repeat must not reach M/S/etc)
+        if self._arrow_held:
+            k, mod, t0, last = self._arrow_held
+            now = time.time()
+            if now >= t0 and now - last >= 0.07:
+                self._arrow_step(k, mod)
+                self._arrow_held = (k, mod, t0, now)
+        # watcher watchdog: a dead thread restarts, visibly
+        if not self._watch_thread.is_alive() and not self._quit:
+            self._note("watcher died — restarted", "err")
+            self._watch_thread = threading.Thread(target=self._watch,
+                                                  daemon=True)
+            self._watch_thread.start()
 
     def run(self):
         clock = pygame.time.Clock()
         running = True
         while running:
             for ev in pygame.event.get():
-                if ev.type == pygame.QUIT:
+                if ev.type == pygame.QUIT or not self.handle(ev):
                     running = False
-                elif not self.handle(ev):
-                    running = False
+                    break               # no ghost events after quit
             self.step()
             self.draw()
             clock.tick(60)
+        self._quit = True
+        self._save_session()
         pygame.quit()
 
 
@@ -917,6 +2061,9 @@ def main():
                          "session's banks")
     a = ap.parse_args()
     rec = Path(a.rec)
+    if not (rec / "events.jsonl").exists() and not rec.is_file():
+        raise SystemExit(f"recording not found: {rec} (need a dir "
+                         f"with events.jsonl, or the file itself)")
     video = Path(a.video) if a.video else \
         (DEFAULT_VIDEO if Path(a.rec) == DEFAULT_REC else None)
     App(rec, video, use=a.use).run()
