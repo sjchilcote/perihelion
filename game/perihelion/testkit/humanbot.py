@@ -1858,12 +1858,21 @@ class HumanBot(_UnstickMixin, Bot):
         # -- the pull-to-the-guns doctrine keeps co-room contact at 1-2
         # while the real wave stacks just behind the portal, which is
         # exactly the moment to dump the blast into the funnel.
+        # discharge on GEOMETRY, not on ambient dread: the old
+        # `threats_total >= 5` clause was ~always true mid-fight, so
+        # the implant fired on cooldown at whatever 2-3 happened to
+        # be close instead of waiting ~2s for the bunch (corner
+        # catch-ups, waist crossings) where one blast deletes 5+
         inp.alt = (snapshot["lightning_ready"]
                    and "lightning" in snapshot["weapons"]
                    and snapshot["weapon"] != "tau"
                    and (sum(1 for e in perceived
-                            if _dist(e["pos"], (px, py)) < 120.0) >= 3
-                        or self._threats_total >= 5))
+                            if _dist(e["pos"], (px, py)) < 150.0) >= 4
+                        or any(_dist(e["pos"], (px, py)) < 45.0
+                               for e in perceived)
+                        or any(e.get("kind") == "warden"
+                               and _dist(e["pos"], (px, py)) < 120.0
+                               for e in perceived)))
 
         weapon_name = WEAPON_ORDER[inp.weapon - 1] if inp.weapon else snapshot["weapon"]
         ux, uy = dx / dist, dy / dist
