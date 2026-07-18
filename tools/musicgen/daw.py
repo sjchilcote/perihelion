@@ -1256,6 +1256,9 @@ class App:
             for el, r in self._hit.items():
                 if not r.collidepoint(x, y):
                     continue
+                if el.startswith(("mark:", "legend:")):
+                    continue        # hover-only: clicks fall through
+                    #                 to the scrub surface beneath
                 if el == "play_glyph":
                     (self.player.pause if self.player.playing
                      else self.player.play)()
@@ -1700,6 +1703,8 @@ class App:
                 pygame.draw.line(band, (255, 200, 120, 140),
                                  (i, 12), (min(i + 6, xb - xa), 0))
             surf.blit(band, (xa, T(self.y_sect)))
+            hits[f"mark:xfade:{xa}"] = pygame.Rect(
+                xa, self.y_sect, xb - xa, 12)
         # waveform overview — ALWAYS the full session (navigator)
         pygame.draw.rect(surf, (24, 24, 30),
                          (self.x0, T(self.y_wave),
@@ -1795,7 +1800,8 @@ class App:
                 else:
                     pygame.draw.rect(surf, c, (x, ry + 21 - h,
                                                max(1, xe - x), h))
-        # FX / event markers
+        # FX / event markers — every glyph is a hover target carrying
+        # the same tooltip as its legend twin
         ry = T(self.rows[FX])
         for t0, t1 in proj.riser_spans:     # 2-bar swell → strike
             if t1 < v0 or t0 > v1:
@@ -1808,28 +1814,13 @@ class App:
         for mt_, kind, nm in proj.marks:
             if not (v0 <= mt_ <= v1):
                 continue
+            if kind == "music_halt" or \
+                    (kind == "music_jump" and nm.endswith("~s")):
+                continue        # halts draw as full spans below
             x = self._tx(mt_)
-            if kind == "music_halt":
-                pass                        # drawn as full spans below
-            elif kind == "music_sting":
-                pygame.draw.circle(surf, (240, 220, 160),
-                                   (x, ry + 10), 4)
-            elif kind == "music_stab":
-                pygame.draw.polygon(surf, (160, 220, 255),
-                                    [(x, ry + 4), (x + 4, ry + 10),
-                                     (x, ry + 16), (x - 4, ry + 10)])
-            elif kind == "music_riser":
-                pygame.draw.polygon(surf, (200, 120, 220),
-                                    [(x, ry + 18), (x - 4, ry + 4),
-                                     (x + 4, ry + 4)])
-            elif kind == "music_riser2":
-                pygame.draw.polygon(surf, (255, 120, 80),
-                                    [(x, ry + 18), (x - 3, ry + 8),
-                                     (x + 3, ry + 8)])
-            elif kind == "music_jump" and not nm.endswith("~s"):
-                pygame.draw.polygon(surf, (240, 200, 100),
-                                    [(x, ry + 4), (x - 3, ry + 14),
-                                     (x + 3, ry + 14)])
+            self._mark_glyph(surf, kind, x, ry)
+            hits[f"mark:{kind}:{x}"] = pygame.Rect(
+                x - 5, self.rows[FX], 11, 22)
         # death halts: full-height red spans — silence LOOKS like
         # silence across every row, not a 20px tick
         for ht, resume in proj.halts:
@@ -1845,6 +1836,18 @@ class App:
             pygame.draw.line(surf, (255, 70, 70),
                              (xa, T(self.y_sect)),
                              (xa, T(self.y_marks) + 22), 2)
+            hits[f"mark:music_halt:{xa}"] = pygame.Rect(
+                xa - 4, self.rows[FX], 9, 22)
+        # inline marker legend under the fx header: the same glyphs
+        # the row uses, hover any for its meaning
+        lx = 10
+        for kind in ("music_jump", "music_riser", "music_riser2",
+                     "music_sting", "music_stab", "music_halt",
+                     "xfade"):
+            self._mark_glyph(surf, kind, lx, T(self.y_marks))
+            hits[f"legend:{kind}"] = pygame.Rect(
+                lx - 6, self.y_marks, 13, 22)
+            lx += 17
 
     # ---- overlays ---------------------------------------------------------
     def _draw_overlays(self, scr, proj, t):
@@ -1962,6 +1965,51 @@ class App:
                 y += 18
         self.txt("? or ESC closes", 80, self.H - 40, (150, 150, 165))
 
+    MARK_TIPS = {
+        "music_jump": "Jump — the form leapt to a new bar (soft ~s "
+                      "steers are not drawn)",
+        "music_riser": "Riser — 2-bar swell into its strike (the "
+                       "tall tick)",
+        "music_riser2": "Half-riser — ambush swell",
+        "music_sting": "Sting — win hit",
+        "music_stab": "Stab — damage hit",
+        "music_halt": "Death halt — ALL music dead until the next "
+                      "bar tap",
+        "xfade": "Bank rotation crossfade — the old bank is still "
+                 "fading out here",
+    }
+
+    @staticmethod
+    def _mark_glyph(surf, kind, x, ry):
+        """One glyph vocabulary for the FX row AND its legend — they
+        can never drift apart."""
+        if kind == "music_halt":
+            pygame.draw.line(surf, (255, 70, 70), (x, ry + 1),
+                             (x, ry + 20), 2)
+        elif kind == "music_sting":
+            pygame.draw.circle(surf, (240, 220, 160), (x, ry + 10), 4)
+        elif kind == "music_stab":
+            pygame.draw.polygon(surf, (160, 220, 255),
+                                [(x, ry + 4), (x + 4, ry + 10),
+                                 (x, ry + 16), (x - 4, ry + 10)])
+        elif kind == "music_riser":
+            pygame.draw.polygon(surf, (200, 120, 220),
+                                [(x, ry + 18), (x - 4, ry + 4),
+                                 (x + 4, ry + 4)])
+        elif kind == "music_riser2":
+            pygame.draw.polygon(surf, (255, 120, 80),
+                                [(x, ry + 18), (x - 3, ry + 8),
+                                 (x + 3, ry + 8)])
+        elif kind == "music_jump":
+            pygame.draw.polygon(surf, (240, 200, 100),
+                                [(x, ry + 4), (x - 3, ry + 14),
+                                 (x + 3, ry + 14)])
+        elif kind == "xfade":
+            for i in (-5, -1, 3):
+                pygame.draw.line(surf, (255, 200, 120),
+                                 (x + i - 2, ry + 16),
+                                 (x + i + 3, ry + 5))
+
     TOOLTIPS = {
         "play_glyph": "Play / pause (SPACE)",
         "time_readout": "Click, type a time (mm:ss or seconds), "
@@ -1979,6 +2027,8 @@ class App:
     }
 
     def _tooltip_for(self, el):
+        if el.startswith(("mark:", "legend:")):
+            return self.MARK_TIPS.get(el.split(":")[1])
         if el in self.TOOLTIPS:
             return self.TOOLTIPS[el]
         if el.startswith("mute:"):
