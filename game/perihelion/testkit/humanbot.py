@@ -205,6 +205,7 @@ class HumanBot(_UnstickMixin, Bot):
         self._planted = False
         self._warden_hunting = False
         self._warden_seen: set[int] = set()
+        self._warden_recoils: dict[int, int] = {}
         # combat locomotion invariant (Sol consult #1 + incident mining
         # meta-finding "the bot does not MOVE during combat"): if the
         # feet have not actually displaced during a live co-room fight,
@@ -440,9 +441,14 @@ class HumanBot(_UnstickMixin, Bot):
                 # measured 48-77 kills by t~75s, a self-made avalanche
                 # that killed every run at the first compound. Sleeping
                 # rooms stay asleep.
+                # ...except WARDENS: a parked boss astride the route
+                # gets the deliberate opening shot — that IS the pull
+                # (timeout footage: 4+ minutes recoil-looping at one
+                # doorway, unable to provoke or pass)
                 cand = [visible_screens[e["id"]] for e in distant
                         if e["id"] in visible_screens
-                        and e.get("active")]
+                        and (e.get("active")
+                             or e.get("kind") == "warden")]
                 if cand:
                     tx_, ty_ = min(cand, key=lambda s: math.hypot(
                         s[0] - pax, s[1] - pay))
@@ -545,16 +551,22 @@ class HumanBot(_UnstickMixin, Bot):
             self._warden_last_seen = tick
         elif self._warden_seen and \
                 tick - getattr(self, "_warden_last_seen", 0) > 600:
-            # re-arm after 10 quiet seconds: compound survivors get a
-            # fresh recoil on the NEXT approach — without this, re-
-            # entry after a field kill strolled straight into the
-            # remaining pair (interior-traversal deaths, r21 bank)
-            self._warden_seen.clear()
+            # re-arm after 10 quiet seconds — but CAPPED at two
+            # recoils per warden id: uncapped, one parked warden
+            # recoil-looped a doorway for 4+ minutes (seed 2219 room
+            # 105); banned outright, the median collapsed 217->133s
+            # (the second recoil after a field kill was load-bearing).
+            # Past the cap the approach is a siege: provoke, kite,
+            # kill.
+            self._warden_seen = {i for i in self._warden_seen
+                                 if self._warden_recoils.get(i, 0) >= 2}
         fresh_pull = False
         for e in co_room + distant:
             if e.get("kind") == "warden" and \
                     e["id"] not in self._warden_seen:
                 self._warden_seen.add(e["id"])
+                self._warden_recoils[e["id"]] = \
+                    self._warden_recoils.get(e["id"], 0) + 1
                 trig = True
                 fresh_pull = True
         # LIVE PURSUIT WEIGHT: the wave one hop back counts — episode
