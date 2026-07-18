@@ -538,6 +538,17 @@ class HumanBot(_UnstickMixin, Bot):
         # first time each NEW warden is perceived, recoil hard; the
         # one that engaged follows alone into the kite, the rest stay
         # asleep.
+        any_ward = any(e.get("kind") == "warden"
+                       for e in co_room + distant)
+        if any_ward:
+            self._warden_last_seen = tick
+        elif self._warden_seen and \
+                tick - getattr(self, "_warden_last_seen", 0) > 600:
+            # re-arm after 10 quiet seconds: compound survivors get a
+            # fresh recoil on the NEXT approach — without this, re-
+            # entry after a field kill strolled straight into the
+            # remaining pair (interior-traversal deaths, r21 bank)
+            self._warden_seen.clear()
         for e in co_room + distant:
             if e.get("kind") == "warden" and \
                     e["id"] not in self._warden_seen:
@@ -1152,7 +1163,12 @@ class HumanBot(_UnstickMixin, Bot):
         headed (usually exactly the room the threat was spotted in)."""
         relax = (getattr(self, "_hold_break", 0) > 0
                  and snapshot["hp"] < 75)
-        med_hops = 12 if relax else 3
+        # quiet windows buy restock range: deep runs died hp-starved
+        # with 100 shells left while walked-past medkits sat 4-6 hops
+        # back (pull-cycle hp hovers 40-70, exactly the consumable
+        # band)
+        med_hops = 12 if relax else \
+            (6 if self._threats_total == 0 else 3)
         medkits = [p for p in snapshot["pickups"]
                    if p["kind"] == "medkit"
                    and 0 <= p["hops"] <= med_hops]
