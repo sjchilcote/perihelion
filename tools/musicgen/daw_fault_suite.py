@@ -186,8 +186,13 @@ def f_48k(app):
          and "48 kHz" in app.status, 15, "48k refusal")
     assert app.status_kind == "err"
     assert app.player.buf is old_buf, "old mix was dropped"
+    # the currency chip may not claim 'current' over a failed rebuild
+    assert app._built_change < app._change_no, \
+        "audio claimed current while the new file failed to render"
     restore()
     ready(app)
+    wait(lambda: app._built_change >= app._change_no, 5,
+         "currency restored")
 
 
 @force("P0.1 24-bit wav → red message names the fix")
@@ -266,6 +271,8 @@ def f_slow_copy(app):
     stop.set()
     assert app.mix_no == n0 + 1, \
         f"expected exactly ONE rebuild, got {app.mix_no - n0}"
+    assert app._built_change >= app._change_no, \
+        "chip still claims NOT LATEST after the rebuild landed"
     assert any(s.startswith("detected") for s in seen), \
         f"no settle acknowledgement seen: {seen}"
     assert not any(s.startswith("RENDER FAILED") for s in seen), \

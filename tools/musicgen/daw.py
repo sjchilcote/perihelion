@@ -770,6 +770,12 @@ class App:
         self._mtimes = self._scan()
         self._watch_beat = time.time()
         self._shadow_note = ""
+        # audio currency: 'current' iff the COMMITTED mix includes
+        # every detected file change (watermark, not a boolean — a
+        # mutes-rebuild racing a settling drop cannot clear staleness)
+        self._change_no = 0
+        self._built_change = -1
+        self._stale_since = time.time()
         # timeline geometry
         self.x0, self.x1 = 128, self.W - 12
         self.rows = {}
@@ -885,7 +891,8 @@ class App:
         mutes, solo = set(self.muted), set(self.solo)
         evs = _apply_mutes(self.proj.events, mutes, solo)
         threading.Thread(target=self._render,
-                         args=(evs, gen, src, not (mutes or solo)),
+                         args=(evs, gen, src, not (mutes or solo),
+                               self._change_no),
                          daemon=True).start()
 
     def _is_muted(self, ln):
@@ -893,7 +900,7 @@ class App:
         so audio and display cannot disagree (mute wins over solo)."""
         return ln in self.muted or (self.solo and ln not in self.solo)
 
-    def _render(self, evs, gen, src, unmuted):
+    def _render(self, evs, gen, src, unmuted, change_no=0):
         try:
             time.sleep(0.05)            # coalesce M/S spam cheaply
             if gen != self._gen:
@@ -946,6 +953,7 @@ class App:
                 self.clip_info = (db_over, t_loud)
                 self.mix_src = src
                 self.mix_at = time.strftime("%H:%M:%S")
+                self._built_change = change_no
                 self._static = None
                 if cold:
                     self.est_render = dt
@@ -1032,6 +1040,9 @@ class App:
                 pass
         if not relevant:
             return
+        if self._built_change >= self._change_no:
+            self._stale_since = time.time()     # was current until now
+        self._change_no += 1
         names = ", ".join(sorted({p.name for p in relevant})[:3])
         # acknowledge the save the moment it is seen (addendum 36),
         # then wait for QUIESCENCE: a slow bounce/multi-file export
@@ -1602,6 +1613,9 @@ class App:
                      f"{self.mix_at}", x2, y2 + 2, (150, 150, 165),
                      maxw=300)
             x2 = 320
+        # binary currency chip: quiet static text when fine; numbers
+        # tick only in the wrong states (director: don't grab
+        # attention when everything is ok)
         beat = time.time() - self._watch_beat
         alive = self._watch_thread.is_alive()
         if not alive:
@@ -1609,9 +1623,13 @@ class App:
         elif beat > 5.0:
             x2 = self._chip(f"watcher stalled {beat:.0f}s", x2, y2,
                             "warn")
+        elif self._built_change < self._change_no:
+            age = time.time() - self._stale_since
+            x2 = self._chip(f"NOT LATEST AUDIO — {age:.0f}s", x2, y2,
+                            "warn")
         else:
-            x2 = self._chip(f"watching {len(self._watch_dirs)} folders"
-                            f" · scanned {beat:.1f}s ago", x2, y2, "ok")
+            x2 = self._chip(f"watching {len(self._watch_dirs)} "
+                            f"folders · current", x2, y2, "ok")
         if self.player.err:
             x2 = self._chip(f"AUDIO FAILED: {self.player.err} — R "
                             f"retries", x2, y2, "err")
