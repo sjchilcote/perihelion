@@ -643,7 +643,11 @@ class HumanBot(_UnstickMixin, Bot):
         # threshold-hold path. (Flight recorder: 69 encounters/64
         # runs entered below hp 60 at 52% survival, all via combat
         # drift AFTER the door gates were already tight.)
-        if co_room or snapshot["hp"] < 90:
+        if (co_room or snapshot["hp"] < 90) \
+                and self._hold_break <= 0:
+            # (the barrier stands down during a commit-break window:
+            # breaker-says-go vs barrier-says-never deadlocked four
+            # runs into 7-11 minute sieges — measured thold 27-41k)
             for edge, portal in enumerate(
                     session.sim.room_portals(proom)):
                 if portal is None:
