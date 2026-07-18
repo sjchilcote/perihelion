@@ -83,6 +83,17 @@ class StemContractError(Exception):
     """A stem file the game/mixer contract cannot accept."""
 
 
+def _bank_playable(meta) -> bool:
+    """The mixer's minimum contract: numeric bpm + bars. Older banks
+    (bars/bpm/melody, no sections) pass — sections are display-only
+    and OPTIONAL everywhere in this tool; a bank.json without bpm or
+    bars cannot be sliced at all."""
+    try:
+        return float(meta["bpm"]) > 0 and int(meta["bars"]) > 0
+    except (KeyError, TypeError, ValueError):
+        return False
+
+
 # cross-rebuild stem cache keyed by (path, mtime, size): a rebuild
 # after one replaced file re-decodes ONLY that file. Size is in the
 # key because a timestamp-preserving restore (cp -p, git checkout)
@@ -188,9 +199,18 @@ class Project:
                 else {int(k): v for k, v in use.items()}
             for nm in ([use] if per_pass is None
                        else set(per_pass.values())):
-                if MK._resolve_bank(nm) is None:
+                d = MK._resolve_bank(nm)
+                ok = False
+                if d is not None:
+                    try:
+                        ok = _bank_playable(json.loads(
+                            (d / "bank.json").read_text()))
+                    except Exception:
+                        ok = False
+                if not ok:
                     raise SystemExit(
-                        f"--use {nm}: no such bank under "
+                        f"--use {nm}: not a playable bank (needs "
+                        f"bank.json with bpm + bars) under "
                         f"{[str(r) for r in MK.MUSIC_ROOTS]}")
             out, bi = [], -1
             for e in self.events:
@@ -231,6 +251,10 @@ class Project:
                 try:
                     meta = json.loads((d / "bank.json").read_text())
                 except Exception:
+                    meta = None
+                if meta is not None and not _bank_playable(meta):
+                    meta = None     # health() names the reason in red
+                if meta is None:
                     d = None
             self.banks.append((e["t"], t1, e["name"], meta, d))
         self.marks = [(e["t"], e["kind"], str(e["name"]))
@@ -323,10 +347,10 @@ class Project:
         if not meta:
             return ""
         idx = self.bar_at(t)[1] % int(meta["bars"])
-        for s, a, b in meta["sections"]:
-            if a <= idx < b:
-                return s
-        return ""
+        for s, a, b in meta.get("sections", ()):
+            if a <= idx < b:        # sections are OPTIONAL metadata:
+                return s            # legacy banks have none (the
+        return ""                   # KeyError here crashed the app)
 
     def xfade_at(self, t):
         for t0, t1, old, new in self.xfades:
@@ -366,6 +390,11 @@ class Project:
                     meta = json.loads((d / "bank.json").read_text())
                 except Exception:
                     d = None
+            if meta is not None and not _bank_playable(meta):
+                msgs.append((f"{name}: bank.json has no usable "
+                             f"bpm/bars — those spans play SILENCE",
+                             "err"))
+                continue
             if meta is None or d is None:
                 msgs.append((f"bank not found: {name} — those spans "
                              f"play SILENCE", "err"))
@@ -751,6 +780,7 @@ class App:
         self._hit = {}              # element -> rect, rebuilt per draw
         self._hover = (None, 0.0)   # (element, hover-start wall time)
         self._dims = {}             # cached dim surfaces by (w, h, a)
+        self._bank_ok_cache = {}    # name -> (bank.json mtime, ok)
         self.muted: set = set()
         self.solo: set = set()
         # view / loop
@@ -860,7 +890,7 @@ class App:
             if isinstance(u, str):  # pre-per-pass session files
                 u = {i: u for i in range(len(self.proj.banks))}
             u = {int(k): v for k, v in (u or {}).items()
-                 if MK._resolve_bank(v) is not None}
+                 if self._bank_ok(v)}
             if u:
                 self._use = u
                 self.proj = Project(self.rec, use=u)
@@ -932,7 +962,6 @@ class App:
             if gen != self._gen:
                 return
             t0 = time.time()
-            self.health = self.proj.health()
             cold = not _stem_cache
             mix = np.zeros((int(self.proj.dur * RATE) + RATE, 2),
                            np.float32)
@@ -983,6 +1012,9 @@ class App:
                 self._static = None
                 if cold:
                     self.est_render = dt
+            # health = ~150 file-header reads: off the critical path,
+            # AFTER the mix is audible (it only feeds the panel)
+            self.health = self.proj.health()
             self._set_status(f"ready ({dt:.1f}s)", "ok", gen)
         except StemContractError as exc:
             self._set_status(f"RENDER FAILED: {exc} — R retries",
@@ -1124,6 +1156,27 @@ class App:
                     seen.add(d.name)
                     names.append(d.name)
         return names
+
+    def _bank_ok(self, name):
+        """Can this bank actually be scored with? (bank.json parses
+        and meets the mixer's bpm+bars contract; cached by mtime)"""
+        d = MK._resolve_bank(name)
+        if d is None:
+            return False
+        try:
+            st = (d / "bank.json").stat().st_mtime_ns
+        except OSError:
+            return False
+        c = self._bank_ok_cache.get(name)
+        if c is not None and c[0] == st:
+            return c[1]
+        try:
+            ok = _bank_playable(json.loads(
+                (d / "bank.json").read_text()))
+        except Exception:
+            ok = False
+        self._bank_ok_cache[name] = (st, ok)
+        return ok
 
     def _pass_at(self, t):
         for i, (t0, t1, *_rest) in enumerate(self.proj.banks):
@@ -1388,8 +1441,13 @@ class App:
                 self.help_on = False
                 return True
             if self.picker:
-                for r, name in self._picker_rows:
+                for r, name, ok in self._picker_rows:
                     if r.collidepoint(x, y):
+                        if not ok:
+                            self._note(f"{name}: bank.json has no "
+                                       f"usable bpm/bars — can't "
+                                       f"score with it", "warn")
+                            return True     # picker stays open
                         self.picker = False
                         self.set_bank(name)
                         return True
@@ -1566,9 +1624,12 @@ class App:
         for el, r in self._static[2].items():
             self._hit[el] = r
 
-        # ONE frame per draw serves both panes (audio is the clock)
+        # ONE frame per draw serves both panes (audio is the clock).
+        # While nothing is playable the stream stays down: on laptop
+        # cores the ffmpeg decode visibly slowed the first render
         vf = self.video.frame_for(t) \
-            if self.video.video and not self.video.err else None
+            if self.video.video and not self.video.err \
+            and self.player.buf is not None else None
         self._draw_transport(scr, proj, t)
         self._draw_panel(scr, proj, t)
         if not self.video_big:      # the lightbox covers the mini pane
@@ -2095,14 +2156,18 @@ class App:
             yy = prc.y + 30
             for nm in names:
                 r = pygame.Rect(prc.x + 6, yy, prc.w - 12, 22)
+                ok = nm is None or self._bank_ok(nm)
                 cur = (nm == over)
                 if cur:
                     pygame.draw.rect(scr, (60, 55, 35), r)
                 label = nm or f"(as recorded: {orig})"
+                if not ok:
+                    label += "  (incompatible bank.json)"
                 self.txt(label, r.x + 6, r.y + 3,
-                         (255, 240, 200) if cur else (200, 200, 210),
-                         maxw=r.w - 10)
-                self._picker_rows.append((r, nm))
+                         (255, 240, 200) if cur
+                         else (200, 200, 210) if ok
+                         else (110, 110, 120), maxw=r.w - 10)
+                self._picker_rows.append((r, nm, ok))
                 yy += 24
             if hidden:
                 self.txt(f"… +{hidden} more banks (folder names "
@@ -2359,7 +2424,10 @@ class App:
                     break               # no ghost events after quit
             self.step()
             self.draw()
-            clock.tick(60)
+            # while the modal is up every UI frame steals GIL time
+            # from the render thread — 24fps is plenty for a progress
+            # bar and buys the mixer its core back
+            clock.tick(24 if self.player.buf is None else 60)
         self._quit = True
         self._save_session()
         self.video.stop()           # no orphaned ffmpeg after quit
