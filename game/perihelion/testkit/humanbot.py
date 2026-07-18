@@ -1817,6 +1817,20 @@ class HumanBot(_UnstickMixin, Bot):
         # enemy list — same ruling as state/hp)
         want = choose_weapon(dict(snapshot, enemies=perceived),
                              dist, len(perceived))
+        # CELL RESERVE: cells are boss fuel (~13 rail cells per
+        # warden; charged tau drinks 5 at once). Deep r27 deaths ran
+        # cell-dry in 8/24 while shells sat at 75-111 — no rail left
+        # for wardens 6-9. Below 40 cells the tau stays holstered
+        # while any other ammo lives.
+        if WEAPON_ORDER[want - 1] == "tau" \
+                and snapshot["ammo"].get("cell", 0) < 40 \
+                and (snapshot["ammo"].get("9mm", 0) > 0
+                     or snapshot["ammo"].get("shell", 0) > 0):
+            want = choose_weapon(
+                dict(snapshot, enemies=perceived,
+                     weapons=[w for w in snapshot["weapons"]
+                              if w != "tau"]),
+                dist, len(perceived))
         # the lightning cannon IS the crowd-control answer (director):
         # when a wave is stacked and the implant is charged, pull it out
         # and dump the blast -- with tau in hand, `inp.alt` charges tau
