@@ -494,7 +494,7 @@ One small JSON file describing the form. Real example, shipped:
 
 ```json
 {"melody": "dies_irae",
- "title": "Day of Wrath, Day of Rust",
+ "title": "tutti_dies_irae",
  "bpm": 110.0,
  "bars": 36,
  "sections": [["vigil", 0, 8], ["entry", 8, 16], ["develop", 16, 24],
@@ -684,7 +684,7 @@ humanizing. Stems play verbatim at the levels above. Bake everything.
 ## Appendix B — guided tour of a shipped bank
 
 Open `out/banks/album_dies_irae/` (WAVs) in your DAW; line everything up
-at 0:00, 110 BPM. It's *Day of Wrath, Day of Rust* — 36 bars: vigil
+at 0:00, 110 BPM. It's the *Dies irae* bank (`tutti_dies_irae`) — 36 bars: vigil
 0–8, entry 8–16, develop 16–24, peak 24–32, outro 32–36.
 
 Things worth soloing:

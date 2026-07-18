@@ -56,7 +56,7 @@ _SPINE_BANK = {"Daphne Oram 2": "tngkaos", "Ether": "tngkaos",
 # ---------------------------------------------------------------------------
 RECIPES = {
     "dies_irae": dict(
-        title="Day of Wrath, Day of Rust",
+        title="tutti_dies_irae",
         form=[("vigil", 8, "vigil"), ("entry", 8, "pressure"),
               ("develop", 8, "swagger"), ("peak", 8, "ratchet"),
               ("outro", 4, "vigil")],
@@ -69,7 +69,7 @@ RECIPES = {
         spine=("Daphne Oram 2", "Faulty Connection", "Taiga",
                "St. George", "Ether"), seeds=(11, 22, 33, 44, 7)),
     "media_vita": dict(
-        title="In the Midst of Life (Chant of the Vigil)",
+        title="tutti_media_vita",
         form=[("vigil", 8, "vigil"), ("ritual", 8, "pressure"),
               ("entry", 8, "grind"), ("peak", 8, "pressure"),
               ("vigil", 4, "vigil")],
@@ -82,7 +82,7 @@ RECIPES = {
         spine=("Ether", "Machine Drone", "Lysergic", "St. George",
                "Daphne Oram 2"), seeds=(13, 24, 35, 46, 9)),
     "vexilla_regis": dict(
-        title="The Banners Advance (Chant of the March)",
+        title="tutti_vexilla_regis",
         form=[("entry", 8, "ratchet"), ("develop", 8, "swagger"),
               ("ritual", 6, "vigil"), ("peak", 8, "ratchet"),
               ("outro", 4, "vigil")],
@@ -95,7 +95,7 @@ RECIPES = {
         spine=("Taiga", "Faulty Connection", "MissingNo", "Lysergic",
                "Ether"), seeds=(15, 26, 37, 48, 11)),
     "idumea": dict(
-        title="And Am I Born to Die?",
+        title="tutti_idumea",
         form=[("develop", 8, "swagger"), ("ritual", 6, "vigil"),
               ("peak", 8, "grind"), ("develop", 6, "swagger"),
               ("outro", 4, "vigil")],
@@ -108,7 +108,7 @@ RECIPES = {
         spine=("Faux", "Boass", "Digivice", "Machine Drone", "Taiga"),
         seeds=(17, 28, 39, 50, 13)),
     "pange_lingua": dict(
-        title="Sing, My Tongue, of Broken Steel",
+        title="tutti_pange_lingua",
         form=[("vigil", 6, "vigil"), ("rebuild", 8, "grind"),
               ("entry", 8, "pressure"), ("peak", 8, "lunge"),
               ("ritual", 4, "vigil")],
@@ -121,7 +121,7 @@ RECIPES = {
         spine=("Lysergic", "St. George", "Ether", "Faulty Connection",
                "Machine Drone"), seeds=(19, 30, 41, 52, 15)),
     "lhomme_arme": dict(
-        title="The Armed Man Must Be Feared",
+        title="tutti_lhomme_arme",
         form=[("entry", 8, "ratchet"), ("peak", 8, "swagger"),
               ("ritual", 6, "pressure"), ("peak", 8, "ratchet"),
               ("outro", 4, "vigil")],
@@ -134,7 +134,7 @@ RECIPES = {
         spine=("Machine Drone", "Taiga", "Boass", "Daphne Oram 2",
                "St. George"), seeds=(21, 32, 43, 54, 17)),
     "old_100th_dark": dict(
-        title="All Machines Here Below",
+        title="tutti_old_100th_dark",
         form=[("ritual", 8, "vigil"), ("develop", 8, "grind"),
               ("entry", 6, "pressure"), ("peak", 8, "ratchet"),
               ("outro", 4, "vigil")],
