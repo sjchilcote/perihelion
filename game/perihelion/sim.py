@@ -2050,8 +2050,23 @@ class GameSession:
             if e and e["touch_cd"] <= 0:
                 d = ENEMIES[e["kind"]]
                 if d["touch_dmg"] > 0:
-                    e["touch_cd"] = d["touch_cd"]
-                    self._damage_player(d["touch_dmg"], self.sim.get_room(self.pid))
+                    # brood burst-fairness (Sol 2 §8.3): the SWARM
+                    # lands at most one bite per 12 ticks — eight
+                    # mites at touch_cd 24 each could shred 20
+                    # hits/s, an unreactable burst. Actors, danger
+                    # and music are untouched.
+                    gated = (e.get("brood")
+                             and self.tick_count - getattr(
+                                 self, "_brood_bite_t", -99) < 12)
+                    if gated:
+                        e["touch_cd"] = 6
+                    else:
+                        if e.get("brood"):
+                            self._brood_bite_t = self.tick_count
+                        e["touch_cd"] = d["touch_cd"]
+                        self._damage_player(
+                            d["touch_dmg"],
+                            self.sim.get_room(self.pid))
 
     # ------------------------------------------------------------------
 
