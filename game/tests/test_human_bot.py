@@ -412,7 +412,9 @@ def test_flanked_choke_is_survived_and_escape_engages():
     arbitration rework, 2026-07-16 -> seed 8; the arbitration gain
     retune (pace policy + co-room damping) -> seed 4; the hold-the-
     trigger fire policy -> seed 1; the contact-evasion reflex -> seed
-    4; the flinch-decay fix, 2026-07-17 -> seed 12, current). Each
+    4; the flinch-decay fix, 2026-07-17 -> seed 12; the cross-room
+    engagement rework, 2026-07-18 (enemies fight through portals
+    instead of going inert off-room; 9/79) -> seed 21, current). Each
     time, the mechanism itself remained intact and fires on a
     fraction of a fresh 79-seed scan (18/79, 20/79, 46/79, 72/79,
     50/79 -- then 6/79 after the contact-evasion reflex landed, 4/79
@@ -424,8 +426,8 @@ def test_flanked_choke_is_survived_and_escape_engages():
     If this breaks again, re-scan rather than assume the escape policy
     regressed."""
     level = build_flanked_choke_level()
-    bot = HumanBot(12)
-    session = GameSession(level, seed=12, difficulty="hard")
+    bot = HumanBot(21)
+    session = GameSession(level, seed=21, difficulty="hard")
     start_room = session.player_room()
     left_room = escape_engaged = False
     for tick in range(60 * 40):

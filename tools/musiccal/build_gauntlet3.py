@@ -446,8 +446,7 @@ def boss_donut(b, ox, oy, protected):
                ((0, 1), (0.5, 0.35)), ((2, 0), (0.5, 0.6))]
     for (r, c), (fx, fy) in wardens:
         b.entity(cells[(r, c)], "warden",
-                 (ox + c * CELL + fx * CELL, oy + r * CELL + fy * CELL),
-                 tether=1)
+                 (ox + c * CELL + fx * CELL, oy + r * CELL + fy * CELL))
     for (r, c) in ((0, 2), (2, 0)):
         b.entity(cells[(r, c)], "spitter",
                  (ox + c * CELL + CELL * 0.3, oy + r * CELL + CELL * 0.6))
@@ -488,9 +487,9 @@ def boss_cross(b, ox, oy, protected):
     b.connect(cx, 1, arm_s, 3)
     b.light(cx, (ox + CELL / 2, oy + CELL / 2),
             color=(190, 140, 140), intensity=0.8, radius=240.0)
-    b.entity(arm_n, "warden", (ox + CELL / 2, oy - 550), tether=1)
-    b.entity(arm_s, "warden", (ox + CELL / 2, oy + CELL + 550), tether=1)
-    b.entity(cx, "warden", (ox + CELL / 2, oy + CELL / 2), tether=1)
+    b.entity(arm_n, "warden", (ox + CELL / 2, oy - 550))
+    b.entity(arm_s, "warden", (ox + CELL / 2, oy + CELL + 550))
+    b.entity(cx, "warden", (ox + CELL / 2, oy + CELL / 2))
     b.entity(cx, "brute", (ox + 40, oy + CELL * 0.25))
     for k in range(3):
         b.entity(arm_e, "mite", (ox + CELL + 120 + k * 90,
@@ -534,9 +533,9 @@ def boss_ring(b, ox, oy, protected):
         y = oy + (W / 2 if i % 2 == 0 else 300 + L / 2)
         b.light(s, (x, y), color=(150, 130, 180), intensity=0.6,
                 radius=220.0)
-    b.entity(segs[1], "warden", (ox + 500 + W / 2, oy + 300 + L * 0.5), tether=1)
-    b.entity(segs[3], "warden", (ox + 1500 + W / 2, oy + 300 + L * 0.5), tether=1)
-    b.entity(segs[4], "warden", (ox + 2000 + W / 2, oy + 300 + L * 0.5), tether=1)
+    b.entity(segs[1], "warden", (ox + 500 + W / 2, oy + 300 + L * 0.5))
+    b.entity(segs[3], "warden", (ox + 1500 + W / 2, oy + 300 + L * 0.5))
+    b.entity(segs[4], "warden", (ox + 2000 + W / 2, oy + 300 + L * 0.5))
     b.entity(segs[0], "flicker", (ox + L * 0.7, oy + W * 0.5))
     b.entity(segs[2], "shrieker", (ox + 1000 + L * 0.5, oy + W / 2))
     # encounter-clear caches (Sol 2 §6): recovery between warden
@@ -590,9 +589,9 @@ def boss_dark(b, ox, oy, protected):
             intensity=0.5, radius=120.0)
     b.light(chap_r, (ox + 375, oy - 100), color=(120, 90, 60),
             intensity=0.5, radius=120.0)
-    b.entity(hall_l, "warden", (ox + 125, oy + 150), tether=1)
-    b.entity(hall_r, "warden", (ox + 375, oy + 150), tether=1)
-    b.entity(chap_r, "warden", (ox + 375, oy - 100), tether=1)
+    b.entity(hall_l, "warden", (ox + 125, oy + 150))
+    b.entity(hall_r, "warden", (ox + 375, oy + 150))
+    b.entity(chap_r, "warden", (ox + 375, oy - 100))
     for k in range(4):
         r = (hall_l, hall_r, chap_l)[k % 3]
         xs = (ox + 60 + (k * 67) % 380, oy + 40 + (k * 53) % 220)
@@ -602,7 +601,7 @@ def boss_dark(b, ox, oy, protected):
         b.entity(cr, "medkit", (cx_, oy - 150))
         b.entity(cr, "ammo_9mm", (cx_ + 25, oy - 130))
         b.entity(cr, "ammo_shell", (cx_ - 25, oy - 130))
-    b.entity(vest, "warden", (ox - 150, oy + 150), tether=1)
+    b.entity(vest, "warden", (ox - 150, oy + 150))
     b.entity(hall_l, "spitter", (ox + 60, oy + 250))
     protected.add(vest)
     protected.add(out)

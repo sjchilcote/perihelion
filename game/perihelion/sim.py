@@ -1613,8 +1613,29 @@ class GameSession:
             if kind == "shrieker":
                 self._shrieker_ai(eid, e, room, proom, ex, ey, accel)
                 continue
+            # --- engagement target: the player's position in THIS room's
+            # local frame. Rooms are individual polygons, so co-room is
+            # just the identity case; one hop out, the portal transform
+            # maps the player into this frame and combat continues through
+            # the doorway — aiming, spitting, lunging, the brood. An enemy
+            # that goes inert the moment the player steps over a threshold
+            # is not a fight (director 2026-07-18).
+            tx = ty = None
             if room == proom:
-                ddx, ddy = px - ex, py - ey
+                tx, ty = px, py
+            elif s.hop_distance(room, proom) == 1:
+                pedge = s.next_edge(room, proom)
+                pxf = s.portal_xform(room, pedge) if pedge >= 0 else None
+                if pxf is not None:
+                    wx, wy = necore.mat_apply(pxf, px, py)
+                    wdx, wdy = wx - ex, wy - ey
+                    wdl = math.hypot(wdx, wdy) or 1e-6
+                    hit = s.raycast(room, ex, ey, wdx / wdl, wdy / wdl, 1,
+                                    wdl + 40.0, 1 << GROUP_PLAYER, eid)
+                    if hit[0] == "ent" and hit[1] == self.pid:
+                        tx, ty = wx, wy
+            if tx is not None:
+                ddx, ddy = tx - ex, ty - ey
                 dist = math.hypot(ddx, ddy) or 1e-6
                 nx, ny = ddx / dist, ddy / dist
                 s.set_dir(eid, nx, ny)  # aim/face the player exactly
@@ -1653,19 +1674,20 @@ class GameSession:
                     e["spit_cd"] = max(int(e.get("spit_cd", 0)), 60)
                     self._snd("shrieker_scream", room, (ex, ey), 1.0)
                     self.fx.append(("scream", room, ex, ey))
-                # the brood: once when the duel is joined co-room,
-                # once more at enrage — a lone kited warden reads
-                # danger 20 (stalwart .69), under every boss-music
-                # line; the brood makes a boss fight a boss FIGHT
-                if kind == "warden" and room == proom:
+                # the brood: once when the duel is joined — co-room or
+                # through the doorway — once more at enrage; a lone kited
+                # warden reads danger 20 (stalwart .69), under every
+                # boss-music line; the brood makes a boss fight a boss
+                # FIGHT
+                if kind == "warden":
                     if not e.get("adds1"):
                         e["adds1"] = True
                         self._boss_adds(room, ex, ey,
-                                        WARDEN_ADDS_ENGAGE, px, py)
+                                        WARDEN_ADDS_ENGAGE, tx, ty)
                     elif e.get("enraged") and not e.get("adds2"):
                         e["adds2"] = True
                         self._boss_adds(room, ex, ey,
-                                        WARDEN_ADDS_ENRAGE, px, py)
+                                        WARDEN_ADDS_ENRAGE, tx, ty)
                 keep_min = d.get("keep_min")
                 if keep_min is not None and d.get("spit_cd") is not None:
                     # ranged: hold the band, spit on cooldown
@@ -1688,7 +1710,10 @@ class GameSession:
                 s.set_vel(eid, evx + sx * accel * DT, evy + sy * accel * DT)
             else:
                 if e.get("tether"):
-                    continue  # arena guardian: holds its ground
+                    # holds its ground — but only pursuit is waived; an
+                    # engaged tethered guardian fights through the door
+                    # via the engagement branch above
+                    continue
                 edge = s.next_edge(room, proom)
                 if edge < 0:
                     continue
