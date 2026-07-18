@@ -16,6 +16,8 @@ Controls (mouse + keys):
   STALWART               (AUTO = the game's heuristic battery computes
                           them from the enemies/hp you set up)
   T                      flicker tension on/off (riser + pounce sting)
+  R                      reload the current bank from disk (hear a
+                         replaced stem file without restarting)
   SPACE / click FIRE     fire current weapon (real game SFX);
   A                      auto-fire on the beat; Q = quantize to 8ths
   beat strip (bottom)    flashes on each 8th; bar line marked
@@ -200,6 +202,10 @@ def main():
                     running = False
                 elif ev.key == pygame.K_m:
                     state["auto"] = not state["auto"]
+                elif ev.key == pygame.K_r:
+                    # hot-reload: re-slice the current bank from disk
+                    # (drop a replacement stem in the folder, press R)
+                    load_bank(state["bank_i"])
                 elif ev.key == pygame.K_a:
                     state["autofire"] = not state["autofire"]
                 elif ev.key == pygame.K_q:
