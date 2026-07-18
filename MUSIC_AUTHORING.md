@@ -270,7 +270,7 @@ Every file, its musical role, and when the game opens its fader.
 | File | Role | Heard when |
 |---|---|---|
 | **`prayer.wav`** | The chant: voice + choir + bells + light halo (§1.4). | Always. Full in calm, carried as counterpoint through fights, full-force war chant at peak danger. |
-| `bed_t1.wav` … `bed_t4.wav` | Drone/atmosphere spine, one per game act (the campaign's four difficulty tiers; each level belongs to one — t1 opening levels, t4 endgame). Identical files are fine if the piece has one texture; if you differentiate, think t1 sparse → t4 oppressive. | Always, moderately; swells with calm. |
+| `bed_t1.wav` … `bed_t4.wav` | Drone/atmosphere spine, one per game act (the campaign's four difficulty tiers; each level belongs to one — t1 opening levels, t4 endgame). The *level data* picks the tier, outside your bank — your only job is the four files. Identical files are fine if the piece has one texture; if you differentiate, think t1 sparse → t4 oppressive. | Always, moderately; swells with calm. |
 | **`stalwart.wav`** | The danger material: the wall — riff wall, low reinforcement. "Things are hunting you." | Rises with danger. ≈ full in any serious fight. |
 | **`contempt.wav`** | The swagger: driving machine groove, flourishes. "You're winning." | Rises with the player's damage output. |
 | `drums.wav` | The kit, full form. | Any combat. Drums cut *clean* on bar lines when fights end — never faded. |
@@ -357,7 +357,10 @@ These are enforced by the pre-flight checker (§5.1); numbers are exact.
 
 - **The 2-bar silence rule** (texture stems: `prayer`, `bed_*`,
   `stalwart`, `contempt`, `drums*`, `bass_*`): the stem may not sit below
-  **−15 dB relative to its own median bar** for 2+ consecutive bars. One
+  **−15 dB relative to its own median bar** for 2+ consecutive bars.
+  (Measured as plain full-band RMS per bar, each bar against the stem's
+  median bar RMS — nothing psychoacoustic; the checker prints the exact
+  bar numbers if you trip it.) One
   quiet bar reads as a breath; two reads as the music breaking, because
   the game may be holding that fader open. Composed pianissimo above the
   threshold is fine and deliberately protected — the check flags
@@ -396,7 +399,7 @@ to silence within `sting.wav`).
 | `riser.wav` | ~2 bars | A swell that resolves into its own strike — ours is a big chapel bell *reversed into its forward strike*. The strike instant is the file's climax. | Leading every boss entrance: the game decides to jump to `peak`, holds the jump for your riser's 2-bar swell, and lands the jump **as the strike hits**. Your riser's strike = the peak section's downbeat. Compose them as one gesture. If the threat dies mid-swell the riser is faded early — make sure it survives an early fade. |
 | `riser_half.wav` | ~½ bar | A micro version of the same swell gesture. | Only on a true ambush (a heavy hitting from real silence) — the event this doc calls **the slam**: a half-bar swell into an instant full mix. The swell is what makes the cliff read as intent. |
 | `sting.wav` | a few seconds | The release cadence. Ours: the track's own choir singing a plagal ("Amen") cadence — subdominant sonority resolving to the home triad, in the hall. Won blind listening against every percussive/bell variant precisely because it *resolves* the fight in the piece's own voice. | The moment a boss dies. Heavy faders take a one-bar comedown underneath it. |
-| `stab.wav` | ~1.5 bars | A percussive exclamation — crash + kick + low tom in the shipped banks. Unpitched or harmonically neutral: it repeats, so any pitch must sit inside `peak`'s harmony. | Every 4 bars while a boss lives, on the grid, over your looping peak. |
+| `stab.wav` | ~1.5 bars | A percussive exclamation — crash + kick + low tom in the shipped banks. Keep it unpitched or harmonically neutral; if it does carry pitch, that pitch must sit inside `peak`'s harmony, because it will repeat there. | Every 4 bars while a boss lives, on the grid, over your looping peak. |
 | `prayer_tail.wav` | exactly 1 bar | The chant's final-bar release: what would ring out if the last bar were allowed to decay. Print it by letting your `prayer` render run one bar past the end and bouncing that overhang bar alone. | Overlaid whenever the form genuinely wraps last-bar → bar 0, so the chant's loop breathes instead of cutting. |
 
 ---
