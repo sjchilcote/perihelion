@@ -694,6 +694,21 @@ def f_recall(app):
     app.loop = None
     app.rebuild(src="mutes")
     ready(app)
+    # per-pass override recall: pass 1 re-scored, pass 0 untouched
+    app._use = {1: "album_fitest"}
+    app._save_session()
+    a3 = daw.App(REC, None, headless=True)
+    try:
+        assert a3._use == {1: "album_fitest"}, a3._use
+        assert a3.proj.banks[1][2] == "album_fitest"
+        assert a3.proj.banks[0][2] == "album_fitest"
+        assert a3.proj.orig_banks == ["album_fitest",
+                                      "album_fitest2"]
+        ready(a3)
+    finally:
+        close(a3)
+        (REC / "daw_session.json").unlink(missing_ok=True)
+    app._use = {}
 
 
 @force("P1.15 A/B toggles to the PREVIOUS mix and back")
@@ -793,6 +808,21 @@ def f_features(app):
     assert has_note(app, "/ bar ") or has_note(app, "copied")
 
 
+@force("picker: a brand-new bank (any name) appears immediately")
+def f_new_bank(app):
+    d = BANKROOT / "fresh_delivery"     # deliberately NOT album_*
+    d.mkdir()
+    (d / "bank.json").write_text(json.dumps(dict(
+        title="tutti_fresh", bpm=110, bars=8,
+        sections=[["vigil", 0, 8]])))
+    try:
+        assert "fresh_delivery" in app.available_banks(), \
+            "new bank invisible to the picker"
+    finally:
+        shutil.rmtree(d)
+    assert "fresh_delivery" not in app.available_banks()
+
+
 @force("render modal: timeline greyed whenever nothing is playable")
 def f_render_modal(app):
     a2 = mk_app()
@@ -849,7 +879,8 @@ def main():
               f_renamed_bank, f_bankjson_edit, f_scrub_race,
               f_overview_align, f_xfade, f_farewell, f_marks,
               f_no_taps, f_cli, f_recall, f_ab, f_end_restart,
-              f_anchor, f_features, f_render_modal, f_quit_purity]
+              f_anchor, f_features, f_new_bank, f_render_modal,
+              f_quit_purity]
     for fn in forces:
         t0 = time.time()
         try:

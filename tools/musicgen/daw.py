@@ -174,16 +174,34 @@ class Project:
             raise SystemExit(f"recording not found: {evfile}")
         except (json.JSONDecodeError, UnicodeDecodeError) as exc:
             raise SystemExit(f"can't read {evfile}: {exc}")
+        # the RECORDED bank of every pass, before any override — the
+        # picker names these as "(as recorded: …)"
+        self.orig_banks = [e["name"] for e in self.events
+                           if e["kind"] == "music_bank"]
         if use:
-            # audition ONE bank under this session's decisions: every
-            # bank-rotation event is remapped to the named bank (the
-            # mixer wraps form positions by the bank's own bar count)
-            if MK._resolve_bank(use) is None:
-                raise SystemExit(f"--use {use}: no such bank under "
-                                 f"{[str(r) for r in MK.MUSIC_ROOTS]}")
-            self.events = [dict(e, name=use)
-                           if e["kind"] == "music_bank" else e
-                           for e in self.events]
+            # audition banks under this session's decisions (the mixer
+            # wraps form positions by each bank's own bar count).
+            # str = every pass (CLI --use); dict {pass_idx: name} =
+            # per-pass overrides, so transitions in and out of a
+            # replaced pass stay auditionable against its neighbors.
+            per_pass = None if isinstance(use, str) \
+                else {int(k): v for k, v in use.items()}
+            for nm in ([use] if per_pass is None
+                       else set(per_pass.values())):
+                if MK._resolve_bank(nm) is None:
+                    raise SystemExit(
+                        f"--use {nm}: no such bank under "
+                        f"{[str(r) for r in MK.MUSIC_ROOTS]}")
+            out, bi = [], -1
+            for e in self.events:
+                if e["kind"] == "music_bank":
+                    bi += 1
+                    if per_pass is None:
+                        e = dict(e, name=use)
+                    elif bi in per_pass:
+                        e = dict(e, name=per_pass[bi])
+                out.append(e)
+            self.events = out
         self.dur = max(e["t"] for e in self.events) + 2.0
         self.bars = []      # (t, form_idx, {lane: (key, gain, fade)})
         for e in self.events:
@@ -700,8 +718,13 @@ class App:
         # failures are one clean message, not a traceback after a
         # window flash (P0.13)
         self.rec = rec
-        self._use = use
         self.proj = Project(rec, use=use)
+        # overrides live per bank PASS: {pass_idx: bank_name}. The
+        # CLI --use string means "score every pass with this bank".
+        if isinstance(use, str):
+            self._use = {i: use for i in range(len(self.proj.banks))}
+        else:
+            self._use = dict(use or {})
         if headless:
             import os
             os.environ["SDL_VIDEODRIVER"] = "dummy"
@@ -832,12 +855,15 @@ class App:
         self.loop = tuple(s["loop"]) if s.get("loop") else None
         self.view = tuple(s["view"]) if s.get("view") else None
         self.est_render = s.get("est_render")
-        if self._use is None:       # CLI --use wins over recall
-            self._use = s.get("use")
-            if self._use and MK._resolve_bank(self._use) is None:
-                self._use = None
-            if self._use:
-                self.proj = Project(self.rec, use=self._use)
+        if not self._use:           # CLI --use wins over recall
+            u = s.get("use")
+            if isinstance(u, str):  # pre-per-pass session files
+                u = {i: u for i in range(len(self.proj.banks))}
+            u = {int(k): v for k, v in (u or {}).items()
+                 if MK._resolve_bank(v) is not None}
+            if u:
+                self._use = u
+                self.proj = Project(self.rec, use=u)
         # a restored --use may have replaced self.proj: the watcher
         # must watch the folders of the project we actually score
         self._watch_dirs = self.proj.watch_dirs()
@@ -1083,34 +1109,57 @@ class App:
                        "warn")
         self.rebuild(f"reload: {names}", src=names, reparse=reparse)
 
-    # ---- bank switching (in-app --use) -----------------------------------
+    # ---- bank switching (per-pass overrides) ------------------------------
     def available_banks(self):
+        """Every folder with a bank.json under the music roots —
+        scanned LIVE, any name: a brand-new bank dropped while the
+        app runs appears in the picker immediately."""
         names, seen = [], set()
         for root in MK.MUSIC_ROOTS:
-            for d in sorted(root.glob("album_*")):
-                if (d / "bank.json").exists() and d.name not in seen:
+            if not root.exists():
+                continue
+            for d in sorted(root.iterdir()):
+                if d.is_dir() and (d / "bank.json").exists() \
+                        and d.name not in seen:
                     seen.add(d.name)
                     names.append(d.name)
         return names
 
-    def set_bank(self, name):
-        """Re-score the whole session with one bank (None = original)."""
+    def _pass_at(self, t):
+        for i, (t0, t1, *_rest) in enumerate(self.proj.banks):
+            if t0 <= t < t1:
+                return i
+        return max(0, len(self.proj.banks) - 1)
+
+    def set_bank(self, name, pass_idx=None):
+        """Re-score ONE bank pass — the one under the playhead — with
+        the named bank (None restores its recorded bank). Neighboring
+        passes keep their scoring, so the transitions in and out of
+        the change stay auditionable."""
         t = self.player.playhead()
+        if pass_idx is None:
+            pass_idx = self._pass_at(t)
+        new = dict(self._use)
+        if name is None:
+            new.pop(pass_idx, None)
+        else:
+            new[pass_idx] = name
         self.player.pause()
         with self._lock:
             # the old score's audio is not this timeline's truth:
             # unplayable-until-rendered, and the modal says so
             self.player.buf = None
-        self._use = name
-        self.proj = Project(self.rec, use=name)
+        self._use = new
+        self.proj = Project(self.rec, use=new or None)
         self._watch_dirs = self.proj.watch_dirs()
         self._mtimes = self._scan()
         self.anchor = None          # fresh loudness anchor per score
         self.player.t = min(t, self.proj.dur - 1.0)
         self._static = None
         self._save_session()
-        self.rebuild(f"scoring with {name or 'session banks'}…",
-                     src=f"bank: {name or 'session'}")
+        self.rebuild(f"scoring pass {pass_idx + 1} with "
+                     f"{name or 'its recorded bank'}…",
+                     src=f"pass{pass_idx + 1}: {name or 'recorded'}")
 
     def _goto_commit(self):
         txt = (self._goto or "").strip()
@@ -1469,9 +1518,14 @@ class App:
 
     def _chip(self, s, x, y, kind, hit=None, surf=None, maxw=None):
         f = self.font
+        full = s
         cap = min(420, maxw) if maxw is not None else 420
-        while len(s) > 8 and f.size(s)[0] > cap - 10:
+        trunc = False
+        while len(s) > 8 and f.size(s + "…")[0] > cap - 10:
             s = s[:-2]
+            trunc = True
+        if trunc:
+            s += "…"
         w = f.size(s)[0] + 10
         col = STATUS_COL[kind]
         bg = tuple(c // 5 for c in col)
@@ -1481,6 +1535,12 @@ class App:
         self.txt(s, x + 5, y + 2, col, surf=surf)
         if hit:
             self._hit[hit] = pygame.Rect(x, y, w, 18)
+        elif trunc:
+            # a cut-off message is unread truth: hover expands it in
+            # full, foregrounded (director feedback)
+            key = f"chipfull:{len(self._chip_full)}"
+            self._chip_full[key] = full
+            self._hit[key] = pygame.Rect(x, y, w, 18)
         return x + w + 8
 
     def draw(self):
@@ -1488,6 +1548,7 @@ class App:
         proj = self.proj                # one snapshot per frame
         scr.fill((18, 18, 22))
         self._hit = {}
+        self._chip_full = {}
         t = self.player.playhead()
         v0, v1 = self._view()
 
@@ -2013,25 +2074,41 @@ class App:
             self.txt("click or ESC to close", bx + 4, by + bh + 6,
                      (170, 170, 180))
         if self.picker:
+            pi = self._pass_at(t)
+            orig = self.proj.orig_banks[pi] \
+                if pi < len(self.proj.orig_banks) else "?"
+            over = self._use.get(pi)
             names = [None] + self.available_banks()
-            ph = 24 * len(names) + 36
+            hidden = 0
+            max_rows = (self.H - 130) // 24
+            if len(names) > max_rows:   # visible cap, never silent
+                hidden = len(names) - max_rows
+                names = names[:max_rows]
+            ph = 24 * len(names) + 36 + (16 if hidden else 0)
             prc = pygame.Rect(350, 40, 340, ph)
             pygame.draw.rect(scr, (30, 30, 38), prc)
             pygame.draw.rect(scr, (240, 220, 160), prc, 1)
-            self.txt("score this session with:", prc.x + 10, prc.y + 8,
-                     (240, 220, 160))
+            self.txt(f"score pass {pi + 1} (at the playhead) with:",
+                     prc.x + 10, prc.y + 8, (240, 220, 160),
+                     maxw=prc.w - 20)
             self._picker_rows = []
             yy = prc.y + 30
             for nm in names:
                 r = pygame.Rect(prc.x + 6, yy, prc.w - 12, 22)
-                cur = (nm == self._use)
+                cur = (nm == over)
                 if cur:
                     pygame.draw.rect(scr, (60, 55, 35), r)
-                label = nm or "(this session's own banks)"
+                label = nm or f"(as recorded: {orig})"
                 self.txt(label, r.x + 6, r.y + 3,
-                         (255, 240, 200) if cur else (200, 200, 210))
+                         (255, 240, 200) if cur else (200, 200, 210),
+                         maxw=r.w - 10)
                 self._picker_rows.append((r, nm))
                 yy += 24
+            if hidden:
+                self.txt(f"… +{hidden} more banks (folder names "
+                         f"sort first)", prc.x + 10, yy + 2,
+                         (170, 170, 185), self.small,
+                         maxw=prc.w - 20)
         if self.help_on:
             self._draw_help(scr)
 
@@ -2163,8 +2240,8 @@ class App:
         "play_glyph": "Play / pause (SPACE)",
         "time_readout": "Click, type a time (mm:ss or seconds), "
                         "ENTER jumps",
-        "bank_title": "Click: score this session with a different "
-                      "bank",
+        "bank_title": "Click: score the pass under the playhead with "
+                      "a different bank (its neighbors keep theirs)",
         "clip_chip": "Mix over full scale — click: jump to the "
                      "loudest point; click again: reset",
         "ab_chip": "Hearing the previous mix — click or A returns",
@@ -2178,6 +2255,8 @@ class App:
     }
 
     def _tooltip_for(self, el):
+        if el.startswith("chipfull:"):
+            return self._chip_full.get(el)
         if el.startswith(("mark:", "legend:")):
             return self.MARK_TIPS.get(el.split(":")[1])
         if el in self.TOOLTIPS:
@@ -2201,20 +2280,27 @@ class App:
         if over != self._hover[0]:
             self._hover = (over, time.time())
             return
-        if over is None or time.time() - self._hover[1] < 0.45:
+        if over is None:
+            return
+        dwell = 0.15 if over.startswith("chipfull:") else 0.45
+        if time.time() - self._hover[1] < dwell:
             return
         tip = self._tooltip_for(over)
         if not tip:
             return
-        surf = self.font.render(tip, True, (20, 20, 24))
-        w, h = surf.get_size()
+        lines = self._wrap(tip, 480)
+        rendered = [self.font.render(l, True, (20, 20, 24))
+                    for l in lines]
+        w = max(r.get_width() for r in rendered)
+        h = 18 * len(rendered)
         tx = min(mx + 14, self.W - w - 14)
         ty = min(my + 18, self.H - h - 12)
         pygame.draw.rect(self.screen, (235, 225, 180),
                          (tx - 6, ty - 4, w + 12, h + 8))
         pygame.draw.rect(self.screen, (120, 110, 80),
                          (tx - 6, ty - 4, w + 12, h + 8), 1)
-        self.screen.blit(surf, (tx, ty))
+        for i, r in enumerate(rendered):
+            self.screen.blit(r, (tx, ty + i * 18))
 
     # ---- main loop --------------------------------------------------------
     def _feed(self):
