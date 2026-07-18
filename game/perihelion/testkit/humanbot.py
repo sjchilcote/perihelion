@@ -40,7 +40,7 @@ from random import Random
 
 import necore
 
-from ..sim import GameSession, InputFrame, WEAPON_ORDER
+from ..sim import ENEMIES, GameSession, InputFrame, WEAPON_ORDER
 from .bots import (Bot, _UnstickMixin, _dist, _norm, choose_weapon,
                     nav_to_point)
 from .mouse_model import MouseModel
@@ -1393,6 +1393,18 @@ class HumanBot(_UnstickMixin, Bot):
         # as some flavor of "ABSURDLY gunshy", director, three rounds
         # running.)
         inp.fire = True
+        # ENRAGE PREPARATION (Sol §3): don't shoot the warden through
+        # its half-hp line until phase two is answerable — adds down,
+        # lightning charged. Both conditions converge on their own.
+        if nearest.get("kind") == "warden":
+            frac = nearest.get("hp", 9999) / ENEMIES["warden"]["hp"]
+            adds_alive = sum(1 for e in perceived
+                             if e.get("kind") != "warden"
+                             and e.get("state") in ("hunt", "waking"))
+            ready = (snapshot["lightning_ready"]
+                     or "lightning" not in snapshot["weapons"])
+            if 0.50 < frac <= 0.60 and (adds_alive >= 2 or not ready):
+                inp.fire = False
 
         want = choose_weapon(snapshot, dist, len(perceived))
         # the lightning cannon IS the crowd-control answer (director):
@@ -1478,7 +1490,27 @@ class HumanBot(_UnstickMixin, Bot):
             #   0.3 strafe drifted the bot over the very doorway seam
             #   it was standing on when it acquired the target
         elif dist < 80.0 or snapshot["hp"] < 30:
-            move_room = (-ux, -uy)  # disengage / backpedal-while-firing when hurt
+            close = [e for e in perceived
+                     if e.get("kind") in ("husk", "mite", "brute",
+                                          "flicker", "warden")
+                     and _dist(e["pos"], (px, py)) < 110.0]
+            if len(close) >= 2:
+                # CONTACT-RESOLVE (Sol §1.4): pure backpedal from a
+                # faster swarm is how you get cornered — exit through
+                # the largest free angular gap, gun stays on target
+                bs = sorted(math.atan2(e["pos"][1] - py,
+                                       e["pos"][0] - px)
+                            for e in close)
+                best, mid = -1.0, 0.0
+                for i in range(len(bs)):
+                    a = bs[i]
+                    b = bs[(i + 1) % len(bs)]
+                    gap = (b - a) % (2.0 * math.pi)
+                    if gap > best:
+                        best, mid = gap, a + gap / 2.0
+                move_room = (math.cos(mid), math.sin(mid))
+            else:
+                move_room = (-ux, -uy)  # 1v1: backpedal-while-firing
         elif dist > 140.0:
             # approach ONLY what will not come to you (director: "it
             # sees an enemy and walks in to it" -- closing on a charging

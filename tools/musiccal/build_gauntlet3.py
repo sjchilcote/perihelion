@@ -398,13 +398,26 @@ def _boss_hall(b, x, y, flip, w=150.0):
         b.connect(c1, 3, v, 1)      # corner N -> shaft S (going up)
         b.connect(v, 3, c2, 1)
     b.connect(c2, 2, h2, 0)
+    # the arena-mouth PINCH: the hall itself is 150 wide (6 mites
+    # abreast — no funnel at all, measured engulfment deaths); the
+    # level's choke grammar is a 64 waist. Boss spill single-files
+    # through this on its way out to the player.
+    pinch_x = x + L1 + w + L2
+    p1, _, p2, pe = hourglass(b, pinch_x, cy + w / 2, CHOKE_LEN * 2,
+                              w, w, CHOKE_W, s + 5)
+    b.connect(h2, 2, p1, 0)
     b.light(h1, (x + L1 / 2, y + w / 2),
             color=(140, 120, 120), intensity=0.55, radius=260.0)
     b.light(v, (x + L1 + w / 2, vy + LV / 2),
             color=(120, 110, 130), intensity=0.5, radius=240.0)
     b.light(h2, (x + L1 + w + L2 / 2, cy + w / 2),
             color=(140, 120, 120), intensity=0.55, radius=260.0)
-    return h1, h2, list(range(n0, len(b.data["rooms"])))
+    b.light(p1, (pinch_x + CHOKE_LEN, cy + w / 2),
+            color=(210, 160, 130), intensity=0.9, radius=150.0)
+    # the safe-route medkit: behind the second corner, on the walk
+    # in and available during a fighting withdrawal (Sol §4.4)
+    b.entity(h2, "medkit", (x + L1 + w + 70.0, cy + w / 2))
+    return h1, p2, list(range(n0, len(b.data["rooms"])))
 
 
 def boss_donut(b, ox, oy, protected):
@@ -435,7 +448,7 @@ def boss_donut(b, ox, oy, protected):
         b.entity(cells[(r, c)], "warden",
                  (ox + c * CELL + fx * CELL, oy + r * CELL + fy * CELL),
                  tether=1)
-    for (r, c) in ((0, 2), (2, 0), (0, 1), (2, 1)):
+    for (r, c) in ((0, 2), (2, 0)):
         b.entity(cells[(r, c)], "spitter",
                  (ox + c * CELL + CELL * 0.3, oy + r * CELL + CELL * 0.6))
     for i, (r, c) in enumerate(((1, 0), (1, 2), (0, 1), (2, 1))):
