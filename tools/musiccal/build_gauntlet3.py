@@ -496,6 +496,13 @@ def boss_cross(b, ox, oy, protected):
         b.entity(arm_e, "mite", (ox + CELL + 120 + k * 90,
                                  oy + 40 + (k % 2) * 140))
     b.entity(arm_w, "spitter", (ox - 300, oy + CELL / 2))
+    for ax_, ay_ in ((ox - 500, oy + CELL * 0.3),
+                     (ox + CELL + 450, oy + CELL * 0.7)):
+        b.entity(arm_w if ax_ < ox else arm_e, "medkit", (ax_, ay_))
+        b.entity(arm_w if ax_ < ox else arm_e, "ammo_9mm",
+                 (ax_ + 30, ay_))
+        b.entity(arm_w if ax_ < ox else arm_e, "ammo_shell",
+                 (ax_ - 30, ay_))
     return arm_w, 0, arm_e, 2
 
 
@@ -532,6 +539,12 @@ def boss_ring(b, ox, oy, protected):
     b.entity(segs[4], "warden", (ox + 2000 + W / 2, oy + 300 + L * 0.5), tether=1)
     b.entity(segs[0], "flicker", (ox + L * 0.7, oy + W * 0.5))
     b.entity(segs[2], "shrieker", (ox + 1000 + L * 0.5, oy + W / 2))
+    # encounter-clear caches (Sol 2 §6): recovery between warden
+    # pairs raises sequential survival without touching any brawl
+    for sg, sx in ((segs[0], ox + L * 0.25), (segs[2], ox + 1000 + L * 0.25)):
+        b.entity(sg, "medkit", (sx, oy + W * 0.3))
+        b.entity(sg, "ammo_9mm", (sx + 30, oy + W * 0.6))
+        b.entity(sg, "ammo_shell", (sx - 30, oy + W * 0.6))
     for k in range(2):
         b.entity(segs[(k * 2) % 5], "husk",
                  (ox + ((k * 2) % 5) * 500 + 80 + k * 60, oy + W * 0.4))
@@ -585,6 +598,10 @@ def boss_dark(b, ox, oy, protected):
         xs = (ox + 60 + (k * 67) % 380, oy + 40 + (k * 53) % 220)
         b.entity(r, "flicker", xs)
     b.entity(chap_l, "shrieker", (ox + 60, oy - 60))
+    for cr, cx_ in ((chap_l, ox + 190), (chap_r, ox + 310)):
+        b.entity(cr, "medkit", (cx_, oy - 150))
+        b.entity(cr, "ammo_9mm", (cx_ + 25, oy - 130))
+        b.entity(cr, "ammo_shell", (cx_ - 25, oy - 130))
     b.entity(vest, "warden", (ox - 150, oy + 150), tether=1)
     b.entity(hall_l, "spitter", (ox + 60, oy + 250))
     protected.add(vest)
