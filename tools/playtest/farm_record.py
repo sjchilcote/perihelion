@@ -31,6 +31,7 @@ def main():
     ap.add_argument("--level", default="levels/gauntlet_cal3.json")
     ap.add_argument("--every", type=int, default=4)
     ap.add_argument("--max-ticks", type=int, default=64800)
+    ap.add_argument("--skill", type=float, default=None)
     a = ap.parse_args()
 
     import os
@@ -69,7 +70,8 @@ def main():
     # GameScene sets this for the music's bed selection; it reads sim
     # state only, so it cannot perturb the farm trajectory
     session.music_tier = getattr(level, "tier", 1)
-    bot = HumanBot(a.seed, skill=DEFAULT_SKILL)
+    bot = HumanBot(a.seed, skill=a.skill if a.skill is not None
+                   else DEFAULT_SKILL)
 
     audio = Audio(mute=True)
     audio.tap = tap
