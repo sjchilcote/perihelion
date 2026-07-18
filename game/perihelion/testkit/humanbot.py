@@ -629,7 +629,12 @@ class HumanBot(_UnstickMixin, Bot):
                     self._hold_break = 1400
                 self._hold_ticks = 0
         else:
-            self._hold_ticks = 0
+            # DECAY, don't reset: the stalled-seed trace showed the
+            # bot oscillating rooms at a boss door, zeroing the
+            # consecutive counter forever — the breaker never fired
+            # once in an 11-minute siege. Cumulative-ish counting
+            # lets it fire within ~30s of real siege time.
+            self._hold_ticks = max(0, self._hold_ticks - 4)
             if snapshot["hp"] >= 90:
                 self._hold_cycles = 0
         if self._hold_break > 0:
