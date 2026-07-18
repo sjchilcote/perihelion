@@ -61,7 +61,7 @@ def choose_weapon(snapshot: dict, dist: float, n_enemies: int) -> int:
     out_of_ammo = not (has("9mm") or has("shell") or has("cell"))
     if out_of_ammo and dist < 40.0 and "knife" in weapons:
         return _weapon_field("knife")
-    heavy_near = any(e["kind"] in ("warden", "brute") and e["hops"] == 0
+    heavy_near = any(e["kind"] in ("warden", "brute") and e["hops"] <= 1
                      for e in snapshot.get("enemies", []))
     if heavy_near and "rail" in weapons and has("cell") and dist > 55.0:
         return _weapon_field("rail")

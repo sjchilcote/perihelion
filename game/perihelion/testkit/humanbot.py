@@ -41,7 +41,7 @@ from random import Random
 
 import necore
 
-from ..sim import (ENEMIES, WARDEN_ENRAGE_HP, GameSession,
+from ..sim import (ENEMIES, WARDEN_ENRAGE_HP, WEAPONS, GameSession,
                    InputFrame, WEAPON_ORDER)
 from .bots import (Bot, _UnstickMixin, _dist, _norm, choose_weapon,
                     nav_to_point)
@@ -334,13 +334,35 @@ class HumanBot(_UnstickMixin, Bot):
         perceived = self._perception.perceive(snapshot, tick, anticipated,
                                                frozenset(visible_screens))
         # Co-room entries have valid room-local coordinates for the
-        # existing aim/movement math. Anything only glimpsed through a
-        # portal does not -- positions from different rooms are different
-        # local frames, never diffed against the player's -- and is
-        # handled screen-space-only by `_distant_threat_input` until the
-        # bot actually reaches it.
+        # existing aim/movement math. Enemies one hop out get the same
+        # treatment through the portal transform: rooms are individual
+        # polygons and combat is continuous across them (director's law,
+        # 2026-07-18) — the fatal micro-trace showed wardens grinding
+        # the bot by TOUCH at 25u from the far side of a portal plane
+        # while co_room read zero and every reflex (contact-evasion,
+        # pressure counts, flank escape) was blind. `portal_xform`
+        # maps neighbor-local -> proom-local; a transformed hunter is
+        # a co-room threat in every sense that matters to the body.
+        # Rooms further out stay screen-space-only
+        # (`_distant_threat_input`).
         co_room = [e for e in perceived if e["room"] == proom]
         distant = [e for e in perceived if e["room"] != proom]
+        adj_xf: dict[int, tuple] = {}
+        for edge, portal in enumerate(session.sim.room_portals(proom)):
+            if portal is not None and portal[0] not in adj_xf:
+                xf = session.sim.portal_xform(proom, edge)
+                if xf is not None:
+                    adj_xf[portal[0]] = xf
+        for e in distant:
+            xf = adj_xf.get(e["room"])
+            if xf is None or e.get("state") not in ("hunt", "waking"):
+                continue
+            lx, ly = necore.mat_apply(xf, *e["pos"])
+            if math.hypot(lx - px, ly - py) < 260.0:
+                t_e = dict(e)
+                t_e["pos"] = (lx, ly)
+                t_e["thru"] = True
+                co_room.append(t_e)
 
         kills = session.metrics.get("kills", 0)
         if kills != self._last_kills:
@@ -404,8 +426,17 @@ class HumanBot(_UnstickMixin, Bot):
                 # projectile weapon. Visible on screen = shootable:
                 # point at the closest visible enemy, hold the trigger.
                 pax, pay = necore.mat_apply(session.cam, px, py)
+                # HUNTING TARGETS ONLY (2026-07-18): sniping idle
+                # enemies through portals was free kills against the
+                # old off-room-inert game (they walked to the door and
+                # died single-file); on the honest game every such
+                # shot wakes a room that arrives as a FIGHTING pack —
+                # measured 48-77 kills by t~75s, a self-made avalanche
+                # that killed every run at the first compound. Sleeping
+                # rooms stay asleep.
                 cand = [visible_screens[e["id"]] for e in distant
-                        if e["id"] in visible_screens]
+                        if e["id"] in visible_screens
+                        and e.get("state") in ("hunt", "waking")]
                 if cand:
                     tx_, ty_ = min(cand, key=lambda s: math.hypot(
                         s[0] - pax, s[1] - pay))
@@ -461,7 +492,7 @@ class HumanBot(_UnstickMixin, Bot):
         duel = any(e.get("kind") == "warden" for e in co_room) and \
             sum(1 for e in co_room if e.get("kind") != "warden"
                 and e.get("state") in ("hunt", "waking")) <= 1
-        hp_line = 40 if duel else 55
+        hp_line = 40 if duel else 65
         # live pursuit gates the trigger; tethered wardens are
         # excluded from "pursuit" (a visible boss door kept wounded
         # runs locked backward forever), but a single mobile chaser
@@ -479,21 +510,91 @@ class HumanBot(_UnstickMixin, Bot):
                                     or n_co_hunt >= 5)
         else:
             trig = ((n_co_hunt >= 1 and snapshot["hp"] < hp_line)
-                    or n_co_hunt >= 5)
-        if trig and self._escape_ticks == 0 and trail:
+                    or n_co_hunt >= 3)
+        # (a mites-don't-count variant was tried 2026-07-18 and made
+        # the bot brawl mite floods in the OPEN — the funnel is a
+        # fighting withdrawal to a choke, gun firing, which is exactly
+        # the right answer to a swarm of faster pursuers)
+        # WARDEN ERUPTION (honest-game death footage): a co-room
+        # warden with its brood pouring in is fought from behind the
+        # entry pinch, never in the open — here mites DO count (they
+        # are the engulfment), because the withdrawal target is a
+        # choke that strings them single-file, not open-field flight
+        trig = trig or (any(e.get("kind") == "warden"
+                            and e.get("state") == "hunt"
+                            for e in co_room)
+                        and n_co_hunt >= 4)
+        # LIVE PURSUIT WEIGHT: the wave one hop back counts — episode
+        # accounting (2026-07-18, 8 seeds): pack fights of 1-2 cost
+        # 4.6hp; EVERY engagement of 5+ cost ~100hp (death). The old
+        # hold expired whenever co-room momentarily hit zero mid-
+        # flight, so the bot turned around with the 8-wave one room
+        # behind and met it all at once. Withdraw until the PURSUIT
+        # thins, not until an arbitrary depth.
+        # wardens count: untethered they pursue (137 u/s vs our 133 —
+        # they always close), and they were exactly the grinders in
+        # the portal-plane deaths
+        n_pursuit = n_co_hunt + sum(
+            1 for e in distant
+            if e.get("state") in ("hunt", "waking"))
+        if (trig or (self._funnel_hold > 0 and n_pursuit >= 5)) \
+                and self._escape_ticks == 0 and trail:
             self._funnel_hold = 240
-            self._funnel_rooms = 0
+            if trig:
+                self._funnel_rooms = 0
         elif self._funnel_hold > 0:
             self._funnel_hold -= 1
         if self._funnel_hold > 0 and trail and \
-                (n_co_hunt >= 1
+                (n_co_hunt >= 1 or n_pursuit >= 5
                  or getattr(self, "_funnel_rooms", 0) < 2):
+            # CHECK YOUR SIX (2026-07-18 pincer trace: 487 funnel
+            # ticks retreating toward a room ALREADY holding >=2
+            # hunters — the trail room fills with converging pursuit
+            # while we fight forward, and rote withdrawal marches
+            # into the second pack). If the trail room is occupied,
+            # fall back toward the least-occupied neighbor instead,
+            # preferring walked ground.
+            occ: dict[int, int] = {}
+            for e in distant:
+                if e.get("state") in ("hunt", "waking"):
+                    occ[e["room"]] = occ.get(e["room"], 0) + 1
+            fdest = trail[-1]
+            if occ.get(fdest, 0) >= 2:
+                cands = [p[0] for p in session.sim.room_portals(proom)
+                         if p is not None]
+                if cands:
+                    # coffin guard for the kite: a 1-door room ends
+                    # the withdrawal (two medbay cornering deaths,
+                    # round-12 probe) — never flee INTO a dead end
+                    def _doors(r):
+                        return sum(1 for p in
+                                   session.sim.room_portals(r)
+                                   if p is not None)
+                    fdest = min(cands, key=lambda r: (
+                        occ.get(r, 0),
+                        0 if _doors(r) >= 2 else 1,
+                        0 if r in self._visited_rooms else 1))
+            # KITE TO THE GUNS (director's designed answer to a heavy
+            # train: "kite-to-turrets stays a valid strat" — the
+            # sentry alcoves are 3x18dmg emplacements built exactly
+            # for this). Under a train we cannot thin ourselves —
+            # 5+ pursuers or any hunting warden (faster than us,
+            # unkillable mid-flight) — the withdrawal leads INTO the
+            # strongest reachable field instead of pacing the trail.
+            if n_pursuit >= 5 or self._warden_hunting:
+                fr = self._best_field(session, proom)
+                if fr is not None and fr != proom and \
+                        0 < session.sim.hop_distance(proom, fr) <= 5:
+                    fedge = session.sim.next_edge(proom, fr)
+                    if fedge >= 0:
+                        port = session.sim.room_portals(proom)[fedge]
+                        if port is not None and occ.get(port[0], 0) < 4:
+                            fdest = port[0]
             # a fighting WITHDRAWAL: keep going ~240u past the door
             # and around the bends — standing at the doorway for four
             # seconds was the stall (Sol: kill the single-file
             # pursuers at the choke, from depth)
-            fv = self._nav_room_move(session, snapshot, px, py,
-                                     trail[-1])
+            fv = self._nav_room_move(session, snapshot, px, py, fdest)
             if fv != (0.0, 0.0):
                 ret_vec = fv
                 rg = max(rg, 0.9)
@@ -566,7 +667,14 @@ class HumanBot(_UnstickMixin, Bot):
                 # after ~25s of siege COMMIT anyway (a door-stall
                 # timed out a whole run standing here).
                 if any(e.get("kind") == "warden" for e in beyond):
-                    armed = (snapshot["hp"] >= 90
+                    # hp>=70, not 90: the sim's own pickup ceiling is
+                    # 70 ("leave it for later") — an arming bar above
+                    # it is UNREACHABLE by healing, and the measured
+                    # result was an 11s dead stall at hp 84 (can't
+                    # arm, won't heal) ended by the breaker forcing
+                    # the same under-armed entry the gate exists to
+                    # prevent
+                    armed = (snapshot["hp"] >= 70
                              and (snapshot["lightning_ready"]
                                   or "lightning"
                                   not in snapshot["weapons"]))
@@ -580,6 +688,29 @@ class HumanBot(_UnstickMixin, Bot):
                         break
                 if portal[0] in self._visited_rooms:
                     continue
+                # NARROW-WAIST ARMING (2026-07-18 death footage): the
+                # boss halls' Z-bends hide the arena from perception —
+                # `beyond` is empty at exactly the doors that matter
+                # most, and the bot strolled through a 64u slit at hp
+                # 84 into a two-warden double-brood eruption. The slit
+                # itself is the tell (chokes/pinches are ~64u; honest
+                # room portals are 150+): a narrow waist into unwalked
+                # territory demands the same arming as a seen warden
+                # door.
+                x1, y1, x2, y2 = session.sim.edge_endpoints(proom, edge)
+                if math.hypot(x2 - x1, y2 - y1) < 80.0 \
+                        and self._hold_break <= 0:
+                    armed = (snapshot["hp"] >= 70
+                             and (snapshot["lightning_ready"]
+                                  or "lightning"
+                                  not in snapshot["weapons"]))
+                    has_med = any(p["kind"] == "medkit"
+                                  and 0 <= p.get("hops", 9) <= 3
+                                  for p in snapshot["pickups"])
+                    if not armed and not (snapshot["hp"] < 70
+                                          and has_med):
+                        hold = (mx_, my_, pd)
+                        break
                 if len(beyond) >= 3 and self._hold_break <= 0:
                     # crowd holds honor the commit breaker too — this
                     # branch never checked it, so break windows never
@@ -702,6 +833,35 @@ class HumanBot(_UnstickMixin, Bot):
                 sml = math.hypot(sxl, syl) or 1.0
                 vx = vx * 0.5 + 1.3 * sxl / sml
                 vy = vy * 0.5 + 1.3 * syl / sml
+
+        # WARDEN STANDOFF (2026-07-18, the range war): a warden closes
+        # at only 4 u/s net (137 vs our 133) — at range it is a free
+        # rail target for minutes; at touch range it grinds 10-30hp
+        # per second (portal-plane micro-trace). Treat a hunting
+        # warden like contact treats melee: a repulsion field, here at
+        # 350u — back off at combat pace, gun firing the whole time.
+        # The brood arrives speed-sorted (mites first, ALONE) into the
+        # close-range machinery; the warden itself never gets to
+        # touch.
+        wrx = wry = 0.0
+        for e in co_room:
+            if e.get("kind") != "warden" or \
+                    e.get("state") not in ("hunt", "waking"):
+                continue
+            d = _dist(e["pos"], (px, py))
+            if d < 350.0:
+                w = (350.0 - d) / 350.0
+                dvx, dvy = px - e["pos"][0], py - e["pos"][1]
+                dm = math.hypot(dvx, dvy) or 1e-6
+                wrx += dvx / dm * w
+                wry += dvy / dm * w
+        if wrx or wry:
+            wm = math.hypot(wrx, wry)
+            sxw, syw = necore.mat_apply_dir(session.cam,
+                                            wrx / wm, wry / wm)
+            smw = math.hypot(sxw, syw) or 1.0
+            vx = vx * 0.4 + 1.5 * sxw / smw
+            vy = vy * 0.4 + 1.5 * syw / smw
 
         # SPIT-DODGE REFLEX (2026-07-18): projectiles are dodgeable —
         # sidestep off the flight line of any spit closing within
@@ -947,6 +1107,16 @@ class HumanBot(_UnstickMixin, Bot):
         # is an infinite orbit. Cross-room detours keep the old bar.
         heal_bar = 75 if relax else \
             (70 if any(p["hops"] == 0 for p in medkits) else 60)
+        if medkits and getattr(self, "_warden_hunting", False):
+            # never heal in a coffin while a warden hunts: two probe
+            # deaths were medbay corners, kit in reach, warden in the
+            # door (2026-07-18). A 1-door medkit room is only shopped
+            # in peace.
+            def _mdoors(r):
+                return sum(1 for p in session.sim.room_portals(r)
+                           if p is not None)
+            medkits = [p for p in medkits
+                       if p["room"] == proom or _mdoors(p["room"]) >= 2]
         if snapshot["hp"] < heal_bar and medkits:
             target = None
             # give-up timer: a medkit the bot has chased for 8s without
@@ -1452,12 +1622,29 @@ class HumanBot(_UnstickMixin, Bot):
         # closest enemy, hold down trigger." No urgency tiers, no
         # escape-path pools -- closest wins, with only enough hysteresis
         # to stop per-tick ties from flickering the cursor.
-        # ADD-FIRST targeting (Sol §3): while the warden's brood (or
-        # any other hunters) are alive co-room, they are the targets —
-        # the 520hp warden soaks a magazine while 4hp mites connect.
-        # The warden is fought when its screen is down.
-        pool = [e for e in perceived if e.get("kind") != "warden"
-                and e.get("state") in ("hunt", "waking")]
+        # ADD-FIRST targeting (Sol §3): while the warden's PRESSING
+        # screen is alive, the adds are the targets — the 520hp warden
+        # soaks a magazine while 4hp mites connect. But "any hunter
+        # anywhere on screen" excluded the warden for entire runs on
+        # the honest cross-room game (0/14 wardens down over 64 runs,
+        # mean 0 warden damage per encounter — a brood never fully
+        # empties). The screen is what's CLOSE: with fewer than three
+        # non-warden hunters inside 200u, the boss is a live target.
+        press = sum(1 for e in perceived
+                    if e.get("kind") != "warden"
+                    and e.get("state") in ("hunt", "waking")
+                    and _dist(e["pos"], (px, py)) < 200.0)
+        # ...and a warden inside 140u is ALWAYS live: that close it is
+        # spitting into our face — and when it's wedged in a waist it
+        # is plugging its own brood's only path; that is the kill
+        # window the choke doctrine exists to create
+        pool = [e for e in perceived
+                if e.get("state") in ("hunt", "waking")
+                and (e.get("kind") != "warden" or press < 3
+                     or _dist(e["pos"], (px, py)) < 140.0)]
+        if not pool:
+            pool = [e for e in perceived if e.get("kind") != "warden"
+                    and e.get("state") in ("hunt", "waking")]
         if not pool:
             pool = perceived
         closest = min(pool, key=lambda e: _dist(e["pos"], (px, py)))
@@ -1468,6 +1655,18 @@ class HumanBot(_UnstickMixin, Bot):
             nearest = focus
         else:
             nearest = closest
+        # RAIL LINES THROUGH THE ANCHOR (kite-war footage: 27 rail
+        # shots, zero wardens down — every line was spent on the mite
+        # skirmish screen while the 520hp anchor rode mid-train). The
+        # rail pierces 3: a line THROUGH the warden kills the screen
+        # on the way. With rail in hand, the warden IS the target.
+        if snapshot["weapon"] == "rail" and press < 4:
+            rw = [e for e in perceived
+                  if e.get("kind") == "warden"
+                  and e.get("state") in ("hunt", "waking")
+                  and _dist(e["pos"], (px, py)) < 420.0]
+            if rw:
+                nearest = min(rw, key=lambda e: _dist(e["pos"], (px, py)))
         self._focus_id = nearest["id"]
         ex, ey = nearest["pos"]
         dx, dy = ex - px, ey - py
@@ -1508,9 +1707,14 @@ class HumanBot(_UnstickMixin, Bot):
         # lightning charged. Both conditions converge on their own.
         if nearest.get("kind") == "warden":
             whp = nearest.get("hp", 9999)
+            # nearby adds only: on the honest game some hunter is
+            # visible somewhere almost always, and counting the whole
+            # screen held warden fire in exactly the lulls that exist
+            # to be used
             adds_alive = sum(1 for e in perceived
                              if e.get("kind") != "warden"
-                             and e.get("state") in ("hunt", "waking"))
+                             and e.get("state") in ("hunt", "waking")
+                             and _dist(e["pos"], (px, py)) < 160.0)
             ready = (snapshot["lightning_ready"]
                      or "lightning" not in snapshot["weapons"])
             # bracket the ACTUAL enrage line (a hardcoded 50-60%
@@ -1535,6 +1739,23 @@ class HumanBot(_UnstickMixin, Bot):
             if want == self._weapon_want else 0
         self._weapon_want = want
         inp.weapon = want if (want == cur or self._weapon_want_ticks >= 12) else 0
+        # WEAPON COMMIT (2026-07-18 death footage: SMG->RAIL->TAU->
+        # SHOTGUN->SMG inside ~4s of the deciding brawl — choose_weapon
+        # keys on distance-to-current-target, which jumps between a 30u
+        # mite and a 95u husk every retarget; every swap is dead
+        # trigger time). A human commits to the gun in hand: once
+        # switched, hold it 2s unless it runs DRY. The lightning
+        # override bypasses — the crowd moment won't wait.
+        if inp.weapon and inp.weapon != cur \
+                and WEAPON_ORDER[inp.weapon - 1] != "lightning":
+            ammo_t = WEAPONS.get(snapshot["weapon"], {}).get("ammo")
+            cur_dry = ammo_t is not None \
+                and snapshot["ammo"].get(ammo_t, 0) <= 0
+            if not cur_dry and snapshot["tick"] < \
+                    getattr(self, "_weapon_lock_until", 0):
+                inp.weapon = 0
+            else:
+                self._weapon_lock_until = snapshot["tick"] + 120
         # discharge doctrine: the implant recharges in 9s; in a gauntlet
         # a player rides the cooldown. The old >=3 co-room gate meant
         # ZERO discharges in a full 15-minute run (measured, seed 1002)
