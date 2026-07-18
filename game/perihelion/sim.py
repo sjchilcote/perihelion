@@ -186,7 +186,13 @@ SHOP: dict[str, dict] = {
 # actually trigger the boss threshold).
 WARDEN_ADDS_ENGAGE = ("mite", "mite", "mite", "mite", "husk",
                       "mite", "mite", "husk", "mite", "mite")
-WARDEN_ADDS_ENRAGE = ("mite", "husk", "shrieker")
+WARDEN_ENRAGE_HP = 260.0    # phase-two line (bot's prep gate reads
+#   it). 220 measured: no survival gain, SHORTER boss-music peak —
+#   the long dangerous tail IS the showcase (n=64 A/B, 2026-07-18)
+WARDEN_ADDS_ENRAGE = ("mite", "mite", "husk")
+# ^ no shrieker at enrage (census: a rally-buff stacking on the
+#   enraged warden's speed + radial volley was the measured death
+#   cocktail — 7 of 26 early deaths had one standing there)
 
 DROP_TABLES = {
     "husk": [(0.35, "ammo_9mm"), (0.08, "medkit")],
@@ -1630,11 +1636,16 @@ class GameSession:
                     e["lunge_cd"] -= 1
                 # warden enrage below half health
                 if kind == "warden" and not e.get("enraged") \
-                        and e["hp"] < ENEMIES["warden"]["hp"] * 0.5:
+                        and e["hp"] < WARDEN_ENRAGE_HP:
+                    # enrage at 220 (not half of 520): the calm phase
+                    # carries the music, the dangerous tail shortens
+                    # (Sol §4.3). The roar is a RECOVERY beat — the
+                    # first radial volley comes ~1s later, never on
+                    # the same tick as the speed-up (Sol §2.4)
                     e["enraged"] = True
                     e["buff"] = 10 ** 9
-                    e["buff_mul"] = 1.15  # 171 u/s was unkitable with
-                    #   terrain; 158 keeps terror, permits play (Sol)
+                    e["buff_mul"] = 1.15
+                    e["spit_cd"] = max(int(e.get("spit_cd", 0)), 60)
                     self._snd("shrieker_scream", room, (ex, ey), 1.0)
                     self.fx.append(("scream", room, ex, ey))
                 # the brood: once when the duel is joined co-room,

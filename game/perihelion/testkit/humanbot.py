@@ -41,7 +41,8 @@ from random import Random
 
 import necore
 
-from ..sim import ENEMIES, GameSession, InputFrame, WEAPON_ORDER
+from ..sim import (ENEMIES, WARDEN_ENRAGE_HP, GameSession,
+                   InputFrame, WEAPON_ORDER)
 from .bots import (Bot, _UnstickMixin, _dist, _norm, choose_weapon,
                     nav_to_point)
 from .mouse_model import MouseModel
@@ -1447,13 +1448,17 @@ class HumanBot(_UnstickMixin, Bot):
         # its half-hp line until phase two is answerable — adds down,
         # lightning charged. Both conditions converge on their own.
         if nearest.get("kind") == "warden":
-            frac = nearest.get("hp", 9999) / ENEMIES["warden"]["hp"]
+            whp = nearest.get("hp", 9999)
             adds_alive = sum(1 for e in perceived
                              if e.get("kind") != "warden"
                              and e.get("state") in ("hunt", "waking"))
             ready = (snapshot["lightning_ready"]
                      or "lightning" not in snapshot["weapons"])
-            if 0.50 < frac <= 0.60 and (adds_alive >= 2 or not ready):
+            # bracket the ACTUAL enrage line (a hardcoded 50-60%
+            # window silently missed it when the line moved to 220
+            # and every enrage fired unprepared — measured -7%)
+            if WARDEN_ENRAGE_HP < whp <= WARDEN_ENRAGE_HP + 50 \
+                    and (adds_alive >= 2 or not ready):
                 inp.fire = False
 
         want = choose_weapon(snapshot, dist, len(perceived))
@@ -1529,8 +1534,10 @@ class HumanBot(_UnstickMixin, Bot):
             else:
                 move_room = (perp[0] * self._strafe_sign + 0.15 * -ux,
                              perp[1] * self._strafe_sign + 0.15 * -uy)
-                if self._strafe_rng.random() < 0.02:
-                    self._strafe_sign *= -1
+                # circulation is LATCHED in a boss duel (Sol §1.3):
+                # direction flips only when blocked (the freeze
+                # detector flips it), never on a coin — reversing
+                # into the brood's route was self-encirclement
         elif nearest.get("state") in ("idle", "waking") and \
                 snapshot["hp"] >= 30:
             # an idle OR still-waking target is free damage: plant your
