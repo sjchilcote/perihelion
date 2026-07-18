@@ -671,20 +671,20 @@ def f_cli(app):
 def f_recall(app):
     app.player.seek(12.0)
     app.muted = {"bed"}
-    app.loop, app.loop_on = (2.0, 4.0), True
+    app.loop = (2.0, 4.0)
     app._save_session()
     a2 = daw.App(REC, None, headless=True)   # no session wipe here
     try:
         assert abs(a2.player.t - 12.0) < 0.2
         assert a2.muted == {"bed"}
-        assert a2.loop == (2.0, 4.0) and a2.loop_on
+        assert a2.loop == (2.0, 4.0)
         assert has_note(a2, "session restored")
         ready(a2)
     finally:
         close(a2)
         (REC / "daw_session.json").unlink(missing_ok=True)
     app.muted = set()
-    app.loop, app.loop_on = None, False
+    app.loop = None
     app.rebuild(src="mutes")
     ready(app)
 
@@ -740,25 +740,30 @@ def f_features(app):
     v0, v1 = app.view
     assert abs((v1 - v0) - app.proj.dur / 2) < 1.0
     app.view = None
-    # loop enforcement
-    app.loop, app.loop_on = (2.0, 4.0), True
+    # selection = loop: wraps at the end, clamps from outside, and a
+    # NORMAL seek clears it (director's model)
+    app.loop = (2.0, 4.0)
     app.player.seek(3.9)
     app.player.play()
     time.sleep(0.4)
     app.step()
-    assert app.player.playhead() < 3.5, "loop did not cycle"
+    assert app.player.playhead() < 3.5, "selection did not loop"
     app.player.pause()
-    app.loop_on = False
-    # bounce the loop region
-    app._bounce()   # loop_on False → full mix
-    app.loop_on = True
+    app.player.seek(20.0)           # internal seek: box stays
+    app.step()
+    assert app.player.playhead() < 4.1, \
+        "playhead escaped the selection (clamp missing)"
+    # bounce the selection
     app._bounce()
     fn = REC / "bounce_0002-0004.wav"
     assert fn.exists()
     info = sf.info(str(fn))
     assert abs(info.frames - 2 * RATE) <= 2
     assert has_note(app, "bounced")
-    app.loop, app.loop_on = None, False
+    # a user seek dismisses the selection
+    app._seek_user(10.0)
+    assert app.loop is None, "user seek did not clear the selection"
+    assert abs(app.player.playhead() - 10.0) < 0.01
     # marker / section jumps
     app.player.seek(0.0)
     app._jump_mark(+1)

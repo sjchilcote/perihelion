@@ -22,7 +22,8 @@ your replacement without deleting the original.
 
 Press ? in the app for the full key/legend overlay. Highlights:
   SPACE play/pause · click/drag scrub · arrows bar (SHIFT 10s)
-  , . markers · UP/DOWN sections · + - zoom · drag ruler = loop · L
+  , . markers · UP/DOWN sections · + - zoom · drag ruler = selection
+  (loops + B bounces; a seek clears it)
   M/S mute/solo · A hear previous mix · G/click clock go-to · C copy
   B bounce · R full reload/retry · ESC close overlay / quit
 """
@@ -731,8 +732,9 @@ class App:
         self.solo: set = set()
         # view / loop
         self.view = None            # (v0, v1) zoom window; None = all
-        self.loop = None            # (a, b) seconds
-        self.loop_on = False
+        self.loop = None            # (a, b) selection: while it
+        #   exists the playhead lives inside it (clamped, wraps at
+        #   the end) and B bounces it; a normal seek clears it
         self.dragging = False
         self._ruler_press = None    # (x, t) pending ruler click/drag
         self._arrow_held = None     # (key, mod, t0, last_fire)
@@ -822,7 +824,6 @@ class App:
         self.sel = s.get("sel")
         self.curve_off = set(s.get("curve_off", []))
         self.loop = tuple(s["loop"]) if s.get("loop") else None
-        self.loop_on = bool(s.get("loop_on")) and self.loop is not None
         self.view = tuple(s["view"]) if s.get("view") else None
         self.est_render = s.get("est_render")
         if self._use is None:       # CLI --use wins over recall
@@ -846,7 +847,6 @@ class App:
                 solo=sorted(self.solo), sel=self.sel,
                 curve_off=sorted(self.curve_off),
                 loop=list(self.loop) if self.loop else None,
-                loop_on=self.loop_on,
                 view=list(self.view) if self.view else None,
                 est_render=self.est_render, use=self._use)))
         except OSError as exc:
@@ -1108,7 +1108,7 @@ class App:
                 t = int(m) * 60 + float(s or 0)
             else:
                 t = float(txt)
-            self._seek(t)
+            self._seek_user(t)
         except ValueError:
             self._set_status(f"can't read '{txt}' — use mm:ss or "
                              f"seconds", "warn")
@@ -1120,6 +1120,14 @@ class App:
         with self._lock:
             self.player.seek(max(0.0, min(t, self.proj.dur)))
 
+    def _seek_user(self, t):
+        """A NORMAL seek — clears the selection (the green box owns
+        the playhead while it exists; seeking away dismisses it)."""
+        if self.loop is not None:
+            self.loop = None
+            self._static = None
+        self._seek(t)
+
     def _nudge_bar(self, direction):
         """Arrow nudge lands on ACTUAL bar taps, not median arithmetic."""
         ts = [b[0] for b in self.proj.bars]
@@ -1128,7 +1136,7 @@ class App:
         t = self.player.playhead()
         i = bisect.bisect_right(ts, t + 0.02) - 1
         j = max(0, min(len(ts) - 1, i + direction))
-        self._seek(ts[j])
+        self._seek_user(ts[j])
 
     def _jump_mark(self, direction):
         ts = sorted(t for t, _, _ in self.proj.marks)
@@ -1138,7 +1146,7 @@ class App:
         nxt = [m for m in ts if m > t + 0.05] if direction > 0 else \
               [m for m in reversed(ts) if m < t - 0.05]
         if nxt:
-            self._seek(nxt[0])
+            self._seek_user(nxt[0])
 
     def _jump_sect(self, direction):
         ts = self.proj.sect_starts
@@ -1148,7 +1156,7 @@ class App:
         nxt = [m for m in ts if m > t + 0.05] if direction > 0 else \
               [m for m in reversed(ts) if m < t - 0.05]
         if nxt:
-            self._seek(nxt[0])
+            self._seek_user(nxt[0])
 
     def _zoom(self, factor):
         """Stepped zoom about the playhead; the overview strip stays
@@ -1187,7 +1195,7 @@ class App:
         if buf is None:
             self._note("nothing to bounce yet", "warn")
             return
-        if self.loop_on and self.loop:
+        if self.loop:
             a, b = self.loop
         else:
             a, b = 0.0, len(buf) / RATE
@@ -1271,11 +1279,12 @@ class App:
                 self._bounce()
             elif ev.key == pygame.K_l:
                 if self.loop:
-                    self.loop_on = not self.loop_on
+                    self.loop = None
                     self._static = None
                 else:
-                    self._note("drag on the ruler to set a loop "
-                               "region first", "warn")
+                    self._note("drag on the ruler to select a range "
+                               "(playback loops it; B bounces it)",
+                               "warn")
             elif ev.key == pygame.K_m and self.sel:
                 self.muted ^= {self.sel}
                 self.rebuild(src="mutes")
@@ -1303,9 +1312,9 @@ class App:
                 self._arrow_held = (ev.key, ev.mod,
                                     time.time() + 0.3, 0.0)
             elif ev.key == pygame.K_HOME:
-                self._seek(0.0)
+                self._seek_user(0.0)
             elif ev.key == pygame.K_END:
-                self._seek(self.proj.dur)
+                self._seek_user(self.proj.dur)
         elif ev.type == pygame.KEYUP:
             if self._arrow_held and ev.key == self._arrow_held[0]:
                 self._arrow_held = None
@@ -1328,7 +1337,7 @@ class App:
             for el, r in self._hit.items():
                 if not r.collidepoint(x, y):
                     continue
-                if el.startswith(("mark:", "legend:")):
+                if el.startswith(("mark:", "legend:")) or el == "ruler":
                     continue        # hover-only: clicks fall through
                     #                 to the scrub surface beneath
                 if el == "play_glyph":
@@ -1341,7 +1350,7 @@ class App:
                            - self.clip_info[1]) < 0.5:
                         self.clip = False   # 2nd click: reset latch
                     else:
-                        self._seek(self.clip_info[1])
+                        self._seek_user(self.clip_info[1])
                 elif el == "ab_chip":
                     self._toggle_ab()
                 elif el == "bank_title":
@@ -1372,17 +1381,17 @@ class App:
                 if self.y_wave <= y <= self.y_wave + 60:
                     # overview strip = absolute navigator (zoom-proof)
                     f = (x - self.x0) / (self.x1 - self.x0)
-                    self._seek(f * self.proj.dur)
+                    self._seek_user(f * self.proj.dur)
                     self.dragging = "abs"
                     return True
                 if self.y_sect <= y <= self.y_marks + 22:
-                    self._seek(self._xt(x))
+                    self._seek_user(self._xt(x))
                     self.dragging = "view"
         elif ev.type == pygame.MOUSEBUTTONUP:
             if self._ruler_press is not None:
                 px, pt = self._ruler_press
                 if abs(ev.pos[0] - px) <= 5:
-                    self._seek(pt)          # a click, not a drag
+                    self._seek_user(pt)     # a click, not a drag
                 self._ruler_press = None
             self.dragging = False
         elif ev.type == pygame.MOUSEMOTION:
@@ -1391,19 +1400,18 @@ class App:
                 a, b = sorted((self._ruler_press[1],
                                self._xt(ev.pos[0])))
                 self.loop = (a, b)
-                self.loop_on = True
                 self._static = None
             elif getattr(self, "dragging", False) == "abs":
                 f = (ev.pos[0] - self.x0) / (self.x1 - self.x0)
-                self._seek(max(0.0, min(1.0, f)) * self.proj.dur)
+                self._seek_user(max(0.0, min(1.0, f)) * self.proj.dur)
             elif getattr(self, "dragging", False):
-                self._seek(self._xt(ev.pos[0]))
+                self._seek_user(self._xt(ev.pos[0]))
         return True
 
     def _arrow_step(self, key, mod):
         if mod & pygame.KMOD_SHIFT:
             d = 10.0 if key == pygame.K_RIGHT else -10.0
-            self._seek(self.player.playhead() + d)
+            self._seek_user(self.player.playhead() + d)
         else:
             self._nudge_bar(+1 if key == pygame.K_RIGHT else -1)
 
@@ -1471,7 +1479,7 @@ class App:
         # ---- static timeline layer (P3.27) --------------------------
         key = (id(proj), self.mix_no, self.view, frozenset(self.muted),
                frozenset(self.solo), self.sel,
-               frozenset(self.curve_off), self.loop, self.loop_on)
+               frozenset(self.curve_off), self.loop)
         if self._static is None or self._static[0] != key:
             surf = pygame.Surface((self.W, self.H - 236),
                                   pygame.SRCALPHA)
@@ -1659,7 +1667,7 @@ class App:
                  " at the same playhead", 12, min(yy + 2, 192),
                  (170, 190, 170))
         self.txt("SPACE play · drag scrub · ,/. markers · ±0 zoom · "
-                 "drag ruler loop · M/S · A prev mix · B bounce · "
+                 "drag ruler select · M/S · A prev mix · B bounce · "
                  "? all keys", 128, self.y_marks + 42, (120, 120, 135))
 
     # ---- video pane -------------------------------------------------------
@@ -1721,17 +1729,22 @@ class App:
                          T(self.y_ruler) + 1, (140, 140, 155),
                          surf=surf)
             m += step
-        # loop region on the ruler
+        # the selection box on the ruler (loops + bounces; any normal
+        # seek clears it, so it is always live-green)
         if self.loop:
             a, b = self.loop
             xa, xb = self._tx(max(a, v0)), self._tx(min(b, v1))
             if xb > xa:
-                col = (120, 220, 160) if self.loop_on else (90, 110, 95)
+                col = (120, 220, 160)
                 lr = pygame.Surface((xb - xa, 16), pygame.SRCALPHA)
                 lr.fill((*col, 70))
                 surf.blit(lr, (xa, T(self.y_ruler)))
                 pygame.draw.rect(surf, col,
                                  (xa, T(self.y_ruler), xb - xa, 16), 1)
+        # the ruler itself is a hover target: nothing on screen said
+        # what dragging here selects (director feedback)
+        hits["ruler"] = pygame.Rect(self.x0, self.y_ruler,
+                                    self.x1 - self.x0, 18)
         # bank switch lines + labels
         for t0, t1, nm, meta, _ in proj.banks:
             if not (v0 - 1 <= t0 <= v1 + 1) or t0 == 0.0:
@@ -1970,7 +1983,9 @@ class App:
         (", .", "previous / next event marker"),
         ("UP/DOWN", "previous / next section start"),
         ("+ - 0", "zoom in / out / reset (about the playhead)"),
-        ("drag ruler", "set loop region;  L  toggles looping"),
+        ("drag ruler", "select a range: playback loops inside the "
+                       "green box and B bounces it — any seek (or L) "
+                       "clears it"),
         ("HOME/END", "start / end"),
         ("M / S", "mute / solo the selected track (click a track "
                   "name to select; boxes always work)"),
@@ -2095,6 +2110,8 @@ class App:
         "ab_chip": "Hearing the previous mix — click or A returns",
         "video_monitor": "Click: enlarge video",
         "help_glyph": "All keys + marker legend (?)",
+        "ruler": "Drag: select a range — playback loops inside it, "
+                 "B bounces it. Click: seek (clears the selection).",
         "curve:0": "PRAYER value - click to show/hide the curve",
         "curve:1": "CONTEMPT value - click to show/hide the curve",
         "curve:2": "STALWART value - click to show/hide the curve",
@@ -2152,10 +2169,15 @@ class App:
             time.sleep(0.03)
 
     def step(self):
-        # loop-region enforcement
-        if self.loop_on and self.loop and self.player.playing:
+        # selection = loop: the playhead lives inside the green box —
+        # wraps at the end, clamped if it's somehow outside (box just
+        # created elsewhere, or restored by session recall)
+        if self.loop:
             a, b = self.loop
-            if self.player.playhead() >= b - 0.02:
+            ph = self.player.playhead()
+            if self.player.playing and ph >= b - 0.02:
+                self._seek(a)
+            elif ph < a - 0.02 or ph > b + 0.02:
                 self._seek(a)
         # follow-playhead while zoomed
         if self.view and self.player.playing:
