@@ -362,16 +362,49 @@ def _rigidify(level: dict) -> int:
 # every boss fields >=2 wardens; difficulty tunes toward 90% fail.)
 # ---------------------------------------------------------------------------
 
-BOSS_CORRIDOR = 1150.0     # the long walk in, and the long walk out
+BOSS_CORRIDOR = 1150.0     # legacy constant kept for scale reference
 CELL = 220.0               # donut/cross cell module
 
 
-def _boss_corridor(b, x, y, w=150.0):
-    r = b.rect(x, y, BOSS_CORRIDOR, w, seed=LEVEL_SEED + int(x) % 9973,
-               kind="corridor")
-    b.light(r, (x + BOSS_CORRIDOR / 2, y + w / 2),
+def _boss_hall(b, x, y, flip, w=150.0):
+    """The long walk in/out — now with TURNS (director 2026-07-18): a
+    Z of three straight runs and two square-corner bends. The path is
+    LONGER than the old straight shot (~1500u vs 1150), the sightline
+    into the arena is broken, and the arena sits 5 room-hops from the
+    last gunfire outside (alert_hops=1), so the wardens are met IN the
+    arena instead of strolling up the hall. `flip` mirrors the Z so
+    entry and exit halls bend opposite ways.
+
+    Returns (first_room, last_room, [all room ids]). First's open
+    edge is W(0), last's open edge is E(2), like the old corridor.
+    All seams are square: corner rooms are w x w, so every joined
+    edge has length w (rigid-portal law).
+    """
+    s = LEVEL_SEED + int(x) % 9973
+    L1, LV, L2 = 430.0, 340.0, 430.0
+    n0 = len(b.data["rooms"])
+    h1 = b.rect(x, y, L1, w, seed=s, kind="corridor")
+    c1 = b.rect(x + L1, y, w, w, seed=s + 1, kind="corridor")
+    vy = y + w if flip else y - LV
+    v = b.rect(x + L1, vy, w, LV, seed=s + 2, kind="corridor")
+    cy = y + w + LV if flip else y - LV - w
+    c2 = b.rect(x + L1, cy, w, w, seed=s + 3, kind="corridor")
+    h2 = b.rect(x + L1 + w, cy, L2, w, seed=s + 4, kind="corridor")
+    b.connect(h1, 2, c1, 0)
+    if flip:
+        b.connect(c1, 1, v, 3)      # corner S -> shaft N (going down)
+        b.connect(v, 1, c2, 3)
+    else:
+        b.connect(c1, 3, v, 1)      # corner N -> shaft S (going up)
+        b.connect(v, 3, c2, 1)
+    b.connect(c2, 2, h2, 0)
+    b.light(h1, (x + L1 / 2, y + w / 2),
             color=(140, 120, 120), intensity=0.55, radius=260.0)
-    return r
+    b.light(v, (x + L1 + w / 2, vy + LV / 2),
+            color=(120, 110, 130), intensity=0.5, radius=240.0)
+    b.light(h2, (x + L1 + w + L2 / 2, cy + w / 2),
+            color=(140, 120, 120), intensity=0.55, radius=260.0)
+    return h1, h2, list(range(n0, len(b.data["rooms"])))
 
 
 def boss_donut(b, ox, oy, protected):
@@ -400,7 +433,8 @@ def boss_donut(b, ox, oy, protected):
                ((0, 1), (0.5, 0.35)), ((2, 0), (0.5, 0.6))]
     for (r, c), (fx, fy) in wardens:
         b.entity(cells[(r, c)], "warden",
-                 (ox + c * CELL + fx * CELL, oy + r * CELL + fy * CELL))
+                 (ox + c * CELL + fx * CELL, oy + r * CELL + fy * CELL),
+                 tether=1)
     for (r, c) in ((0, 2), (2, 0), (0, 1), (2, 1)):
         b.entity(cells[(r, c)], "spitter",
                  (ox + c * CELL + CELL * 0.3, oy + r * CELL + CELL * 0.6))
@@ -441,9 +475,9 @@ def boss_cross(b, ox, oy, protected):
     b.connect(cx, 1, arm_s, 3)
     b.light(cx, (ox + CELL / 2, oy + CELL / 2),
             color=(190, 140, 140), intensity=0.8, radius=240.0)
-    b.entity(arm_n, "warden", (ox + CELL / 2, oy - 550))
-    b.entity(arm_s, "warden", (ox + CELL / 2, oy + CELL + 550))
-    b.entity(cx, "warden", (ox + CELL / 2, oy + CELL / 2))
+    b.entity(arm_n, "warden", (ox + CELL / 2, oy - 550), tether=1)
+    b.entity(arm_s, "warden", (ox + CELL / 2, oy + CELL + 550), tether=1)
+    b.entity(cx, "warden", (ox + CELL / 2, oy + CELL / 2), tether=1)
     for k in range(2):
         b.entity(cx, "brute", (ox + 40 + k * 140, oy + CELL * 0.25))
     for k in range(5):
@@ -481,9 +515,9 @@ def boss_ring(b, ox, oy, protected):
         y = oy + (W / 2 if i % 2 == 0 else 300 + L / 2)
         b.light(s, (x, y), color=(150, 130, 180), intensity=0.6,
                 radius=220.0)
-    b.entity(segs[1], "warden", (ox + 500 + W / 2, oy + 300 + L * 0.5))
-    b.entity(segs[3], "warden", (ox + 1500 + W / 2, oy + 300 + L * 0.5))
-    b.entity(segs[4], "warden", (ox + 2000 + W / 2, oy + 300 + L * 0.5))
+    b.entity(segs[1], "warden", (ox + 500 + W / 2, oy + 300 + L * 0.5), tether=1)
+    b.entity(segs[3], "warden", (ox + 1500 + W / 2, oy + 300 + L * 0.5), tether=1)
+    b.entity(segs[4], "warden", (ox + 2000 + W / 2, oy + 300 + L * 0.5), tether=1)
     b.entity(segs[0], "flicker", (ox + L * 0.7, oy + W * 0.5))
     b.entity(segs[2], "shrieker", (ox + 1000 + L * 0.5, oy + W / 2))
     for k in range(4):
@@ -531,16 +565,16 @@ def boss_dark(b, ox, oy, protected):
             intensity=0.5, radius=120.0)
     b.light(chap_r, (ox + 375, oy - 100), color=(120, 90, 60),
             intensity=0.5, radius=120.0)
-    b.entity(hall_l, "warden", (ox + 125, oy + 150))
-    b.entity(hall_r, "warden", (ox + 375, oy + 150))
-    b.entity(chap_r, "warden", (ox + 375, oy - 100))
+    b.entity(hall_l, "warden", (ox + 125, oy + 150), tether=1)
+    b.entity(hall_r, "warden", (ox + 375, oy + 150), tether=1)
+    b.entity(chap_r, "warden", (ox + 375, oy - 100), tether=1)
     for k in range(6):
         r = (hall_l, hall_r, chap_l)[k % 3]
         xs = (ox + 60 + (k * 67) % 380, oy + 40 + (k * 53) % 220)
         b.entity(r, "flicker", xs)
     b.entity(chap_l, "shrieker", (ox + 60, oy - 60))
     b.entity(hall_r, "spitter", (ox + 420, oy + 60))
-    b.entity(vest, "warden", (ox - 150, oy + 150))
+    b.entity(vest, "warden", (ox - 150, oy + 150), tether=1)
     b.entity(hall_l, "spitter", (ox + 60, oy + 250))
     protected.add(vest)
     protected.add(out)
@@ -557,16 +591,18 @@ def splice_boss(b, i, prev_room, prev_edge, protected, boss_rooms):
     oy = BAND_Y - 25000.0 - i * 9000.0
     ox = i * 11000.0
     n0 = len(b.data["rooms"])
-    cin = _boss_corridor(b, ox - BOSS_CORRIDOR - 400, oy + 60)
-    protected.add(cin)
-    b.connect(prev_room, prev_edge, cin, 0)
+    cin_a, cin_b, cin_ids = _boss_hall(b, ox - 2400, oy + 60,
+                                       flip=(i % 2 == 0))
+    protected.update(cin_ids)
+    b.connect(prev_room, prev_edge, cin_a, 0)
     entry, e_in, exit_, e_out = BOSSES[i](b, ox, oy, protected)
-    b.connect(cin, 2, entry, e_in)
-    cout = _boss_corridor(b, ox + 2600, oy + 60)
-    protected.add(cout)
-    b.connect(exit_, e_out, cout, 0)
+    b.connect(cin_b, 2, entry, e_in)
+    cout_a, cout_b, cout_ids = _boss_hall(b, ox + 2600, oy + 60,
+                                          flip=(i % 2 == 1))
+    protected.update(cout_ids)
+    b.connect(exit_, e_out, cout_a, 0)
     boss_rooms[i] = list(range(n0, len(b.data["rooms"])))
-    return cout, 2
+    return cout_b, 2
 
 
 def build(n_total: int, min_sep: float, seed: int):

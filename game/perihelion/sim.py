@@ -91,10 +91,13 @@ ENEMIES: dict[str, dict] = {
     "shrieker": dict(hp=10, radius=7.0, mass=0.8, accel=520.0, fric=3.4, touch_dmg=0,
                      touch_cd=60, alert_snd="shrieker_scream", die_snd="enemy_die_mite",
                      scream_cd=60 * 5, score=3),
-    "warden": dict(hp=300, radius=16.0, mass=12.0, accel=330.0, fric=2.4, touch_dmg=30,
+    "warden": dict(hp=520, radius=16.0, mass=12.0, accel=330.0, fric=2.4, touch_dmg=30,
                    touch_cd=48, alert_snd="shrieker_scream", die_snd="enemy_die_brute",
                    spit_cd=70, spit_speed=460.0, spit_dmg=13, keep_min=0.0,
                    keep_max=100.0, score=25),
+    # ^ boss hp 300->520 (2026-07-18): the fight must LAST — the music's
+    #   danger signal is one-bar low-passed, and a warden bursted down
+    #   in seconds never lifts STALWART to the boss lines.
     # Adversary-lane ambush predator (director's directive, 2026-07-13):
     # "add an enemy that deliberately keeps to the shadows until the
     # player gets close, then ambushes." Named for the sensor-trace
@@ -174,6 +177,16 @@ SHOP: dict[str, dict] = {
     "ammo_shell": dict(cost=3, label="SHELLS x7", ammo=("shell", 7)),
     "ammo_cell": dict(cost=4, label="CELLS x8", ammo=("cell", 8)),
 }
+
+# the warden's brood: adds called when the boss fight is truly JOINED
+# (player co-room), and again at enrage. Their trash danger-weights are
+# small on their own — the brood's job is melee crowd mass + damage
+# pressure, which is what carries STALWART over the 0.88 boss-music
+# line alongside the warden's 20 (director 2026-07-18: bosses must
+# actually trigger the boss threshold).
+WARDEN_ADDS_ENGAGE = ("mite", "mite", "mite", "husk", "husk", "mite")
+WARDEN_ADDS_ENRAGE = ("mite", "mite", "mite", "husk", "husk",
+                      "mite", "shrieker")
 
 DROP_TABLES = {
     "husk": [(0.35, "ammo_9mm"), (0.08, "medkit")],
@@ -1078,6 +1091,19 @@ class GameSession:
                 (r, e + 2 if r == room and e > edge else e)
                 for (r, e) in self.cloister["links"]]
 
+    def _boss_adds(self, room: int, ex: float, ey: float, kinds) -> None:
+        """Spawn the warden's brood in a ring around it, already
+        hunting (the vigil director's spawn-and-force-hunt pattern)."""
+        n = len(kinds)
+        for i, kind in enumerate(kinds):
+            a = i * 2.0 * math.pi / n
+            eid = self.spawn_enemy(
+                room, (ex + 62.0 * math.cos(a), ey + 62.0 * math.sin(a)),
+                kind)
+            self.enemies[eid]["state"] = "hunt"
+        self._snd("shrieker_scream", room, (ex, ey), 0.8)
+        self.fx.append(("scream", room, ex, ey))
+
     # ------------------------------------------------------------------
     # the vigil: the wave director. Things still come through. They are met.
     # ------------------------------------------------------------------
@@ -1590,6 +1616,19 @@ class GameSession:
                     e["buff"] = 10 ** 9
                     self._snd("shrieker_scream", room, (ex, ey), 1.0)
                     self.fx.append(("scream", room, ex, ey))
+                # the brood: once when the duel is joined co-room,
+                # once more at enrage — a lone kited warden reads
+                # danger 20 (stalwart .69), under every boss-music
+                # line; the brood makes a boss fight a boss FIGHT
+                if kind == "warden" and room == proom:
+                    if not e.get("adds1"):
+                        e["adds1"] = True
+                        self._boss_adds(room, ex, ey,
+                                        WARDEN_ADDS_ENGAGE)
+                    elif e.get("enraged") and not e.get("adds2"):
+                        e["adds2"] = True
+                        self._boss_adds(room, ex, ey,
+                                        WARDEN_ADDS_ENRAGE)
                 keep_min = d.get("keep_min")
                 if keep_min is not None and d.get("spit_cd") is not None:
                     # ranged: hold the band, spit on cooldown
