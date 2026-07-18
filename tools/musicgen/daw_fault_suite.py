@@ -786,6 +786,31 @@ def f_features(app):
     assert has_note(app, "/ bar ") or has_note(app, "copied")
 
 
+@force("render modal: timeline greyed whenever nothing is playable")
+def f_render_modal(app):
+    a2 = mk_app()
+    try:
+        def strip_mean(a):
+            a.draw()
+            px = pygame.surfarray.array3d(a.screen)
+            return float(px[a.x0:a.x1,
+                            a.y_sect:a.y_sect + 10].mean())
+        ready(a2)
+        bright = strip_mean(a2)
+        a2.set_bank("album_fitest2")
+        assert a2.player.buf is None, \
+            "set_bank left the OLD score's audio playable"
+        dim = strip_mean(a2)
+        assert dim < bright * 0.75, \
+            f"timeline not greyed during re-score ({dim:.0f} vs " \
+            f"{bright:.0f})"
+        ready(a2)
+        assert a2.player.buf is not None
+        assert strip_mean(a2) > dim * 1.2, "modal did not lift"
+    finally:
+        close(a2)
+
+
 @force("addendum 38 quit-frame R spawns nothing")
 def f_quit_purity(app):
     a2 = mk_app()
@@ -817,7 +842,7 @@ def main():
               f_renamed_bank, f_bankjson_edit, f_scrub_race,
               f_overview_align, f_xfade, f_farewell, f_marks,
               f_no_taps, f_cli, f_recall, f_ab, f_end_restart,
-              f_anchor, f_features, f_quit_purity]
+              f_anchor, f_features, f_render_modal, f_quit_purity]
     for fn in forces:
         t0 = time.time()
         try:

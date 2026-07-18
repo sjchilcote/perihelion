@@ -1086,6 +1086,10 @@ class App:
         """Re-score the whole session with one bank (None = original)."""
         t = self.player.playhead()
         self.player.pause()
+        with self._lock:
+            # the old score's audio is not this timeline's truth:
+            # unplayable-until-rendered, and the modal says so
+            self.player.buf = None
         self._use = name
         self.proj = Project(self.rec, use=name)
         self._watch_dirs = self.proj.watch_dirs()
@@ -1262,8 +1266,8 @@ class App:
                 self.help_on = True
             elif ev.key == pygame.K_SPACE:
                 if self.player.buf is None:
-                    self._note("still rendering the first mix — plays "
-                               "when ready", "busy")
+                    self._note("no mix yet — playback starts when "
+                               "rendering finishes", "busy")
                 else:
                     (self.player.pause if self.player.playing
                      else self.player.play)()
@@ -1516,6 +1520,11 @@ class App:
                 self.txt(keyg[0], 50, self.rows[ln] + 13,
                          (120, 120, 135), self.small, maxw=74)
 
+        if self.player.buf is None:
+            # nothing playable: the render/err state is MODAL over a
+            # greyed timeline — a live-looking timeline with a dead
+            # SPACE read as broken (director feedback)
+            self._draw_render_modal(scr)
         self._draw_overlays(scr, proj, t, vf)
         self._draw_tooltip()
         pygame.display.flip()
@@ -1563,7 +1572,7 @@ class App:
         x = 652
         if self.player.buf is None and kind == "busy":
             el = time.time() - self.render_t0
-            s = f"rendering first mix… {el:.0f}s"
+            s = f"{self.status} {el:.0f}s"
             if self.est_render:
                 frac = min(1.0, el / self.est_render)
                 s += f" ({frac * 100:.0f}%)"
@@ -1940,6 +1949,39 @@ class App:
             lx += 17
 
     # ---- overlays ---------------------------------------------------------
+    def _draw_render_modal(self, scr):
+        """No playable mix (first render, bank re-score, no-taps or a
+        failed first render): grey the timeline and say why, front and
+        center — the chip alone required knowing what the chip means."""
+        scr.blit(self._dim_surf(self.W, self.H - 236, 165), (0, 236))
+        box = pygame.Rect(self.W // 2 - 310, 372, 620, 96)
+        col = STATUS_COL[self.status_kind]
+        pygame.draw.rect(scr, (24, 24, 30), box)
+        pygame.draw.rect(scr, col, box, 2)
+        self.txt(self.status, box.x + 20, box.y + 14, col, self.big,
+                 maxw=box.w - 40)
+        if self.status_kind == "busy":
+            el = time.time() - self.render_t0
+            if self.est_render:
+                frac = min(1.0, el / self.est_render)
+                pygame.draw.rect(scr, (50, 50, 60),
+                                 (box.x + 20, box.y + 46,
+                                  box.w - 40, 10))
+                pygame.draw.rect(scr, col,
+                                 (box.x + 20, box.y + 46,
+                                  int((box.w - 40) * frac), 10))
+                sub = (f"{el:.0f}s of ~{self.est_render:.0f}s — "
+                       f"SPACE plays as soon as the mix is ready")
+            else:
+                sub = (f"{el:.0f}s — SPACE plays as soon as the mix "
+                       f"is ready")
+            self.txt(sub, box.x + 20, box.y + 64, (190, 190, 200),
+                     maxw=box.w - 40)
+        elif self.status_kind == "err":
+            self.txt("nothing playable until this is fixed",
+                     box.x + 20, box.y + 64, (190, 190, 200),
+                     maxw=box.w - 40)
+
     def _draw_overlays(self, scr, proj, t, vf):
         if self.video_big:
             bw, bh = self.video.size
