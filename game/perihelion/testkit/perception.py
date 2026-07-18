@@ -60,12 +60,19 @@ class PerceptionModel:
         self.latency_scale = latency_scale
         self._first_seen: dict[int, int] = {}
         self._latency: dict[int, float] = {}
+        # movement-inference state (director 2026-07-18: "the bot
+        # needs to know nothing about the internals of NPCs" — no
+        # state flags, no hp; a player sees a THING MOVING and infers)
+        self._last_obs: dict[int, tuple[int, int, float, float]] = {}
+        self._active_until: dict[int, int] = {}
 
     def _forget(self, still_present: set[int]) -> None:
         gone = [eid for eid in self._first_seen if eid not in still_present]
         for eid in gone:
             del self._first_seen[eid]
             del self._latency[eid]
+            self._last_obs.pop(eid, None)
+            self._active_until.pop(eid, None)
 
     def perceive(self, snapshot: dict, tick: int,
                  anticipated_ids: frozenset[int] = frozenset(),
@@ -102,9 +109,35 @@ class PerceptionModel:
                           else SURPRISE_LATENCY_RANGE)
                 self._latency[eid] = self.rng.uniform(lo, hi) \
                     * self.latency_scale
+            # --- observable-behavior inference (no NPC internals:
+            # director 2026-07-18). A player reads hostility off
+            # MOVEMENT: sustained speed above the idle-drift band
+            # means the thing is coming. Sticky ~2s so touch-cooldown
+            # pauses and corner slowdowns don't flap the read.
+            last = self._last_obs.get(eid)
+            ex, ey = e["pos"]
+            if last is not None:
+                lt, lroom, lx, ly = last
+                dt = tick - lt
+                if 0 < dt <= 30:
+                    if lroom != e["room"]:
+                        # crossed a room boundary — unambiguous motion
+                        self._active_until[eid] = tick + 120
+                    else:
+                        dx, dy = ex - lx, ey - ly
+                        speed = (dx * dx + dy * dy) ** 0.5 / dt * TICK_HZ
+                        if speed > 45.0:
+                            self._active_until[eid] = tick + 120
+            self._last_obs[eid] = (tick, e["room"], ex, ey)
+
             elapsed = (tick - self._first_seen[eid]) / TICK_HZ
             if elapsed >= self._latency[eid]:
-                visible.append(e)
+                # sanitized view: id, kind, place, and the inferred
+                # activity read — never state flags, never hp
+                visible.append(dict(
+                    id=eid, kind=e.get("kind"), room=e["room"],
+                    pos=e["pos"], hops=e.get("hops"),
+                    active=tick < self._active_until.get(eid, 0)))
         return visible
 
     def ticks_perceivable(self, eid: int, tick: int) -> int:

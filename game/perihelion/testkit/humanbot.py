@@ -41,7 +41,7 @@ from random import Random
 
 import necore
 
-from ..sim import (ENEMIES, WARDEN_ENRAGE_HP, WEAPONS, GameSession,
+from ..sim import (ENEMIES, WEAPONS, GameSession,
                    InputFrame, WEAPON_ORDER)
 from .bots import (Bot, _UnstickMixin, _dist, _norm, choose_weapon,
                     nav_to_point)
@@ -356,7 +356,7 @@ class HumanBot(_UnstickMixin, Bot):
                     adj_xf[portal[0]] = xf
         for e in distant:
             xf = adj_xf.get(e["room"])
-            if xf is None or e.get("state") not in ("hunt", "waking"):
+            if xf is None or not e.get("active"):
                 continue
             lx, ly = necore.mat_apply(xf, *e["pos"])
             if math.hypot(lx - px, ly - py) < 260.0:
@@ -380,14 +380,14 @@ class HumanBot(_UnstickMixin, Bot):
                 int(snapshot["hp"]))
         self._threats_total = sum(
             1 for e in co_room + distant
-            if e.get("state") in ("hunt", "waking"))
+            if e.get("active"))
         # wind the listening clock: live threats now = no quiet
         # crossing of a blind waist for the next 5s (sound-pull
         # arrivals are en route)
         if self._threats_total > 0:
             self._listen_t = tick + 300
         self._warden_hunting = any(
-            e.get("kind") == "warden" and e.get("state") == "hunt"
+            e.get("kind") == "warden" and e.get("active")
             for e in co_room + distant)
 
         # ---- motor-schema arbitration (BBR/Arkin; director's order:
@@ -400,7 +400,7 @@ class HumanBot(_UnstickMixin, Bot):
         self._retreat_gain_update(session, snapshot, tick)
         rg = self._retreat_gain
         n_co_hunt = sum(1 for e in co_room
-                        if e.get("state") in ("hunt", "waking"))
+                        if e.get("active"))
 
         fight_vec = (0.0, 0.0)
         fight_gain = 0.0
@@ -442,7 +442,7 @@ class HumanBot(_UnstickMixin, Bot):
                 # rooms stay asleep.
                 cand = [visible_screens[e["id"]] for e in distant
                         if e["id"] in visible_screens
-                        and e.get("state") in ("hunt", "waking")]
+                        and e.get("active")]
                 if cand:
                     tx_, ty_ = min(cand, key=lambda s: math.hypot(
                         s[0] - pax, s[1] - pay))
@@ -452,7 +452,8 @@ class HumanBot(_UnstickMixin, Bot):
                     mouse = self._ensure_mouse(tx_, ty_)
                     inp.ax, inp.ay = mouse.step(tx_, ty_, 1.0 / 60.0)
                     inp.fire = True
-                    want = choose_weapon(snapshot, dist_est, len(distant))
+                    want = choose_weapon(dict(snapshot, enemies=distant),
+                                         dist_est, len(distant))
                     cur = WEAPON_ORDER.index(snapshot["weapon"]) + 1 \
                         if snapshot["weapon"] in WEAPON_ORDER else 0
                     self._weapon_want_ticks = \
@@ -497,7 +498,7 @@ class HumanBot(_UnstickMixin, Bot):
         # timed out in a withdraw/re-enter siege cycle)
         duel = any(e.get("kind") == "warden" for e in co_room) and \
             sum(1 for e in co_room if e.get("kind") != "warden"
-                and e.get("state") in ("hunt", "waking")) <= 1
+                and e.get("active")) <= 1
         hp_line = 40 if duel else 65
         # live pursuit gates the trigger; tethered wardens are
         # excluded from "pursuit" (a visible boss door kept wounded
@@ -510,7 +511,7 @@ class HumanBot(_UnstickMixin, Bot):
         # form that measured 34%/2.6-trigger clears). n=64 decides.
         if os.environ.get("BOT_FUNNEL_FORM", "co") == "dist":
             live_threat = n_co_hunt >= 1 or any(
-                e.get("state") in ("hunt", "waking")
+                e.get("active")
                 and e.get("kind") != "warden" for e in distant)
             trig = live_threat and (snapshot["hp"] < hp_line
                                     or n_co_hunt >= 5)
@@ -527,7 +528,7 @@ class HumanBot(_UnstickMixin, Bot):
         # are the engulfment), because the withdrawal target is a
         # choke that strings them single-file, not open-field flight
         trig = trig or (any(e.get("kind") == "warden"
-                            and e.get("state") == "hunt"
+                            and e.get("active")
                             for e in co_room)
                         and n_co_hunt >= 4)
         # FIRST-SIGHT RECOIL (single-pull doctrine): compound wardens
@@ -568,14 +569,14 @@ class HumanBot(_UnstickMixin, Bot):
         # the portal-plane deaths
         n_pursuit = n_co_hunt + sum(
             1 for e in distant
-            if e.get("state") in ("hunt", "waking"))
+            if e.get("active"))
         # a warden PAIR keeps the withdrawal latched the whole way to
         # the guns — two same-speed anchors cannot be killed in a bare
         # corridor kite (double-pull deaths, rounds 16-18); the sentry
         # field can (3x18dmg ~= a warden per 7s of field time)
         n_ward_hunt = sum(1 for e in co_room + distant
                           if e.get("kind") == "warden"
-                          and e.get("state") in ("hunt", "waking"))
+                          and e.get("active"))
         if (trig or (self._funnel_hold > 0
                      and (n_pursuit >= 5 or n_ward_hunt >= 2))) \
                 and self._escape_ticks == 0 and trail:
@@ -603,7 +604,7 @@ class HumanBot(_UnstickMixin, Bot):
             # preferring walked ground.
             occ: dict[int, int] = {}
             for e in distant:
-                if e.get("state") in ("hunt", "waking"):
+                if e.get("active"):
                     occ[e["room"]] = occ.get(e["room"], 0) + 1
             fdest = trail[-1]
             if occ.get(fdest, 0) >= 2:
@@ -664,7 +665,7 @@ class HumanBot(_UnstickMixin, Bot):
         # one hunter on screen and the bot toured the gauntlet shooting
         # over its shoulder: 19 kills in 200s)
         n_dist_hunt = sum(1 for e in distant
-                          if e.get("state") in ("hunt", "waking"))
+                          if e.get("active"))
         # damping counts EVERY perceived co-room enemy: aggro-only is
         # the retreat rule, not license to stroll past a fight plinking
         # idle targets on the move (that leak re-created run-past)
@@ -693,7 +694,7 @@ class HumanBot(_UnstickMixin, Bot):
         # multi-warden death). The pulled anchor gets finished first;
         # the objective can wait the ~20s that takes.
         if any(e.get("kind") == "warden"
-               and e.get("state") in ("hunt", "waking")
+               and e.get("active")
                and 0 <= e.get("hops", 9) <= 3
                for e in co_room + distant):
             adv_gain = min(adv_gain, 0.02)
@@ -932,7 +933,7 @@ class HumanBot(_UnstickMixin, Bot):
         wrx = wry = 0.0
         for e in co_room:
             if e.get("kind") != "warden" or \
-                    e.get("state") not in ("hunt", "waking"):
+                    not e.get("active"):
                 continue
             d = _dist(e["pos"], (px, py))
             if d < 350.0:
@@ -1017,7 +1018,7 @@ class HumanBot(_UnstickMixin, Bot):
         if len(self._pos_ring) > 18:
             self._pos_ring.pop(0)
         vis_hunters = [e for e in distant
-                       if e.get("state") in ("hunt", "waking")
+                       if e.get("active")
                        and e["id"] in visible_screens]
         threat_present = bool(co_room) or bool(vis_hunters)
         if threat_present and len(self._pos_ring) >= 18 and \
@@ -1737,19 +1738,19 @@ class HumanBot(_UnstickMixin, Bot):
         # non-warden hunters inside 200u, the boss is a live target.
         press = sum(1 for e in perceived
                     if e.get("kind") != "warden"
-                    and e.get("state") in ("hunt", "waking")
+                    and e.get("active")
                     and _dist(e["pos"], (px, py)) < 200.0)
         # ...and a warden inside 140u is ALWAYS live: that close it is
         # spitting into our face — and when it's wedged in a waist it
         # is plugging its own brood's only path; that is the kill
         # window the choke doctrine exists to create
         pool = [e for e in perceived
-                if e.get("state") in ("hunt", "waking")
+                if e.get("active")
                 and (e.get("kind") != "warden" or press < 3
                      or _dist(e["pos"], (px, py)) < 140.0)]
         if not pool:
             pool = [e for e in perceived if e.get("kind") != "warden"
-                    and e.get("state") in ("hunt", "waking")]
+                    and e.get("active")]
         if not pool:
             pool = perceived
         closest = min(pool, key=lambda e: _dist(e["pos"], (px, py)))
@@ -1768,7 +1769,7 @@ class HumanBot(_UnstickMixin, Bot):
         if snapshot["weapon"] == "rail" and press < 4:
             rw = [e for e in perceived
                   if e.get("kind") == "warden"
-                  and e.get("state") in ("hunt", "waking")
+                  and e.get("active")
                   and _dist(e["pos"], (px, py)) < 420.0]
             if rw:
                 nearest = min(rw, key=lambda e: _dist(e["pos"], (px, py)))
@@ -1807,29 +1808,15 @@ class HumanBot(_UnstickMixin, Bot):
         # as some flavor of "ABSURDLY gunshy", director, three rounds
         # running.)
         inp.fire = True
-        # ENRAGE PREPARATION (Sol §3): don't shoot the warden through
-        # its half-hp line until phase two is answerable — adds down,
-        # lightning charged. Both conditions converge on their own.
-        if nearest.get("kind") == "warden":
-            whp = nearest.get("hp", 9999)
-            # nearby adds only: on the honest game some hunter is
-            # visible somewhere almost always, and counting the whole
-            # screen held warden fire in exactly the lulls that exist
-            # to be used
-            adds_alive = sum(1 for e in perceived
-                             if e.get("kind") != "warden"
-                             and e.get("state") in ("hunt", "waking")
-                             and _dist(e["pos"], (px, py)) < 160.0)
-            ready = (snapshot["lightning_ready"]
-                     or "lightning" not in snapshot["weapons"])
-            # bracket the ACTUAL enrage line (a hardcoded 50-60%
-            # window silently missed it when the line moved to 220
-            # and every enrage fired unprepared — measured -7%)
-            if WARDEN_ENRAGE_HP < whp <= WARDEN_ENRAGE_HP + 50 \
-                    and (adds_alive >= 2 or not ready):
-                inp.fire = False
+        # (The enrage-preparation gate died with the NPC-internals
+        # purge, director 2026-07-18: it read the warden's hp. The
+        # enrage roar is the diegetic cue and the bot has no ears —
+        # if it ever grows hearing, that is where the gate returns.)
 
-        want = choose_weapon(snapshot, dist, len(perceived))
+        # the weapon pick sees only what the BOT sees (no omniscient
+        # enemy list — same ruling as state/hp)
+        want = choose_weapon(dict(snapshot, enemies=perceived),
+                             dist, len(perceived))
         # the lightning cannon IS the crowd-control answer (director):
         # when a wave is stacked and the implant is charged, pull it out
         # and dump the blast -- with tau in hand, `inp.alt` charges tau
@@ -1932,7 +1919,7 @@ class HumanBot(_UnstickMixin, Bot):
                 # direction flips only when blocked (the freeze
                 # detector flips it), never on a coin — reversing
                 # into the brood's route was self-encirclement
-        elif nearest.get("state") in ("idle", "waking") and \
+        elif not nearest.get("active") and \
                 snapshot["hp"] >= 30:
             # an idle OR still-waking target is free damage: plant your
             # feet and delete it -- backpedal/kite footwork here walked
@@ -1970,7 +1957,7 @@ class HumanBot(_UnstickMixin, Bot):
             # melee enemy meets it at combined speed, at contact, mid
             # sight-settle). A hunting melee kind gets held at range:
             # stand and shoot, give ground slowly, let it cross the gun.
-            charging = (nearest.get("state") in ("hunt", "waking") and
+            charging = (nearest.get("active") and
                         nearest.get("kind") in
                         ("husk", "mite", "brute", "flicker", "warden"))
             if charging:
