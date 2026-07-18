@@ -146,11 +146,16 @@ def main(bank_dir: Path) -> int:
                 warn(f"prayer_tail: {len(x)/SR:.2f}s, expected exactly "
                      f"one bar ({n_bar/SR:.2f}s)")
             continue
-        # form-wide stems: exact grid length (n) or n + tail bar
-        if abs(len(x) - n) > 0.005 * n and \
-                abs(len(x) - (n + n_bar)) > 0.005 * n:
-            err(f"{name}: {len(x)} samples; form is {n} "
-                f"(or {n + n_bar} with the §5.6 tail bar)")
+        # form-wide stems: exact form length (the artist loop-folds the
+        # tail into bar 0 themselves -- MUSIC_AUTHORING.md §2.2)
+        if abs(len(x) - (n + n_bar)) <= 0.005 * n:
+            warn(f"{name}: delivered with a +1-bar tail ({len(x)} "
+                 f"samples). Fold the tail into bar 0 and trim to "
+                 f"{n} (§2.2); the build can fold it for you, but "
+                 f"form-length is the contract")
+        elif abs(len(x) - n) > 0.005 * n:
+            err(f"{name}: {len(x)} samples; the form is exactly {n} "
+                f"({meta.n_bars} bars x {meta.bar_s:.4f}s at 44100)")
             continue
         db = _bar_db(x[:n], n_bar, meta.n_bars)
         runs = _silent_runs(db)

@@ -3,21 +3,26 @@
 For the composer. No game-dev or code knowledge is assumed; music theory
 is. This reads top-down like a tree walk: the job, then what the job
 requires, then what *those* require, until it bottoms out in exactly which
-audio goes in which file. Numbers in here are the real constants the
-machine enforces, not vibes.
+audio goes in which file. Exact numbers in here are the real constants
+the machine enforces; anything marked "~" is a creative target, not a
+check.
 
 ---
 
 ## 0. The brief
 
 **Write a track the game can perform.** PERIHELION's music is not a
-looping soundtrack — the game holds your track on three invisible faders
-and an arranger (a piece of software, not a person — it re-orders your
-form live), and *plays* it, following the fight. Concretely, the game:
+looping soundtrack — the game holds your track on a rack of faders
+driven by three continuously-computed state values, plus an arranger (a
+piece of software, not a person — it re-orders your form live), and
+*plays* it, following the fight. Concretely, the game:
 
-- runs **all your stems at once**, sample-locked (one shared
-  sample-accurate transport; every stem stays phase-aligned forever),
-  and rides their levels continuously. Game audio calls this *vertical
+- runs your stems on **one shared sample-accurate transport** (every
+  stem stays phase-aligned forever) and rides their levels
+  continuously. Not every file sounds at once — families like the ten
+  leads or seven basses are *variants*, with one (sometimes two)
+  selected at a time; what's always true is that whatever sounds is
+  locked to the same grid. Game audio calls the level-riding *vertical
   remixing*: the piece gets more or less intense by re-balancing
   simultaneous layers of itself, never by switching tracks;
 - **rearranges the form** on bar lines — loops your calm section while the
@@ -75,7 +80,7 @@ uv run python tools/musicgen/check_bank.py out/banks/album_<yourtrack>
       │  errors? fix and re-bounce (each error names the file + bars)
       ▼
 audition:  daw.py   — your bank driven by a real full playthrough
-           instrument.py — you drive the three faders by hand
+           instrument.py — you drive the three values by hand
       │  overwrite a stem file → the tools re-mix in ~1s → listen again
       ▼
 deliver (the folder is the deliverable)
@@ -128,10 +133,25 @@ treats each type differently, so each has a job:
 
 Two structural rules, because the arranger cuts on bar lines:
 
-- **Every section must work as a loop** — the arranger will repeat any of
-  them indefinitely.
+- **Every section must work as a loop** — including connective ones:
+  while the mix is exhaling after a fight, the arranger holds position
+  by looping whatever section it happens to be in.
 - **Every section-start bar must work as a cold arrival** from anywhere in
   the form. Section starts are the only landing points of jumps.
+
+**Effects are part of the seam.** Your stems are continuous renders, so
+every bar carries whatever baked reverb, delay, distortion ring-out, and
+compressor state the *original* previous bar produced. At a jump, the
+destination bar arrives with that printed context but without its
+cause; at a loop, the outgoing bar's tail is simply cut (drums) or
+crossed (sustained material). So: don't let a section-start bar lean on
+a distinctive tail from the bar that precedes it in the linear render,
+keep baked tails harmonically neutral enough to survive any legal
+arrival, and avoid exposed delay patterns that give away the original
+predecessor. The audition tools (§5.2–5.3), not a linear DAW
+playthrough, are the authority on every seam — audition each section's
+self-loop and each section-start as a cold arrival, with your wettest
+stems soloed.
 
 ### 1.2 The grid
 
@@ -160,12 +180,28 @@ Renaissance cantus-firmus mass technique (Josquin's *Missa L'homme armé*
 is literally our reference class) applied to industrial metal.
 
 This is not a style handcuff — it is **the reason the dynamic mixing
-works**. The game will play arbitrary vertical subsets of your stems at
-arbitrary balances, and any subset must still sound like the piece.
-Deriving every part from common material is the known way to get that
-property. However you achieve it: **any combination of your stems, at any
-levels, must be coherent.** Audit your own mix in your DAW by soloing
-random subsets — that's precisely what the game will do to it.
+works**. The game plays changing vertical subsets of your stems at
+changing balances, and every subset it can produce must still sound
+like the piece. Deriving every part from common material is the known
+way to get that property. To be precise about what "every subset"
+means — you do NOT have to make mutually exclusive variants stack (all
+four beds, all seven basses); the combinations the runtime can actually
+produce are:
+
+- chant + one bed: the permanent foundation, alone in deep calm;
+- wall (`stalwart`) and groove (`contempt`), separately or together, at
+  any levels, over that foundation;
+- one drum kit (ordinary *or* boss) with any of the above;
+- one weapon lead — or two overlapping during a weapon switch;
+- one enemy bass at a time;
+- `overlay_boss` joining the full pile at boss tier, chant at war-chant
+  force on top;
+- any of §3's one-shots over the matching context.
+
+Audit those reachable combinations in your DAW at low, medium, and high
+relative levels — and the full boss pile for density. The M/S buttons
+in the session DAW (§5.2) replay the *actual* combinations from a real
+run, which is the final word.
 
 Source melodies so far are public-domain plainchant and hymnody, which
 also keeps licensing trivial (§5.4). Picking the next melody is a
@@ -195,8 +231,11 @@ exposure earns it the strictest rules in this document:
   banks do this), overlapping phrase entries, choir sustains under the
   soloist's breaths.
 - **Write the stresses onto chord tones of every harmony they can meet.**
-  The form gets reordered under the voice; its counterpoint must survive
-  the reordering.
+  The whole ensemble jumps together (one transport), but the seam
+  machinery lets the voice's outgoing phrase ring across a jump into
+  the destination's harmony — and a phrase written at bar 8 will be
+  *arrived at* from many different predecessors. Its counterpoint must
+  survive every legal arrival.
 - **The war chant**: at maximum danger the chant comes back *in full
   force over the boss mix* — a defiant, equal voice against your own peak
   section (capped just below the band; it rides with, never over). To be
@@ -211,9 +250,14 @@ A note on the singer: the shipped chants are **synthesized voices**
 library to match, and you are not expected to clone the existing
 timbre. A new bank may establish its own vocal color, provided it sits
 in the same register and liturgical character; the director's ear is
-the arbiter. A sample-library or synthesized choir is a fully
-acceptable delivery; a real singer is welcome but not expected. Decide
-with the director before budgeting session time. On **text**: the
+the arbiter — match the register you hear in `album_dies_irae`'s
+`prayer.wav`, don't guess one. A sample-library or synthesized choir is
+a fully acceptable delivery; a real singer is welcome but not expected.
+Decide with the director before budgeting session time, and **send a
+short vocal proof (eight bars is plenty) for approval before building
+the whole bank around a voice** — vocal color is the most salient
+choice in the piece and the cheapest one to re-decide early. On
+**text**: the
 shipped voices sing vowel streams shaped by the source chant's own
 syllabification — intelligible Latin is not required. Setting the
 source's liturgical text (public domain) or writing wordless vocalise
@@ -281,9 +325,14 @@ Every file, its musical role, and when the game opens its fader.
 | The five one-shots | §3. | Scheduled moments. |
 | **`bank.json`** | §4. | — |
 
-A missing optional stem doesn't break anything — its fader just opens
-onto silence (a missing `lead_rail.wav` = no lead during rail fights).
-Treat the full sheet as the deliverable.
+**Runtime optionality is not delivery optionality.** The game *loads* a
+bank with files missing — a missing stem's fader just opens onto
+silence (no `lead_rail.wav` = no lead during rail fights) — but the
+complete contracted deliverable is the full sheet: **27 form stems
+(1 prayer + 4 beds + stalwart + contempt + 2 kits + 10 leads + 7 basses
++ overlay_boss), the 5 one-shots of §3, and `bank.json`** — 33 files.
+Anything short of that needs the director's OK in writing, or it's an
+incomplete delivery that happens to load.
 
 **Who and what these names are** (so the re-voicings and cells have
 character to aim at, not bare nouns):
@@ -315,43 +364,60 @@ The seven enemy species, for the bass cells —
 | `warden` | The boss. A 300-hp sentinel that lives only in boss rooms — crushing melee plus ranged fire. Its cell is boss-fight bass. |
 | `flicker` | Ambush predator: near-invisible lurker that explodes into a burst-lunge at close range. Dread, then violence. |
 
-The ten leads and seven basses are seventeen mechanical re-renders of two
-musical ideas (one line, seven cells). Author the ideas; if re-voicing
-seventeen renders by hand is a poor use of your time, deliver the lead
-line and bass cells as **standard MIDI files at the declared bpm (plus a
-tempo-map note if your meter uses a grid-fiction bpm, §1.2) with one
-rendered reference of each idea**, tracks named for their target files,
-and we'll batch the rest — your call.
+The ten leads and seven basses re-render two musical ideas (one line,
+seven cells) seventeen times — mechanical as *notes*, though designing
+seventeen weapon/species timbres that blend is real sound-design work;
+budget for it either way. If rendering them all yourself is a poor use
+of your time, there is an **alternative handoff route (director-approved
+first)**: deliver full-form standard MIDI at the declared bpm (one
+track per target filename; note the real tempo in `NOTES.md` if you
+used a grid-fiction bpm, §1.2), one rendered full-form reference per
+idea, and patch/articulation notes for each timbre you designed — we
+batch the seventeen renders and return them **for your musical
+approval**. Either way the bank is complete only when the rendered
+WAVs are in the folder and it passes the checker; MIDI alone is not a
+deliverable.
 
 ### 2.2 Rules for every stem
 
 These are enforced by the pre-flight checker (§5.1); numbers are exact.
 
-- **Format**: WAV, 44,100 Hz, 16- or 24-bit, stereo. (We transcode for
-  shipping; you never deliver lossy.)
-- **Length**: every form stem in the bank must be *sample-identical* in
-  length: `bars × (240/bpm) × 44100` samples. The slicer cuts all stems
-  on one shared grid; a stem one bar short gets sliced wrong, not
-  rejected.
-- **The tail bar** (recommended): render each form stem **one bar past
-  the form end** so the final release/ring exists, and deliver that
-  form+1-bar file. The build folds the extra bar into bar 0 (level-capped
-  so bar 0 doesn't bloat), which is what makes loop-wraps ring instead of
-  chopping. Deliver exactly form-length and it still works, just drier at
-  the wrap. Exception: `prayer` — never bake its tail; it ships
-  separately as `prayer_tail.wav` (§3), because a baked vocal tail plays
-  a phantom second singer whenever the arranger jumps to bar 0 mid-form.
+- **Format**: WAV, 44,100 Hz, 16- or 24-bit **integer PCM**, interleaved
+  stereo (no floating-point WAVs). We transcode for shipping; you never
+  deliver lossy.
+- **Length — one number for the whole bank**: every form stem is
+  delivered at **exactly the same sample length: the form's duration**,
+  `bars × (240/bpm) × 44100` samples (round to the nearest sample; a
+  few samples of rounding slack are tolerated, whole bars are not). Run
+  the checker (§5.1) on your first bounce — it prints the exact count
+  it expects for your bpm/bars, and rejects any other length.
+- **Loop-fold your own tails.** Render each stem one bar past the form
+  end in your DAW *project* so the final release/ring exists — then
+  **fold that overhang into bar 0 yourself** (the classic loopable-render
+  bounce: sum the overhang bar onto the first bar, trim to form length).
+  The fold is what makes form-wraps ring instead of chopping. Two rules
+  for folded material: it must be **release/ring only** — no new note
+  onsets, drum hits, or rhythmic delay repeats, because bar 0 also
+  plays at cold starts and jump landings where that "tail" had no
+  cause — and keep it subtle (bar 0 at most ~1 dB louder than the
+  stem's typical bar). **Exception: `prayer` — never fold the vocal.**
+  Its wrap release ships separately as `prayer_tail.wav` (§3), because
+  a baked vocal tail plays a phantom second singer on every jump home.
   A doubled pad release is inaudible; a doubled monk is not.
 - **No DC offset**: high-pass at 10 Hz if your chain emits any (some FM
   patches do). The machine steps faders on bar lines, and a DC pedestal
   turns every step into an audible click. Residual DC above 0.003
   (full-scale = 1) fails the check. 10 Hz leaves 40 Hz sub untouched.
-- Peak below full scale; exact peak level is not critical (relative
-  balance is — §1.5).
-- **Stereo image**: no hard rule; deliver stereo and match the
-  reference bank's widths by ear per role (beds/walls wide, voice and
-  bass centered, kit natural). The game does no panning of its own —
-  what you print is the image.
+- **Levels**: peak below full scale, and **never peak-normalize
+  individual stems** — relative balance between stems is the
+  composition (§1.5) and normalization destroys it. There is no output
+  limiter in the game: the safety test is the densest boss moment in
+  the session DAW (§5.2), which lights a red CLIP indicator if the
+  summed mix exceeds full scale. Bounce with plugin delay compensation
+  on, so nothing lands late against the grid.
+- **Stereo image**: no hard rule; match the reference bank's widths by
+  ear per role (beds/walls wide, voice and bass centered, kit natural).
+  The game does no panning of its own — what you print is the image.
 
 ### 2.3 Rules for specific stems
 
@@ -390,9 +456,27 @@ These are the game's punctuation, and the standing law is: **punctuation
 must sound like part of the song, never like a sound effect laid over
 it.** Each is cut from your own palette. Own lengths (they're not on the
 form grid), and only §2.2's *format* rules apply (WAV/44.1k/stereo, no
-DC, peak headroom) — the tail-bar/fold mechanism does not: a one-shot's
+DC, peak headroom) — the fold mechanism does not: a one-shot's
 natural release simply lives inside its own file (your sting rings out
 to silence within `sting.wav`).
+
+**Timing convention** — the engine schedules these by fixed offsets
+from the START of the file, so no leading silence, ever, and bounce
+with delay compensation on:
+
+- `riser.wav`: the strike lands **exactly 2 machine bars** after sample
+  0 — the engine starts it, holds the boss jump for two bars, and lands
+  the jump on that instant. Audio may ring on after the strike; total
+  file length is not the sync point, the 2-bar mark is. Verify in the
+  session DAW: the strike must sit on the ▲ marker's downbeat.
+- `riser_half.wav`: a **self-contained ~half-bar swell**, played the
+  instant an ambush is detected; the full mix then slams in on the
+  next bar line — up to half a bar later. It bridges the gap rather
+  than sample-locking to it, so shape it to peak at its end and still
+  work if the wall arrives slightly after.
+- `sting.wav` / `stab.wav`: the attack begins **at sample 0** (they're
+  placed at their moment, not pre-rolled).
+- `prayer_tail.wav`: total length exactly one machine bar.
 
 | File | Length | What it is | When the game fires it |
 |---|---|---|---|
@@ -425,6 +509,11 @@ One small JSON file describing the form. Real example, shipped:
   their obligations: §1.1. A useful bank has at least one calm section,
   one `develop` (or `entry`), and one `peak`.
 - `melody` and `title` are labels (the title shows in our tools).
+- Alongside it, drop a **`NOTES.md`** in the bank folder for the musical
+  facts the JSON can't carry: your real tempo/meter if the bpm is a
+  grid fiction (§1.2), the final/mode (for rotation compatibility,
+  Appendix A), the vocal text choice, and anything the next person
+  touching the bank should know.
 
 ---
 
@@ -462,7 +551,7 @@ window:
 - **Video monitor**: the actual gameplay frame at the playhead, so you
   hear your music against what the player was doing.
 - **Ruler**: section colors and bank-change flags along the top.
-- **Automation lane**: the three game faders (PRAYER / CONTEMPT /
+- **Automation lane**: the three game values (PRAYER / CONTEMPT /
   STALWART — calm / winning / danger) as curves. Where they move is
   where your mix will move.
 - **Track strips**: one per stem track, showing each bar's clip and fader
@@ -490,7 +579,7 @@ uv run python tools/musicgen/instrument.py
 ```
 
 The performance view: the real in-game engine, live, with you as the
-fight. Pick your bank from the list, then drive it — the three faders
+fight. Pick your bank from the list, then drive it — the three values
 by hand (press **M** for manual), or set up an actual encounter (add
 enemies, pick the player's weapon, fire on the beat) and let the game's
 own logic move the faders. This is the fastest way to *feel* the rules
@@ -503,7 +592,7 @@ the peak jump; drop it and hear your sting resolve the fight; press
 - The folder is the deliverable: all stems + one-shots + `bank.json`,
   passing check_bank, auditioned by you in the session DAW.
 - After delivery we run it through the build (which re-verifies
-  everything, folds tails, transcodes) and render real recorded
+  everything, transcodes) and render real recorded
   gameplay with it; final sign-off is the director's ear on those
   sessions. Expect timestamped feedback against the same winning run
   you auditioned.
@@ -625,14 +714,14 @@ Things worth soloing:
 | fader | A track's level, ridden by the game as a formula of the three values. |
 | section | A typed span of bars in your form (`vigil`, `develop`, `peak`…). |
 | arranger / steering | The game relocating the playhead between sections on bar lines. |
-| PRAYER / CONTEMPT / STALWART | The three game faders: calm / dealing damage / being hunted. |
+| PRAYER / CONTEMPT / STALWART | The three state values (calm / dealing damage / being hunted) that drive every fader. |
 | through-line | Material that never stops: the chant and the bed. |
 | riser · sting · stab | The punctuation one-shots (§3). |
 | the slam | Not a file: the ambush *event* — a half-bar `riser_half.wav` swell into an instant full mix (§3). |
 | war chant | The chant at full force over the boss mix at peak danger. |
 | the 2-bar rule | No texture stem below −15 dB (rel. its median bar) for 2+ bars (§2.3). |
 | bar-pair rule | A voice audibly singing in every 2-bar window of `prayer` (§1.4). |
-| tail bar / fold | The extra rendered bar of ring, folded into bar 0 (§2.2). |
+| loop-fold | Summing the form's one-bar overhang of ring into bar 0 before trimming — you do this in your DAW for every stem except `prayer` (§2.2). |
 
 Reading, if any of the concepts above are new:
 
