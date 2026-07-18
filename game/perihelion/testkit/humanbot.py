@@ -566,7 +566,7 @@ class HumanBot(_UnstickMixin, Bot):
                 # after ~25s of siege COMMIT anyway (a door-stall
                 # timed out a whole run standing here).
                 if any(e.get("kind") == "warden" for e in beyond):
-                    armed = (snapshot["hp"] >= 80
+                    armed = (snapshot["hp"] >= 90
                              and (snapshot["lightning_ready"]
                                   or "lightning"
                                   not in snapshot["weapons"]))
@@ -609,7 +609,7 @@ class HumanBot(_UnstickMixin, Bot):
             self._entry_caution = False
         if self._threshold_hold:
             self._hold_ticks += 1
-            if self._hold_ticks > 1500 and snapshot["hp"] >= 55:
+            if self._hold_ticks > 1500 and snapshot["hp"] >= 70:
                 self._hold_break = 900      # commit for 15s
                 self._hold_ticks = 0
         else:
