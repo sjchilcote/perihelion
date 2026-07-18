@@ -1111,7 +1111,10 @@ class GameSession:
                 sy += 60.0 * math.sin(away)     # player's close bubble
             eid = self.spawn_enemy(room, (sx, sy), kind)
             self.enemies[eid]["state"] = "waking"
-            self.enemies[eid]["wake"] = 40 + i * 14
+            # full Sol cadence (~5s hatch spread): the 0.7-2.8s
+            # stagger still arrived as a wall — census: 48% of deaths
+            # were this entry brawl, mite-dominated
+            self.enemies[eid]["wake"] = 40 + i * 30
             self.enemies[eid]["brood"] = True
         self._snd("shrieker_scream", room, (ex, ey), 0.8)
         self.fx.append(("scream", room, ex, ey))

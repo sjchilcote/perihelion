@@ -1133,6 +1133,19 @@ class HumanBot(_UnstickMixin, Bot):
             except Exception:
                 long_dim = 0.0
             score = n_guns * 3 - h + (3 if long_dim >= 300.0 else 0)
+            # dead-end coffin guard (2026-07-18): a one-door sentry
+            # pocket is a strongpoint against a trickle and a coffin
+            # against a fast pack (flicker-swarm deaths measured IN
+            # the alcove). Under heavy pursuit, prefer fields you can
+            # fight THROUGH.
+            try:
+                n_doors = sum(1 for p in
+                              session.sim.room_portals(r)
+                              if p is not None)
+            except Exception:
+                n_doors = 2
+            if n_doors <= 1 and self._threats_total >= 3:
+                score -= 8
             if score > best_score:
                 best, best_score = r, score
         return best
@@ -1458,7 +1471,9 @@ class HumanBot(_UnstickMixin, Bot):
         inp.alt = (snapshot["lightning_ready"]
                    and "lightning" in snapshot["weapons"]
                    and snapshot["weapon"] != "tau"
-                   and (len(perceived) >= 2 or self._threats_total >= 4))
+                   and (sum(1 for e in perceived
+                            if _dist(e["pos"], (px, py)) < 120.0) >= 3
+                        or self._threats_total >= 5))
 
         weapon_name = WEAPON_ORDER[inp.weapon - 1] if inp.weapon else snapshot["weapon"]
         ux, uy = dx / dist, dy / dist
