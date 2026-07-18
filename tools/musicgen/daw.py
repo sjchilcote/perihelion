@@ -524,7 +524,8 @@ class VideoMonitor:
         self.cache: dict = {}           # (q, mtime) -> small surf
         self.native: dict = {}          # (q, mtime) -> native surf
         self.want = None
-        self.cur = None                 # (surf, q) — frame + its time
+        self.cur = None                 # (surf, q) — SMALL frames only
+        self._up = (None, None)         # one-slot upscaled-frame cache
         self.busy_since = None
         self._fail = 0
         self._cv = threading.Condition()
@@ -563,15 +564,28 @@ class VideoMonitor:
         store = self.native if big else self.cache
         surf = store.get(key)
         if surf is not None:
-            self.cur = (surf, q)
+            if not big:
+                # the mini pane's fallback slot holds SMALL frames
+                # only — a native leaked in here once and blitted a
+                # 640x360 copy spilling out below the mini player
+                self.cur = (surf, q)
             return surf
         with self._cv:
             self.want = (q, big, self._mtime)
             self._cv.notify()
         if big:
-            small = self.cache.get(key)
-            if small is not None:       # upscale while native extracts
-                return pygame.transform.smoothscale(small, self.big_size)
+            # bridge with an upscale while the native extracts —
+            # cached per (key, source): re-scaling every draw frame
+            # made lightbox playback stutter
+            small = self.cache.get(key) or \
+                (self.cur[0] if self.cur else None)
+            if small is None:
+                return None
+            up_key = (key, id(small))
+            if self._up[0] != up_key:
+                self._up = (up_key, pygame.transform.smoothscale(
+                    small, self.big_size))
+            return self._up[1]
         return self.cur[0] if self.cur else None
 
     def _worker(self):
@@ -655,6 +669,7 @@ class App:
         self.sel = None             # selected track (keyboard M/S)
         self._hit = {}              # element -> rect, rebuilt per draw
         self._hover = (None, 0.0)   # (element, hover-start wall time)
+        self._dims = {}             # cached dim surfaces by (w, h, a)
         self.muted: set = set()
         self.solo: set = set()
         # view / loop
@@ -1362,6 +1377,16 @@ class App:
             r = (f or self.font).render(s + "…", True, c)
         target.blit(r, (x, y))
 
+    def _dim_surf(self, w, h, alpha):
+        """Reusable dim overlays: allocating + filling a full-screen
+        SRCALPHA surface EVERY frame made lightbox playback stutter."""
+        s = self._dims.get((w, h, alpha))
+        if s is None:
+            s = pygame.Surface((w, h), pygame.SRCALPHA)
+            s.fill((0, 0, 0, alpha))
+            self._dims[(w, h, alpha)] = s
+        return s
+
     def _chip(self, s, x, y, kind, hit=None, surf=None, maxw=None):
         f = self.font
         cap = min(420, maxw) if maxw is not None else 420
@@ -1402,7 +1427,11 @@ class App:
 
         self._draw_transport(scr, proj, t)
         self._draw_panel(scr, proj, t)
-        self._draw_video(scr, t)
+        if not self.video_big:
+            # the lightbox covers the mini pane; requesting small
+            # frames under it thrashed the worker's single want slot
+            # against the native extraction (audible as stutter)
+            self._draw_video(scr, t)
 
         # playhead over the static layer
         if v0 <= t <= v1:
@@ -1599,9 +1628,7 @@ class App:
                 # nature; the dim says "not current", and the counting
                 # badge is reserved for a real stall (walkthrough
                 # finding: a steady counter reads as an error)
-                dim = pygame.Surface((320, 180), pygame.SRCALPHA)
-                dim.fill((0, 0, 0, 130))
-                scr.blit(dim, (vx, vy))
+                scr.blit(self._dim_surf(320, 180, 130), (vx, vy))
             if lag > 2.5:
                 self.txt(f"video behind by {lag:.0f}s", vx + 8, vy + 8,
                          STATUS_COL["warn"])
@@ -1855,9 +1882,7 @@ class App:
             fr = self.video.request(t, big=True)
             bw, bh = self.video.big_size
             bx, by = (self.W - bw) // 2, (self.H - bh) // 2
-            dim = pygame.Surface((self.W, self.H), pygame.SRCALPHA)
-            dim.fill((0, 0, 0, 170))
-            scr.blit(dim, (0, 0))
+            scr.blit(self._dim_surf(self.W, self.H, 170), (0, 0))
             if fr is not None:
                 scr.blit(fr, (bx, by))
             pygame.draw.rect(scr, (200, 200, 210), (bx, by, bw, bh), 2)
@@ -1935,9 +1960,7 @@ class App:
         return lines
 
     def _draw_help(self, scr):
-        dim = pygame.Surface((self.W, self.H), pygame.SRCALPHA)
-        dim.fill((10, 10, 14, 225))
-        scr.blit(dim, (0, 0))
+        scr.blit(self._dim_surf(self.W, self.H, 235), (0, 0))
         self.txt("KEYS", 80, 40, (240, 220, 160), self.big)
         y = 74
         for k, desc in self.HELP_KEYS:
