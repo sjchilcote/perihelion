@@ -184,9 +184,9 @@ SHOP: dict[str, dict] = {
 # pressure, which is what carries STALWART over the 0.88 boss-music
 # line alongside the warden's 20 (director 2026-07-18: bosses must
 # actually trigger the boss threshold).
-WARDEN_ADDS_ENGAGE = ("mite", "mite", "mite", "husk", "husk", "mite")
-WARDEN_ADDS_ENRAGE = ("mite", "mite", "mite", "husk", "husk",
-                      "mite", "shrieker")
+WARDEN_ADDS_ENGAGE = ("mite", "mite", "mite", "mite", "husk",
+                      "mite", "mite", "husk", "mite", "mite")
+WARDEN_ADDS_ENRAGE = ("mite", "husk", "shrieker")
 
 DROP_TABLES = {
     "husk": [(0.35, "ammo_9mm"), (0.08, "medkit")],
@@ -1091,16 +1091,28 @@ class GameSession:
                 (r, e + 2 if r == room and e > edge else e)
                 for (r, e) in self.cloister["links"]]
 
-    def _boss_adds(self, room: int, ex: float, ey: float, kinds) -> None:
-        """Spawn the warden's brood in a ring around it, already
-        hunting (the vigil director's spawn-and-force-hunt pattern)."""
-        n = len(kinds)
+    def _boss_adds(self, room: int, ex: float, ey: float, kinds,
+                   px: float, py: float) -> None:
+        """Spawn the warden's brood as a ONE-SIDED, telegraphed wave:
+        a ring around the warden was angular enclosure — a pincer by
+        construction (measured 10/16 engulfment deaths). All spawn
+        points go in the sector BEYOND the warden from the player,
+        staggered wakes (~0.7-3s), so they arrive as a visible front
+        with the player's rear wedge empty (Sol doctrine §2.2)."""
+        away = math.atan2(ey - py, ex - px)     # player -> warden, on
+        n = max(1, len(kinds))                  # through to the far side
         for i, kind in enumerate(kinds):
-            a = i * 2.0 * math.pi / n
-            eid = self.spawn_enemy(
-                room, (ex + 62.0 * math.cos(a), ey + 62.0 * math.sin(a)),
-                kind)
-            self.enemies[eid]["state"] = "hunt"
+            spread = (-0.7 + 1.4 * i / max(1, n - 1))
+            a = away + spread
+            r = 70.0 + 25.0 * (i % 3)
+            sx, sy = ex + r * math.cos(a), ey + r * math.sin(a)
+            if math.hypot(sx - px, sy - py) < 110.0:
+                sx += 60.0 * math.cos(away)     # never inside the
+                sy += 60.0 * math.sin(away)     # player's close bubble
+            eid = self.spawn_enemy(room, (sx, sy), kind)
+            self.enemies[eid]["state"] = "waking"
+            self.enemies[eid]["wake"] = 40 + i * 14
+            self.enemies[eid]["brood"] = True
         self._snd("shrieker_scream", room, (ex, ey), 0.8)
         self.fx.append(("scream", room, ex, ey))
 
@@ -1447,8 +1459,11 @@ class GameSession:
                           "components",
                           extra=dict(amount=int(math.ceil(
                               d["score"] * self._salvage_mul))))
-        # nearby enemies hear the death
-        self.alert_enemies(room, 1)
+        # nearby enemies hear the death — except a summoned brood's:
+        # chaff called BY the fight may not punish fast accurate
+        # killing by advancing the room-alert front (Sol §4.1)
+        if not e.get("brood"):
+            self.alert_enemies(room, 1)
 
     def _damage_player(self, dmg: float, room: int):
         if self.hurt_cd > 0 or self.dead:
@@ -1579,7 +1594,8 @@ class GameSession:
             if e["groan_cd"] <= 0:
                 e["groan_cd"] = self.rng.randrange(140, 260)
                 self._snd(d["alert_snd"], room, (ex, ey), 0.35)
-            accel = d["accel"] * (1.25 if e.get("buff", 0) > 0 else 1.0)
+            accel = d["accel"] * (e.get("buff_mul", 1.25)
+                                  if e.get("buff", 0) > 0 else 1.0)
             if kind == "shrieker":
                 self._shrieker_ai(eid, e, room, proom, ex, ey, accel)
                 continue
@@ -1614,6 +1630,8 @@ class GameSession:
                         and e["hp"] < ENEMIES["warden"]["hp"] * 0.5:
                     e["enraged"] = True
                     e["buff"] = 10 ** 9
+                    e["buff_mul"] = 1.15  # 171 u/s was unkitable with
+                    #   terrain; 158 keeps terror, permits play (Sol)
                     self._snd("shrieker_scream", room, (ex, ey), 1.0)
                     self.fx.append(("scream", room, ex, ey))
                 # the brood: once when the duel is joined co-room,
@@ -1624,11 +1642,11 @@ class GameSession:
                     if not e.get("adds1"):
                         e["adds1"] = True
                         self._boss_adds(room, ex, ey,
-                                        WARDEN_ADDS_ENGAGE)
+                                        WARDEN_ADDS_ENGAGE, px, py)
                     elif e.get("enraged") and not e.get("adds2"):
                         e["adds2"] = True
                         self._boss_adds(room, ex, ey,
-                                        WARDEN_ADDS_ENRAGE)
+                                        WARDEN_ADDS_ENRAGE, px, py)
                 keep_min = d.get("keep_min")
                 if keep_min is not None and d.get("spit_cd") is not None:
                     # ranged: hold the band, spit on cooldown
@@ -2635,6 +2653,24 @@ class GameSession:
             n += 1
         return n
 
+    def _spit_snapshot(self, proom: int) -> list:
+        """Enemy projectiles in the player's room — a human SEES spit
+        flying at them; bots read the same honest snapshot boundary."""
+        out = []
+        s = self.sim
+        for bid, b in self.bullets.items():
+            if b.get("kind") != "spit":
+                continue
+            try:
+                r = s.get_room(bid)
+            except Exception:
+                continue
+            if r != proom:
+                continue
+            _, x, y, vx, vy, _, _ = s.get(bid)
+            out.append(dict(pos=(x, y), vel=(vx, vy)))
+        return out
+
     def snapshot(self) -> dict:
         proom = self.player_room()
         px, py = self.player_pos()
@@ -2671,6 +2707,7 @@ class GameSession:
                            attached=self.cloister["attached"])
                       if self.cloister else None),
             enemies=enemies, pickups=pickups,
+            spits=self._spit_snapshot(proom),
             exit_room=self.exit_room,
             exit_next_edge=self.sim.next_edge(proom, self.exit_room)
             if self.exit_room >= 0 else -1,

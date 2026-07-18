@@ -118,9 +118,20 @@ class HumanBot(_UnstickMixin, Bot):
     def __init__(self, seed: int = 0, skill: float = DEFAULT_SKILL):
         super().__init__(seed)
         self._init_unstick()
+        # skill scales the three HUMAN LIMITS (hand speed, reaction
+        # latency, flinch), calibrated so DEFAULT_SKILL reproduces the
+        # marketing-realism bot exactly. It had silently decoupled when
+        # the fire gate it used to scale was removed (measured: skill
+        # 4/7/10 byte-identical runs, 2026-07-18) — rewired here.
         self.skill = skill
+        self.diag = {"funnel": 0, "dodge": 0}
+        self._funnel_hold = 0
+        self._hold_ticks = 0
+        self._hold_break = 0
+        self._limit = max(0.25, DEFAULT_SKILL / max(0.5, skill))
         spawn = Random(seed)  # one spawner -> independent derived streams
-        self._perception = PerceptionModel(seed=spawn.randrange(1 << 30))
+        self._perception = PerceptionModel(seed=spawn.randrange(1 << 30),
+                                           latency_scale=self._limit)
         self._mouse: MouseModel | None = None
         self._mouse_seed = spawn.randrange(1 << 30)
         self._prev_hp: float | None = None
@@ -215,7 +226,8 @@ class HumanBot(_UnstickMixin, Bot):
 
     def _ensure_mouse(self, ax: float, ay: float) -> MouseModel:
         if self._mouse is None:
-            self._mouse = MouseModel(ax, ay, seed=self._mouse_seed)
+            self._mouse = MouseModel(ax, ay, seed=self._mouse_seed,
+                                     agility=1.0 / self._limit)
         return self._mouse
 
     def _anticipated_ids(self, session: GameSession, snapshot: dict,
@@ -237,9 +249,9 @@ class HumanBot(_UnstickMixin, Bot):
     def _apply_flinch(self, snapshot: dict) -> None:
         hp = snapshot["hp"]
         if self._prev_hp is not None and hp < self._prev_hp:
-            self._flinch_ticks = FLINCH_TICKS
+            self._flinch_ticks = max(2, round(FLINCH_TICKS * self._limit))
             lo, hi = FLINCH_ANGLE_RANGE
-            mag = self._flinch_rng.uniform(lo, hi)
+            mag = self._flinch_rng.uniform(lo, hi) * self._limit
             sign = self._flinch_rng.choice((-1.0, 1.0))
             self._flinch_angle = mag * sign
         self._prev_hp = hp
@@ -257,6 +269,38 @@ class HumanBot(_UnstickMixin, Bot):
         px, py = snapshot["pos"]
         tick = snapshot["tick"]
         self._apply_flinch(snapshot)
+        if getattr(self, "_cur_room", None) != proom:
+            # breadcrumb trail for the funnel-retreat schema: walking
+            # back along the trail POPS it (so a multi-room retreat
+            # keeps falling further back, never re-targets the room
+            # just abandoned), any other move appends
+            prev = getattr(self, "_cur_room", None)
+            trail = getattr(self, "_trail", None)
+            if trail is None:
+                trail = self._trail = []
+            if trail and proom == trail[-1]:
+                trail.pop()
+            elif prev is not None:
+                trail.append(prev)
+                del trail[:-8]
+            self._entry_door = None
+            if prev is not None:
+                try:
+                    for edge, portal in enumerate(
+                            session.sim.room_portals(proom)):
+                        if portal is not None and portal[0] == prev:
+                            self._entry_door = \
+                                session.sim.edge_midpoint(proom, edge)
+                            break
+                except Exception:
+                    pass
+            if getattr(self, "_funnel_hold", 0) > 0:
+                # withdrawal depth is counted in ROOMS — coordinates
+                # are room-local in portal space, distances across
+                # frames are meaningless
+                self._funnel_rooms = getattr(self, "_funnel_rooms",
+                                             0) + 1
+            self._cur_room = proom
 
         # room bookkeeping: entering a never-seen room starts a curiosity
         # look-around beat (design doc §6)
@@ -304,6 +348,11 @@ class HumanBot(_UnstickMixin, Bot):
         # "spends the VAST majority of its time trying to kite enemies
         # that haven't even aggroed yet" -- an idle enemy on screen is
         # scenery, not pressure; it gets fought where it stands)
+        if any(e.get("kind") == "warden" for e in co_room) and \
+                not getattr(self, "_warden_room_logged", 0) == proom:
+            self._warden_room_logged = proom
+            self.diag.setdefault("warden_entry_hp", []).append(
+                int(snapshot["hp"]))
         self._threats_total = sum(
             1 for e in co_room + distant
             if e.get("state") in ("hunt", "waking"))
@@ -389,6 +438,57 @@ class HumanBot(_UnstickMixin, Bot):
             if self._retreat_room is not None:
                 ret_vec = self._nav_room_move(session, snapshot, px, py,
                                               self._retreat_room)
+        # FUNNEL RETREAT (2026-07-18): badly outnumbered co-room, fall
+        # back through the door you came in — the doorway strings the
+        # pack out single-file, which is the level's whole choke
+        # grammar (deaths were 4-8 enemies co-room, engulfed in the
+        # open). Feet retreat; the gun keeps firing. LATCHED: the
+        # funnel thins the co-room count below its own trigger, and
+        # without a hold the bot surged straight back in and
+        # re-engulfed (measured). While the hold runs and the room is
+        # clear, STAND at the door and shoot what comes through — the
+        # doorway dance, not a rout.
+        trail = getattr(self, "_trail", None)
+        # triggers are PRESSURE, not headcount — three hunters is the
+        # intended boss crowd (Sol §1.5): withdraw when hurt, when the
+        # warden presses with adds committed, or when it's a true mob
+        # DUEL COMMITMENT: once it's the warden and at most one
+        # straggler, see it through — withdrawing from a tethered
+        # boss kills nothing and loops forever (measured: 9/16 runs
+        # timed out in a withdraw/re-enter siege cycle)
+        duel = any(e.get("kind") == "warden" for e in co_room) and \
+            sum(1 for e in co_room if e.get("kind") != "warden"
+                and e.get("state") in ("hunt", "waking")) <= 1
+        hp_line = 40 if duel else 55
+        # live pursuit gates the trigger; tethered wardens are
+        # excluded from "pursuit" (a visible boss door kept wounded
+        # runs locked backward forever), but a single mobile chaser
+        # at low hp still withdraws — that rule carried the first
+        # full clear
+        live_threat = n_co_hunt >= 1 or any(
+            e.get("state") in ("hunt", "waking")
+            and e.get("kind") != "warden" for e in distant)
+        trig = live_threat and (snapshot["hp"] < hp_line
+                                or n_co_hunt >= 5)
+        if trig and self._escape_ticks == 0 and trail:
+            self._funnel_hold = 240
+            self._funnel_rooms = 0
+        elif self._funnel_hold > 0:
+            self._funnel_hold -= 1
+        if self._funnel_hold > 0 and trail and \
+                (n_co_hunt >= 1
+                 or getattr(self, "_funnel_rooms", 0) < 2):
+            # a fighting WITHDRAWAL: keep going ~240u past the door
+            # and around the bends — standing at the doorway for four
+            # seconds was the stall (Sol: kill the single-file
+            # pursuers at the choke, from depth)
+            fv = self._nav_room_move(session, snapshot, px, py,
+                                     trail[-1])
+            if fv != (0.0, 0.0):
+                ret_vec = fv
+                rg = max(rg, 0.9)
+                fight_gain *= 0.55
+                self.diag["funnel"] += 1
 
         # advance schema: the objective (medkit when hurt, else exit) --
         # always some forward intent, damped by pressure and retreat
@@ -415,23 +515,97 @@ class HumanBot(_UnstickMixin, Bot):
         # doorway at forced full pace while the fight schema strafed
         if self._planted:
             adv_gain = min(adv_gain, 0.05)
+        # funnel hold: the room ahead just mobbed us — stand at the
+        # door with the gun up until the hold expires; do not stroll
+        # back into the arena the moment it looks locally clear
+        if self._funnel_hold > 0:
+            adv_gain = min(adv_gain, 0.02)
         # doorway discipline: 67% of all damage landed within 1.5s of a
         # room entry (measured, seed 1054) -- the blind stumble. Any
         # portal into a room not yet walked slows the approach to a
         # careful entrance; perception catches up before the body does.
+        # THRESHOLD HOLD (2026-07-18, from arena-1 death footage: the
+        # bot strolled mid-room into 8 convergers and died in the open
+        # every time): a visibly CROWDED unvisited room — or a warden
+        # room when hurt — is fought FROM HERE. Anchor in a stand-off
+        # band at the portal, fire through it, and let the noise pull
+        # them out single-file through the pinch. A healthy bot still
+        # walks into a warden room deliberately: the co-room brood
+        # brawl is the boss fight (and the boss music), and the funnel
+        # retreat stays armed as the escape valve.
+        self._threshold_hold = False
         if not co_room:
             portals = session.sim.room_portals(proom)
+            hold = None
             for edge, portal in enumerate(portals):
-                if portal is None or portal[0] in self._visited_rooms:
+                if portal is None:
                     continue
                 mx_, my_ = session.sim.edge_midpoint(proom, edge)
-                if math.hypot(mx_ - px, my_ - py) < 90.0:
+                pd = math.hypot(mx_ - px, my_ - py)
+                if pd >= 190.0:
+                    continue
+                beyond = [e for e in distant
+                          if e.get("room") == portal[0]]
+                # the warden door is gated no matter how often we've
+                # been through it: the arena-1 death pattern was
+                # RE-entries at hp 41/32/22/11/2 (visited-room checks
+                # only guarded the first walk in). Enter ARMED — near
+                # full hp with the lightning burst ready for the brood
+                # hatch — or not at all... except: walk away to a
+                # reachable medkit rather than besiege at low hp, and
+                # after ~25s of siege COMMIT anyway (a door-stall
+                # timed out a whole run standing here).
+                if any(e.get("kind") == "warden" for e in beyond):
+                    armed = (snapshot["hp"] >= 80
+                             and (snapshot["lightning_ready"]
+                                  or "lightning"
+                                  not in snapshot["weapons"]))
+                    has_med = any(p["kind"] == "medkit"
+                                  and 0 <= p.get("hops", 9) <= 3
+                                  for p in snapshot["pickups"])
+                    go_heal = snapshot["hp"] < 70 and has_med
+                    if not armed and not go_heal \
+                            and self._hold_break <= 0:
+                        hold = (mx_, my_, pd)
+                        break
+                if portal[0] in self._visited_rooms:
+                    continue
+                if len(beyond) >= 3:
+                    hold = (mx_, my_, pd)
+                    break
+                if pd < 90.0:
                     self._entry_caution = True
                     break
             else:
                 self._entry_caution = False
+            if hold is not None:
+                self._threshold_hold = True
+                self._entry_caution = True
+                adv_gain = 0.0
+                mx_, my_, pd = hold
+                if pd < 60.0:
+                    hv = _norm((px - mx_, py - my_))
+                elif pd > 120.0:
+                    hv = _norm((mx_ - px, my_ - py))
+                else:
+                    hv = (0.0, 0.0)
+                if hv != (0.0, 0.0):
+                    sxh, syh = necore.mat_apply_dir(session.cam, *hv)
+                    smh = math.hypot(sxh, syh) or 1.0
+                    ret_vec = (sxh / smh, syh / smh)
+                    rg = max(rg, 0.8)
+                self.diag["thold"] = self.diag.get("thold", 0) + 1
         else:
             self._entry_caution = False
+        if self._threshold_hold:
+            self._hold_ticks += 1
+            if self._hold_ticks > 1500 and snapshot["hp"] >= 55:
+                self._hold_break = 900      # commit for 15s
+                self._hold_ticks = 0
+        else:
+            self._hold_ticks = 0
+        if self._hold_break > 0:
+            self._hold_break -= 1
         adv_vec = self._objective_move(session, snapshot, px, py, proom)
 
         RG_W = float(__import__('os').environ.get('BOT_RG_W', '1.15'))
@@ -448,6 +622,58 @@ class HumanBot(_UnstickMixin, Bot):
                 if _dist(way, (px, py)) > 1e-6 else self._escape_dir
             vx = vx * 0.25 + ex_
             vy = vy * 0.25 + ey_
+        # ENTRY-LIP LEASH (Sol §1.2): while the warden's brood is
+        # live, fight from the door lip — the add-first targeting
+        # walked the bot toward the far-side spawn wave, i.e. into
+        # the room center, which was the engulfment
+        if any(e.get("kind") == "warden" for e in co_room) \
+                and n_co_hunt >= 2 \
+                and getattr(self, "_entry_door", None) is not None:
+            dxl = px - self._entry_door[0]
+            dyl = py - self._entry_door[1]
+            dl = math.hypot(dxl, dyl)
+            if dl > 140.0:
+                lv = _norm((-dxl, -dyl))
+                sxl, syl = necore.mat_apply_dir(session.cam, *lv)
+                sml = math.hypot(sxl, syl) or 1.0
+                vx = vx * 0.5 + 1.3 * sxl / sml
+                vy = vy * 0.5 + 1.3 * syl / sml
+
+        # SPIT-DODGE REFLEX (2026-07-18): projectiles are dodgeable —
+        # sidestep off the flight line of any spit closing within
+        # ~0.55s. The enraged warden's radial bursts were literally
+        # invisible before (snapshot carried no projectiles at all;
+        # snapshot['spits'] added same day). Strong blend, still below
+        # contact-evasion: the thing biting you outranks the thing
+        # merely flying at you.
+        ddx = ddy = 0.0
+        for sp in snapshot.get("spits", ()):
+            spx, spy = sp["pos"]
+            svx, svy = sp["vel"]
+            sv = math.hypot(svx, svy)
+            if sv < 1.0:
+                continue
+            ux_, uy_ = svx / sv, svy / sv
+            rx, ry = px - spx, py - spy
+            along = rx * ux_ + ry * uy_
+            if along < -10.0 or along > sv * 0.55:
+                continue                # behind us, or >0.55s out
+            lat = rx * -uy_ + ry * ux_  # signed miss distance
+            if abs(lat) > 30.0:
+                continue                # already missing
+            side = 1.0 if lat >= 0.0 else -1.0
+            w = (30.0 - abs(lat)) / 30.0
+            ddx += -uy_ * side * w
+            ddy += ux_ * side * w
+        if ddx or ddy:
+            self.diag["dodge"] += 1
+            dm = math.hypot(ddx, ddy)
+            sxd, syd = necore.mat_apply_dir(session.cam,
+                                            ddx / dm, ddy / dm)
+            smd = math.hypot(sxd, syd) or 1.0
+            vx = vx * 0.45 + 1.6 * sxd / smd
+            vy = vy * 0.45 + 1.6 * syd / smd
+
         # CONTACT-EVASION REFLEX (director 2026-07-16: "it still loves
         # letting enemies touch it. 'Move away from melee enemy within
         # 30 px' needs to have overriding priority"). Subsumption layer:
@@ -1116,8 +1342,16 @@ class HumanBot(_UnstickMixin, Bot):
         # closest enemy, hold down trigger." No urgency tiers, no
         # escape-path pools -- closest wins, with only enough hysteresis
         # to stop per-tick ties from flickering the cursor.
-        closest = min(perceived, key=lambda e: _dist(e["pos"], (px, py)))
-        focus = next((e for e in perceived if e["id"] == self._focus_id),
+        # ADD-FIRST targeting (Sol §3): while the warden's brood (or
+        # any other hunters) are alive co-room, they are the targets —
+        # the 520hp warden soaks a magazine while 4hp mites connect.
+        # The warden is fought when its screen is down.
+        pool = [e for e in perceived if e.get("kind") != "warden"
+                and e.get("state") in ("hunt", "waking")]
+        if not pool:
+            pool = perceived
+        closest = min(pool, key=lambda e: _dist(e["pos"], (px, py)))
+        focus = next((e for e in pool if e["id"] == self._focus_id),
                      None)
         if focus is not None and _dist(focus["pos"], (px, py)) <= \
                 1.15 * _dist(closest["pos"], (px, py)):

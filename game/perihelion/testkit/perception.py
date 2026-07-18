@@ -52,8 +52,12 @@ class PerceptionModel:
     or on-screen via `visible_ids`) and the sampled latency before the bot
     may act on it."""
 
-    def __init__(self, seed: int = 0):
+    def __init__(self, seed: int = 0, latency_scale: float = 1.0):
         self.rng = Random(seed)
+        # latency_scale shrinks (or stretches) every sampled reaction
+        # time — 1.0 is the calibrated human; the skill knob upstream
+        # passes DEFAULT_SKILL/skill
+        self.latency_scale = latency_scale
         self._first_seen: dict[int, int] = {}
         self._latency: dict[int, float] = {}
 
@@ -96,7 +100,8 @@ class PerceptionModel:
                 self._first_seen[eid] = tick
                 lo, hi = (ANTICIPATED_LATENCY_RANGE if eid in anticipated_ids
                           else SURPRISE_LATENCY_RANGE)
-                self._latency[eid] = self.rng.uniform(lo, hi)
+                self._latency[eid] = self.rng.uniform(lo, hi) \
+                    * self.latency_scale
             elapsed = (tick - self._first_seen[eid]) / TICK_HZ
             if elapsed >= self._latency[eid]:
                 visible.append(e)

@@ -87,7 +87,7 @@ def one(args):
     if session.dead:
         proom = session.player_room()
         try:
-            death_room_kind = level.rooms[proom].kind
+            death_room_kind = level.room_kinds[proom]
         except Exception:
             death_room_kind = "?"
         death_co = sorted(v["kind"] for k, v in session.enemies.items()
@@ -123,6 +123,7 @@ def one(args):
             if r["bars"] >= FULL_MIN_BARS and r["peak"] >= FULL_PEAK
             and r["kit"]]
     return dict(seed=seed, outcome=outcome, ticks=t,
+                diag=dict(getattr(bot, "diag", {})),
                 kills=session.metrics.get("kills", 0),
                 wardens_down=n_wardens0 - wardens_left,
                 n_wardens=n_wardens0,
@@ -159,11 +160,14 @@ def main():
         rt = " ".join(f"{t0:.0f}-{t1:.0f}({b}b,{p})"
                       for t0, t1, b, p, k in r["boss_runs"]) or "-"
         dc = ",".join(r.get("death_co") or []) or "-"
+        dg = r.get("diag") or {}
         print(f"seed {r['seed']}: {r['outcome']:8s} "
               f"t={r['ticks']/60:5.0f}s kills={r['kills']:3d} "
               f"wardens {r['wardens_down']}/{r['n_wardens']} "
               f"full_triggers={r['full_triggers']} "
-              f"death={r['death_room']}[{dc}] runs: {rt}")
+              f"death={r['death_room']}[{dc}] "
+              f"fun={dg.get('funnel',0)} dod={dg.get('dodge',0)} "
+              f"runs: {rt}")
     print(f"\nclear rate {len(clears)}/{len(results)} "
           f"({100*len(clears)/max(1,len(results)):.0f}%)")
     if clears:

@@ -33,11 +33,16 @@ IDLE_JITTER_SPEED = 1.6
 
 
 class MouseModel:
-    def __init__(self, x: float, y: float, seed: int = 0):
+    def __init__(self, x: float, y: float, seed: int = 0,
+                 agility: float = 1.0):
         self.x, self.y = x, y
         self.vx, self.vy = 0.0, 0.0
         self.rng = Random(seed)
         self._overshoot_target: tuple[float, float] | None = None
+        # agility scales the hand: 1.0 = the calibrated human hand;
+        # >1 flicks faster and settles harder (skill knob upstream)
+        self.max_speed = MAX_SPEED * agility
+        self.max_accel = MAX_ACCEL * agility * agility
         self._t = 0.0
 
     def step(self, target_x: float, target_y: float, dt: float) -> tuple[float, float]:
@@ -74,20 +79,20 @@ class MouseModel:
             adist = (ax_ * ax_ + ay_ * ay_) ** 0.5 or 1e-6
             ux, uy = ax_ / adist, ay_ / adist
 
-            desired_speed = min(MAX_SPEED, MAX_SPEED * min(1.0, adist / 60.0))
+            desired_speed = min(self.max_speed, self.max_speed * min(1.0, adist / 60.0))
             desired_vx, desired_vy = ux * desired_speed, uy * desired_speed
 
             dvx, dvy = desired_vx - self.vx, desired_vy - self.vy
             dv = (dvx * dvx + dvy * dvy) ** 0.5
-            max_dv = MAX_ACCEL * dt
+            max_dv = self.max_accel * dt
             if dv > max_dv:
                 dvx, dvy = dvx / dv * max_dv, dvy / dv * max_dv
             self.vx += dvx
             self.vy += dvy
 
         speed = (self.vx ** 2 + self.vy ** 2) ** 0.5
-        if speed > MAX_SPEED:
-            self.vx, self.vy = self.vx / speed * MAX_SPEED, self.vy / speed * MAX_SPEED
+        if speed > self.max_speed:
+            self.vx, self.vy = self.vx / speed * self.max_speed, self.vy / speed * self.max_speed
 
         self.x += self.vx * dt
         self.y += self.vy * dt
