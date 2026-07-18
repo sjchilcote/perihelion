@@ -12,14 +12,19 @@ machine enforces, not vibes.
 
 **Write a track the game can perform.** PERIHELION's music is not a
 looping soundtrack — the game holds your track on three invisible faders
-and an arranger, and *plays* it, live, following the fight. Concretely,
-the game:
+and an arranger (a piece of software, not a person — it re-orders your
+form live), and *plays* it, following the fight. Concretely, the game:
 
-- runs **all your stems at once**, sample-locked, and rides their levels
-  continuously (think vertical stem mixing, automated by gameplay);
+- runs **all your stems at once**, sample-locked (one shared
+  sample-accurate transport; every stem stays phase-aligned forever),
+  and rides their levels continuously. Game audio calls this *vertical
+  remixing*: the piece gets more or less intense by re-balancing
+  simultaneous layers of itself, never by switching tracks;
 - **rearranges the form** on bar lines — loops your calm section while the
   player explores, loops your development section through ordinary fights,
-  jumps to your peak for bosses (horizontal resequencing);
+  jumps to your peak for bosses. That one is *horizontal resequencing*:
+  intensity by re-ordering sections of one piece in time. This system
+  does both at once;
 - drops your composed **punctuation one-shots** (riser, sting, stab) at
   moments it schedules itself.
 
@@ -76,6 +81,29 @@ audition:  daw.py   — your bank driven by a real full playthrough
 deliver (the folder is the deliverable)
 ```
 
+### 0.1 Logistics and scope (what is NOT in this document)
+
+- **The director is your point of contact** for everything creative that
+  this document defers ("a conversation with the director"): the source
+  melody pick, sonic references, sign-off. Contact details, deadline,
+  rate, and revision rounds are in your engagement terms, not here —
+  this is the technical and musical brief only.
+- **Sonic reference**: the seven shipped banks *are* the production
+  reference — tone, drum character, mix density. Ask the director for
+  external reference tracks if you want a second bearing; don't guess
+  one from the phrase "industrial metal."
+- **The job is one bank at a time.** The soundtrack is an ongoing set;
+  each bank is a self-contained deliverable.
+- **Setup**: you work inside a project checkout that arrives ready to
+  run. The tools need the `uv` launcher on your PATH
+  (https://docs.astral.sh/uv/ — one installer, no Python knowledge
+  needed); every command in this doc is copy-paste from the project
+  root, and the first run installs everything itself. If a tool prints
+  an error you can't read, paste it to the director — that's our bug or
+  our doc gap, not your problem.
+- **Delivery** = your bank folder inside that checkout (§5.4); nothing
+  to upload anywhere else.
+
 ---
 
 ## 1. COMPOSE — one piece that plays in zones
@@ -88,10 +116,10 @@ treats each type differently, so each has a job:
 
 | Section type | Job in the game | Composition requirements |
 |---|---|---|
-| `vigil` or `ritual` | The calm home. Loops during exploration; the music "comes home" to it after every fight. | Must loop seamlessly (end flows into own start). Will be heard a lot, quietly. |
-| `entry` | Combat on-ramp. | Counts as fight material; transitional writing is fine. |
+| `vigil` or `ritual` | The calm home. Loops during exploration; the music "comes home" to it after every fight. (`ritual` is a second accepted name for the same behavior — two of the shipped banks use it, purely as a label; the rules are identical.) | Must loop seamlessly (end flows into own start). Will be heard a lot, quietly. |
+| `entry` | Combat on-ramp. | Counts as fight material; transitional writing is fine — *unless* the bank has no `develop`, in which case `entry` becomes the fight loop and inherits every `develop` requirement below. Just write a `develop`. |
 | `develop` | **The fight loop.** Every ordinary fight loops this section, start to end, over and over. | The most-heard bars you'll write. Needs internal variety AND a seamless loop. No cadence at the end that begs continuation — the end *is* the pickup to its own start. |
-| `peak` | Boss material. The arranger jumps here (led by your riser) when a boss engages, and loops it while the boss lives. | Your heaviest writing. Must loop; must land like a downbeat arrival (see §3, riser). |
+| `peak` | Boss material. The arranger jumps here (led by your riser) when a boss engages, and loops it while the boss lives. | Your heaviest writing. Same no-cadence loop rule as `develop` — the *arrival* weight comes from the riser landing on its first downbeat (§3); the loop-back from its last bar to its first must simply flow. |
 | anything else (`outro`, …) | Connective tissue. The arranger passes through it in calm, never parks a fight there. | Free. |
 
 Two structural rules, because the arranger cuts on bar lines:
@@ -107,7 +135,11 @@ Two structural rules, because the arranger cuts on bar lines:
   at your stated tempo. All slicing, looping, and jumping happens on this
   grid. Other meters are fine as long as one constant bar duration holds
   for the whole piece and you declare the bpm that makes `240/bpm` equal
-  your bar length (a 3/4 bar at ♩=120 is 1.5 s → declare bpm 160).
+  your bar length (a 3/4 bar at ♩=120 is 1.5 s → declare bpm 160). Be
+  aware that for non-4/4 meters the declared bpm is a **grid-fitting
+  number, not your musical tempo** — your DAW session, click, and any
+  players keep the real tempo; only `bank.json` carries the fiction.
+  Note it in both places so nobody re-renders at the wrong tempo later.
 - **Keep new banks at 110 BPM** unless we agree otherwise. The game
   rotates between banks mid-level with a crossfade that is not
   tempo-matched; a shared tempo keeps every handoff musical.
@@ -163,9 +195,18 @@ exposure earns it the strictest rules in this document:
   the reordering.
 - **The war chant**: at maximum danger the chant comes back *in full
   force over the boss mix* — a defiant, equal voice against your own peak
-  section (capped just below the band; it rides with, never over). Write
-  the voice so it works as foreground counterpoint against the `peak`
-  bars, not only against the calm bed.
+  section (capped just below the band; it rides with, never over). To be
+  clear about who does what: the **game's fader** produces the "full
+  force" — you still print `prayer.wav` at steady level like every other
+  stem (§1.5). Your job is that the *writing* can stand as foreground
+  against the `peak` bars — register, contour, character — so that when
+  the fader lifts it, it reads as defiance, not as a pad turned up.
+
+A note on the singer: the shipped chants are **synthesized/sampled
+voices**, not recordings of a live monk. A sample library or synthesized
+choir of matching register is an acceptable delivery; a real singer is
+welcome but not expected. Decide with the director before budgeting
+session time.
 
 ### 1.5 Write density, not dynamics
 
@@ -182,6 +223,11 @@ stem, it will fight the game's own automation. So:
 - **Balance between stems is composition**: the game applies no loudness
   compensation. Solo the shipped `album_dies_irae` stems at unity in your
   DAW and match your stems' perceived levels role-for-role against them.
+  (Appendix A lists the fader *positions* the game typically uses per
+  situation — those are automation values applied to whatever levels you
+  printed, not targets for you to hit. Your printed balance IS the mix
+  at faders-up; mix it by ear against the reference bank and let the
+  game's automation do its thing on top.)
 
 ---
 
@@ -189,10 +235,14 @@ stem, it will fight the game's own automation. So:
 
 A stem here = one **full-length render of the entire form** with only one
 material group sounding. Not a section bounce: the game may open any
-stem's fader at any bar, so every stem must carry its material at every
-bar (exceptions below are marked). Yes, that means your wall-of-guitars
-stem has riffs running through the calm bars — the game just won't open
-that fader until there's a fight.
+stem's fader at any bar — a skirmish can break out while the arranger is
+parked in your calm bars, and the wall/drums/bass faders open right
+there — so every stem must carry its material at every bar (exceptions
+below are marked). Yes, that means your wall-of-guitars stem has riffs
+running through the calm bars. "Carry its material" means it must *work
+as that material* if the fader opens there: it can thin out with the
+form's mood (the rule floor is §2.3's −15 dB), but a fight breaking out
+at bar 3 must still get a credible wall at bar 3, not a placeholder.
 
 ### 2.1 The track sheet
 
@@ -202,12 +252,12 @@ Every file, its musical role, and when the game opens its fader.
 | File | Role | Heard when |
 |---|---|---|
 | **`prayer.wav`** | The chant: voice + choir + bells + light halo (§1.4). | Always. Full in calm, carried as counterpoint through fights, full-force war chant at peak danger. |
-| `bed_t1.wav` … `bed_t4.wav` | Drone/atmosphere spine, one per game act (1 = early, 4 = late). Identical files are fine if the piece has one texture. | Always, moderately; swells with calm. |
+| `bed_t1.wav` … `bed_t4.wav` | Drone/atmosphere spine, one per game act (the campaign's four difficulty tiers; each level belongs to one — t1 opening levels, t4 endgame). Identical files are fine if the piece has one texture; if you differentiate, think t1 sparse → t4 oppressive. | Always, moderately; swells with calm. |
 | **`stalwart.wav`** | The danger material: the wall — riff wall, low reinforcement. "Things are hunting you." | Rises with danger. ≈ full in any serious fight. |
 | **`contempt.wav`** | The swagger: driving machine groove, flourishes. "You're winning." | Rises with the player's damage output. |
 | `drums.wav` | The kit, full form. | Any combat. Drums cut *clean* on bar lines when fights end — never faded. |
 | `drums_boss.wav` | The serious kit: denser subdivision, crash grid. | Swaps in for `drums.wav` during boss-grade danger. |
-| `lead_pistol.wav` `lead_smg.wav` `lead_shotgun.wav` `lead_rail.wav` `lead_scrap.wav` `lead_knife.wav` `lead_lightning.wav` `lead_gland.wav` `lead_hole.wav` `lead_tau.wav` | One lead line, re-voiced per weapon (same line, ten timbres — the player's weapon picks the color). | Combat. Weapon swaps crossfade two of these *against each other*, and alternating weapons parks **both** on at half power — the re-voicings must sound good layered. |
+| `lead_pistol.wav` `lead_smg.wav` `lead_shotgun.wav` `lead_rail.wav` `lead_scrap.wav` `lead_knife.wav` `lead_lightning.wav` `lead_gland.wav` `lead_hole.wav` `lead_tau.wav` | One lead line, re-voiced per weapon (same line, ten timbres — the player's weapon picks the color; character table below). | Combat. Weapon swaps crossfade two of these *against each other* (equal-power), and alternating weapons parks the pair at the 50/50 point — each about −3 dB, both clearly audible — so the re-voicings must sound good layered. |
 | `bass_mite.wav` `bass_husk.wav` `bass_spitter.wav` `bass_shrieker.wav` `bass_brute.wav` `bass_warden.wav` `bass_flicker.wav` | A short bass ostinato cell per enemy species, tiled over the form's harmony. The dominant enemy in the fight picks which one plays. | Enemies engaged. Must genuinely live in the bass register (§2.3). |
 | `overlay_boss.wav` | Register expansion for bosses only: sub-octave roots, octave pedal. | Boss engagements only. |
 | The five one-shots | §3. | Scheduled moments. |
@@ -217,11 +267,43 @@ A missing optional stem doesn't break anything — its fader just opens
 onto silence (a missing `lead_rail.wav` = no lead during rail fights).
 Treat the full sheet as the deliverable.
 
+**Who and what these names are** (so the re-voicings and cells have
+character to aim at, not bare nouns):
+
+The ten weapons, for the lead timbres —
+
+| Weapon | Character |
+|---|---|
+| `knife` | Silent melee blade. Close, intimate, no gunfire. |
+| `pistol` | Precise, deliberate sidearm. |
+| `smg` | Fast, loose spray — the highest fire rate, widest scatter. |
+| `shotgun` | Eight-pellet close-range blast. Percussive, brutal. |
+| `rail` | The heavy precision shot — massive single hits that punch through three bodies in a line. |
+| `lightning` | Arc discharge. Electric, crackling, mid-heavy hits. |
+| `tau` | Rapid, tight energy repeater — clean and clinical. |
+| `hole` | The PORTABLE HOLE: tears a traversable hole in space. A utility, not a gun — its lead can be the strange one (eerie, hollow, abstract). |
+| `scrap` | Improvised three-pellet junk-thrower. Crude, rattling. |
+| `gland` | Bio-launcher firing wet organic rounds. Sickly, fleshy. |
+
+The seven enemy species, for the bass cells —
+
+| Species | Character |
+|---|---|
+| `mite` | Tiny, fastest thing in the game, dies to a breath, comes in swarms. Skittering. |
+| `husk` | The standard shambler. Baseline fodder menace. |
+| `spitter` | Ranged acid-lobber that keeps its distance and pelts you. |
+| `shrieker` | Fragile screamer — never touches you; it flees and *wakes the room*. Panic, not weight. |
+| `brute` | Slow heavy charger; hits like a truck. |
+| `warden` | The boss. A 300-hp sentinel that lives only in boss rooms — crushing melee plus ranged fire. Its cell is boss-fight bass. |
+| `flicker` | Ambush predator: near-invisible lurker that explodes into a burst-lunge at close range. Dread, then violence. |
+
 The ten leads and seven basses are seventeen mechanical re-renders of two
 musical ideas (one line, seven cells). Author the ideas; if re-voicing
 seventeen renders by hand is a poor use of your time, deliver the lead
-line and bass cells as MIDI + one reference render each and we'll batch
-the rest — your call.
+line and bass cells as **standard MIDI files at the declared bpm (plus a
+tempo-map note if your meter uses a grid-fiction bpm, §1.2) with one
+rendered reference of each idea**, tracks named for their target files,
+and we'll batch the rest — your call.
 
 ### 2.2 Rules for every stem
 
@@ -270,6 +352,10 @@ These are enforced by the pre-flight checker (§5.1); numbers are exact.
   energy 180–1200 Hz, measured on the render. The patch decides the
   sounding octave, not the MIDI note — if a cell reads mid-forward,
   drop it an octave or low-pass it until it measures right.
+- And yes: the bass cells (like the wall and groove) run under the calm
+  bars too, where they may never be heard — the form-wide rule of §2's
+  intro. They're one- or two-bar ostinati tiled over the form's harmony,
+  so the extra bars are tiling, not new composition.
 
 ---
 
@@ -283,7 +369,7 @@ form grid), same format rules as §2.2.
 | File | Length | What it is | When the game fires it |
 |---|---|---|---|
 | `riser.wav` | ~2 bars | A swell that resolves into its own strike — ours is a big chapel bell *reversed into its forward strike*. The strike instant is the file's climax. | Leading every boss entrance: the game decides to jump to `peak`, holds the jump for your riser's 2-bar swell, and lands the jump **as the strike hits**. Your riser's strike = the peak section's downbeat. Compose them as one gesture. If the threat dies mid-swell the riser is faded early — make sure it survives an early fade. |
-| `riser_half.wav` | ~½ bar | A micro version of the same swell gesture. | Only on a true ambush (a heavy hitting from real silence): a half-bar swell into an instant full mix. The swell is what makes the cliff read as intent. |
+| `riser_half.wav` | ~½ bar | A micro version of the same swell gesture. | Only on a true ambush (a heavy hitting from real silence) — the event this doc calls **the slam**: a half-bar swell into an instant full mix. The swell is what makes the cliff read as intent. |
 | `sting.wav` | a few seconds | The release cadence. Ours: the track's own choir singing a plagal ("Amen") cadence — subdominant sonority resolving to the home triad, in the hall. Won blind listening against every percussive/bell variant precisely because it *resolves* the fight in the piece's own voice. | The moment a boss dies. Heavy faders take a one-bar comedown underneath it. |
 | `stab.wav` | ~1.5 bars | A percussive exclamation — crash + kick + low tom in the shipped banks. Unpitched or harmonically neutral: it repeats, so any pitch must sit inside `peak`'s harmony. | Every 4 bars while a boss lives, on the grid, over your looping peak. |
 | `prayer_tail.wav` | exactly 1 bar | The chant's final-bar release: what would ring out if the last bar were allowed to decay. Print it by letting your `prayer` render run one bar past the end and bouncing that overhang bar alone. | Overlaid whenever the form genuinely wraps last-bar → bar 0, so the chant's loop breathes instead of cutting. |
@@ -351,7 +437,7 @@ window:
 - **Automation lane**: the three game faders (PRAYER / CONTEMPT /
   STALWART — calm / winning / danger) as curves. Where they move is
   where your mix will move.
-- **Track strips**: one per stem lane, showing each bar's clip and fader
+- **Track strips**: one per stem track, showing each bar's clip and fader
   level. **M/S** boxes mute/solo tracks — the remix takes about a
   second.
 - **Markers**: boss risers ▲, ambush slams, stings ●, form jumps, and
@@ -395,7 +481,9 @@ the peak jump; drop it and hear your sting resolve the fight; press
   you auditioned.
 - **Licensing**: every sample, instrument, and preset in your renders
   must be cleared for commercial redistribution *in rendered form*, and
-  each source gets a line in our source ledger (name, origin, license).
+  each source gets a line in the source ledger — a text file in the
+  checkout at `tools/musicgen/SOURCES_LICENSES.md`; add your lines there
+  (name, origin, license) or send them with the delivery and we'll merge.
   "Free to use in commercial renders, instrument itself not
   redistributable" is fine — we ship renders. "Non-commercial" is not.
   Public-domain source melodies (plainchant, 18th-century hymnody) are
@@ -409,13 +497,20 @@ the peak jump; drop it and hear your sting resolve the fight; press
 What the machine actually does to your audio. You don't implement any of
 this; you write music that stays musical under it.
 
-**The three faders.** The game continuously computes three values from
-what the player is experiencing, each 0–1, and every mix move follows
-them: **PRAYER** (calm/contemplation — the through-line, never fully
-zero), **CONTEMPT** (the player dealing damage — the groove rides it),
-**STALWART** (the player being hunted — the wall rides it). They are
+**Vocabulary, precisely.** Each stem (or stem family, like the ten
+leads) plays on one **track**; each track has a **fader** the game
+rides. The **three values** — PRAYER, CONTEMPT, STALWART — are not
+faders themselves: they're the game's continuous reading of the fight,
+each 0–1, and every track's fader position is a formula of them.
+**PRAYER** = calm/contemplation (never fully zero), **CONTEMPT** = the
+player dealing damage, **STALWART** = the player being hunted. They are
 independent axes and blends are the normal case: a boss fight is
-contempt AND stalwart high at once. There are no discrete "modes."
+contempt AND stalwart high at once. There are no discrete "modes." So:
+the *chant* track's fader mostly follows PRAYER (plus the combat floor
+and war-chant terms), the *bed* track's fader follows PRAYER too
+(0.55 + 0.35·prayer — always on, swelling with calm), the *groove*
+follows CONTEMPT, the *wall* follows STALWART, drums/leads follow
+whichever of the two fight values is higher.
 
 **The bar grid is absolute.** All stems play sample-locked in parallel;
 every change — fader steps, form jumps, variant swaps — lands exactly on
@@ -427,7 +522,7 @@ build; sudden real threats can wall in within a bar; big rises get a
 half-bar come-up). Falls glide (×0.65 per bar, then a one-bar farewell
 fade). Percussion never fades out — drums exit clean on the bar line.
 The chant moves slowest of all (≤0.12/bar up, ≤0.08/bar down once
-established): swells and diminuendos, never lurches. Active lanes are
+established): swells and diminuendos, never lurches. Active tracks are
 floored around 0.4–0.5 — a live threat is never subliminal. Approximate
 targets, for calibration: drums/lead ≈ 0.9·√fight, groove ≈ √contempt,
 wall ≈ √stalwart, bed ≈ 0.55 + 0.35·prayer, chant ≈ max(√prayer,
@@ -440,7 +535,11 @@ mid-fight), pull to `peak` for bosses — always led by your 2-bar riser,
 landing on the strike — loop `peak` while the boss lives (your stab on
 the 4-bar grid), and come home to `vigil` only after the fight has
 audibly exhaled. Loop steers are seamless; true jumps get a short
-arrival fade on the combat lanes only — never on the chant or the bed.
+arrival fade on the combat tracks only — never on the chant or the bed.
+On the riser-led boss jump these compose into one gesture: the combat
+tracks swell in *under* your riser's climax and the strike masks the
+splice — the chant and bed simply continue across it. (Hear it in the
+session DAW: scrub to any ▲ marker.)
 
 **Punctuation is scheduled, never reactive.** The game fires your
 one-shots only where it knows the future (its own scheduled jumps, a
@@ -449,7 +548,13 @@ after the moment it should have led. Details per one-shot: §3.
 
 **Bank rotation.** During long calm stretches the game hands off between
 banks (~every 95 s) with a 2-bar crossfade, calm material into calm
-material. This is why a shared tempo across banks matters (§1.2).
+material. This is why a shared tempo across banks matters (§1.2). On
+key: there is no enforced common key — the overlap is two calm bars of
+chant-and-drone, and the shipped banks all live in dark modal space
+(their chant sources are church modes), which is what keeps handoffs
+from clashing. Write in that harmonic neighborhood and tell the
+director your final/mode; if you want to write somewhere further out,
+that's a director conversation before you print.
 
 **Death.** Player dies → every channel halts instantly. No fade,
 including the chant — the music is the player character's mind, and it
@@ -486,14 +591,16 @@ Things worth soloing:
 
 | Term | Here it means |
 |---|---|
-| bank | One track's folder: stems + one-shots + bank.json. The deliverable. |
-| stem | A full-form render of one material group. |
-| lane / fader | The runtime channel a stem plays on, and its game-ridden level. |
+| bank | One piece's folder: stems + one-shots + bank.json. The deliverable. |
+| stem | A full-form render of one material group (one file). |
+| track / lane | The runtime channel a stem plays on. ("Lane" in older docs = "track" here; same thing.) |
+| fader | A track's level, ridden by the game as a formula of the three values. |
 | section | A typed span of bars in your form (`vigil`, `develop`, `peak`…). |
 | arranger / steering | The game relocating the playhead between sections on bar lines. |
 | PRAYER / CONTEMPT / STALWART | The three game faders: calm / dealing damage / being hunted. |
 | through-line | Material that never stops: the chant and the bed. |
-| riser · sting · stab · slam | The punctuation gestures (§3). |
+| riser · sting · stab | The punctuation one-shots (§3). |
+| the slam | Not a file: the ambush *event* — a half-bar `riser_half.wav` swell into an instant full mix (§3). |
 | war chant | The chant at full force over the boss mix at peak danger. |
 | the 2-bar rule | No texture stem below −15 dB (rel. its median bar) for 2+ bars (§2.3). |
 | bar-pair rule | A voice audibly singing in every 2-bar window of `prayer` (§1.4). |
