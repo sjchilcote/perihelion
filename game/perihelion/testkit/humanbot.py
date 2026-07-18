@@ -632,6 +632,33 @@ class HumanBot(_UnstickMixin, Bot):
                 if _dist(way, (px, py)) > 1e-6 else self._escape_dir
             vx = vx * 0.25 + ex_
             vy = vy * 0.25 + ey_
+        # BOSS-DOOR BARRIER (frontier lock, minimal form): never
+        # DRIFT through a door with a warden behind it while fighting
+        # or under-hp — deliberate armed entry goes through the
+        # threshold-hold path. (Flight recorder: 69 encounters/64
+        # runs entered below hp 60 at 52% survival, all via combat
+        # drift AFTER the door gates were already tight.)
+        if co_room or snapshot["hp"] < 90:
+            for edge, portal in enumerate(
+                    session.sim.room_portals(proom)):
+                if portal is None:
+                    continue
+                if not any(e.get("kind") == "warden"
+                           and e.get("room") == portal[0]
+                           for e in distant):
+                    continue
+                mxb, myb = session.sim.edge_midpoint(proom, edge)
+                dpx, dpy = px - mxb, py - myb
+                dp = math.hypot(dpx, dpy)
+                if dp < 85.0:
+                    wb = (85.0 - dp) / 85.0
+                    sxb, syb = necore.mat_apply_dir(
+                        session.cam, dpx / max(dp, 1e-6),
+                        dpy / max(dp, 1e-6))
+                    smb = math.hypot(sxb, syb) or 1.0
+                    vx += 1.5 * wb * sxb / smb
+                    vy += 1.5 * wb * syb / smb
+
         # ENTRY-LIP LEASH (Sol §1.2): while the warden's brood is
         # live, fight from the door lip — the add-first targeting
         # walked the bot toward the far-side spawn wave, i.e. into
