@@ -609,8 +609,13 @@ class HumanBot(_UnstickMixin, Bot):
             self._entry_caution = False
         if self._threshold_hold:
             self._hold_ticks += 1
-            if self._hold_ticks > 1500 and snapshot["hp"] >= 70:
-                self._hold_break = 900      # commit for 15s
+            if self._hold_ticks > 1500:
+                # break the siege: THROUGH the door when healthy,
+                # AWAY to a far medkit when not (Sol 2 §6 — stuck
+                # sieges at hp<70 with no local kit stood 11+
+                # minutes, measured thold 40-46k ticks)
+                self._hold_break = 900 if snapshot["hp"] >= 70 \
+                    else 1400
                 self._hold_ticks = 0
         else:
             self._hold_ticks = 0
@@ -651,7 +656,7 @@ class HumanBot(_UnstickMixin, Bot):
                 dpx, dpy = px - mxb, py - myb
                 dp = math.hypot(dpx, dpy)
                 if dp < 85.0:
-                    wb = (85.0 - dp) / 85.0
+                    wb = 1.5 * (85.0 - dp) / 85.0
                     sxb, syb = necore.mat_apply_dir(
                         session.cam, dpx / max(dp, 1e-6),
                         dpy / max(dp, 1e-6))
@@ -906,15 +911,20 @@ class HumanBot(_UnstickMixin, Bot):
         `_distant_threat_input` -- closing on a threat still has to go
         SOMEWHERE, and that somewhere is wherever the bot was already
         headed (usually exactly the room the threat was spotted in)."""
+        relax = (getattr(self, "_hold_break", 0) > 0
+                 and snapshot["hp"] < 75)
+        med_hops = 12 if relax else 3
         medkits = [p for p in snapshot["pickups"]
-                   if p["kind"] == "medkit" and 0 <= p["hops"] <= 3]
+                   if p["kind"] == "medkit"
+                   and 0 <= p["hops"] <= med_hops]
         # top-up discipline: a medkit in the CURRENT room is a trivial
         # detour -- grab it before the red zone (attrition finding: the
         # bot walked past same-room medkits at hp 62 and died of the
         # drip two rooms later). 70 is the SIM's own consume ceiling
         # (`_pickup_scan`: "leave it for later"); chasing one above that
         # is an infinite orbit. Cross-room detours keep the old bar.
-        heal_bar = 70 if any(p["hops"] == 0 for p in medkits) else 60
+        heal_bar = 75 if relax else \
+            (70 if any(p["hops"] == 0 for p in medkits) else 60)
         if snapshot["hp"] < heal_bar and medkits:
             target = None
             # give-up timer: a medkit the bot has chased for 8s without
