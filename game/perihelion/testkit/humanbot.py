@@ -549,11 +549,13 @@ class HumanBot(_UnstickMixin, Bot):
             # entry after a field kill strolled straight into the
             # remaining pair (interior-traversal deaths, r21 bank)
             self._warden_seen.clear()
+        fresh_pull = False
         for e in co_room + distant:
             if e.get("kind") == "warden" and \
                     e["id"] not in self._warden_seen:
                 self._warden_seen.add(e["id"])
                 trig = True
+                fresh_pull = True
         # LIVE PURSUIT WEIGHT: the wave one hop back counts — episode
         # accounting (2026-07-18, 8 seeds): pack fights of 1-2 cost
         # 4.6hp; EVERY engagement of 5+ cost ~100hp (death). The old
@@ -577,7 +579,14 @@ class HumanBot(_UnstickMixin, Bot):
         if (trig or (self._funnel_hold > 0
                      and (n_pursuit >= 5 or n_ward_hunt >= 2))) \
                 and self._escape_ticks == 0 and trail:
-            self._funnel_hold = 240
+            # a FRESH pull runs long: the r25 bank's discriminator
+            # between deep runs and 110s deaths was first-encounter
+            # size (1-4 hunters vs 9+, same entry hp) — i.e. how far
+            # the pull got dragged before the fight stuck. 4s (~2
+            # rooms) isn't enough head start to string a hatching
+            # brood; 10s is 4-5 rooms and the mites arrive as singles
+            self._funnel_hold = 600 if fresh_pull \
+                else max(self._funnel_hold, 240)
             if trig:
                 self._funnel_rooms = 0
         elif self._funnel_hold > 0:
