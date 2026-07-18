@@ -216,12 +216,22 @@ def _mix_music_rich(out_mix, events, duration_s) -> bool:
                 s0 += nn
 
     # bar 0 plays from t=0 with the first tap's lane set (the engine
-    # starts lanes before the first boundary tap fires)
+    # starts lanes before the first boundary tap fires). The pre-roll
+    # is the TAIL of the previous bar slice, trimmed to end exactly at
+    # the first tap -- clamping its start to 0 while keeping the full
+    # bar summed a second, different bar-slice on top of the opening
+    # bar whenever the first tap lands inside bar one (RMS 0.040 vs
+    # 0.033 measured on the winning session, whose first tap is t=0).
     first = bar_evs[0]
     bk0 = bank_at(first["t"])
-    seq = [dict(t=max(0.0, first["t"] - (bk0["bar_s"] if bk0 else 2.0)),
-                detail=first["name"], bar0=True)] + \
-        [dict(t=e["t"], detail=e["name"], bar0=False) for e in bar_evs]
+    bar0_s = bk0["bar_s"] if bk0 else 2.0
+    pre_s = min(bar0_s, first["t"])
+    seq = [dict(t=e["t"], detail=e["name"], bar0=False, skip=0)
+           for e in bar_evs]
+    if pre_s > 1.0 / RATE:
+        seq.insert(0, dict(t=first["t"] - pre_s, detail=first["name"],
+                           bar0=True,
+                           skip=int((bar0_s - pre_s) * RATE)))
     prev_idx = None
     prev_bank = None
     prev_ev = None
@@ -283,8 +293,10 @@ def _mix_music_rich(out_mix, events, duration_s) -> bool:
             snd = stem(bk, key)
             if snd is None:
                 continue
-            a = min(lane_idx * bar_n, len(snd) - 1)
-            b = min(a + bar_n, len(snd))
+            a = min(lane_idx * bar_n + ev["skip"], len(snd) - 1)
+            b = min(lane_idx * bar_n + bar_n, len(snd))
+            if b <= a:
+                continue
             seg = snd[a:b]
             n = min(len(seg), n_total - s0)
             g = min(1.0, gain) * 0.8
