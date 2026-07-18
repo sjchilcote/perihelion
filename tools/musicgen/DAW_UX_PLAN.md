@@ -165,6 +165,103 @@ symmetry. Additions without one were cut (see Cut list).
 - **Watcher on/off switch** — §8's literal example; resilience instead
   (P0.3).
 
+## Unit-audit addendum — six Sonnets fanned by code unit (2026-07-18)
+
+Eighteen findings survived dedup against the inventory and this plan;
+every one carries a verified mechanism, several carry measurements.
+
+### P0 additions (status truth / crash class)
+
+30. **Main-thread audio calls unguarded** (Player `_start`/`poll`/
+    `_chunk`): the only failure mode that kills the whole process, not
+    a thread — an audio-backend hiccup (PipeWire restart, device
+    unplug) mid-playback crashes the app with total session loss.
+    Extend the P0.2 guard pattern; `AUDIO FAILED — R retries` status;
+    keep last-good playhead. *Force: restart the audio server while
+    playing.*
+31. **CLIP escapes the generation guard** (cross-confirmed by two
+    independent audits): `self.clip` is written between the two
+    supersession checks, so a discarded render's verdict displays
+    against the newer, playing mix. Move the write inside the locked,
+    gen-checked block. *Force: two quick M/S toggles with mixes that
+    disagree on clipping.*
+32. **VideoMonitor cache race = app crash**: unlocked dict, worker
+    FIFO-evicts between the main thread's `in` check and `[q]` read →
+    KeyError propagates out of `draw()` and kills the process. Same
+    class as the stem-cache race, separate dict, worse blast radius.
+    Lock it (or `.get`). *Force: heavy back-scrubbing with the cache
+    at its 400 cap.*
+33. **Video frame truth, four ways**: (a) `cur` only advances on an
+    exact cache hit → under sustained extraction-slower-than-playback
+    the monitor freezes on an arbitrary stale frame, unbounded, never
+    self-correcting — track `(surf, q_of_surf)` set by the worker and
+    diff against live q every draw; (b) the worker blocks up to 10s in
+    one `subprocess.run` with nothing marking the video pane as the
+    stuck element — "video lagging Ns" badge + supersede-aware
+    extraction; (c) cache keyed by time only — a regenerated mp4
+    serves stale frames forever and R doesn't clear it — key by
+    (q, path, mtime); (d) `-ss` before `-i` is keyframe seek: frames
+    can be a full GOP earlier than requested, silently — move `-ss`
+    after `-i` (accurate seek; fine at one frame per request) and
+    probe the shipped mp4's GOP to size the error we've been living
+    with. *Forces: slow storage; huge mp4; overwrite mp4 mid-session;
+    ffprobe the GOP.*
+34. **No rec↔video correspondence guard**: a wrong-session mp4 of
+    similar length plays with full confidence — worst case for a
+    ground-truth monitor. Cheapest: ffprobe duration vs proj.dur,
+    warn on mismatch; stronger: stamp renders with the recording id.
+35. **Watcher input-contract gaps beyond P0.6**: case-sensitive globs
+    (`PRAYER.WAV` from a mac/win-habituated artist is a non-event —
+    match case-insensitively); stem-cache key needs `st_size` (a
+    timestamp-preserving restore can collide with a cached mtime and
+    replay stale audio under fresh `ready`).
+36. **The settle window is a silent seam**: nothing acknowledges
+    "saw your save" until the rebuild starts, and P0.4's quiescence
+    fix lengthens that gap — emit `detected <files> — settling…`
+    the moment a change is seen.
+37. **Input-side seek race**: `handle()`'s `seek()` calls
+    (arrows/HOME/END/drag) take no lock against `_render`'s buffer
+    swap — torn reads exactly during the headline gesture (scrubbing
+    during a hot-swap), distinct from the poll-side race. Take
+    `self._lock` around input-driven seeks.
+38. **Event dispatch continues after quit**: no `break` after
+    `running = False`, so a queued R/M/S in the same frame batch can
+    spawn a render thread in the same tick as `pygame.quit()`.
+    One-line fix.
+
+### Display-contradicts-sound (Project vs the mixer's ground truth;
+empirically verified by re-running the real mixer)
+
+39. **Bar-0 doubling is a MIXER bug, not just display**: the synthetic
+    pre-roll entry sums a second, different bar-slice into the same
+    samples when the first tap is at t=0 (RMS 0.040 measured vs 0.033
+    single-bar) — a doubled-voice artifact at the start of every
+    rendered session, including shipped videos. Fix in mkvideo (skip
+    the synthetic bar0 when it collides with the first real tap),
+    then A/B-verify per the release-grammar protocol before adopting;
+    give Project a matching model either way.
+40. **Rotation crossfade has no visual counterpart**: for ~2 bars
+    after each bank switch, roughly half the audible mix is the OLD
+    bank's fading continuation (measured RMS 0.118, peak 0.67 in the
+    diff) while the transport instantly names only the new bank.
+    Shade the crossfade window; transitional label
+    ("dies_irae → idumea").
+41. **`~f` farewell suffix unstripped in Project**: fading bars draw
+    as flat sustained blocks, and the stored key `bass_warden~f`
+    would poison the planned stem-key display (P2.24) with a filename
+    that doesn't exist. Strip suffixes at parse, keep a fade flag,
+    taper the block's right edge.
+42. **Waveform x-axis mismatch**: overview binned over `dur+1s` of
+    buffer but drawn on the ruler's `dur` span — ~2px on the 649s
+    session, ~8% skew on a 10s debug recording. Bin over
+    `dur × RATE` samples.
+
+Audits also *cleared* (measured, not assumed): all 42 jump markers
+land at delta 0.000 from their bar taps; `key@idx` free-running holy
+keys never occur in any real recording; the video worker's CV protocol
+has no lost-wakeup bug; the message audit found nothing beyond the
+inventory; argparse contract is adequately covered by planned items.
+
 ## Definition of done (§15, media-paradigm ledger)
 
 The earlier headless smoke test is a **grant-everything harness** —
@@ -175,7 +272,13 @@ counts as verification. Done means:
    48k wav, 24-bit wav, aiff, misnamed, truncated-mid-write, slow
    multi-file copy, short stem, killed watcher, missing ffmpeg, missing
    video, renamed bank dir, edited bank.json, mute+solo, M/S spam —
-   each asserting the *indicator*, not just the audio.
+   each asserting the *indicator*, not just the audio. Addendum forces:
+   audio-server restart mid-play, disagreeing-CLIP M/S race, video
+   cache at cap + back-scrub, mp4 overwrite mid-session, wrong-session
+   --video, GOP probe of the shipped mp4, `PRAYER.WAV`, mtime-preserving
+   restore, ESC+R same-frame batch, scrub-during-hot-swap, short-rec
+   waveform alignment, bar-0 doubling A/B, crossfade-window display,
+   `~f` bar rendering.
 2. **Screen-recording ledger**: one timestamped cold-session capture —
    launch → first listen → scrub → zoom/loop → mute/solo → a real
    hot-swap → a forced failure and its red status → A/B toggle →
