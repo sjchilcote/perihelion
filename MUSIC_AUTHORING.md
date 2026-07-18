@@ -89,7 +89,11 @@ deliver (the folder is the deliverable)
   rate, and revision rounds are in your engagement terms, not here —
   this is the technical and musical brief only.
 - **Sonic reference**: the seven shipped banks *are* the production
-  reference — tone, drum character, mix density. Ask the director for
+  reference — tone, drum character, mix density. For a faders-up first
+  listen before you dig into raw stems: watch
+  `out/gauntlet_winning_session_v1.mp4` (a full 11-minute playthrough
+  with the shipped soundtrack performing), or run the session DAW with
+  no arguments (§5.2) and just press play. Ask the director for
   external reference tracks if you want a second bearing; don't guess
   one from the phrase "industrial metal."
 - **The job is one bank at a time.** The soundtrack is an ongoing set;
@@ -202,11 +206,19 @@ exposure earns it the strictest rules in this document:
   against the `peak` bars — register, contour, character — so that when
   the fader lifts it, it reads as defiance, not as a pad turned up.
 
-A note on the singer: the shipped chants are **synthesized/sampled
-voices**, not recordings of a live monk. A sample library or synthesized
-choir of matching register is an acceptable delivery; a real singer is
-welcome but not expected. Decide with the director before budgeting
-session time.
+A note on the singer: the shipped chants are **synthesized voices**
+(built in-house), not recordings of a live monk — there is no sample
+library to match, and you are not expected to clone the existing
+timbre. A new bank may establish its own vocal color, provided it sits
+in the same register and liturgical character; the director's ear is
+the arbiter. A sample-library or synthesized choir is a fully
+acceptable delivery; a real singer is welcome but not expected. Decide
+with the director before budgeting session time. On **text**: the
+shipped voices sing vowel streams shaped by the source chant's own
+syllabification — intelligible Latin is not required. Setting the
+source's liturgical text (public domain) or writing wordless vocalise
+are both acceptable; agree on it with the director when the melody is
+picked.
 
 ### 1.5 Write density, not dynamics
 
@@ -244,6 +256,12 @@ as that material* if the fader opens there: it can thin out with the
 form's mood (the rule floor is §2.3's −15 dB), but a fight breaking out
 at bar 3 must still get a credible wall at bar 3, not a placeholder.
 
+To be explicit about scope: this applies to **every form stem including
+`drums_boss` and `overlay_boss`** — the "Heard when" column in the
+track sheet describes when the game opens the fader, never permission
+to leave bars empty (a boss can engage at any bar of the form). The
+single exemption in this document is the leads' phrase rests (§2.3).
+
 ### 2.1 The track sheet
 
 Every file, its musical role, and when the game opens its fader.
@@ -257,7 +275,7 @@ Every file, its musical role, and when the game opens its fader.
 | **`contempt.wav`** | The swagger: driving machine groove, flourishes. "You're winning." | Rises with the player's damage output. |
 | `drums.wav` | The kit, full form. | Any combat. Drums cut *clean* on bar lines when fights end — never faded. |
 | `drums_boss.wav` | The serious kit: denser subdivision, crash grid. | Swaps in for `drums.wav` during boss-grade danger. |
-| `lead_pistol.wav` `lead_smg.wav` `lead_shotgun.wav` `lead_rail.wav` `lead_scrap.wav` `lead_knife.wav` `lead_lightning.wav` `lead_gland.wav` `lead_hole.wav` `lead_tau.wav` | One lead line, re-voiced per weapon (same line, ten timbres — the player's weapon picks the color; character table below). | Combat. Weapon swaps crossfade two of these *against each other* (equal-power), and alternating weapons parks the pair at the 50/50 point — each about −3 dB, both clearly audible — so the re-voicings must sound good layered. |
+| `lead_pistol.wav` `lead_smg.wav` `lead_shotgun.wav` `lead_rail.wav` `lead_scrap.wav` `lead_knife.wav` `lead_lightning.wav` `lead_gland.wav` `lead_hole.wav` `lead_tau.wav` | One lead line, re-voiced per weapon (same line, ten timbres — the player's weapon picks the color; character table below). | Combat. Weapon swaps crossfade two of these *against each other* (equal-power), and alternating weapons parks the pair at the 50/50 point — each about −3 dB, both clearly audible. The layering constraint is easier than it sounds: all ten renders play the *same notes*, so a sounding pair is one line in two colors, never two colliding lines — you're choosing ten timbres that blend, not composing 45 duets. Any two of the ten can pair (weapon switching is unconstrained), which is exactly why they share one line. |
 | `bass_mite.wav` `bass_husk.wav` `bass_spitter.wav` `bass_shrieker.wav` `bass_brute.wav` `bass_warden.wav` `bass_flicker.wav` | A short bass ostinato cell per enemy species, tiled over the form's harmony. The dominant enemy in the fight picks which one plays. | Enemies engaged. Must genuinely live in the bass register (§2.3). |
 | `overlay_boss.wav` | Register expansion for bosses only: sub-octave roots, octave pedal. | Boss engagements only. |
 | The five one-shots | §3. | Scheduled moments. |
@@ -330,6 +348,10 @@ These are enforced by the pre-flight checker (§5.1); numbers are exact.
   (full-scale = 1) fails the check. 10 Hz leaves 40 Hz sub untouched.
 - Peak below full scale; exact peak level is not critical (relative
   balance is — §1.5).
+- **Stereo image**: no hard rule; deliver stereo and match the
+  reference bank's widths by ear per role (beds/walls wide, voice and
+  bass centered, kit natural). The game does no panning of its own —
+  what you print is the image.
 
 ### 2.3 Rules for specific stems
 
@@ -364,7 +386,10 @@ These are enforced by the pre-flight checker (§5.1); numbers are exact.
 These are the game's punctuation, and the standing law is: **punctuation
 must sound like part of the song, never like a sound effect laid over
 it.** Each is cut from your own palette. Own lengths (they're not on the
-form grid), same format rules as §2.2.
+form grid), and only §2.2's *format* rules apply (WAV/44.1k/stereo, no
+DC, peak headroom) — the tail-bar/fold mechanism does not: a one-shot's
+natural release simply lives inside its own file (your sting rings out
+to silence within `sting.wav`).
 
 | File | Length | What it is | When the game fires it |
 |---|---|---|---|
