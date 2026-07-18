@@ -730,6 +730,8 @@ class App:
             self.status_t = time.time()
 
     def _note(self, text, kind="warn"):
+        if any(t == text for _, t, _ in self.notes):
+            return                  # never stutter the same truth
         self.notes.append((time.time(), text, kind))
 
     # ---- session recall (§7: make the slip cheap, not the quit) ---------
@@ -1517,6 +1519,10 @@ class App:
                 self._chip(f"{names} → {'/'.join(sorted(dead))} is "
                            f"muted — unmute to hear", x2, y2, "warn",
                            maxw=self.W - 344 - x2)
+        # a chip can truncate; an ERROR'S REMEDY may not — mirror the
+        # full red status on its own full-width line
+        if self.status_kind == "err":
+            self.txt(self.status, 12, 224, STATUS_COL["err"], maxw=920)
         # transient notes (bottom-left of the panel area)
         yy = 208
         now = time.time()
@@ -1586,10 +1592,15 @@ class App:
             lag = abs(q_shown - round(t * 2) / 2) \
                 if q_shown is not None else 0.0
             if lag > 1.0:
+                # extraction chases a moving playhead ~1-2s behind by
+                # nature; the dim says "not current", and the counting
+                # badge is reserved for a real stall (walkthrough
+                # finding: a steady counter reads as an error)
                 dim = pygame.Surface((320, 180), pygame.SRCALPHA)
                 dim.fill((0, 0, 0, 130))
                 scr.blit(dim, (vx, vy))
-                self.txt(f"video lagging {lag:.0f}s", vx + 8, vy + 8,
+            if lag > 2.5:
+                self.txt(f"video behind by {lag:.0f}s", vx + 8, vy + 8,
                          STATUS_COL["warn"])
         else:
             self.txt("extracting frame…", vx + 100, vy + 84,

@@ -324,3 +324,41 @@ counts as verification. Done means:
    first non-builder human. The real §2 test — watching the actual
    artist cold — runs the day they onboard, and its findings outrank
    this whole document.
+
+## Execution record — 2026-07-18
+
+Everything above is BUILT, VALIDATED, TESTED. Commits: 9640bca
+(mkvideo bar-0), 36cb5f7 (daw v3, all tiers), fb0d2ae (fault suite +
+its 2 catches), plus the ledger/walkthrough commit.
+
+- **P0 1–14, addendum 30–38, display truth 40–42**: implemented in
+  daw.py (v3). Addendum 33d resolved by measurement: `-ss` before
+  `-i` is byte-identical to output-seek on this ffmpeg at 3 probe
+  points across the 16.7s GOP — the hypothesized keyframe error is
+  zero; fast form kept.
+- **Item 39 (bar-0 mixer bug)**: fixed in mkvideo (pre-roll = trimmed
+  tail of the previous slice, dropped at t=0 collision). A/B verified:
+  winning session first-bar RMS 0.0401→0.0332, zero diff beyond bar
+  0; no-collision geometry byte-identical. Clips for audition:
+  out/ab_bar0_{old,new}.wav. Shipped videos NOT re-rendered — next
+  render adopts the fix (release decision stays with the director).
+- **P1 15–17, P2 18–24, P3 25–28**: implemented. 29 (resizable)
+  stays deferred per this plan's own ruling.
+- **DoD §1 fault-injection**: tools/musicgen/daw_fault_suite.py — 36
+  forces, all green, asserting indicators. The suite itself caught
+  two defects (watch_dirs dropped missing dirs so a renamed bank
+  never recovered; rendered buffer overran the ruler span by ~0.2s) —
+  both fixed.
+- **DoD §2 ledger**: out/daw_ledger/ — 12 timestamped cold-session
+  frames (launch → listen → scrub → zoom/loop → mute → REAL hot-swap
+  via prayer.wav-beside-ogg, 330Hz spectrally confirmed in the mix →
+  24-bit forced failure → recovery → A/B → help → reopen recall),
+  personally reviewed. Review caught two defects (error chip
+  truncated its remedy; duplicate notes) — both fixed, failure frame
+  re-captured with the full remedy line.
+- **DoD §3 walkthrough**: out/daw_ledger/walkthrough.md — context-free
+  agent, 7/7 tasks, zero stuck moments; its one finding (the video
+  lag counter reads as an error during normal playback) fixed:
+  badge now reserved for >2.5s stalls.
+- Outstanding: the director as first non-builder human, and the real
+  artist cold test on onboarding day.
