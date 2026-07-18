@@ -21,13 +21,20 @@ same folder, so dropping `prayer.wav` next to `prayer.ogg` auditions
 your replacement without deleting the original.
 
 Transport / controls
-  SPACE        play / pause
+  SPACE        play / pause (or click the transport glyph)
   click/drag   seek / scrub (anywhere in the timeline)
   LEFT/RIGHT   nudge one bar    (SHIFT: 10 s)
   HOME / END   start / end
   M / S boxes  mute / solo a track (click; rebuild is ~1 s)
+  track name   click selects a track; M / S keys then mute/solo it
+  time readout click, type mm:ss (or seconds), ENTER jumps
+  bank title   click: audition a different bank over this session
+  video        click: enlarge / shrink
+  P/C/S labels click: show / hide that curve
+  CLIP         click: reset the clip latch
   R            force rebuild
-  ESC          quit
+  ESC          close overlay / cancel entry / quit
+Hover any control for a tooltip.
 """
 from __future__ import annotations
 
@@ -295,26 +302,33 @@ class Player:
 class VideoMonitor:
     """Frame-at-playhead from the rendered mp4 (ffmpeg seek, async)."""
 
-    def __init__(self, video: Path | None, size=(320, 180)):
+    def __init__(self, video: Path | None, size=(320, 180),
+                 big=(640, 360)):
         self.video = video if video and video.exists() else None
         self.size = size
+        self.big_size = big             # the mp4's native resolution
         self.cache: dict = {}
+        self.native: dict = {}          # big-mode frames, small cap
         self.want = None
         self.cur = None
         self._cv = threading.Condition()
         if self.video:
             threading.Thread(target=self._worker, daemon=True).start()
 
-    def request(self, t):
+    def request(self, t, big: bool = False):
         if not self.video:
             return None
         q = round(t * 2) / 2
-        if q in self.cache:
-            self.cur = self.cache[q]
+        store = self.native if big else self.cache
+        if q in store:
+            self.cur = store[q]
             return self.cur
         with self._cv:
-            self.want = q
+            self.want = (q, big)
             self._cv.notify()
+        if big and q in self.cache:     # upscale small while native
+            return pygame.transform.smoothscale(self.cache[q],
+                                                self.big_size)
         return self.cur                 # last frame while seeking
 
     def _worker(self):
@@ -322,8 +336,9 @@ class VideoMonitor:
             with self._cv:
                 while self.want is None:
                     self._cv.wait()
-                q, self.want = self.want, None
-            if q in self.cache:
+                (q, big), self.want = self.want, None
+            store = self.native if big else self.cache
+            if q in store:
                 continue
             try:
                 out = subprocess.run(
@@ -332,12 +347,14 @@ class VideoMonitor:
                      "-f", "image2pipe", "-vcodec", "bmp", "-"],
                     capture_output=True, timeout=10).stdout
                 img = pygame.image.load(io.BytesIO(out), "f.bmp")
-                surf = pygame.transform.smoothscale(img, self.size)
+                surf = pygame.transform.smoothscale(
+                    img, self.big_size if big else self.size)
             except Exception:
                 continue
-            if len(self.cache) > 400:
-                self.cache.pop(next(iter(self.cache)))
-            self.cache[q] = surf
+            cap = 60 if big else 400
+            if len(store) > cap:
+                store.pop(next(iter(store)))
+            store[q] = surf
 
 
 class App:
@@ -354,9 +371,20 @@ class App:
         pygame.display.set_caption("PERIHELION session DAW")
         self.font = pygame.font.SysFont("monospace", 13)
         self.big = pygame.font.SysFont("monospace", 17, bold=True)
+        self.rec = rec
+        self._use = use
         self.proj = Project(rec, use=use)
         self.player = Player()
         self.video = VideoMonitor(video)
+        # interaction state (affordance-audit pass, 2026-07-18)
+        self._goto = None           # typed go-to buffer, None = inactive
+        self.video_big = False
+        self.picker = False         # bank-picker overlay open
+        self._picker_rows = []      # (rect, bank-name-or-None)
+        self.curve_off: set = set() # hidden P/C/S curves (indices)
+        self.sel = None             # selected track (keyboard M/S)
+        self._hit = {}              # element -> rect, rebuilt per draw
+        self._hover = (None, 0.0)   # (element, hover-start wall time)
         self.muted: set = set()
         self.solo: set = set()
         self.status = "rendering…"
@@ -461,17 +489,74 @@ class App:
             time.sleep(0.3)             # let the writer finish
             self.rebuild(f"reload: {names}")
 
+    # ---- bank switching (in-app --use) -----------------------------------
+    def available_banks(self):
+        names, seen = [], set()
+        for root in MK.MUSIC_ROOTS:
+            for d in sorted(root.glob("album_*")):
+                if (d / "bank.json").exists() and d.name not in seen:
+                    seen.add(d.name)
+                    names.append(d.name)
+        return names
+
+    def set_bank(self, name):
+        """Re-score the whole session with one bank (None = original)."""
+        t = self.player.playhead()
+        self.player.pause()
+        self._use = name
+        self.proj = Project(self.rec, use=name)
+        self._mtimes = self._scan()
+        self.scale = None           # fresh loudness anchor per score
+        self.player.t = min(t, self.proj.dur - 1.0)
+        self.rebuild(f"scoring with {name or 'session banks'}…")
+
+    def _goto_commit(self):
+        txt = (self._goto or "").strip()
+        self._goto = None
+        if not txt:
+            return
+        try:
+            if ":" in txt:
+                m, s = txt.split(":", 1)
+                t = int(m) * 60 + float(s or 0)
+            else:
+                t = float(txt)
+            self.player.seek(t)
+        except ValueError:
+            self.status = f"can't read '{txt}' — use mm:ss or seconds"
+
     # ---- interaction -----------------------------------------------------
     def handle(self, ev):
         if ev.type == pygame.KEYDOWN:
+            if self._goto is not None:      # time-entry mode owns keys
+                if ev.key == pygame.K_ESCAPE:
+                    self._goto = None
+                elif ev.key == pygame.K_RETURN:
+                    self._goto_commit()
+                elif ev.key == pygame.K_BACKSPACE:
+                    self._goto = self._goto[:-1]
+                elif ev.unicode and ev.unicode in "0123456789:.":
+                    self._goto += ev.unicode
+                return True
             if ev.key == pygame.K_ESCAPE:
-                return False
-            if ev.key == pygame.K_SPACE:
+                if self.picker:
+                    self.picker = False
+                elif self.video_big:
+                    self.video_big = False
+                else:
+                    return False
+            elif ev.key == pygame.K_SPACE:
                 (self.player.pause if self.player.playing
                  else self.player.play)()
             elif ev.key == pygame.K_r:
                 _stem_cache.clear()
                 self.rebuild("full reload")
+            elif ev.key == pygame.K_m and self.sel:
+                self.muted ^= {self.sel}
+                self.rebuild()
+            elif ev.key == pygame.K_s and self.sel:
+                self.solo ^= {self.sel}
+                self.rebuild()
             elif ev.key in (pygame.K_LEFT, pygame.K_RIGHT):
                 step = 10.0 if ev.mod & pygame.KMOD_SHIFT \
                     else self.proj.bar_s
@@ -483,17 +568,45 @@ class App:
                 self.player.seek(self.proj.dur - 5.0)
         elif ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
             x, y = ev.pos
-            for ln in LANES + [FX]:
-                ry = self.rows[ln]
-                if 4 <= x <= 22 and ry <= y <= ry + 16:
-                    self.muted ^= {ln}
+            if self.picker:
+                for r, name in self._picker_rows:
+                    if r.collidepoint(x, y):
+                        self.picker = False
+                        self.set_bank(name)
+                        return True
+                self.picker = False
+                return True
+            if self.video_big:
+                self.video_big = False
+                return True
+            for el, r in self._hit.items():
+                if not r.collidepoint(x, y):
+                    continue
+                if el == "play_glyph":
+                    (self.player.pause if self.player.playing
+                     else self.player.play)()
+                elif el == "time_readout":
+                    self._goto = ""
+                elif el == "clip_chip":
+                    self.clip = False
+                elif el == "bank_title":
+                    self.picker = True
+                elif el == "video_monitor":
+                    self.video_big = True
+                elif el.startswith("curve:"):
+                    self.curve_off ^= {int(el.split(":")[1])}
+                elif el.startswith("name:"):
+                    ln = el.split(":")[1]
+                    self.sel = None if self.sel == ln else ln
+                elif el.startswith("mute:"):
+                    self.muted ^= {el.split(":")[1]}
                     self.rebuild()
-                    return True
-                if 26 <= x <= 44 and ry <= y <= ry + 16:
-                    self.solo ^= {ln}
+                elif el.startswith("solo:"):
+                    self.solo ^= {el.split(":")[1]}
                     self.rebuild()
-                    return True
-            if x >= self.x0 and y >= self.y_ruler:
+                return True
+            if self.x0 <= x <= self.x1 and \
+                    self.y_ruler <= y <= self.y_marks + 22:
                 self._drag_seek(x)
                 self.dragging = True
         elif ev.type == pygame.MOUSEBUTTONUP:
@@ -517,26 +630,36 @@ class App:
     def draw(self):
         scr = self.screen
         scr.fill((18, 18, 22))
+        self._hit = {}
         t = self.player.playhead()
         # transport bar
         pygame.draw.rect(scr, (28, 28, 34), (0, 0, self.W, 36))
         self.txt(">" if not self.player.playing else "||", 14, 8,
                  (240, 220, 160), self.big)
+        self._hit["play_glyph"] = pygame.Rect(8, 2, 34, 30)
         bar_t, bar_idx, _ = self.proj.bar_at(t)
         name, meta, d = self.proj.bank_at(t)
         sect = self.proj.section_at(t)
-        mm, ss = divmod(int(t), 60)
-        self.txt(f"{mm:02d}:{ss:02d}.{int((t % 1) * 10)}", 48, 10,
-                 (255, 255, 255), self.big)
+        if self._goto is not None:
+            pygame.draw.rect(scr, (50, 50, 30), (44, 6, 130, 24))
+            pygame.draw.rect(scr, (240, 220, 160), (44, 6, 130, 24), 1)
+            self.txt(f"{self._goto}_", 50, 10, (255, 255, 200), self.big)
+        else:
+            mm, ss = divmod(int(t), 60)
+            self.txt(f"{mm:02d}:{ss:02d}.{int((t % 1) * 10)}", 48, 10,
+                     (255, 255, 255), self.big)
+        self._hit["time_readout"] = pygame.Rect(44, 6, 130, 24)
         self.txt(f"bar {bar_idx % (meta['bars'] if meta else 1):>2}"
-                 f"  {sect:<8}", 150, 10, (240, 220, 160), self.big)
+                 f"  {sect:<8}", 180, 10, (240, 220, 160), self.big)
         title = meta.get("title", name) if meta else str(name)
-        self.txt(f"{title}", 320, 10, (200, 200, 220), self.big)
+        self.txt(f"{title}", 350, 10, (200, 200, 220), self.big)
+        self._hit["bank_title"] = pygame.Rect(346, 4, 300, 28)
         st_col = (140, 220, 140) if self.status.startswith("ready") \
             else (240, 200, 100)
         self.txt(self.status, 700, 12, st_col)
         if self.clip:
             self.txt("CLIP", 900, 12, (255, 80, 80), self.big)
+            self._hit["clip_chip"] = pygame.Rect(896, 8, 62, 24)
         if self._shadow_note:
             self.txt(self._shadow_note, 320, 40, (255, 160, 80))
         # info panel
@@ -557,15 +680,19 @@ class App:
             yy += 16
         self.txt("replace any stem file there -> auto-reload at the "
                  "same playhead", 12, min(yy + 4, 210), (170, 190, 170))
-        self.txt("SPACE play/pause . click/drag scrub . arrows bar "
-                 "(shift 10s) . M/S per track . R rebuild . ESC quit",
+        self.txt("SPACE play . click/drag scrub . arrows bar (shift "
+                 "10s) . M/S . click clock to type a time . R rebuild "
+                 ". ESC . hover any control for tips",
                  128, self.y_marks + 28, (120, 120, 135))
         # video monitor
         fr = self.video.request(t)
         if fr is not None:
             scr.blit(fr, (self.W - 332, 44))
+        if self.video.video is not None:
             pygame.draw.rect(scr, (70, 70, 80),
                              (self.W - 332, 44, 320, 180), 1)
+            self._hit["video_monitor"] = pygame.Rect(self.W - 332, 44,
+                                                     320, 180)
         # ruler
         pygame.draw.rect(scr, (26, 26, 32),
                          (self.x0, self.y_ruler, self.x1 - self.x0, 16))
@@ -602,8 +729,14 @@ class App:
         pygame.draw.rect(scr, (24, 24, 30),
                          (self.x0, self.y_vals, self.x1 - self.x0, 50))
         for vi, vname in enumerate(("PRAYER", "CONTEMPT", "STALWART")):
-            self.txt(vname, 50, self.y_vals + 2 + vi * 15, VAL_COL[vi])
+            col = tuple(c // 3 for c in VAL_COL[vi]) \
+                if vi in self.curve_off else VAL_COL[vi]
+            self.txt(vname, 50, self.y_vals + 2 + vi * 15, col)
+            self._hit[f"curve:{vi}"] = pygame.Rect(
+                46, self.y_vals + vi * 15, 80, 15)
         for vi in range(3):
+            if vi in self.curve_off:
+                continue
             pts = [(self._tx(vt), self.y_vals + 48 - int(v[vi] * 46))
                    for vt, v in self.proj.vals[::3]]
             if len(pts) > 1:
@@ -618,11 +751,16 @@ class App:
                              else (36, 36, 44), (4, ry, 18, 16))
             self.txt("M", 8, ry + 1, (255, 150, 150) if ln in self.muted
                      else (150, 150, 160))
+            self._hit[f"mute:{ln}"] = pygame.Rect(4, ry, 18, 16)
             pygame.draw.rect(scr, (60, 60, 30) if ln in self.solo
                              else (36, 36, 44), (26, ry, 18, 16))
             self.txt("S", 31, ry + 1, (255, 240, 140) if ln in self.solo
                      else (150, 150, 160))
+            self._hit[f"solo:{ln}"] = pygame.Rect(26, ry, 18, 16)
+            if self.sel == ln:
+                pygame.draw.rect(scr, (70, 65, 40), (46, ry, 80, 19))
             self.txt(ln, 50, ry + 2, hcol)
+            self._hit[f"name:{ln}"] = pygame.Rect(46, ry, 80, 19)
             pygame.draw.rect(scr, (24, 24, 29),
                              (self.x0, ry, self.x1 - self.x0, 22))
             if ln == FX:
@@ -665,7 +803,88 @@ class App:
         px = self._tx(t)
         pygame.draw.line(scr, (255, 255, 255), (px, self.y_ruler),
                          (px, self.y_marks + 22))
+        # ---- overlays --------------------------------------------------
+        if self.video_big:
+            fr = self.video.request(t, big=True)
+            bw, bh = self.video.big_size
+            bx, by = (self.W - bw) // 2, (self.H - bh) // 2
+            dim = pygame.Surface((self.W, self.H), pygame.SRCALPHA)
+            dim.fill((0, 0, 0, 170))
+            scr.blit(dim, (0, 0))
+            if fr is not None:
+                scr.blit(fr, (bx, by))
+            pygame.draw.rect(scr, (200, 200, 210), (bx, by, bw, bh), 2)
+            self.txt("click or ESC to close", bx + 4, by + bh + 6,
+                     (170, 170, 180))
+        if self.picker:
+            names = [None] + self.available_banks()
+            ph = 24 * len(names) + 36
+            prc = pygame.Rect(350, 40, 340, ph)
+            pygame.draw.rect(scr, (30, 30, 38), prc)
+            pygame.draw.rect(scr, (240, 220, 160), prc, 1)
+            self.txt("score this session with:", prc.x + 10, prc.y + 8,
+                     (240, 220, 160))
+            self._picker_rows = []
+            yy = prc.y + 30
+            for nm in names:
+                r = pygame.Rect(prc.x + 6, yy, prc.w - 12, 22)
+                cur = (nm == self._use)
+                if cur:
+                    pygame.draw.rect(scr, (60, 55, 35), r)
+                label = nm or "(this session's own banks)"
+                self.txt(label, r.x + 6, r.y + 3,
+                         (255, 240, 200) if cur else (200, 200, 210))
+                self._picker_rows.append((r, nm))
+                yy += 24
+        self._draw_tooltip()
         pygame.display.flip()
+
+    TOOLTIPS = {
+        "play_glyph": "Play / pause (SPACE)",
+        "time_readout": "Click, type a time (mm:ss or seconds), ENTER jumps",
+        "bank_title": "Click: score this session with a different bank",
+        "clip_chip": "Mix hit full scale — click to reset",
+        "video_monitor": "Click: enlarge video",
+        "curve:0": "PRAYER value - click to show/hide the curve",
+        "curve:1": "CONTEMPT value - click to show/hide the curve",
+        "curve:2": "STALWART value - click to show/hide the curve",
+    }
+
+    def _tooltip_for(self, el):
+        if el in self.TOOLTIPS:
+            return self.TOOLTIPS[el]
+        if el.startswith("mute:"):
+            return f"Mute '{el[5:]}' (re-mixes in ~1s)"
+        if el.startswith("solo:"):
+            return f"Solo '{el[5:]}' (re-mixes in ~1s)"
+        if el.startswith("name:"):
+            return (f"Click: select '{el[5:]}' — M/S keys then "
+                    f"mute/solo it")
+        return None
+
+    def _draw_tooltip(self):
+        if self.picker or self.video_big or self._goto is not None:
+            return
+        mx, my = pygame.mouse.get_pos()
+        over = next((el for el, r in self._hit.items()
+                     if r.collidepoint(mx, my)), None)
+        if over != self._hover[0]:
+            self._hover = (over, time.time())
+            return
+        if over is None or time.time() - self._hover[1] < 0.45:
+            return
+        tip = self._tooltip_for(over)
+        if not tip:
+            return
+        surf = self.font.render(tip, True, (20, 20, 24))
+        w, h = surf.get_size()
+        tx = min(mx + 14, self.W - w - 14)
+        ty = min(my + 18, self.H - h - 12)
+        pygame.draw.rect(self.screen, (235, 225, 180),
+                         (tx - 6, ty - 4, w + 12, h + 8))
+        pygame.draw.rect(self.screen, (120, 110, 80),
+                         (tx - 6, ty - 4, w + 12, h + 8), 1)
+        self.screen.blit(surf, (tx, ty))
 
     def step(self):
         self.player.poll()
