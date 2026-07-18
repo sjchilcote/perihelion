@@ -838,6 +838,15 @@ class HumanBot(_UnstickMixin, Bot):
                 self._hold_cycles = 0
         if self._hold_break > 0:
             self._hold_break -= 1
+        # BOT_SPRINT=1 (experiment flag, A/B only): full-avoidance
+        # speedrun — advance dominates, no holds, fight only what's
+        # in the way. Measures whether traversal-without-clearing is
+        # even alive as a macro-family.
+        if os.environ.get("BOT_SPRINT"):
+            adv_gain = 1.0
+            self._funnel_hold = 0
+            self._threshold_hold = False
+            rg = min(rg, 0.2)
         adv_vec = self._objective_move(session, snapshot, px, py, proom)
 
         RG_W = float(__import__('os').environ.get('BOT_RG_W', '1.15'))
