@@ -262,6 +262,41 @@ keys never occur in any real recording; the video worker's CV protocol
 has no lost-wakeup bug; the message audit found nothing beyond the
 inventory; argparse contract is adequately covered by planned items.
 
+## Affordance-expectation audit (per-element, screenshot-based, 2026-07-18)
+
+Method (director's protocol): every UI element highlighted with a red
+bounding box in a real screenshot; an isolated no-context Sonnet asked
+what left/right/middle-click and vertical/horizontal scroll do; judged
+against the handler's ground truth; mismatches got a generated tooltip
+injected into a fresh reader's prompt and iterated for clarity and
+concision (a shortened tooltip only kept if it re-passed). 22 elements,
+92 agents, full transcripts in out/daw_affordance_audit.json.
+
+**Result: 14/22 self-evident** (naive expectations correct — all
+timeline surfaces, M/S boxes, status chip, info panel), **8/22
+mismatched, all corrected by one tooltip round, 0 unresolved.** Every
+right/middle/scroll expectation across all 22 elements was correctly
+"nothing" — the mismatches are all left-click.
+
+Disposition per §3 (a tooltip whose only job is to explain a confusing
+control is the taped sign — where the expected behavior is already
+planned, implement it instead of shipping the tooltip):
+
+| Element | Naive expectation | Disposition |
+|---|---|---|
+| play glyph | click toggles play/pause | **Implement it** (trivial; better than the tooltip). |
+| time readout | click = numeric time entry | **Implement** — this is P2.19's numeric go-to, now with expectation evidence; put it on the readout. |
+| clip chip | click resets the latch | **Implement** — folds into P0.12's CLIP reset. |
+| help line | expects nothing; reality seeks | **Fix the hit-region** (P2.26) — the audit empirically confirms the overreach surprises users; do not tooltip a defect. |
+| video monitor | click enlarges | Tooltip for now ("Video preview only — no clicks or controls."); enlarge stays deferred — expectation is §3 evidence of surprise, not §8 evidence of need. |
+| bank title | click opens a bank picker | Tooltip ("Bank name — display only, not clickable"); in-app switching stays deferred. |
+| value labels | legend-click toggles curves | Tooltip ("Read-only labels; clicking won't toggle or hide curves.") — or implement curve-toggling if the hover layer lands anyway; it's cheap and expectation-aligned. |
+| track name | click selects the track | Tooltip ("Track name (label only)"); there is no selection model to attach. |
+
+The four kept tooltips + the audit's refined texts for the implemented
+ones are the seed content for the §3 hover/help layer (P2.18); the
+audit's judged texts are in the results JSON verbatim.
+
 ## Definition of done (§15, media-paradigm ledger)
 
 The earlier headless smoke test is a **grant-everything harness** —
