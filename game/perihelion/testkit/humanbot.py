@@ -714,6 +714,12 @@ class HumanBot(_UnstickMixin, Bot):
                         occ.get(r, 0),
                         0 if _doors(r) >= 2 else 1,
                         0 if r in self._visited_polygons else 1))
+            # (COVER ROUTING via lateral retreat vs spitters was tried
+            # 2026-07-19 and measured negative, mean 276->225: any
+            # interference with withdrawal routing loses more than the
+            # broken sightline saves — consistent with every routing
+            # override this doctrine has measured. Real cover needs
+            # positional fighting [corner-peek], a planner-scale build.)
             # KITE TO THE GUNS (director's designed answer to a heavy
             # train: "kite-to-turrets stays a valid strat" — the
             # sentry alcoves are 3x18dmg emplacements built exactly
@@ -1085,12 +1091,13 @@ class HumanBot(_UnstickMixin, Bot):
         # snapshot['spits'] added same day). Strong blend, still below
         # contact-evasion: the thing biting you outranks the thing
         # merely flying at you.
-        # (Cross-polygon spit dodging was tried 2026-07-18 and REGRESSED
-        # the bank hard, median 207->117s: with portal spits visible,
-        # the dodge override — weighted for rare same-polygon spits —
-        # fires continuously through every doorway siege and thrashes
-        # navigation, withdrawal, and fire. The late reaction window
-        # on portal shots is the lesser cost.)
+        # (Cross-polygon spit merging into the dodge is a TWICE-measured
+        # negative — old game median 207->117s, new deep-sightline game
+        # mean 276->223s: the dodge override thrashes navigation
+        # whenever portal spits are visible, which post-multi-hop is
+        # constantly. The answer to deep sightlines is COVER
+        # [director], handled in the withdrawal routing — not reactive
+        # dodging of everything on screen.)
         ddx = ddy = 0.0
         for sp in snapshot.get("spits", ()):
             spx, spy = sp["pos"]
