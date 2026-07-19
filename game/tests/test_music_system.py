@@ -19,25 +19,25 @@ from perihelion.music import (MusicSystem, values, read_inputs,
 
 
 class FakeSim:
-    def __init__(self, rooms):
-        self._rooms = rooms
+    def __init__(self, polygons):
+        self._polygons = polygons
 
-    def get_room(self, eid):
-        return self._rooms[eid]
+    def get_polygon(self, eid):
+        return self._polygons[eid]
 
     def hop_distance(self, a, b):
         return abs(a - b)
 
 
-def make_session(enemies, rooms, hp=100.0, proom=0, tick=0):
+def make_session(enemies, polygons, hp=100.0, ppolygon=0, tick=0):
     # models the FULL session contract the engine reads strictly
     # (fail-fast law: fakes that under-declare the contract are lies)
     s = SimpleNamespace()
     s.enemies = enemies
-    s.sim = FakeSim(rooms)
+    s.sim = FakeSim(polygons)
     s.hp = hp
     s.tick_count = tick
-    s.player_room = lambda: proom
+    s.player_polygon = lambda: ppolygon
     s.metrics = {"kills": 0}
     s.music_tier = 1
     return s
@@ -47,13 +47,13 @@ def awake(kind):
     return dict(kind=kind, state="hunt", trace_intensity=1.0)
 
 
-def vals_for(enemies, rooms, hp=100.0):
-    return values(read_inputs(make_session(enemies, rooms, hp=hp)))
+def vals_for(enemies, polygons, hp=100.0):
+    return values(read_inputs(make_session(enemies, polygons, hp=hp)))
 
 
 # --- the heuristic battery ---------------------------------------------
 
-def test_empty_room_is_full_prayer():
+def test_empty_polygon_is_full_prayer():
     p, c, s = vals_for({}, {})
     assert p == 1.0 and c == 0.0 and s < 0.15
 
@@ -63,8 +63,8 @@ def test_weak_swarm_is_contempt_not_stalwart():
     # flow + trigger duty -- not trash merely standing there. Simulate
     # an active mow via the engine-EMA inputs values() consumes.
     enemies = {i: awake("husk") for i in range(6)}
-    rooms = {i: 0 for i in range(6)}
-    inp = read_inputs(make_session(enemies, rooms))
+    polygons = {i: 0 for i in range(6)}
+    inp = read_inputs(make_session(enemies, polygons))
     inp.update(fire_duty=0.9, kill_rate=1.5, influx_rate=0.0)
     p, c, s = values(inp)
     assert c > 0.15, "mowing trash must read as contempt"
@@ -73,28 +73,28 @@ def test_weak_swarm_is_contempt_not_stalwart():
 
 def test_heavies_raise_stalwart():
     enemies = {1: awake("brute"), 2: awake("brute"), 3: awake("warden")}
-    rooms = {1: 0, 2: 0, 3: 0}
-    p, c, s = vals_for(enemies, rooms)
+    polygons = {1: 0, 2: 0, 3: 0}
+    p, c, s = vals_for(enemies, polygons)
     assert s > 0.55        # corpus weights: warden dominates, brutes
     assert s > c           # are slow and rate low against 5s damage
 
 
-def test_adjacent_warden_is_nearly_coroom():
-    # THE corpus surprise (2026-07-16): a hunting warden one room over
-    # is ~73% of a co-room one; the old 0.35 discount was badly wrong
-    rooms_co, rooms_adj = {1: 0}, {1: 1}
-    _, _, s_co = vals_for({1: awake("warden")}, rooms_co)
-    _, _, s_adj = vals_for({1: awake("warden")}, rooms_adj)
+def test_adjacent_warden_is_nearly_copolygon():
+    # THE corpus surprise (2026-07-16): a hunting warden one polygon over
+    # is ~73% of a co-polygon one; the old 0.35 discount was badly wrong
+    polygons_co, polygons_adj = {1: 0}, {1: 1}
+    _, _, s_co = vals_for({1: awake("warden")}, polygons_co)
+    _, _, s_adj = vals_for({1: awake("warden")}, polygons_adj)
     assert s_adj > 0.6 * s_co
     assert s_adj < s_co
 
 
 def test_stalwart_monotone_in_threat():
-    rooms = {1: 0, 2: 0, 3: 0}
-    _, _, s1 = vals_for({1: awake("brute")}, rooms)
-    _, _, s2 = vals_for({1: awake("brute"), 2: awake("brute")}, rooms)
+    polygons = {1: 0, 2: 0, 3: 0}
+    _, _, s1 = vals_for({1: awake("brute")}, polygons)
+    _, _, s2 = vals_for({1: awake("brute"), 2: awake("brute")}, polygons)
     _, _, s3 = vals_for({1: awake("brute"), 2: awake("brute"),
-                         3: awake("warden")}, rooms)
+                         3: awake("warden")}, polygons)
     assert s1 < s2 < s3
 
 
@@ -103,9 +103,9 @@ def test_hurt_does_not_amplify_stalwart():
     # LESS future damage (hurt players play safe), so hp no longer
     # amplifies the danger read -- it only dampens contempt
     enemies = {1: awake("brute"), 2: awake("spitter")}
-    rooms = {1: 0, 2: 0}
-    _, _, s_healthy = vals_for(enemies, rooms, hp=100)
-    _, _, s_hurt = vals_for(enemies, rooms, hp=20)
+    polygons = {1: 0, 2: 0}
+    _, _, s_healthy = vals_for(enemies, polygons, hp=100)
+    _, _, s_hurt = vals_for(enemies, polygons, hp=20)
     assert abs(s_hurt - s_healthy) < 1e-9
 
 
@@ -113,8 +113,8 @@ def test_blends_are_native():
     # a mixed pack: heavies AND trash -> both values live at once
     enemies = {1: awake("brute"), 2: awake("brute"),
                3: awake("husk"), 4: awake("husk"), 5: awake("husk")}
-    rooms = {i: 0 for i in enemies}
-    inp = read_inputs(make_session(enemies, rooms))
+    polygons = {i: 0 for i in enemies}
+    inp = read_inputs(make_session(enemies, polygons))
     inp.update(fire_duty=0.8, kill_rate=1.0)
     p, c, s = values(inp)
     # threshold recalibrated 2026-07-17: firing no longer feeds danger
@@ -126,15 +126,15 @@ def test_blends_are_native():
 
 def test_prayer_floor_never_breaks():
     enemies = {i: awake("warden") for i in range(8)}
-    rooms = {i: 0 for i in range(8)}
-    p, _, _ = vals_for(enemies, rooms, hp=5)
+    polygons = {i: 0 for i in range(8)}
+    p, _, _ = vals_for(enemies, polygons, hp=5)
     assert p == PRAYER_FLOOR, "the urgency pulse never fully stops"
 
 
 def test_lurking_flicker_is_tension_not_aggro():
     enemies = {1: dict(kind="flicker", state="lurk")}
-    rooms = {1: 0}
-    inp = read_inputs(make_session(enemies, rooms))
+    polygons = {1: 0}
+    inp = read_inputs(make_session(enemies, polygons))
     assert inp["aggro"] == []
     assert inp["tension"] > 0.0
 
@@ -171,41 +171,41 @@ def test_application_only_at_bar_boundaries():
     assert ms._applied[0] == 1.0
     # a SMALL skirmish must persist through the one-bar tau...
     small = {1: awake("husk"), 2: awake("husk")}
-    rooms2 = {1: 0, 2: 0}
-    ms.update(make_session(small, rooms2, tick=2))
+    polygons2 = {1: 0, 2: 0}
+    ms.update(make_session(small, polygons2, tick=2))
     assert ms.vals[2] < 0.15                 # low-pass: no instant wake
     assert ms._applied[2] < 0.15
-    _sustain(ms, lambda k: make_session(small, rooms2, tick=3 + k),
+    _sustain(ms, lambda k: make_session(small, polygons2, tick=3 + k),
              2 * ticks_per_bar())
     assert ms.vals[2] > 0.10                 # sustained fight registered
 
 
 def test_slam_is_ambush_only():
     # director overnight goal: the slam-cut is ONLY for a threat
-    # hurtling out of the dark. From real quiet, sudden heavy co-room
+    # hurtling out of the dark. From real quiet, sudden heavy co-polygon
     # contact snaps the filter; the SAME wave arriving while a fight
     # is already live builds through the one-bar tau instead.
     heavy = {1: awake("brute"), 2: awake("brute"), 3: awake("warden")}
-    rooms = {1: 0, 2: 0, 3: 0}
+    polygons = {1: 0, 2: 0, 3: 0}
     # ambush: 3s of true quiet, then the wave -> snap
     ms = MusicSystem(audio_bank=SimpleNamespace(
         _ready=False, master_vol=1.0, tap=None), enabled=True)
     _sustain(ms, lambda k: make_session({}, {}, tick=1 + k),
              int(3 * TICKS_PER_S))
     t0 = int(3 * TICKS_PER_S) + 1
-    ms.update(make_session(heavy, rooms, tick=t0))
+    ms.update(make_session(heavy, polygons, tick=t0))
     assert ms.vals[2] > 0.5, "an ambush must slam immediately"
     # watched approach: a small fight is already live, the wave joins
     # -> NO slam, the rise goes through the low-pass
     ms2 = MusicSystem(audio_bank=SimpleNamespace(
         _ready=False, master_vol=1.0, tap=None), enabled=True)
     small = {9: awake("husk")}
-    rooms2 = {9: 0, 1: 0, 2: 0, 3: 0}
-    _sustain(ms2, lambda k: make_session(small, rooms2, tick=1 + k),
+    polygons2 = {9: 0, 1: 0, 2: 0, 3: 0}
+    _sustain(ms2, lambda k: make_session(small, polygons2, tick=1 + k),
              int(3 * TICKS_PER_S))
     both = dict(heavy)
     both[9] = awake("husk")
-    ms2.update(make_session(both, rooms2,
+    ms2.update(make_session(both, polygons2,
                             tick=int(3 * TICKS_PER_S) + 1))
     assert ms2.vals[2] < 0.4, \
         "a watched wave must build, never slam"
@@ -219,13 +219,13 @@ def test_slam_is_ambush_only():
              int(3 * TICKS_PER_S))
     t0 = int(3 * TICKS_PER_S) + 1
     far = {5: awake("spitter")}
-    rooms3 = {5: 3, 1: 0, 2: 0, 3: 0}
-    _sustain(ms3, lambda k: make_session(far, rooms3, tick=t0 + k),
+    polygons3 = {5: 3, 1: 0, 2: 0, 3: 0}
+    _sustain(ms3, lambda k: make_session(far, polygons3, tick=t0 + k),
              int(TICKS_PER_S))                 # 1s of far contact
     lp_before = ms3.vals[2]
     late = dict(far)
     late.update(heavy)
-    ms3.update(make_session(late, rooms3, tick=t0 + int(TICKS_PER_S) + 1))
+    ms3.update(make_session(late, polygons3, tick=t0 + int(TICKS_PER_S) + 1))
     assert ms3.vals[2] < lp_before + 0.3, \
         "late heavies in a developing fight must not slam"
 
@@ -241,8 +241,8 @@ def test_no_reactive_stings_or_risers():
     ms = MusicSystem(audio_bank=bank, enabled=True)
     ms.update(make_session({}, {}, tick=1))
     heavy = {1: awake("brute"), 2: awake("brute"), 3: awake("warden")}
-    rooms = {1: 0, 2: 0, 3: 0}
-    _sustain(ms, lambda k: make_session(heavy, rooms, tick=2 + k),
+    polygons = {1: 0, 2: 0, 3: 0}
+    _sustain(ms, lambda k: make_session(heavy, polygons, tick=2 + k),
              3 * ticks_per_bar())
     assert not any(k == "music_sting" for k, _ in taps)
     assert not any(k == "music_riser" and float(d) > 0 for k, d in taps)
@@ -285,18 +285,18 @@ def test_death_halts_music():
                            tap=lambda k, d, v, p: taps.append((k, d)))
     ms = MusicSystem(audio_bank=bank, enabled=True)
     heavy = {1: awake("brute"), 2: awake("warden")}
-    rooms = {1: 0, 2: 0}
-    _sustain(ms, lambda k: make_session(heavy, rooms, tick=1 + k),
+    polygons = {1: 0, 2: 0}
+    _sustain(ms, lambda k: make_session(heavy, polygons, tick=1 + k),
              ticks_per_bar())
     ms._started = True          # unit stand-in for a running mixer
     n_before = len(taps)
-    ms.update(make_session(heavy, rooms, hp=0.0,
+    ms.update(make_session(heavy, polygons, hp=0.0,
                            tick=1 + ticks_per_bar()))
     assert ("music_halt", "death") in taps[n_before:]
     assert ms._riser_gain == 0.0 and not ms._pending_sting
     # dead stays silent: no further taps of any kind
     n_halt = len(taps)
-    ms.update(make_session(heavy, rooms, hp=0.0,
+    ms.update(make_session(heavy, polygons, hp=0.0,
                            tick=2 + ticks_per_bar()))
     assert len(taps) == n_halt
 
@@ -308,12 +308,12 @@ def test_deterministic_tap_log():
                                tap=lambda k, d, v, p: taps.append((k, d, v)))
         ms = MusicSystem(audio_bank=bank, enabled=True)
         heavy = {1: awake("brute"), 2: awake("warden")}
-        rooms = {1: 0, 2: 0}
+        polygons = {1: 0, 2: 0}
         t = 0
         for step in range(6):
             t += ticks_per_bar() if step % 2 else 7
             ms.update(make_session(heavy if step in (1, 2, 3) else {},
-                                   rooms, tick=t))
+                                   polygons, tick=t))
         return taps
     assert run() == run()
 

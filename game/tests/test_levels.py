@@ -33,9 +33,9 @@ def test_level_structure(path):
     for d in s.doors:
         if not d["open"]:
             s.sim.connect(d["a"], d["ea"], d["b"], d["eb"])
-    reach = set(s.sim.rooms_within(lvl.player_room, 99))
-    assert reach == set(range(s.sim.num_rooms())), "unreachable rooms"
-    assert lvl.exit_room in reach
+    reach = set(s.sim.polygons_within(lvl.player_polygon, 99))
+    assert reach == set(range(s.sim.num_polygons())), "unreachable polygons"
+    assert lvl.exit_polygon in reach
 
 
 @pytest.mark.parametrize("path", LEVELS, ids=[p.stem for p in LEVELS])
@@ -43,15 +43,15 @@ def test_keys_reachable_before_their_doors(path):
     """Every door's key must be obtainable without passing that door."""
     lvl = load_level(path)
     s = GameSession(lvl, seed=1)
-    key_rooms = {}
+    key_polygons = {}
     for eid, p in s.pickups.items():
         if p["kind"].startswith("key_"):
-            key_rooms[p["kind"][4:]] = s.sim.get_room(eid)
+            key_polygons[p["kind"][4:]] = s.sim.get_polygon(eid)
     for d in s.doors:
         if d["key"] in ("", "shoot"):
             continue
-        assert d["key"] in key_rooms, f"door needs key_{d['key']} but none placed"
-        hops = s.sim.hop_distance(lvl.player_room, key_rooms[d["key"]])
+        assert d["key"] in key_polygons, f"door needs key_{d['key']} but none placed"
+        hops = s.sim.hop_distance(lvl.player_polygon, key_polygons[d["key"]])
         assert hops >= 0, f"key_{d['key']} unreachable while its door is shut"
 
 
@@ -97,10 +97,10 @@ def test_doorway_splitter_makes_doorways():
     hall = b.rect(400, 100, 200, 90)  # short west edge inside big's east wall
     b.player(big, (200, 150))
     lvl = b.build()
-    # big got split vertices; the two rooms are connected
+    # big got split vertices; the two polygons are connected
     assert any(c[0] == big and c[2] == hall or c[0] == hall and c[2] == big
                for c in b.resolve()["connects"])
-    assert len(lvl.room_verts[big]) == 6  # 4 corners + 2 inserted
+    assert len(lvl.polygon_verts[big]) == 6  # 4 corners + 2 inserted
 
 
 def test_no_connect_keeps_walls_solid():

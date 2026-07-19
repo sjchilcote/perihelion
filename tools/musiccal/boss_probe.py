@@ -11,7 +11,7 @@ own thresholds (music.py): a contiguous run of >=4 bars with the boss
 lane (overlay_boss) at gain >=0.20 (stalwart ~0.90+), peaking >=0.45
 (stalwart ~0.94), with the drums_boss kit engaged inside the run.
 
-Also reports death diagnostics (tick, room kind, wardens down) so the
+Also reports death diagnostics (tick, polygon kind, wardens down) so the
 same tool drives bot iteration.
 """
 from __future__ import annotations
@@ -70,7 +70,7 @@ def one(args):
     n_wardens0 = sum(1 for e in session.enemies.values()
                      if e["kind"] == "warden")
     t = 0
-    flight = []     # per-6-tick: (t, proom, hp, warden_hp, n_hunt)
+    flight = []     # per-6-tick: (t, ppolygon, hp, warden_hp, n_hunt)
     while t < max_ticks and not session.dead and not session.complete:
         snap = session.snapshot()
         inp = bot.step(snap, session)
@@ -78,25 +78,25 @@ def one(args):
         audio.handle_sounds(session, session.fx)
         music.update(session)
         if t % 6 == 0:
-            proom_ = snap.get("room")
+            ppolygon_ = snap.get("polygon")
             whp = max((e["hp"] for e in snap.get("enemies", ())
                        if e["kind"] == "warden"
-                       and e["room"] == proom_), default=None)
+                       and e["polygon"] == ppolygon_), default=None)
             nh = sum(1 for e in snap.get("enemies", ())
-                     if e["room"] == proom_ and e["kind"] != "warden"
+                     if e["polygon"] == ppolygon_ and e["kind"] != "warden"
                      and e["state"] in ("hunt", "waking"))
-            flight.append((t, proom_, snap.get("hp"), whp, nh))
+            flight.append((t, ppolygon_, snap.get("hp"), whp, nh))
         tick[0] += 1
         t += 1
     # ---- encounter records (Sol 2 §1, lean): a contiguous span of
-    # co-room warden samples = one encounter
+    # co-polygon warden samples = one encounter
     encounters = []
     cur = None
     for ft, fr, fhp, fwhp, fnh in flight:
         if fwhp is not None:
-            if cur is None or fr != cur["room"] or \
+            if cur is None or fr != cur["polygon"] or \
                     ft - cur["last_t"] > 360:
-                cur = dict(room=fr, t0=ft, hp0=fhp, whp0=fwhp,
+                cur = dict(polygon=fr, t0=ft, hp0=fhp, whp0=fwhp,
                            last_t=ft, hp_end=fhp, whp_end=fwhp,
                            whp_355=None, max_hunt=fnh)
                 encounters.append(cur)
@@ -122,15 +122,15 @@ def one(args):
                else "death" if session.dead else "timeout")
     wardens_left = sum(1 for e in session.enemies.values()
                        if e["kind"] == "warden")
-    death_room_kind = death_co = None
+    death_polygon_kind = death_co = None
     if session.dead:
-        proom = session.player_room()
+        ppolygon = session.player_polygon()
         try:
-            death_room_kind = level.room_kinds[proom]
+            death_polygon_kind = level.polygon_kinds[ppolygon]
         except Exception:
-            death_room_kind = "?"
+            death_polygon_kind = "?"
         death_co = sorted(v["kind"] for k, v in session.enemies.items()
-                          if session.sim.get_room(k) == proom)[:8]
+                          if session.sim.get_polygon(k) == ppolygon)[:8]
         snap = session.snapshot()
         death_ammo = {k: v for k, v in snap.get("ammo", {}).items()}
         death_weapon = snap.get("weapon")
@@ -169,7 +169,7 @@ def one(args):
                 kills=session.metrics.get("kills", 0),
                 wardens_down=n_wardens0 - wardens_left,
                 n_wardens=n_wardens0,
-                death_room=death_room_kind, death_co=death_co,
+                death_polygon=death_polygon_kind, death_co=death_co,
                 death_ammo=locals().get("death_ammo"),
                 death_weapon=locals().get("death_weapon"),
                 encounters=enc_out,
@@ -214,7 +214,7 @@ def main():
               f"t={r['ticks']/60:5.0f}s kills={r['kills']:3d} "
               f"wardens {r['wardens_down']}/{r['n_wardens']} "
               f"full_triggers={r['full_triggers']} "
-              f"death={r['death_room']}[{dc}] "
+              f"death={r['death_polygon']}[{dc}] "
               f"fun={dg.get('funnel',0)} dod={dg.get('dodge',0)} "
               f"runs: {rt}{wstr}")
     print(f"\nclear rate {len(clears)}/{len(results)} "

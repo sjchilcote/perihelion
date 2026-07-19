@@ -18,7 +18,7 @@ overflow storage to the south. The isolation block itself (ward / side
 ward / morgue) keeps its exact original geometry and adjacency: everything
 else routes AROUND it, which is the point.
 
-Streaming: the entry room keeps its west/north/south walls solid (140 u
+Streaming: the entry polygon keeps its west/north/south walls solid (140 u
 each) and the morgue keeps its 100 u east wall solid, so WorldStreamer can
 carve its 70 u spine doors at both ends.
 
@@ -45,23 +45,23 @@ from perihelion.levels import LevelBuilder  # noqa: E402
 # ---------------------------------------------------------------------------
 
 
-def center(b: LevelBuilder, room: int) -> tuple[float, float]:
-    vs = b.data["rooms"][room]["verts"]
+def center(b: LevelBuilder, polygon: int) -> tuple[float, float]:
+    vs = b.data["polygons"][polygon]["verts"]
     return (sum(v[0] for v in vs) / len(vs), sum(v[1] for v in vs) / len(vs))
 
 
-def squad(b: LevelBuilder, room: int, spec: str, spread: float = 32.0):
+def squad(b: LevelBuilder, polygon: int, spec: str, spread: float = 32.0):
     kinds = spec.split()
-    cx, cy = center(b, room)
+    cx, cy = center(b, polygon)
     n = len(kinds)
     for i, k in enumerate(kinds):
         a = 2 * math.pi * i / max(1, n) + 0.7
         r = spread if n > 1 else 0.0
-        b.entity(room, k, (cx + r * math.cos(a), cy + r * math.sin(a)))
+        b.entity(polygon, k, (cx + r * math.cos(a), cy + r * math.sin(a)))
 
 
-def wall_basis(b: LevelBuilder, room: int, wall: int, t: float = 0.5):
-    verts = b.data["rooms"][room]["verts"]
+def wall_basis(b: LevelBuilder, polygon: int, wall: int, t: float = 0.5):
+    verts = b.data["polygons"][polygon]["verts"]
     n = len(verts)
     cx = sum(v[0] for v in verts) / n
     cy = sum(v[1] for v in verts) / n
@@ -77,26 +77,26 @@ def wall_basis(b: LevelBuilder, room: int, wall: int, t: float = 0.5):
     return mx, my, tx, ty, nx, ny
 
 
-def wall_pos(b: LevelBuilder, room: int, wall: int, t: float = 0.5,
+def wall_pos(b: LevelBuilder, polygon: int, wall: int, t: float = 0.5,
              inset: float = 15.0) -> tuple[float, float]:
-    mx, my, tx, ty, nx, ny = wall_basis(b, room, wall, t)
+    mx, my, tx, ty, nx, ny = wall_basis(b, polygon, wall, t)
     return (mx + nx * inset, my + ny * inset)
 
 
-def cache(b: LevelBuilder, room: int, spec: str, off=(0.0, 0.0),
+def cache(b: LevelBuilder, polygon: int, spec: str, off=(0.0, 0.0),
           wall: int | None = None, t: float = 0.5, inset: float = 16.0):
     if wall is not None:
-        mx, my, tx, ty, nx, ny = wall_basis(b, room, wall, t)
+        mx, my, tx, ty, nx, ny = wall_basis(b, polygon, wall, t)
         bx, by = mx + nx * inset, my + ny * inset
         items = spec.split()
         span = (len(items) - 1) * 13.0
         for i, k in enumerate(items):
             tt = -span / 2.0 + i * 13.0
-            b.entity(room, k, (bx + tx * tt, by + ty * tt))
+            b.entity(polygon, k, (bx + tx * tt, by + ty * tt))
         return
-    cx, cy = center(b, room)
+    cx, cy = center(b, polygon)
     for i, k in enumerate(spec.split()):
-        b.entity(room, k, (cx + off[0] + (i % 3) * 15 - 15,
+        b.entity(polygon, k, (cx + off[0] + (i % 3) * 15 - 15,
                            cy + off[1] + (i // 3) * 15))
 
 
@@ -288,7 +288,7 @@ def build() -> LevelBuilder:
 
                 verts.append(toward(v[0], v[1], px, py, cut))
                 verts.append(toward(v[0], v[1], nx, ny, cut))
-            rid = b.room(verts, kind=KIND_OF[ch])
+            rid = b.polygon(verts, kind=KIND_OF[ch])
         else:
             rid = b.rect(x, y, w, h, kind=KIND_OF[ch])
         occupied.append((x, y, w, h))
@@ -296,12 +296,12 @@ def build() -> LevelBuilder:
 
     # placeness discipline: chamber blocks get one or two doors onto the
     # galleries instead of a doorway per shared tile edge, and dorm rows
-    # split into bunk bays (playbook §1/§5 — a room has one function, a
+    # split into bunk bays (playbook §1/§5 — a polygon has one function, a
     # door is a decision). Pairs listed as ((c, r), (c, r)).
     NO_DOOR = [
         # west dorms: single gallery door at c-5
         ((-6, 1), (-6, 2)), ((-4, 1), (-4, 2)),
-        # west dorm bunk bays: two-cell bunk rooms off the lower row
+        # west dorm bunk bays: two-cell bunk polygons off the lower row
         ((-7, 0), (-6, 0)), ((-5, 0), (-4, 0)),
         # east dorms: single gallery door at c-1; one bunk partition
         ((-2, 1), (-2, 2)), ((0, 1), (0, 2)),
@@ -317,14 +317,14 @@ def build() -> LevelBuilder:
         # pumps: one door onto the south gallery
         ((-5, 7), (-5, 8)),
     ]
-    def rooms_of(key):
+    def polygons_of(key):
         if key in split_of:
             return split_of[key][1]
         return [tiles[key]]
 
     for ka, kb in NO_DOOR:
-        for ra in rooms_of(ka):
-            for rb in rooms_of(kb):
+        for ra in polygons_of(ka):
+            for rb in polygons_of(kb):
                 b.no_connect(ra, rb)
 
     # transit tagging: corridor tiles that junction 3+ ways
@@ -339,7 +339,7 @@ def build() -> LevelBuilder:
         if key == (3, 6):
             deg += 1  # the ward vestibule
         if deg >= 3:
-            for rid in rooms_of(key):
+            for rid in polygons_of(key):
                 b.set_kind(rid, "transit")
 
     # dead-end alcoves (rule 4): 40 u slot niches off corridor cells, ~10%
@@ -482,7 +482,7 @@ def build() -> LevelBuilder:
     squad(b, tiles[(1, 8)], "husk")                  # south gallery
 
     # caches: the ward-complex racks stay verbatim; the district's ammo
-    # lives in supply rooms and dead-end niches, racked on rock walls
+    # lives in supply polygons and dead-end niches, racked on rock walls
     cache(b, tiles[(1, 6)], "ammo_9mm")              # the old hall drop, spine
     cache(b, tiles[(-7, 4)], "ammo_9mm ammo_9mm medkit", wall=0, t=0.5,
           inset=16.0)                                # supply west wall (rock)
@@ -495,7 +495,7 @@ def build() -> LevelBuilder:
         cache(b, alcoves[2], "ammo_9mm")
 
     cache(b, side, "weapon_tau ammo_cell medkit", wall=3, t=0.4, inset=16.0)
-    # morgue is the level's only exit room, entered from the west (ward)
+    # morgue is the level's only exit polygon, entered from the west (ward)
     # wall at the same height (y=70) as the exit pad -- the tau rack sits
     # right at that threshold so the walk to the exit can't miss it, the
     # way the smg rack in COOLANT ROW's armory does.
@@ -510,5 +510,5 @@ def build() -> LevelBuilder:
 
 if __name__ == "__main__":
     lvl = build().build()
-    print(f"MIRROR WARD dense: rooms={len(lvl.room_verts)} "
+    print(f"MIRROR WARD dense: polygons={len(lvl.polygon_verts)} "
           f"connects={len(lvl.connects)}")

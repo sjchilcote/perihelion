@@ -3,7 +3,7 @@
   "name": "COOLANT ROW",
   "tier": 1,
   "ambience": "amb_drone_early",
-  "rooms": [
+  "polygons": [
     {
       "verts": [
         [
@@ -4756,14 +4756,14 @@
     }
   ],
   "player": {
-    "room": 0,
+    "polygon": 0,
     "pos": [
       60,
       70
     ]
   },
   "exit": {
-    "room": 75,
+    "polygon": 75,
     "pos": [
       1370,
       70
@@ -4774,7 +4774,7 @@
     "radio": [],
     "terminals": [
       {
-        "room": 142,
+        "polygon": 142,
         "pos": [
           2405.0,
           545.0
@@ -4782,7 +4782,7 @@
         "text": "SURVEY ADDENDUM, UNFILED\nThe row has five hatches. The count says six.\nThe sixth is behind the filters. Walked it once,\ndrew a map. Walked it again against the map.\nThe map was wrong in a way I could not mark:\nevery corridor was where I drew it, and two of\nthem cross where neither has a junction.\nRecommend: do not draw another map."
       },
       {
-        "room": 44,
+        "polygon": 44,
         "pos": [
           795.0,
           -455.0
@@ -4790,7 +4790,7 @@
         "text": "MAINT LOG 2280.11\nCrewman SURVEYOR S-6 walked Coolant Row\nend to end.\nCounted five hatches going. Counted six coming back.\nRecommend rest rotation for SURVEYOR S-6."
       },
       {
-        "room": 16,
+        "polygon": 16,
         "pos": [
           1172.0,
           95.0
@@ -4798,7 +4798,7 @@
         "text": "MAINT TICKET 4471\nCoolant flow, east tail: 210 l/min rated,\n212 measured, 209 after the bend.\nWhere do three liters a minute GO?\nStatus: closed. Reason: rounding."
       },
       {
-        "room": 30,
+        "polygon": 30,
         "pos": [
           295.0,
           -205.0
@@ -4806,7 +4806,7 @@
         "text": "MAINT LOG, PUMP BAY ONE\nCoolant pressure holds steady at spec, checked\nat the gauge. Flow rate does not match the\npressure. It should. The math connecting the two\nnumbers has not changed since the pumps were\nrated. Checked that too.\nFiled under: recalibrate flow sensor. Sensor\nrecalibrated. Numbers held."
       },
       {
-        "room": 48,
+        "polygon": 48,
         "pos": [
           795.0,
           -333.5
@@ -4814,7 +4814,7 @@
         "text": "MAINT TICKET 4488 \u2014 FOLLOW-UP TO SURVEYOR S-6 LOG\nRe-walked Coolant Row end to end, count taken\ntwice. Five hatches, both times, both directions.\nSchematic on file: five hatches. Schematic\nchecksum does not match the schematic filed\neleven months ago. Nobody has edited this file.\nStatus: closed, no fault found. Recommend against\nopening it again."
       },
       {
-        "room": 65,
+        "polygon": 65,
         "pos": [
           335.0,
           160.0
@@ -4822,7 +4822,7 @@
         "text": "SCRATCHED NEAR THE FLOOR VENT\ntally marks, forty-one of them, then nothing\nsomeone was counting seconds. or minutes. or\nhatches. whoever it was stopped at forty-one and\nleft the chalk on the ledge."
       },
       {
-        "room": 57,
+        "polygon": 57,
         "pos": [
           315.0,
           252.5
@@ -4841,7 +4841,7 @@
   },
   "lights": [
     {
-      "room": 0,
+      "polygon": 0,
       "pos": [
         50.0,
         70.0
@@ -4856,7 +4856,7 @@
       "kind": "static"
     },
     {
-      "room": 1,
+      "polygon": 1,
       "pos": [
         180.0,
         70.0
@@ -4871,7 +4871,7 @@
       "kind": "static"
     },
     {
-      "room": 2,
+      "polygon": 2,
       "pos": [
         270.0,
         70.0
@@ -4886,7 +4886,7 @@
       "kind": "static"
     },
     {
-      "room": 4,
+      "polygon": 4,
       "pos": [
         380.0,
         70.0
@@ -4901,7 +4901,7 @@
       "kind": "static"
     },
     {
-      "room": 5,
+      "polygon": 5,
       "pos": [
         500.0,
         70.0
@@ -4916,7 +4916,7 @@
       "kind": "static"
     },
     {
-      "room": 6,
+      "polygon": 6,
       "pos": [
         610.0,
         70.0
@@ -4931,7 +4931,7 @@
       "kind": "static"
     },
     {
-      "room": 7,
+      "polygon": 7,
       "pos": [
         699.0,
         27.0
@@ -4946,7 +4946,7 @@
       "kind": "static"
     },
     {
-      "room": 9,
+      "polygon": 9,
       "pos": [
         770.0,
         -90.0
@@ -4961,7 +4961,7 @@
       "kind": "static"
     },
     {
-      "room": 11,
+      "polygon": 11,
       "pos": [
         920.0,
         -90.0
@@ -4976,7 +4976,7 @@
       "kind": "static"
     },
     {
-      "room": 12,
+      "polygon": 12,
       "pos": [
         1020.0,
         -90.0
@@ -4991,7 +4991,7 @@
       "kind": "static"
     },
     {
-      "room": 13,
+      "polygon": 13,
       "pos": [
         1020.0,
         -10.0
@@ -5006,7 +5006,7 @@
       "kind": "static"
     },
     {
-      "room": 14,
+      "polygon": 14,
       "pos": [
         1020.0,
         70.0
@@ -5021,7 +5021,7 @@
       "kind": "static"
     },
     {
-      "room": 15,
+      "polygon": 15,
       "pos": [
         1100.0,
         70.0
@@ -5036,7 +5036,7 @@
       "kind": "static"
     },
     {
-      "room": 16,
+      "polygon": 16,
       "pos": [
         1180.0,
         70.0
@@ -5051,7 +5051,7 @@
       "kind": "static"
     },
     {
-      "room": 17,
+      "polygon": 17,
       "pos": [
         1260.0,
         70.0
@@ -5066,7 +5066,7 @@
       "kind": "static"
     },
     {
-      "room": 75,
+      "polygon": 75,
       "pos": [
         1370.0,
         70.0
@@ -5081,7 +5081,7 @@
       "kind": "static"
     },
     {
-      "room": 30,
+      "polygon": 30,
       "pos": [
         320.0,
         -205.0
@@ -5096,7 +5096,7 @@
       "kind": "static"
     },
     {
-      "room": 44,
+      "polygon": 44,
       "pos": [
         820.0,
         -455.0
@@ -5111,7 +5111,7 @@
       "kind": "static"
     },
     {
-      "room": 48,
+      "polygon": 48,
       "pos": [
         820.0,
         -365.0
@@ -5126,7 +5126,7 @@
       "kind": "static"
     },
     {
-      "room": 65,
+      "polygon": 65,
       "pos": [
         350.0,
         160.0
@@ -5141,7 +5141,7 @@
       "kind": "static"
     },
     {
-      "room": 57,
+      "polygon": 57,
       "pos": [
         340.0,
         252.0
@@ -5156,7 +5156,7 @@
       "kind": "static"
     },
     {
-      "room": 142,
+      "polygon": 142,
       "pos": [
         2405.0,
         545.0
@@ -5171,7 +5171,7 @@
       "kind": "static"
     },
     {
-      "room": 26,
+      "polygon": 26,
       "pos": [
         320.0,
         -295.0
@@ -5186,7 +5186,7 @@
       "kind": "static"
     },
     {
-      "room": 34,
+      "polygon": 34,
       "pos": [
         320.0,
         -115.0
@@ -5201,7 +5201,7 @@
       "kind": "static"
     },
     {
-      "room": 61,
+      "polygon": 61,
       "pos": [
         340.0,
         337.5
@@ -5216,7 +5216,7 @@
       "kind": "static"
     },
     {
-      "room": 81,
+      "polygon": 81,
       "pos": [
         1960.0,
         1120.0
@@ -5231,7 +5231,7 @@
       "kind": "static"
     },
     {
-      "room": 104,
+      "polygon": 104,
       "pos": [
         1880.0,
         740.0

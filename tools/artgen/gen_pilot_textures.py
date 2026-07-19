@@ -1,13 +1,13 @@
 """tools/artgen/gen_pilot_textures.py
 
-Main pilot driver: for every room in pilot_rooms.json, generate a bespoke
-texture (image-edit mode: refs = [kind style anchor, room base truth]),
+Main pilot driver: for every polygon in pilot_polygons.json, generate a bespoke
+texture (image-edit mode: refs = [kind style anchor, polygon base truth]),
 verify with Gemini vision, rework once on failure, post-process (resize to
-exact target size, reapply the room-polygon black mask), and save to
-game/perihelion/assets/textures/<level>/room_<idx>.png.
+exact target size, reapply the polygon-polygon black mask), and save to
+game/perihelion/assets/textures/<level>/polygon_<idx>.png.
 
 Checkpointed to scratch/pilot_progress.json so a crash/interrupt can
-resume without re-spending on already-decided rooms.
+resume without re-spending on already-decided polygons.
 
 Usage:
     uv run python -m tools.artgen.gen_pilot_textures [--workers 7] [--limit N]
@@ -26,8 +26,8 @@ from PIL import Image
 from tools.artgen.gen import generate_image
 from tools.artgen.verify_gemini import verify_texture
 from tools.artgen.pilot_texture_lib import (
-    SCRATCH, TEXTURES_ROOT, apply_mask, basetruth_path, build_room_prompt,
-    load_pilot, make_guide, room_mask, texture_out_path,
+    SCRATCH, TEXTURES_ROOT, apply_mask, basetruth_path, build_polygon_prompt,
+    load_pilot, make_guide, polygon_mask, texture_out_path,
 )
 GUIDE_DIR = SCRATCH / "guides"
 
@@ -35,7 +35,7 @@ ANCHOR_DIR = SCRATCH / "anchors_final"
 ANCHOR_MAP = json.loads((SCRATCH / "anchor_map.json").read_text())
 PROGRESS_PATH = SCRATCH / "pilot_progress.json"
 VERIFY_OUT = Path(__file__).resolve().parent / "pilot_verify.json"
-GEN_SCRATCH = SCRATCH / "gen_rooms"
+GEN_SCRATCH = SCRATCH / "gen_polygons"
 
 _lock = threading.Lock()
 
@@ -51,55 +51,55 @@ def _save_progress(progress: dict) -> None:
         PROGRESS_PATH.write_text(json.dumps(progress, indent=2))
 
 
-def room_key(r: dict) -> str:
-    return f"{r['level']}/room_{r['room_index']:03d}"
+def polygon_key(r: dict) -> str:
+    return f"{r['level']}/polygon_{r['polygon_index']:03d}"
 
 
-def postprocess_and_save(gen_path: Path, room: dict) -> Path:
+def postprocess_and_save(gen_path: Path, polygon: dict) -> Path:
     im = Image.open(gen_path).convert("RGB")
-    im = im.resize((room["tex_w"], room["tex_h"]), Image.LANCZOS)
-    mask = room_mask(room["level"], room["room_index"])
+    im = im.resize((polygon["tex_w"], polygon["tex_h"]), Image.LANCZOS)
+    mask = polygon_mask(polygon["level"], polygon["polygon_index"])
     im = apply_mask(im, mask)
-    out = texture_out_path(room["level"], room["room_index"])
+    out = texture_out_path(polygon["level"], polygon["polygon_index"])
     out.parent.mkdir(parents=True, exist_ok=True)
     im.save(out)
     return out
 
 
-def is_anchor_room(room: dict) -> str | None:
+def is_anchor_polygon(polygon: dict) -> str | None:
     for kind, info in ANCHOR_MAP.items():
-        if info["level"] == room["level"] and info["room_index"] == room["room_index"]:
+        if info["level"] == polygon["level"] and info["polygon_index"] == polygon["polygon_index"]:
             return kind
     return None
 
 
-def process_room(room: dict, progress: dict) -> dict:
-    key = room_key(room)
-    kind = room["kind"]
-    anchor_kind_here = is_anchor_room(room)
+def process_polygon(polygon: dict, progress: dict) -> dict:
+    key = polygon_key(polygon)
+    kind = polygon["kind"]
+    anchor_kind_here = is_anchor_polygon(polygon)
 
     if anchor_kind_here:
-        # This exact room *is* the style anchor for its kind: reuse the
-        # accepted anchor image directly as this room's final texture, no
+        # This exact polygon *is* the style anchor for its kind: reuse the
+        # accepted anchor image directly as this polygon's final texture, no
         # extra generation/verify spend.
         anchor_path = ANCHOR_DIR / f"{anchor_kind_here}.png"
-        out = postprocess_and_save(anchor_path, room)
+        out = postprocess_and_save(anchor_path, polygon)
         result = dict(key=key, status="anchor_reuse", texture=str(out), cost=0.0)
         progress[key] = result
         _save_progress(progress)
         return result
 
     anchor_path = ANCHOR_DIR / f"{kind}.png"
-    guide_path = GUIDE_DIR / room["level"] / f"room_{room['room_index']:03d}.png"
+    guide_path = GUIDE_DIR / polygon["level"] / f"polygon_{polygon['polygon_index']:03d}.png"
     if not guide_path.exists():
-        make_guide(room["level"], room["room_index"], guide_path)
-    prompt = build_room_prompt(kind)
+        make_guide(polygon["level"], polygon["polygon_index"], guide_path)
+    prompt = build_polygon_prompt(kind)
     GEN_SCRATCH.mkdir(parents=True, exist_ok=True)
 
     total_cost = 0.0
     verdicts = []
     for attempt in (1, 2):
-        gen_out = GEN_SCRATCH / f"{room['level']}_room{room['room_index']:03d}_a{attempt}.png"
+        gen_out = GEN_SCRATCH / f"{polygon['level']}_polygon{polygon['polygon_index']:03d}_a{attempt}.png"
         this_prompt = prompt
         if attempt == 2 and verdicts:
             this_prompt += (
@@ -121,7 +121,7 @@ def process_room(room: dict, progress: dict) -> dict:
         verdicts.append(v)
 
         if v.get("verdict") == "pass":
-            out = postprocess_and_save(gen_out, room)
+            out = postprocess_and_save(gen_out, polygon)
             result = dict(key=key, status="accepted", attempt=attempt, texture=str(out),
                           cost=total_cost, verdicts=verdicts)
             progress[key] = result
@@ -144,18 +144,18 @@ def main() -> None:
     args = ap.parse_args()
 
     pilot = load_pilot()
-    rooms = pilot["rooms"]
+    polygons = pilot["polygons"]
     if args.only_kind:
-        rooms = [r for r in rooms if r["kind"] == args.only_kind]
+        polygons = [r for r in polygons if r["kind"] == args.only_kind]
     if args.limit:
-        rooms = rooms[: args.limit]
+        polygons = polygons[: args.limit]
 
     progress = _load_progress()
-    todo = [r for r in rooms if room_key(r) not in progress]
-    print(f"{len(rooms)} rooms total, {len(rooms) - len(todo)} already done, {len(todo)} to process")
+    todo = [r for r in polygons if polygon_key(r) not in progress]
+    print(f"{len(polygons)} polygons total, {len(polygons) - len(todo)} already done, {len(todo)} to process")
 
     with ThreadPoolExecutor(max_workers=args.workers) as ex:
-        futs = {ex.submit(process_room, r, progress): r for r in todo}
+        futs = {ex.submit(process_polygon, r, progress): r for r in todo}
         done = 0
         for fut in as_completed(futs):
             r = futs[fut]
@@ -164,7 +164,7 @@ def main() -> None:
                 res = fut.result()
                 print(f"[{done}/{len(todo)}] {res['key']:20s} {res['status']:12s} cost=${res['cost']:.4f}")
             except Exception as exc:  # noqa: BLE001
-                print(f"[{done}/{len(todo)}] {room_key(r)} CRASHED: {exc}")
+                print(f"[{done}/{len(todo)}] {polygon_key(r)} CRASHED: {exc}")
                 traceback.print_exc()
 
     # Write a consolidated verify log.

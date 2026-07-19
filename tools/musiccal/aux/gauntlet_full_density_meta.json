@@ -9,9 +9,9 @@
   "E": 15,
   "F": 7
  },
- "n_rooms": 46,
- "player_room": 25,
- "exit_room": 45,
+ "n_polygons": 46,
+ "player_polygon": 25,
+ "exit_polygon": 45,
  "level_path": "tools/musiccal/aux/gauntlet_full_density.json",
  "zones": {
   "0": {

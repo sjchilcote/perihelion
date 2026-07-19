@@ -9,7 +9,7 @@ levels/*.json.
 Preserved from campaign.l02, verbatim where it is text and topologically
 where it is geometry:
   - name/tier/ambience, intro, all seven terminal texts, all six radio
-    lines (enter_room triggers re-pointed at the equivalent district cells),
+    lines (enter_polygon triggers re-pointed at the equivalent district cells),
     key_meta red = VALVE WHEEL / PRESSURE HATCH.
   - THE PARADOX (sacred, playbook §11): pump bay A's NORTH wall opens into
     pump bay B's NORTH wall — you emerge walking the way you came. Same
@@ -33,7 +33,7 @@ under the identical sampler:
     long, bending every 2-3 cells (west run -> north jog -> east run ->
     south jog -> tail), rule 3.
   - chambers are convex-cell grids welded by full-edge autoconnect: pump
-    bays A and B are 4x4 clusters of 80x90 cells, the filter room a 4x2
+    bays A and B are 4x4 clusters of 80x90 cells, the filter polygon a 4x2
     grid of ~85 u cells — every seam an 80-90 u portal, per rule 5's
     registers (80 door / 40-60 slot; no 120 u uncanny-middle portals).
   - ~10-14 percent dead-end alcoves (60 u niches off corridors holding a
@@ -65,25 +65,25 @@ from arrival_maze import build_maze  # noqa: E402
 
 # --- helpers copied from tools/levelgen/campaign.py (kept standalone) -------
 
-def center(b: LevelBuilder, room: int) -> tuple[float, float]:
-    vs = b.data["rooms"][room]["verts"]
+def center(b: LevelBuilder, polygon: int) -> tuple[float, float]:
+    vs = b.data["polygons"][polygon]["verts"]
     return (sum(v[0] for v in vs) / len(vs), sum(v[1] for v in vs) / len(vs))
 
 
-def squad(b: LevelBuilder, room: int, spec: str, spread: float = 32.0):
+def squad(b: LevelBuilder, polygon: int, spec: str, spread: float = 32.0):
     kinds = spec.split()
-    cx, cy = center(b, room)
+    cx, cy = center(b, polygon)
     n = len(kinds)
     for i, k in enumerate(kinds):
         a = 2 * math.pi * i / max(1, n) + 0.7
         r = spread if n > 1 else 0.0
-        b.entity(room, k, (cx + r * math.cos(a), cy + r * math.sin(a)))
+        b.entity(polygon, k, (cx + r * math.cos(a), cy + r * math.sin(a)))
 
 
-def wall_basis(b: LevelBuilder, room: int, wall: int, t: float = 0.5):
-    """(mx, my, tx, ty, nx, ny) for edge `wall` of `room`; rect edge order is
+def wall_basis(b: LevelBuilder, polygon: int, wall: int, t: float = 0.5):
+    """(mx, my, tx, ty, nx, ny) for edge `wall` of `polygon`; rect edge order is
     stable: 0=west, 1=south, 2=east, 3=north."""
-    verts = b.data["rooms"][room]["verts"]
+    verts = b.data["polygons"][polygon]["verts"]
     n = len(verts)
     cx = sum(v[0] for v in verts) / n
     cy = sum(v[1] for v in verts) / n
@@ -99,26 +99,26 @@ def wall_basis(b: LevelBuilder, room: int, wall: int, t: float = 0.5):
     return mx, my, tx, ty, nx, ny
 
 
-def wall_pos(b: LevelBuilder, room: int, wall: int, t: float = 0.5,
+def wall_pos(b: LevelBuilder, polygon: int, wall: int, t: float = 0.5,
              inset: float = 15.0) -> tuple[float, float]:
-    mx, my, tx, ty, nx, ny = wall_basis(b, room, wall, t)
+    mx, my, tx, ty, nx, ny = wall_basis(b, polygon, wall, t)
     return (mx + nx * inset, my + ny * inset)
 
 
-def cache(b: LevelBuilder, room: int, spec: str, off=(0.0, 0.0),
+def cache(b: LevelBuilder, polygon: int, spec: str, off=(0.0, 0.0),
           wall: int | None = None, t: float = 0.5, inset: float = 16.0):
     if wall is not None:
-        mx, my, tx, ty, nx, ny = wall_basis(b, room, wall, t)
+        mx, my, tx, ty, nx, ny = wall_basis(b, polygon, wall, t)
         bx, by = mx + nx * inset, my + ny * inset
         items = spec.split()
         span = (len(items) - 1) * 13.0
         for i, k in enumerate(items):
             tt = -span / 2.0 + i * 13.0
-            b.entity(room, k, (bx + tx * tt, by + ty * tt))
+            b.entity(polygon, k, (bx + tx * tt, by + ty * tt))
         return
-    cx, cy = center(b, room)
+    cx, cy = center(b, polygon)
     for i, k in enumerate(spec.split()):
-        b.entity(room, k, (cx + off[0] + (i % 3) * 15 - 15,
+        b.entity(polygon, k, (cx + off[0] + (i % 3) * 15 - 15,
                            cy + off[1] + (i // 3) * 15))
 
 
@@ -180,7 +180,7 @@ def l02() -> LevelBuilder:
     a5 = b.rect(1070, -30, 60, 60, kind="storage")           # the find
 
     # -- pump bay A (north, off the row head): 4x4 cell cluster of 80x90
-    # cells — a Marathon set-piece room is a cluster of small convex cells,
+    # cells — a Marathon set-piece polygon is a cluster of small convex cells,
     # every seam an 80-90 u portal (standards rule 2's calibrated read:
     # subdivide until a screen holds 8-16 cells).
     pa = _grid(b, 280, -430, 80, 90, 4, 4, "pump")
@@ -205,13 +205,13 @@ def l02() -> LevelBuilder:
     connector = b.rect(480, 110, 80, 100, kind="corridor")   # 80 u door
     a7 = b.poly([(240, 300), (240, 340), (260, 360), (300, 360), (300, 300)])
     b.set_kind(a7, "corridor")                               # empty niche
-    keyroom = k[0][0]   # the filter room proper: manifold wall, key, posted procedure
+    keypolygon = k[0][0]   # the filter polygon proper: manifold wall, key, posted procedure
 
     # -- valve store off the west run (quartermaster shelf, dead end)
     s1 = b.rect(580, 110, 80, 90, kind="storage")
 
     # -- sump chain south of the tail junction: quiet corridor cells
-    # stepping down to a wet machine room (pacing beat, playbook §6).
+    # stepping down to a wet machine polygon (pacing beat, playbook §6).
     c1a = b.rect(980, 110, 80, 50, kind="corridor")
     c1b = b.rect(980, 160, 80, 50, kind="corridor")
     c2a = b.rect(980, 210, 80, 50, kind="corridor")
@@ -226,7 +226,7 @@ def l02() -> LevelBuilder:
     b.door_pts(t3, (1300, 70), armory, (1300, 70), "red")
     b.no_connect(t3, armory)
     # the "red key" is the row's one loose valve handwheel, racked in the
-    # filter room; the armory annex hides behind a pressure hatch whose
+    # filter polygon; the armory annex hides behind a pressure hatch whose
     # undogging spindle takes the same square drive (terminal below).
     b.key_meta("red", "VALVE WHEEL", "PRESSURE HATCH",
                "PRESSURE HATCH SEALED - VALVE WHEEL REQUIRED",
@@ -292,7 +292,7 @@ def l02() -> LevelBuilder:
                "someone was counting seconds. or minutes. or\n"
                "hatches. whoever it was stopped at forty-one and\n"
                "left the chalk on the ledge.")
-    b.terminal(keyroom, wall_pos(b, keyroom, 0, 0.5, 15.0),
+    b.terminal(keypolygon, wall_pos(b, keypolygon, 0, 0.5, 15.0),
                "FILTER SWAP PROCEDURE, POSTED\n"
                "Isolate the loop before pulling a filter: the\n"
                "isolation valve takes the loose handwheel racked\n"
@@ -302,7 +302,7 @@ def l02() -> LevelBuilder:
                "a second wheel. Asked twice. Bring it back.")
 
     # -- opposition. The original roster (4 row mites; husk+2 mites in bay
-    # A; 2 husks in bay B; 5 mites + spitter in the filter room; spitter +
+    # A; 2 husks in bay B; 5 mites + spitter in the filter polygon; spitter +
     # husk in the tail; vault husk) survives cell-for-cell, plus a modest
     # growth pass to pace the larger mesh (one contact every few cells,
     # quiet entry and sump approach kept quiet).
@@ -316,7 +316,7 @@ def l02() -> LevelBuilder:
     squad(b, pb[1][0], "husk")
     squad(b, pb[2][1], "husk")
     squad(b, pb[0][1], "husk")
-    squad(b, keyroom, "mite mite spitter")
+    squad(b, keypolygon, "mite mite spitter")
     squad(b, k[1][1], "mite mite mite")
     squad(b, t1, "husk")
     squad(b, t2, "spitter")
@@ -324,7 +324,7 @@ def l02() -> LevelBuilder:
     squad(b, s3, "spitter mite")
 
     # the handwheel hangs on the manifold wall, under the posted procedure
-    b.entity(keyroom, "key_red", wall_pos(b, keyroom, 0, 0.72, 16.0))
+    b.entity(keypolygon, "key_red", wall_pos(b, keypolygon, 0, 0.72, 16.0))
     cache(b, a10, "ammo_9mm", wall=2)               # bay A's wall locker
     cache(b, pb[0][3], "medkit ammo_9mm", wall=2)   # bay B sealed supplies
     cache(b, r7, "medkit", wall=1)                  # the row medkit
@@ -334,7 +334,7 @@ def l02() -> LevelBuilder:
     cache(b, s3, "medkit ammo_9mm", wall=1)         # sump supplies
     # racked just inside the only door into the armory (the red door from
     # the tail) -- the doorway is the one point every route through this
-    # room shares (playbook §5.1).
+    # polygon shares (playbook §5.1).
     cache(b, armory, "weapon_smg ammo_9mm ammo_9mm", wall=0, t=0.5, inset=12.0)
     b.exit(armory, (1370, 70))
     return b
@@ -352,6 +352,6 @@ if __name__ == "__main__":
     final = b.to_dict()
     lvl = b.build()  # validates winding/schema/spawn
     save_level(final, out)
-    print(f"{out}: {lvl.name!r} rooms={len(lvl.room_verts)} "
+    print(f"{out}: {lvl.name!r} polygons={len(lvl.polygon_verts)} "
           f"connects={len(lvl.connects)} doors={len(lvl.doors)} "
           f"enemies={sum(1 for _, e in lvl.entities if e.type in ('husk', 'mite', 'spitter', 'brute', 'shrieker', 'warden'))}")

@@ -212,8 +212,8 @@ def drum_bus(d):
     import synth as sy
     par = np.tanh(d * 4.0)
     crush = sy.bitcrush(d, bits=10, rate_divisor=3) * 0.5
-    room = gc._spring_reverb(d, mix=1.0) * 0.22
-    y = d * 0.9 + par * 0.8 + crush + room
+    polygon = gc._spring_reverb(d, mix=1.0) * 0.22
+    y = d * 0.9 + par * 0.8 + crush + polygon
     return y / (np.abs(y).max() + 1e-9) * np.abs(d).max() * 1.15
 
 

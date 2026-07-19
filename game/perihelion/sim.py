@@ -124,7 +124,7 @@ PICKUPS: dict[str, dict] = {
     "weapon_rail": dict(radius=7.0),
     "weapon_tau": dict(radius=7.0),
     "portable_hole": dict(radius=6.0),
-    "safe_room_core": dict(radius=7.0),
+    "safe_polygon_core": dict(radius=7.0),
     "turret": dict(radius=6.0),
     "implant_lightning": dict(radius=7.0),
     "key_red": dict(radius=5.5), "key_blue": dict(radius=5.5),
@@ -135,13 +135,13 @@ PICKUPS: dict[str, dict] = {
 }
 
 # Friendly, stationary defensive emplacement (director's directive,
-# 2026-07-13: "let's put friendly turrets in the safe-room corridors" --
-# the calibration farm measured loot/rest rooms as the DEADLIEST zone
+# 2026-07-13: "let's put friendly turrets in the safe-polygon corridors" --
+# the calibration farm measured loot/rest polygons as the DEADLIEST zone
 # class, 2.2x combat, because standard enemies have no de-aggro path and
 # simply follow a hurt player to the medkits; see FITTING_REPORT.md
 # finding #1). MIRIAD-lane defensive emplacement, clinical naming to match
 # the enemy roster's own register (husk/mite/spitter/...). Pistol-class
-# rate of fire and damage, finite range, requires LOS (same room + no
+# rate of fire and damage, finite range, requires LOS (same polygon + no
 # walk-mask terrain crossing the shot -- see `_sentry_los_clear`), and a
 # short spin-up before its first shot on a freshly acquired target rather
 # than instant acquisition. No `hp` field: indestructible, matching the
@@ -179,7 +179,7 @@ SHOP: dict[str, dict] = {
 }
 
 # the warden's brood: adds called when the boss fight is truly JOINED
-# (player co-room), and again at enrage. Their trash danger-weights are
+# (player co-polygon), and again at enrage. Their trash danger-weights are
 # small on their own — the brood's job is melee crowd mass + damage
 # pressure, which is what carries STALWART over the 0.88 boss-music
 # line alongside the warden's 20 (director 2026-07-18: bosses must
@@ -237,10 +237,10 @@ class GameSession:
                  screen: tuple[int, int] = (480, 270), zoom: float = 1.35,
                  player_state: dict | None = None, difficulty: str = "normal"):
         self.level = level
-        # Soft (otherworld) rooms deform level.room_verts in place via the
+        # Soft (otherworld) polygons deform level.polygon_verts in place via the
         # per-tick refresh; copy so a Level object reused across sessions
         # never inherits another session's deformations.
-        level.room_verts = [list(map(tuple, vs)) for vs in level.room_verts]
+        level.polygon_verts = [list(map(tuple, vs)) for vs in level.polygon_verts]
         self.difficulty = difficulty
         self.player_resist = float((player_state or {}).get(
             "dmg_taken_mul", 1.0))
@@ -258,11 +258,11 @@ class GameSession:
         # --- engine world ---
         s = necore.Sim()
         self.sim = s
-        for verts in level.room_verts:
-            s.add_room(verts)
+        for verts in level.polygon_verts:
+            s.add_polygon(verts)
         # Walk-mask terrain: painted-in equipment/machinery that blocks
         # movement and shots exactly like a wall. Loaded alongside the
-        # floor texture (same directory, same room-local coordinate
+        # floor texture (same directory, same polygon-local coordinate
         # mapping -- terrain.py), but the collision data itself flows
         # straight into the engine here, never through the renderer.
         # Absence of a mask file means fully walkable (no fabricated
@@ -298,7 +298,7 @@ class GameSession:
         self.lighting = LightingSystem(s, level)
         from .levels import LightSpec as _LightSpec
         self.player_light = _LightSpec(
-            room=level.player_room, pos=tuple(level.player_pos),
+            polygon=level.player_polygon, pos=tuple(level.player_pos),
             color=(255, 226, 188), intensity=0.95, radius=85.0,
             kind="attached")
         self.lighting.lights.append(self.player_light)
@@ -321,7 +321,7 @@ class GameSession:
 
         # --- player ---
         st = player_state or {}
-        self.pid = s.spawn(level.player_room, *level.player_pos,
+        self.pid = s.spawn(level.player_polygon, *level.player_pos,
                            PLAYER_RADIUS, PLAYER_MASS, GROUP_PLAYER)
         s.set_props(self.pid, rest_wall=0.0, rest_ent=0.05, max_substep=6.0)
         self.max_hp = int(st.get("max_hp", PLAYER_HP))
@@ -357,21 +357,21 @@ class GameSession:
         # any hit severs (an escape you must earn a quiet moment for)
         self.recalls = int(st.get("recalls", 0))
         self.recall_t = 0
-        self.stations: list[dict] = []  # {room, pos}: planted + chunk seeds
+        self.stations: list[dict] = []  # {polygon, pos}: planted + chunk seeds
         # the seed you just printed from is a station by definition (the
         # streamer's chunk-entry add_station dedupes against this one)
-        self.add_station(level.player_room, level.player_pos)
+        self.add_station(level.player_polygon, level.player_pos)
         self.keys: set[str] = set()
         # key id -> KeyMeta of the object actually picked up (for HUD/world
         # glyphs); intersect with self.keys — the streamer clears keys on
         # zone crossings without touching this
         self.held_key_meta: dict = {}
-        # Otherworld: rooms whose walls are soft (mass-spring vertices).
-        self.soft_rooms: set[int] = set()
-        for i, k in enumerate(level.room_kinds):
+        # Otherworld: polygons whose walls are soft (mass-spring vertices).
+        self.soft_polygons: set[int] = set()
+        for i, k in enumerate(level.polygon_kinds):
             if k == "otherworld":
-                self.sim.soften_room(i)
-                self.soft_rooms.add(i)
+                self.sim.soften_polygon(i)
+                self.soft_polygons.add(i)
         self.weapon = st.get("weapon", "pistol")
         if self.weapon not in self.weapons:
             self.weapon = self.weapons[-1]
@@ -380,17 +380,17 @@ class GameSession:
         self.hurt_cd = 0
         self.aim = (1.0, 0.0)
         self.holes = int(st.get("holes", 0))
-        self.hole_mark: tuple | None = None  # (room, edge, t0, t1, x, y)
+        self.hole_mark: tuple | None = None  # (polygon, edge, t0, t1, x, y)
         self.tau_charge = 0
         self.cloister: dict | None = None  # {sanctum, corridor, links, attached}
         self.turrets: dict[int, dict] = {}
         # Data-driven defensive emplacements (SENTRIES), placed by level
-        # JSON (e.g. levels/gauntlet_cal.json's loot rooms) -- distinct
+        # JSON (e.g. levels/gauntlet_cal.json's loot polygons) -- distinct
         # container/tick from the cloister's `self.turrets` above; see the
         # comment on `SENTRIES` and `_sentry_tick`.
         self.sentries: dict[int, dict] = {}
 
-        # --- camera: player-room local -> internal screen ---
+        # --- camera: player-polygon local -> internal screen ---
         px, py = level.player_pos
         self._set_cam(necore.mat_mul(
             necore.mat_mul(necore.mat_translate(self.screen_w / 2, self.screen_h / 2),
@@ -399,7 +399,7 @@ class GameSession:
 
         # --- scripted/world objects ---
         # per-tick light-map cache for flicker (Adversary-lane lurker) AI
-        # queries only -- see `_room_light_map`; never populated (and
+        # queries only -- see `_polygon_light_map`; never populated (and
         # never costs anything) for a session with no flicker enemies.
         self._light_map_tick = -1
         self._light_map_cache: dict = {}
@@ -407,13 +407,13 @@ class GameSession:
         self.bullets: dict[int, dict] = {}
         self.pickups: dict[int, dict] = {}
         self.terminals: list[dict] = [
-            dict(room=t.room, pos=t.pos, text=t.text, read=False)
+            dict(polygon=t.polygon, pos=t.pos, text=t.text, read=False)
             for t in level.terminals
         ]
-        for room, spec in level.entities:
-            self._spawn_from_spec(room, spec)
+        for polygon, spec in level.entities:
+            self._spawn_from_spec(polygon, spec)
 
-        self.exit_room = level.exit_room
+        self.exit_polygon = level.exit_polygon
         self.exit_pos = level.exit_pos
         self.wave = 0
         self.wave_timer = 60 * 6 if level.vigil else -1
@@ -423,46 +423,46 @@ class GameSession:
         # --- output channels ---
         self.fx: list[tuple] = []  # drained by app each tick
         self._oob_fx: list[tuple] = []  # menu-time events; join next tick
-        self.decals: dict[int, list] = {}  # room -> [(kind,x,y,size,angle)]
+        self.decals: dict[int, list] = {}  # polygon -> [(kind,x,y,size,angle)]
         self._objective_fired: set[str] = set()  # once-gates for objective fx
         self.metrics = dict(ticks=0, shots=0, hits=0, kills=0, dmg_dealt=0.0,
                             wave=0,
                             dmg_taken=0.0, pickups=0, transfers=0, deaths=0,
-                            rooms_visited={level.player_room}, hp_series=[],
+                            polygons_visited={level.player_polygon}, hp_series=[],
                             completed=False)
 
     # ------------------------------------------------------------------
     # spawning
     # ------------------------------------------------------------------
 
-    def _spawn_from_spec(self, room: int, spec, key_meta=None) -> None:
+    def _spawn_from_spec(self, polygon: int, spec, key_meta=None) -> None:
         """`key_meta` is the key-id -> KeyMeta table of the LEVEL this spec
         came from — the streamer passes each chunk's own table because
         `self.level` is chunk 0's and key ids mean different objects on
         different decks. None = use this session's level."""
         t = spec.type
         if t in ENEMIES:
-            eid = self.spawn_enemy(room, spec.pos, t)
+            eid = self.spawn_enemy(polygon, spec.pos, t)
             if "hp" in spec.props:
                 self.enemies[eid]["hp"] = float(spec.props["hp"]) * self._hp_mul
             if spec.props.get("tether"):
                 self.enemies[eid]["tether"] = True
         elif t in SENTRIES:
-            self.spawn_sentry(room, spec.pos, t)
+            self.spawn_sentry(polygon, spec.pos, t)
         elif t in PICKUPS:
             meta = None
             if t.startswith("key_"):
                 table = key_meta if key_meta is not None else self.level.key_meta
                 meta = table.get(t[4:])
-            self.spawn_pickup(room, spec.pos, t, meta)
+            self.spawn_pickup(polygon, spec.pos, t, meta)
         elif t == "player":
             pass  # player spawn handled by level.player
         else:
             raise ValueError(f"unknown entity type {t!r} in level")
 
-    def spawn_enemy(self, room: int, pos, kind: str) -> int:
+    def spawn_enemy(self, polygon: int, pos, kind: str) -> int:
         d = ENEMIES[kind]
-        eid = self.sim.spawn(room, pos[0], pos[1], d["radius"], d["mass"], GROUP_ENEMY)
+        eid = self.sim.spawn(polygon, pos[0], pos[1], d["radius"], d["mass"], GROUP_ENEMY)
         self.sim.set_props(eid, rest_wall=0.0, rest_ent=0.2, max_substep=8.0)
         # A flicker's resting behavior IS lurking (not idle-until-noticed
         # like the standard state machine) -- it never uses idle/waking,
@@ -473,10 +473,10 @@ class GameSession:
                                  wander_cd=0, buff=0, trace_intensity=1.0)
         return eid
 
-    def spawn_pickup(self, room: int, pos, kind: str, meta=None,
+    def spawn_pickup(self, polygon: int, pos, kind: str, meta=None,
                      extra: dict | None = None) -> int:
         d = PICKUPS[kind]
-        eid = self.sim.spawn(room, pos[0], pos[1], d["radius"], 100.0, GROUP_PICKUP)
+        eid = self.sim.spawn(polygon, pos[0], pos[1], d["radius"], 100.0, GROUP_PICKUP)
         self.sim.set_props(eid, transfers=False)
         rec = dict(kind=kind)
         if meta is not None:
@@ -486,9 +486,9 @@ class GameSession:
         self.pickups[eid] = rec
         return eid
 
-    def spawn_sentry(self, room: int, pos, kind: str = "sentry") -> int:
+    def spawn_sentry(self, polygon: int, pos, kind: str = "sentry") -> int:
         d = SENTRIES[kind]
-        eid = self.sim.spawn(room, pos[0], pos[1], d["radius"], 100.0, GROUP_PICKUP)
+        eid = self.sim.spawn(polygon, pos[0], pos[1], d["radius"], 100.0, GROUP_PICKUP)
         self.sim.set_props(eid, transfers=False)
         self.sentries[eid] = dict(kind=kind, cd=0, spin=d["spin_up"])
         return eid
@@ -497,8 +497,8 @@ class GameSession:
     # helpers
     # ------------------------------------------------------------------
 
-    def _snd(self, name: str, room: int, pos, vol: float = 1.0):
-        self.fx.append(("sound", name, room, pos[0], pos[1], vol))
+    def _snd(self, name: str, polygon: int, pos, vol: float = 1.0):
+        self.fx.append(("sound", name, polygon, pos[0], pos[1], vol))
 
     def _shake(self, mag: float):
         self.fx.append(("shake", mag))
@@ -506,9 +506,9 @@ class GameSession:
     def _hitstop(self, ticks: int):
         self.freeze = max(self.freeze, ticks)
 
-    def _decal(self, room: int, kind: str, x: float, y: float,
+    def _decal(self, polygon: int, kind: str, x: float, y: float,
                size: float, angle: float = 0.0):
-        lst = self.decals.setdefault(room, [])
+        lst = self.decals.setdefault(polygon, [])
         lst.append((kind, x, y, size, angle))
         if len(lst) > 250:
             del lst[0: len(lst) - 250]
@@ -588,7 +588,7 @@ class GameSession:
 
     def _cam_rebase(self, m9) -> None:
         """Portal re-base: re-express BOTH camera matrices in the new
-        room's local frame by right-multiplying with inv(m9). This is
+        polygon's local frame by right-multiplying with inv(m9). This is
         exact on the composed world->screen mapping -- true "zero
         visible change by construction", unlike re-snapping the
         rendered copy independently (the root cause this replaces: a
@@ -615,18 +615,18 @@ class GameSession:
         _, px, py, *_ = self.sim.get(self.pid)
         return px, py
 
-    def player_room(self) -> int:
-        return self.sim.get_room(self.pid)
+    def player_polygon(self) -> int:
+        return self.sim.get_polygon(self.pid)
 
     WAKE_TICKS = {"husk": 32, "mite": 18, "spitter": 26, "brute": 45,
                   "shrieker": 12, "warden": 20}
 
-    def alert_enemies(self, room: int, hops: int):
+    def alert_enemies(self, polygon: int, hops: int):
         for eid, e in self.enemies.items():
             if e["state"] != "idle":
                 continue  # hunting already, or mid-wake (keep the beat)
-            er = self.sim.get_room(eid)
-            d = self.sim.hop_distance(er, room)
+            er = self.sim.get_polygon(eid)
+            d = self.sim.hop_distance(er, polygon)
             if 0 <= d <= hops:
                 e["state"] = "waking"
                 e["wake"] = self.WAKE_TICKS[e["kind"]]
@@ -657,17 +657,17 @@ class GameSession:
             return
 
         s = self.sim
-        proom = self.player_room()
-        s.set_active_within(proom, ACTIVE_HOPS)
+        ppolygon = self.player_polygon()
+        s.set_active_within(ppolygon, ACTIVE_HOPS)
 
-        if self.soft_rooms:
-            rv = self.level.room_verts
-            for r_ in self.soft_rooms:
+        if self.soft_polygons:
+            rv = self.level.polygon_verts
+            for r_ in self.soft_polygons:
                 if r_ < len(rv):
-                    rv[r_] = self.sim.room_verts(r_)
+                    rv[r_] = self.sim.polygon_verts(r_)
         if self.tick_count % 30 == 0:
-            self._containment_sweep(proom)
-        self._recall_tick(proom)
+            self._containment_sweep(ppolygon)
+        self._recall_tick(ppolygon)
         if self._regen_rate and self.tick_count % 60 == 0:
             # grafted Adversary organs knit the hull -- up to a fraction of
             # max only; flesh does not respect fabrication tolerances
@@ -675,9 +675,9 @@ class GameSession:
             if self.hp < cap:
                 self.hp = min(cap, self.hp + self._regen_rate)
 
-        self._think_tick(proom)
-        self._player_control(inp, proom)
-        self._enemy_ai(proom)
+        self._think_tick(ppolygon)
+        self._player_control(inp, ppolygon)
+        self._enemy_ai(ppolygon)
 
         # friction (artistic, so it lives here not in the engine)
         self._apply_friction(self.pid, PLAYER_FRICTION)
@@ -696,13 +696,13 @@ class GameSession:
             # levels, and -- critically -- does not scoop its own corpse
             # in the tick that dropped it
             return
-        self._pickup_scan(proom)
-        self._terminal_scan(proom, inp)
-        self._station_scan(proom, inp)
-        self._exit_scan(proom)
+        self._pickup_scan(ppolygon)
+        self._terminal_scan(ppolygon, inp)
+        self._station_scan(ppolygon, inp)
+        self._exit_scan(ppolygon)
 
         if self.level.vigil:
-            self._vigil_tick(proom)
+            self._vigil_tick(ppolygon)
         if self.cooldown > 0:
             self.cooldown -= 1
         if self.hurt_cd > 0:
@@ -732,7 +732,7 @@ class GameSession:
         f = max(0.0, 1.0 - fric * DT)
         self.sim.set_vel(eid, vx * f, vy * f)
 
-    def _player_control(self, inp: InputFrame, proom: int):
+    def _player_control(self, inp: InputFrame, ppolygon: int):
         s = self.sim
         # weapon select
         if 1 <= inp.weapon <= len(WEAPON_ORDER):
@@ -762,7 +762,7 @@ class GameSession:
             self.aim = (dx / dl, dy / dl)
         else:
             self.aim = s.get(self.pid)[5:7]
-        # move (screen-space -> room-space through inverse camera rotation)
+        # move (screen-space -> polygon-space through inverse camera rotation)
         mlen = math.hypot(inp.mx, inp.my)
         if mlen > 1e-6:
             mlen = min(1.0, mlen)
@@ -775,45 +775,45 @@ class GameSession:
         # fire
         if inp.fire and self.cooldown <= 0:
             self.last_fire_tick = self.tick_count
-            self._fire(proom, px, py)
+            self._fire(ppolygon, px, py)
         # alt: tau charge when tau is in hand, lightning implant otherwise
         if self.weapon == "tau" and "tau" in self.weapons:
             if inp.alt and self.ammo.get("cell", 0) > 0:
                 self.tau_charge += 1
                 if self.tau_charge == 1:
-                    self._snd("tau_charge", proom, (px, py), 0.8)
+                    self._snd("tau_charge", ppolygon, (px, py), 0.8)
                 if self.tau_charge > TAU_OVERCHARGE:
-                    self._damage_player(12, proom)
-                    self._snd("tau_overcharge_hurt", proom, (px, py))
+                    self._damage_player(12, ppolygon)
+                    self._snd("tau_overcharge_hurt", ppolygon, (px, py))
                     self.tau_charge = 0
             elif self.tau_charge > 0:
-                self._fire_tau_charged(proom, px, py)
+                self._fire_tau_charged(ppolygon, px, py)
                 self.tau_charge = 0
         elif inp.alt and self.lightning_charge >= LIGHTNING_RECHARGE_TICKS \
                 and "lightning" in self.weapons:
-            self._fire_lightning(proom, px, py)
+            self._fire_lightning(ppolygon, px, py)
 
-    def _fire(self, proom: int, px: float, py: float):
+    def _fire(self, ppolygon: int, px: float, py: float):
         w = WEAPONS[self.weapon]
         adx, ady = self.aim
         if self.weapon == "lightning":
             # the implant fires the same whether triggered or selected
             self.cooldown = 18
             if self.lightning_charge >= LIGHTNING_RECHARGE_TICKS:
-                self._fire_lightning(proom, px, py)
+                self._fire_lightning(ppolygon, px, py)
             else:
-                self._snd("dry_click", proom, (px, py))
+                self._snd("dry_click", ppolygon, (px, py))
             return
         if self.weapon == "hole":
             self.cooldown = w["cd"]
-            self._hole_shot(proom, px, py, adx, ady)
+            self._hole_shot(ppolygon, px, py, adx, ady)
             return
         if self.weapon == "knife":
             self.cooldown = w["cd"]
-            self._snd("knife_swing", proom, (px, py))
+            self._snd("knife_swing", ppolygon, (px, py))
             self.metrics["shots"] += 1
             hit_any = False
-            for eid in list(self.sim.room_entities(proom)):
+            for eid in list(self.sim.polygon_entities(ppolygon)):
                 e = self.enemies.get(eid)
                 if not e:
                     continue
@@ -829,7 +829,7 @@ class GameSession:
                     self._damage_enemy(eid, w["dmg"], (ddx / dist, ddy / dist), 260.0)
                     hit_any = True
             if hit_any:
-                self._snd("knife_hit", proom, (px, py))
+                self._snd("knife_hit", ppolygon, (px, py))
                 self._shake(1.5)
             return
         ammo_t = w.get("ammo")
@@ -837,12 +837,12 @@ class GameSession:
             # the scrap driver eats the currency itself
             if self.components < w.get("per", 1):
                 self.cooldown = 18
-                self._snd("dry_click", proom, (px, py))
+                self._snd("dry_click", ppolygon, (px, py))
                 return
             self.components -= w.get("per", 1)
         elif ammo_t and self.ammo.get(ammo_t, 0) < w.get("per", 1):
             self.cooldown = 18
-            self._snd("dry_click", proom, (px, py))
+            self._snd("dry_click", ppolygon, (px, py))
             return
         elif ammo_t:
             self.ammo[ammo_t] -= w.get("per", 1)
@@ -850,27 +850,27 @@ class GameSession:
         if hp_cost:
             if self.hp <= hp_cost:
                 self.cooldown = 18
-                self._snd("dry_click", proom, (px, py))
+                self._snd("dry_click", ppolygon, (px, py))
                 return
             self.hp -= hp_cost  # the gland drinks from the frame
         self.cooldown = w["cd"]
         self.metrics["shots"] += 1
-        self._snd(w["sound"], proom, (px, py))
+        self._snd(w["sound"], ppolygon, (px, py))
         self._shake(w.get("kick", 2.0))
         # MUZZLE CLAMP (2026-07-19, ground-truth trace): firing within
         # muzzle length of a portal plane (or wall) put the spawn
-        # point OUTSIDE the room polygon; penetration resolution then
+        # point OUTSIDE the polygon polygon; penetration resolution then
         # shoved the fresh round back inside — into the shooter
         # (spawn-tick self-hits measured at ~40% of all player damage
         # taken, misattributed for a day to fold returns). Clamp the
         # muzzle inside the polygon like the camera apex; the round
         # then crosses the portal by flying, as physics intends.
         mx_, my_ = self._clamp_apex(
-            proom, px + adx * (PLAYER_RADIUS + 5),
+            ppolygon, px + adx * (PLAYER_RADIUS + 5),
             py + ady * (PLAYER_RADIUS + 5))
-        self.fx.append(("flash", proom, mx_, my_, 26.0))
+        self.fx.append(("flash", ppolygon, mx_, my_, 26.0))
         if self.weapon == "rail":
-            self._fire_rail(proom, px, py, adx, ady)
+            self._fire_rail(ppolygon, px, py, adx, ady)
         else:
             _, _, _, pvx, pvy, _, _ = self.sim.get(self.pid)
             for _ in range(w.get("pellets", 1)):
@@ -878,7 +878,7 @@ class GameSession:
                     -w["spread"], w["spread"]) * self._spread_mul
                 spd = w["speed"] * self.rng.uniform(0.95, 1.05)
                 brad = 3.0 if self.weapon == "gland" else 1.6
-                bid = self.sim.spawn(proom, mx_, my_, brad, 0.002, GROUP_PBULLET)
+                bid = self.sim.spawn(ppolygon, mx_, my_, brad, 0.002, GROUP_PBULLET)
                 self.sim.set_props(bid, rest_wall=0.0, rest_ent=0.0, max_substep=3.2)
                 self.sim.set_vel(bid, math.cos(ang) * spd + pvx * 0.4,
                                  math.sin(ang) * spd + pvy * 0.4)
@@ -895,29 +895,29 @@ class GameSession:
                 elif self.weapon == "gland":
                     self.bullets[bid].update(kind="gland", ttl=170)
         # gunfire is loud: it travels the graph
-        self.alert_enemies(proom, self.level.alert_hops)
+        self.alert_enemies(ppolygon, self.level.alert_hops)
 
-    def _fire_rail(self, proom, px, py, adx, ady):
-        ox, oy, room = px + adx * (PLAYER_RADIUS + 3), py + ady * (PLAYER_RADIUS + 3), proom
+    def _fire_rail(self, ppolygon, px, py, adx, ady):
+        ox, oy, polygon = px + adx * (PLAYER_RADIUS + 3), py + ady * (PLAYER_RADIUS + 3), ppolygon
         dx, dy = adx, ady
         ignore = self.pid
         w = WEAPONS["rail"]
         for _ in range(w["pierce"]):
-            hit = self.sim.raycast(room, ox, oy, dx, dy, 8, 2000.0,
+            hit = self.sim.raycast(polygon, ox, oy, dx, dy, 8, 2000.0,
                                    1 << GROUP_ENEMY, ignore)
             kind = hit[0]
             if kind == "ent":
-                _, eid, hroom, hx, hy, dist, hops, m9 = hit
+                _, eid, hpolygon, hx, hy, dist, hops, m9 = hit
                 self._damage_enemy(eid, w["dmg"], (dx, dy), 420.0)
                 r = self.sim.get_radius(eid) if self.sim.exists(eid) else 8.0
-                ox, oy, room, ignore = hx + dx * (2 * r + 1.0), hy + dy * (2 * r + 1.0), hroom, eid
+                ox, oy, polygon, ignore = hx + dx * (2 * r + 1.0), hy + dy * (2 * r + 1.0), hpolygon, eid
             else:
                 if kind == "wall":
-                    _, hroom, hedge, hx, hy, dist, hops, m9 = hit
-                    self._decal(hroom, "scorch", hx, hy, 4.0)
+                    _, hpolygon, hedge, hx, hy, dist, hops, m9 = hit
+                    self._decal(hpolygon, "scorch", hx, hy, 4.0)
                 break
         # visual tracer that flies the same path
-        bid = self.sim.spawn(proom, px + adx * (PLAYER_RADIUS + 3),
+        bid = self.sim.spawn(ppolygon, px + adx * (PLAYER_RADIUS + 3),
                              py + ady * (PLAYER_RADIUS + 3), 1.2, 0.0005, GROUP_PBULLET)
         self.sim.set_props(bid, rest_wall=0.0, max_substep=4.0)
         self.sim.set_vel(bid, adx * 5200.0, ady * 5200.0)
@@ -925,33 +925,33 @@ class GameSession:
                                  born=self.tick_count)
         self._hitstop(2)
 
-    def _fire_lightning(self, proom, px, py):
+    def _fire_lightning(self, ppolygon, px, py):
         self.lightning_charge = 0
         adx, ady = self.aim
         w = WEAPONS["lightning"]
         _, _, _, pvx, pvy, _, _ = self.sim.get(self.pid)
-        bid = self.sim.spawn(proom, px + adx * (PLAYER_RADIUS + 6),
+        bid = self.sim.spawn(ppolygon, px + adx * (PLAYER_RADIUS + 6),
                              py + ady * (PLAYER_RADIUS + 6), 3.0, 0.02, GROUP_PBULLET)
         self.sim.set_props(bid, rest_wall=0.0, max_substep=4.0)
         self.sim.set_vel(bid, adx * w["speed"] + pvx * 0.5, ady * w["speed"] + pvy * 0.5)
         self.bullets[bid] = dict(kind="dart", dmg=w["dmg"], ttl=240,
                                  born=self.tick_count)
-        self._snd("lightning_fire", proom, (px, py))
+        self._snd("lightning_fire", ppolygon, (px, py))
         self._shake(4.0)
-        self.alert_enemies(proom, self.level.alert_hops + 1)
+        self.alert_enemies(ppolygon, self.level.alert_hops + 1)
 
-    def _fire_tau_charged(self, proom, px, py):
+    def _fire_tau_charged(self, ppolygon, px, py):
         adx, ady = self.aim
         frac = min(1.0, self.tau_charge / TAU_CHARGE_FULL)
         cost = min(self.ammo.get("cell", 0), 5)
         if cost <= 0:
-            self._snd("dry_click", proom, (px, py))
+            self._snd("dry_click", ppolygon, (px, py))
             return
         self.ammo["cell"] -= cost
         power = frac * (0.4 + 0.6 * cost / 5.0)
         dmg = 18 + 46 * power
         _, _, _, pvx, pvy, _, _ = self.sim.get(self.pid)
-        bid = self.sim.spawn(proom, px + adx * (PLAYER_RADIUS + 5),
+        bid = self.sim.spawn(ppolygon, px + adx * (PLAYER_RADIUS + 5),
                              py + ady * (PLAYER_RADIUS + 5), 2.2, 0.006,
                              GROUP_PBULLET)
         self.sim.set_props(bid, rest_wall=1.0, max_substep=4.0)
@@ -959,87 +959,87 @@ class GameSession:
         self.bullets[bid] = dict(kind="taucharged", dmg=dmg, ttl=160,
                                  bounces=3, born=self.tick_count)
         self.metrics["shots"] += 1
-        self._snd("tau_charged_fire", proom, (px, py))
+        self._snd("tau_charged_fire", ppolygon, (px, py))
         self._shake(4.0 + 5.0 * power)
         self._hitstop(2)
-        self.fx.append(("flash", proom, px + adx * 12, py + ady * 12, 30.0))
-        self.alert_enemies(proom, self.level.alert_hops)
+        self.fx.append(("flash", ppolygon, px + adx * 12, py + ady * 12, 30.0))
+        self.alert_enemies(ppolygon, self.level.alert_hops)
 
     # ------------------------------------------------------------------
     # portable hole
     # ------------------------------------------------------------------
 
-    def _hole_shot(self, proom, px, py, adx, ady):
+    def _hole_shot(self, ppolygon, px, py, adx, ady):
         if self.holes <= 0:
-            self._snd("dry_click", proom, (px, py))
+            self._snd("dry_click", ppolygon, (px, py))
             return
-        hit = self.sim.raycast(proom, px, py, adx, ady, 0, HOLE_RANGE, 0, self.pid)
+        hit = self.sim.raycast(ppolygon, px, py, adx, ady, 0, HOLE_RANGE, 0, self.pid)
         if hit[0] != "wall":
-            self._snd("dry_click", proom, (px, py), 0.5)
+            self._snd("dry_click", ppolygon, (px, py), 0.5)
             return
-        _, room, edge, hx, hy, dist, hops, m9 = hit
-        x1, y1, x2, y2 = self.sim.edge_endpoints(room, edge)
+        _, polygon, edge, hx, hy, dist, hops, m9 = hit
+        x1, y1, x2, y2 = self.sim.edge_endpoints(polygon, edge)
         elen = math.hypot(x2 - x1, y2 - y1)
         along = (hx - x1) * (x2 - x1) / elen + (hy - y1) * (y2 - y1) / elen
         half = HOLE_WIDTH / 2.0
         if along < half + 2.0 or along > elen - half - 2.0:
-            self._snd("dry_click", proom, (px, py), 0.5)
+            self._snd("dry_click", ppolygon, (px, py), 0.5)
             return
         t0, t1 = (along - half) / elen, (along + half) / elen
         if self.cloister is not None:
-            if room in (self.cloister["sanctum"], self.cloister["corridor"]):
-                self._snd("dry_click", proom, (px, py), 0.5)
+            if polygon in (self.cloister["sanctum"], self.cloister["corridor"]):
+                self._snd("dry_click", ppolygon, (px, py), 0.5)
                 return
-            mid = self.sim.split_edge(room, edge, t0, t1)
-            self._shift_edge_maps(room, edge)
-            self.cloister["links"].append((room, mid))
+            mid = self.sim.split_edge(polygon, edge, t0, t1)
+            self._shift_edge_maps(polygon, edge)
+            self.cloister["links"].append((polygon, mid))
             self._attach_cloister(len(self.cloister["links"]) - 1)
             self.holes -= 1
-            self._decal(room, "scorch", hx, hy, 8.0)
-            self._snd("door_unlock", room, (hx, hy))
-            self.fx.append(("holeopen", room, hx, hy))
+            self._decal(polygon, "scorch", hx, hy, 8.0)
+            self._snd("door_unlock", polygon, (hx, hy))
+            self.fx.append(("holeopen", polygon, hx, hy))
             self._shake(2.5)
             return
         if self.hole_mark is None:
-            self.hole_mark = (room, edge, t0, t1, hx, hy)
-            self._decal(room, "scorch", hx, hy, 5.0)
-            self._snd("terminal_type", room, (hx, hy))
-            self.fx.append(("holemark", room, hx, hy))
+            self.hole_mark = (polygon, edge, t0, t1, hx, hy)
+            self._decal(polygon, "scorch", hx, hy, 5.0)
+            self._snd("terminal_type", polygon, (hx, hy))
+            self.fx.append(("holemark", polygon, hx, hy))
             return
-        m_room, m_edge, m_t0, m_t1, mx, my = self.hole_mark
-        if m_room == room and m_edge == edge:
-            self._snd("dry_click", proom, (px, py), 0.5)
+        m_polygon, m_edge, m_t0, m_t1, mx, my = self.hole_mark
+        if m_polygon == polygon and m_edge == edge:
+            self._snd("dry_click", ppolygon, (px, py), 0.5)
             return
         # split the FIRST mark's wall first; if the second mark shares the
-        # room with a later edge index, account for the insertion shift
-        if m_room == room and edge > m_edge:
+        # polygon with a later edge index, account for the insertion shift
+        if m_polygon == polygon and edge > m_edge:
             edge += 2
-        mid_a = self.sim.split_edge(m_room, m_edge, m_t0, m_t1)
-        self._shift_edge_maps(m_room, m_edge)
-        mid_b = self.sim.split_edge(room, edge, t0, t1)
-        self._shift_edge_maps(room, edge)
-        if m_room == room and mid_a > edge:
+        mid_a = self.sim.split_edge(m_polygon, m_edge, m_t0, m_t1)
+        self._shift_edge_maps(m_polygon, m_edge)
+        mid_b = self.sim.split_edge(polygon, edge, t0, t1)
+        self._shift_edge_maps(polygon, edge)
+        if m_polygon == polygon and mid_a > edge:
             mid_a += 2  # the second split renumbered the first doorway
         w = HOLE_WIDTH
-        cor = self.sim.add_room([(0.0, 0.0), (0.0, w),
+        cor = self.sim.add_polygon([(0.0, 0.0), (0.0, w),
                                  (HOLE_CORRIDOR_LEN, w), (HOLE_CORRIDOR_LEN, 0.0)])
-        self.sim.connect(m_room, mid_a, cor, 0)
-        self.sim.connect(room, mid_b, cor, 2)
-        self.level.room_seeds.append(cor * 7919 + 13)
+        self.sim.connect(m_polygon, mid_a, cor, 0)
+        self.sim.connect(polygon, mid_b, cor, 2)
+        self.level.polygon_seeds.append(cor * 7919 + 13)
         self.holes -= 1
         self.hole_mark = None
-        self._snd("door_unlock", room, (hx, hy))
-        self.fx.append(("holeopen", room, hx, hy))
+        self._snd("door_unlock", polygon, (hx, hy))
+        self.fx.append(("holeopen", polygon, hx, hy))
         self._shake(3.0)
 
-    def carve_door(self, room: int, near, width: float = 70.0) -> int | None:
-        """Split the wall nearest `near` (room-local) to make a door-width
+    def carve_door(self, polygon: int, near, width: float = 70.0) -> int | None:
+        """Split the wall nearest `near` (polygon-local) to make a door-width
         sub-edge; returns its index, or None if no wall has the span."""
         best = None
-        for e in range(len(self.sim.room_portals(room))):
-            if self.sim.room_portals(room)[e] is not None:
+        for e in range(len(self.sim.polygon_portals(polygon))):
+            if self.sim.polygon_portals(polygon)[e] is not None:
                 continue
-            x1, y1, x2, y2 = self.sim.edge_endpoints(room, e)
+            x1, y1, x2, y2 = self.sim.edge_endpoints(polygon, e)
             elen = math.hypot(x2 - x1, y2 - y1)
             if elen < width + 8.0:
                 continue
@@ -1055,17 +1055,17 @@ class GameSession:
         _, e, along, elen = best
         t0 = (along - width / 2) / elen
         t1 = (along + width / 2) / elen
-        mid = self.sim.split_edge(room, e, t0, t1)
-        self._shift_edge_maps(room, e)
+        mid = self.sim.split_edge(polygon, e, t0, t1)
+        self._shift_edge_maps(polygon, e)
         return mid
 
     def append_chunk(self, level) -> int:
-        """Stream another level's rooms into this live world. Returns the
-        room-index offset where the chunk begins. Doors, terminals, and
+        """Stream another level's polygons into this live world. Returns the
+        polygon-index offset where the chunk begins. Doors, terminals, and
         entities all arrive re-indexed."""
-        offset = self.sim.num_rooms()
-        for verts in level.room_verts:
-            self.sim.add_room(verts)
+        offset = self.sim.num_polygons()
+        for verts in level.polygon_verts:
+            self.sim.add_polygon(verts)
         terrain.apply_walk_masks(self.sim, level, offset)
         for a, ea, b, eb in level.connects:
             self.sim.connect(a + offset, ea, b + offset, eb)
@@ -1080,43 +1080,43 @@ class GameSession:
             self.door_edges[(rec["a"], rec["ea"])] = d.key
             self.door_edges[(rec["b"], rec["eb"])] = d.key
         for t in level.terminals:
-            self.terminals.append(dict(room=t.room + offset, pos=t.pos,
+            self.terminals.append(dict(polygon=t.polygon + offset, pos=t.pos,
                                        text=t.text, read=False))
-        for room, spec in level.entities:
-            self._spawn_from_spec(room + offset, spec, key_meta=level.key_meta)
+        for polygon, spec in level.entities:
+            self._spawn_from_spec(polygon + offset, spec, key_meta=level.key_meta)
         if level.lights:
             from dataclasses import replace as _dc_replace
-            shifted = [_dc_replace(lt, room=lt.room + offset) for lt in level.lights]
+            shifted = [_dc_replace(lt, polygon=lt.polygon + offset) for lt in level.lights]
             self.level.lights.extend(shifted)
             self.lighting.add_lights(self.sim, shifted)
-        self.level.room_seeds.extend(level.room_seeds)
-        for i, k in enumerate(level.room_kinds):
+        self.level.polygon_seeds.extend(level.polygon_seeds)
+        for i, k in enumerate(level.polygon_kinds):
             if k == "otherworld":
-                self.sim.soften_room(offset + i)
-                self.soft_rooms.add(offset + i)
-        self.level.room_kinds.extend(level.room_kinds)
-        self.level.room_verts.extend(level.room_verts)
-        self.level.room_centroids.extend(level.room_centroids)
+                self.sim.soften_polygon(offset + i)
+                self.soft_polygons.add(offset + i)
+        self.level.polygon_kinds.extend(level.polygon_kinds)
+        self.level.polygon_verts.extend(level.polygon_verts)
+        self.level.polygon_centroids.extend(level.polygon_centroids)
         return offset
 
-    def _shift_edge_maps(self, room: int, edge: int):
-        """A split inserted two edges after `edge` in `room`; every python-
-        side (room, edge) reference beyond it shifts by 2."""
+    def _shift_edge_maps(self, polygon: int, edge: int):
+        """A split inserted two edges after `edge` in `polygon`; every python-
+        side (polygon, edge) reference beyond it shifts by 2."""
         remapped = {}
         for (r, e), k in self.door_edges.items():
-            remapped[(r, e + 2 if r == room and e > edge else e)] = k
+            remapped[(r, e + 2 if r == polygon and e > edge else e)] = k
         self.door_edges = remapped
         for d in self.doors:
-            if d["a"] == room and d["ea"] > edge:
+            if d["a"] == polygon and d["ea"] > edge:
                 d["ea"] += 2
-            if d["b"] == room and d["eb"] > edge:
+            if d["b"] == polygon and d["eb"] > edge:
                 d["eb"] += 2
         if self.cloister:
             self.cloister["links"] = [
-                (r, e + 2 if r == room and e > edge else e)
+                (r, e + 2 if r == polygon and e > edge else e)
                 for (r, e) in self.cloister["links"]]
 
-    def _boss_adds(self, room: int, ex: float, ey: float, kinds,
+    def _boss_adds(self, polygon: int, ex: float, ey: float, kinds,
                    px: float, py: float) -> None:
         """Spawn the warden's brood as a ONE-SIDED, telegraphed wave:
         a ring around the warden was angular enclosure — a pincer by
@@ -1134,15 +1134,15 @@ class GameSession:
             if math.hypot(sx - px, sy - py) < 110.0:
                 sx += 60.0 * math.cos(away)     # never inside the
                 sy += 60.0 * math.sin(away)     # player's close bubble
-            eid = self.spawn_enemy(room, (sx, sy), kind)
+            eid = self.spawn_enemy(polygon, (sx, sy), kind)
             self.enemies[eid]["state"] = "waking"
             # full Sol cadence (~5s hatch spread): the 0.7-2.8s
             # stagger still arrived as a wall — census: 48% of deaths
             # were this entry brawl, mite-dominated
             self.enemies[eid]["wake"] = 40 + i * 30
             self.enemies[eid]["brood"] = True
-        self._snd("shrieker_scream", room, (ex, ey), 0.8)
-        self.fx.append(("scream", room, ex, ey))
+        self._snd("shrieker_scream", polygon, (ex, ey), 0.8)
+        self.fx.append(("scream", polygon, ex, ey))
 
     # ------------------------------------------------------------------
     # the vigil: the wave director. Things still come through. They are met.
@@ -1151,7 +1151,7 @@ class GameSession:
     # no shriekers: a thing that flees forever stalls a holdout
     VIGIL_COSTS = (("mite", 1), ("husk", 2), ("spitter", 4), ("brute", 7))
 
-    def _vigil_tick(self, proom: int):
+    def _vigil_tick(self, ppolygon: int):
         if self.wave_timer > 0:
             self.wave_timer -= 1
             return
@@ -1165,10 +1165,10 @@ class GameSession:
         self.wave += 1
         self.metrics["wave"] = self.wave
         budget = 3 + 2 * self.wave
-        # spawn away from the player: petal rooms only (never room 0's heart
+        # spawn away from the player: petal polygons only (never polygon 0's heart
         # unless the player left it)
-        rooms = [r for r in range(self.sim.num_rooms())
-                 if r != proom and (self.cloister is None or
+        polygons = [r for r in range(self.sim.num_polygons())
+                 if r != ppolygon and (self.cloister is None or
                  r not in (self.cloister["sanctum"], self.cloister["corridor"]))]
         spawned = 0
         while budget > 0 and spawned < 22:
@@ -1177,15 +1177,15 @@ class GameSession:
                 kind, cost = "warden", budget  # a fresh print at the door
             else:
                 kind, cost = kinds[self.rng.randrange(len(kinds))]
-            room = rooms[self.rng.randrange(len(rooms))]
+            polygon = polygons[self.rng.randrange(len(polygons))]
             a = self.rng.uniform(0, 6.28)
-            eid = self.spawn_enemy(room, (55 * math.cos(a), 55 * math.sin(a)), kind)
+            eid = self.spawn_enemy(polygon, (55 * math.cos(a), 55 * math.sin(a)), kind)
             self.enemies[eid]["state"] = "hunt"
             budget -= cost
             spawned += 1
         self.wave_timer = 60 * 8
         # wave feedback is the stinger + the HUD wave counter; no dialogue
-        self._snd("stinger_wrongness", proom, self.player_pos(), 0.5)
+        self._snd("stinger_wrongness", ppolygon, self.player_pos(), 0.5)
         # the seed keeps the pantry stocked between pushes
         if self.wave % 2 == 0:
             kind = "medkit" if self.wave % 4 == 0 else                 ("ammo_shell" if self.wave % 3 == 0 else "ammo_9mm")
@@ -1193,7 +1193,7 @@ class GameSession:
             self.spawn_pickup(0, (60 * math.cos(a), 60 * math.sin(a)), kind)
 
     # ------------------------------------------------------------------
-    # the cloister (safe room): an isolated pocket with no address,
+    # the cloister (safe polygon): an isolated pocket with no address,
     # linked to wherever the portable hole has cut
     # ------------------------------------------------------------------
 
@@ -1206,12 +1206,12 @@ class GameSession:
         for i in range(8):
             a = math.radians(22.5) - i * math.pi / 4.0
             verts.append((85.0 * math.cos(a), 85.0 * math.sin(a)))
-        sanctum = s.add_room(verts)
+        sanctum = s.add_polygon(verts)
         elen = 2 * 85.0 * math.sin(math.pi / 8.0)
         t0 = 0.5 - 7.5 / elen
         t1 = 0.5 + 7.5 / elen
         door = s.split_edge(sanctum, 4, t0, t1)
-        corridor = s.add_room([(0.0, 0.0), (0.0, 15.0), (36.0, 15.0), (36.0, 0.0)])
+        corridor = s.add_polygon([(0.0, 0.0), (0.0, 15.0), (36.0, 15.0), (36.0, 0.0)])
         s.connect(sanctum, door, corridor, 0)
         self.cloister = dict(sanctum=sanctum, corridor=corridor,
                              links=[], attached=None)
@@ -1223,14 +1223,14 @@ class GameSession:
         # the seed keeps the pantry stocked
         self.spawn_pickup(sanctum, (30.0, -20.0), "medkit")
         self.spawn_pickup(sanctum, (30.0, 20.0), "ammo_9mm")
-        self.level.room_seeds.extend([sanctum * 7919 + 13, corridor * 7919 + 13])
+        self.level.polygon_seeds.extend([sanctum * 7919 + 13, corridor * 7919 + 13])
 
     def _attach_cloister(self, idx: int):
         c = self.cloister
         if c["attached"] is not None:
             self.sim.disconnect(c["corridor"], 2)
-        room, edge = c["links"][idx]
-        self.sim.connect(room, edge, c["corridor"], 2)
+        polygon, edge = c["links"][idx]
+        self.sim.connect(polygon, edge, c["corridor"], 2)
         c["attached"] = idx
 
     def _rotate_cloister(self):
@@ -1246,10 +1246,10 @@ class GameSession:
             if t["cd"] > 0:
                 t["cd"] -= 1
                 continue
-            room = s.get_room(tid)
+            polygon = s.get_polygon(tid)
             _, tx, ty, *_ = s.get(tid)
             best, bd = None, 1e18
-            for eid in s.room_entities(room):
+            for eid in s.polygon_entities(polygon):
                 if eid in self.enemies:
                     _, ex, ey, *_ = s.get(eid)
                     d = (ex - tx) ** 2 + (ey - ty) ** 2
@@ -1261,12 +1261,12 @@ class GameSession:
             dx, dy = best[0] - tx, best[1] - ty
             dl = math.hypot(dx, dy) or 1e-6
             nx, ny = dx / dl, dy / dl
-            bid = s.spawn(room, tx + nx * 8, ty + ny * 8, 1.6, 0.002, GROUP_PBULLET)
+            bid = s.spawn(polygon, tx + nx * 8, ty + ny * 8, 1.6, 0.002, GROUP_PBULLET)
             s.set_props(bid, rest_wall=0.0, max_substep=3.2)
             s.set_vel(bid, nx * 1200.0, ny * 1200.0)
             self.bullets[bid] = dict(kind="turret", dmg=6, ttl=40)
-            self._snd("smg_fire", room, (tx, ty), 0.35)
-            self.fx.append(("flash", room, tx + nx * 8, ty + ny * 8, 14.0))
+            self._snd("smg_fire", polygon, (tx, ty), 0.35)
+            self.fx.append(("flash", polygon, tx + nx * 8, ty + ny * 8, 14.0))
 
     # ------------------------------------------------------------------
     # gauntlet sentries: data-driven, range/LOS-gated defensive turrets
@@ -1289,12 +1289,12 @@ class GameSession:
         (x1,y1)-(x2,y2) actually crosses the closed rect's interior (a bare
         touch/tangent at a single point does not count -- t0 < t1, not
         <=). Used for sentry LOS against walk-mask terrain rects: the same
-        room-local `Sim.room_terrain` data the lighting system's own
+        polygon-local `Sim.polygon_terrain` data the lighting system's own
         shadow-casting already reads (see `lighting.terrain_shadow_polys`).
-        A room's own boundary is convex by construction, so terrain is the
+        A polygon's own boundary is convex by construction, so terrain is the
         only thing that can occlude two points already confirmed to share
-        a room -- `raycast` (used by the rail gun / portable hole) has no
-        notion of terrain at all, it only stops at room edges/entities."""
+        a polygon -- `raycast` (used by the rail gun / portable hole) has no
+        notion of terrain at all, it only stops at polygon edges/entities."""
         dx, dy = x2 - x1, y2 - y1
         t0, t1 = 0.0, 1.0
         for p, q in ((-dx, x1 - lo_x), (dx, hi_x - x1),
@@ -1316,8 +1316,8 @@ class GameSession:
                     t1 = r
         return t0 < t1
 
-    def _sentry_los_clear(self, room: int, x1, y1, x2, y2) -> bool:
-        for lo_x, lo_y, hi_x, hi_y in self.sim.room_terrain(room):
+    def _sentry_los_clear(self, polygon: int, x1, y1, x2, y2) -> bool:
+        for lo_x, lo_y, hi_x, hi_y in self.sim.polygon_terrain(polygon):
             if self._segment_crosses_rect(x1, y1, x2, y2, lo_x, lo_y, hi_x, hi_y):
                 return False
         return True
@@ -1330,20 +1330,20 @@ class GameSession:
             d = SENTRIES[t["kind"]]
             if t["cd"] > 0:
                 t["cd"] -= 1
-            room = s.get_room(tid)
+            polygon = s.get_polygon(tid)
             _, tx, ty, *_ = s.get(tid)
             # nearest enemy in range WITH a clear shot -- an occluded
             # nearer target must not blind the sentry to a farther, clear
             # one (see the fail-first walls/terrain test).
             best, best_d2 = None, d["range"] * d["range"]
-            for eid in s.room_entities(room):
+            for eid in s.polygon_entities(polygon):
                 if eid not in self.enemies:
                     continue
                 _, ex, ey, *_ = s.get(eid)
                 dist2 = (ex - tx) ** 2 + (ey - ty) ** 2
                 if dist2 > best_d2:
                     continue
-                if not self._sentry_los_clear(room, tx, ty, ex, ey):
+                if not self._sentry_los_clear(polygon, tx, ty, ex, ey):
                     continue
                 best, best_d2 = (ex, ey), dist2
             if best is None:
@@ -1358,30 +1358,30 @@ class GameSession:
             dx, dy = best[0] - tx, best[1] - ty
             dl = math.hypot(dx, dy) or 1e-6
             nx, ny = dx / dl, dy / dl
-            bid = s.spawn(room, tx + nx * (d["radius"] + 2), ty + ny * (d["radius"] + 2),
+            bid = s.spawn(polygon, tx + nx * (d["radius"] + 2), ty + ny * (d["radius"] + 2),
                          1.6, 0.002, GROUP_PBULLET)
             s.set_props(bid, rest_wall=0.0, max_substep=3.2)
             s.set_vel(bid, nx * d["bolt_speed"], ny * d["bolt_speed"])
             self.bullets[bid] = dict(kind="turret", dmg=d["dmg"], ttl=50)
-            self._snd(d["alert_snd"], room, (tx, ty), 0.4)
-            self.fx.append(("flash", room, tx + nx * (d["radius"] + 2),
+            self._snd(d["alert_snd"], polygon, (tx, ty), 0.4)
+            self.fx.append(("flash", polygon, tx + nx * (d["radius"] + 2),
                             ty + ny * (d["radius"] + 2), 14.0))
 
-    def _detonate_dart(self, bid: int, room: int, x: float, y: float):
+    def _detonate_dart(self, bid: int, polygon: int, x: float, y: float):
         """The lightning cannon IS the crowd-control option (director,
         2026-07-16): the blast kills weak enemies anywhere inside it
         (falloff floor keeps damage above husk hp), then CHAIN ARCS walk
         the bolt down the packed file — one shot into a choke takes out
         15-20 of the weakest."""
         w = WEAPONS["lightning"]
-        self.fx.append(("lightning", room, x, y, w["radius"]))
-        self._snd("lightning_fire", room, (x, y), 1.0)
+        self.fx.append(("lightning", polygon, x, y, w["radius"]))
+        self._snd("lightning_fire", polygon, (x, y), 1.0)
         self._shake(9.0)
         self._hitstop(5)
-        self._decal(room, "scorch", x, y, 22.0)
+        self._decal(polygon, "scorch", x, y, 22.0)
         struck: list[tuple[float, float]] = [(x, y)]
         hit_ids: set[int] = set()
-        for eid in list(self.sim.room_entities(room)):
+        for eid in list(self.sim.polygon_entities(polygon)):
             e = self.enemies.get(eid)
             if not e:
                 continue
@@ -1402,7 +1402,7 @@ class GameSession:
         arcs = 0
         while arcs < w["max_arcs"]:
             best = None
-            for eid in list(self.sim.room_entities(room)):
+            for eid in list(self.sim.polygon_entities(polygon)):
                 if eid in hit_ids or eid not in self.enemies:
                     continue
                 if not self.sim.exists(eid):
@@ -1417,7 +1417,7 @@ class GameSession:
             _, eid, ex, ey = best
             hit_ids.add(eid)
             struck.append((ex, ey))
-            self.fx.append(("lightning", room, ex, ey, 40.0))
+            self.fx.append(("lightning", polygon, ex, ey, 40.0))
             self._damage_enemy(eid, w["arc_dmg"], (0.0, 0.0), 0.0)
             arcs += 1
 
@@ -1436,33 +1436,33 @@ class GameSession:
         e["state"] = "hunt"
         self.metrics["hits"] += 1
         self.metrics["dmg_dealt"] += dmg
-        room = self.sim.get_room(eid)
+        polygon = self.sim.get_polygon(eid)
         _, ex, ey, evx, evy, _, _ = self.sim.get(eid)
         if knock > 0.0:
             m = ENEMIES[e["kind"]]["mass"]
             self.sim.set_vel(eid, evx + ndir[0] * knock / m, evy + ndir[1] * knock / m)
-        self._snd("hit_flesh", room, (ex, ey), 0.8)
-        self._decal(room, "blood", ex + self.rng.uniform(-4, 4),
+        self._snd("hit_flesh", polygon, (ex, ey), 0.8)
+        self._decal(polygon, "blood", ex + self.rng.uniform(-4, 4),
                     ey + self.rng.uniform(-4, 4), self.rng.uniform(3, 7),
                     self.rng.uniform(0, 6.28))
         self.fx.append(("hitflash", eid))
         if e["hp"] <= 0:
-            self._kill_enemy(eid, room, (ex, ey), ndir)
+            self._kill_enemy(eid, polygon, (ex, ey), ndir)
 
-    def _kill_enemy(self, eid: int, room: int, pos, ndir):
+    def _kill_enemy(self, eid: int, polygon: int, pos, ndir):
         e = self.enemies.pop(eid)
         kind = e["kind"]
         d = ENEMIES[kind]
         self.metrics["kills"] += 1
-        self._snd(d["die_snd"], room, pos)
-        self._decal(room, "corpse_" + kind, pos[0], pos[1],
+        self._snd(d["die_snd"], polygon, pos)
+        self._decal(polygon, "corpse_" + kind, pos[0], pos[1],
                     d["radius"], math.atan2(ndir[1], ndir[0]))
         for i in range(int(d["radius"])):
             a = self.rng.uniform(0, 6.28)
             r = self.rng.uniform(2, d["radius"] * 1.8)
-            self._decal(room, "blood", pos[0] + math.cos(a) * r,
+            self._decal(polygon, "blood", pos[0] + math.cos(a) * r,
                         pos[1] + math.sin(a) * r, self.rng.uniform(2, 5), a)
-        self.fx.append(("gib", room, pos[0], pos[1], int(d["radius"]),
+        self.fx.append(("gib", polygon, pos[0], pos[1], int(d["radius"]),
                         (ndir[0], ndir[1])))
         self._hitstop(4 if kind in ("husk", "mite") else 7)
         self._shake(2.5)
@@ -1470,7 +1470,7 @@ class GameSession:
         # drops
         for p, kind_ in DROP_TABLES[kind]:
             if self.rng.random() < p:
-                self.spawn_pickup(room, (pos[0] + self.rng.uniform(-6, 6),
+                self.spawn_pickup(polygon, (pos[0] + self.rng.uniform(-6, 6),
                                          pos[1] + self.rng.uniform(-6, 6)), kind_)
                 break
         # Void path: with the harvesting protocol integrated, a spitter's
@@ -1479,21 +1479,21 @@ class GameSession:
                 "adversary_organ_slot_1" in self.mind_unlocks and \
                 not any(p["kind"] == "organ_gland"
                         for p in self.pickups.values()):
-            self.spawn_pickup(room, (pos[0], pos[1] + 8), "organ_gland")
+            self.spawn_pickup(polygon, (pos[0], pos[1] + 8), "organ_gland")
         # salvage: every kill yields its score in components (9.1 -- wrecks
         # are materials; score already priced each enemy's difficulty)
-        self.spawn_pickup(room, (pos[0] + self.rng.uniform(-5, 5),
+        self.spawn_pickup(polygon, (pos[0] + self.rng.uniform(-5, 5),
                                  pos[1] + self.rng.uniform(-5, 5)),
                           "components",
                           extra=dict(amount=int(math.ceil(
                               d["score"] * self._salvage_mul))))
         # nearby enemies hear the death — except a summoned brood's:
         # chaff called BY the fight may not punish fast accurate
-        # killing by advancing the room-alert front (Sol §4.1)
+        # killing by advancing the polygon-alert front (Sol §4.1)
         if not e.get("brood"):
-            self.alert_enemies(room, 1)
+            self.alert_enemies(polygon, 1)
 
-    def _damage_player(self, dmg: float, room: int):
+    def _damage_player(self, dmg: float, polygon: int):
         if self.hurt_cd > 0 or self.dead:
             return
         self.hurt_cd = 30
@@ -1505,20 +1505,20 @@ class GameSession:
         self.hp -= dmg
         self.metrics["dmg_taken"] += dmg
         px, py = self.player_pos()
-        self._snd("player_hurt", room, (px, py))
+        self._snd("player_hurt", polygon, (px, py))
         self._shake(min(8.0, 2.0 + dmg * 0.25))
         self.fx.append(("playerhurt", dmg))
-        self._decal(room, "blood", px + self.rng.uniform(-5, 5),
+        self._decal(polygon, "blood", px + self.rng.uniform(-5, 5),
                     py + self.rng.uniform(-5, 5), self.rng.uniform(3, 6))
         if self.hp <= 0:
             self.dead = True
             self.metrics["deaths"] += 1
-            self._snd("player_die", room, (px, py))
+            self._snd("player_die", polygon, (px, py))
             self.fx.append(("playerdie",))
-            self._decal(room, "corpse_player", px, py, PLAYER_RADIUS)
-            self._drop_corpse(room, (px, py))
+            self._decal(polygon, "corpse_player", px, py, PLAYER_RADIUS)
+            self._drop_corpse(polygon, (px, py))
 
-    def _drop_corpse(self, room: int, pos) -> None:
+    def _drop_corpse(self, polygon: int, pos) -> None:
         """The wrecked frame stays where it fell, holding what it carried:
         components and unplanted station kits (weapons and hole charges are
         licensed patterns -- the seed reprints those with the frame, so they
@@ -1536,19 +1536,19 @@ class GameSession:
             self.components = 0
         self.station_kits = 0
         if any(contents.values()):
-            self.spawn_pickup(room, pos, "corpse_frame",
+            self.spawn_pickup(polygon, pos, "corpse_frame",
                               extra=dict(contents=contents,
                                          line=self.rng.randrange(1 << 30)))
 
     # ------------------------------------------------------------------
 
-    def _enemy_ai(self, proom: int):
+    def _enemy_ai(self, ppolygon: int):
         s = self.sim
-        active = set(s.rooms_within(proom, ACTIVE_HOPS))
+        active = set(s.polygons_within(ppolygon, ACTIVE_HOPS))
         px, py = self.player_pos()
         for eid, e in list(self.enemies.items()):
-            room = s.get_room(eid)
-            if room not in active:
+            polygon = s.get_polygon(eid)
+            if polygon not in active:
                 continue
             kind = e["kind"]
             d = ENEMIES[kind]
@@ -1563,39 +1563,39 @@ class GameSession:
                 # Deliberately bypasses the standard idle/waking/hunt
                 # state machine entirely -- a flicker's resting behavior
                 # already IS an active state (holding low-light ground),
-                # not "wait until the player enters the room" like every
+                # not "wait until the player enters the polygon" like every
                 # other kind; see `_flicker_ai`'s own docstring for the
                 # LURK/AMBUSH/hunt/disengage state machine.
-                self._flicker_ai(eid, e, room, proom, ex, ey, evx, evy)
+                self._flicker_ai(eid, e, polygon, ppolygon, ex, ey, evx, evy)
                 continue
 
             # footfalls: the dread channel again — mass on deck plating,
             # audible through walls before anything is visible. Deltas are
-            # only meaningful within one room's local frame, so a transfer
+            # only meaningful within one polygon's local frame, so a transfer
             # resets the stride.
             if kind not in ("mite", "shrieker"):
-                lroom, lx, ly = e.get("step_from", (room, ex, ey))
-                if lroom == room:
+                lpolygon, lx, ly = e.get("step_from", (polygon, ex, ey))
+                if lpolygon == polygon:
                     e["step_acc"] = e.get("step_acc", 0.0) + \
                         math.hypot(ex - lx, ey - ly)
                 else:
                     e["step_acc"] = 0.0
-                e["step_from"] = (room, ex, ey)
+                e["step_from"] = (polygon, ex, ey)
                 stride = 44.0 if kind in ("brute", "warden") else 30.0
                 if e.get("step_acc", 0.0) >= stride:
                     e["step_acc"] = 0.0
                     self._snd("step_heavy" if kind in ("brute", "warden")
-                              else "step_soft", room, (ex, ey),
+                              else "step_soft", polygon, (ex, ey),
                               0.6 if e["state"] == "hunt" else 0.35)
 
             if e["state"] == "idle":
-                if room == proom:
+                if polygon == ppolygon:
                     # the notice beat: growl first, charge after — the
                     # player always gets the first move
                     e["state"] = "waking"
                     e["wake"] = self.WAKE_TICKS[kind]
-                    self._snd(d["alert_snd"], room, (ex, ey), 0.9)
-                    self.fx.append(("alerted", room, ex, ey))
+                    self._snd(d["alert_snd"], polygon, (ex, ey), 0.9)
+                    self.fx.append(("alerted", polygon, ex, ey))
                     ddx, ddy = px - ex, py - ey
                     dl = math.hypot(ddx, ddy) or 1e-6
                     s.set_dir(eid, ddx / dl, ddy / dl)
@@ -1621,14 +1621,14 @@ class GameSession:
             e["groan_cd"] = e.get("groan_cd", self.rng.randrange(60, 200)) - 1
             if e["groan_cd"] <= 0:
                 e["groan_cd"] = self.rng.randrange(140, 260)
-                self._snd(d["alert_snd"], room, (ex, ey), 0.35)
+                self._snd(d["alert_snd"], polygon, (ex, ey), 0.35)
             accel = d["accel"] * (e.get("buff_mul", 1.25)
                                   if e.get("buff", 0) > 0 else 1.0)
             if kind == "shrieker":
-                self._shrieker_ai(eid, e, room, proom, ex, ey, accel)
+                self._shrieker_ai(eid, e, polygon, ppolygon, ex, ey, accel)
                 continue
-            # --- engagement target: the player's position in THIS room's
-            # local frame. Rooms are individual polygons, so co-room is
+            # --- engagement target: the player's position in THIS polygon's
+            # local frame. Polygons are individual polygons, so co-polygon is
             # just the identity case; further out, the portal transforms
             # COMPOSE along the chain (director 2026-07-19: one hop was
             # never the law — sightlines run as deep as the geometry
@@ -1637,15 +1637,15 @@ class GameSession:
             # enemy that goes inert when the player steps over a
             # threshold is not a fight.
             tx = ty = None
-            if room == proom:
+            if polygon == ppolygon:
                 tx, ty = px, py
-            elif 1 <= s.hop_distance(room, proom) <= 3:
+            elif 1 <= s.hop_distance(polygon, ppolygon) <= 3:
                 pxf = None
-                r_ = room
+                r_ = polygon
                 for _hop in range(3):
-                    if r_ == proom:
+                    if r_ == ppolygon:
                         break
-                    pedge = s.next_edge(r_, proom)
+                    pedge = s.next_edge(r_, ppolygon)
                     if pedge < 0:
                         pxf = None
                         break
@@ -1655,15 +1655,15 @@ class GameSession:
                         break
                     pxf = step_xf if pxf is None \
                         else necore.mat_mul(pxf, step_xf)
-                    portal = s.room_portals(r_)[pedge]
+                    portal = s.polygon_portals(r_)[pedge]
                     r_ = portal[0]
                 else:
-                    pxf = None if r_ != proom else pxf
-                if pxf is not None and r_ == proom:
+                    pxf = None if r_ != ppolygon else pxf
+                if pxf is not None and r_ == ppolygon:
                     wx, wy = necore.mat_apply(pxf, px, py)
                     wdx, wdy = wx - ex, wy - ey
                     wdl = math.hypot(wdx, wdy) or 1e-6
-                    hit = s.raycast(room, ex, ey, wdx / wdl, wdy / wdl, 3,
+                    hit = s.raycast(polygon, ex, ey, wdx / wdl, wdy / wdl, 3,
                                     wdl + 40.0, 1 << GROUP_PLAYER, eid)
                     if hit[0] == "ent" and hit[1] == self.pid:
                         tx, ty = wx, wy
@@ -1674,14 +1674,14 @@ class GameSession:
                 s.set_dir(eid, nx, ny)  # aim/face the player exactly
                 # Movement steers around walk-mask terrain: physics-level
                 # wall sliding alone doesn't route a bot around an obstacle
-                # it beelines straight into (only a room's convex boundary
+                # it beelines straight into (only a polygon's convex boundary
                 # guarantees that) -- a straight seek toward a target
                 # directly behind painted equipment can generate zero
                 # tangential velocity and grind against it forever
                 # (confirmed fail-first in necore's physics tests). `sx,sy`
                 # is the movement heading; `nx,ny` stays the true bearing
                 # for aim/attacks below.
-                sx, sy = s.terrain_avoid_dir(room, ex, ey, d["radius"], nx, ny,
+                sx, sy = s.terrain_avoid_dir(polygon, ex, ey, d["radius"], nx, ny,
                                              max(40.0, min(dist, 120.0)))
                 # husks lunge: a sudden burst inside close range reads as an
                 # attack, not a shove
@@ -1690,7 +1690,7 @@ class GameSession:
                     e["lunge_cd"] = 120 if kind == "husk" else 150
                     burst = 300.0 if kind == "husk" else 240.0
                     s.set_vel(eid, evx + sx * burst, evy + sy * burst)
-                    self._snd(d["alert_snd"], room, (ex, ey), 0.55)
+                    self._snd(d["alert_snd"], polygon, (ex, ey), 0.55)
                 if e.get("lunge_cd", 0) > 0:
                     e["lunge_cd"] -= 1
                 # warden enrage below half health
@@ -1705,9 +1705,9 @@ class GameSession:
                     e["buff"] = 10 ** 9
                     e["buff_mul"] = 1.15
                     e["spit_cd"] = max(int(e.get("spit_cd", 0)), 60)
-                    self._snd("shrieker_scream", room, (ex, ey), 1.0)
-                    self.fx.append(("scream", room, ex, ey))
-                # the brood: once when the duel is joined — co-room or
+                    self._snd("shrieker_scream", polygon, (ex, ey), 1.0)
+                    self.fx.append(("scream", polygon, ex, ey))
+                # the brood: once when the duel is joined — co-polygon or
                 # through the doorway — once more at enrage; a lone kited
                 # warden reads danger 20 (stalwart .69), under every
                 # boss-music line; the brood makes a boss fight a boss
@@ -1715,11 +1715,11 @@ class GameSession:
                 if kind == "warden":
                     if not e.get("adds1"):
                         e["adds1"] = True
-                        self._boss_adds(room, ex, ey,
+                        self._boss_adds(polygon, ex, ey,
                                         WARDEN_ADDS_ENGAGE, tx, ty)
                     elif e.get("enraged") and not e.get("adds2"):
                         e["adds2"] = True
-                        self._boss_adds(room, ex, ey,
+                        self._boss_adds(polygon, ex, ey,
                                         WARDEN_ADDS_ENRAGE, tx, ty)
                 keep_min = d.get("keep_min")
                 if keep_min is not None and d.get("spit_cd") is not None:
@@ -1731,12 +1731,12 @@ class GameSession:
                     if e["spit_cd"] <= 0:
                         e["spit_cd"] = d["spit_cd"] // 2 if e.get("enraged") \
                             else d["spit_cd"]
-                        self._spit(eid, room, ex, ey, nx, ny, d)
+                        self._spit(eid, polygon, ex, ey, nx, ny, d)
                         if e.get("enraged"):
-                            # radial burst: the warden's room fills with spit
+                            # radial burst: the warden's polygon fills with spit
                             for k in range(6):
                                 a2 = k * math.pi / 3 + self.tick_count * 0.05
-                                self._spit(eid, room, ex, ey,
+                                self._spit(eid, polygon, ex, ey,
                                            math.cos(a2), math.sin(a2), d)
                     if kind != "warden":
                         continue
@@ -1747,32 +1747,32 @@ class GameSession:
                     # engaged tethered guardian fights through the door
                     # via the engagement branch above
                     continue
-                edge = s.next_edge(room, proom)
+                edge = s.next_edge(polygon, ppolygon)
                 if edge < 0:
                     continue
-                mx_, my_ = s.edge_midpoint(room, edge)
+                mx_, my_ = s.edge_midpoint(polygon, edge)
                 ddx, ddy = mx_ - ex, my_ - ey
                 dist = math.hypot(ddx, ddy) or 1e-6
                 nx, ny = ddx / dist, ddy / dist
                 s.set_dir(eid, nx, ny)
-                sx, sy = s.terrain_avoid_dir(room, ex, ey, d["radius"], nx, ny,
+                sx, sy = s.terrain_avoid_dir(polygon, ex, ey, d["radius"], nx, ny,
                                              max(40.0, min(dist, 120.0)))
                 s.set_vel(eid, evx + sx * accel * DT, evy + sy * accel * DT)
 
-    def _spit(self, eid, room, ex, ey, nx, ny, d):
-        bid = self.sim.spawn(room, ex + nx * (d["radius"] + 4),
+    def _spit(self, eid, polygon, ex, ey, nx, ny, d):
+        bid = self.sim.spawn(polygon, ex + nx * (d["radius"] + 4),
                              ey + ny * (d["radius"] + 4), 2.5, 0.01, GROUP_EBULLET)
         self.sim.set_props(bid, rest_wall=0.0, max_substep=3.0)
         ang = math.atan2(ny, nx) + self.rng.uniform(-0.06, 0.06)
         self.sim.set_vel(bid, math.cos(ang) * d["spit_speed"],
                          math.sin(ang) * d["spit_speed"])
         self.bullets[bid] = dict(kind="spit", dmg=d["spit_dmg"], ttl=180)
-        self._snd("spitter_shoot", room, (ex, ey), 0.9)
+        self._snd("spitter_shoot", polygon, (ex, ey), 0.9)
 
-    def _shrieker_ai(self, eid, e, room, proom, ex, ey, accel):
+    def _shrieker_ai(self, eid, e, polygon, ppolygon, ex, ey, accel):
         """The alarm caller GOES somewhere (director 2026-07-16: "the
         shrieker should be _going_ somewhere -- to the nearest cluster
-        of its friends"): it rallies toward the reachable room holding
+        of its friends"): it rallies toward the reachable polygon holding
         the most allies (count discounted by hops), screaming on the
         way, steering around terrain like everything else -- the old
         straight-line flee pinned it into walls."""
@@ -1781,43 +1781,43 @@ class GameSession:
         px, py = self.player_pos()
         if e["scream_cd"] <= 0:
             e["scream_cd"] = d["scream_cd"]
-            self._snd("shrieker_scream", room, (ex, ey), 1.0)
-            self.fx.append(("scream", room, ex, ey))
+            self._snd("shrieker_scream", polygon, (ex, ey), 1.0)
+            self.fx.append(("scream", polygon, ex, ey))
             for oid, oe in self.enemies.items():
                 if oid == eid:
                     continue
-                orr = s.get_room(oid)
-                hd = s.hop_distance(orr, room)
+                orr = s.get_polygon(oid)
+                hd = s.hop_distance(orr, polygon)
                 if 0 <= hd <= 2:
                     oe["state"] = "hunt"
                     oe["buff"] = 60 * 5
         e["rally_cd"] = e.get("rally_cd", 0) - 1
-        if e["rally_cd"] <= 0 or "rally_room" not in e:
+        if e["rally_cd"] <= 0 or "rally_polygon" not in e:
             e["rally_cd"] = 60
             counts: dict[int, int] = {}
             for oid, oe in self.enemies.items():
                 if oid == eid or oe.get("kind") == "shrieker":
                     continue
-                r = s.get_room(oid)
+                r = s.get_polygon(oid)
                 counts[r] = counts.get(r, 0) + 1
             best, best_score = None, 0.0
             for r, n in counts.items():
-                hd = s.hop_distance(room, r)
-                if not 0 <= hd <= 5 or r == proom:
+                hd = s.hop_distance(polygon, r)
+                if not 0 <= hd <= 5 or r == ppolygon:
                     continue
                 score = n / (1.0 + hd)
                 if score > best_score:
                     best, best_score = r, score
-            e["rally_room"] = best
-        rally = e.get("rally_room")
+            e["rally_polygon"] = best
+        rally = e.get("rally_polygon")
         _, _, _, evx, evy, _, _ = s.get(eid)
-        if rally is not None and rally != room:
-            edge = s.next_edge(room, rally)
+        if rally is not None and rally != polygon:
+            edge = s.next_edge(polygon, rally)
             if edge >= 0:
-                gx, gy = s.edge_midpoint(room, edge)
+                gx, gy = s.edge_midpoint(polygon, edge)
             else:
                 gx, gy = ex - (px - ex), ey - (py - ey)
-        elif room == proom:
+        elif polygon == ppolygon:
             gx, gy = ex + (ex - px), ey + (ey - py)   # nowhere better:
             #                                           back off for now
         else:
@@ -1826,7 +1826,7 @@ class GameSession:
         dist = math.hypot(ddx, ddy) or 1e-6
         nx, ny = ddx / dist, ddy / dist
         s.set_dir(eid, nx, ny)
-        sx, sy = s.terrain_avoid_dir(room, ex, ey, d["radius"], nx, ny,
+        sx, sy = s.terrain_avoid_dir(polygon, ex, ey, d["radius"], nx, ny,
                                      max(40.0, min(dist, 120.0)))
         s.set_vel(eid, evx + sx * accel * DT, evy + sy * accel * DT)
 
@@ -1834,7 +1834,7 @@ class GameSession:
     # flicker: Adversary-lane ambush predator (LURK/AMBUSH state machine)
     # ------------------------------------------------------------------
 
-    def _room_light_map(self):
+    def _polygon_light_map(self):
         """`LightingSystem.frame_lookup()`, computed at most ONCE per sim
         tick and cached -- `light_level_at` queries are cheap per-call, but
         `frame_lookup` itself re-runs the attached (worklight) visibility
@@ -1865,12 +1865,12 @@ class GameSession:
         e["flicker_cd"] = cd
         return 0.34 if e.get("flicker_on") else 0.12
 
-    def _flicker_ai(self, eid, e, room, proom, ex, ey, evx, evy):
-        """LURK: seek/hold low-light room-local positions, steer away from
+    def _flicker_ai(self, eid, e, polygon, ppolygon, ex, ey, evx, evy):
+        """LURK: seek/hold low-light polygon-local positions, steer away from
         lamp pools, reposition as the worklight sweep approaches (all via
         `light_level_at`, which already folds in Unit 1's terrain shadows
         -- a lurker's best hiding spot is naturally behind terrain).
-        AMBUSH: player within `ambush_radius` while in the same room ->
+        AMBUSH: player within `ambush_radius` while in the same polygon ->
         a fast burst commit, full-solid trace, no more hiding. After the
         burst it fights like a normal aggressive (`hunt`) until either it
         disengages back to darkness (dark + far from the player for a
@@ -1878,12 +1878,12 @@ class GameSession:
         s = self.sim
         d = ENEMIES["flicker"]
         px, py = self.player_pos()
-        light_map = self._room_light_map()
-        level = light_level_at(light_map, self.lighting.lights, room, ex, ey)
+        light_map = self._polygon_light_map()
+        level = light_level_at(light_map, self.lighting.lights, polygon, ex, ey)
 
         if e["state"] == "lurk":
             e["trace_intensity"] = self._flicker_dormant_trace(e)
-            if room == proom:
+            if polygon == ppolygon:
                 dist = math.hypot(px - ex, py - ey)
                 if dist < d["ambush_radius"]:
                     e["state"] = "ambush"
@@ -1893,8 +1893,8 @@ class GameSession:
                     nx, ny = dx / dl, dy / dl
                     s.set_dir(eid, nx, ny)
                     s.set_vel(eid, nx * d["ambush_burst"], ny * d["ambush_burst"])
-                    self._snd(d["alert_snd"], room, (ex, ey), 0.9)
-                    self.fx.append(("alerted", room, ex, ey))
+                    self._snd(d["alert_snd"], polygon, (ex, ey), 0.9)
+                    self.fx.append(("alerted", polygon, ex, ey))
                     e["trace_intensity"] = 1.0
                     return
             # Reposition toward darkness ONLY while the current spot is
@@ -1923,7 +1923,7 @@ class GameSession:
                 for k in range(8):
                     a = phase + k * math.pi / 4.0
                     cand = (ex + math.cos(a) * 44.0, ey + math.sin(a) * 44.0)
-                    lvl = light_level_at(light_map, self.lighting.lights, room, *cand)
+                    lvl = light_level_at(light_map, self.lighting.lights, polygon, *cand)
                     if best is None or lvl < best[0]:
                         best = (lvl, cand)
                 e["lurk_target"] = best[1]
@@ -1932,7 +1932,7 @@ class GameSession:
             dist = math.hypot(dx, dy)
             if dist > 4.0:
                 nx, ny = dx / dist, dy / dist
-                sx, sy = s.terrain_avoid_dir(room, ex, ey, d["radius"], nx, ny, 44.0)
+                sx, sy = s.terrain_avoid_dir(polygon, ex, ey, d["radius"], nx, ny, 44.0)
                 s.set_dir(eid, nx, ny)
                 s.set_vel(eid, sx * d["lurk_speed"], sy * d["lurk_speed"])
             else:
@@ -1955,12 +1955,12 @@ class GameSession:
         # hunt: fights like a normal aggressive (husk-pattern seek/lunge)
         # until it can disengage back to darkness.
         e["trace_intensity"] = 1.0
-        if room == proom:
+        if polygon == ppolygon:
             dx, dy = px - ex, py - ey
             dist = math.hypot(dx, dy) or 1e-6
             nx, ny = dx / dist, dy / dist
             s.set_dir(eid, nx, ny)
-            sx, sy = s.terrain_avoid_dir(room, ex, ey, d["radius"], nx, ny,
+            sx, sy = s.terrain_avoid_dir(polygon, ex, ey, d["radius"], nx, ny,
                                          max(40.0, min(dist, 120.0)))
             s.set_vel(eid, evx + sx * d["accel"] * DT, evy + sy * d["accel"] * DT)
             if level < d["disengage_light"] and dist > d["disengage_dist"]:
@@ -1971,14 +1971,14 @@ class GameSession:
             else:
                 e["dark_beat"] = 0
         else:
-            edge = s.next_edge(room, proom)
+            edge = s.next_edge(polygon, ppolygon)
             if edge >= 0:
-                mx_, my_ = s.edge_midpoint(room, edge)
+                mx_, my_ = s.edge_midpoint(polygon, edge)
                 dx, dy = mx_ - ex, my_ - ey
                 dist = math.hypot(dx, dy) or 1e-6
                 nx, ny = dx / dist, dy / dist
                 s.set_dir(eid, nx, ny)
-                sx, sy = s.terrain_avoid_dir(room, ex, ey, d["radius"], nx, ny,
+                sx, sy = s.terrain_avoid_dir(polygon, ex, ey, d["radius"], nx, ny,
                                              max(40.0, min(dist, 120.0)))
                 s.set_vel(eid, evx + sx * d["accel"] * DT, evy + sy * d["accel"] * DT)
 
@@ -1988,9 +1988,9 @@ class GameSession:
         for ev in events:
             tag = ev[0]
             if tag == "transfer":
-                _, ent, from_room, to_room, edge, m9 = ev
+                _, ent, from_polygon, to_polygon, edge, m9 = ev
                 if ent == self.pid:
-                    if self.cloister and to_room == self.cloister["sanctum"]:
+                    if self.cloister and to_polygon == self.cloister["sanctum"]:
                         self._rotate_cloister()
                     # camera re-base: zero visible change by construction
                     # (exact right-multiply of BOTH matrices -- see
@@ -1998,12 +1998,12 @@ class GameSession:
                     # disagree with the previous frame's pixel snap)
                     self._cam_rebase(m9)
                     self.metrics["transfers"] += 1
-                    self.metrics["rooms_visited"].add(to_room)
+                    self.metrics["polygons_visited"].add(to_polygon)
             elif tag == "wall":
-                _, ent, room, edge, px_, py_, nx, ny, speed = ev
+                _, ent, polygon, edge, px_, py_, nx, ny, speed = ev
                 if ent == self.pid:
-                    self._door_bump(room, edge)
-                if room in self.soft_rooms:
+                    self._door_bump(polygon, edge)
+                if polygon in self.soft_polygons:
                     b_ = self.bullets.get(ent)
                     if b_ is not None:
                         mag = 10.0 + 5.5 * float(b_.get("dmg", 0))
@@ -2012,56 +2012,56 @@ class GameSession:
                         mass = ENEMIES[e_["kind"]]["mass"] if e_ else 1.2
                         mag = min(90.0, 0.06 * mass * speed)
                     if mag > 1.0:
-                        verts = self.sim.room_verts(room)
+                        verts = self.sim.polygon_verts(polygon)
                         a_ = verts[edge]
                         b2_ = verts[(edge + 1) % len(verts)]
                         ex_, ey_ = b2_[0] - a_[0], b2_[1] - a_[1]
                         el2 = ex_ * ex_ + ey_ * ey_ or 1.0
                         t_ = ((px_ - a_[0]) * ex_ + (py_ - a_[1]) * ey_) / el2
-                        self.sim.soft_wall_impulse(room, edge,
+                        self.sim.soft_wall_impulse(polygon, edge,
                                                    max(0.0, min(1.0, t_)), mag)
                 b = self.bullets.get(ent)
                 if b is not None and b["kind"] != "spit" \
-                        and self.door_edges.get((room, edge)) == "shoot":
+                        and self.door_edges.get((polygon, edge)) == "shoot":
                     # a cracked wall gives way
                     for d in self.doors:
                         if not d["open"] and d["key"] == "shoot" and (
-                                (d["a"], d["ea"]) == (room, edge)
-                                or (d["b"], d["eb"]) == (room, edge)):
+                                (d["a"], d["ea"]) == (polygon, edge)
+                                or (d["b"], d["eb"]) == (polygon, edge)):
                             d["open"] = True
                             self.sim.connect(d["a"], d["ea"], d["b"], d["eb"])
                             self.door_edges.pop((d["a"], d["ea"]), None)
                             self.door_edges.pop((d["b"], d["eb"]), None)
-                            self._snd("door_unlock", room, (px_, py_))
-                            self._decal(room, "scorch", px_, py_, 10.0)
+                            self._snd("door_unlock", polygon, (px_, py_))
+                            self._decal(polygon, "scorch", px_, py_, 10.0)
                             self._shake(3.0)
-                            self.fx.append(("holeopen", room, px_, py_))
+                            self.fx.append(("holeopen", polygon, px_, py_))
                             break
                 if b is not None:
                     if b["kind"] in ("tau", "taucharged") and b.get("bounces", 0) > 0:
                         b["bounces"] -= 1
-                        self._snd("ricochet", room, (px_, py_), 0.5)
-                        self.fx.append(("spark", room, px_, py_, nx, ny))
+                        self._snd("ricochet", polygon, (px_, py_), 0.5)
+                        self.fx.append(("spark", polygon, px_, py_, nx, ny))
                         continue  # engine already reflected it (rest_wall=1)
                     if b["kind"] == "spit":
-                        self._decal(room, "splat", px_, py_, 4.0)
+                        self._decal(polygon, "splat", px_, py_, 4.0)
                     elif b["kind"] == "dart":
-                        self._detonate_dart(ent, room, px_, py_)
+                        self._detonate_dart(ent, polygon, px_, py_)
                     elif b["kind"] == "bullet":
-                        self._decal(room, "chip", px_, py_, 2.0)
-                        self._snd("hit_wall", room, (px_, py_), 0.35)
-                        self.fx.append(("spark", room, px_, py_, nx, ny))
+                        self._decal(polygon, "chip", px_, py_, 2.0)
+                        self._snd("hit_wall", polygon, (px_, py_), 0.35)
+                        self.fx.append(("spark", polygon, px_, py_, nx, ny))
                     self.sim.remove(ent)
                     self.bullets.pop(ent, None)
             elif tag == "contact":
                 _, a, b, cx, cy, nx, ny, rel = ev
                 self._contact(a, b, cx, cy, nx, ny)
 
-    def _door_bump(self, room: int, edge: int):
+    def _door_bump(self, polygon: int, edge: int):
         """The player pressed against a locked door: name the mechanism
         and the object it wants. Rate-limited per key id — the prompt
         holds ~4s on screen; re-arm after 5s of continued shoving."""
-        key = self.door_edges.get((room, edge))
+        key = self.door_edges.get((polygon, edge))
         if not key or key == "shoot" or key in self.keys:
             return
         last = self._door_prompt_at.get(key)
@@ -2071,8 +2071,8 @@ class GameSession:
         prompt = ""
         for d in self.doors:
             if not d["open"] and d["key"] == key and (
-                    (d["a"], d["ea"]) == (room, edge)
-                    or (d["b"], d["eb"]) == (room, edge)):
+                    (d["a"], d["ea"]) == (polygon, edge)
+                    or (d["b"], d["eb"]) == (polygon, edge)):
                 prompt = d.get("gate_prompt", "")
                 break
         self._objective(prompt or f"DOOR SEALED - {key.upper()} SEAL REQUIRED")
@@ -2083,22 +2083,22 @@ class GameSession:
             bx = self.bullets.get(x)
             if bx is not None and y in self.enemies:
                 if bx["kind"] == "dart":
-                    room = self.sim.get_room(x) if self.sim.exists(x) \
-                        else self.sim.get_room(y)
-                    self._detonate_dart(x, room, cx, cy)
+                    polygon = self.sim.get_polygon(x) if self.sim.exists(x) \
+                        else self.sim.get_polygon(y)
+                    self._detonate_dart(x, polygon, cx, cy)
                 elif bx["kind"] in ("bullet", "tau", "taucharged", "turret"):
                     self._damage_enemy(y, bx["dmg"], (nx if x == b else -nx, ny if x == b else -ny), 90.0)
                 self.sim.remove(x)
                 self.bullets.pop(x, None)
                 return
             if bx is not None and y == self.pid:
-                room = self.sim.get_room(y)
+                polygon = self.sim.get_polygon(y)
                 if bx["kind"] == "spit":
-                    self._damage_player(bx["dmg"], room)
+                    self._damage_player(bx["dmg"], polygon)
                 elif bx["kind"] == "dart":
-                    self._detonate_dart(x, room, cx, cy)
+                    self._detonate_dart(x, polygon, cx, cy)
                     px_, py_ = self.player_pos()
-                    self._damage_player(WEAPONS["lightning"]["dmg"] * 0.6, room)
+                    self._damage_player(WEAPONS["lightning"]["dmg"] * 0.6, polygon)
                 elif bx["kind"] == "turret":
                     pass  # the guardians do not miss that badly
                 elif self.tick_count - bx.get("born", -99) <= 2:
@@ -2111,7 +2111,7 @@ class GameSession:
                     pass
                 else:
                     # a round you fired found its way back through the fold
-                    self._damage_player(bx["dmg"] * 0.75, room)
+                    self._damage_player(bx["dmg"] * 0.75, polygon)
                 self.sim.remove(x)
                 self.bullets.pop(x, None)
                 return
@@ -2137,7 +2137,7 @@ class GameSession:
                         e["touch_cd"] = d["touch_cd"]
                         self._damage_player(
                             d["touch_dmg"],
-                            self.sim.get_room(self.pid))
+                            self.sim.get_polygon(self.pid))
 
     # ------------------------------------------------------------------
 
@@ -2158,15 +2158,15 @@ class GameSession:
             worst = max(worst, -cr)
         return worst
 
-    def _containment_sweep(self, proom: int) -> None:
-        """Entities must never exist outside their room's polygon. The
+    def _containment_sweep(self, ppolygon: int) -> None:
+        """Entities must never exist outside their polygon's polygon. The
         engine's collision guarantees this in normal play, but a crowded
         shove at a carved door jamb can press an entity through a wall
         (soak seed 1993: a fleeing shrieker escaped the mirror ward and
         drifted 14k units out, untargetable, wedging the run). Recover
-        escapees to the room centroid and say so loudly -- this is
+        escapees to the polygon centroid and say so loudly -- this is
         damage control for an engine bug, not normal flow."""
-        verts_all = self.level.room_verts
+        verts_all = self.level.polygon_verts
         streaks = getattr(self, "_outside_streaks", None)
         if streaks is None:
             streaks = self._outside_streaks = {}
@@ -2174,10 +2174,10 @@ class GameSession:
             if not self.sim.exists(eid):
                 streaks.pop(eid, None)
                 continue
-            room, x, y, *_ = self.sim.get(eid)
-            if room >= len(verts_all):
+            polygon, x, y, *_ = self.sim.get(eid)
+            if polygon >= len(verts_all):
                 continue
-            off = self._outside_by(x, y, verts_all[room])
+            off = self._outside_by(x, y, verts_all[polygon])
             if off <= 25.0:
                 streaks.pop(eid, None)
                 continue
@@ -2191,10 +2191,10 @@ class GameSession:
             if streaks[eid] >= 6:  # 6 sweeps = 3 seconds continuously out
                 streaks.pop(eid, None)
                 # recovery target MUST come from the same frame as the
-                # verts: level.room_centroids is authored-frame bookkeeping
+                # verts: level.polygon_centroids is authored-frame bookkeeping
                 # and teleporting there re-corrupts (that bug ate this
                 # sweep's first version)
-                vs = verts_all[room]
+                vs = verts_all[polygon]
                 cx = sum(v[0] for v in vs) / len(vs)
                 cy = sum(v[1] for v in vs) / len(vs)
                 self.sim.set_pos(eid, cx, cy)
@@ -2204,12 +2204,12 @@ class GameSession:
                 import sys as _sys
                 print(f"[sim] CONTAINMENT: entity {eid} "
                       f"({'player' if eid == self.pid else self.enemies.get(eid, {}).get('kind', '?')}) "
-                      f"was {off:.1f}u outside room {room} at ({x:.0f},{y:.0f}); "
+                      f"was {off:.1f}u outside polygon {polygon} at ({x:.0f},{y:.0f}); "
                       f"recovered to centroid", file=_sys.stderr)
 
-    def _pickup_scan(self, proom: int):
+    def _pickup_scan(self, ppolygon: int):
         px, py = self.player_pos()
-        for eid in list(self.sim.room_entities(proom)):
+        for eid in list(self.sim.polygon_entities(ppolygon)):
             p = self.pickups.get(eid)
             if p is None:
                 continue
@@ -2221,15 +2221,15 @@ class GameSession:
                 t = kind[5:]
                 amt = int(PICKUPS[kind]["amount"] * self._ammo_mul)
                 self.ammo[t] = self.ammo.get(t, 0) + amt
-                self._snd("pickup_ammo", proom, (x, y))
-                self.fx.append(("pickup_text", proom, (x, y),
+                self._snd("pickup_ammo", ppolygon, (x, y))
+                self.fx.append(("pickup_text", ppolygon, (x, y),
                                 f"+{amt} {t.upper()}"))
             elif kind == "medkit":
                 if self.hp > 70:
                     continue  # leave it for later — scarcity respects foresight
                 self.hp = min(self.max_hp, self.hp + PICKUPS[kind]["amount"])
-                self._snd("pickup_medkit", proom, (x, y))
-                self.fx.append(("pickup_text", proom, (x, y),
+                self._snd("pickup_medkit", ppolygon, (x, y))
+                self.fx.append(("pickup_text", ppolygon, (x, y),
                                 f"+{PICKUPS[kind]['amount']} INTEGRITY"))
             elif kind.startswith("weapon_"):
                 w = kind[7:]
@@ -2237,14 +2237,14 @@ class GameSession:
                     self.weapons.append(w)
                     self.weapon = w
                 self.ammo_bonus_for(w)
-                self._snd("pickup_ammo", proom, (x, y))
+                self._snd("pickup_ammo", ppolygon, (x, y))
                 self._acquired(w)
-            elif kind == "safe_room_core":
+            elif kind == "safe_polygon_core":
                 self._build_cloister()
                 if "hole" not in self.weapons:
                     self.weapons.append("hole")
                 self.holes += 2
-                self._snd("pickup_key", proom, (x, y))
+                self._snd("pickup_key", ppolygon, (x, y))
                 self._acquired("cloister")
             elif kind == "turret":
                 continue  # not a pickup; the guardians are furniture
@@ -2252,44 +2252,44 @@ class GameSession:
                 self.holes += 1 + self._hole_bonus
                 if "hole" not in self.weapons:
                     self.weapons.append("hole")
-                self._snd("pickup_key", proom, (x, y))
+                self._snd("pickup_key", ppolygon, (x, y))
                 self._acquired("hole")
             elif kind == "implant_lightning":
                 if "lightning" not in self.weapons:
                     self.weapons.append("lightning")
-                self._snd("pickup_key", proom, (x, y))
+                self._snd("pickup_key", ppolygon, (x, y))
                 self._acquired("lightning")
             elif kind == "organ_gland":
                 if "gland" not in self.weapons:
                     self.weapons.append("gland")
                     self.weapon = "gland"
-                self._snd("pickup_key", proom, (x, y))
+                self._snd("pickup_key", ppolygon, (x, y))
                 self._acquired("gland")
             elif kind == "components":
                 n = p.get("amount", 1)
                 self.components += n
-                self._snd("pickup_ammo", proom, (x, y))
-                self.fx.append(("pickup_text", proom, (x, y),
+                self._snd("pickup_ammo", ppolygon, (x, y))
+                self.fx.append(("pickup_text", ppolygon, (x, y),
                                 f"+{n} COMPONENTS"))
             elif kind == "corpse_frame":
                 c = p.get("contents", {})
                 self.components += c.get("components", 0)
                 self.station_kits += c.get("station_kits", 0)
-                self._snd("corpse_recover", proom, (x, y))
+                self._snd("corpse_recover", ppolygon, (x, y))
                 got = []
                 if c.get("components"):
                     got.append(f"+{c['components']} COMPONENTS")
                 if c.get("station_kits"):
                     got.append(f"+{c['station_kits']} SEED KIT")
-                self.fx.append(("pickup_text", proom, (x, y),
+                self.fx.append(("pickup_text", ppolygon, (x, y),
                                 "FRAME RECOVERED  " + "  ".join(got)))
                 self.fx.append(("logvoice", p.get("line", 0)))
             elif kind.startswith("key_"):
                 key = kind[4:]
                 self.keys.add(key)
-                self._snd("pickup_key", proom, (x, y))
+                self._snd("pickup_key", ppolygon, (x, y))
                 meta = p.get("meta")
-                self.fx.append(("pickup_text", proom, (x, y),
+                self.fx.append(("pickup_text", ppolygon, (x, y),
                                 meta.item_name if meta
                                 else f"{key.upper()} SEAL"))
                 if meta:
@@ -2323,19 +2323,19 @@ class GameSession:
 
     STATION_RADIUS = 30.0
 
-    def add_station(self, room: int, pos) -> None:
+    def add_station(self, polygon: int, pos) -> None:
         """Register a seed station (chunk-entry seeds are planted by the
         streamer; the player plants forward seeds with kits, 9.3)."""
         for st in self.stations:
-            if st["room"] == room and \
+            if st["polygon"] == polygon and \
                     math.hypot(st["pos"][0] - pos[0], st["pos"][1] - pos[1]) < 24.0:
                 return
-        self.stations.append(dict(room=room, pos=(pos[0], pos[1])))
+        self.stations.append(dict(polygon=polygon, pos=(pos[0], pos[1])))
 
-    def station_near(self, proom: int):
+    def station_near(self, ppolygon: int):
         px, py = self.player_pos()
         for st in self.stations:
-            if st["room"] == proom and \
+            if st["polygon"] == ppolygon and \
                     math.hypot(st["pos"][0] - px, st["pos"][1] - py) < self.STATION_RADIUS:
                 return st
         return None
@@ -2350,11 +2350,11 @@ class GameSession:
         if self.station_kits <= 0:
             return False
         mark = len(self.fx)
-        proom = self.player_room()
+        ppolygon = self.player_polygon()
         px, py = self.player_pos()
         self.station_kits -= 1
-        self.add_station(proom, (px, py))
-        self._snd("seed_plant", proom, (px, py))
+        self.add_station(ppolygon, (px, py))
+        self._snd("seed_plant", ppolygon, (px, py))
         self._objective("SEED PLANTED - REVIVAL ANCHORED HERE")
         self._park_oob(mark)
         return True
@@ -2384,9 +2384,9 @@ class GameSession:
             t, n = d["ammo"]
             self.ammo[t] = self.ammo.get(t, 0) + n
         mark = len(self.fx)
-        proom = self.player_room()
-        self._snd("fabricate_buy", proom, self.player_pos())
-        self.fx.append(("pickup_text", proom, self.player_pos(),
+        ppolygon = self.player_polygon()
+        self._snd("fabricate_buy", ppolygon, self.player_pos())
+        self.fx.append(("pickup_text", ppolygon, self.player_pos(),
                         f"-{cost} COMPONENTS"))
         self._park_oob(mark)
         return True
@@ -2404,11 +2404,11 @@ class GameSession:
         mark = len(self.fx)
         self.recall_t = 90
         self._objective("RECALL CHANNEL OPEN - ANY HIT SEVERS IT")
-        self._snd("terminal_open", self.player_room(), self.player_pos())
+        self._snd("terminal_open", self.player_polygon(), self.player_pos())
         self._park_oob(mark)
         return True
 
-    def _recall_tick(self, proom: int) -> None:
+    def _recall_tick(self, ppolygon: int) -> None:
         if self.recall_t <= 0:
             return
         self.recall_t -= 1
@@ -2418,13 +2418,13 @@ class GameSession:
         self.recalls -= 1
         px, py = self.player_pos()
         best = min(self.stations,
-                   key=lambda st: (self.sim.hop_distance(st["room"], proom)
-                                   if self.sim.hop_distance(st["room"], proom) >= 0
+                   key=lambda st: (self.sim.hop_distance(st["polygon"], ppolygon)
+                                   if self.sim.hop_distance(st["polygon"], ppolygon) >= 0
                                    else 1 << 20))
-        room, (tx, ty) = best["room"], best["pos"]
-        self.fx.append(("flash", proom, px, py, 30.0))
-        if proom != room:
-            self.reseat_player(room, (tx, ty))
+        polygon, (tx, ty) = best["polygon"], best["pos"]
+        self.fx.append(("flash", ppolygon, px, py, 30.0))
+        if ppolygon != polygon:
+            self.reseat_player(polygon, (tx, ty))
         else:
             self.sim.set_pos(self.pid, tx, ty)
         self.sim.set_vel(self.pid, 0.0, 0.0)
@@ -2433,7 +2433,7 @@ class GameSession:
                 necore.mat_translate(self.screen_w / 2, self.screen_h / 2),
                 necore.mat_scale(self.zoom, self.zoom)),
             necore.mat_translate(-tx, -ty)))
-        self._snd("reprint", room, (tx, ty))
+        self._snd("reprint", polygon, (tx, ty))
         self._objective("RECALLED TO THE SEED")
 
     # ------------------------------------------------------------------
@@ -2453,11 +2453,11 @@ class GameSession:
             return True
         self.think_focus = node_id
         mark = len(self.fx)
-        self._snd("terminal_type", self.player_room(), self.player_pos(), 0.6)
+        self._snd("terminal_type", self.player_polygon(), self.player_pos(), 0.6)
         self._park_oob(mark)
         return True
 
-    def _think_tick(self, proom: int) -> None:
+    def _think_tick(self, ppolygon: int) -> None:
         """One field tick of background rumination on the focus node.
         Runs ONLY from tick() (menus don't tick -- thinking happens out
         there, under fire, diegetically). Completion emits a quiet field
@@ -2472,7 +2472,7 @@ class GameSession:
             self.think_focus = None
             self.think_done.append(nid)
             # quiet: a thought has finished (sfx placeholder; pipeline)
-            self._snd("think_complete", proom, self.player_pos(), 0.6)
+            self._snd("think_complete", ppolygon, self.player_pos(), 0.6)
             self.fx.append(("thought_done", nid))
 
     def complete_focus(self, node_id: str) -> bool:
@@ -2488,8 +2488,8 @@ class GameSession:
         self.mind.add(node_id)
         self._recompute_mind()
         mark = len(self.fx)
-        proom = self.player_room()
-        self._snd("pickup_key", proom, self.player_pos())
+        ppolygon = self.player_polygon()
+        self._snd("pickup_key", ppolygon, self.player_pos())
         label = mindmap.nodes()[node_id]["label"]
         self._objective(f"INTEGRATED: {label.upper()}")
         self._park_oob(mark)
@@ -2502,7 +2502,7 @@ class GameSession:
             return False
         self.hp = self.max_hp
         mark = len(self.fx)
-        self._snd("pickup_medkit", self.player_room(), self.player_pos(), 0.8)
+        self._snd("pickup_medkit", self.player_polygon(), self.player_pos(), 0.8)
         self._objective("FRAME INTEGRITY RESTORED")
         self._park_oob(mark)
         return True
@@ -2552,12 +2552,12 @@ class GameSession:
         self._protected_revival = "protected_revival" in u
         self._hole_bonus = 1 if "hole_stability_1" in u else 0
 
-    def reseat_player(self, room: int, pos) -> None:
-        """Move the player's engine entity to another room (engine set_pos
-        does not move room membership; respawn under the same groups)."""
+    def reseat_player(self, polygon: int, pos) -> None:
+        """Move the player's engine entity to another polygon (engine set_pos
+        does not move polygon membership; respawn under the same groups)."""
         st = self.sim.get(self.pid)
         self.sim.remove(self.pid)
-        self.pid = self.sim.spawn(room, pos[0], pos[1], PLAYER_RADIUS,
+        self.pid = self.sim.spawn(polygon, pos[0], pos[1], PLAYER_RADIUS,
                                   PLAYER_MASS, GROUP_PLAYER)
         self.sim.set_props(self.pid, rest_wall=0.0, rest_ent=0.05,
                            max_substep=6.0)
@@ -2570,18 +2570,18 @@ class GameSession:
         caller falls back to the cold restore)."""
         if self.chassis <= 0 or not self.stations:
             return False
-        death_room = self.player_room()
+        death_polygon = self.player_polygon()
         best = min(self.stations,
-                   key=lambda st: (self.sim.hop_distance(st["room"], death_room)
-                                   if self.sim.hop_distance(st["room"], death_room) >= 0
+                   key=lambda st: (self.sim.hop_distance(st["polygon"], death_polygon)
+                                   if self.sim.hop_distance(st["polygon"], death_polygon) >= 0
                                    else 1 << 20))
         self.chassis -= 1
         for eid in list(self.bullets):
             self.sim.remove(eid)
         self.bullets.clear()
-        room, (px, py) = best["room"], best["pos"]
-        if self.player_room() != room:
-            self.reseat_player(room, (px, py))
+        polygon, (px, py) = best["polygon"], best["pos"]
+        if self.player_polygon() != polygon:
+            self.reseat_player(polygon, (px, py))
         else:
             self.sim.set_pos(self.pid, px, py)
         self.sim.set_vel(self.pid, 0.0, 0.0)
@@ -2597,35 +2597,35 @@ class GameSession:
             necore.mat_translate(-px, -py)))
         mark = len(self.fx)
         self._objective(f"REPRINTED - {self.chassis} CHASSIS RACKED")
-        self._snd("reprint", room, (px, py))
+        self._snd("reprint", polygon, (px, py))
         self._park_oob(mark)
         return True
 
-    def _station_scan(self, proom: int, inp: InputFrame):
+    def _station_scan(self, ppolygon: int, inp: InputFrame):
         if not inp.interact:
             return
-        if self.station_near(proom) is not None:
+        if self.station_near(ppolygon) is not None:
             self.fx.append(("shop",))
 
-    def _terminal_scan(self, proom: int, inp: InputFrame):
+    def _terminal_scan(self, ppolygon: int, inp: InputFrame):
         if not inp.interact:
             return
         px, py = self.player_pos()
         for t in self.terminals:
-            if t["room"] != proom or t["read"]:
+            if t["polygon"] != ppolygon or t["read"]:
                 continue
             if math.hypot(t["pos"][0] - px, t["pos"][1] - py) < 26.0:
                 t["read"] = True
                 self.fx.append(("terminal", t["text"]))
-                self._snd("terminal_open", proom, t["pos"])
+                self._snd("terminal_open", ppolygon, t["pos"])
 
-    def _exit_scan(self, proom: int):
+    def _exit_scan(self, ppolygon: int):
         if not getattr(self, "exit_enabled", True):
             return
-        if self.exit_room < 0:
+        if self.exit_polygon < 0:
             return
         px, py = self.player_pos()
-        near = (proom == self.exit_room and
+        near = (ppolygon == self.exit_polygon and
                 math.hypot(self.exit_pos[0] - px, self.exit_pos[1] - py) < 18.0)
         if not near:
             # prompts are transient (~4s): stepping away and coming back to
@@ -2641,15 +2641,15 @@ class GameSession:
                     self.exit_gate_prompt
                     or f"EXIT SEALED - {lvl.exit_key.upper()} SEAL REQUIRED")
             return
-        gate_rooms = getattr(self, "exit_gate_rooms", None)
+        gate_polygons = getattr(self, "exit_gate_polygons", None)
 
         def _gates(eid, e):
             if e["kind"] != lvl.exit_gate_kind:
                 return False
-            if gate_rooms is None:
+            if gate_polygons is None:
                 return True
-            r = self.sim.get_room(eid)
-            return gate_rooms[0] <= r < gate_rooms[1]
+            r = self.sim.get_polygon(eid)
+            return gate_polygons[0] <= r < gate_polygons[1]
 
         if lvl.exit_gate_kind and any(
                 _gates(eid, e) for eid, e in self.enemies.items()):
@@ -2691,7 +2691,7 @@ class GameSession:
             if dead:
                 if b["kind"] == "dart" and self.sim.exists(bid):
                     _, x, y, *_ = self.sim.get(bid)
-                    self._detonate_dart(bid, self.sim.get_room(bid), x, y)
+                    self._detonate_dart(bid, self.sim.get_polygon(bid), x, y)
                 self.sim.remove(bid)
                 del self.bullets[bid]
 
@@ -2700,30 +2700,30 @@ class GameSession:
     # ------------------------------------------------------------------
 
     # Apex clamp margin: keeps the visibility apex a comfortable positive
-    # distance inside the current room's polygon (any positive value clears
+    # distance inside the current polygon's polygon (any positive value clears
     # the "apex behind the portal line" hard cull from transfer overshoot;
     # see visible()). MUST STAY STRICTLY LESS than the engine's own
     # visibility::EDGE_BAND (currently 1.0, engine/necore/src/visibility.rs)
     # -- that constant's job is to widen a near-doorway sightline into a
-    # full 180-degree fan BEFORE the room re-roots, so the pre-crossing
+    # full 180-degree fan BEFORE the polygon re-roots, so the pre-crossing
     # render already matches what root will show. If this margin ever grew
     # to meet or exceed EDGE_BAND, the clamped apex would sit pinned
     # exactly on/outside that band on every approach tick, `wide` could
     # never trigger pre-crossing, and doorway jamb walls (collinear with
     # the portal line, clipped away by the resulting narrow wedge) would
-    # pop from absent to fully lit in the single tick the room re-roots --
+    # pop from absent to fully lit in the single tick the polygon re-roots --
     # this was a real, shipped bug; see game/tests/test_root_invariance.py.
     _APEX_EPS = 0.75
 
-    def _clamp_apex(self, room: int, px: float, py: float):
-        """Pull the visibility apex just inside `room`'s polygon. For 1-3
+    def _clamp_apex(self, polygon: int, px: float, py: float):
+        """Pull the visibility apex just inside `polygon`'s polygon. For 1-3
         ticks after a portal transfer the entity is registered in the new
-        room while its position still sits marginally OUTSIDE it (collision
+        polygon while its position still sits marginally OUTSIDE it (collision
         overshoot; physics reclaims it). An exterior apex makes the
-        traversal's sight-line cull discard the entry portal -- the room
+        traversal's sight-line cull discard the entry portal -- the polygon
         you just left, and everything behind it, blinks out for those
         ticks. At every doorway, constantly: the campaign-video flicker."""
-        verts = self.sim.room_verts(room)
+        verts = self.sim.polygon_verts(polygon)
         n = len(verts)
         for i in range(n):
             x1, y1 = verts[i]
@@ -2743,16 +2743,16 @@ class GameSession:
         return px, py
 
     def visible(self, max_depth: int = 14, max_instances: int = 96):
-        proom = self.player_room()
+        ppolygon = self.player_polygon()
         px, py = self.player_pos()
         # the camera apex is the player (strict LOS from the character),
-        # clamped into the room so mid-transfer overshoot can't blind it
-        px, py = self._clamp_apex(proom, px, py)
+        # clamped into the polygon so mid-transfer overshoot can't blind it
+        px, py = self._clamp_apex(ppolygon, px, py)
         # keep the frame's attached work lamp on the player: same clamped apex,
-        # so its visibility cast can never start outside the room either
-        self.player_light.room = proom
+        # so its visibility cast can never start outside the polygon either
+        self.player_light.polygon = ppolygon
         self.player_light.pos = (px, py)
-        return self.sim.visible_set(proom, self.cam, px, py,
+        return self.sim.visible_set(ppolygon, self.cam, px, py,
                                     float(self.screen_w), float(self.screen_h),
                                     max_depth, max_instances)
 
@@ -2760,20 +2760,20 @@ class GameSession:
         kind = self.level.exit_gate_kind
         if not kind:
             return 0
-        rng = getattr(self, "exit_gate_rooms", None)
+        rng = getattr(self, "exit_gate_polygons", None)
         n = 0
         for eid, e in self.enemies.items():
             if e["kind"] != kind:
                 continue
             if rng is not None:
-                r = self.sim.get_room(eid)
+                r = self.sim.get_polygon(eid)
                 if not (rng[0] <= r < rng[1]):
                     continue
             n += 1
         return n
 
-    def _spit_snapshot(self, proom: int) -> list:
-        """Enemy projectiles in the player's room — a human SEES spit
+    def _spit_snapshot(self, ppolygon: int) -> list:
+        """Enemy projectiles in the player's polygon — a human SEES spit
         flying at them; bots read the same honest snapshot boundary."""
         out = []
         s = self.sim
@@ -2781,34 +2781,34 @@ class GameSession:
             if b.get("kind") != "spit":
                 continue
             try:
-                r = s.get_room(bid)
+                r = s.get_polygon(bid)
             except Exception:
                 continue
-            if r != proom:
+            if r != ppolygon:
                 continue
             _, x, y, vx, vy, _, _ = s.get(bid)
             out.append(dict(pos=(x, y), vel=(vx, vy)))
         return out
 
     def snapshot(self) -> dict:
-        proom = self.player_room()
+        ppolygon = self.player_polygon()
         px, py = self.player_pos()
         enemies = []
         for eid, e in self.enemies.items():
-            r = self.sim.get_room(eid)
+            r = self.sim.get_polygon(eid)
             _, x, y, *_ = self.sim.get(eid)
-            enemies.append(dict(id=eid, kind=e["kind"], room=r, pos=(x, y),
+            enemies.append(dict(id=eid, kind=e["kind"], polygon=r, pos=(x, y),
                                 hp=e["hp"], state=e["state"],
-                                hops=self.sim.hop_distance(r, proom)))
+                                hops=self.sim.hop_distance(r, ppolygon)))
         pickups = []
         for eid, p in self.pickups.items():
-            r = self.sim.get_room(eid)
+            r = self.sim.get_polygon(eid)
             _, x, y, *_ = self.sim.get(eid)
-            pickups.append(dict(id=eid, kind=p["kind"], room=r, pos=(x, y),
-                                hops=self.sim.hop_distance(r, proom)))
+            pickups.append(dict(id=eid, kind=p["kind"], polygon=r, pos=(x, y),
+                                hops=self.sim.hop_distance(r, ppolygon)))
         return dict(
             tick=self.tick_count, hp=self.hp, dead=self.dead,
-            complete=self.complete, room=proom, pos=(px, py),
+            complete=self.complete, polygon=ppolygon, pos=(px, py),
             weapon=self.weapon, weapons=list(self.weapons), ammo=dict(self.ammo),
             keys=set(self.keys),
             lightning_ready=self.lightning_charge >= LIGHTNING_RECHARGE_TICKS,
@@ -2820,22 +2820,22 @@ class GameSession:
             think_focus=self.think_focus,
             think_progress=dict(self.think_progress),
             think_done=list(self.think_done),
-            stations=[dict(room=st["room"], pos=st["pos"])
+            stations=[dict(polygon=st["polygon"], pos=st["pos"])
                       for st in self.stations],
             cloister=(dict(links=len(self.cloister["links"]),
                            attached=self.cloister["attached"])
                       if self.cloister else None),
             enemies=enemies, pickups=pickups,
-            spits=self._spit_snapshot(proom),
-            exit_room=self.exit_room,
-            exit_next_edge=self.sim.next_edge(proom, self.exit_room)
-            if self.exit_room >= 0 else -1,
+            spits=self._spit_snapshot(ppolygon),
+            exit_polygon=self.exit_polygon,
+            exit_next_edge=self.sim.next_edge(ppolygon, self.exit_polygon)
+            if self.exit_polygon >= 0 else -1,
             exit_key_needed=self.level.exit_key
             if self.level.exit_key and self.level.exit_key not in self.keys
             else "",
             exit_gate_kind=self.level.exit_gate_kind,
             exit_gate_remaining=self._gate_count(),
-            exit_gate_rooms=getattr(self, "exit_gate_rooms", None),
+            exit_gate_polygons=getattr(self, "exit_gate_polygons", None),
             door_keys_needed=sorted(
                 {d["key"] for d in self.doors if not d["open"] and d["key"]}
                 - self.keys),

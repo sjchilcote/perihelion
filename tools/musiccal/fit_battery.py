@@ -1,7 +1,7 @@
 """fit_battery — turn the corpus into deployable battery constants.
 
 The deployed battery may use ONLY sim-observable signals (a human
-player has no bot internals): enemy counts by kind/state/room-distance,
+player has no bot internals): enemy counts by kind/state/polygon-distance,
 min hunter distance, aggro influx, damage taken, kill flow, the
 player's own firing, scream recency, hp.
 

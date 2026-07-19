@@ -12,7 +12,7 @@ original brief's pre-selected hazard bins): "capture EVERYTHING per tick...
 We don't know what factors will matter yet, the entire point of this
 experiment is to find that out." This script is therefore a *raw, complete*
 recorder and does NO feature engineering — no rolling windows, no weighted-
-threat composites, no aggro/same-room booleans. Every tick's PRE-tick state
+threat composites, no aggro/same-polygon booleans. Every tick's PRE-tick state
 (what the bot observed when it chose its action) is logged verbatim,
 alongside that tick's action and the resulting instantaneous metric deltas.
 All derived features (rolling damage/kill windows, weighted threat, PCA
@@ -73,7 +73,7 @@ MID_GAME_STATE = dict(
 )
 
 TICK_FIELDS = [
-    "t", "hp", "room", "x", "y", "mx", "my", "fire", "alt",
+    "t", "hp", "polygon", "x", "y", "mx", "my", "fire", "alt",
     "ammo_9mm", "ammo_shell", "ammo_cell", "weapon", "n_weapons",
     "dead", "complete",
     "kills_d", "dmgtaken_d", "dmgdealt_d", "shots_d", "hits_d", "pickups_d",
@@ -162,7 +162,7 @@ def run_one(level_path: str, seed: int, bot_name: str, skill: float,
                     for p in snap["pickups"]
                 ]
                 row = [
-                    session.tick_count, round(snap["hp"], 2), snap["room"],
+                    session.tick_count, round(snap["hp"], 2), snap["polygon"],
                     round(px, 1), round(py, 1),
                     round(inp.mx, 3), round(inp.my, 3), int(inp.fire), int(inp.alt),
                     snap["ammo"].get("9mm", 0), snap["ammo"].get("shell", 0),

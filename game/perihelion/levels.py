@@ -1,9 +1,9 @@
 """Level format v2: JSON in, built necore.Sim out.
 
-Rooms are authored as absolute vertex lists on an editor canvas; the engine
-re-centers each room on its centroid, so every entity/prop position in the
-file is converted to room-local coordinates by subtracting that centroid.
-Doors are pending connections: the rooms are NOT connected until unlocked at
+Polygons are authored as absolute vertex lists on an editor canvas; the engine
+re-centers each polygon on its centroid, so every entity/prop position in the
+file is converted to polygon-local coordinates by subtracting that centroid.
+Doors are pending connections: the polygons are NOT connected until unlocked at
 runtime (a locked door is genuinely a wall — you cannot see through it).
 """
 
@@ -20,7 +20,7 @@ LEVEL_VERSION = 2
 @dataclass
 class EntitySpec:
     type: str
-    pos: tuple[float, float]  # room-local (post-centroid)
+    pos: tuple[float, float]  # polygon-local (post-centroid)
     props: dict = field(default_factory=dict)
 
 
@@ -35,7 +35,7 @@ class DoorSpec:
 
 @dataclass
 class TerminalSpec:
-    room: int
+    polygon: int
     pos: tuple[float, float]
     text: str
 
@@ -45,11 +45,11 @@ class LightSpec:
     """A light as a world object (not a screen-space glow). `kind` is
     "static" (geometry-fixed, cached at level load — dock lamps, hydro grow
     strips) or "attached" (recomputed every frame — the player's own light,
-    a carried lantern). `radius` is in room-local world units; `intensity`
+    a carried lantern). `radius` is in polygon-local world units; `intensity`
     scales the additive contribution before falloff. `color` is (r,g,b)
     0..255."""
-    room: int
-    pos: tuple[float, float]  # room-local (post-centroid)
+    polygon: int
+    pos: tuple[float, float]  # polygon-local (post-centroid)
     color: tuple[int, int, int]
     intensity: float
     radius: float
@@ -58,7 +58,7 @@ class LightSpec:
 
 @dataclass
 class RadioLine:
-    trigger: str  # "start" | "enter_room:<idx>" | "kills:<n>" | "pickup:<key>" | "exit"
+    trigger: str  # "start" | "enter_polygon:<idx>" | "kills:<n>" | "pickup:<key>" | "exit"
     text: str
 
 
@@ -79,20 +79,20 @@ class KeyMeta:
 class Level:
     name: str
     tier: int
-    room_verts: list[list[tuple[float, float]]]  # local coords (centroid at 0)
-    room_centroids: list[tuple[float, float]]  # authoring-canvas centroids
-    room_seeds: list[int]
-    room_kinds: list[str]  # function tags: dock, corridor, storage, lab, quarters, chapel, core, generic...
+    polygon_verts: list[list[tuple[float, float]]]  # local coords (centroid at 0)
+    polygon_centroids: list[tuple[float, float]]  # authoring-canvas centroids
+    polygon_seeds: list[int]
+    polygon_kinds: list[str]  # function tags: dock, corridor, storage, lab, quarters, chapel, core, generic...
     connects: list[tuple[int, int, int, int]]
     connects_x: list[tuple[int, int, int, int, tuple]]
     doors: list[DoorSpec]
-    entities: list[tuple[int, EntitySpec]]  # (room, spec)
-    player_room: int
+    entities: list[tuple[int, EntitySpec]]  # (polygon, spec)
+    player_polygon: int
     player_pos: tuple[float, float]
-    exit_room: int
+    exit_polygon: int
     exit_pos: tuple[float, float]
     exit_key: str  # "" = none; else a key id the player must hold
-    alert_hops: int  # gunshot alert radius in room-hops
+    alert_hops: int  # gunshot alert radius in polygon-hops
     vigil: bool  # endless holdout mode: the wave director runs
     exit_gate_kind: str  # "" = none; else all enemies of this kind must die
     intro: str
@@ -101,21 +101,21 @@ class Level:
     lights: list[LightSpec]
     ambience: str
     texture_map: dict = None
-    # Per-room descent scalar 0..1 (how deep into the station this room
+    # Per-polygon descent scalar 0..1 (how deep into the station this polygon
     # sits). In streamed campaigns WorldStreamer owns this list: chunk k of
-    # N gets k/(N-1) and transit-spine rooms get the midpoint of the chunks
+    # N gets k/(N-1) and transit-spine polygons get the midpoint of the chunks
     # they join, so the gradient crosses inside the spine rather than
     # stepping at a doorway. A level loaded on its own (editor, --level,
-    # vigil) derives one value for all rooms from its tier below.
-    room_descent: list[float] = field(default_factory=list)
+    # vigil) derives one value for all polygons from its tier below.
+    polygon_descent: list[float] = field(default_factory=list)
     # key id -> its diegetic identity in THIS level ("blue" is a scrubber
     # cartridge in hydroponics and a surgeon's cardkey one deck later).
     # Levels without an entry fall back to generic "<ID> SEAL" text.
     key_meta: dict[str, KeyMeta] = field(default_factory=dict)
     # levels/<level_id>.json stem, set by load_level. Keys the bespoke
-    # texture path (assets/textures/<level_id>/room_<index>.png) and the
+    # texture path (assets/textures/<level_id>/polygon_<index>.png) and the
     # streaming-chunk lookup in stream.py; "" for levels never loaded from
-    # a file path (LevelBuilder.build(), the debug level) -- such rooms
+    # a file path (LevelBuilder.build(), the debug level) -- such polygons
     # simply never resolve a texture and render as today.
     level_id: str = ""
 
@@ -131,7 +131,7 @@ def _shoelace(verts) -> float:
 
 
 def _centroid(verts: list[tuple[float, float]]) -> tuple[float, float]:
-    # Area-weighted centroid, matching engine add_room re-centering.
+    # Area-weighted centroid, matching engine add_polygon re-centering.
     n = len(verts)
     a = 0.0
     cx = 0.0
@@ -158,26 +158,26 @@ def load_level(path: str | Path) -> Level:
 def level_from_dict(data: dict) -> Level:
     if data.get("version", LEVEL_VERSION) != LEVEL_VERSION:
         raise ValueError(f"level version {data.get('version')} != {LEVEL_VERSION}")
-    room_verts: list[list[tuple[float, float]]] = []
-    room_centroids: list[tuple[float, float]] = []
-    room_seeds: list[int] = []
-    room_kinds: list[str] = []
+    polygon_verts: list[list[tuple[float, float]]] = []
+    polygon_centroids: list[tuple[float, float]] = []
+    polygon_seeds: list[int] = []
+    polygon_kinds: list[str] = []
     entities: list[tuple[int, EntitySpec]] = []
 
-    for ri, room in enumerate(data["rooms"]):
-        verts = [tuple(v) for v in room["verts"]]
+    for ri, polygon in enumerate(data["polygons"]):
+        verts = [tuple(v) for v in polygon["verts"]]
         if _shoelace(verts) > 0:
             # The engine would silently rewind and renumber the edges,
             # breaking every authored connection index. Fail loudly instead.
             raise ValueError(
-                f"room {ri}: vertices wind the wrong way (positive shoelace); "
+                f"polygon {ri}: vertices wind the wrong way (positive shoelace); "
                 "author y-down visual-CCW")
         c = _centroid(verts)
-        room_centroids.append(c)
-        room_verts.append([(x - c[0], y - c[1]) for x, y in verts])
-        room_seeds.append(int(room.get("detail_seed", ri * 7919 + 13)))
-        room_kinds.append(str(room.get("kind", "generic")))
-        for e in room.get("entities", []):
+        polygon_centroids.append(c)
+        polygon_verts.append([(x - c[0], y - c[1]) for x, y in verts])
+        polygon_seeds.append(int(polygon.get("detail_seed", ri * 7919 + 13)))
+        polygon_kinds.append(str(polygon.get("kind", "generic")))
+        for e in polygon.get("entities", []):
             ex, ey = e["pos"]
             entities.append(
                 (
@@ -191,7 +191,7 @@ def level_from_dict(data: dict) -> Level:
             )
 
     def local(ri: int, pos) -> tuple[float, float]:
-        c = room_centroids[ri]
+        c = polygon_centroids[ri]
         return (pos[0] - c[0], pos[1] - c[1])
 
     player = data["player"]
@@ -204,13 +204,13 @@ def level_from_dict(data: dict) -> Level:
     lore = data.get("lore", {})
     radio = [RadioLine(**r) for r in lore.get("radio", [])]
     terminals = [
-        TerminalSpec(t["room"], local(t["room"], t["pos"]), t["text"])
+        TerminalSpec(t["polygon"], local(t["polygon"], t["pos"]), t["text"])
         for t in lore.get("terminals", [])
     ]
     lights = [
         LightSpec(
-            room=int(lt["room"]),
-            pos=local(int(lt["room"]), lt["pos"]),
+            polygon=int(lt["polygon"]),
+            pos=local(int(lt["polygon"]), lt["pos"]),
             color=tuple(lt.get("color", (255, 220, 170))),
             intensity=float(lt.get("intensity", 1.0)),
             radius=float(lt.get("radius", 140.0)),
@@ -221,21 +221,21 @@ def level_from_dict(data: dict) -> Level:
     return Level(
         name=data.get("name", "?"),
         tier=tier,
-        room_descent=[descent] * len(room_verts),
-        room_verts=room_verts,
-        room_centroids=room_centroids,
-        room_seeds=room_seeds,
-        room_kinds=room_kinds,
+        polygon_descent=[descent] * len(polygon_verts),
+        polygon_verts=polygon_verts,
+        polygon_centroids=polygon_centroids,
+        polygon_seeds=polygon_seeds,
+        polygon_kinds=polygon_kinds,
         connects=[tuple(c) for c in data.get("connects", [])],
         connects_x=[
             (c[0], c[1], c[2], c[3], tuple(c[4])) for c in data.get("connects_x", [])
         ],
         doors=doors,
         entities=entities,
-        player_room=int(player["room"]),
-        player_pos=local(player["room"], player["pos"]),
-        exit_room=int(exit_["room"]) if exit_ else -1,
-        exit_pos=local(exit_["room"], exit_["pos"]) if exit_ else (0.0, 0.0),
+        player_polygon=int(player["polygon"]),
+        player_pos=local(player["polygon"], player["pos"]),
+        exit_polygon=int(exit_["polygon"]) if exit_ else -1,
+        exit_pos=local(exit_["polygon"], exit_["pos"]) if exit_ else (0.0, 0.0),
         exit_key=(exit_ or {}).get("key", ""),
         exit_gate_kind=(exit_ or {}).get("gate_kind", ""),
         key_meta=key_meta,
@@ -263,8 +263,8 @@ def save_level(level_dict: dict, path: str | Path) -> None:
 
 
 class LevelBuilder:
-    """Accumulates rooms/connections in authoring (absolute-canvas) coords and
-    emits a level dict. Rooms may be placed anywhere on the canvas — including
+    """Accumulates polygons/connections in authoring (absolute-canvas) coords and
+    emits a level dict. Polygons may be placed anywhere on the canvas — including
     on top of each other; only connections define adjacency."""
 
     def __init__(self, name: str, tier: int = 1, ambience: str = "amb_drone_early"):
@@ -273,7 +273,7 @@ class LevelBuilder:
             "name": name,
             "tier": tier,
             "ambience": ambience,
-            "rooms": [],
+            "polygons": [],
             "connects": [],
             "connects_x": [],
             "doors": [],
@@ -283,41 +283,41 @@ class LevelBuilder:
             "lights": [],
         }
 
-    def room(self, verts, detail_seed: int | None = None,
+    def polygon(self, verts, detail_seed: int | None = None,
              kind: str | None = None) -> int:
         r = {"verts": [list(v) for v in verts], "entities": []}
         if detail_seed is not None:
             r["detail_seed"] = detail_seed
         if kind is not None:
             r["kind"] = kind
-        self.data["rooms"].append(r)
-        return len(self.data["rooms"]) - 1
+        self.data["polygons"].append(r)
+        return len(self.data["polygons"]) - 1
 
-    def set_kind(self, room: int, kind: str) -> None:
-        self.data["rooms"][room]["kind"] = kind
+    def set_kind(self, polygon: int, kind: str) -> None:
+        self.data["polygons"][polygon]["kind"] = kind
 
     def rect(self, x, y, w, h, seed=None, kind=None) -> int:
-        return self.room([(x, y), (x, y + h), (x + w, y + h), (x + w, y)],
+        return self.polygon([(x, y), (x, y + h), (x + w, y + h), (x + w, y)],
                          seed, kind=kind)
 
     def ngon(self, cx, cy, r, n, phase=0.0, seed=None, kind=None) -> int:
         import math
 
         # Angle DECREASES so the shoelace area is negative: engine-canonical
-        # winding, so authored edge indices survive add_room unchanged.
+        # winding, so authored edge indices survive add_polygon unchanged.
         # Edge i runs from vertex i to i+1.
         verts = []
         for i in range(n):
             a = phase - i * 2.0 * math.pi / n
             verts.append((cx + r * math.cos(a), cy + r * math.sin(a)))
-        return self.room(verts, seed, kind=kind)
+        return self.polygon(verts, seed, kind=kind)
 
     def poly(self, verts, seed=None) -> int:
-        """Room from explicit verts; rewinds to canonical if needed (edge
+        """Polygon from explicit verts; rewinds to canonical if needed (edge
         indices then follow the REWOUND order — prefer authoring canonical)."""
         if _shoelace(verts) > 0:
             verts = list(reversed(verts))
-        return self.room(verts, seed)
+        return self.polygon(verts, seed)
 
     def connect_pts(self, ra: int, pa, rb: int, pb):
         """Connection resolved by edge MIDPOINT at build time (safe across
@@ -340,7 +340,7 @@ class LevelBuilder:
 
     def no_connect(self, ra: int, rb: int):
         """Forbid the splitter/autoconnect from opening a doorway between
-        these two rooms (their shared wall stays a wall)."""
+        these two polygons (their shared wall stays a wall)."""
         self.data.setdefault("no_auto", []).append([ra, rb])
 
     # -- build pipeline -------------------------------------------------
@@ -351,15 +351,15 @@ class LevelBuilder:
         the wall so an exactly-matching sub-edge exists; (2) autoconnect all
         exactly-coincident edge pairs; (3) resolve point-authored connects
         and doors to edge indices. Explicit index-based connects/doors are
-        passed through and must reference rooms the splitter never touches."""
+        passed through and must reference polygons the splitter never touches."""
         import copy
 
         data = copy.deepcopy(self.data)
-        rooms = data["rooms"]
+        polygons = data["polygons"]
         no_auto = {tuple(sorted(p)) for p in data.pop("no_auto", [])}
 
         def edges_of(ri):
-            vs = rooms[ri]["verts"]
+            vs = polygons[ri]["verts"]
             n = len(vs)
             return [(ei, tuple(vs[ei]), tuple(vs[(ei + 1) % n])) for ei in range(n)]
 
@@ -369,8 +369,8 @@ class LevelBuilder:
         while changed and guard < 200:
             changed = False
             guard += 1
-            for ri in range(len(rooms)):
-                for rj in range(len(rooms)):
+            for ri in range(len(polygons)):
+                for rj in range(len(polygons)):
                     if ri == rj:
                         continue
                     for ei, a0, a1 in edges_of(ri):
@@ -397,7 +397,7 @@ class LevelBuilder:
                                 t for t in (t0, t1) if tol < t < alen - tol)
                             if not inserts:
                                 continue  # exact match already
-                            vs = rooms[ri]["verts"]
+                            vs = polygons[ri]["verts"]
                             pos = vs.index(list(a0)) if list(a0) in vs else None
                             if pos is None:
                                 continue
@@ -449,13 +449,13 @@ class LevelBuilder:
                     (c[2], eb) != (c[0], ea) and (c[2], eb) in used):
                 raise ValueError(
                     f"connect_pts resolves to an already-used edge: "
-                    f"room {c[0]} edge {ea} / room {c[2]} edge {eb}")
+                    f"polygon {c[0]} edge {ea} / polygon {c[2]} edge {eb}")
             data["connects"].append([c[0], ea, c[2], eb])
             used.add((c[0], ea))
             used.add((c[2], eb))
 
         all_edges = []
-        for ri in range(len(rooms)):
+        for ri in range(len(polygons)):
             for ei, p0, p1 in edges_of(ri):
                 all_edges.append((ri, ei, p0, p1))
         for i in range(len(all_edges)):
@@ -489,17 +489,17 @@ class LevelBuilder:
     def door(self, a, ea, b, eb, key: str):
         self.data["doors"].append({"a": a, "ea": ea, "b": b, "eb": eb, "key": key})
 
-    def entity(self, room: int, type_: str, pos, **props):
+    def entity(self, polygon: int, type_: str, pos, **props):
         e = {"type": type_, "pos": list(pos)}
         if props:
             e["props"] = props
-        self.data["rooms"][room]["entities"].append(e)
+        self.data["polygons"][polygon]["entities"].append(e)
 
-    def player(self, room: int, pos):
-        self.data["player"] = {"room": room, "pos": list(pos)}
+    def player(self, polygon: int, pos):
+        self.data["player"] = {"polygon": polygon, "pos": list(pos)}
 
-    def exit(self, room: int, pos, key: str = "", gate_kind: str = ""):
-        self.data["exit"] = {"room": room, "pos": list(pos)}
+    def exit(self, polygon: int, pos, key: str = "", gate_kind: str = ""):
+        self.data["exit"] = {"polygon": polygon, "pos": list(pos)}
         if key:
             self.data["exit"]["key"] = key
         if gate_kind:
@@ -513,18 +513,18 @@ class LevelBuilder:
             "radio was eliminated: dialogue lives at terminals and relay "
             "conversations")
 
-    def terminal(self, room: int, pos, text: str):
+    def terminal(self, polygon: int, pos, text: str):
         self.data["lore"]["terminals"].append(
-            {"room": room, "pos": list(pos), "text": text}
+            {"polygon": polygon, "pos": list(pos), "text": text}
         )
 
-    def light(self, room: int, pos, color=(255, 220, 170), intensity: float = 1.0,
+    def light(self, polygon: int, pos, color=(255, 220, 170), intensity: float = 1.0,
               radius: float = 140.0, kind: str = "static"):
         """A world light: a real object the visibility engine casts from,
         not a screen-space glow. `kind` "static" is cached at level load;
         "attached" (e.g. a carried light) is recomputed every frame."""
         self.data.setdefault("lights", []).append({
-            "room": room, "pos": list(pos), "color": list(color),
+            "polygon": polygon, "pos": list(pos), "color": list(color),
             "intensity": intensity, "radius": radius, "kind": kind,
         })
 

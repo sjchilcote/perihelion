@@ -257,7 +257,7 @@
       "errors": [],
       "raw_passes": [
         {
-          "heard": "I hear two distinct, rapid mechanical impact events with a very sharp, transient-heavy attack. The frequency balance is heavily skewed toward the high-mids and highs, with a metallic, resonant texture and almost no low-end or sub-bass weight. The sound decays abruptly, ending in a very clean, gate-like silence with no natural room tail or analog grit.",
+          "heard": "I hear two distinct, rapid mechanical impact events with a very sharp, transient-heavy attack. The frequency balance is heavily skewed toward the high-mids and highs, with a metallic, resonant texture and almost no low-end or sub-bass weight. The sound decays abruptly, ending in a very clean, gate-like silence with no natural polygon tail or analog grit.",
           "matches_spec": false,
           "p_shippable": 0.3,
           "amateur_tells": [
@@ -431,7 +431,7 @@
       "errors": [],
       "raw_passes": [
         {
-          "heard_a": "A heavy, distorted low-frequency thud with a sharp, saturated transient attack. It exhibits a gritty, analog-style saturation and a short, controlled decay that quickly dissolves into industrial room noise.",
+          "heard_a": "A heavy, distorted low-frequency thud with a sharp, saturated transient attack. It exhibits a gritty, analog-style saturation and a short, controlled decay that quickly dissolves into industrial polygon noise.",
           "heard_b": "A series of rapid, low-velocity taps with a very soft, muffled attack and a dominant low-mid frequency profile. The sound is extremely dry with almost zero decay or resonant ring, sounding like a soft object striking a dense, damped surface.",
           "matches_spec": true,
           "p_shippable": 0.85,
@@ -756,7 +756,7 @@
       "errors": [],
       "raw_passes": [
         {
-          "heard": "I hear a single, continuous sound event with a sharp, sudden attack that immediately bursts into a highly saturated, mid-to-high frequency scream. The texture is intensely metallic, screeching, and digitally distorted, resembling a feedback loop or a sheared metal scrape. It decays abruptly with a sharp gate-like cutoff, leaving a tiny bit of dry, low-level room-like tail.",
+          "heard": "I hear a single, continuous sound event with a sharp, sudden attack that immediately bursts into a highly saturated, mid-to-high frequency scream. The texture is intensely metallic, screeching, and digitally distorted, resembling a feedback loop or a sheared metal scrape. It decays abruptly with a sharp gate-like cutoff, leaving a tiny bit of dry, low-level polygon-like tail.",
           "matches_spec": true,
           "p_shippable": 0.85,
           "amateur_tells": [
@@ -1332,7 +1332,7 @@
       "errors": [],
       "raw_passes": [
         {
-          "heard": "The clip consists of a single, continuous sustained event lasting approximately three seconds, characterized by a soft, gradual attack that swells into a dense, buzzy mid-range drone. The frequency balance is heavily weighted in the low-mid and mid-range with a distinct lack of sub-bass weight or high-end air, while the texture is highly tonal, resembling a synthesized sawtooth wave with a slow, sweeping resonant filter and a subtle pitch modulation. It decays abruptly with a sharp, unnatural cutoff at the very end, leaving no natural room tail or fading resonance.",
+          "heard": "The clip consists of a single, continuous sustained event lasting approximately three seconds, characterized by a soft, gradual attack that swells into a dense, buzzy mid-range drone. The frequency balance is heavily weighted in the low-mid and mid-range with a distinct lack of sub-bass weight or high-end air, while the texture is highly tonal, resembling a synthesized sawtooth wave with a slow, sweeping resonant filter and a subtle pitch modulation. It decays abruptly with a sharp, unnatural cutoff at the very end, leaving no natural polygon tail or fading resonance.",
           "matches_spec": false,
           "p_shippable": 0.3,
           "amateur_tells": [

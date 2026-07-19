@@ -34,7 +34,7 @@ Recurring roles, ranked by how often they were called out, with representative t
 ### drums (66 mentions)
 
 - Industrial acoustic-hybrid drum kit. The kick drum is a deep, subby 24-inch acoustic kick layered with a high-transient electronic click (around 4kHz). The snare is a high-tension marching snare layered with a metallic white-noise burst, heavily compressed with a slow attack to emphasize the transient 'smack'.
-- Industrial acoustic-electronic hybrid kit. The kick drum has a clicky transient at 3kHz and a deep sub-thump at 60Hz. The snare is a high-tension metal snare blended with a white-noise burst, heavily compressed with a fast attack and medium release to emphasize the room tone.
+- Industrial acoustic-electronic hybrid kit. The kick drum has a clicky transient at 3kHz and a deep sub-thump at 60Hz. The snare is a high-tension metal snare blended with a white-noise burst, heavily compressed with a fast attack and medium release to emphasize the polygon tone.
 - An industrial acoustic-electronic hybrid kit. The kick is a deep, compressed 909-style transient layered with a low-frequency acoustic thud. The snare is a highly compressed, metallic rim-shot/snare sample with a gated, distorted plate reverb tail.
 - A hybrid acoustic-industrial drum kit. The kick is clicky with a sharp transient at 3kHz and a deep thud at 60Hz. The snare is a metallic, high-tension snare layered with a white-noise burst, heavily compressed. Cymbals are dark, compressed, and slightly lo-fi.
 - Industrial electronic drum kit. The kick is a heavy, compressed 909-style sample with a saturated transient. The snare is a digital clap layered with a metallic white-noise burst, heavily gated. Hi-hats are sharp, metallic, and bitcrushed.
@@ -67,7 +67,7 @@ Articulation patterns:
 
 ### rhythm guitar (64 mentions)
 
-- Down-tuned 8-string electric guitar with high-gain digital amp simulation (reminiscent of a 5150 profile). Extremely tight low-end gating, with a prominent boost in the 'clank' region (1.5kHz - 3kHz) and a sharp high-pass filter cutting everything below 60Hz to make room for the sub-bass.
+- Down-tuned 8-string electric guitar with high-gain digital amp simulation (reminiscent of a 5150 profile). Extremely tight low-end gating, with a prominent boost in the 'clank' region (1.5kHz - 3kHz) and a sharp high-pass filter cutting everything below 60Hz to make polygon for the sub-bass.
 - High-gain, heavily saturated down-tuned electric guitar. Characterized by a sharp, aggressive transient bite in the high-mids (2kHz - 4kHz) and a scooped mid-range (around 500Hz). The low-end is tightly controlled with a high-pass filter at 80Hz to prevent muddiness.
 - High-gain, heavily saturated down-tuned electric guitar. Characterized by a scooped mid-range (attenuated around 700Hz), a sharp bite in the presence range (2kHz - 4kHz), and a tight, high-pass filtered low-end below 80Hz to prevent muddiness.
 - Highly saturated, asymmetric solid-state distortion with a severe mid-scoop around 400Hz and a sharp resonant boost at 2.5kHz. The high-end is fizzy and aggressive, resembling a high-gain digital amp modeler pushed into clipping.

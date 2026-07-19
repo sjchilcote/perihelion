@@ -234,7 +234,7 @@ def report_ours(level_paths: list[Path], ticks: int = 1800,
 
     print(f"\n=== ours: engine visible() during {ticks / 60:.0f}s "
           f"AggroBot walk ===")
-    print(f"{'level':24s} {'rooms':>5} {'inst med/p90/max':>18}")
+    print(f"{'level':24s} {'polygons':>5} {'inst med/p90/max':>18}")
     for path in level_paths:
         level = load_level(path)
         session = GameSession(level, seed=7)
@@ -248,7 +248,7 @@ def report_ours(level_paths: list[Path], ticks: int = 1800,
             if t % sample_every == 0:
                 counts.append(len(session.visible()))
         d = _dist(counts)
-        print(f"{path.stem:24s} {len(level.room_verts):5d} "
+        print(f"{path.stem:24s} {len(level.polygon_verts):5d} "
               f"{_fmt(d, 0):>18}")
 
 

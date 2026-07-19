@@ -39,25 +39,25 @@ from perihelion.levels import LevelBuilder  # noqa: E402
 
 # --- placement helpers (same conventions as tools/levelgen/campaign.py) ---
 
-def center(b: LevelBuilder, room: int) -> tuple[float, float]:
-    vs = b.data["rooms"][room]["verts"]
+def center(b: LevelBuilder, polygon: int) -> tuple[float, float]:
+    vs = b.data["polygons"][polygon]["verts"]
     return (sum(v[0] for v in vs) / len(vs), sum(v[1] for v in vs) / len(vs))
 
 
-def squad(b: LevelBuilder, room: int, spec: str, spread: float = 26.0):
+def squad(b: LevelBuilder, polygon: int, spec: str, spread: float = 26.0):
     kinds = spec.split()
-    cx, cy = center(b, room)
+    cx, cy = center(b, polygon)
     n = len(kinds)
     for i, k in enumerate(kinds):
         a = 2 * math.pi * i / max(1, n) + 0.7
         r = spread if n > 1 else 0.0
-        b.entity(room, k, (cx + r * math.cos(a), cy + r * math.sin(a)))
+        b.entity(polygon, k, (cx + r * math.cos(a), cy + r * math.sin(a)))
 
 
-def wall_basis(b: LevelBuilder, room: int, wall: int, t: float = 0.5):
-    """Point/tangent/inward-normal on AUTHORED edge `wall` of `room`
+def wall_basis(b: LevelBuilder, polygon: int, wall: int, t: float = 0.5):
+    """Point/tangent/inward-normal on AUTHORED edge `wall` of `polygon`
     (0=west,1=south,2=east,3=north for LevelBuilder.rect)."""
-    verts = b.data["rooms"][room]["verts"]
+    verts = b.data["polygons"][polygon]["verts"]
     n = len(verts)
     cx = sum(v[0] for v in verts) / n
     cy = sum(v[1] for v in verts) / n
@@ -73,26 +73,26 @@ def wall_basis(b: LevelBuilder, room: int, wall: int, t: float = 0.5):
     return mx, my, tx, ty, nx, ny
 
 
-def wall_pos(b: LevelBuilder, room: int, wall: int, t: float = 0.5,
+def wall_pos(b: LevelBuilder, polygon: int, wall: int, t: float = 0.5,
              inset: float = 15.0) -> tuple[float, float]:
-    mx, my, tx, ty, nx, ny = wall_basis(b, room, wall, t)
+    mx, my, tx, ty, nx, ny = wall_basis(b, polygon, wall, t)
     return (mx + nx * inset, my + ny * inset)
 
 
-def cache(b: LevelBuilder, room: int, spec: str, off=(0.0, 0.0),
+def cache(b: LevelBuilder, polygon: int, spec: str, off=(0.0, 0.0),
           wall: int | None = None, t: float = 0.5, inset: float = 16.0):
     if wall is not None:
-        mx, my, tx, ty, nx, ny = wall_basis(b, room, wall, t)
+        mx, my, tx, ty, nx, ny = wall_basis(b, polygon, wall, t)
         bx, by = mx + nx * inset, my + ny * inset
         items = spec.split()
         span = (len(items) - 1) * 13.0
         for i, k in enumerate(items):
             tt = -span / 2.0 + i * 13.0
-            b.entity(room, k, (bx + tx * tt, by + ty * tt))
+            b.entity(polygon, k, (bx + tx * tt, by + ty * tt))
         return
-    cx, cy = center(b, room)
+    cx, cy = center(b, polygon)
     for i, k in enumerate(spec.split()):
-        b.entity(room, k, (cx + off[0] + (i % 3) * 15 - 15,
+        b.entity(polygon, k, (cx + off[0] + (i % 3) * 15 - 15,
                            cy + off[1] + (i // 3) * 15))
 
 
@@ -161,7 +161,7 @@ def build() -> LevelBuilder:
     rec1 = b.rect(280, 550, 85, 80, kind="records")      # morgue->niche below)
     rec2 = b.rect(395, 550, 80, 80, kind="records")
     b.rect(395, 630, 80, 70, kind="records")             # rec stack overflow
-    # crew rows: a ward corridor (col x=200) with bunk rooms hanging west
+    # crew rows: a ward corridor (col x=200) with bunk polygons hanging west
     q = {}
     for r, (y, h) in enumerate(((400, 75), (475, 75), (550, 80))):
         for c, x in enumerate((40, 120, 200)):
@@ -170,7 +170,7 @@ def build() -> LevelBuilder:
     b.rect(-20, 415, 60, 45, kind="quarters")            # bunk niche
     alc_b = b.rect(280, 645, 50, 50, kind="pump")        # boiler valve niche
     # shape the block: the ward corridor (col x=200) and a west walk (col
-    # x=40) run vertically; the middle column is bunk rooms opening east
+    # x=40) run vertically; the middle column is bunk polygons opening east
     b.no_connect(q[(2, 1)], rel_b)      # one reliquary door, not two
     b.no_connect(q[(1, 2)], boil[1])    # boiler keeps two doors, not three
 
@@ -209,10 +209,10 @@ def build() -> LevelBuilder:
     b.rect(20, -205, 60, 55, kind="storage")             # spine-west alcove
     b.poly([(800, -210), (800, -150), (860, -150),      # chamfered store
             (860, -190), (840, -210)])
-    b.set_kind(len(b.data["rooms"]) - 1, "storage")
+    b.set_kind(len(b.data["polygons"]) - 1, "storage")
     b.rect(530, -600, 60, 60, kind="lab")                # lab-east alcove
     # shape the deck: W bunks, P pump hall (2x2), J junction, S store (3x2),
-    # E pump room via the spine extension; C is a service run, D the lab.
+    # E pump polygon via the spine extension; C is a service run, D the lab.
     b.no_connect(sp[6], A[6])
     b.no_connect(C[2], B[2])
     b.no_connect(C[4], B[4])
@@ -319,5 +319,5 @@ if __name__ == "__main__":
     bb = build()
     lvl = bb.build()
     d = bb.to_dict()
-    print(f"rooms={len(lvl.room_verts)} connects={len(lvl.connects)} "
+    print(f"polygons={len(lvl.polygon_verts)} connects={len(lvl.connects)} "
           f"doors={len(lvl.doors)} entities={len(lvl.entities)}")

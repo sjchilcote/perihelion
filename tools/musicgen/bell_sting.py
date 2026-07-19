@@ -116,7 +116,7 @@ def build_riser(rec) -> np.ndarray:
 
 
 def build_sting_halled(rec, rng) -> np.ndarray:
-    """The bell fired THROUGH the song's own room: rendered into the
+    """The bell fired THROUGH the song's own polygon: rendered into the
     same hall as the holy lane, ducked -4dB -- punctuation that lives
     inside the mix instead of a sound effect on top (director
     overnight goal)."""

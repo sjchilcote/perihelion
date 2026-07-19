@@ -122,7 +122,7 @@ def main():
     pygame.init()
     ok = True
 
-    # 1. early campaign room, props + enemies, real fight
+    # 1. early campaign polygon, props + enemies, real fight
     bot = AggroBot(seed=42)
     ok &= run_fixture(
         "early_campaign", load_level(ROOT / "levels/l01.json"),
@@ -146,11 +146,11 @@ def main():
         "glow_combat", build_debug_level(), firing,
         ticks=300, sample_ticks=range(20, 301, 2), seed=5, outdir=outdir)
 
-    # 4. mirror room: a room self-connected across opposite edges — the
-    # guaranteed deep-recursion / many-instances-of-one-room scene
-    from perihelion.testkit.perf import build_mirror_room
+    # 4. mirror polygon: a polygon self-connected across opposite edges — the
+    # guaranteed deep-recursion / many-instances-of-one-polygon scene
+    from perihelion.testkit.perf import build_mirror_polygon
     ok &= run_fixture(
-        "mirror_room", build_mirror_room(),
+        "mirror_polygon", build_mirror_polygon(),
         lambda t, s: InputFrame(mx=0.3, ax=INTERNAL_W * 0.5,
                                 ay=INTERNAL_H * 0.2,
                                 fire=(t % 30) < 6),

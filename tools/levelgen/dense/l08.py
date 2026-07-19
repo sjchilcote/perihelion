@@ -44,23 +44,23 @@ from perihelion.levels import LevelBuilder, save_level  # noqa: E402
 # ---------------------------------------------------------------------------
 
 
-def center(b: LevelBuilder, room: int) -> tuple[float, float]:
-    vs = b.data["rooms"][room]["verts"]
+def center(b: LevelBuilder, polygon: int) -> tuple[float, float]:
+    vs = b.data["polygons"][polygon]["verts"]
     return (sum(v[0] for v in vs) / len(vs), sum(v[1] for v in vs) / len(vs))
 
 
-def squad(b: LevelBuilder, room: int, spec: str, spread: float = 32.0):
+def squad(b: LevelBuilder, polygon: int, spec: str, spread: float = 32.0):
     kinds = spec.split()
-    cx, cy = center(b, room)
+    cx, cy = center(b, polygon)
     n = len(kinds)
     for i, k in enumerate(kinds):
         a = 2 * math.pi * i / max(1, n) + 0.7
         r = spread if n > 1 else 0.0
-        b.entity(room, k, (cx + r * math.cos(a), cy + r * math.sin(a)))
+        b.entity(polygon, k, (cx + r * math.cos(a), cy + r * math.sin(a)))
 
 
-def wall_basis(b: LevelBuilder, room: int, wall: int, t: float = 0.5):
-    verts = b.data["rooms"][room]["verts"]
+def wall_basis(b: LevelBuilder, polygon: int, wall: int, t: float = 0.5):
+    verts = b.data["polygons"][polygon]["verts"]
     n = len(verts)
     cx = sum(v[0] for v in verts) / n
     cy = sum(v[1] for v in verts) / n
@@ -76,26 +76,26 @@ def wall_basis(b: LevelBuilder, room: int, wall: int, t: float = 0.5):
     return mx, my, tx, ty, nx, ny
 
 
-def wall_pos(b: LevelBuilder, room: int, wall: int, t: float = 0.5,
+def wall_pos(b: LevelBuilder, polygon: int, wall: int, t: float = 0.5,
              inset: float = 15.0) -> tuple[float, float]:
-    mx, my, tx, ty, nx, ny = wall_basis(b, room, wall, t)
+    mx, my, tx, ty, nx, ny = wall_basis(b, polygon, wall, t)
     return (mx + nx * inset, my + ny * inset)
 
 
-def cache(b: LevelBuilder, room: int, spec: str, off=(0.0, 0.0),
+def cache(b: LevelBuilder, polygon: int, spec: str, off=(0.0, 0.0),
           wall: int | None = None, t: float = 0.5, inset: float = 16.0):
     if wall is not None:
-        mx, my, tx, ty, nx, ny = wall_basis(b, room, wall, t)
+        mx, my, tx, ty, nx, ny = wall_basis(b, polygon, wall, t)
         bx, by = mx + nx * inset, my + ny * inset
         items = spec.split()
         span = (len(items) - 1) * 13.0
         for i, k in enumerate(items):
             tt = -span / 2.0 + i * 13.0
-            b.entity(room, k, (bx + tx * tt, by + ty * tt))
+            b.entity(polygon, k, (bx + tx * tt, by + ty * tt))
         return
-    cx, cy = center(b, room)
+    cx, cy = center(b, polygon)
     for i, k in enumerate(spec.split()):
-        b.entity(room, k, (cx + off[0] + (i % 3) * 15 - 15,
+        b.entity(polygon, k, (cx + off[0] + (i % 3) * 15 - 15,
                            cy + off[1] + (i // 3) * 15))
 
 
@@ -209,41 +209,41 @@ def _alcove(b: LevelBuilder, r: int, c: int, kind: str, chamfer: bool) -> int:
                  (x + w, y + ch), (x + w - ch, y)]
     if not chamfer:
         verts = [(x, y), (x, y + h), (x + w, y + h), (x + w, y)]
-    room = b.poly(verts)
-    b.set_kind(room, kind)
-    return room
+    polygon = b.poly(verts)
+    b.set_kind(polygon, kind)
+    return polygon
 
 
 def _build_district(b: LevelBuilder) -> dict[tuple[int, int], int]:
-    """Emit the tile mesh; returns tile -> room index (merged tiles share)."""
-    room_at: dict[tuple[int, int], int] = {}
+    """Emit the tile mesh; returns tile -> polygon index (merged tiles share)."""
+    polygon_at: dict[tuple[int, int], int] = {}
 
     merged: dict[tuple[int, int], int] = {}
     for r0, c0, nr, nc in MERGES:
         kind = KINDS[_tile(r0, c0)]
-        room = b.rect(c0 * T + OX, r0 * T + OY, nc * T, nr * T, kind=kind)
+        polygon = b.rect(c0 * T + OX, r0 * T + OY, nc * T, nr * T, kind=kind)
         for r in range(r0, r0 + nr):
             for c in range(c0, c0 + nc):
                 assert _tile(r, c) == _tile(r0, c0), f"merge mismatch {(r, c)}"
-                merged[(r, c)] = room
+                merged[(r, c)] = polygon
 
     for r, row in enumerate(MAP):
         for c, ch in enumerate(row):
             if ch == ".":
                 continue
             if (r, c) in merged:
-                room_at[(r, c)] = merged[(r, c)]
+                polygon_at[(r, c)] = merged[(r, c)]
                 continue
             if ch == "a":
                 chamfer = (r + c) % 2 == 0
-                room_at[(r, c)] = _alcove(b, r, c, ALCOVE_KIND[(r, c)], chamfer)
+                polygon_at[(r, c)] = _alcove(b, r, c, ALCOVE_KIND[(r, c)], chamfer)
             elif ch == "d":
                 # 60 u service duct (narrow register), horizontal runs only
                 assert _tile(r, c - 1) != "." or _tile(r, c + 1) != "."
-                room_at[(r, c)] = b.rect(c * T + OX, r * T + OY + 15.0, T, 60.0,
+                polygon_at[(r, c)] = b.rect(c * T + OX, r * T + OY + 15.0, T, 60.0,
                                          kind="corridor")
             else:
-                room_at[(r, c)] = b.rect(c * T + OX, r * T + OY, T, T,
+                polygon_at[(r, c)] = b.rect(c * T + OX, r * T + OY, T, T,
                                          kind=KINDS[ch])
 
     # adjacency policy: same district welds (autoconnect), district borders
@@ -257,7 +257,7 @@ def _build_district(b: LevelBuilder) -> dict[tuple[int, int], int]:
                 ch2 = _tile(r2, c2)
                 if ch2 == ".":
                     continue
-                ra, rb = room_at[(r, c)], room_at[(r2, c2)]
+                ra, rb = polygon_at[(r, c)], polygon_at[(r2, c2)]
                 if ra == rb:
                     continue
                 pair = frozenset({ra, rb})
@@ -273,7 +273,7 @@ def _build_district(b: LevelBuilder) -> dict[tuple[int, int], int]:
                     continue
                 if tpair not in DOORS:
                     b.no_connect(ra, rb)
-    return room_at
+    return polygon_at
 
 
 # ---------------------------------------------------------------------------
@@ -316,36 +316,36 @@ def build() -> LevelBuilder:
                         pj_c[1] + 86.6 * math.sin(aj + math.pi / 3)))
 
     # -- the chapel deck around it ----------------------------------------
-    room_at = _build_district(b)
+    polygon_at = _build_district(b)
 
     # gate antechamber east edge -> petal 0's free west wall (edge 5; the
     # paradox uses petal edges 0/2/4 only, so this is approach re-dressing,
     # not topology change)
-    gate = room_at[(7, 30)]
+    gate = polygon_at[(7, 30)]
     b.connect_pts(gate, (OX + 31 * T, OY + 7.5 * T),
                   petals[0], (260 * math.cos(angs[0]) - 86.6,
                               260 * math.sin(angs[0])))
 
     # -- player: the district's west dock (streamer-carvable west walls) --
-    b.player(room_at[(7, 0)], center(b, room_at[(7, 0)]))
+    b.player(polygon_at[(7, 0)], center(b, polygon_at[(7, 0)]))
 
     # -- diegetics preserved verbatim from campaign.py:l08() --------------
-    b.intro("The chapel deck. Folded.\nSix rooms around one. Or one room\n"
+    b.intro("The chapel deck. Folded.\nSix polygons around one. Or one polygon\n"
             "around six. The count depends on the walker.")
     b.terminal(core, (0, -60),
                "SERMON, UNDELIVERED\nThey ask: is the station haunted?\n"
                "No. A haunting is a place remembering.\n"
                "This is a place being remembered —\nby something on the other side.")
     squad(b, core, "warden")
-    b.data["rooms"][core]["entities"][-1]["props"] = {"hp": 180, "tether": 1}
+    b.data["polygons"][core]["entities"][-1]["props"] = {"hp": 180, "tether": 1}
     b.terminal(petals[0], wall_pos(b, petals[0], 1, 0.5, 15.0),
                "[TRANSLATION CONFIDENCE 8%]\n"
                "six were sent. six return, always six.\n"
                "the seventh count is a mistake in the counting,\n"
-               "not a seventh room. we filed it that way for a\n"
-               "long time. the filing is also how the room first\n"
+               "not a seventh polygon. we filed it that way for a\n"
+               "long time. the filing is also how the polygon first\n"
                "appeared. we do not file it that way now, and\n"
-               "the room has not gone.")
+               "the polygon has not gone.")
     b.terminal(petals[3], wall_pos(b, petals[3], 3, 0.5, 15.0),
                "[TRANSLATION CONFIDENCE 19%]\n"
                "students were walked here blind, on purpose,\n"
@@ -367,44 +367,44 @@ def build() -> LevelBuilder:
         squad(b, p, petal_squads[i])
         if petal_caches[i]:
             cache(b, p, petal_caches[i])
-    cache(b, core, "medkit medkit ammo_cell ammo_shell ammo_9mm safe_room_core portable_hole")
+    cache(b, core, "medkit medkit ammo_cell ammo_shell ammo_9mm safe_polygon_core portable_hole")
     b.exit(core, (0, 40), gate_kind="warden")
 
-    # -- district population (playbook pacing: fights in named rooms, the
+    # -- district population (playbook pacing: fights in named polygons, the
     # dock and most corridor chains stay quiet beats) ----------------------
-    squad(b, room_at[(7, 4)], "husk husk")             # hall first contact
-    squad(b, room_at[(1, 8)], "husk husk mite")        # quarters suite
-    squad(b, room_at[(2, 14)], "spitter mite mite")    # records stacks
-    squad(b, room_at[(6, 13)], "shrieker husk")        # ladder junction
-    squad(b, room_at[(2, 20)], "husk husk")            # medbay
-    squad(b, room_at[(0, 23)], "brute shrieker")       # nave (set-piece)
-    squad(b, room_at[(2, 25)], "husk husk")            # nave south aisle
-    squad(b, room_at[(7, 15)], "mite mite mite mite")  # otherworld ambush
-    squad(b, room_at[(13, 13)], "spitter husk")        # undercroft
-    squad(b, room_at[(12, 16)], "brute")               # pump hall
-    squad(b, room_at[(12, 22)], "shrieker mite mite")  # side chapels
-    squad(b, room_at[(12, 20)], "spitter")             # side chapel west bay
-    squad(b, room_at[(7, 29)], "spitter")              # gate antechamber
+    squad(b, polygon_at[(7, 4)], "husk husk")             # hall first contact
+    squad(b, polygon_at[(1, 8)], "husk husk mite")        # quarters suite
+    squad(b, polygon_at[(2, 14)], "spitter mite mite")    # records stacks
+    squad(b, polygon_at[(6, 13)], "shrieker husk")        # ladder junction
+    squad(b, polygon_at[(2, 20)], "husk husk")            # medbay
+    squad(b, polygon_at[(0, 23)], "brute shrieker")       # nave (set-piece)
+    squad(b, polygon_at[(2, 25)], "husk husk")            # nave south aisle
+    squad(b, polygon_at[(7, 15)], "mite mite mite mite")  # otherworld ambush
+    squad(b, polygon_at[(13, 13)], "spitter husk")        # undercroft
+    squad(b, polygon_at[(12, 16)], "brute")               # pump hall
+    squad(b, polygon_at[(12, 22)], "shrieker mite mite")  # side chapels
+    squad(b, polygon_at[(12, 20)], "spitter")             # side chapel west bay
+    squad(b, polygon_at[(7, 29)], "spitter")              # gate antechamber
 
     # caches racked where a quartermaster would put them (playbook §5)
-    cache(b, room_at[(6, 1)], "ammo_9mm medkit", wall=3)
-    cache(b, room_at[(1, 7)], "medkit", wall=3)
-    cache(b, room_at[(0, 13)], "medkit")                      # records niche
-    cache(b, room_at[(2, 19)], "medkit medkit", wall=3)
-    cache(b, room_at[(4, 25)], "ammo_shell ammo_9mm")         # reliquary niche
-    cache(b, room_at[(12, 11)], "ammo_9mm ammo_shell ammo_cell medkit", wall=0)
-    cache(b, room_at[(8, 7)], "ammo_9mm")
-    cache(b, room_at[(9, 12)], "ammo_shell")
-    cache(b, room_at[(13, 21)], "medkit")
+    cache(b, polygon_at[(6, 1)], "ammo_9mm medkit", wall=3)
+    cache(b, polygon_at[(1, 7)], "medkit", wall=3)
+    cache(b, polygon_at[(0, 13)], "medkit")                      # records niche
+    cache(b, polygon_at[(2, 19)], "medkit medkit", wall=3)
+    cache(b, polygon_at[(4, 25)], "ammo_shell ammo_9mm")         # reliquary niche
+    cache(b, polygon_at[(12, 11)], "ammo_9mm ammo_shell ammo_cell medkit", wall=0)
+    cache(b, polygon_at[(8, 7)], "ammo_9mm")
+    cache(b, polygon_at[(9, 12)], "ammo_shell")
+    cache(b, polygon_at[(13, 21)], "medkit")
     # armory beat at the fold's threshold (playbook §5.1: entry-threshold
     # placement, centered on the walk line so a route-following player
     # cannot miss it; by campaign time this shotgun is an idempotent
     # duplicate of L3's, standalone it arms the fold fight)
-    cache(b, room_at[(7, 28)], "weapon_shotgun ammo_shell ammo_shell")
-    cache(b, room_at[(6, 29)], "medkit medkit ammo_9mm")      # gate stash
+    cache(b, polygon_at[(7, 28)], "weapon_shotgun ammo_shell ammo_shell")
+    cache(b, polygon_at[(6, 29)], "medkit medkit ammo_9mm")      # gate stash
     # triage shelf at the last normal cell before the fold: medkits are
     # only consumed at <=70 hp (sim rule), so a healthy walker leaves them
-    cache(b, room_at[(7, 30)], "medkit medkit")
+    cache(b, polygon_at[(7, 30)], "medkit medkit")
     return b
 
 
@@ -412,9 +412,9 @@ def main() -> None:
     b = build()
     lvl = b.build()  # validates winding/schema/spawn
     kinds = {}
-    for k in lvl.room_kinds:
+    for k in lvl.polygon_kinds:
         kinds[k] = kinds.get(k, 0) + 1
-    print(f"THE FOLD (dense): rooms={len(lvl.room_verts)} "
+    print(f"THE FOLD (dense): polygons={len(lvl.polygon_verts)} "
           f"connects={len(lvl.connects)} kinds={kinds}")
     if len(sys.argv) > 1:
         save_level(b.to_dict(), sys.argv[1])

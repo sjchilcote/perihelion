@@ -8,9 +8,9 @@ cache routing internally, which is a read-shaped query, not game-state
 mutation.
 
 Coordinate conversions follow `sim.py`'s own convention exactly:
-  screen -> room delta:  `mat_apply_dir(mat_inv(cam), sx, sy)`   (used by sim for moves)
-  room -> screen delta:  `mat_apply_dir(cam, rx, ry)`            (the inverse operation; bots use this)
-  room point -> screen point: `mat_apply(cam, rx, ry)`           (used by bots for aim targets)
+  screen -> polygon delta:  `mat_apply_dir(mat_inv(cam), sx, sy)`   (used by sim for moves)
+  polygon -> screen delta:  `mat_apply_dir(cam, rx, ry)`            (the inverse operation; bots use this)
+  polygon point -> screen point: `mat_apply(cam, rx, ry)`           (used by bots for aim targets)
 """
 
 from __future__ import annotations
@@ -48,7 +48,7 @@ def _weapon_field(name: str) -> int:
 
 def choose_weapon(snapshot: dict, dist: float, n_enemies: int) -> int:
     """Sensible weapon pick for a fight at `dist` against `n_enemies`
-    in-room enemies. A player who OWNS the arsenal uses it (2026-07-16,
+    in-polygon enemies. A player who OWNS the arsenal uses it (2026-07-16,
     the dense-gauntlet recalibration: the old policy never drew rail/tau
     and died to every warden): heavies get the rail, big crowds at range
     get the tau, close crowds the shotgun, chaff the smg."""
@@ -84,7 +84,7 @@ def choose_weapon(snapshot: dict, dist: float, n_enemies: int) -> int:
 
 def nav_to_point(session: GameSession, px: float, py: float,
                   target: tuple[float, float]) -> tuple[float, float]:
-    """Room-local direction toward `target`, expressed as a normalized
+    """Polygon-local direction toward `target`, expressed as a normalized
     screen-space move vector (what `InputFrame.mx/my` expects)."""
     dx, dy = target[0] - px, target[1] - py
     d = math.hypot(dx, dy)
@@ -95,41 +95,41 @@ def nav_to_point(session: GameSession, px: float, py: float,
     return _norm((sx, sy))
 
 
-def nav_to_room(session: GameSession, snapshot: dict, target_room: int,
+def nav_to_polygon(session: GameSession, snapshot: dict, target_polygon: int,
                  target_point: tuple[float, float] | None = None) -> tuple[float, float]:
-    """Screen-space move vector toward `target_room` (or `target_point`
+    """Screen-space move vector toward `target_polygon` (or `target_point`
     within it, once arrived), via the router's next portal edge."""
-    proom = snapshot["room"]
+    ppolygon = snapshot["polygon"]
     px, py = snapshot["pos"]
-    if target_room == proom:
+    if target_polygon == ppolygon:
         if target_point is not None:
             return nav_to_point(session, px, py, target_point)
         return (0.0, 0.0)
-    edge = session.sim.next_edge(proom, target_room)
+    edge = session.sim.next_edge(ppolygon, target_polygon)
     if edge < 0:
         return (0.0, 0.0)
-    tx, ty = session.sim.edge_midpoint(proom, edge)
+    tx, ty = session.sim.edge_midpoint(ppolygon, edge)
     return nav_to_point(session, px, py, (tx, ty))
 
 
 def nav_to_exit(session: GameSession, snapshot: dict) -> tuple[float, float]:
-    proom = snapshot["room"]
+    ppolygon = snapshot["polygon"]
     px, py = snapshot["pos"]
-    exit_room = session.exit_room
-    if exit_room < 0:
+    exit_polygon = session.exit_polygon
+    if exit_polygon < 0:
         return (0.0, 0.0)
-    if proom == exit_room:
+    if ppolygon == exit_polygon:
         return nav_to_point(session, px, py, session.exit_pos)
     edge = snapshot.get("exit_next_edge", -1)
     if edge < 0:
         return (0.0, 0.0)
-    tx, ty = session.sim.edge_midpoint(proom, edge)
+    tx, ty = session.sim.edge_midpoint(ppolygon, edge)
     return nav_to_point(session, px, py, (tx, ty))
 
 
 class Bot:
     """Base policy. Subclasses implement `step`; they may read `session`
-    freely (cam, sim queries, exit_room/exit_pos, screen_w/h) but must never
+    freely (cam, sim queries, exit_polygon/exit_pos, screen_w/h) but must never
     write to it — that's the harness's and sim's job."""
 
     def __init__(self, seed: int = 0):
@@ -178,9 +178,9 @@ class _CombatMixin:
         self._weapon_want_ticks = 0
 
     def _combat_input(self, session: GameSession, snapshot: dict,
-                       enemies_in_room: list[dict], mobile: bool) -> InputFrame:
+                       enemies_in_polygon: list[dict], mobile: bool) -> InputFrame:
         px, py = snapshot["pos"]
-        nearest = min(enemies_in_room, key=lambda e: _dist(e["pos"], (px, py)))
+        nearest = min(enemies_in_polygon, key=lambda e: _dist(e["pos"], (px, py)))
         ex, ey = nearest["pos"]
         dx, dy = ex - px, ey - py
         dist = math.hypot(dx, dy) or 1e-6
@@ -203,14 +203,14 @@ class _CombatMixin:
         # switch hysteresis: choose_weapon is stateless, and a fight near a
         # range threshold re-picks every tick — the equipped weapon flaps
         # (and the HUD flickers). Only switch after the same pick holds.
-        want = choose_weapon(snapshot, dist, len(enemies_in_room))
+        want = choose_weapon(snapshot, dist, len(enemies_in_polygon))
         cur = WEAPON_ORDER.index(snapshot["weapon"]) + 1 \
             if snapshot["weapon"] in WEAPON_ORDER else 0
         self._weapon_want_ticks = self._weapon_want_ticks + 1 \
             if want == self._weapon_want else 0
         self._weapon_want = want
         inp.weapon = want if (want == cur or self._weapon_want_ticks >= 12) else 0
-        inp.alt = (len(enemies_in_room) >= 3 and snapshot["lightning_ready"]
+        inp.alt = (len(enemies_in_polygon) >= 3 and snapshot["lightning_ready"]
                    and "lightning" in snapshot["weapons"])
 
         if mobile:
@@ -218,25 +218,25 @@ class _CombatMixin:
             ux, uy = dx / dist, dy / dist
             perp = (-uy, ux)
             if weapon_name == "knife":
-                move_room = (ux, uy)
+                move_polygon = (ux, uy)
             elif dist < STRAFE_RANGE_MIN:
-                move_room = (-ux, -uy)
+                move_polygon = (-ux, -uy)
             elif dist > STRAFE_RANGE_MAX:
-                move_room = (ux, uy)
+                move_polygon = (ux, uy)
             else:
                 j = self.rng.uniform(-0.3, 0.3)
-                move_room = (perp[0] * self._strafe_sign + j * ux,
+                move_polygon = (perp[0] * self._strafe_sign + j * ux,
                              perp[1] * self._strafe_sign + j * uy)
                 if self.rng.random() < 0.02:
                     self._strafe_sign *= -1
-            mvx, mvy = _norm(move_room)
+            mvx, mvy = _norm(move_polygon)
             sx, sy = necore.mat_apply_dir(session.cam, mvx, mvy)
             inp.mx, inp.my = _norm((sx, sy))
         return inp
 
 
 class AggroBot(_CombatMixin, _UnstickMixin, Bot):
-    """Primary campaign-clearing bot: fights whatever's in the room, seeks
+    """Primary campaign-clearing bot: fights whatever's in the polygon, seeks
     medkits when hurt and safe, otherwise beelines for the exit (detouring
     for ammo when critically low)."""
 
@@ -248,14 +248,14 @@ class AggroBot(_CombatMixin, _UnstickMixin, Bot):
         self._combat_streak = 0
 
     def step(self, snapshot: dict, session: GameSession) -> InputFrame:
-        proom = snapshot["room"]
+        ppolygon = snapshot["polygon"]
         px, py = snapshot["pos"]
-        enemies_in_room = [e for e in snapshot["enemies"] if e["room"] == proom]
+        enemies_in_polygon = [e for e in snapshot["enemies"] if e["polygon"] == ppolygon]
 
-        if enemies_in_room:
+        if enemies_in_polygon:
             self._combat_streak += 1
-            inp = self._combat_input(session, snapshot, enemies_in_room, mobile=True)
-            # fighting retreat: pure strafe never leaves a room, and a
+            inp = self._combat_input(session, snapshot, enemies_in_polygon, mobile=True)
+            # fighting retreat: pure strafe never leaves a polygon, and a
             # chunk that restocks on death can feed enemies in forever.
             # Pressure DECAYS rather than resets out of combat: a doorway
             # ping-pong (strafe shoves the bot back through the portal,
@@ -274,21 +274,21 @@ class AggroBot(_CombatMixin, _UnstickMixin, Bot):
             if snapshot["hp"] < 60 and medkits:
                 # Commit to one medkit until it's gone: a per-tick pick can
                 # tie-break between medkits behind opposite portals and
-                # oscillate forever. Positions from different rooms are in
+                # oscillate forever. Positions from different polygons are in
                 # different local frames, so distance is not a valid key.
                 target = None
                 if self._med_target is not None:
                     target = next((p for p in medkits
-                                   if (p["room"], p["pos"]) == self._med_target),
+                                   if (p["polygon"], p["pos"]) == self._med_target),
                                   None)
                 if target is None:
-                    target = min(medkits, key=lambda p: (p["hops"], p["room"]))
-                    self._med_target = (target["room"], target["pos"])
-                if target["room"] == proom:
+                    target = min(medkits, key=lambda p: (p["hops"], p["polygon"]))
+                    self._med_target = (target["polygon"], target["pos"])
+                if target["polygon"] == ppolygon:
                     inp.mx, inp.my = nav_to_point(session, px, py, target["pos"])
                 else:
-                    inp.mx, inp.my = nav_to_room(session, snapshot,
-                                                 target["room"], None)
+                    inp.mx, inp.my = nav_to_polygon(session, snapshot,
+                                                 target["polygon"], None)
             else:
                 self._med_target = None
                 inp.mx, inp.my = self._navigate(session, snapshot)
@@ -297,7 +297,7 @@ class AggroBot(_CombatMixin, _UnstickMixin, Bot):
         return self._apply_unstick(px, py, inp)
 
     def _navigate(self, session: GameSession, snapshot: dict) -> tuple[float, float]:
-        proom = snapshot["room"]
+        ppolygon = snapshot["polygon"]
         ammo = snapshot["ammo"]
         # keys first: a locked exit or door outranks everything but survival
         needed = set(snapshot.get("door_keys_needed", []))
@@ -309,25 +309,25 @@ class AggroBot(_CombatMixin, _UnstickMixin, Bot):
                     if p["kind"] in wanted and p["hops"] >= 0]
             if keys:
                 target = min(keys, key=lambda p: p["hops"])
-                target_point = target["pos"] if target["room"] == proom else None
-                return nav_to_room(session, snapshot, target["room"], target_point)
+                target_point = target["pos"] if target["polygon"] == ppolygon else None
+                return nav_to_polygon(session, snapshot, target["polygon"], target_point)
         # gate enemies: hunt the kind holding the exit shut
         if snapshot.get("exit_gate_remaining", 0):
             kind = snapshot["exit_gate_kind"]
-            rng = snapshot.get("exit_gate_rooms")
+            rng = snapshot.get("exit_gate_polygons")
             prey = [e for e in snapshot["enemies"]
                     if e["kind"] == kind and e["hops"] >= 0
-                    and (rng is None or rng[0] <= e["room"] < rng[1])]
+                    and (rng is None or rng[0] <= e["polygon"] < rng[1])]
             if prey:
                 target = min(prey, key=lambda e: e["hops"])
-                return nav_to_room(session, snapshot, target["room"], None)
+                return nav_to_polygon(session, snapshot, target["polygon"], None)
         if sum(ammo.values()) <= 6:
             candidates = [p for p in snapshot["pickups"]
                           if p["kind"].startswith("ammo_") and p["hops"] >= 0]
             if candidates:
                 target = min(candidates, key=lambda p: p["hops"])
-                target_point = target["pos"] if target["room"] == proom else None
-                return nav_to_room(session, snapshot, target["room"], target_point)
+                target_point = target["pos"] if target["polygon"] == ppolygon else None
+                return nav_to_polygon(session, snapshot, target["polygon"], target_point)
         return nav_to_exit(session, snapshot)
 
 
@@ -340,14 +340,14 @@ class SteadyBot(AggroBot):
     ~100% for it while AggroBot grinds — that gap IS the difficulty).
     Hard-mode completability gates should use SteadyBot."""
 
-    def _combat_input(self, session, snapshot, enemies_in_room, mobile):
-        inp = super()._combat_input(session, snapshot, enemies_in_room, mobile)
+    def _combat_input(self, session, snapshot, enemies_in_polygon, mobile):
+        inp = super()._combat_input(session, snapshot, enemies_in_polygon, mobile)
         self._aim_jitter = max(-0.11, min(0.11, self._aim_jitter))
         return inp
 
 
 class PacifistBot(_UnstickMixin, Bot):
-    """Never fires. Flees any enemy sharing its room, otherwise navigates
+    """Never fires. Flees any enemy sharing its polygon, otherwise navigates
     toward the exit exactly like AggroBot's non-combat movement."""
 
     def __init__(self, seed: int = 0):
@@ -355,13 +355,13 @@ class PacifistBot(_UnstickMixin, Bot):
         self._init_unstick()
 
     def step(self, snapshot: dict, session: GameSession) -> InputFrame:
-        proom = snapshot["room"]
+        ppolygon = snapshot["polygon"]
         px, py = snapshot["pos"]
         inp = InputFrame(fire=False, alt=False)
-        enemies_in_room = [e for e in snapshot["enemies"] if e["room"] == proom]
+        enemies_in_polygon = [e for e in snapshot["enemies"] if e["polygon"] == ppolygon]
 
-        if enemies_in_room:
-            nearest = min(enemies_in_room, key=lambda e: _dist(e["pos"], (px, py)))
+        if enemies_in_polygon:
+            nearest = min(enemies_in_polygon, key=lambda e: _dist(e["pos"], (px, py)))
             ex, ey = nearest["pos"]
             inp.mx, inp.my = nav_to_point(session, px, py, (2 * px - ex, 2 * py - ey))
             inp.ax, inp.ay = necore.mat_apply(session.cam, ex, ey)
@@ -374,7 +374,7 @@ class PacifistBot(_UnstickMixin, Bot):
 
 class CamperBot(_CombatMixin, Bot):
     """Holds position. Never travels except a small side-to-side strafe
-    while actively fighting; fires at whatever's in the room."""
+    while actively fighting; fires at whatever's in the polygon."""
 
     def __init__(self, seed: int = 0):
         super().__init__(seed)
@@ -382,13 +382,13 @@ class CamperBot(_CombatMixin, Bot):
         self._strafe_phase = 0.0
 
     def step(self, snapshot: dict, session: GameSession) -> InputFrame:
-        proom = snapshot["room"]
+        ppolygon = snapshot["polygon"]
         px, py = snapshot["pos"]
-        enemies_in_room = [e for e in snapshot["enemies"] if e["room"] == proom]
+        enemies_in_polygon = [e for e in snapshot["enemies"] if e["polygon"] == ppolygon]
 
-        if enemies_in_room:
-            inp = self._combat_input(session, snapshot, enemies_in_room, mobile=False)
-            nearest = min(enemies_in_room, key=lambda e: _dist(e["pos"], (px, py)))
+        if enemies_in_polygon:
+            inp = self._combat_input(session, snapshot, enemies_in_polygon, mobile=False)
+            nearest = min(enemies_in_polygon, key=lambda e: _dist(e["pos"], (px, py)))
             ex, ey = nearest["pos"]
             dist = _dist((ex, ey), (px, py)) or 1e-6
             perp = (-(ey - py) / dist, (ex - px) / dist)
@@ -407,9 +407,9 @@ class CamperBot(_CombatMixin, Bot):
 
 
 class ExplorerBot(_CombatMixin, _UnstickMixin, Bot):
-    """Beelines for the nearest unvisited room (BFS/hop-distance over the
-    room graph), tracking `snapshot['room']` over time. Fights like
-    AggroBot when threatened; heads for the exit once every reachable room
+    """Beelines for the nearest unvisited polygon (BFS/hop-distance over the
+    polygon graph), tracking `snapshot['polygon']` over time. Fights like
+    AggroBot when threatened; heads for the exit once every reachable polygon
     has been seen."""
 
     def __init__(self, seed: int = 0):
@@ -419,32 +419,32 @@ class ExplorerBot(_CombatMixin, _UnstickMixin, Bot):
         self.visited: set[int] = set()
 
     def step(self, snapshot: dict, session: GameSession) -> InputFrame:
-        proom = snapshot["room"]
+        ppolygon = snapshot["polygon"]
         px, py = snapshot["pos"]
-        self.visited.add(proom)
-        enemies_in_room = [e for e in snapshot["enemies"] if e["room"] == proom]
+        self.visited.add(ppolygon)
+        enemies_in_polygon = [e for e in snapshot["enemies"] if e["polygon"] == ppolygon]
 
-        if enemies_in_room:
-            inp = self._combat_input(session, snapshot, enemies_in_room, mobile=True)
+        if enemies_in_polygon:
+            inp = self._combat_input(session, snapshot, enemies_in_polygon, mobile=True)
         else:
             inp = InputFrame()
-            target_room = self._pick_unvisited(session, proom)
-            if target_room is not None:
-                inp.mx, inp.my = nav_to_room(session, snapshot, target_room)
+            target_polygon = self._pick_unvisited(session, ppolygon)
+            if target_polygon is not None:
+                inp.mx, inp.my = nav_to_polygon(session, snapshot, target_polygon)
             else:
                 inp.mx, inp.my = nav_to_exit(session, snapshot)
             inp.ax, inp.ay = session.screen_w / 2.0, session.screen_h / 2.0
 
         return self._apply_unstick(px, py, inp)
 
-    def _pick_unvisited(self, session: GameSession, proom: int) -> int | None:
-        best_room, best_hops = None, None
-        for r in range(session.sim.num_rooms()):
+    def _pick_unvisited(self, session: GameSession, ppolygon: int) -> int | None:
+        best_polygon, best_hops = None, None
+        for r in range(session.sim.num_polygons()):
             if r in self.visited:
                 continue
-            hops = session.sim.hop_distance(proom, r)
+            hops = session.sim.hop_distance(ppolygon, r)
             if hops < 0:
                 continue
             if best_hops is None or hops < best_hops:
-                best_hops, best_room = hops, r
-        return best_room
+                best_hops, best_polygon = hops, r
+        return best_polygon

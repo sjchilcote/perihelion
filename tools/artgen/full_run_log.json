@@ -1,7 +1,7 @@
 [
   {
     "level": "l01",
-    "n_rooms": 1,
+    "n_polygons": 1,
     "n_processed": 1,
     "n_accepted": 0,
     "n_bare": 1,
@@ -12,7 +12,7 @@
   },
   {
     "level": "l01",
-    "n_rooms": 3,
+    "n_polygons": 3,
     "n_processed": 2,
     "n_accepted": 0,
     "n_bare": 0,
@@ -23,7 +23,7 @@
   },
   {
     "level": "l01",
-    "n_rooms": 4,
+    "n_polygons": 4,
     "n_processed": 3,
     "n_accepted": 0,
     "n_bare": 3,
@@ -34,7 +34,7 @@
   },
   {
     "level": "l01",
-    "n_rooms": 10,
+    "n_polygons": 10,
     "n_processed": 10,
     "n_accepted": 0,
     "n_bare": 10,
@@ -45,7 +45,7 @@
   },
   {
     "level": "l01",
-    "n_rooms": 10,
+    "n_polygons": 10,
     "n_processed": 10,
     "n_accepted": 7,
     "n_bare": 3,
@@ -56,7 +56,7 @@
   },
   {
     "level": "l01",
-    "n_rooms": 120,
+    "n_polygons": 120,
     "n_processed": 89,
     "n_accepted": 20,
     "n_bare": 60,
@@ -67,7 +67,7 @@
   },
   {
     "level": "l01",
-    "n_rooms": 120,
+    "n_polygons": 120,
     "n_processed": 9,
     "n_accepted": 5,
     "n_bare": 4,
@@ -78,7 +78,7 @@
   },
   {
     "level": "l02",
-    "n_rooms": 143,
+    "n_polygons": 143,
     "n_processed": 143,
     "n_accepted": 26,
     "n_bare": 117,
@@ -89,7 +89,7 @@
   },
   {
     "level": "l03",
-    "n_rooms": 177,
+    "n_polygons": 177,
     "n_processed": 177,
     "n_accepted": 38,
     "n_bare": 76,
@@ -100,7 +100,7 @@
   },
   {
     "level": "l03",
-    "n_rooms": 177,
+    "n_polygons": 177,
     "n_processed": 63,
     "n_accepted": 1,
     "n_bare": 0,
@@ -111,7 +111,7 @@
   },
   {
     "level": "l03",
-    "n_rooms": 177,
+    "n_polygons": 177,
     "n_processed": 62,
     "n_accepted": 22,
     "n_bare": 40,
@@ -122,7 +122,7 @@
   },
   {
     "level": null,
-    "n_rooms": 0,
+    "n_polygons": 0,
     "n_processed": 0,
     "budget_stopped": false,
     "n_accepted": 0,
@@ -134,7 +134,7 @@
   },
   {
     "level": null,
-    "n_rooms": 12,
+    "n_polygons": 12,
     "n_processed": 12,
     "budget_stopped": false,
     "n_accepted": 5,
@@ -146,7 +146,7 @@
   },
   {
     "level": "l04",
-    "n_rooms": 131,
+    "n_polygons": 131,
     "n_processed": 55,
     "budget_stopped": false,
     "n_accepted": 12,

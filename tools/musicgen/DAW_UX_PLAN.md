@@ -79,7 +79,7 @@ with each item ("force X; the indicator must say so").
 12. **Thread hygiene backing all of the above:** render-generation cap
     (drop superseded renders early), stem-cache lock, single writer for
     status. CLIP gets an amount + location + reset (jump-to-loudest
-    doubles as the §1.5 headroom check).
+    doubles as the §1.5 headpolygon check).
 13. **Startup failures** are raw tracebacks post window-flash → §10
     message + nonzero exit ("recording not found: <path>").
 14. **Truth-adjacent visuals** (display asserting things the mix

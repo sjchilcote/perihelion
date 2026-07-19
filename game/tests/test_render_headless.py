@@ -1,6 +1,6 @@
 """Headless smoke test for the renderer: SDL_VIDEODRIVER=dummy, no window.
 
-Builds the built-in 3-room debug level, drives 240 ticks of scripted input
+Builds the built-in 3-polygon debug level, drives 240 ticks of scripted input
 (move + fire) through GameSession, feeds fx into Renderer.consume_fx every
 tick, and draws onto a plain Surface every 30 ticks. Verifies the renderer
 never raises, actually paints something (not a black frame), the player
@@ -38,7 +38,7 @@ DRAW_TIME_BUDGET_S = 0.012
 
 def _scripted_input(tick: int) -> InputFrame:
     # Drift right and slightly down across the corridor, aiming ahead, firing
-    # in bursts -- exercises movement, room transfer, weapon fx (flash,
+    # in bursts -- exercises movement, polygon transfer, weapon fx (flash,
     # tracers), and enemy contact (blood/hitflash/gib fx) all at once.
     fire = (tick % 20) < 8
     return InputFrame(

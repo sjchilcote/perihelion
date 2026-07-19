@@ -1,15 +1,15 @@
 """Director-ordered occlusion gate (2026-07-11): "the light will need to
 be, you know - occluded." Small, fast, deterministic check derived
 straight from tools/playtest/light_occlusion_demo.py's own world and
-scripted walk: builds the same handcrafted rooms, runs the SAME input
+scripted walk: builds the same handcrafted polygons, runs the SAME input
 tape up to each shot's marked tick, and probes the SAME world points the
 full capture verifies -- lit points must read bright, dark points must
 read near-black, and the contrast ratio must be extreme. No video
 encode here (that's the capture tool's job); this is the geometry/render
 invariant the demo exists to prove, gated in CI.
 
-Root-cause note for future maintainers of this world: LevelBuilder rooms
-authored on a SHARED absolute canvas (so two rooms' walls are exactly
+Root-cause note for future maintainers of this world: LevelBuilder polygons
+authored on a SHARED absolute canvas (so two polygons' walls are exactly
 collinear beyond just their doorway) get every coincident wall segment
 autoconnected by `resolve()`, not just the intended door -- silently
 deleting the walls this test exists to prove light stops at. Every
@@ -51,7 +51,7 @@ def test_no_spurious_autoconnects():
     level, _meta = locc.build_world()
     assert len(level.connects) == EXPECTED_DOOR_COUNT, (
         f"{len(level.connects)} connects, expected {EXPECTED_DOOR_COUNT} -- "
-        "a room pair on the shared canvas is autoconnecting beyond its "
+        "a polygon pair on the shared canvas is autoconnecting beyond its "
         "authored doorway (see module docstring)")
 
 
@@ -80,9 +80,9 @@ def _run_to_marks(marks_needed: set[str]):
             name = still_ticks[tick]
             if name in marks_needed and name in locc.PROBES:
                 resolved = []
-                for label, room_key, wx, wy, expect in locc.PROBES[name]:
-                    room = meta[room_key]
-                    sxy = locc.screen_xy_for(session, ren, room, wx, wy)
+                for label, polygon_key, wx, wy, expect in locc.PROBES[name]:
+                    polygon = meta[polygon_key]
+                    sxy = locc.screen_xy_for(session, ren, polygon, wx, wy)
                     resolved.append((label, sxy, expect))
                 probes_at[name] = resolved
     return surf, probes_at

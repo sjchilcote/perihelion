@@ -2,9 +2,9 @@
 identity, bot completion of a smoke level, and engine perf budgets.
 
 Levels are built via `LevelBuilder`. `LevelBuilder.entity/player/exit` take
-*absolute canvas coordinates* (matching whatever origin the room's own
-`.rect(x, y, w, h)`/`.ngon(...)` call used) — not room-local offsets — so
-every placement below re-adds the room's own origin.
+*absolute canvas coordinates* (matching whatever origin the polygon's own
+`.rect(x, y, w, h)`/`.ngon(...)` call used) — not polygon-local offsets — so
+every placement below re-adds the polygon's own origin.
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ from perihelion.testkit import (
 from perihelion.testkit.perf import (
     assert_perf_budgets,
     build_infinite_corridor,
-    build_mirror_room,
+    build_mirror_polygon,
     build_radial_hub,
     run_perf_suite,
 )
@@ -40,8 +40,8 @@ SMOKE_MAX_TICKS = 60 * 120
 
 
 def build_smoke_level() -> tuple[Level, dict]:
-    """4-room chain, 2 husks + ammo along the way, exit at the far end."""
-    b = LevelBuilder("smoke_4room")
+    """4-polygon chain, 2 husks + ammo along the way, exit at the far end."""
+    b = LevelBuilder("smoke_4polygon")
     r0 = b.rect(0, 0, 200, 200)
     r1 = b.rect(300, 0, 200, 200)
     r2 = b.rect(600, 0, 200, 200)
@@ -65,7 +65,7 @@ def build_smoke_level() -> tuple[Level, dict]:
 
 
 def build_empty_level() -> Level:
-    """Two connected rooms, no enemies, exit at the far end."""
+    """Two connected polygons, no enemies, exit at the far end."""
     b = LevelBuilder("smoke_empty")
     r0 = b.rect(0, 0, 200, 200)
     r1 = b.rect(300, 0, 200, 200)
@@ -91,7 +91,7 @@ def test_two_identical_aggro_runs_are_bit_identical():
     assert res1.ammo_timeline == res2.ammo_timeline
     assert res1.hp_timeline == res2.hp_timeline
     m1, m2 = dict(res1.metrics), dict(res2.metrics)
-    assert m1.pop("rooms_visited") == m2.pop("rooms_visited")
+    assert m1.pop("polygons_visited") == m2.pop("polygons_visited")
     assert m1 == m2
 
 
@@ -102,7 +102,7 @@ def test_explorer_bot_run_is_deterministic():
     assert res1.outcome == res2.outcome
     assert res1.ticks_alive == res2.ticks_alive
     assert res1.metrics["kills"] == res2.metrics["kills"]
-    assert res1.metrics["rooms_visited"] == res2.metrics["rooms_visited"]
+    assert res1.metrics["polygons_visited"] == res2.metrics["polygons_visited"]
 
 
 # ---------------------------------------------------------------------------
@@ -227,7 +227,7 @@ def test_perf_budgets_fast_subset():
     """Cheap sanity check on two of the four worst-case worlds at reduced
     tick count — this is the default, always-on perf gate."""
     worlds = {
-        "mirror_room": build_mirror_room(),
+        "mirror_polygon": build_mirror_polygon(),
         "infinite_corridor": build_infinite_corridor(),
     }
     results = run_perf_suite(ticks=120, worlds=worlds, verbose=False)
@@ -247,5 +247,5 @@ def test_perf_budgets_full_suite():
 
 def test_radial_hub_world_is_well_formed():
     level = build_radial_hub()
-    assert len(level.room_verts) == 25  # 1 hub + 8 loops * 3 rooms
-    assert len(level.entities) == 24  # 1 husk per loop room
+    assert len(level.polygon_verts) == 25  # 1 hub + 8 loops * 3 polygons
+    assert len(level.entities) == 24  # 1 husk per loop polygon

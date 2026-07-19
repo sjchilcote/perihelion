@@ -1,6 +1,6 @@
 """L10 — PERIHELION CORE, rebuilt at Marathon density. Standalone module.
 
-The diegetic skeleton of campaign.py's l10() survives intact and first (room
+The diegetic skeleton of campaign.py's l10() survives intact and first (polygon
 indices 0-8 unchanged: airlock, hexes 0-5, sanctum, alcove): the Cayley-graph
 hex core (the paradox construct — its r/s generator wiring is untouched), the
 vault door + WATCH SIGNET key logic, every terminal verbatim, the warden gate,
@@ -51,23 +51,23 @@ from perihelion.levels import LevelBuilder  # noqa: E402
 # --------------------------------------------------------------------------
 
 
-def center(b: LevelBuilder, room: int) -> tuple[float, float]:
-    vs = b.data["rooms"][room]["verts"]
+def center(b: LevelBuilder, polygon: int) -> tuple[float, float]:
+    vs = b.data["polygons"][polygon]["verts"]
     return (sum(v[0] for v in vs) / len(vs), sum(v[1] for v in vs) / len(vs))
 
 
-def squad(b: LevelBuilder, room: int, spec: str, spread: float = 32.0):
+def squad(b: LevelBuilder, polygon: int, spec: str, spread: float = 32.0):
     kinds = spec.split()
-    cx, cy = center(b, room)
+    cx, cy = center(b, polygon)
     n = len(kinds)
     for i, k in enumerate(kinds):
         a = 2 * math.pi * i / max(1, n) + 0.7
         r = spread if n > 1 else 0.0
-        b.entity(room, k, (cx + r * math.cos(a), cy + r * math.sin(a)))
+        b.entity(polygon, k, (cx + r * math.cos(a), cy + r * math.sin(a)))
 
 
-def wall_basis(b: LevelBuilder, room: int, wall: int, t: float = 0.5):
-    verts = b.data["rooms"][room]["verts"]
+def wall_basis(b: LevelBuilder, polygon: int, wall: int, t: float = 0.5):
+    verts = b.data["polygons"][polygon]["verts"]
     n = len(verts)
     cx = sum(v[0] for v in verts) / n
     cy = sum(v[1] for v in verts) / n
@@ -83,26 +83,26 @@ def wall_basis(b: LevelBuilder, room: int, wall: int, t: float = 0.5):
     return mx, my, tx, ty, nx, ny
 
 
-def wall_pos(b: LevelBuilder, room: int, wall: int, t: float = 0.5,
+def wall_pos(b: LevelBuilder, polygon: int, wall: int, t: float = 0.5,
              inset: float = 15.0) -> tuple[float, float]:
-    mx, my, tx, ty, nx, ny = wall_basis(b, room, wall, t)
+    mx, my, tx, ty, nx, ny = wall_basis(b, polygon, wall, t)
     return (mx + nx * inset, my + ny * inset)
 
 
-def cache(b: LevelBuilder, room: int, spec: str, off=(0.0, 0.0),
+def cache(b: LevelBuilder, polygon: int, spec: str, off=(0.0, 0.0),
           wall: int | None = None, t: float = 0.5, inset: float = 16.0):
     if wall is not None:
-        mx, my, tx, ty, nx, ny = wall_basis(b, room, wall, t)
+        mx, my, tx, ty, nx, ny = wall_basis(b, polygon, wall, t)
         bx, by = mx + nx * inset, my + ny * inset
         items = spec.split()
         span = (len(items) - 1) * 13.0
         for i, k in enumerate(items):
             tt = -span / 2.0 + i * 13.0
-            b.entity(room, k, (bx + tx * tt, by + ty * tt))
+            b.entity(polygon, k, (bx + tx * tt, by + ty * tt))
         return
-    cx, cy = center(b, room)
+    cx, cy = center(b, polygon)
     for i, k in enumerate(spec.split()):
-        b.entity(room, k, (cx + off[0] + (i % 3) * 15 - 15,
+        b.entity(polygon, k, (cx + off[0] + (i % 3) * 15 - 15,
                            cy + off[1] + (i // 3) * 15))
 
 
@@ -179,7 +179,7 @@ class Walk:
                 return (p[0] + dx / l * c, p[1] + dy / l * c)
 
             verts[i:i + 1] = [toward(cpt, prev), toward(cpt, nxt)]
-        rid = self.b.room(verts, detail_seed=self._seed(),
+        rid = self.b.polygon(verts, detail_seed=self._seed(),
                           kind=kind or self.kind)
         self.rects[rid] = (rx, ry, rw, rh)
         self.cells.append(rid)
@@ -245,7 +245,7 @@ def siderow(b: LevelBuilder, walk: Walk, cells: list[int], side: str,
 
 class Chamber:
     """cols x rows grid of touching rect cells — interior seams weld to
-    full-width portals (rooms-as-cell-clusters, standards rule 2). `holes`
+    full-width portals (polygons-as-cell-clusters, standards rule 2). `holes`
     is a set of (col, row) left solid: a pillared hall, corridors bending
     around mass."""
 
@@ -302,9 +302,9 @@ def octagon_edge_mid(cx: float, cy: float, r: float, n: int, phase: float,
 
 def l10() -> LevelBuilder:
     b = LevelBuilder("PERIHELION CORE", 4, "amb_drone_finale")
-    b.data["alert_hops"] = 1  # sound folds strangely between identical rooms
+    b.data["alert_hops"] = 1  # sound folds strangely between identical polygons
 
-    # ---- skeleton: rooms 0-8 exactly as campaign.l10() authors them ------
+    # ---- skeleton: polygons 0-8 exactly as campaign.l10() authors them ------
     airlock = b.rect(0, 10, 160, 120, kind="corridor")
     hexes = []
     for i in range(6):
@@ -354,8 +354,8 @@ def l10() -> LevelBuilder:
                "MAKE NO EFFORT AT RECOVERY.")
     b.terminal(sanctum, wall_pos(b, sanctum, 2, 0.5, 15.0),
                "[The door beneath the vault does not\n"
-               "speak in words. It rearranges the room\n"
-               "until the room is a sentence.\n"
+               "speak in words. It rearranges the polygon\n"
+               "until the polygon is a sentence.\n"
                "The sentence is an offer.]\n\n"
                "GUARD / ACCEPT / KNEEL / BURN\n\n"
                "[You think of Ratio. You guard.]")
@@ -393,7 +393,7 @@ def l10() -> LevelBuilder:
     squad(b, hexes[5], "husk husk spitter")
     squad(b, hexes[3], "brute")
     squad(b, sanctum, "warden")
-    for _e in b.data["rooms"][sanctum]["entities"]:
+    for _e in b.data["polygons"][sanctum]["entities"]:
         if _e["type"] == "warden":
             _e["props"] = {"tether": 1}
     cache(b, hexes[2], "ammo_cell ammo_shell medkit medkit", wall=HEX_FREE)
@@ -411,7 +411,7 @@ def l10() -> LevelBuilder:
                "knowing or not.")
     cache(b, sanctum, "medkit ammo_cell ammo_shell", wall=6)
     # dressings left at the vault-door post (mesh-rebuild addition, playbook
-    # §5.1 threshold logic: hexes[3] is the one room every route to the
+    # §5.1 threshold logic: hexes[3] is the one polygon every route to the
     # vault crosses; walkover medkits only consume when actually hurt)
     cache(b, hexes[3], "medkit medkit", off=(0.0, 46.0))
     # the guard's own stations: dressings racked on the sanctum's free
@@ -649,7 +649,7 @@ def l10() -> LevelBuilder:
     siderow(b, s7, [c7c, s7_post], "N", depth=72)
     siderow(b, s7, [c7c], "S", depth=72)
     # ...and the ordinary reasserts itself: three core-kind cells, the
-    # last ordinary rooms before the construct (otherworld never touches
+    # last ordinary polygons before the construct (otherworld never touches
     # the paradox approach threshold)
     s7.turn("N", kind="core")
     ante1 = s7.cell(96, kind="core")
@@ -718,7 +718,7 @@ if __name__ == "__main__":
     from collections import Counter
 
     d = build()
-    n = len(d["rooms"])
+    n = len(d["polygons"])
     deg = Counter()
     for a, ea, bb, eb in d["connects"]:
         deg[a] += 1
@@ -727,8 +727,8 @@ if __name__ == "__main__":
         deg[dr["a"]] += 1
         deg[dr["b"]] += 1
     hist = Counter(deg.get(i, 0) for i in range(n))
-    vhist = Counter(len(r["verts"]) for r in d["rooms"])
-    kinds = Counter(r.get("kind", "generic") for r in d["rooms"])
+    vhist = Counter(len(r["verts"]) for r in d["polygons"])
+    kinds = Counter(r.get("kind", "generic") for r in d["polygons"])
     print(f"cells={n} connects={len(d['connects'])} doors={len(d['doors'])}")
     print("degree:", dict(sorted(hist.items())))
     print("verts:", dict(sorted(vhist.items())))

@@ -12,7 +12,7 @@ signature: the tick at which the camera's rounding lattice jumps,
 re-rasterizing every 1px seam/grate line at once.
 
 SPAN mode (--span T1 T2): world-aligned comparison of two frames far
-apart -- one before and one after a room crossing. Coarse-aligns by FFT
+apart -- one before and one after a polygon crossing. Coarse-aligns by FFT
 phase correlation, then refines at 0.25px steps around the coarse peak.
 This is the instrument for the PERSISTENT form of the defect: after a
 bad re-base the rounding lattice shifts and STAYS shifted -- integer
@@ -64,7 +64,7 @@ def load_gray(path: Path) -> np.ndarray:
 def highpass(img: np.ndarray, k: int = 5) -> np.ndarray:
     """Subtract a k x k box blur: keeps the 1px seam/grate lines the
     phase analysis cares about, discards low-frequency content (the
-    player's light pool, room shading) whose smooth motion otherwise
+    player's light pool, polygon shading) whose smooth motion otherwise
     biases the sub-pixel fit by fractions of a pixel."""
     kern = np.ones(k) / k
     blur = np.apply_along_axis(

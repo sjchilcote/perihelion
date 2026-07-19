@@ -1,20 +1,20 @@
 """tools/artgen/item_layouts.py
 
-Per-room ITEM LAYOUT data for the labeled-box conditioning workstream
+Per-polygon ITEM LAYOUT data for the labeled-box conditioning workstream
 (director's order, 2026-07-13, workstream 1): where specific pieces of
-equipment belong inside a room, derived from the room's floorplan role
+equipment belong inside a polygon, derived from the polygon's floorplan role
 (FLOORPLANS.md) and the Testator-vs-MIRIAD authorship lanes
 (authorship-lanes constitution).
 
-This is DATA, not per-room hand authoring: a per-kind template of labeled
-zones (fractional boxes in the room's own bounding box, 0..1 on each axis,
-same convention as pilot_texture_lib's room-local pixel frame) captures the
+This is DATA, not per-polygon hand authoring: a per-kind template of labeled
+zones (fractional boxes in the polygon's own bounding box, 0..1 on each axis,
+same convention as pilot_texture_lib's polygon-local pixel frame) captures the
 floorplan role described in FLOORPLANS.md/FLOORPLAN_NOTE, and
-`room_item_layout()` instantiates it for a specific room. Zones are
-axis-aligned fractions of the room's BOUNDING BOX (not the polygon itself)
--- exactly matching the frame `pilot_texture_lib.room_mask`/`_room_xform`
+`polygon_item_layout()` instantiates it for a specific polygon. Zones are
+axis-aligned fractions of the polygon's BOUNDING BOX (not the polygon itself)
+-- exactly matching the frame `pilot_texture_lib.polygon_mask`/`_polygon_xform`
 already establish, so box pixel coordinates fall out of the same transform
-every other stage in the pipeline uses (no separate room-space convention
+every other stage in the pipeline uses (no separate polygon-space convention
 to keep in sync).
 
 Every item carries a `lane` (MIRIAD or TESTATOR, per authorship-lanes) so
@@ -31,7 +31,7 @@ from pathlib import Path
 
 from tools.artgen.pilot_texture_lib import TESTATOR_KINDS
 
-# Each entry: (label, (x0, y0, x1, y1) fractional box in room bbox, lane,
+# Each entry: (label, (x0, y0, x1, y1) fractional box in polygon bbox, lane,
 # one-line justification -- the in-world reason this item sits there,
 # distilled from FLOORPLANS.md's per-kind floorplan rationale).
 KIND_ITEM_TEMPLATE: dict[str, list[tuple[str, tuple[float, float, float, float], str, str]]] = {
@@ -55,9 +55,9 @@ KIND_ITEM_TEMPLATE: dict[str, list[tuple[str, tuple[float, float, float, float],
     ],
     "storage": [
         ("CRATE ROW", (0.05, 0.06, 0.32, 0.92), "MIRIAD",
-         "stockroom row, aisle-perpendicular so a cart can push straight through"),
+         "stockpolygon row, aisle-perpendicular so a cart can push straight through"),
         ("CRATE ROW", (0.68, 0.06, 0.95, 0.92), "MIRIAD",
-         "second stockroom row mirroring the first, aisle between them"),
+         "second stockpolygon row mirroring the first, aisle between them"),
         ("SHELF LINE", (0.0, 0.0, 1.0, 0.05), "MIRIAD",
          "wall shelving out of the cart aisle"),
     ],
@@ -67,11 +67,11 @@ KIND_ITEM_TEMPLATE: dict[str, list[tuple[str, tuple[float, float, float, float],
         ("WALL TROUGH", (0.0, 0.84, 1.0, 1.0), "MIRIAD",
          "second wall-mounted growing-bed row on the opposite wall"),
         ("CENTER TROUGH", (0.36, 0.36, 0.64, 0.64), "MIRIAD",
-         "single island bed offset from room center, its own stain halo"),
+         "single island bed offset from polygon center, its own stain halo"),
     ],
     "lab": [
         ("SPECIMEN TABLE", (0.34, 0.52, 0.66, 0.84), "MIRIAD",
-         "the room's workstation, offset from center; chemical staining concentrates here"),
+         "the polygon's workstation, offset from center; chemical staining concentrates here"),
         ("SCREEN ARRAY", (0.18, 0.0, 0.82, 0.08), "MIRIAD",
          "wall-mounted monitoring bank feeding the specimen table"),
     ],
@@ -125,12 +125,12 @@ KIND_ITEM_TEMPLATE: dict[str, list[tuple[str, tuple[float, float, float, float],
 }
 
 
-def room_item_layout(kind: str) -> list[dict]:
+def polygon_item_layout(kind: str) -> list[dict]:
     """Instantiate the per-kind item template as a list of
     {label, zone, lane, justification} dicts. `zone` is (x0,y0,x1,y1)
-    fractions of the room's bounding box. Pure data lookup -- no network,
-    no geometry (callers convert zone -> pixels via the room's own
-    _room_xform/room_mask bbox)."""
+    fractions of the polygon's bounding box. Pure data lookup -- no network,
+    no geometry (callers convert zone -> pixels via the polygon's own
+    _polygon_xform/polygon_mask bbox)."""
     out = []
     for label, zone, lane, justification in KIND_ITEM_TEMPLATE.get(kind, []):
         out.append(dict(label=label, zone=zone, lane=lane, justification=justification))
@@ -163,7 +163,7 @@ def validate_lanes() -> list[str]:
 
 def dump_all_kinds(out_path: Path | None = None) -> dict:
     """Write the full KIND_ITEM_TEMPLATE as JSON (for the manifest / review)."""
-    data = {kind: room_item_layout(kind) for kind in KIND_ITEM_TEMPLATE}
+    data = {kind: polygon_item_layout(kind) for kind in KIND_ITEM_TEMPLATE}
     if out_path is not None:
         out_path.write_text(json.dumps(data, indent=2))
     return data

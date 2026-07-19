@@ -28,7 +28,7 @@ VERIFY_MODEL = "google/gemini-3.5-flash"
 PROMPT = """You are the art-QA reviewer for a game floor-texture pipeline.
 
 You are looking at ONE shipped floor texture (an image-generation output,
-tiled/masked to a room's polygon). The game draws these gameplay decal
+tiled/masked to a polygon's polygon). The game draws these gameplay decal
 kinds live on TOP of the floor at runtime -- NOT baked into this image:
 "blood" (small red blob), "splat" (blood splat blob), "chip" (small X-shaped
 scuff), "scorch" (circular scorch mark), "corpse_*" (dead-body silhouette).

@@ -1,15 +1,15 @@
 """tools/artgen/gen_kind_materials.py
 
 STYLE CONTINUITY (property 2): generate ONE tileable base material per
-room kind (14 kinds), make it tileable via offset-wrap + mirror-feather
+polygon kind (14 kinds), make it tileable via offset-wrap + mirror-feather
 seam repair, verify tiling programmatically (tile 2x2, measure the seam),
 verify full-bleed (no painted border/vignette) programmatically, and
 record each kind's mean-luminance/chroma window -- the shared tone family
-every room of that kind is graded toward.
+every polygon of that kind is graded toward.
 
 Retries once per kind if tiling or full-bleed fails; a kind that fails
-twice keeps its best-scoring candidate (rooms of that kind still get the
-programmatic per-room checks, so a marginal material doesn't sink them).
+twice keeps its best-scoring candidate (polygons of that kind still get the
+programmatic per-polygon checks, so a marginal material doesn't sink them).
 
 Usage:
     uv run python tools/artgen/gen_kind_materials.py [--kinds dock,corridor,...]
@@ -71,7 +71,7 @@ def gen_one_kind(kind: str) -> dict:
                f"peak_ratio={rp.get('peak_ratio'):.2f} at lag {rp.get('peak_lag')}, "
                "thresh 0.28) -- likely baked text/arrow/logo-like mark that "
                "will repeat obviously once this material tiles across a "
-               "room. Remove any readable text, arrow, or single "
+               "polygon. Remove any readable text, arrow, or single "
                "distinctive stamped feature; keep marks small and "
                "irregular." if not rp["ok"] else "")
         )

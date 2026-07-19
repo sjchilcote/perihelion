@@ -1,4 +1,4 @@
-"""Safe room (the Cloister): links, shifting attachment, turret defense."""
+"""Safe polygon (the Cloister): links, shifting attachment, turret defense."""
 
 import necore
 
@@ -12,7 +12,7 @@ def _session():
     r0 = b.rect(0, 0, 300, 200)
     r1 = b.rect(300, 0, 300, 200)
     b.player(r0, (150, 100))
-    b.entity(r0, "safe_room_core", (170, 100))
+    b.entity(r0, "safe_polygon_core", (170, 100))
     b.entity(r0, "portable_hole", (185, 100))
     b.entity(r1, "mite", (450, 100))
     b.exit(r1, (580, 20))
@@ -24,20 +24,20 @@ def _session():
     return s
 
 
-def _go_to(s, room_target, point, max_ticks=1200):
+def _go_to(s, polygon_target, point, max_ticks=1200):
     for _ in range(max_ticks):
         px, py = s.player_pos()
-        if s.player_room() == room_target and \
+        if s.player_polygon() == polygon_target and \
                 abs(px - point[0]) + abs(py - point[1]) < 20:
             return True
-        if s.player_room() == room_target:
+        if s.player_polygon() == polygon_target:
             mx, my = nav_to_point(s, px, py, point)
         else:
-            e = s.sim.next_edge(s.player_room(), room_target)
+            e = s.sim.next_edge(s.player_polygon(), polygon_target)
             if e < 0:
                 return False
             mx, my = nav_to_point(s, px, py,
-                                  s.sim.edge_midpoint(s.player_room(), e))
+                                  s.sim.edge_midpoint(s.player_polygon(), e))
         s.tick(InputFrame(mx=mx, my=my))
     return False
 

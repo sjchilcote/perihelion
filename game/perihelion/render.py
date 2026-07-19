@@ -3,8 +3,8 @@
 Two rasterization backends behind one Renderer:
 
 * "rust" (default when the necore build has Raster): world/entity/coverage
-  rasterize in Rust via a necore.Raster display list. Per-room detail props
-  are encoded once into cached command blobs (room-local coords; the raster
+  rasterize in Rust via a necore.Raster display list. Per-polygon detail props
+  are encoded once into cached command blobs (polygon-local coords; the raster
   transforms and clips them without the GIL), everything dynamic is emitted
   already-rounded in screen space, and the composed RGBA frame is blitted
   back. Darkness (including the otherworld inverse field), deferred glows,
@@ -96,9 +96,9 @@ TEXTURE_DIR = Path(__file__).resolve().parent / "assets" / "textures"
 FLOOR_BASE = (104, 104, 132)       # flat-floor ALBEDO (2026-07-13): under zero-ambient
                                    # multiply lighting the floor color is the brightness
                                    # ceiling — at the old (26,26,33) no light could lift a
-                                   # bare room past ~11%. Scaled x4 into the same albedo
+                                   # bare polygon past ~11%. Scaled x4 into the same albedo
                                    # class as generated textures (measured 100-150) so
-                                   # fixtures and the work lamp read on untextured rooms.
+                                   # fixtures and the work lamp read on untextured polygons.
                                    # UNLIT floors still render black (the lightmap is the
                                    # sole illumination); this only changes what light finds.
 SHADOW_FLOOR = (11, 11, 15)        # known geometry outside line of sight: present, unlit
@@ -141,7 +141,7 @@ HYDRO_RIM = (74, 100, 78)          # trough rim -- one step brighter, same delta
 HYDRO_STALK = (88, 152, 96)        # growing stalk dot -- dimmer than SCREEN_COLOR, distinct from GROWTH's red rot
 
 # -- the descent arc ---------------------------------------------------------
-# One station, falling sunward. `level.room_descent` holds a per-room scalar
+# One station, falling sunward. `level.polygon_descent` holds a per-polygon scalar
 # 0..1: chunk k of N sits at k/(N-1) (stream.py extends the list as chunks
 # append; transit spines take the midpoint of the chunks they join; a level
 # loaded alone derives it from its tier). Descent drives a palette drift —
@@ -501,7 +501,7 @@ GIB_FRICTION = 0.90
 
 
 def _dim(depth: int) -> float:
-    # Depth dimming was a seam: crossing a portal snapped the new room's
+    # Depth dimming was a seam: crossing a portal snapped the new polygon's
     # brightness (invariant 5). Distance-to-player lighting replaces it —
     # applied screen-space after the world draw, smooth across portals.
     return 1.0
@@ -523,11 +523,11 @@ def _shade(base, dim, tint=(0, 0, 0)):
     return (r, g, b)
 
 
-def _room_tint(room: int):
+def _polygon_tint(polygon: int):
     # Constitution: one continuous space — floor color must never step at a
-    # portal. Per-room hash tints (up to +20/channel on a 26 base, a 1.8x
-    # visible seam) predate the room-kind prop language, which now carries
-    # all the "this room is different" signal. Rooms therefore share one
+    # portal. Per-polygon hash tints (up to +20/channel on a 26 base, a 1.8x
+    # visible seam) predate the polygon-kind prop language, which now carries
+    # all the "this polygon is different" signal. Polygons therefore share one
     # base; variation comes from props, decals, and the darkness field.
     return (0, 0, 0)
 
@@ -586,7 +586,7 @@ def _snap_prims_f32(prims):
     """Quantize detail-prim geometry to float32 — the display list's wire
     precision — at cache time, so BOTH backends transform bit-identical
     inputs and stay pixel-identical. The shift is < 1e-4 px at screen scale;
-    it happens once per room, before any frame ever samples the prim."""
+    it happens once per polygon, before any frame ever samples the prim."""
     out = []
     for prim in prims:
         kind = prim[0]
@@ -608,13 +608,13 @@ def _snap_prims_f32(prims):
 
 
 # ---------------------------------------------------------------------------
-# diegetic prop geometry -- room-local coordinate helpers and per-room-kind
+# diegetic prop geometry -- polygon-local coordinate helpers and per-polygon-kind
 # prop-set generators. Everything below is pure geometry (no pygame, no
 # necore): it produces the same `_get_detail` primitive tuples the old
 # grime generator did ("line"/"dot"/"stain"), plus three new kinds
 # ("poly", "polyline", "screenglow") that `Renderer._draw_detail` knows how
-# to clip and paint. Room-local coords are always centroid-at-origin (the
-# Level contract), which is what makes "toward the room interior" always
+# to clip and paint. Polygon-local coords are always centroid-at-origin (the
+# Level contract), which is what makes "toward the polygon interior" always
 # just mean "toward (0, 0)".
 # ---------------------------------------------------------------------------
 
@@ -639,7 +639,7 @@ def _arc_local(cx, cy, r, a0, a1, n=10):
 def _basis_arc_local(cx, cy, r, tx, ty, nx, ny, a0=-math.pi / 2, a1=math.pi / 2, n=8):
     """Arc in the (tangent, normal) basis of a wall: a=0 sits `r` along
     (nx,ny) from (cx,cy); a=+-pi/2 sits `r` along +-(tx,ty). Lets callers
-    place a bulge "into the room" without caring which way the wall faces
+    place a bulge "into the polygon" without caring which way the wall faces
     in world coordinates."""
     pts = []
     for i in range(n + 1):
@@ -650,8 +650,8 @@ def _basis_arc_local(cx, cy, r, tx, ty, nx, ny, a0=-math.pi / 2, a1=math.pi / 2,
 
 
 def _edge_inward_normal(x0, y0, x1, y1):
-    """Unit normal of edge (x0,y0)->(x1,y1) pointing toward the room
-    interior (room-local origin)."""
+    """Unit normal of edge (x0,y0)->(x1,y1) pointing toward the polygon
+    interior (polygon-local origin)."""
     dx, dy = x1 - x0, y1 - y0
     length = math.hypot(dx, dy) or 1.0
     nx, ny = -dy / length, dx / length
@@ -966,7 +966,7 @@ def _props_lab(rng, verts, walls, x0, y0, x1, y1, descent=0.0, crng=None):
 def _props_hydro(rng, verts, walls, x0, y0, x1, y1, descent=0.0, crng=None):
     """Planter troughs along the walls (long thin trays, green-tinted fill),
     with occasional stalks poking up out of a trough. A center planter row
-    stands in for the lab's specimen table -- this room grows things."""
+    stands in for the lab's specimen table -- this polygon grows things."""
     prims = []
     for wall in walls[:3]:
         for cx, cy, ang in _place_along_wall(wall, 20.0, 6.0, 5.0):
@@ -1047,7 +1047,7 @@ def _props_chapel(rng, verts, walls, x0, y0, x1, y1, descent=0.0, crng=None):
 
 
 def _props_records(rng, verts, walls, x0, y0, x1, y1, descent=0.0, crng=None):
-    """Shelf stacks: long parallel double-lines filling the room in rows."""
+    """Shelf stacks: long parallel double-lines filling the polygon in rows."""
     prims = []
     w_span, h_span = x1 - x0, y1 - y0
     horiz = w_span >= h_span
@@ -1115,7 +1115,7 @@ def _props_core(rng, verts, walls, x0, y0, x1, y1, descent=0.0, crng=None):
 
 
 def _props_generic(rng, verts, walls, x0, y0, x1, y1, descent=0.0, crng=None):
-    """Untagged room: subtle plates/rivets + grime, toned down from the old
+    """Untagged polygon: subtle plates/rivets + grime, toned down from the old
     always-on abstract-lines-and-dots generator."""
     prims = []
     for _ in range(rng.randint(2, 5)):
@@ -1151,10 +1151,10 @@ def _props_generic(rng, verts, walls, x0, y0, x1, y1, descent=0.0, crng=None):
 
 
 def _descent_dressing(crng, descent, walls, x0, y0, x1, y1):
-    """Kind-independent descent dressing layered over every room's props:
+    """Kind-independent descent dressing layered over every polygon's props:
     grime density rising with depth, Congregation crosses scratched near
     the walls from the middle decks down, and — past the corruption
-    threshold — the seed's growth crawling in from the room's edges. All
+    threshold — the seed's growth crawling in from the polygon's edges. All
     colors sit between floor and prop range so none of it ever competes
     with a live threat for the eye."""
     prims = []
@@ -1205,7 +1205,7 @@ def _descent_dressing(crng, descent, walls, x0, y0, x1, y1):
             bx, by = cx + nx * s * 0.9, cy + ny * s * 0.9
             prims.append(("line", (bx - tx * s, by - ty * s),
                           (bx + tx * s, by + ty * s), mark, 1))
-    # the seed's spread: growth patches anchored to the room's edges
+    # the seed's spread: growth patches anchored to the polygon's edges
     cor = _corruption(descent)
     if cor > 0.0 and walls:
         for _ in range(1 + int(round(cor * 2))):
@@ -1239,7 +1239,7 @@ def _descent_dressing(crng, descent, walls, x0, y0, x1, y1):
 def _warm_prims(prims, descent):
     """Bake the descent temperature drift into a cached prim list: every
     structural color drifts cold->warm by _warm(); geometry is untouched.
-    Runs once per room at cache time, so per-frame cost is zero."""
+    Runs once per polygon at cache time, so per-frame cost is zero."""
     if descent <= 0.0:
         return prims
     out = []
@@ -1271,22 +1271,22 @@ def _warm_prims(prims, descent):
 
 def _props_otherworld(rng, verts, walls, x0, y0, x1, y1, descent=0.0, crng=None):
     """The Otherworld: the prop vocabulary with its grammar broken. Familiar
-    objects in impossible syntax — a terminal slab floating mid-room facing
+    objects in impossible syntax — a terminal slab floating mid-polygon facing
     nothing, seats at half scale in a perfect ring, hairline afterimages of
-    the room's own outline. Placement rules everywhere else are law; here
+    the polygon's own outline. Placement rules everywhere else are law; here
     their violation IS the read."""
     prims = []
     cx = (x0 + x1) / 2.0
     cy = (y0 + y1) / 2.0
     w = x1 - x0
     h = y1 - y0
-    # afterimages: the room's own outline, shrunk and re-shrunk. Soft rooms
-    # deform after caching, so these echo what the room USED to be.
+    # afterimages: the polygon's own outline, shrunk and re-shrunk. Soft polygons
+    # deform after caching, so these echo what the polygon USED to be.
     for shrink in (0.82, 0.62):
         ring = [(cx + (vx - cx) * shrink, cy + (vy - cy) * shrink)
                 for vx, vy in verts]
         prims.append(("polyline", ring, (52, 66, 58), 1, True))
-    # a floating console slab, mid-room, facing a direction that means
+    # a floating console slab, mid-polygon, facing a direction that means
     # nothing, screen glowing at nobody.
     if rng.random() < 0.8 and min(w, h) > 60:
         ang = rng.uniform(0, 2 * math.pi)
@@ -1329,7 +1329,7 @@ def _props_otherworld(rng, verts, walls, x0, y0, x1, y1, descent=0.0, crng=None)
     return prims
 
 
-_ROOM_PROP_GENERATORS = {
+_POLYGON_PROP_GENERATORS = {
     "dock": _props_dock,
     "corridor": _props_corridor,
     "transit": _props_corridor,
@@ -1351,8 +1351,8 @@ class Renderer:
     """`Renderer(session).draw(surf, debug=False)` paints one frame.
 
     `surf` must be a 640x360 pygame.Surface. Immediate-mode: nothing is
-    retained across frames except the effect pools and the per-room detail
-    cache (both intentionally persistent — grime is stable per room, decals
+    retained across frames except the effect pools and the per-polygon detail
+    cache (both intentionally persistent — grime is stable per polygon, decals
     live in `session.decals`).
     """
 
@@ -1388,16 +1388,16 @@ class Renderer:
         self._frame: "pygame.Surface | None" = None
         self._blob_cache: dict[int, tuple] = {}
 
-        # -- bespoke per-room floor textures (ARTSTYLE_DIRECTION.md lever
+        # -- bespoke per-polygon floor textures (ARTSTYLE_DIRECTION.md lever
         # one) -----------------------------------------------------------
         # Optional hook set by streaming code (WorldStreamer): callable
-        # room:int -> (level_id, local_room_index) | None. None (default)
-        # falls back to (session.level.level_id, room) -- correct for any
+        # polygon:int -> (level_id, local_polygon_index) | None. None (default)
+        # falls back to (session.level.level_id, polygon) -- correct for any
         # non-streamed, single-level session.
-        self.room_texture_lookup = None
-        # engine room idx -> (rgb uint8 array (h,w,3), bbox_min_x, bbox_min_y)
-        # or None (no texture file for this room). Cached forever.
-        self._room_texture: dict[int, tuple | None] = {}
+        self.polygon_texture_lookup = None
+        # engine polygon idx -> (rgb uint8 array (h,w,3), bbox_min_x, bbox_min_y)
+        # or None (no texture file for this polygon). Cached forever.
+        self._polygon_texture: dict[int, tuple | None] = {}
         # rust backend: texture ids already uploaded to the CURRENT Raster
         # instance (cleared whenever _ensure_raster rebuilds the Raster).
         self._uploaded_tex_ids: set[int] = set()
@@ -1557,33 +1557,33 @@ class Renderer:
         for fx in fx_list:
             tag = fx[0]
             if tag == "gib":
-                _, room, x, y, n, (dx, dy) = fx
+                _, polygon, x, y, n, (dx, dy) = fx
                 base_ang = math.atan2(dy, dx) if (dx or dy) else 0.0
                 for _ in range(max(0, int(n))):
                     ang = base_ang + random.uniform(-1.1, 1.1)
                     spd = random.uniform(40.0, 220.0)
                     self._gibs.append(dict(
-                        room=room, x=x, y=y,
+                        polygon=polygon, x=x, y=y,
                         vx=math.cos(ang) * spd, vy=math.sin(ang) * spd,
                         life=random.randint(18, 34), size=random.uniform(1.5, 3.5),
                     ))
             elif tag == "spark":
-                _, room, x, y, nx, ny = fx
-                self._sparks.append(dict(room=room, x=x, y=y, nx=nx, ny=ny, life=4))
+                _, polygon, x, y, nx, ny = fx
+                self._sparks.append(dict(polygon=polygon, x=x, y=y, nx=nx, ny=ny, life=4))
             elif tag == "flash":
-                _, room, x, y, radius = fx
-                self._flashes.append(dict(room=room, x=x, y=y, radius=radius, life=3))
+                _, polygon, x, y, radius = fx
+                self._flashes.append(dict(polygon=polygon, x=x, y=y, radius=radius, life=3))
             elif tag == "holemark":
-                _, room, x, y = fx
-                self._flashes.append(dict(room=room, x=x, y=y, radius=12.0, life=6))
+                _, polygon, x, y = fx
+                self._flashes.append(dict(polygon=polygon, x=x, y=y, radius=12.0, life=6))
             elif tag == "holeopen":
-                _, room, x, y = fx
-                self._flashes.append(dict(room=room, x=x, y=y, radius=26.0, life=8))
+                _, polygon, x, y = fx
+                self._flashes.append(dict(polygon=polygon, x=x, y=y, radius=26.0, life=8))
             elif tag == "alerted":
-                _, room, x, y = fx
-                self._screams.append(dict(room=room, x=x, y=y, age=0, maxage=10))
+                _, polygon, x, y = fx
+                self._screams.append(dict(polygon=polygon, x=x, y=y, age=0, maxage=10))
             elif tag == "lightning":
-                _, room, x, y, radius = fx
+                _, polygon, x, y, radius = fx
                 segs = []
                 for _ in range(random.randint(4, 8)):
                     a = random.uniform(0.0, 2.0 * math.pi)
@@ -1592,10 +1592,10 @@ class Renderer:
                            math.sin(a) * r * 0.5 + random.uniform(-6, 6))
                     end = (math.cos(a) * r, math.sin(a) * r)
                     segs.append([(0.0, 0.0), mid, end])
-                self._bolts.append(dict(room=room, x=x, y=y, radius=radius, life=6, segs=segs))
+                self._bolts.append(dict(polygon=polygon, x=x, y=y, radius=radius, life=6, segs=segs))
             elif tag == "scream":
-                _, room, x, y = fx
-                self._screams.append(dict(room=room, x=x, y=y, age=0, maxage=16))
+                _, polygon, x, y = fx
+                self._screams.append(dict(polygon=polygon, x=x, y=y, age=0, maxage=16))
             elif tag == "hitflash":
                 _, eid = fx
                 self._hitflash[eid] = 3
@@ -1624,10 +1624,10 @@ class Renderer:
         frame SEES them by sensor, not by light) is composited ON TOP of
         that multiply, unaffected by it, so it stays visible in the dark.
 
-        Otherworld rooms keep their own established identity (the floor
+        Otherworld polygons keep their own established identity (the floor
         IS the light source, self-luminous, sculpted by the inverted
         cold-distance field) -- untouched by this order, which is about
-        eliminating a screen-space AMBIENT field for ordinary rooms, not
+        eliminating a screen-space AMBIENT field for ordinary polygons, not
         otherworld's already-diegetic self-illumination."""
         session = self.session
         self._deferred_glows = []
@@ -1695,23 +1695,23 @@ class Renderer:
         self._cov_mask.fill((0, 0, 0, 0))
         world = _PygameCanvas(surf)
         ent = _PygameCanvas(self._ent_layer)
-        kinds = self.session.level.room_kinds
+        kinds = self.session.level.polygon_kinds
         ow_polys = []
-        for room, xform, depth, clip_screen, walls, entry_edge, ents in instances:
+        for polygon, xform, depth, clip_screen, walls, entry_edge, ents in instances:
             if len(clip_screen) < 3:
                 continue
-            self._draw_floor(world, room, depth, clip_screen, xform)
-            self._draw_detail(world, room, xform, clip_screen, depth)
-            self._draw_decals(world, room, xform, clip_screen)
-            self._draw_exit_and_terminals(world, room, xform, clip_screen)
-            self._draw_walls(world, walls, depth, room)
-            self._draw_doors(world, room, xform, clip_screen)
+            self._draw_floor(world, polygon, depth, clip_screen, xform)
+            self._draw_detail(world, polygon, xform, clip_screen, depth)
+            self._draw_decals(world, polygon, xform, clip_screen)
+            self._draw_exit_and_terminals(world, polygon, xform, clip_screen)
+            self._draw_walls(world, walls, depth, polygon)
+            self._draw_doors(world, polygon, xform, clip_screen)
             pygame.draw.polygon(self._cov_mask, (255, 255, 255, 255),
                                 _pts(clip_screen))
-            if room < len(kinds) and kinds[room] == "otherworld":
+            if polygon < len(kinds) and kinds[polygon] == "otherworld":
                 ow_polys.append(clip_screen)
             self._draw_entities(ent, ents, None)
-            self._draw_effects(ent, room, xform, clip_screen)
+            self._draw_effects(ent, polygon, xform, clip_screen)
         self._ent_layer.blit(self._cov_mask, (0, 0),
                              special_flags=pygame.BLEND_RGBA_MIN)
         # NOT blitted onto surf here: entities are the sensor-trace layer,
@@ -1729,7 +1729,7 @@ class Renderer:
             return
         self._raster = necore.Raster(size[0], size[1])
         self._framebuf = bytearray(size[0] * size[1] * 4)
-        # a fresh Raster has an empty texture registry; every room texture
+        # a fresh Raster has an empty texture registry; every polygon texture
         # must be re-uploaded lazily on next use
         self._uploaded_tex_ids.clear()
         # one-time zero-copy wrap: finish_into writes into _framebuf, the
@@ -1738,19 +1738,19 @@ class Renderer:
         # copy, not a per-pixel alpha blend — the frame is opaque anyway.
         self._frame = pygame.image.frombuffer(self._framebuf, size, "RGBX")
 
-    def _get_blob(self, room: int):
-        """Per-room detail prims encoded once as a display-list blob:
+    def _get_blob(self, polygon: int):
+        """Per-polygon detail prims encoded once as a display-list blob:
         (uint32 header array, float32 coord array, screenglow tuple).
-        Coords stay room-local; the raster transforms and clips them per
+        Coords stay polygon-local; the raster transforms and clips them per
         instance after the CLIP/XFORM header words (2 and 3 of each
         6-word command) are patched with that instance's table indices.
         Screenglows are excluded — their radius quantization and sprite
         alignment happen per frame in Python (`_blit_screen_glow`)."""
-        cached = self._blob_cache.get(room)
+        cached = self._blob_cache.get(polygon)
         if cached is not None:
             return cached
-        prims = self._get_detail(room)
-        default_color = _shade(self._room_pal(room)[0], _floor_dim(0),
+        prims = self._get_detail(polygon)
+        default_color = _shade(self._polygon_pal(polygon)[0], _floor_dim(0),
                                (18, 18, 18))
         cmds: list[int] = []
         coords: list[float] = []
@@ -1811,7 +1811,7 @@ class Renderer:
         blob = (np.array(cmds, dtype=np.uint32),
                 np.array(coords, dtype=np.float32),
                 tuple(glows))
-        self._blob_cache[room] = blob
+        self._blob_cache[polygon] = blob
         return blob
 
     def _draw_world_rust(self, surf, instances) -> list:
@@ -1825,7 +1825,7 @@ class Renderer:
         r = self._raster
         r.begin(0x000000FF)
         # Dynamic commands accumulate into ONE pair of Python lists (a
-        # single numpy conversion per frame); cached room blobs interleave
+        # single numpy conversion per frame); cached polygon blobs interleave
         # as (blob, clip_idx, xform_idx) markers so the final stream keeps
         # exact per-instance submission order. `pieces` alternates
         # ("dyn", cmd_end, coord_end) splice points with blob entries.
@@ -1834,28 +1834,28 @@ class Renderer:
         pieces: list = []
         world = _RustCanvas(_LAYER_WORLD, cmds, coords)
         ent = _RustCanvas(_LAYER_ENTITY, cmds, coords)
-        kinds = session.level.room_kinds
+        kinds = session.level.polygon_kinds
         ow_polys = []
-        for room, xform, depth, clip_screen, walls, entry_edge, ents in instances:
+        for polygon, xform, depth, clip_screen, walls, entry_edge, ents in instances:
             if len(clip_screen) < 3:
                 continue
             clip_idx = r.add_clip(clip_screen, True)  # unions coverage
             xform_idx = r.add_xform(xform)
-            # floor: a bespoke texture (OP_TEX_FILL) if this room has one,
+            # floor: a bespoke texture (OP_TEX_FILL) if this polygon has one,
             # else OP_CLIP_FILL paints the registered clip polygon itself
             # from its f64 points — pixel-identical to the pygame path's
             # polygon(_pts(clip_screen)) AND to the coverage union, with no
             # Python-side rounding or payload
-            room_tex = self._room_texture_for_raster(room)
-            if room_tex is not None:
-                tex_id, bx, by = room_tex
+            polygon_tex = self._polygon_texture_for_raster(polygon)
+            if polygon_tex is not None:
+                tex_id, bx, by = polygon_tex
                 cmds.extend((_OP_TEX_FILL, _flags(_LAYER_WORLD), clip_idx,
                              xform_idx, tex_id, 0))
                 coords.extend((bx, by))
             else:
                 cmds.extend((_OP_CLIP_FILL, _flags(_LAYER_WORLD), clip_idx,
-                             _IDX_NONE, _rgba(self._floor_color(room)), 0))
-            blob_c, blob_f, glows = self._get_blob(room)
+                             _IDX_NONE, _rgba(self._floor_color(polygon)), 0))
+            blob_c, blob_f, glows = self._get_blob(polygon)
             if blob_c.size:
                 pieces.append(("dyn", len(cmds), len(coords)))
                 pieces.append(("blob", blob_c, blob_f, clip_idx, xform_idx))
@@ -1871,14 +1871,14 @@ class Renderer:
                             scale = _xform_scale(xform)
                         self._deferred_screen_glows.append(
                             (sx, sy, grad * scale, clip_screen))
-            self._draw_decals(world, room, xform, clip_screen)
-            self._draw_exit_and_terminals(world, room, xform, clip_screen)
-            self._draw_walls(world, walls, depth, room)
-            self._draw_doors(world, room, xform, clip_screen)
-            if room < len(kinds) and kinds[room] == "otherworld":
+            self._draw_decals(world, polygon, xform, clip_screen)
+            self._draw_exit_and_terminals(world, polygon, xform, clip_screen)
+            self._draw_walls(world, walls, depth, polygon)
+            self._draw_doors(world, polygon, xform, clip_screen)
+            if polygon < len(kinds) and kinds[polygon] == "otherworld":
                 ow_polys.append(clip_screen)
             self._draw_entities(ent, ents, None)
-            self._draw_effects(ent, room, xform, clip_screen)
+            self._draw_effects(ent, polygon, xform, clip_screen)
         # assemble the final stream: dynamic slices + patched blob copies
         dyn_c = np.array(cmds, dtype=np.uint32)
         dyn_f = np.array(coords, dtype=np.float32)
@@ -2010,7 +2010,7 @@ class Renderer:
     def _draw_world_lights(self, surf, session, instances) -> None:
         """For each camera instance, look up the LightingSystem's cached
         (static) or freshly recomputed (attached) wedges reaching that
-        room, and additively blit each one with polygon-gated radial
+        polygon, and additively blit each one with polygon-gated radial
         falloff into `surf` -- the lightmap being accumulated (see
         `_build_lightmap`), shaped by real occlusion (the wedge the
         light's OWN visibility pass returned) instead of a fixed disc.
@@ -2027,7 +2027,7 @@ class Renderer:
         # the same physical light frequently produces several abutting
         # polygons at the same apex (a wedge split across the doorway the
         # camera also looks through, or duplicate reach-paths to one
-        # room). Filling the whole group as a UNION into one white mask
+        # polygon). Filling the whole group as a UNION into one white mask
         # before the single tint+gradient+add pass means shared polygon
         # boundaries saturate at white instead of double-adding -- the
         # C-blit equivalent of the strict pixel-center ownership a
@@ -2036,10 +2036,10 @@ class Renderer:
         # groups and legitimately add.
         #
         # Grouping is TOLERANCE-based (cluster within GROUP_TOL_PX), not a
-        # fixed-grid round(x, 1) key: two rooms an ADJACENT light wedge
+        # fixed-grid round(x, 1) key: two polygons an ADJACENT light wedge
         # spans (e.g. a straight corridor doorway) recover their screen
         # apex through two DIFFERENT composed transform chains (this
-        # room's own vs. the light's original discovery chain, inverted
+        # polygon's own vs. the light's original discovery chain, inverted
         # and re-projected -- see lighting.py's ROOT-FRAME INVARIANCE
         # docstring: chain-independent in exact math, not in float64). The
         # two apex values can land a few thousandths of a pixel apart --
@@ -2050,22 +2050,22 @@ class Renderer:
         # independently-rounded gradient origins meeting at the portal --
         # which is exactly the pixel-visible seam this function exists to
         # prevent. Root-caused 2026-07-13 from a director report of
-        # "seams between rooms in the corridor" and "ghost lines";
+        # "seams between polygons in the corridor" and "ghost lines";
         # reproduced with a real >100-luminance step at the shared portal
         # column in `test_pixel_composite_seam_freeness_across_corridor_
         # portals` before this fix (see that test's fail-first note).
         GROUP_TOL_PX = 1.0
         groups_by_light: dict[int, list[dict]] = {}
-        for room, xform, depth, clip_screen, walls, entry_edge, ents in instances:
+        for polygon, xform, depth, clip_screen, walls, entry_edge, ents in instances:
             if len(clip_screen) < 3:
                 continue
-            room_lights = lookup.get(room)
-            if not room_lights:
+            polygon_lights = lookup.get(polygon)
+            if not polygon_lights:
                 continue
             scale = math.hypot(xform[0], xform[3])
             if scale <= 1e-9:
                 continue
-            for light_idx, inst in room_lights:
+            for light_idx, inst in polygon_lights:
                 poly_screen = [necore.mat_apply(xform, lx, ly)
                                for lx, ly in inst.clip_local]
                 gated = necore.clip_polygon(poly_screen, clip_screen)
@@ -2202,8 +2202,8 @@ class Renderer:
         # white-polygon-fill*tint value (never multiplied down to zero by
         # the missing gradient coverage) and got ADDed at full strength: a
         # single full-brightness pixel sitting right at the light's own
-        # radius edge, inside an otherwise-dark room, wherever a lit
-        # room's polygon fill happened to extend that far. Root-caused
+        # radius edge, inside an otherwise-dark polygon, wherever a lit
+        # polygon's polygon fill happened to extend that far. Root-caused
         # 2026-07-13 chasing the director's "ghost lines" report --
         # reproduced as a lone (104,104,132) [full unlit-floor-albedo,
         # i.e. an UNMULTIPLIED pixel] spike one column past `icx - round
@@ -2250,71 +2250,71 @@ class Renderer:
 
     # -- (1) floor ------------------------------------------------------
 
-    def _room_descent(self, room: int) -> float:
-        """Per-room descent scalar. Rooms the sim added on its own since the
+    def _polygon_descent(self, polygon: int) -> float:
+        """Per-polygon descent scalar. Polygons the sim added on its own since the
         streamer last extended the list (portable-hole corridors, the
         cloister) clamp to the last known value — they are always carved
         near where the player already is, so the error is at most a chunk
         step, which is invisible by construction."""
-        rd = getattr(self.session.level, "room_descent", None)
+        rd = getattr(self.session.level, "polygon_descent", None)
         if not rd:
             return 0.0
-        return rd[room] if room < len(rd) else rd[-1]
+        return rd[polygon] if polygon < len(rd) else rd[-1]
 
-    def _room_pal(self, room: int) -> tuple:
-        """(floor, wall, wall_min) for this room's descent, cached — descent
-        is a per-room constant, assigned before the room is ever visible."""
-        pal = self._pal_cache.get(room)
+    def _polygon_pal(self, polygon: int) -> tuple:
+        """(floor, wall, wall_min) for this polygon's descent, cached — descent
+        is a per-polygon constant, assigned before the polygon is ever visible."""
+        pal = self._pal_cache.get(polygon)
         if pal is None:
-            d = self._room_descent(room)
+            d = self._polygon_descent(polygon)
             pal = (_ramp(_FLOOR_RAMP, d),
                    _ramp(_WALL_RAMP, d),
                    _ramp(_WALL_MIN_RAMP, d))
-            self._pal_cache[room] = pal
+            self._pal_cache[polygon] = pal
         return pal
 
-    def _floor_color(self, room: int):
-        # Constant per room (dim/tint are identity since distance lighting
+    def _floor_color(self, polygon: int):
+        # Constant per polygon (dim/tint are identity since distance lighting
         # replaced depth dimming), so cache the shaded color — _shade was a
         # measurable per-instance cost at 400 instances.
-        color = self._floor_color_cache.get(room)
+        color = self._floor_color_cache.get(polygon)
         if color is None:
-            kinds = self.session.level.room_kinds
-            if room < len(kinds) and kinds[room] == "otherworld":
+            kinds = self.session.level.polygon_kinds
+            if polygon < len(kinds) and kinds[polygon] == "otherworld":
                 # the floor is the light source: self-luminous cold base
                 # that the inverted darkness field then sculpts (dim near
                 # the player, glowing at distance)
                 color = OW_FLOOR
             else:
-                color = _shade(self._room_pal(room)[0], _floor_dim(0),
-                               _room_tint(room))
-            self._floor_color_cache[room] = color
+                color = _shade(self._polygon_pal(polygon)[0], _floor_dim(0),
+                               _polygon_tint(polygon))
+            self._floor_color_cache[polygon] = color
         return color
 
     # -- bespoke floor textures --------------------------------------------
 
-    def _texture_key(self, room: int):
-        """(level_id, local_room_index) for `room`'s texture file, or None
+    def _texture_key(self, polygon: int):
+        """(level_id, local_polygon_index) for `polygon`'s texture file, or None
         if no level_id is known (never loaded from a levels/*.json path --
         e.g. LevelBuilder.build()'s debug level)."""
-        if self.room_texture_lookup is not None:
-            return self.room_texture_lookup(room)
+        if self.polygon_texture_lookup is not None:
+            return self.polygon_texture_lookup(polygon)
         level_id = getattr(self.session.level, "level_id", "") or ""
         if not level_id:
             return None
-        return (level_id, room)
+        return (level_id, polygon)
 
-    def _load_room_texture(self, room: int):
+    def _load_polygon_texture(self, polygon: int):
         """(rgb uint8 array shape (h, w, 3), bbox_min_x, bbox_min_y) for
-        `room`'s bespoke floor texture, or None if it has none. Cached
+        `polygon`'s bespoke floor texture, or None if it has none. Cached
         forever per Renderer instance; bbox_min is captured from the
-        room's CURRENT local verts at first load (matches the static verts
-        the generation tool used -- soft/otherworld rooms that deform their
+        polygon's CURRENT local verts at first load (matches the static verts
+        the generation tool used -- soft/otherworld polygons that deform their
         verts at runtime don't carry textures today)."""
-        if room in self._room_texture:
-            return self._room_texture[room]
+        if polygon in self._polygon_texture:
+            return self._polygon_texture[polygon]
         result = None
-        key = self._texture_key(room)
+        key = self._texture_key(polygon)
         if key is not None:
             level_id, local_idx = key
             path = texture_geom.texture_path(TEXTURE_DIR, level_id, local_idx)
@@ -2323,37 +2323,37 @@ class Renderer:
                 w, h = surf.get_size()
                 raw = pygame.image.tobytes(surf, "RGB")
                 arr = np.frombuffer(raw, dtype=np.uint8).reshape((h, w, 3)).copy()
-                verts = self.session.level.room_verts[room]
-                bx, by, _, _ = texture_geom.room_bbox(verts)
+                verts = self.session.level.polygon_verts[polygon]
+                bx, by, _, _ = texture_geom.polygon_bbox(verts)
                 result = (arr, bx, by)
-        self._room_texture[room] = result
+        self._polygon_texture[polygon] = result
         return result
 
-    def _room_texture_for_raster(self, room: int):
+    def _polygon_texture_for_raster(self, polygon: int):
         """(texture_id, bbox_min_x, bbox_min_y) for the rust backend, or
         None. Uploads the texture to the current Raster on first use."""
-        tex = self._load_room_texture(room)
+        tex = self._load_polygon_texture(polygon)
         if tex is None:
             return None
         arr, bx, by = tex
-        if room not in self._uploaded_tex_ids:
+        if polygon not in self._uploaded_tex_ids:
             h, w, _ = arr.shape
-            self._raster.set_texture(room, w, h, arr.tobytes())
-            self._uploaded_tex_ids.add(room)
-        return room, bx, by
+            self._raster.set_texture(polygon, w, h, arr.tobytes())
+            self._uploaded_tex_ids.add(polygon)
+        return polygon, bx, by
 
-    def _draw_floor(self, canvas, room, depth, clip_screen, xform=None):
-        tex = self._load_room_texture(room) if xform is not None else None
+    def _draw_floor(self, canvas, polygon, depth, clip_screen, xform=None):
+        tex = self._load_polygon_texture(polygon) if xform is not None else None
         if tex is not None and isinstance(canvas, _PygameCanvas):
-            self._draw_floor_textured(canvas.surf, room, xform, clip_screen, tex)
+            self._draw_floor_textured(canvas.surf, polygon, xform, clip_screen, tex)
             return
-        canvas.polygon(self._floor_color(room), _pts(clip_screen))
+        canvas.polygon(self._floor_color(polygon), _pts(clip_screen))
 
     # -- (an aside for readers auditing the dual-backend split): the rust
     # backend never calls _draw_floor -- _draw_world_rust emits the floor
     # command (OP_TEX_FILL or OP_CLIP_FILL) directly, see below.
 
-    def _draw_floor_textured(self, surf, room, xform, clip_screen, tex):
+    def _draw_floor_textured(self, surf, polygon, xform, clip_screen, tex):
         """pygame/numpy mirror of the rust OP_TEX_FILL job: same coverage
         (pygame.draw.polygon IS the ground truth the rust span math ports),
         same f64 inverse-affine (necore.mat_inv is the exact same Rust
@@ -2396,12 +2396,12 @@ class Renderer:
         dest[cov] = sampled[cov]
         del dest
 
-    # -- (2) room detail --------------------------------------------------
+    # -- (2) polygon detail --------------------------------------------------
 
-    def _portal_edges_for(self, room: int) -> set:
-        """(room, edge) pairs that are an open connection, a connect_x
+    def _portal_edges_for(self, polygon: int) -> set:
+        """(polygon, edge) pairs that are an open connection, a connect_x
         mirror, or a pending (locked-or-not) door -- computed once for the
-        whole level and cached. Room verts/edge indices come from the same
+        whole level and cached. Polygon verts/edge indices come from the same
         post-doorway-split geometry the engine itself connects, so this
         lines up exactly with what `necore` considers a portal."""
         if self._portal_edges is None:
@@ -2417,47 +2417,47 @@ class Renderer:
                 edges.setdefault(d.a, set()).add(d.ea)
                 edges.setdefault(d.b, set()).add(d.eb)
             self._portal_edges = edges
-        return self._portal_edges.get(room, set())
+        return self._portal_edges.get(polygon, set())
 
-    def _get_detail(self, room: int):
-        cached = self._detail_cache.get(room)
+    def _get_detail(self, polygon: int):
+        cached = self._detail_cache.get(polygon)
         if cached is not None:
             return cached
         level = self.session.level
-        if room >= len(level.room_verts):
+        if polygon >= len(level.polygon_verts):
             return []
-        verts = level.room_verts[room]
-        seed = level.room_seeds[room] if room < len(level.room_seeds) else room * 7919 + 13
+        verts = level.polygon_verts[polygon]
+        seed = level.polygon_seeds[polygon] if polygon < len(level.polygon_seeds) else polygon * 7919 + 13
         rng = random.Random(seed)
-        kind = level.room_kinds[room] if room < len(level.room_kinds) else "generic"
+        kind = level.polygon_kinds[polygon] if polygon < len(level.polygon_kinds) else "generic"
         xs = [v[0] for v in verts]
         ys = [v[1] for v in verts]
         x0, x1 = min(xs), max(xs)
         y0, y1 = min(ys), max(ys)
-        walls = _wall_edges(verts, self._portal_edges_for(room))
-        gen = _ROOM_PROP_GENERATORS.get(kind, _props_generic)
+        walls = _wall_edges(verts, self._portal_edges_for(polygon))
+        gen = _POLYGON_PROP_GENERATORS.get(kind, _props_generic)
         # The descent pipeline: the base layout draws from `rng` exactly as
-        # it always did (a room's furniture is identical at every depth);
+        # it always did (a polygon's furniture is identical at every depth);
         # corruption and dressing draw from a SECOND stream seeded from the
-        # same room seed, so frames stay deterministic without the additions
+        # same polygon seed, so frames stay deterministic without the additions
         # reshuffling the base. Temperature drift is baked in last, once.
-        descent = self._room_descent(room)
+        descent = self._polygon_descent(polygon)
         crng = random.Random(seed ^ 0x5EED5EED)
         prims = list(gen(rng, verts, walls, x0, y0, x1, y1,
                          descent=descent, crng=crng))
         prims.extend(_descent_dressing(crng, descent, walls, x0, y0, x1, y1))
         prims = _warm_prims(prims, descent)
         prims = _snap_prims_f32(prims)
-        self._detail_cache[room] = prims
+        self._detail_cache[polygon] = prims
         return prims
 
-    def _draw_detail(self, canvas, room, xform, clip_screen, depth):
-        prims = self._get_detail(room)
+    def _draw_detail(self, canvas, polygon, xform, clip_screen, depth):
+        prims = self._get_detail(polygon)
         if not prims:
             return
         dim = _floor_dim(depth)
-        tint = _room_tint(room)
-        default_color = _shade(self._room_pal(room)[0], dim,
+        tint = _polygon_tint(polygon)
+        default_color = _shade(self._polygon_pal(polygon)[0], dim,
                                (tint[0] + 18, tint[1] + 18, tint[2] + 18))
         scale = None
         for prim in prims:
@@ -2516,8 +2516,8 @@ class Renderer:
 
     # -- (3) decals -------------------------------------------------------
 
-    def _draw_decals(self, canvas, room, xform, clip_screen):
-        decals = self.session.decals.get(room)
+    def _draw_decals(self, canvas, polygon, xform, clip_screen):
+        decals = self.session.decals.get(polygon)
         if not decals:
             return
         scale = _xform_scale(xform)
@@ -2563,9 +2563,9 @@ class Renderer:
 
     # -- (4) exit pad + terminals ------------------------------------------
 
-    def _draw_exit_and_terminals(self, canvas, room, xform, clip_screen):
+    def _draw_exit_and_terminals(self, canvas, polygon, xform, clip_screen):
         session = self.session
-        if session.exit_room == room:
+        if session.exit_polygon == polygon:
             sx, sy = necore.mat_apply(xform, *session.exit_pos)
             if _point_in_poly(sx, sy, clip_screen):
                 phase = (session.tick_count % 90) / 90.0
@@ -2575,11 +2575,11 @@ class Renderer:
                 canvas.polygon(EXIT_COLOR,
                                [(cx, cy - 5), (cx - 4, cy + 3), (cx + 4, cy + 3)])
         for t in session.terminals:
-            if t["room"] != room:
+            if t["polygon"] != polygon:
                 continue
-            self._draw_terminal(canvas, room, xform, clip_screen, t)
+            self._draw_terminal(canvas, polygon, xform, clip_screen, t)
         for st in getattr(session, "stations", ()):
-            if st["room"] != room:
+            if st["polygon"] != polygon:
                 continue
             sx, sy = necore.mat_apply(xform, *st["pos"])
             if not _point_in_poly(sx, sy, clip_screen):
@@ -2605,16 +2605,16 @@ class Renderer:
             canvas.circle((90, 165, 130), (ix, iy),
                           max(2, int(rr * 0.62)), 1)
 
-    def _nearest_wall_point(self, room: int, pos):
-        """Nearest point on a room's wall to `pos` (room-local), for
+    def _nearest_wall_point(self, polygon: int, pos):
+        """Nearest point on a polygon's wall to `pos` (polygon-local), for
         flush-mounting a fixture. Strongly prefers non-portal edges (a
         console can't hang in a doorway) but falls back to any edge rather
         than returning nothing, since a level always has *some* wall."""
         level = self.session.level
-        if room >= len(level.room_verts):
+        if polygon >= len(level.polygon_verts):
             return None
-        verts = level.room_verts[room]
-        portals = self._portal_edges_for(room)
+        verts = level.polygon_verts[polygon]
+        portals = self._portal_edges_for(polygon)
         n = len(verts)
         px, py = pos
         best = None
@@ -2637,15 +2637,15 @@ class Renderer:
                 best = dict(cx=cx, cy=cy, nx=nx, ny=ny, tx=dx / length, ty=dy / length)
         return best
 
-    def _draw_terminal(self, canvas, room, xform, clip_screen, t):
+    def _draw_terminal(self, canvas, polygon, xform, clip_screen, t):
         """A wall-mounted console slab with an inset phosphor screen
         (Marathon-style wall terminal), flush against the nearest wall
         edge -- not a free-standing glyph."""
         bright = not t["read"]
         screen_color = (100, 255, 140) if bright else (55, 110, 75)
-        wall = self._nearest_wall_point(room, t["pos"])
+        wall = self._nearest_wall_point(polygon, t["pos"])
         if wall is None:
-            # degenerate room (no usable edge) -- keep the old free-standing
+            # degenerate polygon (no usable edge) -- keep the old free-standing
             # glyph rather than dropping the terminal entirely
             sx, sy = necore.mat_apply(xform, *t["pos"])
             if not _point_in_poly(sx, sy, clip_screen):
@@ -2681,31 +2681,31 @@ class Renderer:
 
     # -- (5) walls + doors --------------------------------------------------
 
-    def _wall_color(self, room: int):
+    def _wall_color(self, polygon: int):
         # Walls are the level's readability skeleton: they may dim (via
         # _dim, currently identity — distance lighting replaced depth
         # dimming) but never below the wall-min floor. Both ends of that
-        # range drift with the room's descent. Constant per room -> cached.
-        color = self._wall_color_cache.get(room)
+        # range drift with the polygon's descent. Constant per polygon -> cached.
+        color = self._wall_color_cache.get(polygon)
         if color is None:
-            _, wall, wall_min = self._room_pal(room)
+            _, wall, wall_min = self._polygon_pal(polygon)
             c = _shade(wall, _dim(0))
             color = (max(c[0], wall_min[0]), max(c[1], wall_min[1]),
                      max(c[2], wall_min[2]))
-            self._wall_color_cache[room] = color
+            self._wall_color_cache[polygon] = color
         return color
 
-    def _draw_walls(self, canvas, walls, depth, room):
-        color = self._wall_color(room)
+    def _draw_walls(self, canvas, walls, depth, polygon):
+        color = self._wall_color(polygon)
         for x1, y1, x2, y2, is_portal in walls:
             if is_portal:
                 continue  # seamlessness is sacred: never draw a portal edge
             canvas.line(color, _pt((x1, y1)), _pt((x2, y2)), 2)
 
-    def _draw_doors(self, canvas, room, xform, clip_screen):
+    def _draw_doors(self, canvas, polygon, xform, clip_screen):
         sim = self.session.sim
         for (r, e), key in self.session.door_edges.items():
-            if r != room:
+            if r != polygon:
                 continue
             try:
                 x1, y1, x2, y2 = sim.edge_endpoints(r, e)
@@ -2714,7 +2714,7 @@ class Renderer:
             sx1, sy1 = necore.mat_apply(xform, x1, y1)
             sx2, sy2 = necore.mat_apply(xform, x2, y2)
             if key == "shoot":
-                # a secret is a wall that keeps its secret: THIS room's wall
+                # a secret is a wall that keeps its secret: THIS polygon's wall
                 # color (which drifts with descent — a cold grey slab in a
                 # warm deep deck would be a tell), one hairline fissure
                 for seg in necore.clip_polyline([(sx1, sy1), (sx2, sy2)],
@@ -2722,7 +2722,7 @@ class Renderer:
                     if len(seg) < 2:
                         continue
                     a, b = seg[0], seg[-1]
-                    canvas.line(self._wall_color(room), _pt(a), _pt(b), 2)
+                    canvas.line(self._wall_color(polygon), _pt(a), _pt(b), 2)
                     fx_ = a[0] + (b[0] - a[0]) * 0.62
                     fy_ = a[1] + (b[1] - a[1]) * 0.62
                     nx_, ny_ = (b[1] - a[1]), -(b[0] - a[0])
@@ -2949,7 +2949,7 @@ class Renderer:
             canvas.polygon((46, 58, 66), pts)
             canvas.polygon((150, 220, 235), pts, 1)
             canvas.circle((150, 220, 235), (ix, iy), 2)
-        elif kind == "safe_room_core":
+        elif kind == "safe_polygon_core":
             canvas.circle((30, 26, 44), (ix, iy), max(3, int(r)))
             canvas.circle((170, 140, 255), (ix, iy), max(3, int(r)), 1)
             canvas.circle((220, 205, 255), (ix, iy), 1)
@@ -3028,14 +3028,14 @@ class Renderer:
         surf.blit(img, dest, special_flags=pygame.BLEND_RGB_ADD)
         surf.set_clip(prev_clip)
 
-    def _draw_effects(self, canvas, room, xform, clip_screen):
+    def _draw_effects(self, canvas, polygon, xform, clip_screen):
         if not (self._gibs or self._sparks or self._flashes
                 or self._bolts or self._screams):
             return  # nothing pooled: skip the per-instance scale hypot
         scale = _xform_scale(xform)
 
         for g in self._gibs:
-            if g["room"] != room:
+            if g["polygon"] != polygon:
                 continue
             sx, sy = necore.mat_apply(xform, g["x"], g["y"])
             if not _point_in_poly(sx, sy, clip_screen):
@@ -3044,7 +3044,7 @@ class Renderer:
             canvas.circle(GIB_COLOR, _pt((sx, sy)), r)
 
         for sp in self._sparks:
-            if sp["room"] != room:
+            if sp["polygon"] != polygon:
                 continue
             sx, sy = necore.mat_apply(xform, sp["x"], sp["y"])
             if not _point_in_poly(sx, sy, clip_screen):
@@ -3055,13 +3055,13 @@ class Renderer:
             canvas.line(SPARK_COLOR, _pt((sx, sy)), _pt((ex, ey)), 1)
 
         for fl in self._flashes:
-            if fl["room"] != room:
+            if fl["polygon"] != polygon:
                 continue
             sx, sy = necore.mat_apply(xform, fl["x"], fl["y"])
             self._deferred_glows.append((sx, sy, fl["radius"] * scale, clip_screen))
 
         for b in self._bolts:
-            if b["room"] != room:
+            if b["polygon"] != polygon:
                 continue
             sx, sy = necore.mat_apply(xform, b["x"], b["y"])
             pieces = []
@@ -3079,7 +3079,7 @@ class Renderer:
                  (sx, sy, b["radius"] * scale * 0.6, clip_screen)))
 
         for sc in self._screams:
-            if sc["room"] != room:
+            if sc["polygon"] != polygon:
                 continue
             sx, sy = necore.mat_apply(xform, sc["x"], sc["y"])
             if not _point_in_poly(sx, sy, clip_screen):
@@ -3118,10 +3118,10 @@ class Renderer:
             if not pygame.font.get_init():
                 pygame.font.init()
             self._font = pygame.font.Font(None, ui(12))
-        for room, xform, depth, clip_screen, walls, entry_edge, ents in instances:
+        for polygon, xform, depth, clip_screen, walls, entry_edge, ents in instances:
             if not clip_screen:
                 continue
             cx = sum(p[0] for p in clip_screen) / len(clip_screen)
             cy = sum(p[1] for p in clip_screen) / len(clip_screen)
-            img = self._font.render(f"r{room} d{depth}", True, (255, 0, 255))
+            img = self._font.render(f"r{polygon} d{depth}", True, (255, 0, 255))
             surf.blit(img, (cx - 12, cy - 6))

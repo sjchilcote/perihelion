@@ -6,17 +6,17 @@ falloff." See ENGINE_DESIGN.md's Lighting section for the full design.
 
 Static-light caching exploits ROOT-FRAME INVARIANCE (ENGINE_INVARIANTS
 R1: re-rooting the portal-chain anchor has zero pixel consequence): a
-room's own local geometry -- and therefore any wedge cast into it -- looks
+polygon's own local geometry -- and therefore any wedge cast into it -- looks
 identical no matter which portal chain reached it. So a static light's lit
-polygon in room R, computed once from the light's own visibility pass, is
-valid for ANY camera instance of room R forever; no camera-relative or
-chain-relative keying is needed. This is the "per-ROOM caching" fallback
+polygon in polygon R, computed once from the light's own visibility pass, is
+valid for ANY camera instance of polygon R forever; no camera-relative or
+chain-relative keying is needed. This is the "per-POLYGON caching" fallback
 the design brief allows for when chain-keying is intractable -- here it is
 *exact*, not an approximation, precisely because R1 already guarantees it.
 
 No engine (rust) changes were needed to build this: `necore.visible_set`
-already returns everything required (each reached room's screen-space clip
-polygon plus the room-local -> screen transform); the room's OWN local
+already returns everything required (each reached polygon's screen-space clip
+polygon plus the polygon-local -> screen transform); the polygon's OWN local
 polygon and the light's virtual local position are recovered by inverting
 that transform. See `compute_light_instances` below.
 """
@@ -35,18 +35,18 @@ __all__ = ["LightInstance", "compute_light_instances", "LightingSystem",
 
 @dataclass(frozen=True)
 class LightInstance:
-    """One wedge a light casts into one room, expressed entirely in that
-    ROOM's OWN local frame (chain-independent -- see module docstring)."""
-    room: int
+    """One wedge a light casts into one polygon, expressed entirely in that
+    POLYGON's OWN local frame (chain-independent -- see module docstring)."""
+    polygon: int
     clip_local: tuple[tuple[float, float], ...]
     apex_local: tuple[float, float]  # the light's virtual position, R-local units
     radius_local: float              # light.radius converted to R-local units
-    # Walk-mask terrain shadows this light casts INTO this room-local
-    # instance, room-local coords, one convex-ish polygon per occluding
-    # rect (see `_shadow_poly_for_rect`). Empty for a room with no
+    # Walk-mask terrain shadows this light casts INTO this polygon-local
+    # instance, polygon-local coords, one convex-ish polygon per occluding
+    # rect (see `_shadow_poly_for_rect`). Empty for a polygon with no
     # terrain. Computed once here (same call site the static cache
     # already runs through) so the shadow geometry rides the SAME
-    # per-room cache static lights already get -- no extra cost per
+    # per-polygon cache static lights already get -- no extra cost per
     # frame for fixtures, only the worklight (attached, recomputed every
     # tick anyway) pays this every frame.
     shadow_local: tuple[tuple[tuple[float, float], ...], ...] = ()
@@ -68,7 +68,7 @@ class LightInstance:
 # to `reach` (well beyond the light's radius) to close the shadow
 # polygon. This mirrors the geometry `query::terrain_light_segments`
 # exposes (rect edges as segments) but works from the rect corners
-# directly since that's what `Sim.room_terrain` already returns.
+# directly since that's what `Sim.polygon_terrain` already returns.
 
 def _rect_corners(lo: tuple[float, float], hi: tuple[float, float]
                    ) -> list[tuple[float, float]]:
@@ -117,15 +117,15 @@ def _shadow_poly_for_rect(apex: tuple[float, float],
     return seq + [far2, far1]
 
 
-def terrain_shadow_polys(sim, room: int, apex_local: tuple[float, float],
+def terrain_shadow_polys(sim, polygon: int, apex_local: tuple[float, float],
                           reach: float) -> tuple[tuple[tuple[float, float], ...], ...]:
-    """Shadow polygons (room-local) that walk-mask terrain in `room` casts
+    """Shadow polygons (polygon-local) that walk-mask terrain in `polygon` casts
     from a light at `apex_local`, each extended `reach` units past the
     apex (comfortably beyond any light's radius -- callers pass a multiple
-    of `radius_local`). Empty for a terrain-free room (the common case, one
-    `Sim.room_terrain` call)."""
+    of `radius_local`). Empty for a terrain-free polygon (the common case, one
+    `Sim.polygon_terrain` call)."""
     try:
-        rects = sim.room_terrain(room)
+        rects = sim.polygon_terrain(polygon)
     except Exception:
         return ()
     polys = []
@@ -155,8 +155,8 @@ def _point_in_polygon(pt: tuple[float, float],
 
 
 def light_level_at(light_map: dict[int, list[tuple[int, "LightInstance"]]],
-                    lights: list, room: int, x: float, y: float) -> float:
-    """How lit is room-local point `(x, y)` in `room`, 0 (dark) .. 1 (full),
+                    lights: list, polygon: int, x: float, y: float) -> float:
+    """How lit is polygon-local point `(x, y)` in `polygon`, 0 (dark) .. 1 (full),
     per the LURK/AMBUSH AI's "how lit is this spot" query. `light_map` is a
     `LightingSystem.frame_lookup()` result (computed ONCE per tick by the
     caller, not per query -- see `sim.py`'s `_enemy_ai`, which only pays
@@ -165,8 +165,8 @@ def light_level_at(light_map: dict[int, list[tuple[int, "LightInstance"]]],
     uses) unless the point falls inside that light's terrain shadow, then
     clamps to [0, 1]."""
     total = 0.0
-    for light_idx, inst in light_map.get(room, ()):
-        if inst.room != room:
+    for light_idx, inst in light_map.get(polygon, ()):
+        if inst.polygon != polygon:
             continue
         if any(_point_in_polygon((x, y), poly) for poly in inst.shadow_local):
             continue
@@ -184,16 +184,16 @@ def compute_light_instances(sim, light: LightSpec, max_depth: int = 6,
                              max_instances: int = 12) -> list[LightInstance]:
     """Run the engine's own visibility pass from the light's apex -- exactly
     the camera code path, with the light standing in as the "camera" -- and
-    recover each reached room's own local lit polygon plus the light's
+    recover each reached polygon's own local lit polygon plus the light's
     virtual local position there, purely by inverting the returned
     transforms.
 
     `cam` here is a pure translation (linear_scale 1) that centers the
-    query window on the light so a light anywhere in its room's local
+    query window on the light so a light anywhere in its polygon's local
     coordinates gets a correctly-sized frustum; because it carries no
     rotation/scale, inverting the RETURNED per-instance transform and
     composing it against `cam`'s own inverse cleanly separates "where is
-    this point in room R's own frame" from "how zoomed is my query window."
+    this point in polygon R's own frame" from "how zoomed is my query window."
     """
     radius = max(1.0, light.radius)
     pad = radius * 0.15
@@ -201,10 +201,10 @@ def compute_light_instances(sim, light: LightSpec, max_depth: int = 6,
     lx, ly = light.pos
     cam = necore.mat_translate(radius + pad - lx, radius + pad - ly)
     apex_screen = necore.mat_apply(cam, lx, ly)
-    raw = sim.visible_set(light.room, cam, lx, ly, win, win,
+    raw = sim.visible_set(light.polygon, cam, lx, ly, win, win,
                            max_depth, max_instances)
     out: list[LightInstance] = []
-    for room, xform, _depth, clip_screen, _walls, _entry, _ents in raw:
+    for polygon, xform, _depth, clip_screen, _walls, _entry, _ents in raw:
         if len(clip_screen) < 3:
             continue
         try:
@@ -222,8 +222,8 @@ def compute_light_instances(sim, light: LightSpec, max_depth: int = 6,
         # far edge is never the thing that clips it short -- the actual
         # falloff/gate clipping happens downstream (radial kernel, camera
         # clip polygon), this only needs to fully cover the dark region.
-        shadow_local = terrain_shadow_polys(sim, room, apex_local, radius_local * 4.0)
-        out.append(LightInstance(room, clip_local, apex_local, radius_local,
+        shadow_local = terrain_shadow_polys(sim, polygon, apex_local, radius_local * 4.0)
+        out.append(LightInstance(polygon, clip_local, apex_local, radius_local,
                                   shadow_local))
     return out
 
@@ -235,13 +235,13 @@ class LightingSystem:
 
     def __init__(self, sim, level=None):
         self.lights: list[LightSpec] = []
-        self._by_room: dict[int, list[tuple[int, LightInstance]]] = {}
+        self._by_polygon: dict[int, list[tuple[int, LightInstance]]] = {}
         if level is not None:
             self.add_lights(sim, level.lights)
 
     def add_lights(self, sim, lights: list[LightSpec]) -> None:
         """Register new lights (fresh level load, or a streamed chunk whose
-        room indices are already offset). Static lights are cached now;
+        polygon indices are already offset). Static lights are cached now;
         attached lights are recomputed every frame in `frame_lookup`."""
         base = len(self.lights)
         self.lights.extend(lights)
@@ -250,7 +250,7 @@ class LightingSystem:
                 continue
             i = base + j
             for inst in compute_light_instances(sim, lt):
-                self._by_room.setdefault(inst.room, []).append((i, inst))
+                self._by_polygon.setdefault(inst.polygon, []).append((i, inst))
 
     def attached_lights(self) -> list[tuple[int, LightSpec]]:
         return [(i, lt) for i, lt in enumerate(self.lights) if lt.kind == "attached"]
@@ -258,15 +258,15 @@ class LightingSystem:
     def frame_lookup(self, sim) -> dict[int, list[tuple[int, LightInstance]]]:
         """Call once per frame: static cache plus freshly recomputed
         attached lights (e.g. the player's own light), merged into a
-        room -> [(light_index, instance)] map for that frame's compositing
+        polygon -> [(light_index, instance)] map for that frame's compositing
         pass."""
-        by_room: dict[int, list[tuple[int, LightInstance]]] = {
-            room: list(insts) for room, insts in self._by_room.items()
+        by_polygon: dict[int, list[tuple[int, LightInstance]]] = {
+            polygon: list(insts) for polygon, insts in self._by_polygon.items()
         }
         for i, lt in self.attached_lights():
             for inst in compute_light_instances(sim, lt, max_instances=24):
-                by_room.setdefault(inst.room, []).append((i, inst))
-        return by_room
+                by_polygon.setdefault(inst.polygon, []).append((i, inst))
+        return by_polygon
 
     def cache_count(self) -> int:
-        return sum(len(v) for v in self._by_room.values())
+        return sum(len(v) for v in self._by_polygon.values())

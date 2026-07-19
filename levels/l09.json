@@ -3,7 +3,7 @@
  "name": "TESSERACT DECK",
  "tier": 4,
  "ambience": "amb_drone_finale",
- "rooms": [
+ "polygons": [
   {
    "verts": [
     [
@@ -8790,14 +8790,14 @@
  "connects_x": [],
  "doors": [],
  "player": {
-  "room": 0,
+  "polygon": 0,
   "pos": [
    -2632.5,
    100.0
   ]
  },
  "exit": {
-  "room": 252,
+  "polygon": 252,
   "pos": [
    1360.0,
    1300.0
@@ -8805,11 +8805,11 @@
   "key": "void"
  },
  "lore": {
-  "intro": "There is no deck like this on the station.\nYou are not on the station anymore.\n\nSixteen rooms. Every room borders four.\nBleed carefully. It's the only ink you have.",
+  "intro": "There is no deck like this on the station.\nYou are not on the station anymore.\n\nSixteen polygons. Every polygon borders four.\nBleed carefully. It's the only ink you have.",
   "radio": [],
   "terminals": [
    {
-    "room": 242,
+    "polygon": 242,
     "pos": [
      539.3933982822018,
      539.3933982822018
@@ -8817,23 +8817,23 @@
     "text": "SCRATCHED IN THE FLOOR\n0 1 0 1\nif you can read this,\nflip one bit at a time.\n\u2014 O."
    },
    {
-    "room": 244,
+    "polygon": 244,
     "pos": [
      1339.3933982822018,
      539.3933982822018
     ],
-    "text": "[TRANSLATION CONFIDENCE 41%]\nwelcome / student / stranger.\nthis room is a lesson.\nthe lesson: >>four<< is a direction.\ndo not fear the direction.\nwe feared it. fear did not help."
+    "text": "[TRANSLATION CONFIDENCE 41%]\nwelcome / student / stranger.\nthis polygon is a lesson.\nthe lesson: >>four<< is a direction.\ndo not fear the direction.\nwe feared it. fear did not help."
    },
    {
-    "room": 239,
+    "polygon": 239,
     "pos": [
      939.3933982822018,
      139.3933982822018
     ],
-    "text": "[TRANSLATION CONFIDENCE 33%]\nsixteen is not the number of rooms.\nsixteen is how many names one room accepts\nbefore it stops answering to the first.\nwe did not choose one name each. the choosing\nwas the mistake the last generation made."
+    "text": "[TRANSLATION CONFIDENCE 33%]\nsixteen is not the number of polygons.\nsixteen is how many names one polygon accepts\nbefore it stops answering to the first.\nwe did not choose one name each. the choosing\nwas the mistake the last generation made."
    },
    {
-    "room": 247,
+    "polygon": 247,
     "pos": [
      939.3933982822018,
      939.3933982822018
@@ -8841,12 +8841,12 @@
     "text": "[TRANSLATION CONFIDENCE 27%]\na token waits where a student will stand.\nthe aperture beneath the sixteenth name\nwill not part for an untaught hand.\ncarry the token. it remembers the walk\nfor you."
    },
    {
-    "room": 248,
+    "polygon": 248,
     "pos": [
      1339.3933982822018,
      939.3933982822018
     ],
-    "text": "CARGO TAG, MIRIAD STOCK NUMBER \u2014 FOUND HERE,\nHALF BURIED\nContents: 2x fertilizer drum.\nThis tag belongs four levels back, in a\nstoreroom that grows food. There is no food\nhere. There was no floor here, on any schematic,\nbefore today.\nNobody has come to collect it."
+    "text": "CARGO TAG, MIRIAD STOCK NUMBER \u2014 FOUND HERE,\nHALF BURIED\nContents: 2x fertilizer drum.\nThis tag belongs four levels back, in a\nstorepolygon that grows food. There is no food\nhere. There was no floor here, on any schematic,\nbefore today.\nNobody has come to collect it."
    }
   ]
  },
@@ -8860,7 +8860,7 @@
  },
  "lights": [
   {
-   "room": 0,
+   "polygon": 0,
    "pos": [
     -2632.5,
     100.0
@@ -8875,7 +8875,7 @@
    "kind": "static"
   },
   {
-   "room": 9,
+   "polygon": 9,
    "pos": [
     -2498.3333333333335,
     360.0
@@ -8890,7 +8890,7 @@
    "kind": "static"
   },
   {
-   "room": 24,
+   "polygon": 24,
    "pos": [
     -2500.0,
     490.0
@@ -8905,7 +8905,7 @@
    "kind": "static"
   },
   {
-   "room": 20,
+   "polygon": 20,
    "pos": [
     -2606.6666666666665,
     796.6666666666666
@@ -8920,7 +8920,7 @@
    "kind": "static"
   },
   {
-   "room": 119,
+   "polygon": 119,
    "pos": [
     -2610.0,
     933.3333333333334
@@ -8935,7 +8935,7 @@
    "kind": "static"
   },
   {
-   "room": 121,
+   "polygon": 121,
    "pos": [
     -2393.3333333333335,
     950.0
@@ -8950,7 +8950,7 @@
    "kind": "static"
   },
   {
-   "room": 112,
+   "polygon": 112,
    "pos": [
     -1954.5714285714287,
     1028.0
@@ -8965,7 +8965,7 @@
    "kind": "static"
   },
   {
-   "room": 94,
+   "polygon": 94,
    "pos": [
     -1862.5,
     1207.5
@@ -8980,7 +8980,7 @@
    "kind": "static"
   },
   {
-   "room": 96,
+   "polygon": 96,
    "pos": [
     -1598.3333333333333,
     1228.3333333333333
@@ -8995,7 +8995,7 @@
    "kind": "static"
   },
   {
-   "room": 134,
+   "polygon": 134,
    "pos": [
     -1472.5,
     1460.0
@@ -9010,7 +9010,7 @@
    "kind": "static"
   },
   {
-   "room": 170,
+   "polygon": 170,
    "pos": [
     -720.0,
     970.0
@@ -9025,7 +9025,7 @@
    "kind": "static"
   },
   {
-   "room": 178,
+   "polygon": 178,
    "pos": [
     -691.6666666666666,
     637.3333333333334
@@ -9040,7 +9040,7 @@
    "kind": "static"
   },
   {
-   "room": 186,
+   "polygon": 186,
    "pos": [
     -715.0,
     900.0
@@ -9055,7 +9055,7 @@
    "kind": "static"
   },
   {
-   "room": 193,
+   "polygon": 193,
    "pos": [
     -610.0,
     632.0
@@ -9070,7 +9070,7 @@
    "kind": "static"
   },
   {
-   "room": 194,
+   "polygon": 194,
    "pos": [
     -535.0,
     632.3333333333334
@@ -9085,7 +9085,7 @@
    "kind": "static"
   },
   {
-   "room": 200,
+   "polygon": 200,
    "pos": [
     -518.3333333333334,
     855.0
@@ -9100,7 +9100,7 @@
    "kind": "static"
   },
   {
-   "room": 214,
+   "polygon": 214,
    "pos": [
     -235.0,
     1080.0
@@ -9115,7 +9115,7 @@
    "kind": "static"
   },
   {
-   "room": 236,
+   "polygon": 236,
    "pos": [
     -222.66666666666666,
     1577.7777777777778
@@ -9130,7 +9130,7 @@
    "kind": "static"
   },
   {
-   "room": 237,
+   "polygon": 237,
    "pos": [
     100.0,
     100.0
@@ -9145,7 +9145,7 @@
    "kind": "static"
   },
   {
-   "room": 238,
+   "polygon": 238,
    "pos": [
     500.0,
     100.0
@@ -9160,7 +9160,7 @@
    "kind": "static"
   },
   {
-   "room": 239,
+   "polygon": 239,
    "pos": [
     900.0,
     100.0
@@ -9175,7 +9175,7 @@
    "kind": "static"
   },
   {
-   "room": 240,
+   "polygon": 240,
    "pos": [
     1300.0,
     100.0
@@ -9190,7 +9190,7 @@
    "kind": "static"
   },
   {
-   "room": 241,
+   "polygon": 241,
    "pos": [
     100.0,
     500.0
@@ -9205,7 +9205,7 @@
    "kind": "static"
   },
   {
-   "room": 242,
+   "polygon": 242,
    "pos": [
     500.0,
     500.0
@@ -9220,7 +9220,7 @@
    "kind": "static"
   },
   {
-   "room": 243,
+   "polygon": 243,
    "pos": [
     900.0,
     500.0
@@ -9235,7 +9235,7 @@
    "kind": "static"
   },
   {
-   "room": 244,
+   "polygon": 244,
    "pos": [
     1300.0,
     500.0
@@ -9250,7 +9250,7 @@
    "kind": "static"
   },
   {
-   "room": 245,
+   "polygon": 245,
    "pos": [
     100.0,
     900.0
@@ -9265,7 +9265,7 @@
    "kind": "static"
   },
   {
-   "room": 246,
+   "polygon": 246,
    "pos": [
     500.0,
     900.0
@@ -9280,7 +9280,7 @@
    "kind": "static"
   },
   {
-   "room": 247,
+   "polygon": 247,
    "pos": [
     900.0,
     900.0
@@ -9295,7 +9295,7 @@
    "kind": "static"
   },
   {
-   "room": 248,
+   "polygon": 248,
    "pos": [
     1300.0,
     900.0
@@ -9310,7 +9310,7 @@
    "kind": "static"
   },
   {
-   "room": 249,
+   "polygon": 249,
    "pos": [
     100.0,
     1300.0
@@ -9325,7 +9325,7 @@
    "kind": "static"
   },
   {
-   "room": 250,
+   "polygon": 250,
    "pos": [
     500.0,
     1300.0
@@ -9340,7 +9340,7 @@
    "kind": "static"
   },
   {
-   "room": 251,
+   "polygon": 251,
    "pos": [
     900.0,
     1300.0
@@ -9355,7 +9355,7 @@
    "kind": "static"
   },
   {
-   "room": 252,
+   "polygon": 252,
    "pos": [
     1300.0,
     1300.0

@@ -1,4 +1,4 @@
-"""Generate style-anchor texture candidates for each of the 14 room kinds.
+"""Generate style-anchor texture candidates for each of the 14 polygon kinds.
 
 uv run python tools/artgen/gen_anchors.py [--kinds dock,corridor,...] [--cand 1]
 """
@@ -22,7 +22,7 @@ ANCHOR_MAP = json.loads((SCRATCH / "anchor_map.json").read_text())
 
 def gen_one(kind: str, cand: int) -> dict:
     info = ANCHOR_MAP[kind]
-    bt = basetruth_path(info["level"], info["room_index"])
+    bt = basetruth_path(info["level"], info["polygon_index"])
     ctx = info["context"]
     prompt = build_anchor_prompt(kind)
     out = ANCHOR_DIR / f"{kind}_c{cand}.png"

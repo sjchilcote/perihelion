@@ -1,4 +1,4 @@
-"""Director-ordered flicker gate (2026-07-10): a square room with four
+"""Director-ordered flicker gate (2026-07-10): a square polygon with four
 square neighbors, high-contrast decals in every neighbor, rendered through
 the REAL game path every tick while the player tours and strafes across
 every doorway threshold. Pixel truth: a neighbor's decal ink must never
@@ -6,7 +6,7 @@ collapse between consecutive ticks while the player is barely moving.
 
 The defect class this guards: visible_set wedge clips carrying an adjacent
 duplicate vertex whose zero-length edge fabricated a phantom half-plane
-(geom::DEGENERATE_EDGE), blinking a room's entire prim/entity layer at up
+(geom::DEGENERATE_EDGE), blinking a polygon's entire prim/entity layer at up
 to 30Hz. Root-caused from seed-7 campaign tick 740; fixed engine-side
 (canonical clip output + degenerate-edge guards in every consumer).
 """
@@ -38,14 +38,14 @@ from perihelion.sim import GameSession, InputFrame  # noqa: E402
 @pytest.mark.parametrize("braided", [False, True], ids=["cross", "braided"])
 def test_neighbor_decor_never_blinks(braided):
     pygame.init()
-    level, rooms = flicker_cross.build_world(braided)
+    level, polygons = flicker_cross.build_world(braided)
     session = GameSession(level, seed=7, screen=(INTERNAL_W, INTERNAL_H))
-    probe_rooms = {k: rooms[k] for k in flicker_cross.NEIGHBORS}
-    flicker_cross.plant_decals(session, rooms, probe_rooms)
+    probe_polygons = {k: polygons[k] for k in flicker_cross.NEIGHBORS}
+    flicker_cross.plant_decals(session, polygons, probe_polygons)
     ren = Renderer(session)
     surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
     decal_local = {name: [(x, y) for _, x, y, _, _ in session.decals[r]]
-                   for name, r in probe_rooms.items()}
+                   for name, r in probe_polygons.items()}
     prev = None
     prev_pos = None
     events = []
@@ -57,21 +57,21 @@ def test_neighbor_decor_never_blinks(braided):
         ren.consume_fx(session.fx)
         ren.draw(surf)
         vis = session.visible()
-        by_room = {}
+        by_polygon = {}
         for inst in vis:
-            by_room.setdefault(inst[0], []).append(inst)
+            by_polygon.setdefault(inst[0], []).append(inst)
         px, py = session.player_pos()
         moved = 0.0 if prev_pos is None else math.hypot(px - prev_pos[0], py - prev_pos[1])
         prev_pos = (px, py)
         row = {}
-        for name, r in probe_rooms.items():
-            insts = by_room.get(r, [])
+        for name, r in probe_polygons.items():
+            insts = by_polygon.get(r, [])
             ink = max((flicker_cross.probe_ink(surf, flicker_cross._xform_of(i),
                                                decal_local[name])
                        for i in insts), default=0)
             row[name] = (len(insts), ink)
         if prev is not None:
-            for name in probe_rooms:
+            for name in probe_polygons:
                 (pi, pink), (ci, cink) = prev[name], row[name]
                 if pi > 0 and pink >= 15 and moved < 3.0 and \
                         (ci == 0 or cink < 0.3 * pink):

@@ -4,7 +4,7 @@ Small calibration driver (director's order, 2026-07-13: "You may spend up
 to $10 on small calibration batches to prove the new pipeline stages
 work") for the three new workstreams: labeled-box conditioning, walk-mask
 derivation, and the decal-plan wayfinding exception. Runs a handful of
-rooms end-to-end through the FULL new gate stack (all existing gates +
+polygons end-to-end through the FULL new gate stack (all existing gates +
 item-placement vision gate + walk-mask connectivity hard gate) and writes
 review artifacts to tools/artgen/review/ for personal frame reading.
 
@@ -13,7 +13,7 @@ output goes to a v3 scratch/review area, exactly like the existing sample
 pipeline's separation between calibration and ship.
 
 Usage:
-    uv run python -m tools.artgen.calibrate_v3 --rooms l01/0,l03/0
+    uv run python -m tools.artgen.calibrate_v3 --polygons l01/0,l03/0
 """
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ from PIL import Image
 
 from tools.artgen.gen import generate_image
 from tools.artgen.pilot_texture_lib import (
-    SCRATCH, basetruth_path, build_room_prompt, get_level, room_mask,
+    SCRATCH, basetruth_path, build_polygon_prompt, get_level, polygon_mask,
 )
 from tools.artgen.box_conditioning import (
     boxes_prompt_note, draw_labeled_boxes, verify_item_placement,
@@ -37,7 +37,7 @@ from tools.artgen.texture_checks import (
 )
 from tools.artgen.verify_gemini import verify_texture
 from tools.artgen.walkmask import (
-    check_room_portal_connectivity, derive_walkmask, portal_points_px,
+    check_polygon_portal_connectivity, derive_walkmask, portal_points_px,
     walkmask_out_path,
 )
 
@@ -52,37 +52,37 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "game"))
 import numpy as np  # noqa: E402
 
 
-def _tex_size(stem: str, room_idx: int) -> tuple[int, int]:
-    rooms = json.loads((Path(__file__).resolve().parent / "pilot_rooms.json").read_text())["rooms"]
-    for r in rooms:
-        if r["level"] == stem and r["room_index"] == room_idx:
+def _tex_size(stem: str, polygon_idx: int) -> tuple[int, int]:
+    polygons = json.loads((Path(__file__).resolve().parent / "pilot_polygons.json").read_text())["polygons"]
+    for r in polygons:
+        if r["level"] == stem and r["polygon_index"] == polygon_idx:
             return r["tex_w"], r["tex_h"]
-    # fall back to the room_mask's own bbox->px sizing
-    mask = room_mask(stem, room_idx)
+    # fall back to the polygon_mask's own bbox->px sizing
+    mask = polygon_mask(stem, polygon_idx)
     h, w = mask.shape
     return w, h
 
 
-def run_room(stem: str, room_idx: int, kind_override: str | None = None) -> dict:
+def run_polygon(stem: str, polygon_idx: int, kind_override: str | None = None) -> dict:
     level = get_level(stem)
-    kind = kind_override or level.room_kinds[room_idx]
-    guide_path = GUIDE_DIR / stem / f"room_{room_idx:03d}.png"
+    kind = kind_override or level.polygon_kinds[polygon_idx]
+    guide_path = GUIDE_DIR / stem / f"polygon_{polygon_idx:03d}.png"
     if not guide_path.exists():
-        raise RuntimeError(f"no cached guide for {stem}/room_{room_idx:03d} -- run gen_pilot_textures_v2 "
+        raise RuntimeError(f"no cached guide for {stem}/polygon_{polygon_idx:03d} -- run gen_pilot_textures_v2 "
                             "first to populate the guide cache, or point --guide-dir elsewhere")
     material_path = MATERIALS_DIR / f"{kind}.png"
 
-    boxed_guide_path = V3_OUT / "guides" / f"{stem}_room{room_idx:03d}.png"
+    boxed_guide_path = V3_OUT / "guides" / f"{stem}_polygon{polygon_idx:03d}.png"
     boxed_guide_path.parent.mkdir(parents=True, exist_ok=True)
-    _, boxes = draw_labeled_boxes(guide_path, stem, room_idx, kind, boxed_guide_path)
+    _, boxes = draw_labeled_boxes(guide_path, stem, polygon_idx, kind, boxed_guide_path)
 
     decal_plan = build_level_decal_plan(stem)
-    d_note = decal_prompt_note(decal_plan["marks"], stem, room_idx)
+    d_note = decal_prompt_note(decal_plan["marks"], stem, polygon_idx)
     b_note = boxes_prompt_note(boxes)
-    prompt = build_room_prompt(kind, has_neighbor_composite=False, box_note=b_note, decal_note=d_note)
+    prompt = build_polygon_prompt(kind, has_neighbor_composite=False, box_note=b_note, decal_note=d_note)
 
-    tex_w, tex_h = _tex_size(stem, room_idx)
-    gen_out = V3_OUT / "gen" / f"{stem}_room{room_idx:03d}.png"
+    tex_w, tex_h = _tex_size(stem, polygon_idx)
+    gen_out = V3_OUT / "gen" / f"{stem}_polygon{polygon_idx:03d}.png"
     gen_out.parent.mkdir(parents=True, exist_ok=True)
     gr = generate_image(prompt, gen_out, reference_images=[str(boxed_guide_path), str(material_path)])
     total_cost = gr["cost"]
@@ -91,7 +91,7 @@ def run_room(stem: str, room_idx: int, kind_override: str | None = None) -> dict
     raw_im = crop_outer_black_margin(raw_im)
     raw_resized = raw_im.resize((tex_w, tex_h), Image.LANCZOS)
 
-    mask = room_mask(stem, room_idx)
+    mask = polygon_mask(stem, polygon_idx)
     if mask.shape != (tex_h, tex_w):
         m = Image.fromarray((mask.astype("uint8") * 255), mode="L")
         m = m.resize((tex_w, tex_h), Image.NEAREST)
@@ -120,7 +120,7 @@ def run_room(stem: str, room_idx: int, kind_override: str | None = None) -> dict
     total_cost += gv.get("_cost", 0.0)
     gates["gemini_geometry"] = gv
 
-    out_final = V3_OUT / "final" / f"{stem}_room{room_idx:03d}.png"
+    out_final = V3_OUT / "final" / f"{stem}_polygon{polygon_idx:03d}.png"
     out_final.parent.mkdir(parents=True, exist_ok=True)
     from tools.artgen.pilot_texture_lib import apply_mask
     final_im = apply_mask(raw_resized, mask)
@@ -135,15 +135,15 @@ def run_room(stem: str, room_idx: int, kind_override: str | None = None) -> dict
     walk_im.save(walk_path)
 
     walk_arr = np.asarray(walk_im) > 127
-    pts = portal_points_px(stem, room_idx, level)
-    conn = check_room_portal_connectivity(walk_arr, pts)
+    pts = portal_points_px(stem, polygon_idx, level)
+    conn = check_polygon_portal_connectivity(walk_arr, pts)
     gates["walkmask_connectivity"] = conn
 
-    review_path = REVIEW_DIR / f"v3_{stem}_room{room_idx:03d}_texture.png"
+    review_path = REVIEW_DIR / f"v3_{stem}_polygon{polygon_idx:03d}_texture.png"
     review_path.write_bytes(out_final.read_bytes())
-    review_boxed_guide = REVIEW_DIR / f"v3_{stem}_room{room_idx:03d}_boxed_guide.png"
+    review_boxed_guide = REVIEW_DIR / f"v3_{stem}_polygon{polygon_idx:03d}_boxed_guide.png"
     review_boxed_guide.write_bytes(boxed_guide_path.read_bytes())
-    review_walk = REVIEW_DIR / f"v3_{stem}_room{room_idx:03d}_walkmask.png"
+    review_walk = REVIEW_DIR / f"v3_{stem}_polygon{polygon_idx:03d}_walkmask.png"
     review_walk.write_bytes(walk_path.read_bytes())
 
     overall_ok = all(
@@ -152,8 +152,8 @@ def run_room(stem: str, room_idx: int, kind_override: str | None = None) -> dict
     )
 
     return dict(
-        key=f"{stem}/room_{room_idx:03d}", kind=kind, cost=total_cost,
-        n_boxes=len(boxes), n_decal_marks=len([m for m in decal_plan["marks"] if m["room"] == room_idx]),
+        key=f"{stem}/polygon_{polygon_idx:03d}", kind=kind, cost=total_cost,
+        n_boxes=len(boxes), n_decal_marks=len([m for m in decal_plan["marks"] if m["polygon"] == polygon_idx]),
         gates={k: {kk: vv for kk, vv in v.items() if kk != "_raw"} for k, v in gates.items()},
         overall_ok=overall_ok,
         review_texture=str(review_path), review_boxed_guide=str(review_boxed_guide),
@@ -163,16 +163,16 @@ def run_room(stem: str, room_idx: int, kind_override: str | None = None) -> dict
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--rooms", type=str, required=True,
+    ap.add_argument("--polygons", type=str, required=True,
                      help="comma-separated stem/idx pairs, e.g. l01/0,l03/0")
     args = ap.parse_args()
 
     results = {}
-    for spec in args.rooms.split(","):
+    for spec in args.polygons.split(","):
         stem, idx = spec.split("/")
         idx = int(idx)
-        print(f"=== {stem}/room_{idx:03d} ===")
-        res = run_room(stem, idx)
+        print(f"=== {stem}/polygon_{idx:03d} ===")
+        res = run_polygon(stem, idx)
         results[res["key"]] = res
         print(json.dumps({k: v for k, v in res.items() if k != "gates"}, indent=2))
 

@@ -25,20 +25,20 @@ def _chunks(n=3):
     return paths
 
 
-def _go(s, ws, room_target, point, max_ticks=2500, fire=False):
+def _go(s, ws, polygon_target, point, max_ticks=2500, fire=False):
     for _ in range(max_ticks):
         px, py = s.player_pos()
-        if s.player_room() == room_target and \
+        if s.player_polygon() == polygon_target and \
                 abs(px - point[0]) + abs(py - point[1]) < 26:
             return True
-        if s.player_room() == room_target:
+        if s.player_polygon() == polygon_target:
             mx, my = nav_to_point(s, px, py, point)
         else:
-            e = s.sim.next_edge(s.player_room(), room_target)
+            e = s.sim.next_edge(s.player_polygon(), polygon_target)
             if e < 0:
                 return False
             mx, my = nav_to_point(s, px, py,
-                                  s.sim.edge_midpoint(s.player_room(), e))
+                                  s.sim.edge_midpoint(s.player_polygon(), e))
         s.tick(InputFrame(mx=mx, my=my, fire=fire))
         ws.tick()
     return False
@@ -49,26 +49,26 @@ def test_stream_lazy_load_arrival_and_completion():
     s = GameSession(load_level(paths[0]), seed=3)
     ws = WorldStreamer(s, paths)
     assert s.exit_enabled is False
-    assert s.sim.num_rooms() == 4  # chunk 0 + its spine
-    spine_a = ws.chunks[0]["spine_rooms"][0]
+    assert s.sim.num_polygons() == 4  # chunk 0 + its spine
+    spine_a = ws.chunks[0]["spine_polygons"][0]
     assert _go(s, ws, spine_a, (0, 0), fire=True)
     assert ws.chunks[0]["loaded_next"]
     assert any(t["text"].startswith("__CONV__") for t in s.terminals)
     s.keys.add("red")
     c1 = ws.chunks[1]
-    assert _go(s, ws, c1["entry_room"] + c1["offset"], c1["entry_pos"],
+    assert _go(s, ws, c1["entry_polygon"] + c1["offset"], c1["entry_pos"],
                fire=True)
     assert ws.current == 1
     assert not s.keys  # new security zone
     # final chunk enables the true exit and completes there
-    spine1a = ws.chunks[1]["spine_rooms"][0]
+    spine1a = ws.chunks[1]["spine_polygons"][0]
     assert _go(s, ws, spine1a, (0, 0), fire=True)
     c2 = ws.chunks[2]
-    assert _go(s, ws, c2["entry_room"] + c2["offset"], c2["entry_pos"],
+    assert _go(s, ws, c2["entry_polygon"] + c2["offset"], c2["entry_pos"],
                fire=True)
     assert s.exit_enabled
     lvl2 = c2["level"]
-    assert _go(s, ws, lvl2.exit_room + c2["offset"], lvl2.exit_pos, fire=True)
+    assert _go(s, ws, lvl2.exit_polygon + c2["offset"], lvl2.exit_pos, fire=True)
     for _ in range(120):
         px, py = s.player_pos()
         mx, my = nav_to_point(s, px, py, lvl2.exit_pos)
@@ -83,19 +83,19 @@ def test_stream_respawn_at_chunk_entry():
     paths = _chunks()
     s = GameSession(load_level(paths[0]), seed=3)
     ws = WorldStreamer(s, paths)
-    spine_a = ws.chunks[0]["spine_rooms"][0]
+    spine_a = ws.chunks[0]["spine_polygons"][0]
     assert _go(s, ws, spine_a, (0, 0), fire=True)
     c1 = ws.chunks[1]
-    assert _go(s, ws, c1["entry_room"] + c1["offset"], c1["entry_pos"],
+    assert _go(s, ws, c1["entry_polygon"] + c1["offset"], c1["entry_pos"],
                fire=True)
     hp_entry = ws.entry_states[1]["hp"]
     s.hurt_cd = 0
     s.hp = 1
-    s._damage_player(50, s.player_room())
+    s._damage_player(50, s.player_polygon())
     assert s.dead
     n_enemies_before = len(s.enemies)
     ws.respawn()
     assert not s.dead
     assert s.hp == hp_entry
-    assert ws.room_chunk(s.player_room()) == 1
+    assert ws.polygon_chunk(s.player_polygon()) == 1
     assert len(s.enemies) >= n_enemies_before  # the chunk's dead rose again

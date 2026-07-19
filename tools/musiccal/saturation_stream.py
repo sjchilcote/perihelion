@@ -1,18 +1,18 @@
-"""tools/musiccal/saturation_stream.py — memory-bounded per-room hazard
+"""tools/musiccal/saturation_stream.py — memory-bounded per-polygon hazard
 saturation evaluator.
 
 fit_factors.py keeps every run's full feature arrays in memory (needed for
 the model fit); at 2400+ runs that footprint (~5GB+) doesn't fit this
-box's contended RAM. The saturation trajectory only needs per-room
-(tick count, death-labeled tick count) sums, which stream in O(rooms)
-memory: this script reads each run file once, extracts (room, t) per tick
+box's contended RAM. The saturation trajectory only needs per-polygon
+(tick count, death-labeled tick count) sums, which stream in O(polygons)
+memory: this script reads each run file once, extracts (polygon, t) per tick
 plus the death outcome from the footer, applies the same 3s-horizon
 labeling rule as fit_factors.process_run (died: last HORIZON ticks are
 positive; complete: all negative; timeout: tail censored), and accumulates
-per-room sums per seed-ordered batch prefix.
+per-polygon sums per seed-ordered batch prefix.
 
 It ALSO reports the honest uncertainty unit the tick-level SEs hide:
-estimated deaths-per-room (= positive ticks / HORIZON — each death paints
+estimated deaths-per-polygon (= positive ticks / HORIZON — each death paints
 up to HORIZON consecutive positive ticks, so tick-level binomial SEs
 overstate precision by ~sqrt(HORIZON); see FITTING_REPORT.md's saturation
 section). For each doubling it evaluates the brief's literal criterion and
@@ -41,29 +41,29 @@ FRACTIONS = (1 / 32, 1 / 16, 1 / 8, 1 / 4, 1 / 2, 1.0)
 
 
 def stream_run(path: Path) -> dict[int, tuple[int, int]] | None:
-    """(ticks, positive_ticks) per room for one run, labels per
+    """(ticks, positive_ticks) per polygon for one run, labels per
     fit_factors.process_run's rule."""
     header = None
-    rows = []  # (room, t)
+    rows = []  # (polygon, t)
     footer = None
     with gzip.open(path, "rt") as fh:
         for line in fh:
             obj = json.loads(line)
             if header is None:
                 header = obj
-                room_i = header["fields"].index("room")
+                polygon_i = header["fields"].index("polygon")
                 t_i = header["fields"].index("t")
                 continue
             if isinstance(obj, dict) and obj.get("footer"):
                 footer = obj
                 continue
-            rows.append((obj[room_i], obj[t_i]))
+            rows.append((obj[polygon_i], obj[t_i]))
     if not rows or footer is None:
         return None
     outcome = footer["outcome"]
     end_tick = footer["ticks"]
     acc: dict[int, list[int]] = defaultdict(lambda: [0, 0])
-    for room, t in rows:
+    for polygon, t in rows:
         if outcome == "died":
             valid, pos = True, (end_tick - t) <= HORIZON
         elif outcome == "complete":
@@ -71,16 +71,16 @@ def stream_run(path: Path) -> dict[int, tuple[int, int]] | None:
         else:  # timeout/error: censor the unconfirmable tail
             valid, pos = (end_tick - t) >= HORIZON, False
         if valid:
-            a = acc[room]
+            a = acc[polygon]
             a[0] += 1
             a[1] += int(pos)
     return {r: (v[0], v[1]) for r, v in acc.items()}
 
 
-def evaluate(per_room_batches: list[dict], n_runs_list: list[int]) -> list[dict]:
+def evaluate(per_polygon_batches: list[dict], n_runs_list: list[int]) -> list[dict]:
     out = []
-    for i in range(1, len(per_room_batches)):
-        cur, prev = per_room_batches[i], per_room_batches[i - 1]
+    for i in range(1, len(per_polygon_batches)):
+        cur, prev = per_polygon_batches[i], per_polygon_batches[i - 1]
         total = sum(v[0] for v in cur.values())
         ranked = sorted(cur.items(), key=lambda kv: -kv[1][0])
         cum, covered = 0, []
@@ -119,8 +119,8 @@ def evaluate(per_room_batches: list[dict], n_runs_list: list[int]) -> list[dict]
             covered=len(covered), coverage=cum / total,
             literal_se=lit_se, literal_shift=lit_shift,
             literal_saturated=bool(lit_se and lit_shift),
-            worst_se_room=worst_se,
-            max_rel_shift=max_shift[0], max_shift_room=max_shift[2],
+            worst_se_polygon=worst_se,
+            max_rel_shift=max_shift[0], max_shift_polygon=max_shift[2],
             median_observed_to_predicted_shift_ratio=med_ratio,
             n_bins_shifted_over_15pct=sum(1 for rel, _, _ in shifts if rel > 0.15),
         ))
@@ -164,13 +164,13 @@ def main(argv=None) -> int:
     evals = evaluate(batches, n_runs_list)
     for e in evals:
         print(f"[sat] {e['step']}: literal_saturated={e['literal_saturated']} "
-              f"max_rel_shift={e['max_rel_shift']:.2f} (room {e['max_shift_room']}) "
+              f"max_rel_shift={e['max_rel_shift']:.2f} (polygon {e['max_shift_polygon']}) "
               f"bins>15%={e['n_bins_shifted_over_15pct']} "
               f"obs/pred={e['median_observed_to_predicted_shift_ratio'] and round(e['median_observed_to_predicted_shift_ratio'], 2)}",
               file=sys.stderr)
 
     final = batches[-1]
-    per_room_final = {
+    per_polygon_final = {
         str(r): dict(n_ticks=v[0], hazard=(v[1] / v[0] if v[0] else 0.0),
                      est_deaths=round(v[1] / HORIZON, 1))
         for r, v in sorted(final.items())
@@ -178,8 +178,8 @@ def main(argv=None) -> int:
     out = dict(horizon_ticks=HORIZON, n_runs=n, fractions=list(FRACTIONS),
                n_runs_per_batch=n_runs_list,
                batches=[{str(r): [v[0], v[1]] for r, v in b.items()} for b in batches],
-               evaluations=evals, per_room_final=per_room_final,
-               note="streaming per-room 3s-hazard saturation over the full farm; "
+               evaluations=evals, per_polygon_final=per_polygon_final,
+               note="streaming per-polygon 3s-hazard saturation over the full farm; "
                     "est_deaths = positive_ticks/HORIZON is the honest sample-size "
                     "unit (tick SEs are ~sqrt(HORIZON) optimistic; see "
                     "FITTING_REPORT.md saturation section)")

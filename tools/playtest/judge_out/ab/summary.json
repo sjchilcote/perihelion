@@ -6,7 +6,7 @@
     "verdict": {
       "human": "B",
       "confidence": 0.72,
-      "reason": "Clip A parks in one spot for the last ~5 samples oscillating its facing angle with zero positional movement, a mechanical idle/rotate pattern, while Clip B shows a winding, non-optimal path with backtracking through the same rooms and steadily worsening, erratic combat damage typical of a human under pressure."
+      "reason": "Clip A parks in one spot for the last ~5 samples oscillating its facing angle with zero positional movement, a mechanical idle/rotate pattern, while Clip B shows a winding, non-optimal path with backtracking through the same polygons and steadily worsening, erratic combat damage typical of a human under pressure."
     },
     "correct": true
   },

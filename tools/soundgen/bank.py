@@ -6,7 +6,7 @@ numpy DSP toolkit in synth.py. Every sound has a one-line SPEC string
 
 Synthesis approach (round-2 rebuild after Gemini judging): every percussive
 sound is layered -- hot broadband transient, pitched sine thump for low-end
-weight, swept-bandpass noise body, comb-delayed room tail -- summed, tanh
+weight, swept-bandpass noise body, comb-delayed polygon tail -- summed, tanh
 soft-clipped for grit, and ALWAYS enveloped to true zero (never truncated
 mid-energy).
 
@@ -116,7 +116,7 @@ def gun_body(dur_s: float, f_hi: float = 2000.0, f_lo: float = 300.0,
 
 
 def gun_tail(dur_s: float = 0.25, lp_hz: float = 800.0, seed=None) -> np.ndarray:
-    """Lowpassed noise room tail with parallel comb delays (13/17/23 ms)."""
+    """Lowpassed noise polygon tail with parallel comb delays (13/17/23 ms)."""
     n = sy.white_noise(dur_s, seed=seed)
     n = sy.lowpass(n, lp_hz)
     combs = [sy.comb_filter(n, d, feedback=0.35) for d in (0.013, 0.017, 0.023)]
@@ -395,7 +395,7 @@ def gen_shotgun_fire() -> np.ndarray:
 def gen_scrap_fire() -> np.ndarray:
     # Junkier cousin of the shotgun: same gunshot skeleton (proven weight)
     # but with a rattling metal-debris tail -- irregular scattered grains,
-    # not the smooth comb-delayed room tail -- plus bitcrush grit so it
+    # not the smooth comb-delayed polygon tail -- plus bitcrush grit so it
     # reads as a driver flinging scrap, not a clean shotgun blast.
     #
     # Round-4 punch-up: take-1 was "a thin synthetic pop"; take-2/3's dense
@@ -1030,7 +1030,7 @@ def gen_player_die() -> np.ndarray:
               (0.55, settle, 0.7),
               (0.45, ring, 0.1))
     x = grit(x, drive=1.8, floor_db=-38, seed=seed + 10)
-    x = sy.reverb(x, room_size=0.5, damping=0.5, mix=0.12, tail_s=0.2)
+    x = sy.reverb(x, polygon_size=0.5, damping=0.5, mix=0.12, tail_s=0.2)
     x = sy.fade_out(x, 0.4)
     return finish(x, fade_s=0.12)
 
@@ -1502,7 +1502,7 @@ def gen_reveal_bloom() -> np.ndarray:
     x = sy.mix_layers([bloom, pad], [1.0, 0.42])
     x = sy.soft_clip(x, 1.15)
     x = sy.lowpass(x, 5200)
-    x = sy.reverb(x, room_size=0.55, damping=0.4, mix=0.22, tail_s=0.5)
+    x = sy.reverb(x, polygon_size=0.55, damping=0.4, mix=0.22, tail_s=0.5)
     x = grit(x, drive=1.15, floor_db=-46, seed=seed + 3)
     return finish(x, fade_s=0.28, pad_s=0.06)
 
@@ -1949,7 +1949,7 @@ def gen_amb_drone_finale() -> np.ndarray:
         t += rng.uniform(6.0, 8.5)
 
     x = sy.mix_layers([sub, hollow, pulses.astype(np.float32)], [0.7, 0.4, 1.0])
-    x = sy.reverb(x, room_size=0.85, damping=0.2, mix=0.2, tail_s=0.4)
+    x = sy.reverb(x, polygon_size=0.85, damping=0.2, mix=0.2, tail_s=0.4)
     x = sy.pad_to(x, n_total)
     x = sy.crossfade_loop(x, 3.0)
     return x

@@ -1,5 +1,5 @@
-"""Containment: the ENGINE now enforces center-in-registered-room at the
-end of every step (contain_in_room, physics.rs), so escapes are corrected
+"""Containment: the ENGINE now enforces center-in-registered-polygon at the
+end of every step (contain_in_polygon, physics.rs), so escapes are corrected
 within one tick and the game-level sweep is a silent backstop that never
 fires in practice."""
 
@@ -18,15 +18,15 @@ def _level():
 
 def test_escaped_enemy_is_recovered():
     """Teleported far outside, the entity is back inside its registered
-    room within a tick or two -- by the ENGINE invariant, before the
+    polygon within a tick or two -- by the ENGINE invariant, before the
     game-level sweep (6 consecutive 30-tick strikes) can even arm."""
     s = GameSession(_level(), seed=1)
     eid = next(iter(s.enemies))
-    s.sim.set_pos(eid, 4000.0, -4000.0)  # far outside the room polygon
+    s.sim.set_pos(eid, 4000.0, -4000.0)  # far outside the polygon polygon
     for _ in range(3):
         s.tick(InputFrame())
     _, x, y, *_ = s.sim.get(eid)
-    assert GameSession._outside_by(x, y, s.level.room_verts[0]) <= 1e-6
+    assert GameSession._outside_by(x, y, s.level.polygon_verts[0]) <= 1e-6
     # the sweep stayed silent: the engine fixed it first
     for _ in range(200):
         s.tick(InputFrame())

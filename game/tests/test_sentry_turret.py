@@ -1,7 +1,7 @@
 """Friendly defensive sentry turret (director's directive, 2026-07-13):
-"let's put friendly turrets in the safe-room corridors." The calibration
-farm (tools/musiccal) measured loot/rest rooms as the DEADLIEST zone class
-in the gauntlet -- 2.2x combat rooms -- because standard enemies have no
+"let's put friendly turrets in the safe-polygon corridors." The calibration
+farm (tools/musiccal) measured loot/rest polygons as the DEADLIEST zone class
+in the gauntlet -- 2.2x combat polygons -- because standard enemies have no
 de-aggro path and simply follow a hurt player to the medkits
 (FITTING_REPORT.md finding #1). Covers `GameSession.spawn_sentry` /
 `_sentry_tick` / `_sentry_los_clear` / `_segment_crosses_rect` (sim.py) and
@@ -153,7 +153,7 @@ def test_sentry_never_damages_player():
 def _terrain_los_scenario(seed: int, block: bool):
     """Sentry + husk on a fixed line; the husk is pinned every tick (it
     would otherwise beeline for the player through/around any terrain --
-    `tether` only holds ground across a ROOM CHANGE, not within one, so it
+    `tether` only holds ground across a POLYGON CHANGE, not within one, so it
     cannot be used to hold a still target here) so only the LOS check
     itself is under test, never AI pathing."""
     b = LevelBuilder("sentry_terrain_los", 1)
@@ -169,7 +169,7 @@ def _terrain_los_scenario(seed: int, block: bool):
     _, hx, hy, *_ = s.sim.get(husk_id)
     if block:
         mx, my = (tx + hx) / 2.0, (ty + hy) / 2.0
-        s.sim.set_room_terrain(0, [(mx - 40.0, my - 25.0, mx + 40.0, my + 25.0)])
+        s.sim.set_polygon_terrain(0, [(mx - 40.0, my - 25.0, mx + 40.0, my + 25.0)])
     for _ in range(250):
         s.tick(InputFrame())
         if husk_id in s.enemies:
@@ -235,7 +235,7 @@ def test_sentry_prefers_farther_visible_target_over_nearer_occluded_one():
     b_id = max(husks, key=lambda e: math.hypot(pos[e][0] - tx, pos[e][1] - ty))
     ax, ay = pos[a_id]
     mx, my = (tx + ax) / 2.0, (ty + ay) / 2.0
-    s.sim.set_room_terrain(0, [(mx - 30.0, my - 15.0, mx + 30.0, my + 15.0)])
+    s.sim.set_polygon_terrain(0, [(mx - 30.0, my - 15.0, mx + 30.0, my + 15.0)])
 
     for _ in range(400):
         s.tick(InputFrame())
@@ -282,33 +282,33 @@ def test_sentry_is_deterministic():
 
 
 # ---------------------------------------------------------------------
-# 5. gauntlet-level integration: pursued into the loot room dies to the sentry
+# 5. gauntlet-level integration: pursued into the loot polygon dies to the sentry
 # ---------------------------------------------------------------------
 
-def _go_to(s: GameSession, room_target: int, point, max_ticks: int) -> bool:
+def _go_to(s: GameSession, polygon_target: int, point, max_ticks: int) -> bool:
     for _ in range(max_ticks):
         px, py = s.player_pos()
-        if s.player_room() == room_target and abs(px - point[0]) + abs(py - point[1]) < 20:
+        if s.player_polygon() == polygon_target and abs(px - point[0]) + abs(py - point[1]) < 20:
             return True
-        if s.player_room() == room_target:
+        if s.player_polygon() == polygon_target:
             mx, my = nav_to_point(s, px, py, point)
         else:
-            e = s.sim.next_edge(s.player_room(), room_target)
+            e = s.sim.next_edge(s.player_polygon(), polygon_target)
             if e < 0:
                 return False
-            mx, my = nav_to_point(s, px, py, s.sim.edge_midpoint(s.player_room(), e))
+            mx, my = nav_to_point(s, px, py, s.sim.edge_midpoint(s.player_polygon(), e))
         s.tick(InputFrame(mx=mx, my=my))
         if s.dead:
             return False
     return False
 
 
-def test_gauntlet_pursued_into_loot_room_dies_to_sentry():
+def test_gauntlet_pursued_into_loot_polygon_dies_to_sentry():
     """The literal scenario the director's remedy targets: walk into the
     nearest combat segment, get noticed, retreat the whole way back to the
-    corridor's loot room (standard enemies have no de-aggro path -- see
+    corridor's loot polygon (standard enemies have no de-aggro path -- see
     FITTING_REPORT.md finding #1 -- so the pursuer follows all the way
-    in), and the loot room's own sentry must finish it off. Room ids are
+    in), and the loot polygon's own sentry must finish it off. Polygon ids are
     derived from the real level + its zone metadata, never hardcoded, so
     this survives a future re-tuning of the gauntlet's density/segments."""
     assert LEVEL_PATH.exists(), "run: uv run python tools/musiccal/build_gauntlet.py"
@@ -318,21 +318,21 @@ def test_gauntlet_pursued_into_loot_room_dies_to_sentry():
     zones = meta["zones"]
     s = GameSession(level, seed=1)
 
-    loot_rooms = {int(r) for r, z in zones.items() if z["zone"] == "loot"}
-    start_loot = min(loot_rooms,
-                     key=lambda r: s.sim.hop_distance(level.player_room, r))
+    loot_polygons = {int(r) for r, z in zones.items() if z["zone"] == "loot"}
+    start_loot = min(loot_polygons,
+                     key=lambda r: s.sim.hop_distance(level.player_polygon, r))
     assert next(iter(s.sentries.values()), None) is not None, \
         "the real gauntlet must actually carry sentries (build_gauntlet.py regen)"
 
-    combat_rooms_with_enemies = sorted(
-        {room for room, spec in level.entities if spec.type in ENEMIES},
-        key=lambda r: s.sim.hop_distance(level.player_room, r))
-    assert combat_rooms_with_enemies, "gauntlet has zero enemies at the tuned density"
-    target_room = combat_rooms_with_enemies[0]
+    combat_polygons_with_enemies = sorted(
+        {polygon for polygon, spec in level.entities if spec.type in ENEMIES},
+        key=lambda r: s.sim.hop_distance(level.player_polygon, r))
+    assert combat_polygons_with_enemies, "gauntlet has zero enemies at the tuned density"
+    target_polygon = combat_polygons_with_enemies[0]
     pursuer_id = next(eid for eid, e in s.enemies.items()
-                      if s.sim.get_room(eid) == target_room)
+                      if s.sim.get_polygon(eid) == target_polygon)
 
-    assert _go_to(s, target_room, (0, 0), max_ticks=1500), \
+    assert _go_to(s, target_polygon, (0, 0), max_ticks=1500), \
         "could not reach the nearest combat segment"
     for _ in range(60):  # let it notice and start hunting
         s.tick(InputFrame())
@@ -340,7 +340,7 @@ def test_gauntlet_pursued_into_loot_room_dies_to_sentry():
         "the enemy never noticed the player -- test setup didn't aggro it"
 
     assert _go_to(s, start_loot, (0, 0), max_ticks=1600), \
-        "could not retreat to the loot room"
+        "could not retreat to the loot polygon"
     assert not s.dead, "player died during the retreat"
 
     for _ in range(600):
@@ -348,5 +348,5 @@ def test_gauntlet_pursued_into_loot_room_dies_to_sentry():
         if pursuer_id not in s.enemies:
             break
     assert pursuer_id not in s.enemies, \
-        "the pursuer must die to the loot room's sentry once it follows the player in"
+        "the pursuer must die to the loot polygon's sentry once it follows the player in"
     assert not s.dead, "player must survive the encounter (that's the whole point)"

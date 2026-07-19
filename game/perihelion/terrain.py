@@ -1,11 +1,11 @@
 """Walk-mask terrain: converts a `<texture>_walkmask.png` (white = walkable,
-black = terrain) into the room-local axis-aligned rects
-`necore.Sim.set_room_terrain` consumes for movement/projectile blocking.
+black = terrain) into the polygon-local axis-aligned rects
+`necore.Sim.set_polygon_terrain` consumes for movement/projectile blocking.
 
-Naming convention: alongside each room's bespoke floor texture
-`room_<index>.png` (see `texture_geom.py`), an optional
-`room_<index>_walkmask.png` in the same directory, same size, same
-room-local coordinate mapping (the texel law: texel (tx, ty) <->
+Naming convention: alongside each polygon's bespoke floor texture
+`polygon_<index>.png` (see `texture_geom.py`), an optional
+`polygon_<index>_walkmask.png` in the same directory, same size, same
+polygon-local coordinate mapping (the texel law: texel (tx, ty) <->
 `bbox_min + (tx+0.5, ty+0.5) / DENSITY`) -- painted equipment lines up with
 its floor art exactly. Absence of the file means fully walkable: no
 terrain is ever fabricated (`load_walk_mask_rects` returns `[]`).
@@ -34,7 +34,7 @@ TEXTURE_DIR = Path(__file__).resolve().parent / "assets" / "textures"
 # collapse into one terrain grid cell before rect-merging. Painted
 # equipment silhouettes don't need per-texel collision precision, and
 # merging coarser first keeps the extracted-rect count small (the
-# "efficient, room-local" representation the director's spec asks for).
+# "efficient, polygon-local" representation the director's spec asks for).
 DOWNSAMPLE = 4
 
 # A coarse cell is terrain if at least this fraction of its covered texels
@@ -52,9 +52,9 @@ class WalkMaskError(ValueError):
     than silently ignored or silently misread (no fallbacks/fake data)."""
 
 
-def walkmask_path(level_id: str, room_index: int) -> Path:
-    """`<TEXTURE_DIR>/<level_id>/room_<room_index>_walkmask.png`."""
-    tex = texture_geom.texture_path(TEXTURE_DIR, level_id, room_index)
+def walkmask_path(level_id: str, polygon_index: int) -> Path:
+    """`<TEXTURE_DIR>/<level_id>/polygon_<polygon_index>_walkmask.png`."""
+    tex = texture_geom.texture_path(TEXTURE_DIR, level_id, polygon_index)
     return tex.with_name(tex.stem + "_walkmask" + tex.suffix)
 
 
@@ -209,7 +209,7 @@ def _merge_rects(cols: int, rows: int, blocked: list[list[bool]]) -> list[tuple[
 
 def rects_from_mask(width: int, height: int, luma: bytes,
                      bbox_min: tuple[float, float]) -> list[tuple[float, float, float, float]]:
-    """Room-local `(lo_x, lo_y, hi_x, hi_y)` terrain rects from a decoded
+    """Polygon-local `(lo_x, lo_y, hi_x, hi_y)` terrain rects from a decoded
     walk-mask image, using the same texel law `texture_geom.py` documents."""
     cols, rows, blocked = _coarse_grid(width, height, luma)
     bx, by = bbox_min
@@ -223,33 +223,33 @@ def rects_from_mask(width: int, height: int, luma: bytes,
     return out
 
 
-def load_walk_mask_rects(level_id: str, room_index: int,
+def load_walk_mask_rects(level_id: str, polygon_index: int,
                           verts: list[tuple[float, float]]) -> list[tuple[float, float, float, float]]:
-    """Room-local terrain rects for one room, or `[]` if it has no
+    """Polygon-local terrain rects for one polygon, or `[]` if it has no
     `<texture>_walkmask.png` (absence = fully walkable, per spec)."""
-    path = walkmask_path(level_id, room_index)
+    path = walkmask_path(level_id, polygon_index)
     if not path.is_file():
         return []
     width, height, luma = decode_png_luminance(path.read_bytes())
-    want_w, want_h = texture_geom.texture_size_for_room(verts)
+    want_w, want_h = texture_geom.texture_size_for_polygon(verts)
     if (width, height) != (want_w, want_h):
         raise WalkMaskError(
             f"{path}: walk-mask is {width}x{height}, expected {want_w}x{want_h} "
             "(must match the floor texture's size/mapping exactly)"
         )
-    bbox_min = texture_geom.room_bbox(verts)[:2]
+    bbox_min = texture_geom.polygon_bbox(verts)[:2]
     return rects_from_mask(width, height, luma, bbox_min)
 
 
-def apply_walk_masks(sim, level, room_offset: int = 0) -> None:
-    """Load and install walk-mask terrain for every room in `level` into
-    `sim` (a `necore.Sim`), room indices shifted by `room_offset` (for
-    streamed chunks appended after room 0). No-op per room when the level
-    has no `level_id` or the room has no mask file."""
+def apply_walk_masks(sim, level, polygon_offset: int = 0) -> None:
+    """Load and install walk-mask terrain for every polygon in `level` into
+    `sim` (a `necore.Sim`), polygon indices shifted by `polygon_offset` (for
+    streamed chunks appended after polygon 0). No-op per polygon when the level
+    has no `level_id` or the polygon has no mask file."""
     level_id = getattr(level, "level_id", "") or ""
     if not level_id:
         return
-    for local_idx, verts in enumerate(level.room_verts):
+    for local_idx, verts in enumerate(level.polygon_verts):
         rects = load_walk_mask_rects(level_id, local_idx, verts)
         if rects:
-            sim.set_room_terrain(local_idx + room_offset, rects)
+            sim.set_polygon_terrain(local_idx + polygon_offset, rects)

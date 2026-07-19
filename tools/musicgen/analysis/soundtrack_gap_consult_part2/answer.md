@@ -82,7 +82,7 @@
      - climax;
      - release or loop-safe outro.
      
-     Automate density, register, octave doubling, drum activity, filter brightness, room sends, and stem levels across the form. Add pickups, fills, cymbal transitions, tails, and one-bar handoffs between sections.
+     Automate density, register, octave doubling, drum activity, filter brightness, polygon sends, and stem levels across the form. Add pickups, fills, cymbal transitions, tails, and one-bar handoffs between sections.
    - **Expected impact:** **Medium–high**
    - **What the ear should notice:** A soundtrack cue that develops and arrives somewhere, rather than several loops placed end to end.
 
@@ -91,13 +91,13 @@
      - per-stem high-pass/low-pass and broad corrective EQ;
      - modest bus compression where needed;
      - kick-triggered bass ducking;
-     - one shared stereo room using a free impulse response and NumPy FFT convolution;
+     - one shared stereo polygon using a free impulse response and NumPy FFT convolution;
      - shorter ambience for drums and longer sends for pads/choir;
      - deliberate stereo positions and width limits;
      - volume/send automation;
      - a conservative final limiter or soft clipper used only for peak control.
      
-     Leave headroom before the master stage and loudness-match comparison renders.
+     Leave headpolygon before the master stage and loudness-match comparison renders.
    - **Expected impact:** **Medium–high**
    - **What the ear should notice:** Instruments occupying one acoustic world, clearer kick/bass separation, smoother section changes, greater width and depth, and less “samples pasted onto MIDI.”
 

@@ -73,7 +73,7 @@ _EPILOGUE_WITNESS = (
     "takes the hours he keeps and gives her one of them, every fourteen "
     "months, on the night the retrieval window closes. She talks. He "
     "says almost nothing, and holds a copy of what she is, one hour at a "
-    "time, the way a room holds a voice. The sample vessel sits in its "
+    "time, the way a polygon holds a voice. The sample vessel sits in its "
     "shrine with its verdict still in its mouth, and neither of them "
     "opens that argument again, because the argument has only two ends "
     "and they have already chosen the third: keep it. Keep it, and see.\n"
@@ -96,7 +96,7 @@ _EPILOGUE_TAIL = (
     "the routine holds: patrol, repair, radio, the hours - he still keeps "
     "the hours, though what he keeps in them has changed shape in ways he "
     "does not write down and she does not ask about, which is itself a "
-    "kind of conversation. Room by room, the station begins folding itself "
+    "kind of conversation. Polygon by polygon, the station begins folding itself "
     "closed, gently, like a hand going to sleep. They let it. They move "
     "the watch inward as the perimeter goes dark, until the watch is one "
     "corridor, one door, two voices, and the arithmetic of an orbit that "
@@ -151,7 +151,7 @@ def save_path() -> Path:
 
 
 def build_debug_level() -> Level:
-    """A minimal always-available 3-room level, used when no campaign
+    """A minimal always-available 3-polygon level, used when no campaign
     manifest (or --level target) can be loaded -- the game must always
     start (Definition of Done)."""
     b = LevelBuilder("debug-corridor", tier=1, ambience="amb_drone_early")
@@ -442,18 +442,18 @@ class App:
             pygame.image.save(
                 self.internal, str(rec["dir"] / f"frame_{rec['saved']:06d}.png"))
             # PERIHELION_VIS_DUMP: debug instrumentation for the flicker
-            # investigation -- dump the visible instance set (room, depth,
+            # investigation -- dump the visible instance set (polygon, depth,
             # clip bbox) alongside every saved frame so a frame-pair diff
             # can be traced to the exact instance-set change.
             if os.environ.get("PERIHELION_VIS_DUMP") and self.game is not None:
                 sess = self.game.session
                 rows = []
-                for room, xform, depth, clip_screen, walls, entry_edge, ents \
+                for polygon, xform, depth, clip_screen, walls, entry_edge, ents \
                         in sess.visible():
                     xs = [p[0] for p in clip_screen]
                     ys = [p[1] for p in clip_screen]
                     rows.append({
-                        "room": room, "depth": depth, "entry": entry_edge,
+                        "polygon": polygon, "depth": depth, "entry": entry_edge,
                         "bbox": [round(min(xs)), round(min(ys)),
                                  round(max(xs)), round(max(ys))],
                         "x6": [round(v, 2) for v in xform[:6]],
@@ -633,9 +633,9 @@ class App:
             game.session, [str(REPO_ROOT / p) for p in paths],
             start_chunk=start_chunk)
         # each streamed chunk is its own levels/*.json (its own level_id);
-        # key bespoke floor textures off the streamer's engine-room -> chunk
+        # key bespoke floor textures off the streamer's engine-polygon -> chunk
         # mapping instead of the single Level the renderer was built with.
-        game.renderer.room_texture_lookup = game.streamer.room_texture_key
+        game.renderer.polygon_texture_lookup = game.streamer.polygon_texture_key
 
         def on_entered(chunk_idx, name):
             self.current_level_index = chunk_idx
@@ -855,7 +855,7 @@ class App:
             # runs still show terminal text and relay conversations
             px, py = snap["pos"]
             for t in game.session.terminals:
-                if not t["read"] and t["room"] == snap["room"] and \
+                if not t["read"] and t["polygon"] == snap["polygon"] and \
                         math.hypot(t["pos"][0] - px, t["pos"][1] - py) < 26.0:
                     inp.interact = True
                     break

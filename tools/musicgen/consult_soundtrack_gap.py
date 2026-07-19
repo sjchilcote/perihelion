@@ -95,7 +95,7 @@ outside-model reasoning, with no stake in our existing abstractions, on:
    Consider (and rule in/out with reasoning, not just list) candidates like:
    arrangement/production (no sidechain glue between drum/bass/lead as a
    MIX, not just per-instrument processing; no reverb bus tying instruments
-   into one room; no stereo width/imaging; raw sample-rate/bit-depth
+   into one polygon; no stereo width/imaging; raw sample-rate/bit-depth
    mismatches between fluidsynth renders (44.1kHz) and freesound sources
    (48kHz downsampled) introducing artifacts); harmonic/arrangement
    thinness (a lead + bass + drums with no mid-range pad/rhythm-guitar glue,

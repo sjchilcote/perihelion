@@ -7,7 +7,7 @@ hand-edit the data tables; rerun the extractor). It is the earliest piece
 of genuinely non-Euclidean space Bungie ever shipped: several of its
 corridors overlap in plan without touching, and a wide transit hall
 (Marathon polys 230/160, deliberately NOT extracted) crosses straight over
-its middle. Our engine reproduces that for free — rooms may overlap on the
+its middle. Our engine reproduces that for free — polygons may overlap on the
 authoring canvas; only connects define adjacency — so the stamp keeps the
 original plan coordinates and the original overlaps.
 
@@ -36,7 +36,7 @@ from __future__ import annotations
 WU = 1024  # marathon internal units per world unit
 
 # (marathon_poly_index, verts) - engine-canonical winding, local frame
-_ROOMS = [
+_POLYGONS = [
     (111, [(3940, 1977), (5258, 1974), (5258, 1188), (3454, 1286)]),
     (127, [(5498, 10240), (5632, 10240), (5632, 9728), (5496, 9728)]),
     (128, [(5632, 10240), (7168, 10240), (7680, 10240), (7168, 9728), (5632, 9728)]),
@@ -105,7 +105,7 @@ _ROOMS = [
     (246, [(5258, 1974), (5372, 1977), (5522, 1974), (5522, 1188), (5372, 1188), (5258, 1188)]),
 ]
 
-# (room_i, room_j, edge midpoint) - every walkable Marathon portal
+# (polygon_i, polygon_j, edge midpoint) - every walkable Marathon portal
 _CONNECTS = [
     (0, 65, (5258, 1581)),
     (25, 28, (7168, 2816)),
@@ -214,7 +214,7 @@ _NO_CONNECT = [
     (49, 53)
 ]
 
-# name -> (room index, edge midpoint in local frame)
+# name -> (polygon index, edge midpoint in local frame)
 _GRAFTS = {
     "entry": (0, (3697, 1631.5)),
     "exit": (1, (5497, 9984)),
@@ -230,9 +230,9 @@ def build_maze(b, origin: tuple, scale: float = 80.0) -> dict:
 
     `scale` is PERIHELION units per Marathon WU; 80.0 is the canonical
     mapping (median Marathon door -> our 80 u doorway). Returns a dict:
-    "rooms" (marathon poly index -> builder room id), plus a graft point
-    per name above: (builder_room_id, (x, y) authoring coords) — feed
-    each straight into `b.connect_pts` / `b.door_pts`. Rooms are tagged
+    "polygons" (marathon poly index -> builder polygon id), plus a graft point
+    per name above: (builder_polygon_id, (x, y) authoring coords) — feed
+    each straight into `b.connect_pts` / `b.door_pts`. Polygons are tagged
     corridor/transit by adjacency degree; retag freely.
     """
     s = scale / WU
@@ -241,22 +241,22 @@ def build_maze(b, origin: tuple, scale: float = 80.0) -> dict:
     def pt(p):
         return (ox + p[0] * s, oy + p[1] * s)
 
-    deg = [0] * len(_ROOMS)
+    deg = [0] * len(_POLYGONS)
     for i, j, _ in _CONNECTS:
         deg[i] += 1
         deg[j] += 1
 
     ids = []
-    for k, (mi, verts) in enumerate(_ROOMS):
+    for k, (mi, verts) in enumerate(_POLYGONS):
         kind = "transit" if deg[k] >= 3 else "corridor"
-        ids.append(b.room([pt(v) for v in verts],
+        ids.append(b.polygon([pt(v) for v in verts],
                           detail_seed=mi * 7919 + 13, kind=kind))
     for i, j, mid in _CONNECTS:
         b.connect_pts(ids[i], pt(mid), ids[j], pt(mid))
     for i, j in _NO_CONNECT:
         b.no_connect(ids[i], ids[j])
 
-    out = {"rooms": {mi: ids[k] for k, (mi, _) in enumerate(_ROOMS)}}
+    out = {"polygons": {mi: ids[k] for k, (mi, _) in enumerate(_POLYGONS)}}
     for name, (i, mid) in _GRAFTS.items():
         out[name] = (ids[i], pt(mid))
     return out

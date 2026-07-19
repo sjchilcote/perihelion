@@ -3,7 +3,7 @@
  "name": "GAUNTLET \u2014 CALIBRATION RUN",
  "tier": 3,
  "ambience": "amb_drone_mid",
- "rooms": [
+ "polygons": [
   {
    "verts": [
     [
@@ -1929,14 +1929,14 @@
  "connects_x": [],
  "doors": [],
  "player": {
-  "room": 25,
+  "polygon": 25,
   "pos": [
    160.0,
    60045.0
   ]
  },
  "exit": {
-  "room": 45,
+  "polygon": 45,
   "pos": [
    700.0,
    72045.0
@@ -1949,7 +1949,7 @@
  },
  "lights": [
   {
-   "room": 5,
+   "polygon": 5,
    "pos": [
     20380.0,
     437.0
@@ -1964,7 +1964,7 @@
    "kind": "static"
   },
   {
-   "room": 6,
+   "polygon": 6,
    "pos": [
     40760.0,
     370.0
@@ -1979,7 +1979,7 @@
    "kind": "static"
   },
   {
-   "room": 7,
+   "polygon": 7,
    "pos": [
     43060.0,
     360.0
@@ -1994,7 +1994,7 @@
    "kind": "static"
   },
   {
-   "room": 7,
+   "polygon": 7,
    "pos": [
     43100.0,
     375.0
@@ -2009,7 +2009,7 @@
    "kind": "static"
   },
   {
-   "room": 8,
+   "polygon": 8,
    "pos": [
     61815.0,
     350.0
@@ -2024,7 +2024,7 @@
    "kind": "static"
   },
   {
-   "room": 15,
+   "polygon": 15,
    "pos": [
     79910.0,
     155.0
@@ -2039,7 +2039,7 @@
    "kind": "static"
   },
   {
-   "room": 16,
+   "polygon": 16,
    "pos": [
     79730.0,
     90.0
@@ -2054,7 +2054,7 @@
    "kind": "static"
   },
   {
-   "room": 17,
+   "polygon": 17,
    "pos": [
     79550.0,
     90.0
@@ -2069,7 +2069,7 @@
    "kind": "static"
   },
   {
-   "room": 21,
+   "polygon": 21,
    "pos": [
     79570.0,
     420.0
@@ -2084,7 +2084,7 @@
    "kind": "static"
   },
   {
-   "room": 21,
+   "polygon": 21,
    "pos": [
     79475.0,
     356.0
@@ -2099,7 +2099,7 @@
    "kind": "static"
   },
   {
-   "room": 18,
+   "polygon": 18,
    "pos": [
     81270.0,
     155.0
@@ -2114,7 +2114,7 @@
    "kind": "static"
   },
   {
-   "room": 19,
+   "polygon": 19,
    "pos": [
     81090.0,
     155.0
@@ -2129,7 +2129,7 @@
    "kind": "static"
   },
   {
-   "room": 20,
+   "polygon": 20,
    "pos": [
     80910.0,
     25.0
@@ -2144,7 +2144,7 @@
    "kind": "static"
   },
   {
-   "room": 22,
+   "polygon": 22,
    "pos": [
     100680.0,
     70.0
@@ -2159,7 +2159,7 @@
    "kind": "static"
   },
   {
-   "room": 23,
+   "polygon": 23,
    "pos": [
     100680.0,
     -105.0
@@ -2174,7 +2174,7 @@
    "kind": "static"
   },
   {
-   "room": 23,
+   "polygon": 23,
    "pos": [
     100575.0,
     -50.0
@@ -2189,7 +2189,7 @@
    "kind": "static"
   },
   {
-   "room": 24,
+   "polygon": 24,
    "pos": [
     100930.0,
     70.0
@@ -2204,7 +2204,7 @@
    "kind": "static"
   },
   {
-   "room": 24,
+   "polygon": 24,
    "pos": [
     100890.0,
     35.0
@@ -2219,7 +2219,7 @@
    "kind": "static"
   },
   {
-   "room": 24,
+   "polygon": 24,
    "pos": [
     100890.0,
     105.0
@@ -2234,7 +2234,7 @@
    "kind": "static"
   },
   {
-   "room": 26,
+   "polygon": 26,
    "pos": [
     430.0,
     60045.0
@@ -2249,7 +2249,7 @@
    "kind": "static"
   },
   {
-   "room": 29,
+   "polygon": 29,
    "pos": [
     430.0,
     62045.0
@@ -2264,7 +2264,7 @@
    "kind": "static"
   },
   {
-   "room": 32,
+   "polygon": 32,
    "pos": [
     430.0,
     64045.0
@@ -2279,7 +2279,7 @@
    "kind": "static"
   },
   {
-   "room": 35,
+   "polygon": 35,
    "pos": [
     430.0,
     66045.0
@@ -2294,7 +2294,7 @@
    "kind": "static"
   },
   {
-   "room": 38,
+   "polygon": 38,
    "pos": [
     430.0,
     68045.0
@@ -2309,7 +2309,7 @@
    "kind": "static"
   },
   {
-   "room": 41,
+   "polygon": 41,
    "pos": [
     430.0,
     70045.0
@@ -2324,7 +2324,7 @@
    "kind": "static"
   },
   {
-   "room": 44,
+   "polygon": 44,
    "pos": [
     430.0,
     72045.0
@@ -2339,7 +2339,7 @@
    "kind": "static"
   },
   {
-   "room": 0,
+   "polygon": 0,
    "pos": [
     -355.0,
     -105.0
@@ -2354,7 +2354,7 @@
    "kind": "static"
   },
   {
-   "room": 1,
+   "polygon": 1,
    "pos": [
     -355.0,
     -15.0
@@ -2369,7 +2369,7 @@
    "kind": "static"
   },
   {
-   "room": 2,
+   "polygon": 2,
    "pos": [
     -355.0,
     75.0
@@ -2384,7 +2384,7 @@
    "kind": "static"
   },
   {
-   "room": 3,
+   "polygon": 3,
    "pos": [
     20385.0,
     273.3333333333333
@@ -2399,7 +2399,7 @@
    "kind": "static"
   },
   {
-   "room": 4,
+   "polygon": 4,
    "pos": [
     20385.0,
     355.0
@@ -2414,7 +2414,7 @@
    "kind": "static"
   },
   {
-   "room": 9,
+   "polygon": 9,
    "pos": [
     61815.0,
     500.0
@@ -2429,7 +2429,7 @@
    "kind": "static"
   },
   {
-   "room": 10,
+   "polygon": 10,
    "pos": [
     61815.0,
     580.0
@@ -2444,7 +2444,7 @@
    "kind": "static"
   },
   {
-   "room": 11,
+   "polygon": 11,
    "pos": [
     61975.0,
     605.0
@@ -2459,7 +2459,7 @@
    "kind": "static"
   },
   {
-   "room": 12,
+   "polygon": 12,
    "pos": [
     61985.0,
     764.0
@@ -2474,7 +2474,7 @@
    "kind": "static"
   },
   {
-   "room": 13,
+   "polygon": 13,
    "pos": [
     61250.0,
     905.0
@@ -2489,7 +2489,7 @@
    "kind": "static"
   },
   {
-   "room": 14,
+   "polygon": 14,
    "pos": [
     61345.0,
     905.0
@@ -2504,7 +2504,7 @@
    "kind": "static"
   },
   {
-   "room": 25,
+   "polygon": 25,
    "pos": [
     160.0,
     60045.0
@@ -2519,7 +2519,7 @@
    "kind": "static"
   },
   {
-   "room": 27,
+   "polygon": 27,
    "pos": [
     700.0,
     60045.0
@@ -2534,7 +2534,7 @@
    "kind": "static"
   },
   {
-   "room": 28,
+   "polygon": 28,
    "pos": [
     160.0,
     62045.0
@@ -2549,7 +2549,7 @@
    "kind": "static"
   },
   {
-   "room": 30,
+   "polygon": 30,
    "pos": [
     700.0,
     62045.0
@@ -2564,7 +2564,7 @@
    "kind": "static"
   },
   {
-   "room": 31,
+   "polygon": 31,
    "pos": [
     160.0,
     64045.0
@@ -2579,7 +2579,7 @@
    "kind": "static"
   },
   {
-   "room": 33,
+   "polygon": 33,
    "pos": [
     700.0,
     64045.0
@@ -2594,7 +2594,7 @@
    "kind": "static"
   },
   {
-   "room": 34,
+   "polygon": 34,
    "pos": [
     160.0,
     66045.0
@@ -2609,7 +2609,7 @@
    "kind": "static"
   },
   {
-   "room": 36,
+   "polygon": 36,
    "pos": [
     700.0,
     66045.0
@@ -2624,7 +2624,7 @@
    "kind": "static"
   },
   {
-   "room": 37,
+   "polygon": 37,
    "pos": [
     160.0,
     68045.0
@@ -2639,7 +2639,7 @@
    "kind": "static"
   },
   {
-   "room": 39,
+   "polygon": 39,
    "pos": [
     700.0,
     68045.0
@@ -2654,7 +2654,7 @@
    "kind": "static"
   },
   {
-   "room": 40,
+   "polygon": 40,
    "pos": [
     160.0,
     70045.0
@@ -2669,7 +2669,7 @@
    "kind": "static"
   },
   {
-   "room": 42,
+   "polygon": 42,
    "pos": [
     700.0,
     70045.0
@@ -2684,7 +2684,7 @@
    "kind": "static"
   },
   {
-   "room": 43,
+   "polygon": 43,
    "pos": [
     160.0,
     72045.0
@@ -2699,7 +2699,7 @@
    "kind": "static"
   },
   {
-   "room": 45,
+   "polygon": 45,
    "pos": [
     700.0,
     72045.0

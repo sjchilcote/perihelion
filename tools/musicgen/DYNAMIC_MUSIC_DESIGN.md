@@ -58,13 +58,13 @@ not a ruling):
 
 - **Threat density**: count of active hostile entities within N tiles/LOS.
 - **DPS in/out**: rolling window of damage dealt vs. taken (both matter —
-  a player steamrolling a room reads differently than one barely surviving
+  a player steamrolling a polygon reads differently than one barely surviving
   it, and the album's own `intensity_level` tags in the playbook distinguish
   "high" from "peak" partly on this kind of push/pull).
 - **Health trend**: derivative of player HP over the last few seconds, not
   just current HP — a sharp drop should spike intensity even above a high
   static threat count.
-- **Room lockdown state**: binary/tiered (unlocked / locked-in-combat /
+- **Polygon lockdown state**: binary/tiered (unlocked / locked-in-combat /
   cleared) — maps cleanly onto the album's own structural_role tags
   (buildup / drop-climax / breakdown) found in the playbook.
 - **Lurker proximity**: distance to nearest not-yet-aggroed threat — this
@@ -81,7 +81,7 @@ reuses the playbook's own "what enters/exits between intensity levels"
 findings (see PLAYBOOK.md's layering-grammar section) rather than inventing
 a new intensity taxonomy from scratch.
 
-**Calibration step**: once real telemetry exists (room clear times, damage
+**Calibration step**: once real telemetry exists (polygon clear times, damage
 logs), consult GPT Sol via `consult_machinery.py` on the weighting — this
 is exactly the kind of "outside model, no stake in our abstractions"
 question `consult_planner_diagnostics.py` was written for in diet_app.

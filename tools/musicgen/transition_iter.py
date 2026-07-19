@@ -38,7 +38,7 @@ BANK = ROOT / "out/banks/album_dies_irae"
 
 
 class FakeSim:
-    def get_room(self, eid):
+    def get_polygon(self, eid):
         return 0
 
     def hop_distance(self, a, b):
@@ -51,7 +51,7 @@ def fake_session(tick):
     s.sim = FakeSim()
     s.hp = 100.0
     s.tick_count = tick
-    s.player_room = lambda: 0
+    s.player_polygon = lambda: 0
     s.player_pos = lambda: (0.0, 0.0)
     s.metrics = {"kills": 0}
     s.music_tier = 3

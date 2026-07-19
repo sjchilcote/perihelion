@@ -8,9 +8,9 @@ What is preserved verbatim from tools/levelgen/campaign.py's l07():
   - name/tier/ambience, the {corridor, records, core} kind vocabulary
     (extended with corridor-family transit/storage cells and one
     `otherworld` cell per the l07 dosage: exactly one, isolated),
-  - the five original rooms at their exact canvas coordinates, in the
+  - the five original polygons at their exact canvas coordinates, in the
     original index order (entry=0, stack=1, closet=2, deep=3, annex=4) so
-    the enter_room radio triggers keep their original indices,
+    the enter_polygon radio triggers keep their original indices,
   - THE PARADOX (playbook §11, untouched): the endless aisle — stack's
     north edge welded to its own south edge via
     connect_pts(stack,(410,0),stack,(410,140)) — plus the annex "shoot"
@@ -19,7 +19,7 @@ What is preserved verbatim from tools/levelgen/campaign.py's l07():
   - all six terminals (texts and positions), intro, and all radio lines.
 
 What changed (allowed: approach corridors may be re-dressed): the three
-plain door-hops between the original five rooms are replaced by five
+plain door-hops between the original five polygons are replaced by five
 authored districts (231 cells, MARATHON_LEVEL_STANDARDS.md rules 1-8;
 measured visible() median 12.5 / max 22, mean adjacency degree 2.59):
   A  checkpoint corridors + octagon rotunda hub + guard stores
@@ -57,23 +57,23 @@ CUT = 30.0  # chamfer size
 # --- helpers copied from tools/levelgen/campaign.py (standalone module; ---
 # --- campaign.py must not be imported or edited)                        ---
 
-def center(b: LevelBuilder, room: int) -> tuple[float, float]:
-    vs = b.data["rooms"][room]["verts"]
+def center(b: LevelBuilder, polygon: int) -> tuple[float, float]:
+    vs = b.data["polygons"][polygon]["verts"]
     return (sum(v[0] for v in vs) / len(vs), sum(v[1] for v in vs) / len(vs))
 
 
-def squad(b: LevelBuilder, room: int, spec: str, spread: float = 32.0):
+def squad(b: LevelBuilder, polygon: int, spec: str, spread: float = 32.0):
     kinds = spec.split()
-    cx, cy = center(b, room)
+    cx, cy = center(b, polygon)
     n = len(kinds)
     for i, k in enumerate(kinds):
         a = 2 * math.pi * i / max(1, n) + 0.7
         r = spread if n > 1 else 0.0
-        b.entity(room, k, (cx + r * math.cos(a), cy + r * math.sin(a)))
+        b.entity(polygon, k, (cx + r * math.cos(a), cy + r * math.sin(a)))
 
 
-def wall_basis(b: LevelBuilder, room: int, wall: int, t: float = 0.5):
-    verts = b.data["rooms"][room]["verts"]
+def wall_basis(b: LevelBuilder, polygon: int, wall: int, t: float = 0.5):
+    verts = b.data["polygons"][polygon]["verts"]
     n = len(verts)
     cx = sum(v[0] for v in verts) / n
     cy = sum(v[1] for v in verts) / n
@@ -89,26 +89,26 @@ def wall_basis(b: LevelBuilder, room: int, wall: int, t: float = 0.5):
     return mx, my, tx, ty, nx, ny
 
 
-def wall_pos(b: LevelBuilder, room: int, wall: int, t: float = 0.5,
+def wall_pos(b: LevelBuilder, polygon: int, wall: int, t: float = 0.5,
              inset: float = 15.0) -> tuple[float, float]:
-    mx, my, tx, ty, nx, ny = wall_basis(b, room, wall, t)
+    mx, my, tx, ty, nx, ny = wall_basis(b, polygon, wall, t)
     return (mx + nx * inset, my + ny * inset)
 
 
-def cache(b: LevelBuilder, room: int, spec: str, off=(0.0, 0.0),
+def cache(b: LevelBuilder, polygon: int, spec: str, off=(0.0, 0.0),
           wall: int | None = None, t: float = 0.5, inset: float = 16.0):
     if wall is not None:
-        mx, my, tx, ty, nx, ny = wall_basis(b, room, wall, t)
+        mx, my, tx, ty, nx, ny = wall_basis(b, polygon, wall, t)
         bx, by = mx + nx * inset, my + ny * inset
         items = spec.split()
         span = (len(items) - 1) * 13.0
         for i, k in enumerate(items):
             tt = -span / 2.0 + i * 13.0
-            b.entity(room, k, (bx + tx * tt, by + ty * tt))
+            b.entity(polygon, k, (bx + tx * tt, by + ty * tt))
         return
-    cx, cy = center(b, room)
+    cx, cy = center(b, polygon)
     for i, k in enumerate(spec.split()):
-        b.entity(room, k, (cx + off[0] + (i % 3) * 15 - 15,
+        b.entity(polygon, k, (cx + off[0] + (i % 3) * 15 - 15,
                            cy + off[1] + (i // 3) * 15))
 
 
@@ -130,7 +130,7 @@ def rect_c(b: LevelBuilder, x, y, w, h, cut: str | None = None,
         verts = [(x, y), (x, y + h), (x + w, y + h), (x + w, y + c), (x + w - c, y)]
     else:
         raise ValueError(f"bad cut {cut!r}")
-    return b.room(verts, kind=kind)
+    return b.polygon(verts, kind=kind)
 
 
 def grid(b: LevelBuilder, x, y, cols, rows, cw, ch, kind,
@@ -150,7 +150,7 @@ def grid(b: LevelBuilder, x, y, cols, rows, cw, ch, kind,
 def l07() -> LevelBuilder:
     b = LevelBuilder("RECURSION STACK", 3, "amb_drone_late")
 
-    # ---- legacy rooms, exact original coordinates and index order -------
+    # ---- legacy polygons, exact original coordinates and index order -------
     entry = b.rect(0, 0, 160, 140, kind="corridor")          # 0
     stack = b.rect(300, 0, 220, 140, kind="records")         # 1  THE PARADOX
     closet = b.rect(700, 300, 120, 140, kind="core")         # 2  staff-mind cores
@@ -317,7 +317,7 @@ def l07() -> LevelBuilder:
     b.terminal(deep, wall_pos(b, deep, 1, 0.5, 15.0),
                "INCIDENT FILE 0001\nFirst contact was not a signal.\n"
                "It was an inventory discrepancy.\n"
-               "We had one more room than we built.\n"
+               "We had one more polygon than we built.\n"
                "We sent SURVEYOR S-6 to measure it.\nIt measured back.")
     b.terminal(closet, wall_pos(b, closet, 3, 0.4, 15.0),
                "CORE RECOVERY MANIFEST\n"
@@ -338,7 +338,7 @@ def l07() -> LevelBuilder:
                "Someone filed the folder itself as\n"
                "the incident.\n"
                "Appendix: one requisition slip,\n"
-               "approved, for 'one additional room'.")
+               "approved, for 'one additional polygon'.")
     cache(b, annex, "ammo_cell ammo_cell medkit")
     b.terminal(entry, wall_pos(b, entry, 3, 0.5, 15.0),
                "VOICE LOG, TRANSCRIBED — SURVEYOR S-6\n"
@@ -352,7 +352,7 @@ def l07() -> LevelBuilder:
                "Belt, suspenders.")
     b.terminal(annex, wall_pos(b, annex, 0, 0.5, 15.0),
                "REQUISITION SLIP — APPROVED\n"
-               "Item: one (1) additional room. Justification\n"
+               "Item: one (1) additional polygon. Justification\n"
                "field: blank.\n"
                "Approving signature: illegible scan, three\n"
                "characters resolve, the rest is scanner noise.\n"
@@ -414,7 +414,7 @@ if __name__ == "__main__":
     out = sys.argv[1] if len(sys.argv) > 1 else None
     if out:
         save_level(d, out)
-    print(f"l07 dense: {lvl.name!r} rooms={len(lvl.room_verts)} "
+    print(f"l07 dense: {lvl.name!r} polygons={len(lvl.polygon_verts)} "
           f"connects={len(lvl.connects)} doors={len(lvl.doors)} "
           f"terminals={len(lvl.terminals)} "
-          f"otherworld={sum(1 for k in lvl.room_kinds if k == 'otherworld')}")
+          f"otherworld={sum(1 for k in lvl.polygon_kinds if k == 'otherworld')}")

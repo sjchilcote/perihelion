@@ -1,18 +1,18 @@
-//! Soft rooms: the Otherworld's walls are a damped mass-spring system on
-//! the room-graph's vertex set.
+//! Soft polygons: the Otherworld's walls are a damped mass-spring system on
+//! the polygon-graph's vertex set.
 //!
-//! Each soft room's edges remember their REST LENGTH (captured when the
-//! room is softened) but vertices have no rest POSITION — the spring
+//! Each soft polygon's edges remember their REST LENGTH (captured when the
+//! polygon is softened) but vertices have no rest POSITION — the spring
 //! energy is translation- and rotation-invariant, so the equilibrium
-//! manifold is degenerate: a hard enough impact can settle a set of rooms
+//! manifold is degenerate: a hard enough impact can settle a set of polygons
 //! into a genuinely new stable configuration, and the walls only ever try
 //! to restore their original *lengths*, never their original place.
 //!
 //! Invariants preserved every step:
 //!   - convexity: vertex updates are projected so no polygon goes reflex
-//!     (visibility and physics both assume convex rooms);
+//!     (visibility and physics both assume convex polygons);
 //!   - portal identification: a portal edge's endpoints are the SAME
-//!     quotient vertex seen from two room frames. Positions and velocities
+//!     quotient vertex seen from two polygon frames. Positions and velocities
 //!     are reconciled through the portal transform each step (waves cross
 //!     doorways), and the transform itself is recomputed from the fresh
 //!     endpoint pair (stretched doorways stay exact maps).
@@ -20,7 +20,7 @@
 use std::collections::HashMap;
 
 use crate::math::{Mat3, Vec2};
-use crate::world::{RoomId, World};
+use crate::world::{PolygonId, World};
 
 const SPRING_K: f64 = 26.0; // per-unit-strain acceleration on endpoints
 const DAMPING: f64 = 1.9; // s^-1 velocity decay
@@ -29,39 +29,39 @@ const MIN_EDGE_LEN: f64 = 10.0;
 const CONVEX_EPS: f64 = 0.25; // projection depth inside the (prev,next) chord
 
 #[derive(Debug, Clone, Default)]
-pub struct SoftRoom {
+pub struct SoftPolygon {
     pub rest_len: Vec<f64>,
     pub vel: Vec<Vec2>,
 }
 
 #[derive(Debug, Default)]
 pub struct SoftSystem {
-    pub rooms: HashMap<RoomId, SoftRoom>,
+    pub polygons: HashMap<PolygonId, SoftPolygon>,
 }
 
 impl SoftSystem {
-    pub fn is_soft(&self, room: RoomId) -> bool {
-        self.rooms.contains_key(&room)
+    pub fn is_soft(&self, polygon: PolygonId) -> bool {
+        self.polygons.contains_key(&polygon)
     }
 
-    /// Mark a room soft, capturing current edge lengths as rest lengths.
-    pub fn soften(&mut self, world: &World, room: RoomId) {
-        let r = &world.rooms[room];
-        self.rooms.insert(
-            room,
-            SoftRoom {
+    /// Mark a polygon soft, capturing current edge lengths as rest lengths.
+    pub fn soften(&mut self, world: &World, polygon: PolygonId) {
+        let r = &world.polygons[polygon];
+        self.polygons.insert(
+            polygon,
+            SoftPolygon {
                 rest_len: r.edge_len.clone(),
                 vel: vec![Vec2 { x: 0.0, y: 0.0 }; r.verts.len()],
             },
         );
     }
 
-    /// A vertex was inserted into `room` at edge `edge` (post-split index
+    /// A vertex was inserted into `polygon` at edge `edge` (post-split index
     /// layout: edge, edge+1 are the halves). Mirror the split in the soft
     /// state so array shapes stay aligned with the world.
-    pub fn on_split(&mut self, world: &World, room: RoomId, edge: usize) {
-        if let Some(sr) = self.rooms.get_mut(&room) {
-            let r = &world.rooms[room];
+    pub fn on_split(&mut self, world: &World, polygon: PolygonId, edge: usize) {
+        if let Some(sr) = self.polygons.get_mut(&polygon) {
+            let r = &world.polygons[polygon];
             let prev_vel = sr.vel[edge];
             let next_vel = sr.vel[(edge + 1) % sr.vel.len().max(1)];
             let mid_vel = Vec2 {
@@ -81,21 +81,21 @@ impl SoftSystem {
         }
     }
 
-    /// Impart an impulse to the wall of a soft room. `t` in [0,1] along the
+    /// Impart an impulse to the wall of a soft polygon. `t` in [0,1] along the
     /// edge; positive `magnitude` pushes the wall OUTWARD (away from the
-    /// room interior, i.e. against the inward normal).
+    /// polygon interior, i.e. against the inward normal).
     pub fn wall_impulse(
         &mut self,
         world: &World,
-        room: RoomId,
+        polygon: PolygonId,
         edge: usize,
         t: f64,
         magnitude: f64,
     ) {
-        let Some(sr) = self.rooms.get_mut(&room) else {
+        let Some(sr) = self.polygons.get_mut(&polygon) else {
             return;
         };
-        let r = &world.rooms[room];
+        let r = &world.polygons[polygon];
         if edge >= r.normals.len() {
             return;
         }
@@ -112,27 +112,27 @@ impl SoftSystem {
         sr.vel[i1] = sr.vel[i1] + push * w1;
     }
 
-    /// One integration step over all soft rooms.
+    /// One integration step over all soft polygons.
     pub fn step(&mut self, world: &mut World, dt: f64) {
-        if self.rooms.is_empty() {
+        if self.polygons.is_empty() {
             return;
         }
-        let ids: Vec<RoomId> = self.rooms.keys().copied().collect();
+        let ids: Vec<PolygonId> = self.polygons.keys().copied().collect();
 
-        // 1) spring forces + integration, per room.
+        // 1) spring forces + integration, per polygon.
         for &id in &ids {
-            let sr = self.rooms.get_mut(&id).unwrap();
-            let room = &mut world.rooms[id];
-            let n = room.verts.len();
+            let sr = self.polygons.get_mut(&id).unwrap();
+            let polygon = &mut world.polygons[id];
+            let n = polygon.verts.len();
             if sr.vel.len() != n || sr.rest_len.len() != n {
                 // topology changed without on_split (defensive): re-soften.
-                sr.rest_len = room.edge_len.clone();
+                sr.rest_len = polygon.edge_len.clone();
                 sr.vel = vec![Vec2 { x: 0.0, y: 0.0 }; n];
             }
             let mut acc = vec![Vec2 { x: 0.0, y: 0.0 }; n];
             for i in 0..n {
                 let j = (i + 1) % n;
-                let d = room.verts[j] - room.verts[i];
+                let d = polygon.verts[j] - polygon.verts[i];
                 let len = d.len().max(1e-9);
                 let dir = d * (1.0 / len);
                 let rest = sr.rest_len[i].max(MIN_EDGE_LEN);
@@ -149,7 +149,7 @@ impl SoftSystem {
                     v = v * (MAX_VERT_SPEED / sp);
                 }
                 sr.vel[i] = v;
-                room.verts[i] = room.verts[i] + v * dt;
+                polygon.verts[i] = polygon.verts[i] + v * dt;
             }
         }
 
@@ -157,17 +157,17 @@ impl SoftSystem {
         // quotient space, velocities mix through the portal's linear part,
         // and the transform is rebuilt from the fresh endpoint pair.
         for &id in &ids {
-            let n_edges = world.rooms[id].verts.len();
+            let n_edges = world.polygons[id].verts.len();
             for e in 0..n_edges {
-                let Some(p) = world.rooms[id].portals[e] else {
+                let Some(p) = world.polygons[id].portals[e] else {
                     continue;
                 };
-                let (b, eb) = (p.target_room, p.target_edge);
-                // reconcile each pair once (owner = smaller (room,edge))
+                let (b, eb) = (p.target_polygon, p.target_edge);
+                // reconcile each pair once (owner = smaller (polygon,edge))
                 if (b, eb) < (id, e) {
                     continue;
                 }
-                if !self.rooms.contains_key(&id) && !self.rooms.contains_key(&b) {
+                if !self.polygons.contains_key(&id) && !self.polygons.contains_key(&b) {
                     continue;
                 }
                 self.reconcile_portal(world, id, e, b, eb);
@@ -176,13 +176,13 @@ impl SoftSystem {
 
         // 3) convexity projection + refresh derived data.
         for &id in &ids {
-            let room = &mut world.rooms[id];
-            let n = room.verts.len();
+            let polygon = &mut world.polygons[id];
+            let n = polygon.verts.len();
             for _pass in 0..2 {
                 for i in 0..n {
-                    let prev = room.verts[(i + n - 1) % n];
-                    let next = room.verts[(i + 1) % n];
-                    let v = room.verts[i];
+                    let prev = polygon.verts[(i + n - 1) % n];
+                    let next = polygon.verts[(i + 1) % n];
+                    let v = polygon.verts[i];
                     let cr = (v - prev).cross(next - v);
                     // canonical winding: negative shoelace => convex turns
                     // keep cross <= 0. A positive cross is a reflex vertex.
@@ -198,21 +198,21 @@ impl SoftSystem {
                             x: dirc.y,
                             y: -dirc.x,
                         };
-                        room.verts[i] = base + inward * CONVEX_EPS;
-                        if let Some(sr) = self.rooms.get_mut(&id) {
+                        polygon.verts[i] = base + inward * CONVEX_EPS;
+                        if let Some(sr) = self.polygons.get_mut(&id) {
                             sr.vel[i] = sr.vel[i] * 0.5;
                         }
                     }
                 }
             }
-            room.refresh_geometry();
+            polygon.refresh_geometry();
         }
     }
 
-    fn reconcile_portal(&mut self, world: &mut World, a: RoomId, ea: usize, b: RoomId, eb: usize) {
-        let (pa0, pa1) = world.rooms[a].edge(ea);
-        let (pb0, pb1) = world.rooms[b].edge(eb);
-        let m = match world.rooms[a].portals[ea] {
+    fn reconcile_portal(&mut self, world: &mut World, a: PolygonId, ea: usize, b: PolygonId, eb: usize) {
+        let (pa0, pa1) = world.polygons[a].edge(ea);
+        let (pb0, pb1) = world.polygons[b].edge(eb);
+        let m = match world.polygons[a].portals[ea] {
             Some(p) => p.xform,
             None => return,
         };
@@ -222,35 +222,35 @@ impl SoftSystem {
         let avg0 = (pa0 + qb1) * 0.5;
         let avg1 = (pa1 + qb0) * 0.5;
         {
-            let ra = &mut world.rooms[a];
+            let ra = &mut world.polygons[a];
             let na = ra.verts.len();
             ra.verts[ea] = avg0;
             ra.verts[(ea + 1) % na] = avg1;
         }
-        let minv = match world.rooms[a].portals[ea] {
+        let minv = match world.polygons[a].portals[ea] {
             Some(p) => p.inv,
             None => return,
         };
         {
-            let rb = &mut world.rooms[b];
+            let rb = &mut world.polygons[b];
             let nb = rb.verts.len();
             rb.verts[eb] = minv.apply(avg1);
             rb.verts[(eb + 1) % nb] = minv.apply(avg0);
         }
         // velocity mixing through the linear parts, so waves cross.
         let a0 = ea;
-        let a1 = (ea + 1) % world.rooms[a].verts.len();
+        let a1 = (ea + 1) % world.polygons[a].verts.len();
         let b0 = eb;
-        let b1 = (eb + 1) % world.rooms[b].verts.len();
+        let b1 = (eb + 1) % world.polygons[b].verts.len();
         let (va0, va1) = {
-            let sa = self.rooms.get(&a);
+            let sa = self.polygons.get(&a);
             (
                 sa.map_or(Vec2 { x: 0.0, y: 0.0 }, |s| s.vel[a0]),
                 sa.map_or(Vec2 { x: 0.0, y: 0.0 }, |s| s.vel[a1]),
             )
         };
         let (vb0, vb1) = {
-            let sb = self.rooms.get(&b);
+            let sb = self.polygons.get(&b);
             (
                 sb.map_or(Vec2 { x: 0.0, y: 0.0 }, |s| s.vel[b0]),
                 sb.map_or(Vec2 { x: 0.0, y: 0.0 }, |s| s.vel[b1]),
@@ -258,11 +258,11 @@ impl SoftSystem {
         };
         let mixed0 = (va0 + m.apply_dir(vb1)) * 0.5; // a0 <-> b1
         let mixed1 = (va1 + m.apply_dir(vb0)) * 0.5; // a1 <-> b0
-        if let Some(sa) = self.rooms.get_mut(&a) {
+        if let Some(sa) = self.polygons.get_mut(&a) {
             sa.vel[a0] = mixed0;
             sa.vel[a1] = mixed1;
         }
-        if let Some(sb) = self.rooms.get_mut(&b) {
+        if let Some(sb) = self.polygons.get_mut(&b) {
             sb.vel[b1] = minv.apply_dir(mixed0);
             sb.vel[b0] = minv.apply_dir(mixed1);
         }

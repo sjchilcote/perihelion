@@ -66,7 +66,7 @@ def run(seed: int, out_path: Path,
             continue
 
         px, py = snap["pos"]
-        proom = snap["room"]
+        ppolygon = snap["polygon"]
         counts = {f"{k}_{st}_{loc}": 0 for k in KINDS for st in STATES
                   for loc in ("co", "adj")}
         min_hunt_d = None
@@ -100,7 +100,7 @@ def run(seed: int, out_path: Path,
         sentries_near = sum(
             1 for tid in s.sentries
             if s.sim.exists(tid) and
-            0 <= s.sim.hop_distance(s.sim.get_room(tid), proom) <= 1)
+            0 <= s.sim.hop_distance(s.sim.get_polygon(tid), ppolygon) <= 1)
 
         row = dict(
             t=t,

@@ -123,7 +123,7 @@ The following round-two work is not present in the assembled demo mix:
 - rendered organ/choir/bell arrangement;
 - `argent_bass_chain()`;
 - mix-level sidechaining;
-- shared room/reverb bus;
+- shared polygon/reverb bus;
 - stereo placement;
 - performance-level MIDI articulation;
 - transitions or automation.
@@ -178,7 +178,7 @@ The provenance of the waveform does not solve the performance problem.
 
 The final mix has:
 
-- no shared room;
+- no shared polygon;
 - no stereo plan;
 - no kick-triggered bass ducking;
 - no instrument buses;

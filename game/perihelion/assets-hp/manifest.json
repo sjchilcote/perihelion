@@ -114,7 +114,7 @@
   "prop_seed_station": {
     "file": "assets-hp/prop_seed_station.png",
     "role": "prop",
-    "sim_kind": "safe_room_core",
+    "sim_kind": "safe_polygon_core",
     "world_radius_units": 7.0,
     "sprite_px_size": [
       864,

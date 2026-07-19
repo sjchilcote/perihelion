@@ -62,10 +62,10 @@ def test_drop_conserves_totals_normal_case(components, station_kits):
     every nonzero-components example. Reverted before committing.
     """
     s = _session(components, station_kits, protected=False)
-    room = s.level.player_room
+    polygon = s.level.player_polygon
     px, py = s.player_pos()
 
-    s._drop_corpse(room, (px, py))
+    s._drop_corpse(polygon, (px, py))
 
     assert s.components == 0
     assert s.station_kits == 0
@@ -96,10 +96,10 @@ def test_drop_conserves_totals_protected_revival(components, station_kits):
     lost across the drop.
     """
     s = _session(components, station_kits, protected=True)
-    room = s.level.player_room
+    polygon = s.level.player_polygon
     px, py = s.player_pos()
 
-    s._drop_corpse(room, (px, py))
+    s._drop_corpse(polygon, (px, py))
 
     # Components are preserved live under protected revival.
     assert s.components == components
@@ -133,10 +133,10 @@ def test_drop_then_retrieve_round_trips_exactly(components, station_kits):
     totals stayed at zero) on every example. Reverted before committing.
     """
     s = _session(components, station_kits, protected=False)
-    room = s.level.player_room
+    polygon = s.level.player_polygon
     px, py = s.player_pos()
 
-    s._drop_corpse(room, (px, py))
+    s._drop_corpse(polygon, (px, py))
     assert s.components == 0 and s.station_kits == 0
 
     # Walk the player onto the corpse frame (spawned at the player's own

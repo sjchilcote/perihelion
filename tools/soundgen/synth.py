@@ -406,12 +406,12 @@ def allpass_filter(x: np.ndarray, delay_s: float, g: float = 0.5,
     return y.astype(np.float32)
 
 
-def reverb(x: np.ndarray, room_size: float = 0.5, damping: float = 0.3,
+def reverb(x: np.ndarray, polygon_size: float = 0.5, damping: float = 0.3,
            mix: float = 0.25, sr: int = SR, tail_s: float = 0.6) -> np.ndarray:
     """Simple Schroeder-style reverb: parallel combs -> series allpasses."""
     xpad = np.pad(np.asarray(x, dtype=np.float64), (0, samples(tail_s, sr)))
     comb_delays = (0.0297, 0.0371, 0.0411, 0.0437)
-    fb = min(0.6 + 0.35 * room_size, 0.97)
+    fb = min(0.6 + 0.35 * polygon_size, 0.97)
     lp_cutoff = 8000.0 * (1.0 - damping) + 800.0
     acc = np.zeros_like(xpad)
     for d in comb_delays:

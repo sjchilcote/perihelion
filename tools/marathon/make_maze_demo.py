@@ -24,14 +24,14 @@ from perihelion.levels import LevelBuilder, save_level  # noqa: E402
 OUT = REPO / "levels" / "maze_demo.json"
 
 
-def _room_centroid(b: LevelBuilder, rid: int) -> tuple[float, float]:
-    vs = b.data["rooms"][rid]["verts"]
+def _polygon_centroid(b: LevelBuilder, rid: int) -> tuple[float, float]:
+    vs = b.data["polygons"][rid]["verts"]
     return (sum(v[0] for v in vs) / len(vs), sum(v[1] for v in vs) / len(vs))
 
 
 def _edge_at(b: LevelBuilder, rid: int, mid: tuple[float, float]):
-    """The (p0, p1) edge of room `rid` whose midpoint is nearest `mid`."""
-    vs = b.data["rooms"][rid]["verts"]
+    """The (p0, p1) edge of polygon `rid` whose midpoint is nearest `mid`."""
+    vs = b.data["polygons"][rid]["verts"]
     best, bd = None, 1e18
     for i in range(len(vs)):
         p0, p1 = vs[i], vs[(i + 1) % len(vs)]
@@ -44,14 +44,14 @@ def _edge_at(b: LevelBuilder, rid: int, mid: tuple[float, float]):
 
 def _extrude(b: LevelBuilder, rid: int, mid, depth: float, widen: float = 0.0,
              kind: str = "generic", seed: int | None = None) -> int:
-    """New room sharing the graft edge exactly, extruded outward from the
+    """New polygon sharing the graft edge exactly, extruded outward from the
     maze (autoconnect welds the shared edge into a doorway)."""
     p0, p1 = _edge_at(b, rid, mid)
-    cx, cy = _room_centroid(b, rid)
+    cx, cy = _polygon_centroid(b, rid)
     ex, ey = p1[0] - p0[0], p1[1] - p0[1]
     elen = math.hypot(ex, ey)
     ux, uy = ex / elen, ey / elen
-    # outward = away from the maze room's centroid
+    # outward = away from the maze polygon's centroid
     nx, ny = -uy, ux
     mx, my = (p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2
     if (cx - mx) * nx + (cy - my) * ny > 0:
@@ -75,25 +75,25 @@ def main() -> None:
     b.player(hall, hall_c)
     b.exit(vault, vault_c)
 
-    rooms = maze["rooms"]  # marathon poly index -> room id
-    c = lambda mi: _room_centroid(b, rooms[mi])  # noqa: E731
+    polygons = maze["polygons"]  # marathon poly index -> polygon id
+    c = lambda mi: _polygon_centroid(b, polygons[mi])  # noqa: E731
 
     # a light patrol: husks at maze crossings, mites in the tight loops
     for mi in (150, 218, 159, 199, 128):
-        b.entity(rooms[mi], "husk", c(mi))
+        b.entity(polygons[mi], "husk", c(mi))
     for mi in (144, 156, 176, 132):
-        b.entity(rooms[mi], "mite", c(mi))
+        b.entity(polygons[mi], "mite", c(mi))
     # supplies in dead-end alcoves (Marathon's 10%-alcove rule)
     for mi, kind in ((155, "ammo_9mm"), (135, "ammo_9mm"), (134, "medkit"),
                      (197, "ammo_9mm")):
-        b.entity(rooms[mi], kind, c(mi))
+        b.entity(polygons[mi], kind, c(mi))
 
     b.intro("SURVEY SECTION 7 - CORRIDOR GRID PREDATES THE OUTPOST")
 
     level = b.build()  # loud validation before writing
-    assert len(level.room_verts) == 68, len(level.room_verts)
+    assert len(level.polygon_verts) == 68, len(level.polygon_verts)
     save_level(b.to_dict(), OUT)
-    print(f"{OUT}: {len(level.room_verts)} rooms, "
+    print(f"{OUT}: {len(level.polygon_verts)} polygons, "
           f"{len(level.connects)} connects")
 
 

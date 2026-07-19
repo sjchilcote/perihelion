@@ -2,12 +2,12 @@ use std::collections::{BTreeMap, HashSet};
 
 use crate::geom;
 use crate::math::{Mat3, Vec2};
-use crate::world::{RoomId, World};
+use crate::world::{PolygonId, World};
 
 pub const TRANSFER_NUDGE: f64 = 1e-3;
 /// Wall collision spans extend this far past edge endpoints so the seam where
 /// two walls meet has no gap to slip through (safe by convexity: the extended
-/// region lies outside the room).
+/// region lies outside the polygon).
 pub const EDGE_SPAN_EXT: f64 = 1.0;
 /// Absolute per-tick iteration backstop (a 4000 u/s bullet legitimately takes
 /// dozens of substeps; this only exists to bound pathological cases).
@@ -19,7 +19,7 @@ const MAX_STALLS: usize = 8;
 #[derive(Debug, Clone)]
 pub struct Entity {
     pub id: u64,
-    pub room: RoomId,
+    pub polygon: PolygonId,
     pub pos: Vec2,
     pub vel: Vec2,
     pub dir: Vec2,
@@ -36,31 +36,31 @@ pub struct Entity {
 
 #[derive(Debug, Clone)]
 pub enum Event {
-    /// xform maps from-room coordinates into to-room coordinates: apply it to
+    /// xform maps from-polygon coordinates into to-polygon coordinates: apply it to
     /// anything you were tracking in the old frame (camera, trails).
     Transfer {
         ent: u64,
-        from: RoomId,
-        to: RoomId,
+        from: PolygonId,
+        to: PolygonId,
         edge: usize,
         xform: Mat3,
     },
     WallHit {
         ent: u64,
-        room: RoomId,
+        polygon: PolygonId,
         edge: usize,
         pos: Vec2,
         normal: Vec2,
         speed: f64,
     },
-    /// Same shape as `WallHit`, for walk-mask terrain instead of a room
-    /// edge -- `terrain` is the index into `Room::terrain` that was hit.
+    /// Same shape as `WallHit`, for walk-mask terrain instead of a polygon
+    /// edge -- `terrain` is the index into `Polygon::terrain` that was hit.
     /// Physics response is identical to a wall (see `step_entity`); this is
     /// a distinct variant only so the game layer can tell "hit painted
-    /// equipment" from "hit the room boundary" for sound/feedback.
+    /// equipment" from "hit the polygon boundary" for sound/feedback.
     TerrainHit {
         ent: u64,
-        room: RoomId,
+        polygon: PolygonId,
         terrain: usize,
         pos: Vec2,
         normal: Vec2,
@@ -88,7 +88,7 @@ pub struct Sim {
     /// the rare entity that should pass through painted equipment (a ghost
     /// enemy, a decorative-only particle group, etc).
     pub terrain_blocks: u16,
-    pub active_rooms: Vec<bool>,
+    pub active_polygons: Vec<bool>,
     pub all_active: bool,
     /// Otherworld soft-wall system (empty = zero cost).
     pub soft: crate::soft::SoftSystem,
@@ -96,31 +96,31 @@ pub struct Sim {
 
 impl Sim {
     pub fn new(world: World) -> Sim {
-        let n = world.rooms.len();
+        let n = world.polygons.len();
         Sim {
             world,
             entities: BTreeMap::new(),
             next_id: 1,
             collision_mask: [0xffff; 16],
             terrain_blocks: 0xffff,
-            active_rooms: vec![true; n],
+            active_polygons: vec![true; n],
             all_active: true,
             soft: crate::soft::SoftSystem::default(),
         }
     }
 
-    /// Mark a room's walls soft (Otherworld). Idempotent.
-    pub fn soften_room(&mut self, room: RoomId) {
-        if room < self.world.rooms.len() && !self.soft.is_soft(room) {
-            self.soft.soften(&self.world, room);
+    /// Mark a polygon's walls soft (Otherworld). Idempotent.
+    pub fn soften_polygon(&mut self, polygon: PolygonId) {
+        if polygon < self.world.polygons.len() && !self.soft.is_soft(polygon) {
+            self.soft.soften(&self.world, polygon);
         }
     }
 
-    /// Impulse a soft room's wall (t in [0,1] along the edge; positive
-    /// pushes outward). No-op on rigid rooms.
-    pub fn soft_wall_impulse(&mut self, room: RoomId, edge: usize, t: f64, magnitude: f64) {
+    /// Impulse a soft polygon's wall (t in [0,1] along the edge; positive
+    /// pushes outward). No-op on rigid polygons.
+    pub fn soft_wall_impulse(&mut self, polygon: PolygonId, edge: usize, t: f64, magnitude: f64) {
         self.soft
-            .wall_impulse(&self.world, room, edge, t, magnitude);
+            .wall_impulse(&self.world, polygon, edge, t, magnitude);
     }
 
     pub fn set_collision_pair(&mut self, g: u8, h: u8, collide: bool) {
@@ -153,20 +153,20 @@ impl Sim {
         self.terrain_blocks & (1 << (g as usize & 15)) != 0
     }
 
-    pub fn set_active_within(&mut self, center: RoomId, hops: usize) {
+    pub fn set_active_within(&mut self, center: PolygonId, hops: usize) {
         self.all_active = false;
-        self.active_rooms = vec![false; self.world.rooms.len()];
+        self.active_polygons = vec![false; self.world.polygons.len()];
         let mut frontier = vec![center];
-        if center < self.active_rooms.len() {
-            self.active_rooms[center] = true;
+        if center < self.active_polygons.len() {
+            self.active_polygons[center] = true;
         }
         for _ in 0..hops {
             let mut next = Vec::new();
             for r in frontier {
-                for p in self.world.rooms[r].portals.iter().flatten() {
-                    if !self.active_rooms[p.target_room] {
-                        self.active_rooms[p.target_room] = true;
-                        next.push(p.target_room);
+                for p in self.world.polygons[r].portals.iter().flatten() {
+                    if !self.active_polygons[p.target_polygon] {
+                        self.active_polygons[p.target_polygon] = true;
+                        next.push(p.target_polygon);
                     }
                 }
             }
@@ -176,21 +176,21 @@ impl Sim {
 
     pub fn spawn(
         &mut self,
-        room: RoomId,
+        polygon: PolygonId,
         pos: Vec2,
         radius: f64,
         mass: f64,
         group: u8,
     ) -> Result<u64, String> {
-        if room >= self.world.rooms.len() {
-            return Err(format!("no room {room}"));
+        if polygon >= self.world.polygons.len() {
+            return Err(format!("no polygon {polygon}"));
         }
         let id = self.next_id;
         self.next_id += 1;
-        // Clamp the spawn point decisively inside the room.
-        let verts = &self.world.rooms[room].verts;
+        // Clamp the spawn point decisively inside the polygon.
+        let verts = &self.world.polygons[polygon].verts;
         let mut p = pos;
-        let want = radius.min(self.world.rooms[room].radius * 0.5);
+        let want = radius.min(self.world.polygons[polygon].radius * 0.5);
         for _ in 0..8 {
             let d = geom::depth_in_polygon(p, verts);
             if d >= want {
@@ -214,7 +214,7 @@ impl Sim {
             id,
             Entity {
                 id,
-                room,
+                polygon,
                 pos: p,
                 vel: Vec2::ZERO,
                 dir: Vec2 { x: 1.0, y: 0.0 },
@@ -228,21 +228,21 @@ impl Sim {
                 alive: true,
             },
         );
-        self.world.rooms[room].entities.push(id);
+        self.world.polygons[polygon].entities.push(id);
         Ok(id)
     }
 
     pub fn remove(&mut self, id: u64) {
         if let Some(e) = self.entities.remove(&id) {
-            let list = &mut self.world.rooms[e.room].entities;
+            let list = &mut self.world.polygons[e.polygon].entities;
             if let Some(i) = list.iter().position(|&x| x == id) {
                 list.remove(i);
             }
         }
     }
 
-    fn room_active(&self, r: RoomId) -> bool {
-        self.all_active || self.active_rooms.get(r).copied().unwrap_or(false)
+    fn polygon_active(&self, r: PolygonId) -> bool {
+        self.all_active || self.active_polygons.get(r).copied().unwrap_or(false)
     }
 
     pub fn step(&mut self, dt: f64) -> Vec<Event> {
@@ -257,11 +257,11 @@ impl Sim {
         let mut contacts_seen: HashSet<(u64, u64)> = HashSet::new();
         let ids: Vec<u64> = self.entities.keys().copied().collect();
         for id in ids {
-            let (room, alive) = match self.entities.get(&id) {
-                Some(e) => (e.room, e.alive),
+            let (polygon, alive) = match self.entities.get(&id) {
+                Some(e) => (e.polygon, e.alive),
                 None => continue,
             };
-            if !alive || !self.room_active(room) {
+            if !alive || !self.polygon_active(polygon) {
                 continue;
             }
             self.step_entity(id, dt, &mut events, &mut contacts_seen);
@@ -308,8 +308,8 @@ impl Sim {
 
             // --- entity-entity: earliest overlap along this substep's end ---
             let mut hit_ent: Option<(u64, Vec2, f64)> = None; // (other, normal b->a, dist)
-            let room_ents: Vec<u64> = self.world.rooms[e.room].entities.clone();
-            for oid in room_ents {
+            let polygon_ents: Vec<u64> = self.world.polygons[e.polygon].entities.clone();
+            for oid in polygon_ents {
                 if oid == id {
                     continue;
                 }
@@ -338,17 +338,17 @@ impl Sim {
             // --- walls & portals: earliest center-line crossing ---
             // Portals: the center crossing the open span transfers the entity.
             // Walls: the circle (center at distance `radius`) reflects.
-            let verts_len = self.world.rooms[e.room].verts.len();
+            let verts_len = self.world.polygons[e.polygon].verts.len();
             let mut best_wall: Option<(usize, f64, Vec2)> = None; // (edge, tcol in [0,1] of step, normal)
             let mut best_portal: Option<(usize, f64)> = None;
             for i in 0..verts_len {
-                let room_ref = &self.world.rooms[e.room];
-                let (a, b) = room_ref.edge(i);
-                let n = room_ref.normals[i];
+                let polygon_ref = &self.world.polygons[e.polygon];
+                let (a, b) = polygon_ref.edge(i);
+                let n = polygon_ref.normals[i];
                 // Entities that never transfer treat portals as walls, and an
                 // entity only fits through an opening wider than itself.
-                let fits = 2.0 * e.radius <= room_ref.edge_len[i] * 1.05;
-                let is_portal = room_ref.portals[i].is_some() && e.transfers && fits;
+                let fits = 2.0 * e.radius <= polygon_ref.edge_len[i] * 1.05;
+                let is_portal = polygon_ref.portals[i].is_some() && e.transfers && fits;
                 let d0 = (e.pos - a).dot(n);
                 let d1 = (target - a).dot(n);
                 let rad = if is_portal { 0.0 } else { e.radius };
@@ -363,7 +363,7 @@ impl Sim {
                 let cross_pt = e.pos.lerp(target, t);
                 // Span check along the edge.
                 let along = (cross_pt - a).dot((b - a).normalized());
-                let len = room_ref.edge_len[i];
+                let len = polygon_ref.edge_len[i];
                 if is_portal {
                     if along >= 0.0 && along <= len {
                         match best_portal {
@@ -389,8 +389,8 @@ impl Sim {
             // mechanism the wall path already proves out.
             let mut best_terrain: Option<(usize, f64, Vec2)> = None;
             if self.terrain_blocks_group(e.group) {
-                let room_ref = &self.world.rooms[e.room];
-                for (ti, rect) in room_ref.terrain.iter().enumerate() {
+                let polygon_ref = &self.world.polygons[e.polygon];
+                for (ti, rect) in polygon_ref.terrain.iter().enumerate() {
                     if let Some((t, n)) = geom::swept_circle_vs_rect(e.pos, target, e.radius, rect)
                     {
                         match best_terrain {
@@ -429,16 +429,16 @@ impl Sim {
 
             if let Some((pi, tp)) = best_portal.filter(|_| portal_first) {
                 // Advance to the portal line, then transfer.
-                let room_ref = &self.world.rooms[e.room];
-                let portal = room_ref.portals[pi].unwrap();
+                let polygon_ref = &self.world.polygons[e.polygon];
+                let portal = polygon_ref.portals[pi].unwrap();
                 let cross_pt = e.pos.lerp(target, tp);
-                let inv = portal.inv; // this-room -> target-room
-                let new_room = portal.target_room;
+                let inv = portal.inv; // this-polygon -> target-polygon
+                let new_polygon = portal.target_polygon;
                 let new_pos = inv.apply(cross_pt);
                 let new_vel = inv.apply_dir(e.vel);
                 let new_dir = inv.apply_dir(e.dir).normalized();
                 // Nudge decisively into the new interior.
-                let n_child = self.world.rooms[new_room].normals[portal.target_edge];
+                let n_child = self.world.polygons[new_polygon].normals[portal.target_edge];
                 let mut new_pos = new_pos + n_child * TRANSFER_NUDGE;
                 // A crowd-shoved entity can cross from a position already
                 // past the portal plane (t clamps to 0 and cross_pt IS the
@@ -448,7 +448,7 @@ impl Sim {
                 // Clamp into the target polygon: convex, so pushing off
                 // each violated half-plane (twice, for corners) suffices.
                 {
-                    let target_ref = &self.world.rooms[new_room];
+                    let target_ref = &self.world.polygons[new_polygon];
                     for _ in 0..2 {
                         for i in 0..target_ref.verts.len() {
                             let (a, _b) = target_ref.edge(i);
@@ -465,16 +465,16 @@ impl Sim {
                         }
                     }
                 }
-                let from = e.room;
+                let from = e.polygon;
                 {
-                    let list = &mut self.world.rooms[from].entities;
+                    let list = &mut self.world.polygons[from].entities;
                     if let Some(ix) = list.iter().position(|&x| x == id) {
                         list.remove(ix);
                     }
-                    self.world.rooms[new_room].entities.push(id);
+                    self.world.polygons[new_polygon].entities.push(id);
                 }
                 if let Some(me) = self.entities.get_mut(&id) {
-                    me.room = new_room;
+                    me.polygon = new_polygon;
                     me.pos = new_pos;
                     me.vel = new_vel;
                     me.dir = new_dir;
@@ -482,7 +482,7 @@ impl Sim {
                 events.push(Event::Transfer {
                     ent: id,
                     from,
-                    to: new_room,
+                    to: new_polygon,
                     edge: pi,
                     xform: inv,
                 });
@@ -521,9 +521,9 @@ impl Sim {
                         other.vel = new_vel_b;
                         other.pos = other.pos + push_b;
                     }
-                    // Contain both in-room after the push (cheap correction).
-                    self.contain_in_room(id);
-                    self.contain_in_room(oid);
+                    // Contain both in-polygon after the push (cheap correction).
+                    self.contain_in_polygon(id);
+                    self.contain_in_polygon(oid);
                     let key = (id.min(oid), id.max(oid));
                     if contacts_seen.insert(key) {
                         events.push(Event::Contact {
@@ -546,7 +546,7 @@ impl Sim {
                 let rest = e.rest_wall;
                 let vn = e.vel.dot(n);
                 let new_vel = e.vel - n * ((1.0 + rest) * vn);
-                let room = e.room;
+                let polygon = e.polygon;
                 if let Some(me) = self.entities.get_mut(&id) {
                     me.pos = new_pos;
                     me.vel = new_vel;
@@ -554,7 +554,7 @@ impl Sim {
                 match kind {
                     Block::Wall(wi) => events.push(Event::WallHit {
                         ent: id,
-                        room,
+                        polygon,
                         edge: wi,
                         pos: cross_pt - n * e.radius,
                         normal: n,
@@ -562,7 +562,7 @@ impl Sim {
                     }),
                     Block::Terrain(ti) => events.push(Event::TerrainHit {
                         ent: id,
-                        room,
+                        polygon,
                         terrain: ti,
                         pos: cross_pt - n * e.radius,
                         normal: n,
@@ -582,19 +582,19 @@ impl Sim {
         // The invariant, enforced unconditionally: whatever the substep
         // loop did (walls, portals, contacts, corner traps, stall breaks),
         // the entity ends the tick with its center inside its registered
-        // room. Everything downstream (visibility apex, room queries,
+        // polygon. Everything downstream (visibility apex, polygon queries,
         // the game's containment sweep) is allowed to assume this.
-        self.contain_in_room(id);
+        self.contain_in_polygon(id);
         self.push_out_of_terrain(id);
     }
 
-    /// Defense-in-depth companion to `contain_in_room`: if an entity's
+    /// Defense-in-depth companion to `contain_in_polygon`: if an entity's
     /// center ends the tick embedded in a padded terrain rect anyway (a
     /// portal transfer depositing it there, a mask hot-loaded under a
     /// standing entity, radius changed via `set_props` mid-overlap -- none
     /// of these go through the swept per-substep test above), push it out
-    /// along the shallowest axis. Unconditional, like `contain_in_room`;
-    /// cheap no-op when the room has no terrain.
+    /// along the shallowest axis. Unconditional, like `contain_in_polygon`;
+    /// cheap no-op when the polygon has no terrain.
     fn push_out_of_terrain(&mut self, id: u64) {
         let e = match self.entities.get(&id) {
             Some(e) => e.clone(),
@@ -603,13 +603,13 @@ impl Sim {
         if !self.terrain_blocks_group(e.group) {
             return;
         }
-        let room = &self.world.rooms[e.room];
-        if room.terrain.is_empty() {
+        let polygon = &self.world.polygons[e.polygon];
+        if polygon.terrain.is_empty() {
             return;
         }
         let mut pos = e.pos;
         for _pass in 0..2 {
-            for rect in &room.terrain {
+            for rect in &polygon.terrain {
                 let padded = rect.inflate(e.radius);
                 if !padded.contains(pos) {
                     continue;
@@ -638,30 +638,30 @@ impl Sim {
     }
 
     /// Containment invariant: an entity's CENTER ends every correction
-    /// inside its registered room's polygon. Walls push out by radius;
+    /// inside its registered polygon's polygon. Walls push out by radius;
     /// portal planes clamp the center to the plane itself (a nudge inside)
     /// -- never an implicit crossing: a center legitimately going through
     /// re-triggers the sweep from d~0 next substep and transfers with
     /// events. The old version skipped portal edges entirely (`rad > 0.0`
     /// guard), so a corner-slip past a portal plane OUTSIDE its open span
-    /// left the entity permanently outside its room: room registration
+    /// left the entity permanently outside its polygon: polygon registration
     /// and position disagreed, the visibility apex went exterior, and
     /// everything behind the entry portal blacked out for those ticks
     /// (the campaign flicker's blackout class), while escaped entities
     /// needed the game-side containment sweep to recover at all.
-    fn contain_in_room(&mut self, id: u64) {
+    fn contain_in_polygon(&mut self, id: u64) {
         let e = match self.entities.get(&id) {
             Some(e) => e.clone(),
             None => return,
         };
-        let room = &self.world.rooms[e.room];
-        let n = room.verts.len();
+        let polygon = &self.world.polygons[e.polygon];
+        let n = polygon.verts.len();
         let mut pos = e.pos;
         // Convex polygon: two passes settle corner interactions.
         for _pass in 0..2 {
             for i in 0..n {
-                let (a, _b) = room.edge(i);
-                let nn = room.normals[i];
+                let (a, _b) = polygon.edge(i);
+                let nn = polygon.normals[i];
                 // Containment is CENTER-IN-POLYGON: d >= 0 on every
                 // half-plane, portal or wall. The plane itself counts as
                 // inside -- any positive floor is a repulsive barrier (slow
@@ -698,25 +698,25 @@ mod tests {
         ]
     }
 
-    fn two_room_world() -> (Sim, RoomId, RoomId) {
+    fn two_polygon_world() -> (Sim, PolygonId, PolygonId) {
         let mut w = World::new();
-        let a = w.add_room(&square(50.0)).unwrap();
-        let b = w.add_room(&square(50.0)).unwrap();
+        let a = w.add_polygon(&square(50.0)).unwrap();
+        let b = w.add_polygon(&square(50.0)).unwrap();
         w.connect(a, 2, b, 0).unwrap();
         (Sim::new(w), a, b)
     }
 
     #[test]
     fn wall_slide_keeps_entity_inside() {
-        let (mut sim, a, _) = two_room_world();
+        let (mut sim, a, _) = two_polygon_world();
         let id = sim.spawn(a, v(0.0, 0.0), 8.0, 1.0, 0).unwrap();
         sim.entities.get_mut(&id).unwrap().vel = v(-300.0, 40.0);
         for _ in 0..120 {
             sim.step(1.0 / 60.0);
             let e = &sim.entities[&id];
             assert!(
-                geom::depth_in_polygon(e.pos, &sim.world.rooms[e.room].verts) >= -1e-6,
-                "escaped room at {:?}",
+                geom::depth_in_polygon(e.pos, &sim.world.polygons[e.polygon].verts) >= -1e-6,
+                "escaped polygon at {:?}",
                 e.pos
             );
         }
@@ -736,9 +736,9 @@ mod tests {
         // deposit it INSIDE the target polygon, or it drifts unreachable
         // (found by a 1,900-campaign soak: a fleeing shrieker escaped this
         // way and wedged the run).
-        let (mut sim, a, b) = two_room_world();
+        let (mut sim, a, b) = two_polygon_world();
         let id = sim.spawn(a, v(30.0, 5.0), 6.0, 1.0, 0).unwrap();
-        // simulate the shove: already 12u past room a's east portal plane
+        // simulate the shove: already 12u past polygon a's east portal plane
         sim.entities.get_mut(&id).unwrap().pos = v(62.0, 5.0);
         sim.entities.get_mut(&id).unwrap().vel = v(80.0, 3.0);
         let mut transferred = false;
@@ -752,9 +752,9 @@ mod tests {
             }
             let e = &sim.entities[&id];
             assert!(
-                geom::depth_in_polygon(e.pos, &sim.world.rooms[e.room].verts) >= -1e-6,
-                "outside room {:?} at {:?}",
-                e.room,
+                geom::depth_in_polygon(e.pos, &sim.world.polygons[e.polygon].verts) >= -1e-6,
+                "outside polygon {:?} at {:?}",
+                e.polygon,
                 e.pos
             );
         }
@@ -763,7 +763,7 @@ mod tests {
 
     #[test]
     fn portal_transfer_preserves_motion_and_roundtrips() {
-        let (mut sim, a, b) = two_room_world();
+        let (mut sim, a, b) = two_polygon_world();
         let id = sim.spawn(a, v(30.0, 5.0), 6.0, 1.0, 0).unwrap();
         sim.entities.get_mut(&id).unwrap().vel = v(200.0, 0.0);
         let mut transferred = false;
@@ -780,7 +780,7 @@ mod tests {
         }
         assert!(transferred);
         let e = sim.entities[&id].clone();
-        assert_eq!(e.room, b);
+        assert_eq!(e.polygon, b);
         // Two aligned squares: b's frame is rotated 180 relative to a's when
         // glued flush (edge directions oppose), so velocity in b's local frame
         // points in -x... whatever the orientation, speed must be preserved.
@@ -798,12 +798,12 @@ mod tests {
             }
         }
         assert!(back);
-        assert_eq!(sim.entities[&id].room, a);
+        assert_eq!(sim.entities[&id].polygon, a);
     }
 
     #[test]
     fn fast_bullet_does_not_tunnel_through_wall() {
-        let (mut sim, a, _) = two_room_world();
+        let (mut sim, a, _) = two_polygon_world();
         let id = sim.spawn(a, v(0.0, 0.0), 1.5, 0.001, 3).unwrap();
         {
             let e = sim.entities.get_mut(&id).unwrap();
@@ -813,14 +813,14 @@ mod tests {
         }
         sim.step(1.0 / 60.0);
         let e = &sim.entities[&id];
-        assert_eq!(e.room, a);
-        assert!(geom::depth_in_polygon(e.pos, &sim.world.rooms[a].verts) >= -1e-6);
+        assert_eq!(e.polygon, a);
+        assert!(geom::depth_in_polygon(e.pos, &sim.world.polygons[a].verts) >= -1e-6);
         assert!(e.vel.y > 0.0, "should have bounced: {:?}", e.vel);
     }
 
     #[test]
     fn entity_collision_conserves_energy_bound() {
-        let (mut sim, a, _) = two_room_world();
+        let (mut sim, a, _) = two_polygon_world();
         let p = sim.spawn(a, v(-20.0, 0.0), 8.0, 1.0, 0).unwrap();
         let q = sim.spawn(a, v(20.0, 0.0), 8.0, 1.0, 0).unwrap();
         sim.entities.get_mut(&p).unwrap().vel = v(150.0, 0.0);
@@ -849,7 +849,7 @@ mod tests {
 
     #[test]
     fn non_transferring_entity_treats_portal_as_open_but_stays() {
-        let (mut sim, a, _) = two_room_world();
+        let (mut sim, a, _) = two_polygon_world();
         let id = sim.spawn(a, v(30.0, 0.0), 6.0, 1.0, 0).unwrap();
         {
             let e = sim.entities.get_mut(&id).unwrap();
@@ -860,10 +860,10 @@ mod tests {
             sim.step(1.0 / 60.0);
         }
         // transfers=false: portals act as walls; it slides along the doorway
-        // and never leaves the room (or its polygon).
+        // and never leaves the polygon (or its polygon).
         let e = &sim.entities[&id];
-        assert_eq!(e.room, a);
-        assert!(geom::depth_in_polygon(e.pos, &sim.world.rooms[a].verts) >= -1e-6);
+        assert_eq!(e.polygon, a);
+        assert!(geom::depth_in_polygon(e.pos, &sim.world.polygons[a].verts) >= -1e-6);
     }
 
     // -- ENGINE_INVARIANTS.md T. walk-mask terrain -----------------------
@@ -872,9 +872,9 @@ mod tests {
     fn entity_head_on_into_terrain_stops_short_never_tunnels() {
         // A slow entity walking straight at a terrain rect must stop at its
         // padded face, exactly like a wall -- never pass through it.
-        let (mut sim, a, _) = two_room_world();
+        let (mut sim, a, _) = two_polygon_world();
         sim.world
-            .set_room_terrain(a, vec![geom::Rect::new(v(10.0, -10.0), v(20.0, 10.0))])
+            .set_polygon_terrain(a, vec![geom::Rect::new(v(10.0, -10.0), v(20.0, 10.0))])
             .unwrap();
         let id = sim.spawn(a, v(-30.0, 0.0), 3.0, 1.0, 0).unwrap();
         sim.entities.get_mut(&id).unwrap().vel = v(120.0, 0.0);
@@ -893,9 +893,9 @@ mod tests {
         // Mirrors fast_bullet_does_not_tunnel_through_wall but for terrain:
         // a high-speed thin projectile crossing a terrain rect in one nominal
         // tick must still be caught by the per-substep swept test.
-        let (mut sim, a, _) = two_room_world();
+        let (mut sim, a, _) = two_polygon_world();
         sim.world
-            .set_room_terrain(a, vec![geom::Rect::new(v(-2.0, -40.0), v(2.0, 40.0))])
+            .set_polygon_terrain(a, vec![geom::Rect::new(v(-2.0, -40.0), v(2.0, 40.0))])
             .unwrap();
         let id = sim.spawn(a, v(-30.0, 0.0), 1.5, 0.001, 3).unwrap();
         {
@@ -917,12 +917,12 @@ mod tests {
         // re-aims straight at a target directly behind a terrain rect's
         // flat face generates zero tangential velocity every tick and
         // grinds forever -- physics-level sliding alone does not route
-        // around terrain the way it routes an entity along a convex room
+        // around terrain the way it routes an entity along a convex polygon
         // wall (a wall never has a "straight through" target on the other
-        // side of itself; terrain, sitting mid-room, does).
-        let (mut sim, a, _) = two_room_world();
+        // side of itself; terrain, sitting mid-polygon, does).
+        let (mut sim, a, _) = two_polygon_world();
         sim.world
-            .set_room_terrain(a, vec![geom::Rect::new(v(-5.0, -40.0), v(5.0, 5.0))])
+            .set_polygon_terrain(a, vec![geom::Rect::new(v(-5.0, -40.0), v(5.0, 5.0))])
             .unwrap();
         let id = sim.spawn(a, v(-30.0, -20.0), 3.0, 1.0, 0).unwrap();
         let target = v(30.0, -20.0);
@@ -951,9 +951,9 @@ mod tests {
         // Same scenario as the deadlock above, but steering through
         // `query::terrain_avoid_dir` (what `sim.py`'s enemy AI now calls):
         // must route around the rect and actually arrive, not grind.
-        let (mut sim, a, _) = two_room_world();
+        let (mut sim, a, _) = two_polygon_world();
         sim.world
-            .set_room_terrain(a, vec![geom::Rect::new(v(-5.0, -40.0), v(5.0, 5.0))])
+            .set_polygon_terrain(a, vec![geom::Rect::new(v(-5.0, -40.0), v(5.0, 5.0))])
             .unwrap();
         let id = sim.spawn(a, v(-30.0, -20.0), 3.0, 1.0, 0).unwrap();
         let target = v(30.0, -20.0);
@@ -966,7 +966,7 @@ mod tests {
             }
             let desired = to_target * (1.0 / dl);
             let steered =
-                crate::query::terrain_avoid_dir(&sim.world, e.room, e.pos, e.radius, desired, 25.0);
+                crate::query::terrain_avoid_dir(&sim.world, e.polygon, e.pos, e.radius, desired, 25.0);
             sim.entities.get_mut(&id).unwrap().vel = steered * 80.0;
             sim.step(1.0 / 60.0);
         }
@@ -976,9 +976,9 @@ mod tests {
 
     #[test]
     fn terrain_blocks_projectiles_by_default() {
-        let (mut sim, a, _) = two_room_world();
+        let (mut sim, a, _) = two_polygon_world();
         sim.world
-            .set_room_terrain(a, vec![geom::Rect::new(v(10.0, -10.0), v(20.0, 10.0))])
+            .set_polygon_terrain(a, vec![geom::Rect::new(v(10.0, -10.0), v(20.0, 10.0))])
             .unwrap();
         let id = sim.spawn(a, v(-30.0, 0.0), 1.5, 0.001, 3).unwrap(); // group 3: a bullet group
         sim.entities.get_mut(&id).unwrap().vel = v(3000.0, 0.0);
@@ -993,9 +993,9 @@ mod tests {
     fn set_terrain_block_false_lets_a_group_pass_through() {
         // The per-group opt-out flag: a group with terrain-blocking disabled
         // must fly straight through the rect it would otherwise stop at.
-        let (mut sim, a, _) = two_room_world();
+        let (mut sim, a, _) = two_polygon_world();
         sim.world
-            .set_room_terrain(a, vec![geom::Rect::new(v(10.0, -10.0), v(20.0, 10.0))])
+            .set_polygon_terrain(a, vec![geom::Rect::new(v(10.0, -10.0), v(20.0, 10.0))])
             .unwrap();
         sim.set_terrain_block(0, false);
         let id = sim.spawn(a, v(-30.0, 0.0), 3.0, 1.0, 0).unwrap();
@@ -1009,17 +1009,17 @@ mod tests {
 
     #[test]
     fn empty_terrain_mask_is_fully_walkable() {
-        // Absence of a mask (no set_room_terrain call at all) must mean
+        // Absence of a mask (no set_polygon_terrain call at all) must mean
         // fully walkable -- no fabricated terrain, straight-line travel
         // reaches the far wall unimpeded.
-        let (mut sim, a, _) = two_room_world();
+        let (mut sim, a, _) = two_polygon_world();
         let id = sim.spawn(a, v(-30.0, 0.0), 3.0, 1.0, 0).unwrap();
         sim.entities.get_mut(&id).unwrap().vel = v(200.0, 0.0);
         for _ in 0..60 {
             sim.step(1.0 / 60.0);
         }
         let e = &sim.entities[&id];
-        assert!(e.pos.x > 40.0, "phantom terrain blocked an unmasked room: {:?}", e.pos);
+        assert!(e.pos.x > 40.0, "phantom terrain blocked an unmasked polygon: {:?}", e.pos);
     }
 
     #[test]
@@ -1028,9 +1028,9 @@ mod tests {
         // directly inside a terrain rect (e.g. a mask hot-loaded under a
         // standee, or a portal transfer landing there) must be corrected
         // out, not left embedded indefinitely.
-        let (mut sim, a, _) = two_room_world();
+        let (mut sim, a, _) = two_polygon_world();
         sim.world
-            .set_room_terrain(a, vec![geom::Rect::new(v(-10.0, -10.0), v(10.0, 10.0))])
+            .set_polygon_terrain(a, vec![geom::Rect::new(v(-10.0, -10.0), v(10.0, 10.0))])
             .unwrap();
         let id = sim.spawn(a, v(-30.0, 0.0), 3.0, 1.0, 0).unwrap();
         sim.entities.get_mut(&id).unwrap().pos = v(0.0, 0.0); // dead center of the rect

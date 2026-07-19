@@ -17,12 +17,12 @@ b.connect_pts(maze["exit"][0], maze["exit"][1], vault, (vault_x, vault_y))
 
 - `origin` is any free spot on the authoring canvas; the maze covers
   ~775×900 u at `scale=80` (the canonical 1 WU → 80 u mapping). Overlap
-  with existing rooms is harmless — only connects define adjacency — but
+  with existing polygons is harmless — only connects define adjacency — but
   keep ≥ 1 u of separation from walls you don't intend to weld, or the
   doorway-splitter/autoconnect may act on coincident edges.
 - Graft points returned: `entry` (NW vestibule), `exit`/`exit2` (south
   doors), `north` (corridor stub), `west`/`west2`. Each is
-  `(room_id, (x, y))` ready for `connect_pts`/`door_pts`. Unused ones
+  `(polygon_id, (x, y))` ready for `connect_pts`/`door_pts`. Unused ones
   simply stay walls.
 - Graft edge widths: entry 66 u, exit/exit2 40 u, north/west/west2 40 u.
   The engine's `connect` maps span onto span (it scales when lengths
@@ -30,13 +30,13 @@ b.connect_pts(maze["exit"][0], maze["exit"][1], vault, (vault_x, vault_y))
   4:3 squeeze at the threshold; author the receiving edge near the graft
   width when you care.
 - Alternative used by the demo generator (`tools/marathon/make_maze_demo.py`,
-  output `levels/maze_demo.json`): build the receiving room so one wall
+  output `levels/maze_demo.json`): build the receiving polygon so one wall
   *exactly contains* the graft edge's two endpoints — the doorway-splitter
   plus autoconnect then weld it with no explicit connect call.
 - The maze brings its own `no_connect` list (30 pairs) protecting the 5D
   crossings; do not "fix" corridors that overlap on the canvas without
   touching — that overlap is the homage (playbook §11 applies: the paradox
   is the mechanic).
-- Rooms come tagged `corridor`/`transit` by degree; retag individual cells
-  via `b.set_kind(maze["rooms"][marathon_index], kind)` if a level wants,
+- Polygons come tagged `corridor`/`transit` by degree; retag individual cells
+  via `b.set_kind(maze["polygons"][marathon_index], kind)` if a level wants,
   say, the dead-end alcoves as `storage`.

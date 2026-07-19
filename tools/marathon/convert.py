@@ -1,10 +1,10 @@
 """Marathon level -> PERIHELION level JSON.
 
 The two formats are the same shape: Marathon's polygon mesh (convex <=8-vert
-polygons, lines shared by exactly two polygons) IS our room graph (convex
-rooms, portals on shared edges). Conversion is therefore mostly bookkeeping:
+polygons, lines shared by exactly two polygons) IS our polygon graph (convex
+polygons, portals on shared edges). Conversion is therefore mostly bookkeeping:
 
-- polygon -> room, vertices scaled by SCALE (80 u per WU, see stats.py) and
+- polygon -> polygon, vertices scaled by SCALE (80 u per WU, see stats.py) and
   REVERSED (Marathon winds positive-shoelace in y-down screen coords; our
   engine requires negative / visually-CCW).
 - walkable shared line (two owner polygons, not SOLID) -> connect, authored
@@ -14,9 +14,9 @@ rooms, portals on shared edges). Conversion is therefore mostly bookkeeping:
   builder's autoconnect would helpfully open a doorway through it.
 - plan-overlapping but unconnected polygons (Marathon "5D space", which
   Arrival's east maze uses heavily) -> also `no_connect` defensively for any
-  edge-coincident pair; the engine does not care that rooms overlap on the
+  edge-coincident pair; the engine does not care that polygons overlap on the
   authoring canvas.
-- floor/ceiling heights don't exist here; they're preserved per room under a
+- floor/ceiling heights don't exist here; they're preserved per polygon under a
   "marathon" key (ignored by the loader) and folded into the kind heuristic
   (platform polys = Marathon doors -> corridor kind).
 
@@ -47,7 +47,7 @@ from perihelion.levels import LevelBuilder, save_level  # noqa: E402
 SCALE = 80.0 / WU  # 1 WU -> 80 u (median M1 door -> our 80 u doorway)
 
 
-def _room_kind(lvl: MarathonLevel, pi: int) -> str:
+def _polygon_kind(lvl: MarathonLevel, pi: int) -> str:
     p = lvl.polygons[pi]
     area_wu2 = lvl.poly_area(pi) / (WU * WU)
     deg = lvl.poly_degree(pi)
@@ -81,7 +81,7 @@ def _bfs_hops(lvl: MarathonLevel, start: int) -> dict[int, int]:
 
 
 def _coincident_unconnected_pairs(lvl: MarathonLevel) -> set[tuple[int, int]]:
-    """Room pairs that share (or nearly share, within the builder's 0.5 u
+    """Polygon pairs that share (or nearly share, within the builder's 0.5 u
     tolerance at our scale) an anti-parallel collinear edge without being
     Marathon-adjacent — thin solid walls and 5D flush contacts. These must
     be no_connect'ed or resolve() would auto-open doorways through them."""
@@ -128,15 +128,15 @@ def convert(game: str, index: int, name: str | None = None,
     b = LevelBuilder(name or f"{lvl.name} (M{game[-1] if game != 'm1' else '1'})",
                      tier=1, ambience="amb_drone_early")
 
-    # rooms ---------------------------------------------------------------
+    # polygons ---------------------------------------------------------------
     for pi in range(len(lvl.polygons)):
         verts = [(x * SCALE, y * SCALE) for x, y in lvl.poly_verts(pi)]
         verts.reverse()  # positive -> negative shoelace (engine canonical)
-        ri = b.room(verts, detail_seed=pi * 7919 + 13,
-                    kind=_room_kind(lvl, pi))
+        ri = b.polygon(verts, detail_seed=pi * 7919 + 13,
+                    kind=_polygon_kind(lvl, pi))
         assert ri == pi
         p = lvl.polygons[pi]
-        b.data["rooms"][ri]["marathon"] = dict(
+        b.data["polygons"][ri]["marathon"] = dict(
             floor=p.floor_height, ceil=p.ceiling_height, type=p.type)
 
     # portals -> connects (midpoint-addressed; robust through resolve()) ---
@@ -214,5 +214,5 @@ if __name__ == "__main__":
         REPO / "levels" / "marathon_arrival.json")
     data = convert(game, index)
     save_level(data, out)
-    print(f"{out}: {len(data['rooms'])} rooms, "
+    print(f"{out}: {len(data['polygons'])} polygons, "
           f"{len(data['connects'])} connects")

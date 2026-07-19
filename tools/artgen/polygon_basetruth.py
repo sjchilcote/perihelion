@@ -1,21 +1,21 @@
-"""tools/artgen/room_basetruth.py
+"""tools/artgen/polygon_basetruth.py
 
-Base-truth captures for the texture pilot: for every room listed in
-tools/artgen/pilot_rooms.json, render the room's CURRENT authored look
+Base-truth captures for the texture pilot: for every polygon listed in
+tools/artgen/pilot_polygons.json, render the polygon's CURRENT authored look
 (floor fill + detail prims -- the existing procedural prop language from
-game/perihelion/render.py) at 3 px/world-unit in the room's own local
+game/perihelion/render.py) at 3 px/world-unit in the polygon's own local
 frame. No entities, no darkness/fog, no camera -- just the flat floor and
 its props, the priors the image model will be asked to reinterpret.
 
 Reuses Renderer._draw_floor / Renderer._draw_detail directly (the same
 code the live game calls) rather than reimplementing the prop language.
-Each level file is loaded standalone (not streamed), so every pilot room
-is addressed by (level stem, room index) exactly as authored in
+Each level file is loaded standalone (not streamed), so every pilot polygon
+is addressed by (level stem, polygon index) exactly as authored in
 levels/<stem>.json.
 
 Usage:
-    uv run python tools/artgen/room_basetruth.py --out DIR
-    uv run python tools/artgen/room_basetruth.py --out DIR --pilot tools/artgen/pilot_rooms.json
+    uv run python tools/artgen/polygon_basetruth.py --out DIR
+    uv run python tools/artgen/polygon_basetruth.py --out DIR --pilot tools/artgen/pilot_polygons.json
 """
 from __future__ import annotations
 
@@ -39,12 +39,12 @@ from perihelion.levels import load_level  # noqa: E402
 from perihelion.render import Renderer, _PygameCanvas  # noqa: E402
 from perihelion.sim import GameSession  # noqa: E402
 
-DEFAULT_PILOT = ROOT / "tools" / "artgen" / "pilot_rooms.json"
+DEFAULT_PILOT = ROOT / "tools" / "artgen" / "pilot_polygons.json"
 
 
-def render_room(renderer: Renderer, room_idx: int, px_per_unit: float) -> "pygame.Surface":
+def render_polygon(renderer: Renderer, polygon_idx: int, px_per_unit: float) -> "pygame.Surface":
     level = renderer.session.level
-    verts = level.room_verts[room_idx]
+    verts = level.polygon_verts[polygon_idx]
     xs = [v[0] for v in verts]
     ys = [v[1] for v in verts]
     x0, x1 = min(xs), max(xs)
@@ -53,15 +53,15 @@ def render_room(renderer: Renderer, room_idx: int, px_per_unit: float) -> "pygam
     h_px = max(1, math.ceil((y1 - y0) * px_per_unit))
 
     surf = pygame.Surface((w_px, h_px))
-    surf.fill((0, 0, 0))  # pixels outside the room polygon stay black
+    surf.fill((0, 0, 0))  # pixels outside the polygon polygon stay black
 
     xform = necore.mat_mul(necore.mat_scale(px_per_unit, px_per_unit),
                             necore.mat_translate(-x0, -y0))
-    room_screen = [necore.mat_apply(xform, x, y) for x, y in verts]
+    polygon_screen = [necore.mat_apply(xform, x, y) for x, y in verts]
 
     canvas = _PygameCanvas(surf)
     # depth=0: no fog/darkness dimming -- the flat authored appearance
-    renderer._draw_floor(canvas, room_idx, 0, room_screen)
+    renderer._draw_floor(canvas, polygon_idx, 0, polygon_screen)
     # _draw_detail (PROPS: crates, consoles, vent grates, pipe runs, floor
     # chevrons -- every "line"/"polyline"/"poly"/"dot" prim) is DELIBERATELY
     # NOT called here (2026-07-11 fix-round, director's correction: "the
@@ -69,7 +69,7 @@ def render_room(renderer: Renderer, room_idx: int, px_per_unit: float) -> "pygam
     # texture"). A texture is the tileable floor MATERIAL, not an
     # illustration of scene content. Renderer._draw_world (render.py
     # ~line 1663-1664) draws _draw_floor then _draw_detail UNCONDITIONALLY
-    # every frame, textured room or not -- every prop (crate, console,
+    # every frame, textured polygon or not -- every prop (crate, console,
     # chevron, pipe run) is ALREADY drawn live, every frame, by the game's
     # real vector prop layer regardless of what the floor texture shows.
     # Baking a painted illustration of the same crate/chevron/pipe into the
@@ -103,30 +103,30 @@ def main() -> None:
     out_root.mkdir(parents=True, exist_ok=True)
 
     by_level: dict[str, list[dict]] = {}
-    for r in pilot["rooms"]:
+    for r in pilot["polygons"]:
         by_level.setdefault(r["level"], []).append(r)
 
     failures = []
     written = 0
-    for stem, rooms in sorted(by_level.items()):
+    for stem, polygons in sorted(by_level.items()):
         level_path = ROOT / "levels" / f"{stem}.json"
         level = load_level(level_path)
         session = GameSession(level)
         renderer = Renderer(session, backend="pygame")
         level_out = out_root / stem
         level_out.mkdir(parents=True, exist_ok=True)
-        for r in rooms:
-            idx = r["room_index"]
+        for r in polygons:
+            idx = r["polygon_index"]
             try:
-                if idx >= len(level.room_verts):
+                if idx >= len(level.polygon_verts):
                     raise IndexError(
-                        f"room {idx} out of range (level has {len(level.room_verts)})")
-                surf = render_room(renderer, idx, px_per_unit)
-                out_path = level_out / f"room_{idx:03d}.png"
+                        f"polygon {idx} out of range (level has {len(level.polygon_verts)})")
+                surf = render_polygon(renderer, idx, px_per_unit)
+                out_path = level_out / f"polygon_{idx:03d}.png"
                 pygame.image.save(surf, str(out_path))
                 written += 1
             except Exception as exc:  # noqa: BLE001 - report and continue
-                failures.append(dict(level=stem, room_index=idx, error=str(exc)))
+                failures.append(dict(level=stem, polygon_index=idx, error=str(exc)))
 
     print(json.dumps(dict(written=written, failures=failures,
                           out_dir=str(out_root)), indent=2))

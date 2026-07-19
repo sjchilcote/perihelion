@@ -1,7 +1,7 @@
 """Micro-benchmarks for the four worst-case world shapes called out in
 ENGINE_DESIGN.md §5: a radial hub with looping corridors (many simultaneous
-portals), a self-connecting mirror room (unbounded visibility recursion,
-capped by max_depth), a 40-room grid (broad-phase / router stress), and an
+portals), a self-connecting mirror polygon (unbounded visibility recursion,
+capped by max_depth), a 40-polygon grid (broad-phase / router stress), and an
 infinite corridor pair (the other unbounded-recursion shape). Each world is
 driven by an AggroBot for `ticks` ticks; `session.tick()` and
 `session.visible(14, 96)` wall time is sampled independently every tick.
@@ -27,30 +27,30 @@ DEFAULT_SEED = 1
 
 
 def build_radial_hub() -> Level:
-    """Octagonal hub; each of its 8 edges feeds a 3-room corridor that
+    """Octagonal hub; each of its 8 edges feeds a 3-polygon corridor that
     closes back into a loop (not back through the hub — every hub edge is
     used exactly once as an attachment point)."""
     b = LevelBuilder("perf_radial_hub")
     hub = b.ngon(0.0, 0.0, 220.0, 8)
     for i in range(8):
         origins = [(2000.0 + i * 600.0 + j * 140.0, 0.0) for j in range(3)]
-        rooms = [b.rect(ox, oy, 120.0, 120.0) for ox, oy in origins]
-        b.connect(hub, i, rooms[0], 0)
-        b.connect(rooms[0], 2, rooms[1], 0)
-        b.connect(rooms[1], 2, rooms[2], 0)
-        b.connect(rooms[2], 2, rooms[0], 1)  # close the loop
-        # entity/player/exit take absolute canvas coords, not room-local
-        # offsets, so re-add each room's own origin here.
-        for r, (ox, oy) in zip(rooms, origins):
+        polygons = [b.rect(ox, oy, 120.0, 120.0) for ox, oy in origins]
+        b.connect(hub, i, polygons[0], 0)
+        b.connect(polygons[0], 2, polygons[1], 0)
+        b.connect(polygons[1], 2, polygons[2], 0)
+        b.connect(polygons[2], 2, polygons[0], 1)  # close the loop
+        # entity/player/exit take absolute canvas coords, not polygon-local
+        # offsets, so re-add each polygon's own origin here.
+        for r, (ox, oy) in zip(polygons, origins):
             b.entity(r, "husk", (ox + 60.0, oy + 60.0))
     b.player(hub, (0.0, 0.0))
     return b.build()
 
 
-def build_mirror_room() -> Level:
-    """A single room whose opposite edges self-connect: the classic
+def build_mirror_polygon() -> Level:
+    """A single polygon whose opposite edges self-connect: the classic
     infinite-mirror-corridor visibility worst case."""
-    b = LevelBuilder("perf_mirror_room")
+    b = LevelBuilder("perf_mirror_polygon")
     r = b.rect(0.0, 0.0, 300.0, 300.0)
     b.connect(r, 0, r, 2)
     for i in range(6):
@@ -60,8 +60,8 @@ def build_mirror_room() -> Level:
 
 
 def build_grid40(cols: int = 8, rows: int = 5) -> Level:
-    """A cols*rows (default 40) room grid, each cell connected to its right
-    and below neighbor — broad-phase/router stress, many active rooms."""
+    """A cols*rows (default 40) polygon grid, each cell connected to its right
+    and below neighbor — broad-phase/router stress, many active polygons."""
     b = LevelBuilder("perf_grid40")
     size = 140.0
     grid: dict[tuple[int, int], int] = {}
@@ -70,13 +70,13 @@ def build_grid40(cols: int = 8, rows: int = 5) -> Level:
             grid[(i, j)] = b.rect(i * size, j * size, size, size)
     for j in range(rows):
         for i in range(cols):
-            room = grid[(i, j)]
+            polygon = grid[(i, j)]
             if i + 1 < cols:
-                b.connect(room, 2, grid[(i + 1, j)], 0)
+                b.connect(polygon, 2, grid[(i + 1, j)], 0)
             if j + 1 < rows:
-                b.connect(room, 1, grid[(i, j + 1)], 3)
+                b.connect(polygon, 1, grid[(i, j + 1)], 3)
     # entity/player take absolute canvas coords: re-add each cell's own
-    # (i*size, j*size) origin, not just a room-local offset.
+    # (i*size, j*size) origin, not just a polygon-local offset.
     for idx, ((i, j), r) in enumerate(grid.items()):
         if idx % 5 == 0:
             b.entity(r, "husk", (i * size + size / 2.0, j * size + size / 2.0))
@@ -86,7 +86,7 @@ def build_grid40(cols: int = 8, rows: int = 5) -> Level:
 
 
 def build_infinite_corridor() -> Level:
-    """Two long rooms connected end-to-end both ways: walking either
+    """Two long polygons connected end-to-end both ways: walking either
     direction never terminates. Unbounded recursion depth, the other shape,
     capped by max_depth."""
     b = LevelBuilder("perf_infinite_corridor")
@@ -102,7 +102,7 @@ def build_infinite_corridor() -> Level:
 
 WORLDS = {
     "radial_hub": build_radial_hub,
-    "mirror_room": build_mirror_room,
+    "mirror_polygon": build_mirror_polygon,
     "grid40": build_grid40,
     "infinite_corridor": build_infinite_corridor,
 }

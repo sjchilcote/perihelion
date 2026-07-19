@@ -1,12 +1,12 @@
 //! Correct-by-construction invariants, enforced as property tests:
 //!
 //! 1. CONTAINMENT: an entity's center ends every step inside its
-//!    registered room's polygon. No corner-slip, no shove-escape, no
+//!    registered polygon's polygon. No corner-slip, no shove-escape, no
 //!    position/registration disagreement -- ever.
-//! 2. VISIBILITY CONTINUITY: the per-room visible coverage is a
+//! 2. VISIBILITY CONTINUITY: the per-polygon visible coverage is a
 //!    continuous function of the apex. Sweeping the apex in small steps
 //!    (including straight through doorways and past corners) never makes
-//!    a room's coverage jump to zero and back: no threshold cull may
+//!    a polygon's coverage jump to zero and back: no threshold cull may
 //!    drop positive-measure coverage.
 
 use necore::math::{v, Mat3, Vec2};
@@ -43,39 +43,39 @@ fn inside(verts: &[Vec2], p: Vec2, tol: f64) -> bool {
 }
 
 fn grid_world() -> (World, Vec<usize>) {
-    // 3x3 grid of 100u rooms, fully connected -- doorways on every shared
+    // 3x3 grid of 100u polygons, fully connected -- doorways on every shared
     // edge, so corners between portal and wall abound.
     let mut w = World::new();
-    let mut rooms = Vec::new();
+    let mut polygons = Vec::new();
     for _r in 0..9 {
-        rooms.push(w.add_room(&square(50.0)).unwrap());
+        polygons.push(w.add_polygon(&square(50.0)).unwrap());
     }
     for row in 0..3 {
         for col in 0..3 {
             let i = row * 3 + col;
             if col + 1 < 3 {
                 // east edge of i (edge 2) to west edge of i+1 (edge 0)
-                w.connect(rooms[i], 2, rooms[i + 1], 0).unwrap();
+                w.connect(polygons[i], 2, polygons[i + 1], 0).unwrap();
             }
             if row + 1 < 3 {
                 // south edge (edge 1... rect edges: 0=W,1=S,2=E,3=N per
                 // square() winding: verify by construction below)
-                w.connect(rooms[i], 1, rooms[i + 3], 3).unwrap();
+                w.connect(polygons[i], 1, polygons[i + 3], 3).unwrap();
             }
         }
     }
-    (w, rooms)
+    (w, polygons)
 }
 
 #[test]
 fn containment_holds_under_random_walks_through_corners() {
-    let (w, rooms) = grid_world();
+    let (w, polygons) = grid_world();
     let mut sim = Sim::new(w);
     // A pack of entities including a big one, driven by a deterministic
     // LCG at aggressive speeds toward doorway corners.
     let mut ids = Vec::new();
     for k in 0..12 {
-        let r = rooms[k % rooms.len()];
+        let r = polygons[k % polygons.len()];
         let id = sim
             .spawn(r, v(-30.0 + 6.0 * k as f64, -20.0 + 3.0 * k as f64), if k == 0 { 13.5 } else { 6.5 }, 1.0, 0)
             .unwrap();
@@ -98,12 +98,12 @@ fn containment_holds_under_random_walks_through_corners() {
         sim.step(1.0 / 60.0);
         for &id in &ids {
             let e = sim.entities.get(&id).unwrap();
-            let (room, x, y) = (e.room, e.pos.x, e.pos.y);
-            let verts = &sim.world.rooms[room].verts;
+            let (polygon, x, y) = (e.polygon, e.pos.x, e.pos.y);
+            let verts = &sim.world.polygons[polygon].verts;
             assert!(
                 inside(verts, v(x, y), 1e-6),
                 "step {step}: entity {id} center ({x:.3},{y:.3}) outside its \
-                 registered room {room}"
+                 registered polygon {polygon}"
             );
         }
     }
@@ -111,11 +111,11 @@ fn containment_holds_under_random_walks_through_corners() {
 
 #[test]
 fn visibility_coverage_is_continuous_across_doorway_sweeps() {
-    let (w, rooms) = grid_world();
-    // Sweep the apex along a line that crosses the center room's doorways
-    // and grazes their corners; per-room coverage must vary continuously.
+    let (w, polygons) = grid_world();
+    // Sweep the apex along a line that crosses the center polygon's doorways
+    // and grazes their corners; per-polygon coverage must vary continuously.
     let cam = Mat3::IDENTITY;
-    let center = rooms[4];
+    let center = polygons[4];
     let mut prev: Option<std::collections::HashMap<usize, f64>> = None;
     let step = 0.35; // world units per sweep step
     let mut t = -49.0;
@@ -136,16 +136,16 @@ fn visibility_coverage_is_continuous_across_doorway_sweeps() {
             for i in 0..n {
                 assert!(
                     p[i].dist(p[(i + 1) % n]) > 1e-9,
-                    "apex t={t:.2}: room {} clip has duplicate vertex at {i}",
-                    inst.room
+                    "apex t={t:.2}: polygon {} clip has duplicate vertex at {i}",
+                    inst.polygon
                 );
             }
             let a: f64 = (0..n).map(|i| p[i].cross(p[(i + 1) % n])).sum();
-            *areas.entry(inst.room).or_insert(0.0) += a.abs() / 2.0;
+            *areas.entry(inst.polygon).or_insert(0.0) += a.abs() / 2.0;
         }
         if let Some(prev_areas) = &prev {
-            for (room, a_prev) in prev_areas {
-                let a_now = areas.get(room).copied().unwrap_or(0.0);
+            for (polygon, a_prev) in prev_areas {
+                let a_now = areas.get(polygon).copied().unwrap_or(0.0);
                 // Continuity: coverage that was substantial cannot vanish
                 // within one 0.35u apex step. (Lipschitz-ish bound: a
                 // wedge boundary sweeps at most ~edge_len per unit of
@@ -153,7 +153,7 @@ fn visibility_coverage_is_continuous_across_doorway_sweeps() {
                 if *a_prev > 500.0 {
                     assert!(
                         a_now > 0.4 * a_prev,
-                        "apex t={t:.2}: room {room} coverage fell {a_prev:.0} -> \
+                        "apex t={t:.2}: polygon {polygon} coverage fell {a_prev:.0} -> \
                          {a_now:.0} in one {step}u step (discontinuous cull)"
                     );
                 }

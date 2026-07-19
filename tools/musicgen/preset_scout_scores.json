@@ -3649,17 +3649,17 @@
   "match": true,
   "summary": "This is an excellent, production-ready atmospheric pad that perfectly captures the dark, heavy, and reverent dread of a derelict space sanctuary. The low-end we"
  },
- "5years__Mushroom__bass": {
+ "5years__Mushpolygon__bass": {
   "p": 0.3,
   "match": false,
   "summary": "While the low-end weight of the synth is decent, it is far too soft, clean, and polite for a dark industrial-metal combat track. It lacks the aggressive harmoni"
  },
- "5years__Mushroom__lead": {
+ "5years__Mushpolygon__lead": {
   "p": 0.3,
   "match": false,
   "summary": "While the synth patch is clean and free of technical artifacts, it is far too polite, warm, and cheerful for a dark cosmic-horror industrial shooter. It lacks t"
  },
- "5years__Mushroom__pad": {
+ "5years__Mushpolygon__pad": {
   "p": 0.1,
   "match": false,
   "summary": "This sound fails to capture the vast, haunted, and heavy atmosphere required for a derelict-station sanctuary. It presents as a basic, dry synthesizer chord wit"

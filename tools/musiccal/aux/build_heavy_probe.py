@@ -7,7 +7,7 @@ segments) gave the trash-vs-heavy comparison only 34 ticks of heavy-segment
 (E/F) data out of 80 runs: at density=1.0 HumanBot dies at ~0% clear rate,
 almost always somewhere in the EARLIER segments (B/A/C/D), so most runs
 never reach E or F at all. This probe skips straight to E and F (still
-chained by a real corridor+loot room, still full density) so every run
+chained by a real corridor+loot polygon, still full density) so every run
 engages heavy content immediately instead of needing to survive four
 segments first.
 
@@ -42,10 +42,10 @@ def build() -> tuple[LevelBuilder, dict]:
     for i, seg in enumerate(heavy_segments):
         # build a full "keep everything" set for this segment specifically
         data = json.loads((ROOT / "levels" / f"{seg['src']}.json").read_text())
-        rooms = data["rooms"]
+        polygons = data["polygons"]
         full_keep = set()
-        for old_idx in seg["rooms"]:
-            ents = [e for e in rooms[old_idx].get("entities", [])
+        for old_idx in seg["polygons"]:
+            ents = [e for e in polygons[old_idx].get("entities", [])
                     if e["type"] in {"husk", "mite", "spitter", "brute",
                                      "shrieker", "warden", "flicker"}]
             for j in range(len(ents)):
@@ -56,33 +56,33 @@ def build() -> tuple[LevelBuilder, dict]:
 
     start = add_corridor(b, 0, None, seg_results[0]["entry"])
     expected_connects += start["n_connects"]
-    b.player(start["first_room"], start["first_pos"])
+    b.player(start["first_polygon"], start["first_pos"])
 
     mid = add_corridor(b, 1, seg_results[0]["exit"], seg_results[1]["entry"])
     expected_connects += mid["n_connects"]
 
     end = add_corridor(b, 2, seg_results[1]["exit"], None)
     expected_connects += end["n_connects"]
-    b.exit(end["last_room"], end["last_pos"])
+    b.exit(end["last_polygon"], end["last_pos"])
 
     b.intro("HEAVY PROBE — auxiliary CONTEMPT trash-vs-heavy data only.")
 
     zones: dict[int, dict] = {}
     for s, r in zip(heavy_segments, seg_results):
         is_heavy = bool(set(r["kinds_present"]) & HEAVY_KINDS)
-        for room in r["rooms"]:
-            zones[room] = dict(zone="combat", segment=s["tag"],
+        for polygon in r["polygons"]:
+            zones[polygon] = dict(zone="combat", segment=s["tag"],
                                kinds_present=r["kinds_present"], is_heavy=is_heavy)
     for ci, c in enumerate((start, mid, end)):
-        for room in c["rooms"]:
-            zones[room] = dict(zone="loot" if room == c["loot_room"] else "corridor",
+        for polygon in c["polygons"]:
+            zones[polygon] = dict(zone="loot" if polygon == c["loot_polygon"] else "corridor",
                                corridor_idx=ci)
 
     stats = dict(density=1.0, total_enemies=sum(r["n_enemies"] for r in seg_results),
                 per_segment={s["tag"]: r["n_enemies"]
                              for s, r in zip(heavy_segments, seg_results)},
-                expected_connects=expected_connects, n_rooms=len(b.data["rooms"]),
-                zones=zones, player_room=start["first_room"], exit_room=end["last_room"])
+                expected_connects=expected_connects, n_polygons=len(b.data["polygons"]),
+                zones=zones, player_polygon=start["first_polygon"], exit_polygon=end["last_polygon"])
     return b, stats
 
 
@@ -95,12 +95,12 @@ def main() -> int:
     lvl = b.build()
     save_level(final, OUT)
     meta = dict(density=stats["density"], total_enemies=stats["total_enemies"],
-               per_segment=stats["per_segment"], n_rooms=stats["n_rooms"],
-               player_room=stats["player_room"], exit_room=stats["exit_room"],
+               per_segment=stats["per_segment"], n_polygons=stats["n_polygons"],
+               player_polygon=stats["player_polygon"], exit_polygon=stats["exit_polygon"],
                level_path=str(OUT.relative_to(ROOT)),
                zones={str(k): v for k, v in stats["zones"].items()})
     META_OUT.write_text(json.dumps(meta, indent=1))
-    print(f"{OUT}: {lvl.name!r} rooms={len(lvl.room_verts)} enemies={stats['total_enemies']}")
+    print(f"{OUT}: {lvl.name!r} polygons={len(lvl.polygon_verts)} enemies={stats['total_enemies']}")
     print(f"  per_segment={stats['per_segment']}")
     return 0
 

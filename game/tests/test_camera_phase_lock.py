@@ -1,4 +1,4 @@
-"""Camera pixel-snap regression suite (2026-07-12): the "half-pixel room
+"""Camera pixel-snap regression suite (2026-07-12): the "half-pixel polygon
 crossing" flicker.
 
 Symptom (director report, seed-7 aggro l01, tick 226->227): the whole
@@ -32,7 +32,7 @@ an EXACT right-multiplication with no rounding at all (`_cam_rebase`).
 `_cam_rebase` -- the fix's re-base mechanism doesn't exist yet). The other tests pin the mechanism's invariants (integer whole-pixel steps,
 bounded drift, exact re-base algebra), and the two director-correction
 tests (transitive span phase lock; world-aligned frame comparison) are
-fail-first too now that the room side is 141 (see the note at `S` --
+fail-first too now that the polygon side is 141 (see the note at `S` --
 the old bug's lattice shift is frac(zoom * m9-translation), and a
 zoom-integer side like 140 hides it by coincidence; pre-fix, S=141
 yields a persistent -0.35px M-delta fraction across the first
@@ -87,19 +87,19 @@ def _is_integer(v: float, eps: float = EPS) -> bool:
 
 
 # ---------------------------------------------------------------------
-# world: two full-open-edge quad rooms connected on MISMATCHED compass
+# world: two full-open-edge quad polygons connected on MISMATCHED compass
 # sides (A's east edge to B's north edge) -- forces the engine to solve
-# a genuinely ROTATED m9, plus a third room attached in the ordinary
+# a genuinely ROTATED m9, plus a third polygon attached in the ordinary
 # (unrotated) way for mixed coverage.
 # ---------------------------------------------------------------------
 
-# Room side chosen ADVERSARIALLY for the pixel-snap defect: the old
+# Polygon side chosen ADVERSARIALLY for the pixel-snap defect: the old
 # code's lattice shift at a re-base is frac(zoom * m9-translation
 # components), so a side length whose zoom-multiple is integer (140 *
 # 1.35 = 189) makes the old bug invisible by coincidence -- an early
 # version of this file used 140 and its from-scratch reproduction
 # attempts failed for exactly that reason. 141 * 1.35 = 190.35 keeps the
-# fractional part alive, matching the irregular room offsets of the real
+# fractional part alive, matching the irregular polygon offsets of the real
 # campaign levels where the director saw the defect.
 S = 141.0
 
@@ -108,7 +108,7 @@ def _quad(b: LevelBuilder, x: float, y: float) -> int:
     # engine-canonical winding is negative shoelace (author y-down
     # visual-CCW, per LevelBuilder.ngon's comment) -- (x,y) -> (x,y+S) ->
     # (x+S,y+S) -> (x+S,y) satisfies that for a plain square.
-    return b.room([(x, y), (x, y + S), (x + S, y + S), (x + S, y)],
+    return b.polygon([(x, y), (x, y + S), (x + S, y + S), (x + S, y)],
                   detail_seed=int(x * 3 + y * 5) & 0xFFFF, kind="corridor")
 
 
@@ -123,16 +123,16 @@ def build_rotated_world():
     rc = _quad(b, 2000, 0)
     # A's east edge midpoint <-> B's north edge midpoint: perpendicular
     # edge directions, so resolve() must rotate m9 to align them.
-    # (rooms are placed at independent absolute offsets on the authoring
-    # canvas -- connect_pts matches by nearest edge to each room's OWN
-    # absolute verts, so points must be given in each room's placement.)
+    # (polygons are placed at independent absolute offsets on the authoring
+    # canvas -- connect_pts matches by nearest edge to each polygon's OWN
+    # absolute verts, so points must be given in each polygon's placement.)
     b.connect_pts(ra, (S, S / 2), rb, (1000 + S / 2, 0))
     # B's south edge <-> C's north edge: matching orientation, plain
     # translation transfer.
     b.connect_pts(rb, (1000 + S / 2, S), rc, (2000 + S / 2, 0))
     b.player(ra, (S / 2, S / 2))
     b.exit(rc, (S / 2, S / 2))
-    # static (world-anchored) lights in every room: the world is
+    # static (world-anchored) lights in every polygon: the world is
     # zero-ambient and the player's attached lamp moves with them, so
     # the world-aligned frame test needs illumination that is rigid in
     # world space -- lit static texture is what carries the rounding-
@@ -147,7 +147,7 @@ def _run(level, ticks: int, seed: int = 7):
     """Drive a real GameSession with a constant screen-space push (like
     tools/playtest/flicker_cross.py's movement()), recording per-tick
     camera state, transfer events, and the accumulated portal base
-    B_t (root-room coords -> current-room coords, composed from every
+    B_t (root-polygon coords -> current-polygon coords, composed from every
     transfer's m9), so tests can form the base-independent mapping
     M_t = cam_t . B_t (root frame -> screen)."""
     pygame.init()
@@ -204,7 +204,7 @@ def rotated_run():
 #    the rendered camera by an identity-linear, INTEGER-translation
 #    transform. Transfer ticks are checked separately (see
 #    test_transfer_rebase_is_exact) because comparing cam_t against
-#    cam_{t-1} raw is not meaningful across a room-frame change: the
+#    cam_{t-1} raw is not meaningful across a polygon-frame change: the
 #    re-based matrix legitimately carries the PORTAL's rotation/offset,
 #    not a screen-space camera pan. That's not a loophole -- it's
 #    exactly what makes _cam_rebase's "zero visible change by
@@ -352,11 +352,11 @@ def test_no_half_pixel_step_at_transfer():
             continue
         # Under the OLD design the transfer tick re-rounded the re-based
         # absolute translation, letting the rendered mapping step by a
-        # half-integer tied to the zoom-scaled room offset; under the
+        # half-integer tied to the zoom-scaled polygon offset; under the
         # fix every tick -- transfer or not -- decomposes into (exact
         # rebase) + (whole-pixel follow), so the end-of-tick rendered-
         # vs-smooth lag at a transfer tick obeys the same 0.5px bound
-        # as every other tick instead of jumping by a room-offset
+        # as every other tick instead of jumping by a polygon-offset
         # fraction.
         dx = abs(r["cam"][2] - r["cam_smooth"][2])
         dy = abs(r["cam"][5] - r["cam_smooth"][5])
@@ -376,7 +376,7 @@ def test_no_half_pixel_step_at_transfer():
 #    included -- the root-frame mappings M_t = cam_t . B_t satisfy
 #    M_t2 . inv(M_t1) = T(integer dx, integer dy). Fail-first: under the
 #    OLD re-round-at-transfer code the fractional part jumps to a
-#    room-offset fraction the moment a span crosses a transfer, and
+#    polygon-offset fraction the moment a span crosses a transfer, and
 #    STAYS there for every later t2 (the persistent form, seen at
 #    matrix level).
 # ---------------------------------------------------------------------
@@ -470,7 +470,7 @@ def test_world_aligned_frames_across_crossing():
 
     same = np.all(a_ov == b_ov, axis=2)
     # Score only pixels that carry world texture (lit by the STATIC
-    # room lights) -- the world is zero-ambient, so black-on-black
+    # polygon lights) -- the world is zero-ambient, so black-on-black
     # matches outside the lit wedges are trivially identical and would
     # dilute the metric. And exclude the player's own attached-lamp
     # pool (radius 85wu ~ 115px at zoom 1.35, centered on the player at

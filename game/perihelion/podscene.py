@@ -553,7 +553,7 @@ class PodScene(Scene):
             self._start_reveal(app)
         else:
             self._ensure_selection()
-            # the newly revealed neighborhood relaxes live to make room:
+            # the newly revealed neighborhood relaxes live to make polygon:
             # the same real relaxation trajectory, scoped to just the new
             # nodes and the node they unfolded from, so the rest of the
             # graph holds still while that corner visibly settles

@@ -2,7 +2,7 @@
 2026-07-13): "add an enemy that deliberately keeps to the shadows until
 the player gets close, then ambushes." THROWAWAY fixture, tooling-only,
 not placed in any shipped campaign level (director's placement call):
-dark room, terrain (synthetic walk-mask), one flicker holding in the
+dark polygon, terrain (synthetic walk-mask), one flicker holding in the
 terrain's shadow with a flickering trace, a bot walking past and
 triggering the pounce. Follows the same one-take-ffmpeg tradition as
 tools/playtest/terrain_shadow_demo.py / light_occlusion_demo.py.
@@ -35,14 +35,14 @@ OUT_W, OUT_H = 1280, 720
 FPS = 60
 
 TERRAIN_RECT = (-40.0, -50.0, 40.0, 30.0)  # lo_x, lo_y, hi_x, hi_y
-FIXTURE = LightSpec(room=0, pos=(-230.0, 40.0), color=(210, 220, 255),
+FIXTURE = LightSpec(polygon=0, pos=(-230.0, 40.0), color=(210, 220, 255),
                      intensity=1.1, radius=340.0, kind="static")
 LURKER_SPAWN = (100.0, -10.0)  # in the terrain rect's cast shadow
 
 
 def build_world():
-    """One dim room: a single dim fixture near the entrance (leaves most
-    of the room dark, per the director's "dark room" ask), one terrain
+    """One dim polygon: a single dim fixture near the entrance (leaves most
+    of the polygon dark, per the director's "dark polygon" ask), one terrain
     rect casting a shadow, the flicker holds inside that shadow."""
     b = LevelBuilder("FLICKDEMO", 1)
     r0 = b.rect(-260.0, -140.0, 520.0, 280.0)
@@ -55,11 +55,11 @@ DEMO_FLOOR_ALBEDO = (150, 150, 158)  # dim, not the bright verification albedo
 
 
 def apply_demo_floor(ren, level):
-    for room in range(len(level.room_verts)):
-        ren._floor_color_cache[room] = DEMO_FLOOR_ALBEDO
+    for polygon in range(len(level.polygon_verts)):
+        ren._floor_color_cache[polygon] = DEMO_FLOOR_ALBEDO
 
 
-#: waypoints (room-local): approach along the north side (like the terrain
+#: waypoints (polygon-local): approach along the north side (like the terrain
 #: demo), then walk PAST the lurker's shadow position closely enough to
 #: cross its ambush_radius and trigger the pounce.
 WAYPOINTS = [
@@ -123,8 +123,8 @@ def main() -> int:
     pygame.init()
     level, r0 = build_world()
     session = GameSession(level, seed=13, screen=(INTERNAL_W, INTERNAL_H))
-    session.sim.set_room_terrain(r0, [TERRAIN_RECT])  # terrain FIRST
-    fixture = LightSpec(room=r0, pos=FIXTURE.pos, color=FIXTURE.color,
+    session.sim.set_polygon_terrain(r0, [TERRAIN_RECT])  # terrain FIRST
+    fixture = LightSpec(polygon=r0, pos=FIXTURE.pos, color=FIXTURE.color,
                          intensity=FIXTURE.intensity, radius=FIXTURE.radius,
                          kind=FIXTURE.kind)
     session.lighting.add_lights(session.sim, [fixture])  # ...THEN the light

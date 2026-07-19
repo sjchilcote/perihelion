@@ -8,21 +8,21 @@
     "ticks": 14400,
     "outcome": "timeout",
     "final_chunk": 8,
-    "note": "reproduced via a WorldStreamer-driven AggroBot run mirroring tools/playtest/stream_soak.py; logs (level_stem, local_room_index, kind) on every room change for the first 240s of sim time"
+    "note": "reproduced via a WorldStreamer-driven AggroBot run mirroring tools/playtest/stream_soak.py; logs (level_stem, local_polygon_index, kind) on every polygon change for the first 240s of sim time"
   },
   "missing_kind_sections": {
     "otherworld_section_1": {
       "level": "l10",
-      "rooms": [
+      "polygons": [
         115,
         116,
         117
       ],
-      "reason": "bot path never reaches l10 (the Fold/tesseract chunk) within 4 minutes; 'otherworld' kind has 283 rooms census-wide and zero bot-path coverage"
+      "reason": "bot path never reaches l10 (the Fold/tesseract chunk) within 4 minutes; 'otherworld' kind has 283 polygons census-wide and zero bot-path coverage"
     },
     "otherworld_section_2": {
       "level": "l10",
-      "rooms": [
+      "polygons": [
         179,
         180,
         181,
@@ -33,11 +33,11 @@
       "reason": "second disjoint otherworld cluster in the same chunk, for palette/prop variety within the kind"
     }
   },
-  "total_rooms": 199,
-  "rooms": [
+  "total_polygons": 199,
+  "polygons": [
     {
       "level": "l01",
-      "room_index": 0,
+      "polygon_index": 0,
       "kind": "dock",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 0.0,
@@ -48,7 +48,7 @@
     },
     {
       "level": "l01",
-      "room_index": 2,
+      "polygon_index": 2,
       "kind": "dock",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 0.4,
@@ -59,7 +59,7 @@
     },
     {
       "level": "l01",
-      "room_index": 55,
+      "polygon_index": 55,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 1.2,
@@ -70,7 +70,7 @@
     },
     {
       "level": "l01",
-      "room_index": 56,
+      "polygon_index": 56,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 2.1,
@@ -81,7 +81,7 @@
     },
     {
       "level": "l01",
-      "room_index": 57,
+      "polygon_index": 57,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 2.9,
@@ -92,7 +92,7 @@
     },
     {
       "level": "l01",
-      "room_index": 110,
+      "polygon_index": 110,
       "kind": "transit",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 3.8,
@@ -103,7 +103,7 @@
     },
     {
       "level": "l01",
-      "room_index": 116,
+      "polygon_index": 116,
       "kind": "storage",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 4.6,
@@ -114,7 +114,7 @@
     },
     {
       "level": "l01",
-      "room_index": 117,
+      "polygon_index": 117,
       "kind": "storage",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 5.4,
@@ -125,7 +125,7 @@
     },
     {
       "level": "l01",
-      "room_index": 118,
+      "polygon_index": 118,
       "kind": "storage",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 8.0,
@@ -136,7 +136,7 @@
     },
     {
       "level": "l01",
-      "room_index": 111,
+      "polygon_index": 111,
       "kind": "storage",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 10.6,
@@ -147,7 +147,7 @@
     },
     {
       "level": "l01",
-      "room_index": 119,
+      "polygon_index": 119,
       "kind": "storage",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 11.4,
@@ -158,7 +158,7 @@
     },
     {
       "level": "l01",
-      "room_index": 112,
+      "polygon_index": 112,
       "kind": "storage",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 12.6,
@@ -169,7 +169,7 @@
     },
     {
       "level": "l01",
-      "room_index": 113,
+      "polygon_index": 113,
       "kind": "storage",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 13.6,
@@ -180,7 +180,7 @@
     },
     {
       "level": "l01",
-      "room_index": 114,
+      "polygon_index": 114,
       "kind": "storage",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 14.9,
@@ -191,7 +191,7 @@
     },
     {
       "level": "l01",
-      "room_index": 115,
+      "polygon_index": 115,
       "kind": "storage",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 17.2,
@@ -202,7 +202,7 @@
     },
     {
       "level": "l02",
-      "room_index": 0,
+      "polygon_index": 0,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 22.1,
@@ -213,7 +213,7 @@
     },
     {
       "level": "l02",
-      "room_index": 1,
+      "polygon_index": 1,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 23.1,
@@ -224,7 +224,7 @@
     },
     {
       "level": "l02",
-      "room_index": 2,
+      "polygon_index": 2,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 23.8,
@@ -235,7 +235,7 @@
     },
     {
       "level": "l02",
-      "room_index": 4,
+      "polygon_index": 4,
       "kind": "transit",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 24.5,
@@ -246,7 +246,7 @@
     },
     {
       "level": "l02",
-      "room_index": 65,
+      "polygon_index": 65,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 25.8,
@@ -257,7 +257,7 @@
     },
     {
       "level": "l02",
-      "room_index": 57,
+      "polygon_index": 57,
       "kind": "pump",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 26.6,
@@ -268,7 +268,7 @@
     },
     {
       "level": "l02",
-      "room_index": 5,
+      "polygon_index": 5,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 29.6,
@@ -279,7 +279,7 @@
     },
     {
       "level": "l02",
-      "room_index": 6,
+      "polygon_index": 6,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 30.5,
@@ -290,7 +290,7 @@
     },
     {
       "level": "l02",
-      "room_index": 7,
+      "polygon_index": 7,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 31.2,
@@ -301,7 +301,7 @@
     },
     {
       "level": "l02",
-      "room_index": 8,
+      "polygon_index": 8,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 32.3,
@@ -312,7 +312,7 @@
     },
     {
       "level": "l02",
-      "room_index": 9,
+      "polygon_index": 9,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 33.0,
@@ -323,7 +323,7 @@
     },
     {
       "level": "l02",
-      "room_index": 10,
+      "polygon_index": 10,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 33.5,
@@ -334,7 +334,7 @@
     },
     {
       "level": "l02",
-      "room_index": 11,
+      "polygon_index": 11,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 34.1,
@@ -345,7 +345,7 @@
     },
     {
       "level": "l02",
-      "room_index": 12,
+      "polygon_index": 12,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 35.9,
@@ -356,7 +356,7 @@
     },
     {
       "level": "l02",
-      "room_index": 13,
+      "polygon_index": 13,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 36.3,
@@ -367,7 +367,7 @@
     },
     {
       "level": "l02",
-      "room_index": 14,
+      "polygon_index": 14,
       "kind": "transit",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 37.0,
@@ -378,7 +378,7 @@
     },
     {
       "level": "l02",
-      "room_index": 15,
+      "polygon_index": 15,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 37.5,
@@ -389,7 +389,7 @@
     },
     {
       "level": "l02",
-      "room_index": 16,
+      "polygon_index": 16,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 38.3,
@@ -400,7 +400,7 @@
     },
     {
       "level": "l02",
-      "room_index": 17,
+      "polygon_index": 17,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 40.7,
@@ -411,7 +411,7 @@
     },
     {
       "level": "l02",
-      "room_index": 75,
+      "polygon_index": 75,
       "kind": "storage",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 41.5,
@@ -422,7 +422,7 @@
     },
     {
       "level": "l03",
-      "room_index": 87,
+      "polygon_index": 87,
       "kind": "dock",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 47.4,
@@ -433,7 +433,7 @@
     },
     {
       "level": "l03",
-      "room_index": 86,
+      "polygon_index": 86,
       "kind": "dock",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 48.2,
@@ -444,7 +444,7 @@
     },
     {
       "level": "l03",
-      "room_index": 85,
+      "polygon_index": 85,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 49.0,
@@ -455,7 +455,7 @@
     },
     {
       "level": "l03",
-      "room_index": 84,
+      "polygon_index": 84,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 49.4,
@@ -466,7 +466,7 @@
     },
     {
       "level": "l03",
-      "room_index": 83,
+      "polygon_index": 83,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 49.7,
@@ -477,7 +477,7 @@
     },
     {
       "level": "l03",
-      "room_index": 82,
+      "polygon_index": 82,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 50.1,
@@ -488,7 +488,7 @@
     },
     {
       "level": "l03",
-      "room_index": 81,
+      "polygon_index": 81,
       "kind": "transit",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 50.4,
@@ -499,7 +499,7 @@
     },
     {
       "level": "l03",
-      "room_index": 78,
+      "polygon_index": 78,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 52.0,
@@ -510,7 +510,7 @@
     },
     {
       "level": "l03",
-      "room_index": 80,
+      "polygon_index": 80,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 52.5,
@@ -521,7 +521,7 @@
     },
     {
       "level": "l03",
-      "room_index": 79,
+      "polygon_index": 79,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 53.1,
@@ -532,7 +532,7 @@
     },
     {
       "level": "l03",
-      "room_index": 75,
+      "polygon_index": 75,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 54.5,
@@ -543,7 +543,7 @@
     },
     {
       "level": "l03",
-      "room_index": 60,
+      "polygon_index": 60,
       "kind": "transit",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 54.9,
@@ -554,7 +554,7 @@
     },
     {
       "level": "l03",
-      "room_index": 57,
+      "polygon_index": 57,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 55.8,
@@ -565,7 +565,7 @@
     },
     {
       "level": "l03",
-      "room_index": 56,
+      "polygon_index": 56,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 56.1,
@@ -576,7 +576,7 @@
     },
     {
       "level": "l03",
-      "room_index": 55,
+      "polygon_index": 55,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 56.5,
@@ -587,7 +587,7 @@
     },
     {
       "level": "l03",
-      "room_index": 59,
+      "polygon_index": 59,
       "kind": "lab",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 57.0,
@@ -598,7 +598,7 @@
     },
     {
       "level": "l03",
-      "room_index": 58,
+      "polygon_index": 58,
       "kind": "lab",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 57.7,
@@ -609,7 +609,7 @@
     },
     {
       "level": "l03",
-      "room_index": 52,
+      "polygon_index": 52,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 58.6,
@@ -620,7 +620,7 @@
     },
     {
       "level": "l03",
-      "room_index": 39,
+      "polygon_index": 39,
       "kind": "transit",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 59.0,
@@ -631,7 +631,7 @@
     },
     {
       "level": "l03",
-      "room_index": 38,
+      "polygon_index": 38,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 59.5,
@@ -642,7 +642,7 @@
     },
     {
       "level": "l03",
-      "room_index": 37,
+      "polygon_index": 37,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 60.2,
@@ -653,7 +653,7 @@
     },
     {
       "level": "l03",
-      "room_index": 17,
+      "polygon_index": 17,
       "kind": "transit",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 60.9,
@@ -664,7 +664,7 @@
     },
     {
       "level": "l03",
-      "room_index": 16,
+      "polygon_index": 16,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 61.4,
@@ -675,7 +675,7 @@
     },
     {
       "level": "l03",
-      "room_index": 30,
+      "polygon_index": 30,
       "kind": "lab",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 61.9,
@@ -686,7 +686,7 @@
     },
     {
       "level": "l03",
-      "room_index": 29,
+      "polygon_index": 29,
       "kind": "lab",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 63.0,
@@ -697,7 +697,7 @@
     },
     {
       "level": "l03",
-      "room_index": 28,
+      "polygon_index": 28,
       "kind": "lab",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 63.7,
@@ -708,7 +708,7 @@
     },
     {
       "level": "l03",
-      "room_index": 11,
+      "polygon_index": 11,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 64.4,
@@ -719,7 +719,7 @@
     },
     {
       "level": "l03",
-      "room_index": 10,
+      "polygon_index": 10,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 64.8,
@@ -730,7 +730,7 @@
     },
     {
       "level": "l03",
-      "room_index": 9,
+      "polygon_index": 9,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 65.3,
@@ -741,7 +741,7 @@
     },
     {
       "level": "l03",
-      "room_index": 6,
+      "polygon_index": 6,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 66.1,
@@ -752,7 +752,7 @@
     },
     {
       "level": "l03",
-      "room_index": 0,
+      "polygon_index": 0,
       "kind": "hydro",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 66.9,
@@ -763,7 +763,7 @@
     },
     {
       "level": "l03",
-      "room_index": 5,
+      "polygon_index": 5,
       "kind": "hydro",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 67.6,
@@ -774,7 +774,7 @@
     },
     {
       "level": "l03",
-      "room_index": 4,
+      "polygon_index": 4,
       "kind": "hydro",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 72.0,
@@ -785,7 +785,7 @@
     },
     {
       "level": "l03",
-      "room_index": 3,
+      "polygon_index": 3,
       "kind": "hydro",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 73.9,
@@ -796,7 +796,7 @@
     },
     {
       "level": "l03",
-      "room_index": 2,
+      "polygon_index": 2,
       "kind": "hydro",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 79.8,
@@ -807,7 +807,7 @@
     },
     {
       "level": "l03",
-      "room_index": 7,
+      "polygon_index": 7,
       "kind": "hydro",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 80.5,
@@ -818,7 +818,7 @@
     },
     {
       "level": "l04",
-      "room_index": 42,
+      "polygon_index": 42,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 85.5,
@@ -829,7 +829,7 @@
     },
     {
       "level": "l04",
-      "room_index": 43,
+      "polygon_index": 43,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 86.2,
@@ -840,7 +840,7 @@
     },
     {
       "level": "l04",
-      "room_index": 0,
+      "polygon_index": 0,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 86.9,
@@ -851,7 +851,7 @@
     },
     {
       "level": "l04",
-      "room_index": 1,
+      "polygon_index": 1,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 87.5,
@@ -862,7 +862,7 @@
     },
     {
       "level": "l04",
-      "room_index": 21,
+      "polygon_index": 21,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 88.1,
@@ -873,7 +873,7 @@
     },
     {
       "level": "l04",
-      "room_index": 20,
+      "polygon_index": 20,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 88.5,
@@ -884,7 +884,7 @@
     },
     {
       "level": "l04",
-      "room_index": 19,
+      "polygon_index": 19,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 88.9,
@@ -895,7 +895,7 @@
     },
     {
       "level": "l04",
-      "room_index": 2,
+      "polygon_index": 2,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 92.0,
@@ -906,7 +906,7 @@
     },
     {
       "level": "l04",
-      "room_index": 3,
+      "polygon_index": 3,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 92.7,
@@ -917,7 +917,7 @@
     },
     {
       "level": "l04",
-      "room_index": 4,
+      "polygon_index": 4,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 93.7,
@@ -928,7 +928,7 @@
     },
     {
       "level": "l04",
-      "room_index": 55,
+      "polygon_index": 55,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 94.3,
@@ -939,7 +939,7 @@
     },
     {
       "level": "l04",
-      "room_index": 5,
+      "polygon_index": 5,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 96.0,
@@ -950,7 +950,7 @@
     },
     {
       "level": "l04",
-      "room_index": 6,
+      "polygon_index": 6,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 96.8,
@@ -961,7 +961,7 @@
     },
     {
       "level": "l04",
-      "room_index": 7,
+      "polygon_index": 7,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 97.5,
@@ -972,7 +972,7 @@
     },
     {
       "level": "l04",
-      "room_index": 8,
+      "polygon_index": 8,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 98.2,
@@ -983,7 +983,7 @@
     },
     {
       "level": "l04",
-      "room_index": 129,
+      "polygon_index": 129,
       "kind": "storage",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 98.7,
@@ -994,7 +994,7 @@
     },
     {
       "level": "l04",
-      "room_index": 130,
+      "polygon_index": 130,
       "kind": "storage",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 99.6,
@@ -1005,7 +1005,7 @@
     },
     {
       "level": "l05",
-      "room_index": 0,
+      "polygon_index": 0,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 105.5,
@@ -1016,7 +1016,7 @@
     },
     {
       "level": "l05",
-      "room_index": 4,
+      "polygon_index": 4,
       "kind": "quarters",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 106.6,
@@ -1027,7 +1027,7 @@
     },
     {
       "level": "l05",
-      "room_index": 5,
+      "polygon_index": 5,
       "kind": "quarters",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 108.3,
@@ -1038,7 +1038,7 @@
     },
     {
       "level": "l05",
-      "room_index": 6,
+      "polygon_index": 6,
       "kind": "quarters",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 113.1,
@@ -1049,7 +1049,7 @@
     },
     {
       "level": "l05",
-      "room_index": 7,
+      "polygon_index": 7,
       "kind": "chapel",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 116.6,
@@ -1060,7 +1060,7 @@
     },
     {
       "level": "l06",
-      "room_index": 0,
+      "polygon_index": 0,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 124.0,
@@ -1071,7 +1071,7 @@
     },
     {
       "level": "l06",
-      "room_index": 2,
+      "polygon_index": 2,
       "kind": "medbay",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 125.1,
@@ -1082,7 +1082,7 @@
     },
     {
       "level": "l06",
-      "room_index": 99,
+      "polygon_index": 99,
       "kind": "medbay",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 127.2,
@@ -1093,7 +1093,7 @@
     },
     {
       "level": "l06",
-      "room_index": 101,
+      "polygon_index": 101,
       "kind": "transit",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 128.3,
@@ -1104,7 +1104,7 @@
     },
     {
       "level": "l06",
-      "room_index": 115,
+      "polygon_index": 115,
       "kind": "transit",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 128.9,
@@ -1115,7 +1115,7 @@
     },
     {
       "level": "l06",
-      "room_index": 173,
+      "polygon_index": 173,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 129.8,
@@ -1126,7 +1126,7 @@
     },
     {
       "level": "l06",
-      "room_index": 170,
+      "polygon_index": 170,
       "kind": "medbay",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 130.2,
@@ -1137,7 +1137,7 @@
     },
     {
       "level": "l06",
-      "room_index": 171,
+      "polygon_index": 171,
       "kind": "medbay",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 132.8,
@@ -1148,7 +1148,7 @@
     },
     {
       "level": "l06",
-      "room_index": 172,
+      "polygon_index": 172,
       "kind": "medbay",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 134.5,
@@ -1159,7 +1159,7 @@
     },
     {
       "level": "l07",
-      "room_index": 0,
+      "polygon_index": 0,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 140.3,
@@ -1170,7 +1170,7 @@
     },
     {
       "level": "l07",
-      "room_index": 5,
+      "polygon_index": 5,
       "kind": "transit",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 141.2,
@@ -1181,7 +1181,7 @@
     },
     {
       "level": "l07",
-      "room_index": 6,
+      "polygon_index": 6,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 141.9,
@@ -1192,7 +1192,7 @@
     },
     {
       "level": "l07",
-      "room_index": 7,
+      "polygon_index": 7,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 142.6,
@@ -1203,7 +1203,7 @@
     },
     {
       "level": "l07",
-      "room_index": 8,
+      "polygon_index": 8,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 143.2,
@@ -1214,7 +1214,7 @@
     },
     {
       "level": "l07",
-      "room_index": 9,
+      "polygon_index": 9,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 144.0,
@@ -1225,7 +1225,7 @@
     },
     {
       "level": "l07",
-      "room_index": 10,
+      "polygon_index": 10,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 144.7,
@@ -1236,7 +1236,7 @@
     },
     {
       "level": "l07",
-      "room_index": 11,
+      "polygon_index": 11,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 145.4,
@@ -1247,7 +1247,7 @@
     },
     {
       "level": "l07",
-      "room_index": 12,
+      "polygon_index": 12,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 146.2,
@@ -1258,7 +1258,7 @@
     },
     {
       "level": "l07",
-      "room_index": 13,
+      "polygon_index": 13,
       "kind": "transit",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 147.0,
@@ -1269,7 +1269,7 @@
     },
     {
       "level": "l07",
-      "room_index": 56,
+      "polygon_index": 56,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 151.6,
@@ -1280,7 +1280,7 @@
     },
     {
       "level": "l07",
-      "room_index": 55,
+      "polygon_index": 55,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 152.7,
@@ -1291,7 +1291,7 @@
     },
     {
       "level": "l07",
-      "room_index": 54,
+      "polygon_index": 54,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 153.7,
@@ -1302,7 +1302,7 @@
     },
     {
       "level": "l07",
-      "room_index": 53,
+      "polygon_index": 53,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 154.6,
@@ -1313,7 +1313,7 @@
     },
     {
       "level": "l07",
-      "room_index": 52,
+      "polygon_index": 52,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 155.6,
@@ -1324,7 +1324,7 @@
     },
     {
       "level": "l07",
-      "room_index": 51,
+      "polygon_index": 51,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 156.6,
@@ -1335,7 +1335,7 @@
     },
     {
       "level": "l07",
-      "room_index": 50,
+      "polygon_index": 50,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 159.1,
@@ -1346,7 +1346,7 @@
     },
     {
       "level": "l07",
-      "room_index": 49,
+      "polygon_index": 49,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 160.2,
@@ -1357,7 +1357,7 @@
     },
     {
       "level": "l07",
-      "room_index": 48,
+      "polygon_index": 48,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 161.2,
@@ -1368,7 +1368,7 @@
     },
     {
       "level": "l07",
-      "room_index": 206,
+      "polygon_index": 206,
       "kind": "records",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 162.2,
@@ -1379,7 +1379,7 @@
     },
     {
       "level": "l07",
-      "room_index": 205,
+      "polygon_index": 205,
       "kind": "records",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 162.9,
@@ -1390,7 +1390,7 @@
     },
     {
       "level": "l07",
-      "room_index": 204,
+      "polygon_index": 204,
       "kind": "records",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 163.7,
@@ -1401,7 +1401,7 @@
     },
     {
       "level": "l07",
-      "room_index": 1,
+      "polygon_index": 1,
       "kind": "records",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 164.9,
@@ -1412,7 +1412,7 @@
     },
     {
       "level": "l07",
-      "room_index": 207,
+      "polygon_index": 207,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 167.1,
@@ -1423,7 +1423,7 @@
     },
     {
       "level": "l07",
-      "room_index": 208,
+      "polygon_index": 208,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 167.8,
@@ -1434,7 +1434,7 @@
     },
     {
       "level": "l07",
-      "room_index": 209,
+      "polygon_index": 209,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 168.5,
@@ -1445,7 +1445,7 @@
     },
     {
       "level": "l07",
-      "room_index": 210,
+      "polygon_index": 210,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 169.1,
@@ -1456,7 +1456,7 @@
     },
     {
       "level": "l07",
-      "room_index": 211,
+      "polygon_index": 211,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 169.9,
@@ -1467,7 +1467,7 @@
     },
     {
       "level": "l07",
-      "room_index": 212,
+      "polygon_index": 212,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 170.6,
@@ -1478,7 +1478,7 @@
     },
     {
       "level": "l07",
-      "room_index": 213,
+      "polygon_index": 213,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 171.2,
@@ -1489,7 +1489,7 @@
     },
     {
       "level": "l07",
-      "room_index": 214,
+      "polygon_index": 214,
       "kind": "transit",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 172.3,
@@ -1500,7 +1500,7 @@
     },
     {
       "level": "l07",
-      "room_index": 2,
+      "polygon_index": 2,
       "kind": "core",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 174.5,
@@ -1511,7 +1511,7 @@
     },
     {
       "level": "l07",
-      "room_index": 218,
+      "polygon_index": 218,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 175.7,
@@ -1522,7 +1522,7 @@
     },
     {
       "level": "l07",
-      "room_index": 219,
+      "polygon_index": 219,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 176.4,
@@ -1533,7 +1533,7 @@
     },
     {
       "level": "l07",
-      "room_index": 220,
+      "polygon_index": 220,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 177.1,
@@ -1544,7 +1544,7 @@
     },
     {
       "level": "l07",
-      "room_index": 221,
+      "polygon_index": 221,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 177.7,
@@ -1555,7 +1555,7 @@
     },
     {
       "level": "l07",
-      "room_index": 222,
+      "polygon_index": 222,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 178.4,
@@ -1566,7 +1566,7 @@
     },
     {
       "level": "l07",
-      "room_index": 225,
+      "polygon_index": 225,
       "kind": "records",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 179.1,
@@ -1577,7 +1577,7 @@
     },
     {
       "level": "l07",
-      "room_index": 223,
+      "polygon_index": 223,
       "kind": "records",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 182.2,
@@ -1588,7 +1588,7 @@
     },
     {
       "level": "l07",
-      "room_index": 224,
+      "polygon_index": 224,
       "kind": "records",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 183.1,
@@ -1599,7 +1599,7 @@
     },
     {
       "level": "l07",
-      "room_index": 227,
+      "polygon_index": 227,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 184.3,
@@ -1610,7 +1610,7 @@
     },
     {
       "level": "l07",
-      "room_index": 228,
+      "polygon_index": 228,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 185.0,
@@ -1621,7 +1621,7 @@
     },
     {
       "level": "l07",
-      "room_index": 3,
+      "polygon_index": 3,
       "kind": "records",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 185.9,
@@ -1632,7 +1632,7 @@
     },
     {
       "level": "l07",
-      "room_index": 4,
+      "polygon_index": 4,
       "kind": "records",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 190.5,
@@ -1643,7 +1643,7 @@
     },
     {
       "level": "l08",
-      "room_index": 92,
+      "polygon_index": 92,
       "kind": "dock",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 196.4,
@@ -1654,7 +1654,7 @@
     },
     {
       "level": "l08",
-      "room_index": 93,
+      "polygon_index": 93,
       "kind": "dock",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 197.1,
@@ -1665,7 +1665,7 @@
     },
     {
       "level": "l08",
-      "room_index": 94,
+      "polygon_index": 94,
       "kind": "dock",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 197.8,
@@ -1676,7 +1676,7 @@
     },
     {
       "level": "l08",
-      "room_index": 95,
+      "polygon_index": 95,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 198.4,
@@ -1687,7 +1687,7 @@
     },
     {
       "level": "l08",
-      "room_index": 96,
+      "polygon_index": 96,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 199.1,
@@ -1698,7 +1698,7 @@
     },
     {
       "level": "l08",
-      "room_index": 97,
+      "polygon_index": 97,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 199.8,
@@ -1709,7 +1709,7 @@
     },
     {
       "level": "l08",
-      "room_index": 98,
+      "polygon_index": 98,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 200.6,
@@ -1720,7 +1720,7 @@
     },
     {
       "level": "l08",
-      "room_index": 114,
+      "polygon_index": 114,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 201.2,
@@ -1731,7 +1731,7 @@
     },
     {
       "level": "l08",
-      "room_index": 120,
+      "polygon_index": 120,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 201.9,
@@ -1742,7 +1742,7 @@
     },
     {
       "level": "l08",
-      "room_index": 126,
+      "polygon_index": 126,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 202.6,
@@ -1753,7 +1753,7 @@
     },
     {
       "level": "l08",
-      "room_index": 127,
+      "polygon_index": 127,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 203.1,
@@ -1764,7 +1764,7 @@
     },
     {
       "level": "l08",
-      "room_index": 128,
+      "polygon_index": 128,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 203.8,
@@ -1775,7 +1775,7 @@
     },
     {
       "level": "l08",
-      "room_index": 129,
+      "polygon_index": 129,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 204.5,
@@ -1786,7 +1786,7 @@
     },
     {
       "level": "l08",
-      "room_index": 130,
+      "polygon_index": 130,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 205.2,
@@ -1797,7 +1797,7 @@
     },
     {
       "level": "l08",
-      "room_index": 144,
+      "polygon_index": 144,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 205.8,
@@ -1808,7 +1808,7 @@
     },
     {
       "level": "l08",
-      "room_index": 145,
+      "polygon_index": 145,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 206.3,
@@ -1819,7 +1819,7 @@
     },
     {
       "level": "l08",
-      "room_index": 146,
+      "polygon_index": 146,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 207.0,
@@ -1830,7 +1830,7 @@
     },
     {
       "level": "l08",
-      "room_index": 147,
+      "polygon_index": 147,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 207.7,
@@ -1841,7 +1841,7 @@
     },
     {
       "level": "l08",
-      "room_index": 148,
+      "polygon_index": 148,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 208.4,
@@ -1852,7 +1852,7 @@
     },
     {
       "level": "l08",
-      "room_index": 149,
+      "polygon_index": 149,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 209.1,
@@ -1863,7 +1863,7 @@
     },
     {
       "level": "l08",
-      "room_index": 150,
+      "polygon_index": 150,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 209.7,
@@ -1874,7 +1874,7 @@
     },
     {
       "level": "l08",
-      "room_index": 151,
+      "polygon_index": 151,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 210.4,
@@ -1885,7 +1885,7 @@
     },
     {
       "level": "l08",
-      "room_index": 133,
+      "polygon_index": 133,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 211.0,
@@ -1896,7 +1896,7 @@
     },
     {
       "level": "l08",
-      "room_index": 134,
+      "polygon_index": 134,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 211.5,
@@ -1907,7 +1907,7 @@
     },
     {
       "level": "l08",
-      "room_index": 135,
+      "polygon_index": 135,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 212.2,
@@ -1918,7 +1918,7 @@
     },
     {
       "level": "l08",
-      "room_index": 136,
+      "polygon_index": 136,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 212.9,
@@ -1929,7 +1929,7 @@
     },
     {
       "level": "l08",
-      "room_index": 137,
+      "polygon_index": 137,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 213.6,
@@ -1940,7 +1940,7 @@
     },
     {
       "level": "l08",
-      "room_index": 138,
+      "polygon_index": 138,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 214.3,
@@ -1951,7 +1951,7 @@
     },
     {
       "level": "l08",
-      "room_index": 139,
+      "polygon_index": 139,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 214.9,
@@ -1962,7 +1962,7 @@
     },
     {
       "level": "l08",
-      "room_index": 140,
+      "polygon_index": 140,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 215.6,
@@ -1973,7 +1973,7 @@
     },
     {
       "level": "l08",
-      "room_index": 141,
+      "polygon_index": 141,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 216.3,
@@ -1984,7 +1984,7 @@
     },
     {
       "level": "l08",
-      "room_index": 142,
+      "polygon_index": 142,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 217.0,
@@ -1995,7 +1995,7 @@
     },
     {
       "level": "l08",
-      "room_index": 143,
+      "polygon_index": 143,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 217.7,
@@ -2006,7 +2006,7 @@
     },
     {
       "level": "l08",
-      "room_index": 124,
+      "polygon_index": 124,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 218.2,
@@ -2017,7 +2017,7 @@
     },
     {
       "level": "l08",
-      "room_index": 119,
+      "polygon_index": 119,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 218.9,
@@ -2028,7 +2028,7 @@
     },
     {
       "level": "l08",
-      "room_index": 107,
+      "polygon_index": 107,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 219.6,
@@ -2039,7 +2039,7 @@
     },
     {
       "level": "l08",
-      "room_index": 108,
+      "polygon_index": 108,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 220.2,
@@ -2050,7 +2050,7 @@
     },
     {
       "level": "l08",
-      "room_index": 109,
+      "polygon_index": 109,
       "kind": "corridor",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 220.8,
@@ -2061,7 +2061,7 @@
     },
     {
       "level": "l08",
-      "room_index": 110,
+      "polygon_index": 110,
       "kind": "transit",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 221.7,
@@ -2072,7 +2072,7 @@
     },
     {
       "level": "l08",
-      "room_index": 1,
+      "polygon_index": 1,
       "kind": "generic",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 222.3,
@@ -2083,7 +2083,7 @@
     },
     {
       "level": "l09",
-      "room_index": 0,
+      "polygon_index": 0,
       "kind": "dock",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 237.4,
@@ -2094,7 +2094,7 @@
     },
     {
       "level": "l09",
-      "room_index": 4,
+      "polygon_index": 4,
       "kind": "dock",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 238.2,
@@ -2105,7 +2105,7 @@
     },
     {
       "level": "l09",
-      "room_index": 8,
+      "polygon_index": 8,
       "kind": "dock",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 239.2,
@@ -2116,7 +2116,7 @@
     },
     {
       "level": "l09",
-      "room_index": 9,
+      "polygon_index": 9,
       "kind": "dock",
       "source": "bot_path_4min",
       "bot_first_seen_sec": 239.9,
@@ -2127,7 +2127,7 @@
     },
     {
       "level": "l10",
-      "room_index": 115,
+      "polygon_index": 115,
       "kind": "otherworld",
       "source": "otherworld_section_1",
       "bot_first_seen_sec": null,
@@ -2138,7 +2138,7 @@
     },
     {
       "level": "l10",
-      "room_index": 116,
+      "polygon_index": 116,
       "kind": "otherworld",
       "source": "otherworld_section_1",
       "bot_first_seen_sec": null,
@@ -2149,7 +2149,7 @@
     },
     {
       "level": "l10",
-      "room_index": 117,
+      "polygon_index": 117,
       "kind": "otherworld",
       "source": "otherworld_section_1",
       "bot_first_seen_sec": null,
@@ -2160,7 +2160,7 @@
     },
     {
       "level": "l10",
-      "room_index": 179,
+      "polygon_index": 179,
       "kind": "otherworld",
       "source": "otherworld_section_2",
       "bot_first_seen_sec": null,
@@ -2171,7 +2171,7 @@
     },
     {
       "level": "l10",
-      "room_index": 180,
+      "polygon_index": 180,
       "kind": "otherworld",
       "source": "otherworld_section_2",
       "bot_first_seen_sec": null,
@@ -2182,7 +2182,7 @@
     },
     {
       "level": "l10",
-      "room_index": 181,
+      "polygon_index": 181,
       "kind": "otherworld",
       "source": "otherworld_section_2",
       "bot_first_seen_sec": null,
@@ -2193,7 +2193,7 @@
     },
     {
       "level": "l10",
-      "room_index": 182,
+      "polygon_index": 182,
       "kind": "otherworld",
       "source": "otherworld_section_2",
       "bot_first_seen_sec": null,
@@ -2204,7 +2204,7 @@
     },
     {
       "level": "l10",
-      "room_index": 183,
+      "polygon_index": 183,
       "kind": "otherworld",
       "source": "otherworld_section_2",
       "bot_first_seen_sec": null,
@@ -2215,7 +2215,7 @@
     },
     {
       "level": "l10",
-      "room_index": 184,
+      "polygon_index": 184,
       "kind": "otherworld",
       "source": "otherworld_section_2",
       "bot_first_seen_sec": null,

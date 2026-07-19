@@ -45,7 +45,7 @@ Dexed class), a drumkit VST or 909-style kit, processing VSTs throughout.
   per-patch instances (the switching bug is documented).
 - **Drums: REWORKED per the standing order** — real sampled kit route:
   the audited freesound/album-sliced one-shots through pedalboard chains
-  (drive + cab/room IR + compressor), plus pattern-level humanization.
+  (drive + cab/polygon IR + compressor), plus pattern-level humanization.
   GM-adjacent output is an automatic gate failure.
 - **Guitar: the tuned chug kit** (raw, zero re-amping — probe-proven).
 

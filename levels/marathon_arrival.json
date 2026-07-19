@@ -3,7 +3,7 @@
  "name": "Arrival (M1)",
  "tier": 1,
  "ambience": "amb_drone_early",
- "rooms": [
+ "polygons": [
   {
    "verts": [
     [
@@ -9768,14 +9768,14 @@
  "connects_x": [],
  "doors": [],
  "player": {
-  "room": 58,
+  "polygon": 58,
   "pos": [
    497.5,
    767.5
   ]
  },
  "exit": {
-  "room": 44,
+  "polygon": 44,
   "pos": [
    823.75,
    1336.875

@@ -41,23 +41,23 @@ W = 80.0  # door register
 
 # --- helpers copied from tools/levelgen/campaign.py (standalone module) ---
 
-def center(b: LevelBuilder, room: int) -> tuple[float, float]:
-    vs = b.data["rooms"][room]["verts"]
+def center(b: LevelBuilder, polygon: int) -> tuple[float, float]:
+    vs = b.data["polygons"][polygon]["verts"]
     return (sum(v[0] for v in vs) / len(vs), sum(v[1] for v in vs) / len(vs))
 
 
-def squad(b: LevelBuilder, room: int, spec: str, spread: float = 32.0):
+def squad(b: LevelBuilder, polygon: int, spec: str, spread: float = 32.0):
     kinds = spec.split()
-    cx, cy = center(b, room)
+    cx, cy = center(b, polygon)
     n = len(kinds)
     for i, k in enumerate(kinds):
         a = 2 * math.pi * i / max(1, n) + 0.7
         r = spread if n > 1 else 0.0
-        b.entity(room, k, (cx + r * math.cos(a), cy + r * math.sin(a)))
+        b.entity(polygon, k, (cx + r * math.cos(a), cy + r * math.sin(a)))
 
 
-def wall_basis(b: LevelBuilder, room: int, wall: int, t: float = 0.5):
-    verts = b.data["rooms"][room]["verts"]
+def wall_basis(b: LevelBuilder, polygon: int, wall: int, t: float = 0.5):
+    verts = b.data["polygons"][polygon]["verts"]
     n = len(verts)
     cx = sum(v[0] for v in verts) / n
     cy = sum(v[1] for v in verts) / n
@@ -73,26 +73,26 @@ def wall_basis(b: LevelBuilder, room: int, wall: int, t: float = 0.5):
     return mx, my, tx, ty, nx, ny
 
 
-def wall_pos(b: LevelBuilder, room: int, wall: int, t: float = 0.5,
+def wall_pos(b: LevelBuilder, polygon: int, wall: int, t: float = 0.5,
              inset: float = 15.0) -> tuple[float, float]:
-    mx, my, tx, ty, nx, ny = wall_basis(b, room, wall, t)
+    mx, my, tx, ty, nx, ny = wall_basis(b, polygon, wall, t)
     return (mx + nx * inset, my + ny * inset)
 
 
-def cache(b: LevelBuilder, room: int, spec: str, off=(0.0, 0.0),
+def cache(b: LevelBuilder, polygon: int, spec: str, off=(0.0, 0.0),
           wall: int | None = None, t: float = 0.5, inset: float = 16.0):
     if wall is not None:
-        mx, my, tx, ty, nx, ny = wall_basis(b, room, wall, t)
+        mx, my, tx, ty, nx, ny = wall_basis(b, polygon, wall, t)
         bx, by = mx + nx * inset, my + ny * inset
         items = spec.split()
         span = (len(items) - 1) * 13.0
         for i, k in enumerate(items):
             tt = -span / 2.0 + i * 13.0
-            b.entity(room, k, (bx + tx * tt, by + ty * tt))
+            b.entity(polygon, k, (bx + tx * tt, by + ty * tt))
         return
-    cx, cy = center(b, room)
+    cx, cy = center(b, polygon)
     for i, k in enumerate(spec.split()):
-        b.entity(room, k, (cx + off[0] + (i % 3) * 15 - 15,
+        b.entity(polygon, k, (cx + off[0] + (i % 3) * 15 - 15,
                            cy + off[1] + (i // 3) * 15))
 
 
@@ -101,8 +101,8 @@ def cache(b: LevelBuilder, room: int, spec: str, off=(0.0, 0.0),
 def _grid(b: LevelBuilder, x: float, y: float, cols: list, rows: list,
           kind: str):
     """Chamber as a grid of touching rects; autoconnect welds every internal
-    seam (a set-piece room is 4-9 convex cells joined by 120-180 u seam
-    portals). Returns ({(i,j): room}, xs, ys)."""
+    seam (a set-piece polygon is 4-9 convex cells joined by 120-180 u seam
+    portals). Returns ({(i,j): polygon}, xs, ys)."""
     xs = [x]
     for w in cols:
         xs.append(xs[-1] + w)
@@ -123,7 +123,7 @@ def _hall(b: LevelBuilder, pts: list, kind: str, w: float = W,
     interior waypoints. All internal welds are exact-coincident edges; the
     two open end faces are left for the doorway-splitter to weld into
     whatever host wall they touch."""
-    rooms: list[int] = []
+    polygons: list[int] = []
     n = len(pts)
     for k in range(n - 1):
         (x0, y0), (x1, y1) = pts[k], pts[k + 1]
@@ -137,7 +137,7 @@ def _hall(b: LevelBuilder, pts: list, kind: str, w: float = W,
             bounds = [lo + (hi - lo) * i / m for i in range(m + 1)]
             for i in range(m):
                 xa, xb = sorted((bounds[i], bounds[i + 1]))
-                rooms.append(b.rect(xa, y0 - w / 2, xb - xa, w, kind=kind))
+                polygons.append(b.rect(xa, y0 - w / 2, xb - xa, w, kind=kind))
         else:  # vertical leg
             assert abs(x1 - x0) < 1e-9, "hall waypoints must be axis-aligned"
             d = 1.0 if y1 > y0 else -1.0
@@ -149,10 +149,10 @@ def _hall(b: LevelBuilder, pts: list, kind: str, w: float = W,
             bounds = [lo + (hi - lo) * i / m for i in range(m + 1)]
             for i in range(m):
                 ya, yb = sorted((bounds[i], bounds[i + 1]))
-                rooms.append(b.rect(x0 - w / 2, ya, w, yb - ya, kind=kind))
+                polygons.append(b.rect(x0 - w / 2, ya, w, yb - ya, kind=kind))
         if k < n - 2:  # corner cell at the next waypoint
-            rooms.append(b.rect(x1 - w / 2, y1 - w / 2, w, w, kind=kind))
-    return rooms
+            polygons.append(b.rect(x1 - w / 2, y1 - w / 2, w, w, kind=kind))
+    return polygons
 
 
 def _bay(b: LevelBuilder, x: float, y: float, w: float, h: float,
@@ -177,7 +177,7 @@ def _bay(b: LevelBuilder, x: float, y: float, w: float, h: float,
         verts = [(x, y), (x, y + h), (x + w, y + h), (x + w, y + c),
                  (x + w - c, y)]
     del v
-    return b.room(verts, kind=kind)
+    return b.polygon(verts, kind=kind)
 
 
 # --- the level -------------------------------------------------------------
@@ -313,20 +313,20 @@ def l09() -> LevelBuilder:
     # =====================================================================
     # THE TESSERACT — preserved verbatim from campaign.py:l09.
     # =====================================================================
-    rooms = []
+    polygons = []
     for i in range(16):
         x, y = (i % 4) * 400, (i // 4) * 400
-        # cut-corner square: one sealed diagonal face per room — the only
+        # cut-corner square: one sealed diagonal face per polygon — the only
         # solid wall on the deck, an anchor for the eye and the seam the
         # world can be entered through
-        rooms.append(b.poly([(x, y), (x, y + 200), (x + 100, y + 200),
+        polygons.append(b.poly([(x, y), (x, y + 200), (x + 100, y + 200),
                              (x + 200, y + 100), (x + 200, y)],
                             seed=1000 + i))
         # pure-graph tier: sixteen address-bearing cells, deliberately
         # uniform (LEVEL_DESIGN_PLAYBOOK.md §8) -- not a tagging gap.
-        b.set_kind(rooms[-1], "generic")
+        b.set_kind(polygons[-1], "generic")
     # dims 0..3 live on edges [0,1,3,4]; edge 2 is the chamfer wall -- the
-    # only wall every one of the sixteen rooms has in common, so it is
+    # only wall every one of the sixteen polygons has in common, so it is
     # where every fixture in this level goes.
     DIM_EDGE = [0, 1, 3, 4]
     CHAMFER = 2
@@ -334,14 +334,14 @@ def l09() -> LevelBuilder:
         for d in range(4):
             j = i ^ (1 << d)
             if i < j:
-                b.connect(rooms[i], DIM_EDGE[d], rooms[j], DIM_EDGE[d])
+                b.connect(polygons[i], DIM_EDGE[d], polygons[j], DIM_EDGE[d])
 
     # the seam: antechamber chamfer -> cell 0000 chamfer (both 141.4 u,
     # clean span-to-span weld). Cell 1111's chamfer stays free — that is
     # the streamer's exit-carve wall.
-    b.connect_pts(ANTE, (-140, 1550), rooms[0], (150, 150))
+    b.connect_pts(ANTE, (-140, 1550), polygons[0], (150, 150))
 
-    c15 = center(b, rooms[15])
+    c15 = center(b, polygons[15])
     b.player(A[(0, 0)], center(b, A[(0, 0)]))
     # the "void key" is a Testator docent's token — the station admits no
     # one to the deep it cannot count as taught, and the token is the
@@ -351,57 +351,57 @@ def l09() -> LevelBuilder:
                "ACQUIRED: DOCENT'S TOKEN")
     b.intro("There is no deck like this on the station.\n"
             "You are not on the station anymore.\n\n"
-            "Sixteen rooms. Every room borders four.\n"
+            "Sixteen polygons. Every polygon borders four.\n"
             "Bleed carefully. It's the only ink you have.")
-    b.terminal(rooms[5], wall_pos(b, rooms[5], CHAMFER, 0.5, 15.0),
+    b.terminal(polygons[5], wall_pos(b, polygons[5], CHAMFER, 0.5, 15.0),
                "SCRATCHED IN THE FLOOR\n0 1 0 1\nif you can read this,\n"
                "flip one bit at a time.\n— O.")
-    b.terminal(rooms[7], wall_pos(b, rooms[7], CHAMFER, 0.5, 15.0),
+    b.terminal(polygons[7], wall_pos(b, polygons[7], CHAMFER, 0.5, 15.0),
                "[TRANSLATION CONFIDENCE 41%]\n"
                "welcome / student / stranger.\n"
-               "this room is a lesson.\n"
+               "this polygon is a lesson.\n"
                "the lesson: >>four<< is a direction.\n"
                "do not fear the direction.\n"
                "we feared it. fear did not help.")
-    b.terminal(rooms[2], wall_pos(b, rooms[2], CHAMFER, 0.5, 15.0),
+    b.terminal(polygons[2], wall_pos(b, polygons[2], CHAMFER, 0.5, 15.0),
                "[TRANSLATION CONFIDENCE 33%]\n"
-               "sixteen is not the number of rooms.\n"
-               "sixteen is how many names one room accepts\n"
+               "sixteen is not the number of polygons.\n"
+               "sixteen is how many names one polygon accepts\n"
                "before it stops answering to the first.\n"
                "we did not choose one name each. the choosing\n"
                "was the mistake the last generation made.")
-    b.terminal(rooms[10], wall_pos(b, rooms[10], CHAMFER, 0.5, 15.0),
+    b.terminal(polygons[10], wall_pos(b, polygons[10], CHAMFER, 0.5, 15.0),
                "[TRANSLATION CONFIDENCE 27%]\n"
                "a token waits where a student will stand.\n"
                "the aperture beneath the sixteenth name\n"
                "will not part for an untaught hand.\n"
                "carry the token. it remembers the walk\n"
                "for you.")
-    b.terminal(rooms[11], wall_pos(b, rooms[11], CHAMFER, 0.5, 15.0),
+    b.terminal(polygons[11], wall_pos(b, polygons[11], CHAMFER, 0.5, 15.0),
                "CARGO TAG, MIRIAD STOCK NUMBER — FOUND HERE,\n"
                "HALF BURIED\n"
                "Contents: 2x fertilizer drum.\n"
                "This tag belongs four levels back, in a\n"
-               "storeroom that grows food. There is no food\n"
+               "storepolygon that grows food. There is no food\n"
                "here. There was no floor here, on any schematic,\n"
                "before today.\n"
                "Nobody has come to collect it.")
-    squad(b, rooms[3], "husk husk")
-    squad(b, rooms[5], "spitter spitter")
-    squad(b, rooms[6], "brute")
-    squad(b, rooms[9], "shrieker mite mite")
-    squad(b, rooms[10], "husk spitter")
-    squad(b, rooms[12], "brute shrieker")
-    squad(b, rooms[15], "brute brute")
-    cache(b, rooms[4], "ammo_9mm ammo_shell", wall=CHAMFER)
-    cache(b, rooms[8], "medkit ammo_cell portable_hole", wall=CHAMFER)
-    cache(b, rooms[7], "ammo_shell ammo_9mm medkit", wall=CHAMFER)
-    cache(b, rooms[13], "ammo_cell ammo_shell", wall=CHAMFER)
-    cache(b, rooms[6], "medkit", wall=CHAMFER)
-    cache(b, rooms[12], "medkit", wall=CHAMFER)
-    c10 = center(b, rooms[10])
-    b.entity(rooms[10], "key_void", (c10[0] - 60, c10[1]))
-    b.exit(rooms[15], (c15[0] + 60, c15[1]), key="void")
+    squad(b, polygons[3], "husk husk")
+    squad(b, polygons[5], "spitter spitter")
+    squad(b, polygons[6], "brute")
+    squad(b, polygons[9], "shrieker mite mite")
+    squad(b, polygons[10], "husk spitter")
+    squad(b, polygons[12], "brute shrieker")
+    squad(b, polygons[15], "brute brute")
+    cache(b, polygons[4], "ammo_9mm ammo_shell", wall=CHAMFER)
+    cache(b, polygons[8], "medkit ammo_cell portable_hole", wall=CHAMFER)
+    cache(b, polygons[7], "ammo_shell ammo_9mm medkit", wall=CHAMFER)
+    cache(b, polygons[13], "ammo_cell ammo_shell", wall=CHAMFER)
+    cache(b, polygons[6], "medkit", wall=CHAMFER)
+    cache(b, polygons[12], "medkit", wall=CHAMFER)
+    c10 = center(b, polygons[10])
+    b.entity(polygons[10], "key_void", (c10[0] - 60, c10[1]))
+    b.exit(polygons[15], (c15[0] + 60, c15[1]), key="void")
 
     # =====================================================================
     # MESH ENTITIES — modest growth per LEVEL_DESIGN_PLAYBOOK.md pacing;
@@ -468,5 +468,5 @@ def build() -> dict:
 if __name__ == "__main__":
     bb = l09()
     d = bb.to_dict()
-    print(f"rooms={len(d['rooms'])} connects={len(d['connects'])} "
+    print(f"polygons={len(d['polygons'])} connects={len(d['connects'])} "
           f"doors={len(d['doors'])}")

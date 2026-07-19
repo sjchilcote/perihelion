@@ -38,7 +38,7 @@ def _idle_input():
 def test_light_level_at_lit_point_vs_shadow_point():
     """Fail-first note: before `light_level_at` existed, there was no
     game-side 'how lit is this point' query at all -- an AI wanting this
-    had nothing to call. With a fixture at one end of a room and a
+    had nothing to call. With a fixture at one end of a polygon and a
     terrain rect between it and a point directly behind it, the lit point
     (same distance, clear of the shadow) must read meaningfully higher
     than the shadowed one, and the shadowed point must read exactly 0."""
@@ -47,9 +47,9 @@ def test_light_level_at_lit_point_vs_shadow_point():
     b.player(r0, (-190.0, 0.0))
     level = b.build()
     session = GameSession(level, seed=1)
-    session.sim.set_room_terrain(r0, [(0.0, -20.0, 40.0, 20.0)])
+    session.sim.set_polygon_terrain(r0, [(0.0, -20.0, 40.0, 20.0)])
     session.lighting.add_lights(session.sim, [
-        LightSpec(room=r0, pos=(-190.0, 0.0), color=(255, 255, 255),
+        LightSpec(polygon=r0, pos=(-190.0, 0.0), color=(255, 255, 255),
                   intensity=1.0, radius=500.0, kind="static")])
     light_map = session.lighting.frame_lookup(session.sim)
     behind = light_level_at(light_map, session.lighting.lights, r0, 60.0, 0.0)
@@ -59,7 +59,7 @@ def test_light_level_at_lit_point_vs_shadow_point():
 
 
 def test_light_level_at_zero_with_no_lights():
-    """A room with no lights at all (and no player worklight registered
+    """A polygon with no lights at all (and no player worklight registered
     in `light_map`, e.g. a static-only query) reads exactly 0 everywhere
     -- no fabricated illumination."""
     b = LevelBuilder("FLICKQUERYNONE", 1)
@@ -114,7 +114,7 @@ def test_lurk_holds_low_light_position_under_moving_worklight():
     session = GameSession(level, seed=5)
     session.player_light.intensity = 0.0  # isolate the swept light below
     eid = session.spawn_enemy(r0, (100.0, 100.0), "flicker")
-    sweep_light = LightSpec(room=r0, pos=(100.0, 100.0), color=(255, 255, 255),
+    sweep_light = LightSpec(polygon=r0, pos=(100.0, 100.0), color=(255, 255, 255),
                             intensity=1.0, radius=140.0, kind="attached")
     session.lighting.lights.append(sweep_light)
 
@@ -132,7 +132,7 @@ def test_lurk_holds_low_light_position_under_moving_worklight():
             "lurker left LURK even though the (stationary) player never "
             "entered its ambush_radius -- geometry regression")
         total_samples += 1
-        light_map = session._room_light_map()
+        light_map = session._polygon_light_map()
         _, ex, ey, *_ = session.sim.get(eid)
         level_here = light_level_at(light_map, session.lighting.lights, r0, ex, ey)
         if level_here > session.LURK_MAX_LIGHT:

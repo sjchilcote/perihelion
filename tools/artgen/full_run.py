@@ -1,7 +1,7 @@
 """tools/artgen/full_run.py
 
 FINAL texture pass driver (director's order, 2026-07-13): bespoke texture +
-walk-mask for every one of the 1815 rooms in tools/artgen/full_run_manifest.json,
+walk-mask for every one of the 1815 polygons in tools/artgen/full_run_manifest.json,
 via the upgraded pipeline -- labeled-box conditioning (box_conditioning.py),
 walk-mask derivation with the portal-connectivity hard gate (walkmask.py),
 and the decal diegesis plan (decal_plan.py) -- on top of the existing v2
@@ -9,18 +9,18 @@ programmatic gate stack (texture_checks.py) + Gemini geometry judge
 (verify_gemini.py).
 
 Ship-or-bare, sticky acceptance:
-  - up to 3 generation attempts per room against the FULL gate stack
+  - up to 3 generation attempts per polygon against the FULL gate stack
     (fullbleed, interior_void, shape_conformance, guide_ink, detail_budget
     [box-aware, recalibrated 2026-07-13], gemini_geometry, item_placement).
-  - a room that exhausts attempts ships bare (no texture on disk) -- logged,
+  - a polygon that exhausts attempts ships bare (no texture on disk) -- logged,
     never a gate-failing texture.
-  - an accepted room's texture is FINAL; re-running this script skips any
-    room already recorded "accepted" or "bare" in the progress file unless
-    --rooms force-clears it.
+  - an accepted polygon's texture is FINAL; re-running this script skips any
+    polygon already recorded "accepted" or "bare" in the progress file unless
+    --polygons force-clears it.
   - walk-mask: derived (no extra API cost) from the accepted texture +
     boxes, checked against the portal-connectivity hard gate AND the
-    portal-CLEARANCE hard gate (walkmask.py's check_room_portal_clearance --
-    2026-07-13 stop-the-line fix: reachable != traversable, see room 112/l01
+    portal-CLEARANCE hard gate (walkmask.py's check_polygon_portal_clearance --
+    2026-07-13 stop-the-line fix: reachable != traversable, see polygon 112/l01
     post-mortem). Retried up to 3x with the boxes inset progressively (20%,
     40%) to open more floor around portals before giving up. A mask that
     still fails either gate ships the texture with NO mask file (absence =
@@ -29,7 +29,7 @@ Ship-or-bare, sticky acceptance:
 Usage:
     uv run python -m tools.artgen.full_run --level l01
     uv run python -m tools.artgen.full_run --level l01 --workers 4
-    uv run python -m tools.artgen.full_run --rooms l01/room_000,l01/room_002
+    uv run python -m tools.artgen.full_run --polygons l01/polygon_000,l01/polygon_002
 """
 from __future__ import annotations
 
@@ -55,7 +55,7 @@ from tools.artgen.box_conditioning import (
 from tools.artgen.decal_plan import build_level_decal_plan, decal_prompt_note
 from tools.artgen.pilot_texture_lib import (
     SCRATCH, TEXTURES_ROOT, apply_mask, build_neighbor_composite,
-    build_room_prompt, get_level, make_guide, room_mask, save_review_overlay,
+    build_polygon_prompt, get_level, make_guide, polygon_mask, save_review_overlay,
     texture_out_path, wall_edges_px,
 )
 from tools.artgen.texture_checks import (
@@ -63,7 +63,7 @@ from tools.artgen.texture_checks import (
     verify_no_guide_ink, verify_no_interior_void, verify_shape_conformance,
 )
 from tools.artgen.walkmask import (
-    check_room_portal_clearance, check_room_portal_connectivity, derive_walkmask,
+    check_polygon_portal_clearance, check_polygon_portal_connectivity, derive_walkmask,
     portal_points_px, walkmask_out_path,
 )
 
@@ -72,7 +72,7 @@ import numpy as np
 GUIDE_DIR = SCRATCH / "guides"
 MATERIALS_DIR = SCRATCH / "materials"
 NEIGHBOR_DIR = SCRATCH / "neighbor_composites"
-GEN_SCRATCH = SCRATCH / "gen_rooms_full"
+GEN_SCRATCH = SCRATCH / "gen_polygons_full"
 REVIEW_DIR = HERE / "review"
 MANIFEST_PATH = HERE / "full_run_manifest.json"
 PROGRESS_PATH = HERE / "full_run_progress.json"
@@ -93,7 +93,7 @@ def _save_progress(progress: dict) -> None:
 
 
 def _sized_mask(stem: str, idx: int, tex_w: int, tex_h: int) -> np.ndarray:
-    mask = room_mask(stem, idx)
+    mask = polygon_mask(stem, idx)
     if mask.shape != (tex_h, tex_w):
         m = Image.fromarray((mask.astype("uint8") * 255), mode="L")
         m = m.resize((tex_w, tex_h), Image.NEAREST)
@@ -102,19 +102,19 @@ def _sized_mask(stem: str, idx: int, tex_w: int, tex_h: int) -> np.ndarray:
 
 
 def _tex_size(stem: str, idx: int) -> tuple[int, int]:
-    pilot_path = HERE / "pilot_rooms.json"
+    pilot_path = HERE / "pilot_polygons.json"
     if pilot_path.exists():
-        rooms = json.loads(pilot_path.read_text())["rooms"]
-        for r in rooms:
-            if r["level"] == stem and r["room_index"] == idx:
+        polygons = json.loads(pilot_path.read_text())["polygons"]
+        for r in polygons:
+            if r["level"] == stem and r["polygon_index"] == idx:
                 return r["tex_w"], r["tex_h"]
-    mask = room_mask(stem, idx)
+    mask = polygon_mask(stem, idx)
     h, w = mask.shape
     return w, h
 
 
-def load_manifest_rooms(level: str | None = None) -> list[tuple[str, int, str]]:
-    """Returns [(stem, room_idx, kind), ...] in neighbor-conditioning
+def load_manifest_polygons(level: str | None = None) -> list[tuple[str, int, str]]:
+    """Returns [(stem, polygon_idx, kind), ...] in neighbor-conditioning
     order, across every level (or just `level` if given)."""
     manifest = json.loads(MANIFEST_PATH.read_text())
     out = []
@@ -122,17 +122,17 @@ def load_manifest_rooms(level: str | None = None) -> list[tuple[str, int, str]]:
         if level and stem != level:
             continue
         detail = manifest["levels_detail"][stem]
-        rooms_by_idx = {r["room_index"]: r for r in detail["rooms"]}
+        polygons_by_idx = {r["polygon_index"]: r for r in detail["polygons"]}
         order = detail["neighbor_conditioning_order"]
         for key in order:
             idx = int(key.split("_")[-1])
-            kind = rooms_by_idx[idx]["kind"]
+            kind = polygons_by_idx[idx]["kind"]
             out.append((stem, idx, kind))
     return out
 
 
-def room_key(stem: str, idx: int) -> str:
-    return f"{stem}/room_{idx:03d}"
+def polygon_key(stem: str, idx: int) -> str:
+    return f"{stem}/polygon_{idx:03d}"
 
 
 def _composite_equipment(stage1_im: Image.Image, stage2_im: Image.Image,
@@ -147,9 +147,9 @@ def _composite_equipment(stage1_im: Image.Image, stage2_im: Image.Image,
     not just the boxes -- the background comes back slightly busier
     (bg detail ratio 1.3-2.0x vs the 1.25x law) and edge bands slightly
     darker, so every stage-2 candidate failed gates the underlying
-    stage-1 floor had already passed (0 equipped in 31 rooms; verified
-    visually good equipment renders, e.g. gen_rooms_full/
-    l01_room006_s2a2.png, rejected only for regenerated-background
+    stage-1 floor had already passed (0 equipped in 31 polygons; verified
+    visually good equipment renders, e.g. gen_polygons_full/
+    l01_polygon006_s2a2.png, rejected only for regenerated-background
     noise). Compositing makes the background literally the accepted
     stage-1 pixels, so background gates cannot regress; the model's
     contribution is exactly the equipment at the exact requested
@@ -182,19 +182,19 @@ def _stage2_prompt(kind: str, b_note: str, d_note: str) -> str:
     from tools.artgen.pilot_texture_lib import KIND_MATERIAL, STYLE_LANGUAGE
     return (
         f"{STYLE_LANGUAGE}\n\n"
-        f"Room kind: {kind}. Material language: {KIND_MATERIAL[kind]}.\n\n"
+        f"Polygon kind: {kind}. Material language: {KIND_MATERIAL[kind]}.\n\n"
         "First reference image: the FINISHED, APPROVED floor texture for "
-        "this room (top-down orthographic; pure black = void outside the "
-        "room, never floor). Your output IS this exact image with "
+        "this polygon (top-down orthographic; pure black = void outside the "
+        "polygon, never floor). Your output IS this exact image with "
         "specific equipment added -- an edit, not a re-imagining. "
         "Reproduce the reference pixel-faithfully everywhere no item is "
-        "requested: same framing and aspect ratio, same room silhouette "
+        "requested: same framing and aspect ratio, same polygon silhouette "
         "(every black void pixel stays black void), same plate seams, "
         "same stains, same palette, same lighting. Do not add any "
         "border, frame, trim, vignette, or wall band. Do not redraw or "
         "'improve' the floor.\n\n"
         "Second reference image: the tileable base material for this "
-        "room kind, for matching the equipment's material/palette to the "
+        "polygon kind, for matching the equipment's material/palette to the "
         "floor it sits on.\n\n"
         f"{b_note}\n\n"
         + (f"{d_note}\n\n" if d_note else "") +
@@ -208,9 +208,9 @@ def _stage2_prompt(kind: str, b_note: str, d_note: str) -> str:
     )
 
 
-def process_room(stem: str, idx: int, kind: str, progress: dict) -> dict:
-    key = room_key(stem, idx)
-    guide_path = GUIDE_DIR / stem / f"room_{idx:03d}.png"
+def process_polygon(stem: str, idx: int, kind: str, progress: dict) -> dict:
+    key = polygon_key(stem, idx)
+    guide_path = GUIDE_DIR / stem / f"polygon_{idx:03d}.png"
     if not guide_path.exists():
         make_guide(stem, idx, guide_path)
     material_path = MATERIALS_DIR / f"{kind}.png"
@@ -224,10 +224,10 @@ def process_room(stem: str, idx: int, kind: str, progress: dict) -> dict:
     #   - drawn boxes (magenta, inset+clipped): 0/15 accept
     #   - text-zone prompt, clean guide:   0/10 accept
     # The text-zone rejects LOOK right (correct layout, equipment in
-    # place -- see gen_rooms_full/l01_room001_a3.png) but the model
+    # place -- see gen_polygons_full/l01_polygon001_a3.png) but the model
     # renders its own slightly-off silhouette, leaving black void
     # slivers inside the true polygon near edges (alignment overlay:
-    # scratchpad/align_check_room001.png) -- the equipment ask pushes the
+    # scratchpad/align_check_polygon001.png) -- the equipment ask pushes the
     # model into scene-composition mode and it stops matching the guide
     # pixel-for-pixel. The OLD floor-only prompt held the silhouette at
     # ~57% accept, so: STAGE 1 generates the bare floor exactly as the
@@ -238,7 +238,7 @@ def process_room(stem: str, idx: int, kind: str, progress: dict) -> dict:
     # If stage 2 exhausts its attempts, the accepted stage-1 floor ships
     # alone (never a stage-2 reject): floor-only is a fully-gated real
     # texture, and with no painted equipment the walk-mask is the plain
-    # room polygon.
+    # polygon polygon.
     boxes = compute_item_boxes(guide_path, stem, idx, kind)
     _gw, _gh = Image.open(guide_path).size
     b_note = text_zones_note(boxes, _gw, _gh)
@@ -246,7 +246,7 @@ def process_room(stem: str, idx: int, kind: str, progress: dict) -> dict:
     decal_plan = build_level_decal_plan(stem)
     d_note = decal_prompt_note(decal_plan["marks"], stem, idx)
 
-    neighbor_path = NEIGHBOR_DIR / stem / f"room_{idx:03d}.png"
+    neighbor_path = NEIGHBOR_DIR / stem / f"polygon_{idx:03d}.png"
     neighbor_path = build_neighbor_composite(stem, idx, neighbor_path)
     reference_images = [str(guide_path), str(material_path)]
     if neighbor_path is not None:
@@ -254,7 +254,7 @@ def process_room(stem: str, idx: int, kind: str, progress: dict) -> dict:
     # Stage-1 prompt = the proven floor-only pipeline's prompt: no
     # equipment note, no decal note (decals ride in stage 2 where the
     # judge is told about them).
-    prompt = build_room_prompt(kind, has_neighbor_composite=neighbor_path is not None,
+    prompt = build_polygon_prompt(kind, has_neighbor_composite=neighbor_path is not None,
                                 box_note="", decal_note="")
 
     tex_w, tex_h = _tex_size(stem, idx)
@@ -277,7 +277,7 @@ def process_room(stem: str, idx: int, kind: str, progress: dict) -> dict:
     # ------------------------------------------------------------------
     stage1_resized = None
     for attempt in (1, 2, 3):
-        gen_out = GEN_SCRATCH / f"{stem}_room{idx:03d}_a{attempt}.png"
+        gen_out = GEN_SCRATCH / f"{stem}_polygon{idx:03d}_a{attempt}.png"
         this_prompt = prompt
         if attempt > 1 and verdicts:
             this_prompt += (
@@ -364,7 +364,7 @@ def process_room(stem: str, idx: int, kind: str, progress: dict) -> dict:
     # STAGE 2: image-to-image equipment add on the accepted floor.
     # ------------------------------------------------------------------
     stage1_final = apply_mask(stage1_resized, mask)
-    stage1_path = GEN_SCRATCH / f"{stem}_room{idx:03d}_stage1.png"
+    stage1_path = GEN_SCRATCH / f"{stem}_polygon{idx:03d}_stage1.png"
     stage1_final.save(stage1_path)
 
     stage2_resized = None
@@ -375,7 +375,7 @@ def process_room(stem: str, idx: int, kind: str, progress: dict) -> dict:
     if scaled_boxes:
         s2_prompt = _stage2_prompt(kind, b_note, "")
         for attempt in (1, 2):
-            s2_out = GEN_SCRATCH / f"{stem}_room{idx:03d}_s2a{attempt}.png"
+            s2_out = GEN_SCRATCH / f"{stem}_polygon{idx:03d}_s2a{attempt}.png"
             this_prompt = s2_prompt
             if attempt > 1 and verdicts and str(verdicts[-1].get("notes", "")).startswith("stage2"):
                 this_prompt += (
@@ -433,7 +433,7 @@ def process_room(stem: str, idx: int, kind: str, progress: dict) -> dict:
                 continue
 
             s2_final = apply_mask(composited, mask)
-            s2_final_path = GEN_SCRATCH / f"{stem}_room{idx:03d}_s2final_a{attempt}.png"
+            s2_final_path = GEN_SCRATCH / f"{stem}_polygon{idx:03d}_s2final_a{attempt}.png"
             s2_final.save(s2_final_path)
             try:
                 item_gate = verify_item_placement(s2_final_path, scaled_boxes, kind)
@@ -455,7 +455,7 @@ def process_room(stem: str, idx: int, kind: str, progress: dict) -> dict:
     accepted_resized = stage2_resized if equipment_painted else stage1_resized
 
     # ACCEPTED: ship the texture, then derive + gate the walk-mask.
-    out_final = GEN_SCRATCH / "final" / f"{stem}_room{idx:03d}.png"
+    out_final = GEN_SCRATCH / "final" / f"{stem}_polygon{idx:03d}.png"
     out_final.parent.mkdir(parents=True, exist_ok=True)
     apply_mask(accepted_resized, mask).save(out_final)
 
@@ -463,7 +463,7 @@ def process_room(stem: str, idx: int, kind: str, progress: dict) -> dict:
     ship_path.parent.mkdir(parents=True, exist_ok=True)
     ship_path.write_bytes(out_final.read_bytes())
 
-    review_path = REVIEW_DIR / f"full_{stem}_room{idx:03d}.png"
+    review_path = REVIEW_DIR / f"full_{stem}_polygon{idx:03d}.png"
     save_review_overlay(stem, idx, ship_path, review_path)
 
     pts = portal_points_px(stem, idx, get_level(stem))
@@ -471,7 +471,7 @@ def process_room(stem: str, idx: int, kind: str, progress: dict) -> dict:
     mask_status = "omitted"
     conn_result = None
     # No painted equipment -> no solid geometry to key off; the walk-mask
-    # is the plain room polygon (boxes only block cells when the item was
+    # is the plain polygon polygon (boxes only block cells when the item was
     # actually painted there by an accepted stage 2).
     walk_boxes = scaled_boxes if equipment_painted else []
     for inset_frac in (0.0, 0.20, 0.40):
@@ -486,22 +486,22 @@ def process_room(stem: str, idx: int, kind: str, progress: dict) -> dict:
                                                  int(x1 - dx), int(y1 - dy))))
         walk_im = derive_walkmask(mask, trial_boxes, texture=final_im)
         walk_arr = np.asarray(walk_im) > 127
-        conn_result = check_room_portal_connectivity(walk_arr, pts)
+        conn_result = check_polygon_portal_connectivity(walk_arr, pts)
         if conn_result["ok"]:
-            # STOP-THE-LINE FIX (room 112/l01, 2026-07-13): reachable is not
+            # STOP-THE-LINE FIX (polygon 112/l01, 2026-07-13): reachable is not
             # traversable -- also require every portal-to-portal route to
             # survive erosion by the player-clearance radius (walkmask.py's
-            # check_room_portal_clearance). A route that passes the plain
-            # BFS but fails clearance is exactly the room-112 bug (a bot
+            # check_polygon_portal_clearance). A route that passes the plain
+            # BFS but fails clearance is exactly the polygon-112 bug (a bot
             # burned its full 12-minute budget stuck in a too-narrow
             # channel that nonetheless satisfied "reachable").
-            clearance_result = check_room_portal_clearance(walk_arr, pts)
+            clearance_result = check_polygon_portal_clearance(walk_arr, pts)
             conn_result["clearance"] = clearance_result
             if not clearance_result["ok"]:
                 continue
             walk_path = walkmask_out_path(ship_path)
             walk_im.save(walk_path)
-            review_walk = REVIEW_DIR / f"full_{stem}_room{idx:03d}_walkmask.png"
+            review_walk = REVIEW_DIR / f"full_{stem}_polygon{idx:03d}_walkmask.png"
             review_walk.write_bytes(walk_path.read_bytes())
             mask_status = "shipped"
             break
@@ -522,35 +522,35 @@ def main() -> None:
     ap.add_argument("--level", type=str, default=None, help="restrict to one level, e.g. l01")
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--limit", type=int, default=None)
-    ap.add_argument("--rooms", type=str, default=None,
-                     help="comma-separated stem/room_XXX keys to force-redo "
-                          "(also restricts the run to exactly these rooms)")
+    ap.add_argument("--polygons", type=str, default=None,
+                     help="comma-separated stem/polygon_XXX keys to force-redo "
+                          "(also restricts the run to exactly these polygons)")
     ap.add_argument("--budget", type=float, default=None,
-                     help="stop dispatching new rooms once THIS RUN's cost "
-                          "reaches this many dollars (in-flight rooms finish; "
+                     help="stop dispatching new polygons once THIS RUN's cost "
+                          "reaches this many dollars (in-flight polygons finish; "
                           "session hard-cap enforcement)")
     args = ap.parse_args()
 
-    rooms = load_manifest_rooms(args.level)
+    polygons = load_manifest_polygons(args.level)
     if args.limit:
-        rooms = rooms[: args.limit]
+        polygons = polygons[: args.limit]
 
     progress = _load_progress()
-    if args.rooms:
-        force = set(args.rooms.split(","))
-        for stem, idx, _kind in rooms:
-            k = room_key(stem, idx)
+    if args.polygons:
+        force = set(args.polygons.split(","))
+        for stem, idx, _kind in polygons:
+            k = polygon_key(stem, idx)
             if k in force:
                 progress.pop(k, None)
-        # RESTRICT the run to exactly these rooms (2026-07-13 fix: --rooms
+        # RESTRICT the run to exactly these polygons (2026-07-13 fix: --polygons
         # used to only force-clear and then fall through to the whole
-        # remaining manifest -- a 20-room diagnostic batch ran away into
+        # remaining manifest -- a 20-polygon diagnostic batch ran away into
         # unplanned l04 generation before it was caught).
-        rooms = [(s, i, k) for s, i, k in rooms if room_key(s, i) in force]
+        polygons = [(s, i, k) for s, i, k in polygons if polygon_key(s, i) in force]
 
-    todo = [(s, i, k) for s, i, k in rooms if room_key(s, i) not in progress]
-    print(f"[full_run] level={args.level or 'ALL'} {len(rooms)} rooms, "
-          f"{len(rooms) - len(todo)} already done, {len(todo)} to process, "
+    todo = [(s, i, k) for s, i, k in polygons if polygon_key(s, i) not in progress]
+    print(f"[full_run] level={args.level or 'ALL'} {len(polygons)} polygons, "
+          f"{len(polygons) - len(todo)} already done, {len(todo)} to process, "
           f"workers={args.workers}")
 
     t0 = time.time()
@@ -572,10 +572,10 @@ def main() -> None:
                 if not pending:
                     return
                 s, i, k = pending.pop(0)
-                futs[ex.submit(process_room, s, i, k, progress)] = (s, i, k)
+                futs[ex.submit(process_polygon, s, i, k, progress)] = (s, i, k)
 
         # keep a bounded frontier so a --budget stop takes effect within
-        # ~workers rooms instead of after the whole submitted backlog.
+        # ~workers polygons instead of after the whole submitted backlog.
         _dispatch_up_to(args.workers * 2)
         while futs:
             fut = next(as_completed(list(futs)))
@@ -596,18 +596,18 @@ def main() -> None:
                       f"mask={res.get('mask_status', '-'):8s} cost=${res['cost']:.4f} "
                       f"run_total=${run_cost:.2f} elapsed={time.time()-t0:.0f}s")
             except Exception as exc:  # noqa: BLE001
-                print(f"[{n_done}/{len(todo)}] {room_key(s, i)} CRASHED: {exc}")
+                print(f"[{n_done}/{len(todo)}] {polygon_key(s, i)} CRASHED: {exc}")
                 traceback.print_exc()
             if args.budget is not None and run_cost >= args.budget:
                 if not budget_stopped:
                     budget_stopped = True
                     print(f"[full_run] BUDGET STOP: run_cost ${run_cost:.2f} >= "
-                          f"${args.budget:.2f}; {len(pending)} rooms not dispatched")
+                          f"${args.budget:.2f}; {len(pending)} polygons not dispatched")
                 pending = []
             else:
                 _dispatch_up_to(1)
 
-    summary = dict(level=args.level, n_rooms=len(rooms), n_processed=n_done,
+    summary = dict(level=args.level, n_polygons=len(polygons), n_processed=n_done,
                     budget_stopped=budget_stopped,
                     n_accepted=n_accepted, n_bare=n_bare, n_masked=n_masked,
                     n_mask_omitted=n_mask_omitted, run_cost=run_cost,

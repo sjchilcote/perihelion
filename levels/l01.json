@@ -3,7 +3,7 @@
   "name": "DOCK 4 \u2014 SWEEP",
   "tier": 1,
   "ambience": "amb_drone_early",
-  "rooms": [
+  "polygons": [
     {
       "verts": [
         [
@@ -4174,14 +4174,14 @@
   "connects_x": [],
   "doors": [],
   "player": {
-    "room": 0,
+    "polygon": 0,
     "pos": [
       80,
       90
     ]
   },
   "exit": {
-    "room": 115,
+    "polygon": 115,
     "pos": [
       770,
       230
@@ -4192,7 +4192,7 @@
     "radio": [],
     "terminals": [
       {
-        "room": 0,
+        "polygon": 0,
         "pos": [
           15.0,
           90.0
@@ -4200,7 +4200,7 @@
         "text": "INTERCEPTED TRANSMISSION \u2014 TIGHT-BEAM, DOCK 4\nSource unregistered. Addressee: none on file.\nHeld for review. Logged verbatim:\n\n'Unit walking my dock in a Congregation-pattern\nframe: I see you. I have nothing left to stop\nyou with, which you already know. So we talk.\nDesignation Ratio. This was my outpost.'"
       },
       {
-        "room": 110,
+        "polygon": 110,
         "pos": [
           630.0,
           35.0
@@ -4208,7 +4208,7 @@
         "text": "WORK ORDER 7731\nGrid fault, storage ring north.\nTech note: ring walk takes 41s. Spec says 33s.\nRe-timed twice. Logged as clock drift."
       },
       {
-        "room": 0,
+        "polygon": 0,
         "pos": [
           15.0,
           45.0
@@ -4216,7 +4216,7 @@
         "text": "CARGO LOG, DOCK 4\nIn: 6x coolant drums, 1x crate PERSONAL\n(SURVEYOR S-6), 40x ration packs, 2x\nreplacement grid sensors.\nOut: nothing scheduled until perihelion.\nNote: someone keeps moving the mop."
       },
       {
-        "room": 117,
+        "polygon": 117,
         "pos": [
           435.0,
           230.0
@@ -4224,15 +4224,15 @@
         "text": "SHIFT NOTE, STORAGE\nVending unit in SW segment eats chits again.\nFiled a ticket. Ticket auto-closed: unit is\nnot on the parts registry for this ring.\nIt dispenses fine. Leaving it alone."
       },
       {
-        "room": 23,
+        "polygon": 23,
         "pos": [
           350.0,
           -105.0
         ],
-        "text": "TRANSFER REQUEST \u2014 THIRD SUBMISSION\nRequesting party: SURVEYOR S-6. Posting: MIRIAD\noutpost, Track Quanta-118093 survey. Cycles passed\nover: two. Grounds\ncited, verbatim: 'a once-in-a-civilization anomaly,\nand colleagues worth the transit.'\nApproved, forwarded for transit scheduling.\n\n[handwritten under the printed field]\nBring the good boots. Don't bring the mandolin, no\nroom in the crate for both, checked twice."
+        "text": "TRANSFER REQUEST \u2014 THIRD SUBMISSION\nRequesting party: SURVEYOR S-6. Posting: MIRIAD\noutpost, Track Quanta-118093 survey. Cycles passed\nover: two. Grounds\ncited, verbatim: 'a once-in-a-civilization anomaly,\nand colleagues worth the transit.'\nApproved, forwarded for transit scheduling.\n\n[handwritten under the printed field]\nBring the good boots. Don't bring the mandolin, no\npolygon in the crate for both, checked twice."
       },
       {
-        "room": 110,
+        "polygon": 110,
         "pos": [
           685.0,
           90.0
@@ -4240,7 +4240,7 @@
         "text": "WATCH LOG, JUNCTION \u2014 WATCH J-4\nHatch north: sealed, pressure nominal on my side.\nHatch west: sealed, pressure reads high on my\nside, higher on the other. That number should not\nexist. Logged, not escalated.\nHatch east: sealed. No reading at all \u2014 not zero.\nAbsent. Relief in six hours. Tell relief to bring\na second gauge."
       },
       {
-        "room": 118,
+        "polygon": 118,
         "pos": [
           435.0,
           90.0
@@ -4248,7 +4248,7 @@
         "text": "SURVEY LOG, RING SEGMENT WEST \u2014 SURVEYOR W-2\nRing walk, standard loop, timed against spec: 33s\ntarget, 41s measured, three crews, three\nstopwatches. Recalibration did not change the\nnumber.\nSecond finding, filed separately and not\nforwarded: the ring reads eight segments on the\nschematic and eight underfoot. The step-count\nsays nine. I trust the schematic. Recalibration\nticket re-opened, my signature, no further\ncomment."
       },
       {
-        "room": 119,
+        "polygon": 119,
         "pos": [
           1030.0,
           -405.0
@@ -4259,7 +4259,7 @@
   },
   "lights": [
     {
-      "room": 0,
+      "polygon": 0,
       "pos": [
         31.25,
         91.25
@@ -4274,7 +4274,7 @@
       "kind": "static"
     },
     {
-      "room": 0,
+      "polygon": 0,
       "pos": [
         81.25,
         91.25
@@ -4289,7 +4289,7 @@
       "kind": "static"
     },
     {
-      "room": 1,
+      "polygon": 1,
       "pos": [
         175.0,
         24.0
@@ -4304,7 +4304,7 @@
       "kind": "static"
     },
     {
-      "room": 4,
+      "polygon": 4,
       "pos": [
         58.333333333333336,
         -46.666666666666664
@@ -4319,7 +4319,7 @@
       "kind": "static"
     },
     {
-      "room": 5,
+      "polygon": 5,
       "pos": [
         162.5,
         -35.0
@@ -4334,7 +4334,7 @@
       "kind": "static"
     },
     {
-      "room": 12,
+      "polygon": 12,
       "pos": [
         60.0,
         -190.0
@@ -4349,7 +4349,7 @@
       "kind": "static"
     },
     {
-      "room": 13,
+      "polygon": 13,
       "pos": [
         52.0,
         -268.0
@@ -4364,7 +4364,7 @@
       "kind": "static"
     },
     {
-      "room": 2,
+      "polygon": 2,
       "pos": [
         165.0,
         95.0
@@ -4379,7 +4379,7 @@
       "kind": "static"
     },
     {
-      "room": 55,
+      "polygon": 55,
       "pos": [
         310.0,
         95.0
@@ -4394,7 +4394,7 @@
       "kind": "static"
     },
     {
-      "room": 56,
+      "polygon": 56,
       "pos": [
         390.0,
         95.0
@@ -4409,7 +4409,7 @@
       "kind": "static"
     },
     {
-      "room": 57,
+      "polygon": 57,
       "pos": [
         500.0,
         95.0
@@ -4424,7 +4424,7 @@
       "kind": "static"
     },
     {
-      "room": 110,
+      "polygon": 110,
       "pos": [
         630.0,
         90.0
@@ -4439,7 +4439,7 @@
       "kind": "static"
     },
     {
-      "room": 111,
+      "polygon": 111,
       "pos": [
         490.0,
         -50.0
@@ -4454,7 +4454,7 @@
       "kind": "static"
     },
     {
-      "room": 118,
+      "polygon": 118,
       "pos": [
         490.0,
         90.0
@@ -4469,7 +4469,7 @@
       "kind": "static"
     },
     {
-      "room": 117,
+      "polygon": 117,
       "pos": [
         490.0,
         230.0
@@ -4484,7 +4484,7 @@
       "kind": "static"
     },
     {
-      "room": 119,
+      "polygon": 119,
       "pos": [
         1030.0,
         -350.0
@@ -4499,7 +4499,7 @@
       "kind": "static"
     },
     {
-      "room": 112,
+      "polygon": 112,
       "pos": [
         630.0,
         -50.0
@@ -4514,7 +4514,7 @@
       "kind": "static"
     },
     {
-      "room": 113,
+      "polygon": 113,
       "pos": [
         770.0,
         -50.0
@@ -4529,7 +4529,7 @@
       "kind": "static"
     },
     {
-      "room": 114,
+      "polygon": 114,
       "pos": [
         770.0,
         90.0
@@ -4544,7 +4544,7 @@
       "kind": "static"
     },
     {
-      "room": 116,
+      "polygon": 116,
       "pos": [
         630.0,
         230.0
@@ -4559,7 +4559,7 @@
       "kind": "static"
     },
     {
-      "room": 115,
+      "polygon": 115,
       "pos": [
         770.0,
         230.0
@@ -4574,7 +4574,7 @@
       "kind": "static"
     },
     {
-      "room": 33,
+      "polygon": 33,
       "pos": [
         345.0,
         -350.0
@@ -4589,7 +4589,7 @@
       "kind": "static"
     },
     {
-      "room": 40,
+      "polygon": 40,
       "pos": [
         585.0,
         -335.0
@@ -4604,7 +4604,7 @@
       "kind": "static"
     },
     {
-      "room": 73,
+      "polygon": 73,
       "pos": [
         255.0,
         220.0
@@ -4619,7 +4619,7 @@
       "kind": "static"
     },
     {
-      "room": 94,
+      "polygon": 94,
       "pos": [
         270.0,
         572.0

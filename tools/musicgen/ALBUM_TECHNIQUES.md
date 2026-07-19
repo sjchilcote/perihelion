@@ -32,7 +32,7 @@ against each other dynamically:
 > When the metal instrumentation hits at 15s, the mix instantly CONTRACTS
 > into a tight, aggressive, in-your-face stereo field."
 
-The room itself is an emotional actor: worship is far and huge, combat is
+The polygon itself is an emotional actor: worship is far and huge, combat is
 close and airless. This maps our states directly: PRAYER = wet/vast,
 CONTEMPT/STALWART = dry wall + the choir KEEPS its distance above.
 

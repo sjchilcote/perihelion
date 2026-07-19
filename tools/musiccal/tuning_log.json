@@ -10,7 +10,7 @@
  "phases": [
   {
    "phase": 1,
-   "description": "bisection on --density, n=60 probes per point (uses the FIXED proportional-fair enemy ordering -- see build_gauntlet.py _fair_order; an earlier per-room-round() version was discarded, see caveats below)",
+   "description": "bisection on --density, n=60 probes per point (uses the FIXED proportional-fair enemy ordering -- see build_gauntlet.py _fair_order; an earlier per-polygon-round() version was discarded, see caveats below)",
    "iterations": [
     {"iter": 1, "density": 0.5400, "n_runs": 60, "clear_rate": 0.000, "outcomes": {"died": 60}},
     {"iter": 2, "density": 0.3100, "n_runs": 60, "clear_rate": 0.217, "outcomes": {"died": 47, "complete": 13}},
@@ -42,7 +42,7 @@
   }
  ],
  "caveats": [
-  "v1 (discarded) density mechanism scaled each room's enemy count independently via round(original_count * density). With ~20 rooms holding 1-4 enemies each, most rooms' rounding thresholds coincided at density=0.25 (round(2*x): 0->1 at x=0.25 for every 2-enemy room), so total enemy count -- and clear rate -- jumped discontinuously there instead of responding smoothly: measured clear rates at n=60 were density=0.195->1.000, 0.2238->0.983, 0.2381->0.983, 0.2453->0.967, 0.2489->1.000, 0.2507->0.100, 0.2498->0.983 (a 0.7% density change collapsing clear rate from ~100% to 10%). Replaced with a proportional-fair global ordering (_fair_order in build_gauntlet.py) before any of the numbers in this file were collected; all phases above use the fixed mechanism.",
+  "v1 (discarded) density mechanism scaled each polygon's enemy count independently via round(original_count * density). With ~20 polygons holding 1-4 enemies each, most polygons' rounding thresholds coincided at density=0.25 (round(2*x): 0->1 at x=0.25 for every 2-enemy polygon), so total enemy count -- and clear rate -- jumped discontinuously there instead of responding smoothly: measured clear rates at n=60 were density=0.195->1.000, 0.2238->0.983, 0.2381->0.983, 0.2453->0.967, 0.2489->1.000, 0.2507->0.100, 0.2498->0.983 (a 0.7% density change collapsing clear rate from ~100% to 10%). Replaced with a proportional-fair global ordering (_fair_order in build_gauntlet.py) before any of the numbers in this file were collected; all phases above use the fixed mechanism.",
   "the fixed mechanism is still coarse: only 43 distinct total-enemy-count values exist between empty and the full source roster, and near the 50% band each unit of enemy count moves clear rate several points, so 'tune to exactly 50.0%' is not achievable -- the achieved band (all four phase-2 points landing 47.5-58.3%, pooled 51.7%+/-2.3pp, confirmed 49.6% at n=250) is the practical resolution of a spawn-COUNT-only knob at this scale."
  ]
 }

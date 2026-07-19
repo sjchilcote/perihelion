@@ -1,16 +1,16 @@
 """tools/artgen/verify_in_situ.py
 
 THE IN-SITU GATE (director's ruling, property 4 -- "the heart of the
-director's order"): render CONNECTED ROOM PAIRS with the REAL Renderer
+director's order"): render CONNECTED POLYGON PAIRS with the REAL Renderer
 (game/perihelion/render.py, pygame backend, SDL_VIDEODRIVER=dummy -- same
 class the live game uses, same GameSession, same texture-loading path) at
 gameplay zoom AND a zoomed-out overview, and judge each doorway boundary
 with Gemini: does the floor read as one continuous physical surface, or
 two mismatched plates? A texture ships only when EVERY doorway boundary
-it participates in (to another textured pilot room) passes.
+it participates in (to another textured pilot polygon) passes.
 
 Never a synthetic composite -- these are literal frames from
-Renderer.draw() with the real camera and the real multi-room portal
+Renderer.draw() with the real camera and the real multi-polygon portal
 traversal (session.visible() / necore's visible_set), so texture drift,
 palette clash, and negative-space-at-the-seam all show up exactly as a
 player would see them.
@@ -61,13 +61,13 @@ OVERVIEW_SCREEN = (960, 540)
 OVERVIEW_ZOOM = 0.55
 
 
-def _textured_rooms() -> set[tuple[str, int]]:
+def _textured_polygons() -> set[tuple[str, int]]:
     from tools.artgen.pilot_texture_lib import texture_out_path
     pilot = load_pilot()
     out = set()
-    for r in pilot["rooms"]:
-        if texture_out_path(r["level"], r["room_index"]).is_file():
-            out.add((r["level"], r["room_index"]))
+    for r in pilot["polygons"]:
+        if texture_out_path(r["level"], r["polygon_index"]).is_file():
+            out.add((r["level"], r["polygon_index"]))
     return out
 
 
@@ -78,7 +78,7 @@ def _edge_midpoint(verts: list[tuple[float, float]], edge: int) -> tuple[float, 
     return (a[0] + b[0]) / 2.0, (a[1] + b[1]) / 2.0
 
 
-def _room_centroid(verts: list[tuple[float, float]]) -> tuple[float, float]:
+def _polygon_centroid(verts: list[tuple[float, float]]) -> tuple[float, float]:
     xs = [v[0] for v in verts]
     ys = [v[1] for v in verts]
     return sum(xs) / len(xs), sum(ys) / len(ys)
@@ -86,7 +86,7 @@ def _room_centroid(verts: list[tuple[float, float]]) -> tuple[float, float]:
 
 def _find_boundary_pairs(level, textured: set[tuple[str, int]], stem: str):
     """Yield (a, ea, b, eb, is_door, key) for every doorway/connection
-    between two textured pilot rooms in this level."""
+    between two textured pilot polygons in this level."""
     seen = set()
     for a, ea, b, eb in level.connects:
         if (stem, a) in textured and (stem, b) in textured:
@@ -108,11 +108,11 @@ def _find_boundary_pairs(level, textured: set[tuple[str, int]], stem: str):
                 yield d.a, d.ea, d.b, d.eb, True, d.key
 
 
-def _render_shot(stem: str, room: int, aim_pt: tuple[float, float],
+def _render_shot(stem: str, polygon: int, aim_pt: tuple[float, float],
                   screen: tuple[int, int], zoom: float,
                   open_door: tuple[int, int, int, int] | None) -> "pygame.Surface":
     level = load_level(ROOT / "levels" / f"{stem}.json")
-    level.player_room = room
+    level.player_polygon = polygon
     level.player_pos = aim_pt
     session = GameSession(level, screen=screen, zoom=zoom)
     if open_door is not None:
@@ -130,11 +130,11 @@ def _render_shot(stem: str, room: int, aim_pt: tuple[float, float],
 def render_pair(stem: str, a: int, ea: int, b: int, eb: int,
                  is_door: bool, key: str | None) -> dict:
     level = load_level(ROOT / "levels" / f"{stem}.json")
-    verts_a = level.room_verts[a]
+    verts_a = level.polygon_verts[a]
     mid = _edge_midpoint(verts_a, ea)
-    cen = _room_centroid(verts_a)
-    # nudge the apex 20% of the way from the doorway toward room a's own
-    # centroid, so the camera sits safely inside room a (not exactly on
+    cen = _polygon_centroid(verts_a)
+    # nudge the apex 20% of the way from the doorway toward polygon a's own
+    # centroid, so the camera sits safely inside polygon a (not exactly on
     # the wall line) while still framing the doorway prominently.
     aim = (mid[0] + 0.20 * (cen[0] - mid[0]), mid[1] + 0.20 * (cen[1] - mid[1]))
     open_door = (a, ea, b, eb) if is_door else None
@@ -149,19 +149,19 @@ def render_pair(stem: str, a: int, ea: int, b: int, eb: int,
     ov_path = SCRATCH / f"{safe_id}_overview.png"
     pygame.image.save(gp, str(gp_path))
     pygame.image.save(ov, str(ov_path))
-    return dict(pair_id=pair_id, level=stem, room_a=a, room_b=b, is_door=is_door,
+    return dict(pair_id=pair_id, level=stem, polygon_a=a, polygon_b=b, is_door=is_door,
                 key=key, gameplay_shot=str(gp_path), overview_shot=str(ov_path))
 
 
-JUDGE_PROMPT = """You are the in-situ art-QA reviewer for a game's floor-texture pipeline. Two adjacent rooms of a space station share a doorway; their floor textures were generated independently and must read, in actual gameplay framing, as ONE continuous physical floor surface -- not as two mismatched plates glued together at the doorway.
+JUDGE_PROMPT = """You are the in-situ art-QA reviewer for a game's floor-texture pipeline. Two adjacent polygons of a space station share a doorway; their floor textures were generated independently and must read, in actual gameplay framing, as ONE continuous physical floor surface -- not as two mismatched plates glued together at the doorway.
 
 Image 1: GAMEPLAY-ZOOM shot -- the actual in-game camera framing, standing near the doorway looking toward/through it.
-Image 2: ZOOMED-OUT OVERVIEW shot -- the same doorway from further back, showing more of both rooms' floors at once.
+Image 2: ZOOMED-OUT OVERVIEW shot -- the same doorway from further back, showing more of both polygons' floors at once.
 
 Judge on three checks:
-1. continuous_floor: at the doorway boundary, does the floor material read as ONE continuous physical surface crossing from one room into the other (consistent tone, consistent material logic, no visible seam/edge/color-jump exactly at the threshold)? Some material variation between differently-purposed rooms is fine IF it reads as a deliberate transition (e.g. a threshold strip, a change in deck section) rather than an error -- but if the two floors just look like a bad Photoshop stitch, this is false.
-2. no_negative_space: does either room's floor show a painted border, picture-frame vignette, darkened margin, or a raised conduit/pipe/trim strip running along a wall -- i.e. does either floor look like a bounded framed plate rather than a floor surface that runs to its actual walls? This defect is especially visible right at the doorway threshold, where a framed room's floor visibly "stops" before the wall instead of running flush to it.
-3. geometry_consistent: do props/walls visible in-frame look structurally sane for a real station corridor/room (nothing floating, no obviously broken silhouette)?
+1. continuous_floor: at the doorway boundary, does the floor material read as ONE continuous physical surface crossing from one polygon into the other (consistent tone, consistent material logic, no visible seam/edge/color-jump exactly at the threshold)? Some material variation between differently-purposed polygons is fine IF it reads as a deliberate transition (e.g. a threshold strip, a change in deck section) rather than an error -- but if the two floors just look like a bad Photoshop stitch, this is false.
+2. no_negative_space: does either polygon's floor show a painted border, picture-frame vignette, darkened margin, or a raised conduit/pipe/trim strip running along a wall -- i.e. does either floor look like a bounded framed plate rather than a floor surface that runs to its actual walls? This defect is especially visible right at the doorway threshold, where a framed polygon's floor visibly "stops" before the wall instead of running flush to it.
+3. geometry_consistent: do props/walls visible in-frame look structurally sane for a real station corridor/polygon (nothing floating, no obviously broken silhouette)?
 
 Respond with ONLY a JSON object, no other text:
 {"continuous_floor": bool, "no_negative_space": bool, "geometry_consistent": bool, "verdict": "pass"|"fail", "notes": "one or two sentences, specific about what you see at the doorway"}
@@ -242,9 +242,9 @@ def main() -> None:
     ap.add_argument("--levels", type=str, default=None)
     args = ap.parse_args()
 
-    textured = _textured_rooms()
+    textured = _textured_polygons()
     pilot = load_pilot()
-    stems = sorted({r["level"] for r in pilot["rooms"]})
+    stems = sorted({r["level"] for r in pilot["polygons"]})
     if args.levels:
         stems = [s for s in stems if s in args.levels.split(",")]
 

@@ -4,10 +4,10 @@ The sacred core of campaign.py's l03() survives verbatim: the six-sector
 half-ring with its mobius glue (ring[5] end face welded to ring[0] start
 face — the paradox construct, LEVEL_DESIGN_PLAYBOOK.md §11), the entry
 poly, the seed garden behind the blue (scrubber-cartridge) airlock, the
-storeroom detour, every terminal text, every radio trigger, the key_meta,
+storepolygon detour, every terminal text, every radio trigger, the key_meta,
 the namesake shotgun at ring[0]'s threshold, and the exit pad in the
-garden. Their room indices are identical to campaign.py's (ring 0-5,
-entry 6, garden 7, storeroom 8) because the core is built first, in the
+garden. Their polygon indices are identical to campaign.py's (ring 0-5,
+entry 6, garden 7, storepolygon 8) because the core is built first, in the
 same order.
 
 Around that skeleton this module authors the approach the station always
@@ -21,10 +21,10 @@ Districts (kinds assigned coherently so the mesh reads as place):
   A (east)  — transit dock (spawn) -> service corridors -> storage hall,
               medbay annex, pump plant, lab bench galleries, quarters.
   C (west)  — records annex + the maintenance drop that reaches the
-              storeroom from behind (a loop, not a shortcut: the mobius
+              storepolygon from behind (a loop, not a shortcut: the mobius
               glue remains the fast way round the ring).
-  B (far W) — drum stores, records hall, secondary pump room past the
-              storeroom (the inventory the storeroom terminal argues with).
+  B (far W) — drum stores, records hall, secondary pump polygon past the
+              storepolygon (the inventory the storepolygon terminal argues with).
 
 Streaming: the spawn cell (dock NE) keeps two free 110 u walls; the garden
 keeps its whole 166 u south wall free for the exit-side carve.
@@ -89,11 +89,11 @@ def l03() -> LevelBuilder:
                        math.radians(-90), math.radians(90))
     for r in ring:
         b.set_kind(r, "hydro")   # hydroponics benches, the ring's own function
-    # entry room sized to the outer chord (165.6) to keep portals rigid
+    # entry polygon sized to the outer chord (165.6) to keep portals rigid
     entry = b.poly([(-83, -440), (-83, -320), (83, -320), (83, -440)])
     b.set_kind(entry, "corridor")
     garden = b.rect(400, -80, 166, 160, kind="hydro")
-    storeroom = b.rect(-420, 40, 166, 140, kind="storage")
+    storepolygon = b.rect(-420, 40, 166, 140, kind="storage")
 
     b.connect_pts(entry, (0, -320), ring[0],
                   arc_mid(0, 0, 320, math.radians(-75)))
@@ -103,7 +103,7 @@ def l03() -> LevelBuilder:
     b.door_pts(ring[2], arc_mid(0, 0, 320, math.radians(-15)),
                garden, (400, 0), "blue")
     b.connect_pts(ring[3], arc_mid(0, 0, 320, math.radians(15)),
-                  storeroom, (-254, 110))
+                  storepolygon, (-254, 110))
     # the "blue key" is a fresh air-scrubber cartridge off the end-cap
     # environmentals rack; the seed garden's airlock refuses to cycle on a
     # spent scrubber (entry-procedure terminal at the door, below).
@@ -205,7 +205,7 @@ def l03() -> LevelBuilder:
 
     # ------------------------------------------------------------------
     # DISTRICT C — west of the entry: records annex + maintenance drop
-    # that reaches the storeroom from behind (loop; ring stays fastest).
+    # that reaches the storepolygon from behind (loop; ring stays fastest).
     # ------------------------------------------------------------------
     c = _chain(b, -370, -425, 287, 80, 6)   # welds into entry W wall
     cg = _grid(b, -370, -505, 3, 1, 287.0 / 3.0, 80, "records")[0]
@@ -217,14 +217,14 @@ def l03() -> LevelBuilder:
     jsc = b.poly([(-450, -155), (-365, -155), (-340, -130),
                   (-340, -65), (-450, -65)])
     b.set_kind(jsc, "transit")
-    sc3 = _chain(b, -420, -65, 80, 105, 2)  # welds into storeroom N
+    sc3 = _chain(b, -420, -65, 80, 105, 2)  # welds into storepolygon N
     alc_jsc = b.rect(-510, -145, 60, 60, kind="storage")
 
     # ------------------------------------------------------------------
-    # DISTRICT B — past the storeroom's west wall: the drum stores the
-    # inventory terminal argues with, a records hall, a second pump room.
+    # DISTRICT B — past the storepolygon's west wall: the drum stores the
+    # inventory terminal argues with, a records hall, a second pump polygon.
     # ------------------------------------------------------------------
-    yb = _chain(b, -600, 70, 180, 80, 4)     # welds into storeroom W
+    yb = _chain(b, -600, 70, 180, 80, 4)     # welds into storepolygon W
     ybg = _grid(b, -600, 150, 2, 1, 90, 80, "storage")[0]  # pallet lane
     jb2 = b.rect(-710, 60, 110, 100, kind="transit")
     ch8 = _grid(b, -930, 50, 2, 2, 110, 110, "storage")
@@ -254,9 +254,9 @@ def l03() -> LevelBuilder:
                "BOTANY NOTE\nThe cucumbers grow clockwise here.\n"
                "In the seed manual they grow counterclockwise.\n"
                "Same seeds. Same water.\nI stopped writing this up.")
-    b.terminal(storeroom, wall_pos(b, storeroom, 1, 0.5, 15.0),
+    b.terminal(storepolygon, wall_pos(b, storepolygon, 1, 0.5, 15.0),
                "INVENTORY\n2x fertilizer drum — MISSING.\n"
-               "Found both drums in the room I was standing in.\n"
+               "Found both drums in the polygon I was standing in.\n"
                "Behind me. I had checked behind me.")
     b.terminal(ring[1], tuple(arc_mid(0, 0, 195, math.radians(-45))),
                "DIRECTIVE 0007 — MIRIAD PRIME\n"
@@ -340,7 +340,7 @@ def l03() -> LevelBuilder:
              tuple(arc_mid(0, 0, 296, math.radians(75))))
     # ring[0] is the ring's sole doorway from the entry -- unlike every
     # later cell, the mobius glue offers no shortcut around it, so the
-    # level's namesake shotgun goes here rather than in the storeroom
+    # level's namesake shotgun goes here rather than in the storepolygon
     # detour (which a shortest-path walk of the ring can skip entirely).
     # placed at the entry threshold (just inside ring[0]'s outer arc, where
     # the player necessarily first stands) rather than the wedge's middle
@@ -351,7 +351,7 @@ def l03() -> LevelBuilder:
     cache(b, ring[1], "ammo_9mm", off=(-32.9, 32.9))
     cache(b, ring[3], "medkit", off=(-44.9, -12.0))
     cache(b, ring[4], "medkit ammo_9mm", off=(-32.9, -32.9))
-    cache(b, storeroom, "ammo_shell ammo_shell", wall=1, t=0.2, inset=16.0)
+    cache(b, storepolygon, "ammo_shell ammo_shell", wall=1, t=0.2, inset=16.0)
     # approach caches, racked where a quartermaster would rack them
     cache(b, dock[1][0], "ammo_9mm", wall=1)          # dock south berth rack
     cache(b, ch3[0][0], "ammo_9mm ammo_9mm", wall=3)  # storage hall shelf
@@ -373,6 +373,6 @@ def build() -> dict:
 if __name__ == "__main__":
     bb = l03()
     lvl = bb.build()
-    print(f"rooms={len(lvl.room_verts)} connects={len(lvl.connects)} "
+    print(f"polygons={len(lvl.polygon_verts)} connects={len(lvl.connects)} "
           f"doors={len(lvl.doors)} enemies="
           f"{sum(1 for _, e in lvl.entities if e.type in ('husk', 'mite', 'spitter', 'brute', 'shrieker', 'warden'))}")

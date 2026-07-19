@@ -32,8 +32,8 @@ ALL_CAMPAIGN_LEVELS = {f"l{i:02d}" for i in range(1, 10)}
 def _flickers(level_id: str) -> list[tuple[int, dict]]:
     data = json.loads((LEVELS_DIR / f"{level_id}.json").read_text())
     out = []
-    for i, room in enumerate(data["rooms"]):
-        for e in room["entities"]:
+    for i, polygon in enumerate(data["polygons"]):
+        for e in polygon["entities"]:
             if e["type"] == "flicker":
                 out.append((i, e))
     return out
@@ -66,11 +66,11 @@ def test_adversary_levels_carry_flicker_seasoning(level_id):
 def test_flickers_never_stacked_on_another_entity(level_id):
     """No flicker spawns on top of another entity (enemy, pickup, key...)
     -- see tools/flicker_placement.py's _find_clear_spot. A flicker sharing
-    a room with something else is fine (and common -- that's seasoning);
+    a polygon with something else is fine (and common -- that's seasoning);
     sharing the exact spawn point is a placement bug."""
     data = json.loads((LEVELS_DIR / f"{level_id}.json").read_text())
-    for i, room in enumerate(data["rooms"]):
-        ents = room["entities"]
+    for i, polygon in enumerate(data["polygons"]):
+        ents = polygon["entities"]
         flickers = [e for e in ents if e["type"] == "flicker"]
         for f in flickers:
             for other in ents:
@@ -80,21 +80,21 @@ def test_flickers_never_stacked_on_another_entity(level_id):
                 dy = f["pos"][1] - other["pos"][1]
                 dist = (dx * dx + dy * dy) ** 0.5
                 assert dist >= 20.0, (
-                    f"{level_id} room {i}: flicker spawns {dist:.1f}u from "
+                    f"{level_id} polygon {i}: flicker spawns {dist:.1f}u from "
                     f"{other['type']} -- stacked spawn"
                 )
 
 
 @pytest.mark.parametrize("level_id", sorted(ADVERSARY_LEVELS))
-def test_at_most_two_flickers_per_room(level_id):
-    """'Avoid stacking multiple flickers in one small room unless it's a
+def test_at_most_two_flickers_per_polygon(level_id):
+    """'Avoid stacking multiple flickers in one small polygon unless it's a
     deliberate nasty spot' -- the placement tool never deliberately
-    doubles up, so more than two in one room would be a bug, not a
+    doubles up, so more than two in one polygon would be a bug, not a
     choice."""
     data = json.loads((LEVELS_DIR / f"{level_id}.json").read_text())
-    for i, room in enumerate(data["rooms"]):
-        n = sum(1 for e in room["entities"] if e["type"] == "flicker")
-        assert n <= 2, f"{level_id} room {i}: {n} flickers stacked in one room"
+    for i, polygon in enumerate(data["polygons"]):
+        n = sum(1 for e in polygon["entities"] if e["type"] == "flicker")
+        assert n <= 2, f"{level_id} polygon {i}: {n} flickers stacked in one polygon"
 
 
 def test_placement_audit_log_matches_shipped_levels():
@@ -105,14 +105,14 @@ def test_placement_audit_log_matches_shipped_levels():
     log_path = ROOT / "tools" / "flicker_placement_log.json"
     assert log_path.exists(), "run tools/flicker_placement.py --apply"
     log = json.loads(log_path.read_text())
-    logged = {(e["level"], e["room"]) for e in log}
+    logged = {(e["level"], e["polygon"]) for e in log}
     shipped = set()
     for level_id in ADVERSARY_LEVELS:
-        for room, _e in _flickers(level_id):
-            shipped.add((level_id, room))
+        for polygon, _e in _flickers(level_id):
+            shipped.add((level_id, polygon))
     assert logged == shipped, (
         f"audit log / shipped-level drift: logged-only={logged - shipped}, "
         f"shipped-only={shipped - logged}"
     )
     for entry in log:
-        assert entry.get("justification"), f"{entry['level']} room {entry['room']}: no justification logged"
+        assert entry.get("justification"), f"{entry['level']} polygon {entry['polygon']}: no justification logged"

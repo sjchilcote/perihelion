@@ -3,7 +3,7 @@
  "name": "HEAVY PROBE \u2014 CONTEMPT aux",
  "tier": 3,
  "ambience": "amb_drone_late",
- "rooms": [
+ "polygons": [
   {
    "verts": [
     [
@@ -913,14 +913,14 @@
  "connects_x": [],
  "doors": [],
  "player": {
-  "room": 10,
+  "polygon": 10,
   "pos": [
    160.0,
    60045.0
   ]
  },
  "exit": {
-  "room": 18,
+  "polygon": 18,
   "pos": [
    700.0,
    64045.0
@@ -933,7 +933,7 @@
  },
  "lights": [
   {
-   "room": 0,
+   "polygon": 0,
    "pos": [
     -90.0,
     155.0
@@ -948,7 +948,7 @@
    "kind": "static"
   },
   {
-   "room": 1,
+   "polygon": 1,
    "pos": [
     -270.0,
     90.0
@@ -963,7 +963,7 @@
    "kind": "static"
   },
   {
-   "room": 2,
+   "polygon": 2,
    "pos": [
     -450.0,
     90.0
@@ -978,7 +978,7 @@
    "kind": "static"
   },
   {
-   "room": 6,
+   "polygon": 6,
    "pos": [
     -430.0,
     420.0
@@ -993,7 +993,7 @@
    "kind": "static"
   },
   {
-   "room": 6,
+   "polygon": 6,
    "pos": [
     -525.0,
     356.0
@@ -1008,7 +1008,7 @@
    "kind": "static"
   },
   {
-   "room": 3,
+   "polygon": 3,
    "pos": [
     1270.0,
     155.0
@@ -1023,7 +1023,7 @@
    "kind": "static"
   },
   {
-   "room": 4,
+   "polygon": 4,
    "pos": [
     1090.0,
     155.0
@@ -1038,7 +1038,7 @@
    "kind": "static"
   },
   {
-   "room": 5,
+   "polygon": 5,
    "pos": [
     910.0,
     25.0
@@ -1053,7 +1053,7 @@
    "kind": "static"
   },
   {
-   "room": 7,
+   "polygon": 7,
    "pos": [
     20680.0,
     70.0
@@ -1068,7 +1068,7 @@
    "kind": "static"
   },
   {
-   "room": 8,
+   "polygon": 8,
    "pos": [
     20680.0,
     -105.0
@@ -1083,7 +1083,7 @@
    "kind": "static"
   },
   {
-   "room": 8,
+   "polygon": 8,
    "pos": [
     20575.0,
     -50.0
@@ -1098,7 +1098,7 @@
    "kind": "static"
   },
   {
-   "room": 9,
+   "polygon": 9,
    "pos": [
     20930.0,
     70.0
@@ -1113,7 +1113,7 @@
    "kind": "static"
   },
   {
-   "room": 9,
+   "polygon": 9,
    "pos": [
     20890.0,
     35.0
@@ -1128,7 +1128,7 @@
    "kind": "static"
   },
   {
-   "room": 9,
+   "polygon": 9,
    "pos": [
     20890.0,
     105.0
@@ -1143,7 +1143,7 @@
    "kind": "static"
   },
   {
-   "room": 11,
+   "polygon": 11,
    "pos": [
     430.0,
     60045.0
@@ -1158,7 +1158,7 @@
    "kind": "static"
   },
   {
-   "room": 14,
+   "polygon": 14,
    "pos": [
     430.0,
     62045.0
@@ -1173,7 +1173,7 @@
    "kind": "static"
   },
   {
-   "room": 17,
+   "polygon": 17,
    "pos": [
     430.0,
     64045.0

@@ -3,7 +3,7 @@
  "name": "THE VIGIL",
  "tier": 4,
  "ambience": "amb_drone_finale",
- "rooms": [
+ "polygons": [
   {
    "verts": [
     [
@@ -320,7 +320,7 @@
  "connects_x": [],
  "doors": [],
  "player": {
-  "room": 0,
+  "polygon": 0,
   "pos": [
    0,
    0

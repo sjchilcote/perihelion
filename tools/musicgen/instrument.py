@@ -47,7 +47,7 @@ FPS = 60
 
 
 class FakeSim:
-    def get_room(self, eid):
+    def get_polygon(self, eid):
         return 0
 
 
@@ -65,7 +65,7 @@ class FakeSession:
         self._next_eid = 1
         self._tension_on = False
 
-    def player_room(self):
+    def player_polygon(self):
         return 0
 
     def add_enemy(self, kind):

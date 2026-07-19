@@ -58,7 +58,7 @@ def one(args):
                 hp=round(getattr(s, "hp", 0.0), 1),
                 ticks=t, kills=s.metrics["kills"],
                 dmg_taken=round(s.metrics["dmg_taken"], 1),
-                room=snap["room"], near=near,
+                polygon=snap["polygon"], near=near,
                 ammo=snap["ammo"], weapons_used=dict(weapon_ticks))
 
 
@@ -91,9 +91,9 @@ def main():
           f"(death {death}, timeout {to})")
     print(f"kills median {kills[n//2]}, min {kills[0]}, max {kills[-1]}")
     import collections
-    rooms = collections.Counter(r["room"] for r in results
+    polygons = collections.Counter(r["polygon"] for r in results
                                 if r["outcome"] == "death")
-    print("death rooms:", dict(rooms.most_common(6)))
+    print("death polygons:", dict(polygons.most_common(6)))
     nears = collections.Counter()
     for r in results:
         for k, v in r.get("near", {}).items():

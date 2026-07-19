@@ -1,16 +1,16 @@
-"""tools/artgen/room_census.py
+"""tools/artgen/polygon_census.py
 
-Census of room `kind` values across the campaign + vigil level files (the
-1,815-room universe measured in ARTSTYLE_DIRECTION.md: l01..l10 + vigil.json;
+Census of polygon `kind` values across the campaign + vigil level files (the
+1,815-polygon universe measured in ARTSTYLE_DIRECTION.md: l01..l10 + vigil.json;
 the manifest campaign.json and the demo/test fixtures marathon_arrival.json,
-maze_demo.json, smoke_4room.json are NOT part of the shipped station and are
+maze_demo.json, smoke_4polygon.json are NOT part of the shipped station and are
 excluded).
 
-For each `kind`, reports room count and a histogram of centered-bbox sizes
-in world units (rooms are irregular polygons; the bbox is what a bespoke
+For each `kind`, reports polygon count and a histogram of centered-bbox sizes
+in world units (polygons are irregular polygons; the bbox is what a bespoke
 rectangular texture would need to cover).
 
-Usage: uv run python tools/artgen/room_census.py [--json-only]
+Usage: uv run python tools/artgen/polygon_census.py [--json-only]
 """
 from __future__ import annotations
 
@@ -31,12 +31,12 @@ LEVEL_FILES = [f"l{n:02d}" for n in range(1, 11)] + ["vigil"]
 def census() -> dict:
     by_kind: dict[str, dict] = defaultdict(lambda: dict(
         count=0, per_level=defaultdict(int), bboxes=[]))
-    total_rooms = 0
+    total_polygons = 0
     for stem in LEVEL_FILES:
         path = ROOT / "levels" / f"{stem}.json"
         level = load_level(path)
-        for ri, verts in enumerate(level.room_verts):
-            kind = level.room_kinds[ri]
+        for ri, verts in enumerate(level.polygon_verts):
+            kind = level.polygon_kinds[ri]
             xs = [v[0] for v in verts]
             ys = [v[1] for v in verts]
             w = max(xs) - min(xs)
@@ -45,9 +45,9 @@ def census() -> dict:
             rec["count"] += 1
             rec["per_level"][stem] += 1
             rec["bboxes"].append((round(w, 1), round(h, 1)))
-            total_rooms += 1
+            total_polygons += 1
 
-    out = {"total_rooms": total_rooms, "levels": LEVEL_FILES, "kinds": {}}
+    out = {"total_polygons": total_polygons, "levels": LEVEL_FILES, "kinds": {}}
     for kind, rec in sorted(by_kind.items(), key=lambda kv: -kv[1]["count"]):
         bboxes = rec["bboxes"]
         ws = [b[0] for b in bboxes]
@@ -84,7 +84,7 @@ def main() -> None:
               f"{rec['bbox_w_min']:>6.1f}-{rec['bbox_w_max']:<7.1f} "
               f"{rec['bbox_h_min']:>6.1f}-{rec['bbox_h_max']:<7.1f}",
               file=sys.stderr)
-    print(f"\nTOTAL rooms: {data['total_rooms']}", file=sys.stderr)
+    print(f"\nTOTAL polygons: {data['total_polygons']}", file=sys.stderr)
 
 
 if __name__ == "__main__":

@@ -2,11 +2,11 @@
 
 Second half of the IN-SITU GATE (property 4 + property 5): after
 verify_in_situ.py has judged every textured-textured doorway boundary,
-this collects the rooms that appear in any FAILING boundary, regenerates
-each flagged room ONCE more (image-edit continuity from its own accepted
+this collects the polygons that appear in any FAILING boundary, regenerates
+each flagged polygon ONCE more (image-edit continuity from its own accepted
 texture + explicit neighbor-mismatch feedback + a harder push toward the
 kind's shared tone window), re-runs the programmatic full-bleed gate, and
-re-judges just that room's boundaries in-situ. A room that still fails
+re-judges just that polygon's boundaries in-situ. A polygon that still fails
 after this second in-situ round ships NO texture -- the file is deleted
 so the engine's flat procedural fallback applies. Never a bad texture.
 
@@ -25,7 +25,7 @@ from PIL import Image
 from tools.artgen.gen import generate_image
 from tools.artgen.pilot_texture_lib import (
     GEOMETRY_LOCK, FULLBLEED_LAW, STYLE_LANGUAGE, KIND_MATERIAL,
-    TESTATOR_KINDS, SCRATCH, load_pilot, room_mask, apply_mask,
+    TESTATOR_KINDS, SCRATCH, load_pilot, polygon_mask, apply_mask,
     texture_out_path,
 )
 from tools.artgen.texture_checks import grade_toward, in_window, region_tone, verify_fullbleed
@@ -34,19 +34,19 @@ from tools.artgen import verify_in_situ as insitu
 WINDOWS_PATH = Path(__file__).resolve().parent / "kind_windows.json"
 INSITU_PATH = Path(__file__).resolve().parent / "insitu_verify.json"
 REPAIR_LOG = Path(__file__).resolve().parent / "insitu_repair.json"
-REPAIR_SCRATCH = SCRATCH / "gen_rooms_repair"
+REPAIR_SCRATCH = SCRATCH / "gen_polygons_repair"
 _windows = json.loads(WINDOWS_PATH.read_text())
 
 
-def _flagged_rooms(insitu_results: dict) -> dict[tuple[str, int], list[str]]:
-    """{(level, room): [pair_id, ...]} for every room that appears in a
+def _flagged_polygons(insitu_results: dict) -> dict[tuple[str, int], list[str]]:
+    """{(level, polygon): [pair_id, ...]} for every polygon that appears in a
     failing (or errored) boundary judgment."""
     flagged: dict[tuple[str, int], list[str]] = {}
     for pair_id, r in insitu_results.items():
         if r.get("verdict") == "pass":
             continue
         lvl = r.get("level")
-        a, b = r.get("room_a"), r.get("room_b")
+        a, b = r.get("polygon_a"), r.get("polygon_b")
         if lvl is None or a is None or b is None:
             continue
         flagged.setdefault((lvl, a), []).append(pair_id)
@@ -54,11 +54,11 @@ def _flagged_rooms(insitu_results: dict) -> dict[tuple[str, int], list[str]]:
     return flagged
 
 
-def repair_room(level: str, room_idx: int, kind: str, reasons: list[str],
-                 pilot_rooms_by_key: dict) -> dict:
-    key = f"{level}/room_{room_idx:03d}"
-    room = pilot_rooms_by_key[key]
-    cur_path = texture_out_path(level, room_idx)
+def repair_polygon(level: str, polygon_idx: int, kind: str, reasons: list[str],
+                 pilot_polygons_by_key: dict) -> dict:
+    key = f"{level}/polygon_{polygon_idx:03d}"
+    polygon = pilot_polygons_by_key[key]
+    cur_path = texture_out_path(level, polygon_idx)
     if not cur_path.is_file():
         return dict(key=key, status="no_texture_to_repair")
 
@@ -67,10 +67,10 @@ def repair_room(level: str, room_idx: int, kind: str, reasons: list[str],
               if kind in TESTATOR_KINDS else
               "MIRIAD-era human infrastructure: utilitarian, regular, maintained.")
     prompt = (
-        f"{STYLE_LANGUAGE}\n\nRoom kind: {kind}. {flavor} Material language: {material}.\n\n"
-        "This is a TONE-MATCH REPAIR pass: the reference image is this exact room's "
+        f"{STYLE_LANGUAGE}\n\nPolygon kind: {kind}. {flavor} Material language: {material}.\n\n"
+        "This is a TONE-MATCH REPAIR pass: the reference image is this exact polygon's "
         "CURRENTLY-SHIPPED texture -- keep its geometry, props, and layout completely "
-        "unchanged. The problem is that at least one doorway to a neighboring room of "
+        "unchanged. The problem is that at least one doorway to a neighboring polygon of "
         "the same kind, this texture's tone/material reads as a mismatched, seamed-"
         "together plate rather than the same continuous physical floor. Shift the "
         "overall tone/grime/palette toward the shared kind material family so the "
@@ -78,11 +78,11 @@ def repair_room(level: str, room_idx: int, kind: str, reasons: list[str],
         f"{FULLBLEED_LAW}\n\n{GEOMETRY_LOCK}"
     )
     REPAIR_SCRATCH.mkdir(parents=True, exist_ok=True)
-    out_raw = REPAIR_SCRATCH / f"{level}_room{room_idx:03d}_repair.png"
+    out_raw = REPAIR_SCRATCH / f"{level}_polygon{polygon_idx:03d}_repair.png"
     gr = generate_image(prompt, out_raw, reference_images=[str(cur_path)])
 
-    mask = room_mask(level, room_idx)
-    im = Image.open(out_raw).convert("RGB").resize((room["tex_w"], room["tex_h"]), Image.LANCZOS)
+    mask = polygon_mask(level, polygon_idx)
+    im = Image.open(out_raw).convert("RGB").resize((polygon["tex_w"], polygon["tex_h"]), Image.LANCZOS)
     fb = verify_fullbleed(im, mask)
     if not fb["ok"]:
         return dict(key=key, status="repair_failed_fullbleed", cost=gr["cost"], fullbleed=fb)
@@ -104,14 +104,14 @@ def repair_room(level: str, room_idx: int, kind: str, reasons: list[str],
     for pair_id in reasons:
         r = insitu.OUT_PATH  # noqa: F841 - just documenting source
         old = json.loads(INSITU_PATH.read_text())[pair_id]
-        stem, a, ea, b, eb = old["level"], old["room_a"], None, old["room_b"], None
+        stem, a, ea, b, eb = old["level"], old["polygon_a"], None, old["polygon_b"], None
         # re-derive edges from the level graph fresh (edges weren't stored
         # on the result dict; re-scan for this exact pair).
         from perihelion.levels import load_level
         lvl = load_level(insitu.ROOT / "levels" / f"{stem}.json")
         found = None
         for aa, eea, bb, eeb, is_door, dkey in insitu._find_boundary_pairs(
-                lvl, insitu._textured_rooms(), stem):
+                lvl, insitu._textured_polygons(), stem):
             pid = f"{stem}:{aa}-{bb}" if not is_door else f"{stem}:{aa}-{bb}(door:{dkey})"
             if pid == pair_id:
                 found = (aa, eea, bb, eeb, is_door, dkey)
@@ -141,23 +141,23 @@ def main() -> None:
         print("no insitu_verify.json yet -- run verify_in_situ first", file=sys.stderr)
         sys.exit(1)
     insitu_results = json.loads(INSITU_PATH.read_text())
-    flagged = _flagged_rooms(insitu_results)
-    print(f"{len(flagged)} rooms appear in a failing/errored in-situ boundary")
+    flagged = _flagged_polygons(insitu_results)
+    print(f"{len(flagged)} polygons appear in a failing/errored in-situ boundary")
 
     pilot = load_pilot()
-    by_key = {f"{r['level']}/room_{r['room_index']:03d}": r for r in pilot["rooms"]}
+    by_key = {f"{r['level']}/polygon_{r['polygon_index']:03d}": r for r in pilot["polygons"]}
 
     log = {}
     if REPAIR_LOG.exists():
         log = json.loads(REPAIR_LOG.read_text())
 
-    for (level, room_idx), reasons in flagged.items():
-        key = f"{level}/room_{room_idx:03d}"
+    for (level, polygon_idx), reasons in flagged.items():
+        key = f"{level}/polygon_{polygon_idx:03d}"
         if key in log:
             continue
         kind = by_key[key]["kind"]
         try:
-            res = repair_room(level, room_idx, kind, reasons, by_key)
+            res = repair_polygon(level, polygon_idx, kind, reasons, by_key)
         except Exception as exc:  # noqa: BLE001
             res = dict(key=key, status="repair_error", error=str(exc))
             traceback.print_exc()

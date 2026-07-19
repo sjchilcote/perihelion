@@ -3,7 +3,7 @@
  "name": "MIRROR WARD",
  "tier": 3,
  "ambience": "amb_drone_late",
- "rooms": [
+ "polygons": [
   {
    "verts": [
     [
@@ -6057,14 +6057,14 @@
  "connects_x": [],
  "doors": [],
  "player": {
-  "room": 0,
+  "polygon": 0,
   "pos": [
    70,
    70
   ]
  },
  "exit": {
-  "room": 172,
+  "polygon": 172,
   "pos": [
    930,
    70
@@ -6076,7 +6076,7 @@
   "radio": [],
   "terminals": [
    {
-    "room": 171,
+    "polygon": 171,
     "pos": [
      680.0,
      -105.0
@@ -6084,7 +6084,7 @@
     "text": "ISOLATION LOG\nDay 1: patient stares at south wall.\nDay 2: patient talks to south wall.\nDay 3: patient answers.\nDay 4: two voices. One patient.\nDay 5: [no further entries]"
    },
    {
-    "room": 172,
+    "polygon": 172,
     "pos": [
      890.0,
      35.0
@@ -6092,7 +6092,7 @@
     "text": "PATHOLOGY\nSubject recovered from ward.\nAll organs mirrored. Situs inversus totalis.\nSubject's ID chip reads valid.\nIt is the chip of a crewman standing\nguard outside."
    },
    {
-    "room": 172,
+    "polygon": 172,
     "pos": [
      890.0,
      105.0
@@ -6100,7 +6100,7 @@
     "text": "ISOLATION WING \u2014 DISCHARGE NOTICE\nThe discharge bolt takes its handle from the\nward side. There is no handle on this side;\nthat is the design. The seal team carried the\nward handle in with them when they closed it.\nNobody has carried it back out."
    },
    {
-    "room": 0,
+    "polygon": 0,
     "pos": [
      15.0,
      70.0
@@ -6108,7 +6108,7 @@
     "text": "GUARD LOG, WARD ENTRANCE\n0600 \u2014 on post.\n0600 \u2014 on post.\nSame hand, same ink, two lines, no gap between\nthem. Whoever wrote it isn't answering the page.\nPost considered staffed. Post considered."
    },
    {
-    "room": 0,
+    "polygon": 0,
     "pos": [
      70.0,
      15.0
@@ -6116,7 +6116,7 @@
     "text": "ENVIRONMENTAL SYSTEMS LOG 8K02\nMedical Ward 05-16 humidity adjusted\nautomatically to 45% RH Parameter shift\nobserved at cycle 241.8, prior to quarantine\nactivation Attending logged admission of\nbiological subject at cycle 241.9 Shift\nmatches recommended biocompatibility profile\nfor organic respiration No crew-mind units\nrequire this profile; adjustment source\nunclear Flagged as possible preset carryover\nfrom prior contaminant event Scheduler\ndiagnostic returns nominal; filed under\nauto-humidity calibration checks"
    },
    {
-    "room": 171,
+    "polygon": 171,
     "pos": [
      575.0,
      -50.0
@@ -6135,7 +6135,7 @@
  },
  "lights": [
   {
-   "room": 0,
+   "polygon": 0,
    "pos": [
     70,
     70
@@ -6150,7 +6150,7 @@
    "kind": "static"
   },
   {
-   "room": 0,
+   "polygon": 0,
    "pos": [
     15,
     70
@@ -6165,7 +6165,7 @@
    "kind": "static"
   },
   {
-   "room": 0,
+   "polygon": 0,
    "pos": [
     70,
     15
@@ -6180,7 +6180,7 @@
    "kind": "static"
   },
   {
-   "room": 2,
+   "polygon": 2,
    "pos": [
     230,
     -15
@@ -6195,7 +6195,7 @@
    "kind": "static"
   },
   {
-   "room": 99,
+   "polygon": 99,
    "pos": [
     365,
     -15
@@ -6210,7 +6210,7 @@
    "kind": "static"
   },
   {
-   "room": 101,
+   "polygon": 101,
    "pos": [
     387,
     75
@@ -6225,7 +6225,7 @@
    "kind": "static"
   },
   {
-   "room": 115,
+   "polygon": 115,
    "pos": [
     455,
     75
@@ -6240,7 +6240,7 @@
    "kind": "static"
   },
   {
-   "room": 173,
+   "polygon": 173,
    "pos": [
     530,
     70
@@ -6255,7 +6255,7 @@
    "kind": "static"
   },
   {
-   "room": 170,
+   "polygon": 170,
    "pos": [
     680,
     70
@@ -6270,7 +6270,7 @@
    "kind": "static"
   },
   {
-   "room": 171,
+   "polygon": 171,
    "pos": [
     680,
     -105
@@ -6285,7 +6285,7 @@
    "kind": "static"
   },
   {
-   "room": 171,
+   "polygon": 171,
    "pos": [
     575,
     -50
@@ -6300,7 +6300,7 @@
    "kind": "static"
   },
   {
-   "room": 172,
+   "polygon": 172,
    "pos": [
     930,
     70
@@ -6315,7 +6315,7 @@
    "kind": "static"
   },
   {
-   "room": 172,
+   "polygon": 172,
    "pos": [
     890,
     35
@@ -6330,7 +6330,7 @@
    "kind": "static"
   },
   {
-   "room": 172,
+   "polygon": 172,
    "pos": [
     890,
     105
@@ -6345,7 +6345,7 @@
    "kind": "static"
   },
   {
-   "room": 83,
+   "polygon": 83,
    "pos": [
     185,
     345
@@ -6360,7 +6360,7 @@
    "kind": "static"
   },
   {
-   "room": 72,
+   "polygon": 72,
    "pos": [
     95,
     345
@@ -6375,7 +6375,7 @@
    "kind": "static"
   },
   {
-   "room": 4,
+   "polygon": 4,
    "pos": [
     185,
     435
@@ -6390,7 +6390,7 @@
    "kind": "static"
   },
   {
-   "room": 5,
+   "polygon": 5,
    "pos": [
     185,
     525
@@ -6405,7 +6405,7 @@
    "kind": "static"
   },
   {
-   "room": 1,
+   "polygon": 1,
    "pos": [
     230,
     -105
@@ -6420,7 +6420,7 @@
    "kind": "static"
   },
   {
-   "room": 84,
+   "polygon": 84,
    "pos": [
     185,
     615
@@ -6435,7 +6435,7 @@
    "kind": "static"
   },
   {
-   "room": 46,
+   "polygon": 46,
    "pos": [
     -175,
     345
@@ -6450,7 +6450,7 @@
    "kind": "static"
   },
   {
-   "room": 134,
+   "polygon": 134,
    "pos": [
     635,
     -465

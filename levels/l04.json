@@ -3,7 +3,7 @@
  "name": "THE LONG GALLERY",
  "tier": 2,
  "ambience": "amb_drone_mid",
- "rooms": [
+ "polygons": [
   {
    "verts": [
     [
@@ -4496,14 +4496,14 @@
   }
  ],
  "player": {
-  "room": 42,
+  "polygon": 42,
   "pos": [
    -115,
    255
   ]
  },
  "exit": {
-  "room": 130,
+  "polygon": 130,
   "pos": [
    890,
    385
@@ -4514,7 +4514,7 @@
   "radio": [],
   "terminals": [
    {
-    "room": 8,
+    "polygon": 8,
     "pos": [
      730.0,
      295.0
@@ -4522,7 +4522,7 @@
     "text": "GRAFFITI, scratched into the panel:\n4 GOING  3 BACK\n4 GOING  3 BACK\n4 GOING  3 BACK\nover and over, forty times."
    },
    {
-    "room": 57,
+    "polygon": 57,
     "pos": [
      380.0,
      535.0
@@ -4530,7 +4530,7 @@
     "text": "MEDICAL BAY (RELOCATED)\nPatient: unnamed, found in Gallery.\nImplant of unknown design fused to left arm.\nPatient states the implant 'came through the wall.'\nPatient discharged. Implant retained: vault,\nquarantine bolt thrown, release on the\nattending's cardkey only.\nAddendum: attending reports the cardkey lost on\ngallery rounds. Search of all four crossings\nfound three."
    },
    {
-    "room": 43,
+    "polygon": 43,
     "pos": [
      -35.0,
      215.0
@@ -4538,7 +4538,7 @@
     "text": "POSTED NOTICE, GALLERY ENTRANCE\nGALLERY CLOSED PENDING STRUCTURAL REVIEW.\n[handwritten beneath, several different hands]\n\u2014 review complete, corridor safe, opening today.\n\u2014 then why does it still say four on the\n  manifest and I count three.\n\u2014 because you walked it the way everyone walks\n  it. Try backward.\n\u2014 did. still three. still four. going to log it\n  and go get lunch."
    },
    {
-    "room": 31,
+    "polygon": 31,
     "pos": [
      635.0,
      75.0
@@ -4546,7 +4546,7 @@
     "text": "BREAK LOG, CROSSING FOUR\nNothing to report. Nothing to report. Nothing to\nreport. Relief crew: bring cards.\n[later, different hand]\nSomething to report. See crossing one. Do not\nlinger here either, just in case whatever's wrong\nwith one isn't done counting."
    },
    {
-    "room": 13,
+    "polygon": 13,
     "pos": [
      385.0,
      -95.0
@@ -4565,7 +4565,7 @@
  },
  "lights": [
   {
-   "room": 42,
+   "polygon": 42,
    "pos": [
     -115.0,
     255.0
@@ -4580,7 +4580,7 @@
    "kind": "static"
   },
   {
-   "room": 43,
+   "polygon": 43,
    "pos": [
     -35.0,
     255.0
@@ -4595,7 +4595,7 @@
    "kind": "static"
   },
   {
-   "room": 0,
+   "polygon": 0,
    "pos": [
     35.0,
     255.0
@@ -4610,7 +4610,7 @@
    "kind": "static"
   },
   {
-   "room": 1,
+   "polygon": 1,
    "pos": [
     115.0,
     255.0
@@ -4625,7 +4625,7 @@
    "kind": "static"
   },
   {
-   "room": 2,
+   "polygon": 2,
    "pos": [
     207.0,
     255.0
@@ -4640,7 +4640,7 @@
    "kind": "static"
   },
   {
-   "room": 3,
+   "polygon": 3,
    "pos": [
     295.0,
     255.0
@@ -4655,7 +4655,7 @@
    "kind": "static"
   },
   {
-   "room": 5,
+   "polygon": 5,
    "pos": [
     475.0,
     255.0
@@ -4670,7 +4670,7 @@
    "kind": "static"
   },
   {
-   "room": 6,
+   "polygon": 6,
    "pos": [
     565.0,
     255.0
@@ -4685,7 +4685,7 @@
    "kind": "static"
   },
   {
-   "room": 7,
+   "polygon": 7,
    "pos": [
     655.0,
     255.0
@@ -4700,7 +4700,7 @@
    "kind": "static"
   },
   {
-   "room": 8,
+   "polygon": 8,
    "pos": [
     730.0,
     255.0
@@ -4715,7 +4715,7 @@
    "kind": "static"
   },
   {
-   "room": 129,
+   "polygon": 129,
    "pos": [
     802.0,
     385.0
@@ -4730,7 +4730,7 @@
    "kind": "static"
   },
   {
-   "room": 130,
+   "polygon": 130,
    "pos": [
     887.0,
     385.0
@@ -4745,7 +4745,7 @@
    "kind": "static"
   },
   {
-   "room": 19,
+   "polygon": 19,
    "pos": [
     115.0,
     75.0
@@ -4760,7 +4760,7 @@
    "kind": "static"
   },
   {
-   "room": 20,
+   "polygon": 20,
    "pos": [
     115.0,
     125.0
@@ -4775,7 +4775,7 @@
    "kind": "static"
   },
   {
-   "room": 21,
+   "polygon": 21,
    "pos": [
     115.0,
     175.0
@@ -4790,7 +4790,7 @@
    "kind": "static"
   },
   {
-   "room": 46,
+   "polygon": 46,
    "pos": [
     -115.0,
     45.0
@@ -4805,7 +4805,7 @@
    "kind": "static"
   },
   {
-   "room": 83,
+   "polygon": 83,
    "pos": [
     655.0,
     645.0
@@ -4820,7 +4820,7 @@
    "kind": "static"
   },
   {
-   "room": 56,
+   "polygon": 56,
    "pos": [
     380.0,
     437.0
@@ -4835,7 +4835,7 @@
    "kind": "static"
   },
   {
-   "room": 57,
+   "polygon": 57,
    "pos": [
     380.0,
     512.0
@@ -4850,7 +4850,7 @@
    "kind": "static"
   },
   {
-   "room": 60,
+   "polygon": 60,
    "pos": [
     322.0,
     590.0
@@ -4865,7 +4865,7 @@
    "kind": "static"
   },
   {
-   "room": 78,
+   "polygon": 78,
    "pos": [
     655.0,
     450.0
@@ -4880,7 +4880,7 @@
    "kind": "static"
   },
   {
-   "room": 54,
+   "polygon": 54,
    "pos": [
     -115.0,
     350.0
@@ -4895,7 +4895,7 @@
    "kind": "static"
   },
   {
-   "room": 99,
+   "polygon": 99,
    "pos": [
     125.0,
     -270.0
@@ -4910,7 +4910,7 @@
    "kind": "static"
   },
   {
-   "room": 72,
+   "polygon": 72,
    "pos": [
     80.0,
     670.0
@@ -4925,7 +4925,7 @@
    "kind": "static"
   },
   {
-   "room": 31,
+   "polygon": 31,
    "pos": [
     655.0,
     75.0
@@ -4940,7 +4940,7 @@
    "kind": "static"
   },
   {
-   "room": 13,
+   "polygon": 13,
    "pos": [
     385.0,
     -55.0

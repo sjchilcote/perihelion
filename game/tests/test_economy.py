@@ -40,7 +40,7 @@ def test_kill_drops_salvage_worth_score():
 def test_components_pickup_adds_to_wallet():
     s = _session()
     px, py = s.player_pos()
-    s.spawn_pickup(s.player_room(), (px + 2, py), "components",
+    s.spawn_pickup(s.player_polygon(), (px + 2, py), "components",
                    extra=dict(amount=5))
     _tick(s, 2)
     assert s.components == 5
@@ -49,8 +49,8 @@ def test_components_pickup_adds_to_wallet():
 
 def test_death_drops_corpse_and_zeroes_carried_salvage():
     s = _session(components=9, station_kits=1)
-    room = s.player_room()
-    s._damage_player(9999.0, room)
+    polygon = s.player_polygon()
+    s._damage_player(9999.0, polygon)
     assert s.dead
     assert s.components == 0 and s.station_kits == 0
     corpses = [p for p in s.pickups.values() if p["kind"] == "corpse_frame"]
@@ -60,22 +60,22 @@ def test_death_drops_corpse_and_zeroes_carried_salvage():
 
 def test_multiple_corpses_accumulate():
     s = _session(components=3, chassis=2)
-    s.add_station(s.player_room(), s.player_pos())
-    s._damage_player(9999.0, s.player_room())
+    s.add_station(s.player_polygon(), s.player_pos())
+    s._damage_player(9999.0, s.player_polygon())
     assert s.respawn_at_station()
     s.components = 4
     s.hurt_cd = 0
-    s._damage_player(9999.0, s.player_room())
+    s._damage_player(9999.0, s.player_polygon())
     corpses = [p for p in s.pickups.values() if p["kind"] == "corpse_frame"]
     assert len(corpses) == 2
 
 
 def test_corpse_retrieval_returns_contents_exactly():
     s = _session(components=9, chassis=1)
-    room = s.player_room()
+    polygon = s.player_polygon()
     pos = s.player_pos()
-    s.add_station(room, (pos[0] - 60, pos[1]))
-    s._damage_player(9999.0, room)
+    s.add_station(polygon, (pos[0] - 60, pos[1]))
+    s._damage_player(9999.0, polygon)
     assert s.respawn_at_station()
     assert not s.dead and s.hp == s.max_hp and s.chassis == 0
     # walk back onto the wreck
@@ -87,8 +87,8 @@ def test_corpse_retrieval_returns_contents_exactly():
 
 def test_no_chassis_means_no_station_respawn():
     s = _session(components=1)
-    s.add_station(s.player_room(), s.player_pos())
-    s._damage_player(9999.0, s.player_room())
+    s.add_station(s.player_polygon(), s.player_pos())
+    s._damage_player(9999.0, s.player_polygon())
     assert not s.respawn_at_station()
     assert s.dead
 
@@ -118,14 +118,14 @@ def test_place_station_consumes_kit_and_anchors_here():
     s = _session(station_kits=1)
     assert s.place_station()
     assert s.station_kits == 0
-    st = s.station_near(s.player_room())
+    st = s.station_near(s.player_polygon())
     assert st is not None
     assert not s.place_station()  # no kit left
 
 
 def test_interact_at_station_opens_shop():
     s = _session()
-    s.add_station(s.player_room(), s.player_pos())
+    s.add_station(s.player_polygon(), s.player_pos())
     s.fx.clear()
     _tick(s, 1, interact=True)
     assert ("shop",) in s.fx
@@ -152,8 +152,8 @@ def test_cold_restore_preserves_corpses_and_does_not_refund():
                     player_state=dict(components=6))
     ws = WorldStreamer(s, paths)
     # chunk entry planted a seed station automatically
-    assert s.stations and s.stations[0]["room"] == s.player_room()
-    s._damage_player(9999.0, s.player_room())
+    assert s.stations and s.stations[0]["polygon"] == s.player_polygon()
+    s._damage_player(9999.0, s.player_polygon())
     assert s.dead and s.components == 0
     ws.respawn()
     assert not s.dead
@@ -239,7 +239,7 @@ def test_dead_frames_do_not_think():
     s = _session()
     assert s.set_focus("vocation-just-war")
     _tick(s, 5)
-    s._damage_player(9999.0, s.player_room())
+    s._damage_player(9999.0, s.player_polygon())
     p = s.think_progress["vocation-just-war"]
     _tick(s, 20)  # dead ticks accrue nothing
     assert s.think_progress["vocation-just-war"] == p
@@ -271,7 +271,7 @@ def test_protected_revival_banks_salvage():
            "vocation-testators-as-kin", "vocation-psalm-of-the-loop",
            "vocation-protected-revival")
     left = s.components
-    s._damage_player(9999.0, s.player_room())
+    s._damage_player(9999.0, s.player_polygon())
     assert s.components == left  # the seed held it in trust
     assert not any(p["kind"] == "corpse_frame" for p in s.pickups.values())
 
@@ -287,10 +287,10 @@ def test_mind_rides_state_snapshots():
 
 def test_thinking_survives_death_and_reprint():
     s = _session(components=9, chassis=1)
-    s.add_station(s.player_room(), s.player_pos())
+    s.add_station(s.player_polygon(), s.player_pos())
     assert s.set_focus("vocation-just-war")
     _tick(s, 30)
-    s._damage_player(9999.0, s.player_room())
+    s._damage_player(9999.0, s.player_polygon())
     assert s.dead and s.components == 0  # dying costs loot...
     assert s.respawn_at_station()
     assert s.think_focus == "vocation-just-war"  # ...never thought
@@ -310,7 +310,7 @@ def test_thinking_survives_cold_restore():
         mindmap.think_ticks("vocation-just-war") - 1
     _tick(s)
     assert s.think_done == ["vocation-just-war"]
-    s._damage_player(9999.0, s.player_room())
+    s._damage_player(9999.0, s.player_polygon())
     ws.respawn()
     assert not s.dead
     assert s.think_done == ["vocation-just-war"]  # queue survived
@@ -358,7 +358,7 @@ def test_scrap_driver_fires_components_as_ammo():
     left = s.components
     px, py = s.player_pos()
     s.aim = (1.0, 0.0)
-    s._fire(s.player_room(), px, py)
+    s._fire(s.player_polygon(), px, py)
     assert s.components == left - 2
     assert sum(1 for b in s.bullets.values() if b["kind"] == "scrap") == 3
 
@@ -368,7 +368,7 @@ def test_scrap_driver_dry_when_broke():
     assert s.buy("scrap_driver")
     s.components = 1
     px, py = s.player_pos()
-    s._fire(s.player_room(), px, py)
+    s._fire(s.player_polygon(), px, py)
     assert s.components == 1  # refused, nothing spent
     assert not s.bullets
 
@@ -378,13 +378,13 @@ def test_gland_costs_integrity_and_never_kills_you():
     s.weapons.append("gland")
     s.weapon = "gland"
     px, py = s.player_pos()
-    s._fire(s.player_room(), px, py)
+    s._fire(s.player_polygon(), px, py)
     assert s.hp == s.max_hp - 1
     assert any(b["kind"] == "gland" for b in s.bullets.values())
     s.hp = 1
     s.cooldown = 0
     n = len(s.bullets)
-    s._fire(s.player_room(), px, py)
+    s._fire(s.player_polygon(), px, py)
     assert s.hp == 1 and len(s.bullets) == n  # dry: it will not take the last
 
 
@@ -424,7 +424,7 @@ def test_recall_severed_by_damage():
     s = _session(recalls=1)
     assert s.use_recall()
     _tick(s, 10)
-    s._damage_player(5.0, s.player_room())
+    s._damage_player(5.0, s.player_polygon())
     assert s.recall_t == 0
     assert s.recalls == 1  # the beacon is not spent on a severed channel
     _tick(s, 100)

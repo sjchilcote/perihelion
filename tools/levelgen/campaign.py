@@ -3,7 +3,7 @@
 Ten levels along the escalation curve of design_document_2.md §8.1:
 deniable wrongness -> confirmable paradox -> overt impossibility -> pure graph.
 
-Authoring style: rooms are drawn adjacent on the canvas; the level builder's
+Authoring style: polygons are drawn adjacent on the canvas; the level builder's
 doorway-splitter turns any short wall segment shared with a longer wall into
 an opening automatically. Impossible connections are added with connect_pts
 (edge chosen by midpoint, resolved after splitting). no_connect keeps a
@@ -27,31 +27,31 @@ from perihelion.levels import LevelBuilder, save_level  # noqa: E402
 OUT = Path(__file__).resolve().parents[2] / "levels"
 
 
-def center(b: LevelBuilder, room: int) -> tuple[float, float]:
-    vs = b.data["rooms"][room]["verts"]
+def center(b: LevelBuilder, polygon: int) -> tuple[float, float]:
+    vs = b.data["polygons"][polygon]["verts"]
     return (sum(v[0] for v in vs) / len(vs), sum(v[1] for v in vs) / len(vs))
 
 
-def squad(b: LevelBuilder, room: int, spec: str, spread: float = 32.0):
+def squad(b: LevelBuilder, polygon: int, spec: str, spread: float = 32.0):
     kinds = spec.split()
-    cx, cy = center(b, room)
+    cx, cy = center(b, polygon)
     n = len(kinds)
     for i, k in enumerate(kinds):
         a = 2 * math.pi * i / max(1, n) + 0.7
         r = spread if n > 1 else 0.0
-        b.entity(room, k, (cx + r * math.cos(a), cy + r * math.sin(a)))
+        b.entity(polygon, k, (cx + r * math.cos(a), cy + r * math.sin(a)))
 
 
-def wall_basis(b: LevelBuilder, room: int, wall: int, t: float = 0.5):
-    """(mx, my, tx, ty, nx, ny) for edge `wall` of `room` in absolute-canvas
+def wall_basis(b: LevelBuilder, polygon: int, wall: int, t: float = 0.5):
+    """(mx, my, tx, ty, nx, ny) for edge `wall` of `polygon` in absolute-canvas
     (authoring) coordinates: a point `t` along the wall, its tangent, and its
-    inward normal (toward the room's own centroid). For any room authored
+    inward normal (toward the polygon's own centroid). For any polygon authored
     with `LevelBuilder.rect(x, y, w, h)`, edge indices are stable and known:
     0=west, 1=south, 2=east, 3=north (verified against rect()'s vertex
     order) -- pass that index explicitly rather than guessing. For irregular
-    rooms (ngons, polys), the caller is responsible for picking a `wall`
+    polygons (ngons, polys), the caller is responsible for picking a `wall`
     index that is not a portal edge (see LEVEL_DESIGN_PLAYBOOK.md §5)."""
-    verts = b.data["rooms"][room]["verts"]
+    verts = b.data["polygons"][polygon]["verts"]
     n = len(verts)
     cx = sum(v[0] for v in verts) / n
     cy = sum(v[1] for v in verts) / n
@@ -67,51 +67,51 @@ def wall_basis(b: LevelBuilder, room: int, wall: int, t: float = 0.5):
     return mx, my, tx, ty, nx, ny
 
 
-def wall_pos(b: LevelBuilder, room: int, wall: int, t: float = 0.5,
+def wall_pos(b: LevelBuilder, polygon: int, wall: int, t: float = 0.5,
              inset: float = 15.0) -> tuple[float, float]:
-    """A point `inset` units in from wall `wall` of `room`, `t` along its
+    """A point `inset` units in from wall `wall` of `polygon`, `t` along its
     length -- a wall alcove for a terminal or a control lectern
-    (LEVEL_DESIGN_PLAYBOOK.md §4), never a room's floor-center."""
-    mx, my, tx, ty, nx, ny = wall_basis(b, room, wall, t)
+    (LEVEL_DESIGN_PLAYBOOK.md §4), never a polygon's floor-center."""
+    mx, my, tx, ty, nx, ny = wall_basis(b, polygon, wall, t)
     return (mx + nx * inset, my + ny * inset)
 
 
-def cache(b: LevelBuilder, room: int, spec: str, off=(0.0, 0.0),
+def cache(b: LevelBuilder, polygon: int, spec: str, off=(0.0, 0.0),
           wall: int | None = None, t: float = 0.5, inset: float = 16.0):
     """Place a supply cache. Default (`wall=None`): a literal offset from
-    room-center, `off` -- kept for paradox-critical spots and irregular
-    rooms where a wall index must be hand-verified against portal edges
+    polygon-center, `off` -- kept for paradox-critical spots and irregular
+    polygons where a wall index must be hand-verified against portal edges
     first. Pass `wall=<edge index>` to rack the cache in a single row along
     that wall's tangent instead (locker/shelf framing, LEVEL_DESIGN_
-    PLAYBOOK.md §5) -- safe for any `LevelBuilder.rect` room using the
+    PLAYBOOK.md §5) -- safe for any `LevelBuilder.rect` polygon using the
     stable 0=west/1=south/2=east/3=north edge order."""
     if wall is not None:
-        mx, my, tx, ty, nx, ny = wall_basis(b, room, wall, t)
+        mx, my, tx, ty, nx, ny = wall_basis(b, polygon, wall, t)
         bx, by = mx + nx * inset, my + ny * inset
         items = spec.split()
         span = (len(items) - 1) * 13.0
         for i, k in enumerate(items):
             tt = -span / 2.0 + i * 13.0
-            b.entity(room, k, (bx + tx * tt, by + ty * tt))
+            b.entity(polygon, k, (bx + tx * tt, by + ty * tt))
         return
-    cx, cy = center(b, room)
+    cx, cy = center(b, polygon)
     for i, k in enumerate(spec.split()):
-        b.entity(room, k, (cx + off[0] + (i % 3) * 15 - 15,
+        b.entity(polygon, k, (cx + off[0] + (i % 3) * 15 - 15,
                            cy + off[1] + (i // 3) * 15))
 
 
 def sector_ring(b, cx, cy, r_in, r_out, n, a0, a1) -> list[int]:
-    rooms = []
+    polygons = []
     for i in range(n):
         t0 = a0 + (a1 - a0) * i / n
         t1 = a0 + (a1 - a0) * (i + 1) / n
-        rooms.append(b.poly([
+        polygons.append(b.poly([
             (cx + r_in * math.cos(t0), cy + r_in * math.sin(t0)),
             (cx + r_in * math.cos(t1), cy + r_in * math.sin(t1)),
             (cx + r_out * math.cos(t1), cy + r_out * math.sin(t1)),
             (cx + r_out * math.cos(t0), cy + r_out * math.sin(t0)),
         ]))
-    return rooms
+    return polygons
 
 
 def arc_mid(cx, cy, r, t):
@@ -129,8 +129,8 @@ def l01():
 
 
 # ---------------------------------------------------------------------------
-# L2 — COOLANT ROW. Deniable-going-on-odd: a pump room whose north hatch
-# drops you back into a different pump room facing the other way. Mites.
+# L2 — COOLANT ROW. Deniable-going-on-odd: a pump polygon whose north hatch
+# drops you back into a different pump polygon facing the other way. Mites.
 # Red key, SMG.
 # ---------------------------------------------------------------------------
 
@@ -169,7 +169,7 @@ def l05():
 
 
 # ---------------------------------------------------------------------------
-# L6 — MIRROR WARD. The mirror room. Things come out of it.
+# L6 — MIRROR WARD. The mirror polygon. Things come out of it.
 # ---------------------------------------------------------------------------
 
 def l06():
@@ -187,7 +187,7 @@ def l07():
 
 
 # ---------------------------------------------------------------------------
-# L8 — THE FOLD. Six petals around a heart; every route adds a room that
+# L8 — THE FOLD. Six petals around a heart; every route adds a polygon that
 # was already there. Warden's first stand.
 # ---------------------------------------------------------------------------
 
@@ -197,7 +197,7 @@ def l08():
 
 
 # ---------------------------------------------------------------------------
-# L9 — TESSERACT DECK. Sixteen identical rooms on a 4-cube. Pure graph.
+# L9 — TESSERACT DECK. Sixteen identical polygons on a 4-cube. Pure graph.
 # ---------------------------------------------------------------------------
 
 def l09():
@@ -276,7 +276,7 @@ def main():
         save_level(final, OUT / name)
         manifest.append(f"levels/{name}")
         n_enemies = sum(1 for _, e in lvl.entities if e.type in kinds)
-        print(f"{name}: {lvl.name!r} rooms={len(lvl.room_verts)} "
+        print(f"{name}: {lvl.name!r} polygons={len(lvl.polygon_verts)} "
               f"connects={len(lvl.connects)} doors={len(lvl.doors)} "
               f"enemies={n_enemies}")
     vb = vigil()

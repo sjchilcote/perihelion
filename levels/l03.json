@@ -3,7 +3,7 @@
  "name": "HYDROPONICS TORUS",
  "tier": 2,
  "ambience": "amb_drone_mid",
- "rooms": [
+ "polygons": [
   {
    "verts": [
     [
@@ -6217,14 +6217,14 @@
   }
  ],
  "player": {
-  "room": 87,
+  "polygon": 87,
   "pos": [
    1533,
    -635
   ]
  },
  "exit": {
-  "room": 7,
+  "polygon": 7,
   "pos": [
    483,
    40
@@ -6235,7 +6235,7 @@
   "radio": [],
   "terminals": [
    {
-    "room": 7,
+    "polygon": 7,
     "pos": [
      551.0,
      0.0
@@ -6243,15 +6243,15 @@
     "text": "BOTANY NOTE\nThe cucumbers grow clockwise here.\nIn the seed manual they grow counterclockwise.\nSame seeds. Same water.\nI stopped writing this up."
    },
    {
-    "room": 8,
+    "polygon": 8,
     "pos": [
      -337.0,
      165.0
     ],
-    "text": "INVENTORY\n2x fertilizer drum \u2014 MISSING.\nFound both drums in the room I was standing in.\nBehind me. I had checked behind me."
+    "text": "INVENTORY\n2x fertilizer drum \u2014 MISSING.\nFound both drums in the polygon I was standing in.\nBehind me. I had checked behind me."
    },
    {
-    "room": 1,
+    "polygon": 1,
     "pos": [
      137.88582233137677,
      -137.88582233137674
@@ -6259,7 +6259,7 @@
     "text": "DIRECTIVE 0007 \u2014 MIRIAD PRIME\nRE: survey of gravitational anomaly,\nTrack Quanta-118093\n\nRETRIEVAL SUPERSEDES SURVEY.\n\n[appended, local, unsigned]\nFour months of careful science, inverted overnight\nby three words. We cut the aperture Tuesday.\nGod help whoever reads this log in order."
    },
    {
-    "room": 4,
+    "polygon": 4,
     "pos": [
      159.7346486363534,
      111.84740508845398
@@ -6267,7 +6267,7 @@
     "text": "FEEDER SCHEDULE, SECTOR 5\n0400 nutrient, 0900 mist, 1400 nutrient,\n1900 mist, 0000 dark cycle.\nThe dying trays spiral inward, sunwise.\nThe healthy trays spiral the other way.\nBotany says plants do not have a 'way'."
    },
    {
-    "room": 6,
+    "polygon": 6,
     "pos": [
      0.0,
      -425.0
@@ -6275,7 +6275,7 @@
     "text": "SURVEY LOG \u2014 WEEK SIXTEEN\nNutrient uptake within tolerance. Torus rotation\nnominal. Track Quanta-118093's gravitational\nsignature remains the whole of this posting's\ninterest, and it has not changed in sixteen weeks.\nRequest denied: additional survey time. Reason\ngiven: 'the anomaly does not need more looking\nat. It needs a name.' We have not been told what\nname."
    },
    {
-    "room": 0,
+    "polygon": 0,
     "pos": [
      48.88228567653781,
      -182.4311737349355
@@ -6283,7 +6283,7 @@
     "text": "BENCH TAG, SECTOR ONE\nControl group. No treatment applied. For\ncomparison only. Yield tracked weekly, entered by\nhand because the automatic logger keeps entering\nyields for a sector two rows over. Someone keeps\ncorrecting the logger. The correction keeps\nneeding to happen again."
    },
    {
-    "room": 2,
+    "polygon": 2,
     "pos": [
      283.9821929289861,
      -76.09279926014109
@@ -6291,7 +6291,7 @@
     "text": "GARDEN AIRLOCK \u2014 ENTRY PROCEDURE\nThe lock will not cycle on a spent scrubber.\nFresh cartridges are racked at the end cap,\nsector six, past the feeders. Slot the\ncartridge, wait for the green, return the spent\nunit to the rack. Do not prop the inner door.\nNot after last time."
    },
    {
-    "room": 3,
+    "polygon": 3,
     "pos": [
      182.4311737349355,
      48.8822856765378
@@ -6310,7 +6310,7 @@
  },
  "lights": [
   {
-   "room": 0,
+   "polygon": 0,
    "pos": [
     62.5,
     -233.25317547305485
@@ -6325,7 +6325,7 @@
    "kind": "static"
   },
   {
-   "room": 1,
+   "polygon": 1,
    "pos": [
     170.75317547305482,
     -170.75317547305485
@@ -6340,7 +6340,7 @@
    "kind": "static"
   },
   {
-   "room": 2,
+   "polygon": 2,
    "pos": [
     233.25317547305482,
     -62.5
@@ -6355,7 +6355,7 @@
    "kind": "static"
   },
   {
-   "room": 3,
+   "polygon": 3,
    "pos": [
     233.25317547305485,
     62.49999999999998
@@ -6370,7 +6370,7 @@
    "kind": "static"
   },
   {
-   "room": 4,
+   "polygon": 4,
    "pos": [
     170.75317547305482,
     170.75317547305482
@@ -6385,7 +6385,7 @@
    "kind": "static"
   },
   {
-   "room": 5,
+   "polygon": 5,
    "pos": [
     62.5,
     233.25317547305485
@@ -6400,7 +6400,7 @@
    "kind": "static"
   },
   {
-   "room": 7,
+   "polygon": 7,
    "pos": [
     470.0,
     0.0
@@ -6415,7 +6415,7 @@
    "kind": "static"
   },
   {
-   "room": 6,
+   "polygon": 6,
    "pos": [
     0.0,
     -380.0
@@ -6430,7 +6430,7 @@
    "kind": "static"
   },
   {
-   "room": 8,
+   "polygon": 8,
    "pos": [
     -337.0,
     110.0
@@ -6445,7 +6445,7 @@
    "kind": "static"
   },
   {
-   "room": 87,
+   "polygon": 87,
    "pos": [
     1533.0,
     -635.0
@@ -6460,7 +6460,7 @@
    "kind": "static"
   },
   {
-   "room": 86,
+   "polygon": 86,
    "pos": [
     1423.0,
     -635.0
@@ -6475,7 +6475,7 @@
    "kind": "static"
   },
   {
-   "room": 81,
+   "polygon": 81,
    "pos": [
     1138.0,
     -630.0
@@ -6490,7 +6490,7 @@
    "kind": "static"
   },
   {
-   "room": 60,
+   "polygon": 60,
    "pos": [
     858.0,
     -630.0
@@ -6505,7 +6505,7 @@
    "kind": "static"
   },
   {
-   "room": 39,
+   "polygon": 39,
    "pos": [
     493.0,
     -630.0
@@ -6520,7 +6520,7 @@
    "kind": "static"
   },
   {
-   "room": 17,
+   "polygon": 17,
    "pos": [
     488.0,
     -385.0
@@ -6535,7 +6535,7 @@
    "kind": "static"
   },
   {
-   "room": 58,
+   "polygon": 58,
    "pos": [
     583.0,
     -720.0
@@ -6550,7 +6550,7 @@
    "kind": "static"
   },
   {
-   "room": 44,
+   "polygon": 44,
    "pos": [
     578.0,
     -812.0
@@ -6565,7 +6565,7 @@
    "kind": "static"
   },
   {
-   "room": 46,
+   "polygon": 46,
    "pos": [
     503.0,
     -990.0
@@ -6580,7 +6580,7 @@
    "kind": "static"
   },
   {
-   "room": 94,
+   "polygon": 94,
    "pos": [
     1128.0,
     -345.0
@@ -6595,7 +6595,7 @@
    "kind": "static"
   },
   {
-   "room": 97,
+   "polygon": 97,
    "pos": [
     1238.0,
     -235.0
@@ -6610,7 +6610,7 @@
    "kind": "static"
   },
   {
-   "room": 108,
+   "polygon": 108,
    "pos": [
     763.0,
     -395.0
@@ -6625,7 +6625,7 @@
    "kind": "static"
   },
   {
-   "room": 111,
+   "polygon": 111,
    "pos": [
     863.0,
     -295.0
@@ -6640,7 +6640,7 @@
    "kind": "static"
   },
   {
-   "room": 172,
+   "polygon": 172,
    "pos": [
     -740.0,
     670.0
@@ -6655,7 +6655,7 @@
    "kind": "static"
   },
   {
-   "room": 175,
+   "polygon": 175,
    "pos": [
     -640.0,
     770.0
@@ -6670,7 +6670,7 @@
    "kind": "static"
   },
   {
-   "room": 141,
+   "polygon": 141,
    "pos": [
     -655.0,
     110.0
@@ -6685,7 +6685,7 @@
    "kind": "static"
   },
   {
-   "room": 151,
+   "polygon": 151,
    "pos": [
     -650.0,
     390.0
@@ -6700,7 +6700,7 @@
    "kind": "static"
   },
   {
-   "room": 158,
+   "polygon": 158,
    "pos": [
     -555.0,
     475.0

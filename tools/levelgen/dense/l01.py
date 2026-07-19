@@ -1,6 +1,6 @@
 """L1 — DOCK 4 — SWEEP, rebuilt to Marathon density (standalone module).
 
-Same level, finer cells: the 12-room original becomes a ~120-cell district
+Same level, finer cells: the 12-polygon original becomes a ~120-cell district
 per MARATHON_LEVEL_STANDARDS.md (cell rhythm 60/90/150/220, corridor
 chains, ~10% dead-end alcoves, quads with chamfers, three width registers).
 
@@ -10,11 +10,11 @@ the exit, and the paradox construct — the storage ring that holds nine
 segments in an eight-segment footprint. The ring (8 segments + junction +
 phantom) is copied coordinate-for-coordinate: its no_connect list, the two
 connect_pts through the phantom, and every wall it owns are untouched; no
-new cell shares an edge with any of those ten rooms except the hall's
+new cell shares an edge with any of those ten polygons except the hall's
 original weld into the junction's west wall.
 
 Streaming: the spawn cell (d_w) keeps a fully solid 180 u west wall and
-the exit room (ring_se) keeps its solid west/east/south walls, so
+the exit polygon (ring_se) keeps its solid west/east/south walls, so
 WorldStreamer can carve its 70 u spine doors at both ends.
 
 Usage:
@@ -37,23 +37,23 @@ from perihelion.levels import LevelBuilder  # noqa: E402
 
 # --- placement helpers, copied from tools/levelgen/campaign.py -------------
 
-def center(b: LevelBuilder, room: int) -> tuple[float, float]:
-    vs = b.data["rooms"][room]["verts"]
+def center(b: LevelBuilder, polygon: int) -> tuple[float, float]:
+    vs = b.data["polygons"][polygon]["verts"]
     return (sum(v[0] for v in vs) / len(vs), sum(v[1] for v in vs) / len(vs))
 
 
-def squad(b: LevelBuilder, room: int, spec: str, spread: float = 32.0):
+def squad(b: LevelBuilder, polygon: int, spec: str, spread: float = 32.0):
     kinds = spec.split()
-    cx, cy = center(b, room)
+    cx, cy = center(b, polygon)
     n = len(kinds)
     for i, k in enumerate(kinds):
         a = 2 * math.pi * i / max(1, n) + 0.7
         r = spread if n > 1 else 0.0
-        b.entity(room, k, (cx + r * math.cos(a), cy + r * math.sin(a)))
+        b.entity(polygon, k, (cx + r * math.cos(a), cy + r * math.sin(a)))
 
 
-def wall_basis(b: LevelBuilder, room: int, wall: int, t: float = 0.5):
-    verts = b.data["rooms"][room]["verts"]
+def wall_basis(b: LevelBuilder, polygon: int, wall: int, t: float = 0.5):
+    verts = b.data["polygons"][polygon]["verts"]
     n = len(verts)
     cx = sum(v[0] for v in verts) / n
     cy = sum(v[1] for v in verts) / n
@@ -69,26 +69,26 @@ def wall_basis(b: LevelBuilder, room: int, wall: int, t: float = 0.5):
     return mx, my, tx, ty, nx, ny
 
 
-def wall_pos(b: LevelBuilder, room: int, wall: int, t: float = 0.5,
+def wall_pos(b: LevelBuilder, polygon: int, wall: int, t: float = 0.5,
              inset: float = 15.0) -> tuple[float, float]:
-    mx, my, tx, ty, nx, ny = wall_basis(b, room, wall, t)
+    mx, my, tx, ty, nx, ny = wall_basis(b, polygon, wall, t)
     return (mx + nx * inset, my + ny * inset)
 
 
-def cache(b: LevelBuilder, room: int, spec: str, off=(0.0, 0.0),
+def cache(b: LevelBuilder, polygon: int, spec: str, off=(0.0, 0.0),
           wall: int | None = None, t: float = 0.5, inset: float = 16.0):
     if wall is not None:
-        mx, my, tx, ty, nx, ny = wall_basis(b, room, wall, t)
+        mx, my, tx, ty, nx, ny = wall_basis(b, polygon, wall, t)
         bx, by = mx + nx * inset, my + ny * inset
         items = spec.split()
         span = (len(items) - 1) * 13.0
         for i, k in enumerate(items):
             tt = -span / 2.0 + i * 13.0
-            b.entity(room, k, (bx + tx * tt, by + ty * tt))
+            b.entity(polygon, k, (bx + tx * tt, by + ty * tt))
         return
-    cx, cy = center(b, room)
+    cx, cy = center(b, polygon)
     for i, k in enumerate(spec.split()):
-        b.entity(room, k, (cx + off[0] + (i % 3) * 15 - 15,
+        b.entity(polygon, k, (cx + off[0] + (i % 3) * 15 - 15,
                            cy + off[1] + (i // 3) * 15))
 
 
@@ -158,7 +158,7 @@ def l01() -> LevelBuilder:
     r10 = b.rect(480, -300, 80, 70, kind="records")
     r01 = b.rect(400, -230, 80, 70, kind="records")
     r11 = b.rect(480, -230, 80, 70, kind="records")
-    rc = b.rect(400, -380, 80, 80, kind="records")       # reading room
+    rc = b.rect(400, -380, 80, 80, kind="records")       # reading polygon
     rc2 = b.rect(480, -380, 80, 80, kind="records")
     cn2 = b.poly([(560, -360), (560, -300), (620, -300), (620, -330),
                   (590, -360)])                          # shelf-end reader nook
@@ -187,7 +187,7 @@ def l01() -> LevelBuilder:
 
     # =======================================================================
     # THE HALL — the original dock->junction corridor (220..560 x 60..130),
-    # now a 3-cell chain with side rooms. H3 still overlaps ring segment
+    # now a 3-cell chain with side polygons. H3 still overlaps ring segment
     # west on the canvas exactly like the original hall did, and still
     # welds only into the junction's west wall.
     # =======================================================================
@@ -354,7 +354,7 @@ def l01() -> LevelBuilder:
                "Approved, forwarded for transit scheduling.\n\n"
                "[handwritten under the printed field]\n"
                "Bring the good boots. Don't bring the mandolin, no\n"
-               "room in the crate for both, checked twice.")
+               "polygon in the crate for both, checked twice.")
     b.terminal(junction, wall_pos(b, junction, 2, 0.5, 15.0),
                "WATCH LOG, JUNCTION — WATCH J-4\n"
                "Hatch north: sealed, pressure nominal on my side.\n"
@@ -424,5 +424,5 @@ def build() -> dict:
 
 if __name__ == "__main__":
     d = build()
-    print(f"rooms={len(d['rooms'])} connects={len(d['connects'])} "
+    print(f"polygons={len(d['polygons'])} connects={len(d['connects'])} "
           f"doors={len(d['doors'])}")

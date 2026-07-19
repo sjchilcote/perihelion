@@ -1143,13 +1143,13 @@
    "literal_se": false,
    "literal_shift": false,
    "literal_saturated": false,
-   "worst_se_room": [
+   "worst_se_polygon": [
     42,
     0.000751466805399,
     0.19604243390679488
    ],
    "max_rel_shift": 1.0,
-   "max_shift_room": 22,
+   "max_shift_polygon": 22,
    "median_observed_to_predicted_shift_ratio": 0.3590629376807581,
    "n_bins_shifted_over_15pct": 17
   },
@@ -1160,9 +1160,9 @@
    "literal_se": true,
    "literal_shift": false,
    "literal_saturated": false,
-   "worst_se_room": null,
+   "worst_se_polygon": null,
    "max_rel_shift": 1.0,
-   "max_shift_room": 31,
+   "max_shift_polygon": 31,
    "median_observed_to_predicted_shift_ratio": 0.28544415084735814,
    "n_bins_shifted_over_15pct": 13
   },
@@ -1173,9 +1173,9 @@
    "literal_se": true,
    "literal_shift": false,
    "literal_saturated": false,
-   "worst_se_room": null,
+   "worst_se_polygon": null,
    "max_rel_shift": 1.0,
-   "max_shift_room": 21,
+   "max_shift_polygon": 21,
    "median_observed_to_predicted_shift_ratio": 0.3586432190405091,
    "n_bins_shifted_over_15pct": 14
   },
@@ -1186,13 +1186,13 @@
    "literal_se": false,
    "literal_shift": false,
    "literal_saturated": false,
-   "worst_se_room": [
+   "worst_se_polygon": [
     20,
     0.00017956142122864903,
     0.24997755381468395
    ],
    "max_rel_shift": 1.0280551905387647,
-   "max_shift_room": 18,
+   "max_shift_polygon": 18,
    "median_observed_to_predicted_shift_ratio": 0.3407312403548879,
    "n_bins_shifted_over_15pct": 16
   },
@@ -1203,18 +1203,18 @@
    "literal_se": false,
    "literal_shift": false,
    "literal_saturated": false,
-   "worst_se_room": [
+   "worst_se_polygon": [
     20,
     9.136748573810652e-05,
     0.24998857880339526
    ],
    "max_rel_shift": 1.0042132018261813,
-   "max_shift_room": 43,
+   "max_shift_polygon": 43,
    "median_observed_to_predicted_shift_ratio": 0.37764815743368135,
    "n_bins_shifted_over_15pct": 14
   }
  ],
- "per_room_final": {
+ "per_polygon_final": {
   "0": {
    "n_ticks": 180405,
    "hazard": 0.0,
@@ -1446,5 +1446,5 @@
    "est_deaths": 9.3
   }
  },
- "note": "streaming per-room 3s-hazard saturation over the full farm; est_deaths = positive_ticks/HORIZON is the honest sample-size unit (tick SEs are ~sqrt(HORIZON) optimistic; see FITTING_REPORT.md saturation section)"
+ "note": "streaming per-polygon 3s-hazard saturation over the full farm; est_deaths = positive_ticks/HORIZON is the honest sample-size unit (tick SEs are ~sqrt(HORIZON) optimistic; see FITTING_REPORT.md saturation section)"
 }

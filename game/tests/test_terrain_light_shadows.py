@@ -1,14 +1,14 @@
 """Walk-mask terrain blocks lamp light (director's directive, 2026-07-13):
 "terrain must block lamp light, including the player's worklight, but not
 player vision -- enemies behind a terrain object will look like a sensor
-trace highlighting an enemy in shadow." Wires `Sim.room_terrain` into
+trace highlighting an enemy in shadow." Wires `Sim.polygon_terrain` into
 `lighting.compute_light_instances` (shadow polygons, standard 2D
 shadowcasting) and `render.py`'s `_blit_light` (pixel-level subtract from
 the union fill, since `necore.clip_polygon` only intersects convex
 regions -- there is no boolean polygon difference primitive available).
 
 No shipped `_walkmask.png` files exist yet, so these tests build terrain
-directly via `sim.set_room_terrain` (bypassing the PNG loader, which
+directly via `sim.set_polygon_terrain` (bypassing the PNG loader, which
 `test_walk_mask_terrain.py` already covers on its own) -- the shipped
 campaign is visually unchanged by this unit.
 """
@@ -41,7 +41,7 @@ def _atten(inst, point) -> float:
 
 
 def _corridor_level(terrain_rect=(0.0, -20.0, 40.0, 20.0)):
-    """One room, a light at the left wall, a terrain rect (if given)
+    """One polygon, a light at the left wall, a terrain rect (if given)
     between the light and the open floor to its right."""
     b = LevelBuilder("TSHAD", 1)
     r0 = b.rect(-200.0, -100.0, 400.0, 200.0)
@@ -49,7 +49,7 @@ def _corridor_level(terrain_rect=(0.0, -20.0, 40.0, 20.0)):
     level = b.build()
     session = GameSession(level, seed=1)
     if terrain_rect is not None:
-        session.sim.set_room_terrain(r0, [terrain_rect])
+        session.sim.set_polygon_terrain(r0, [terrain_rect])
     return session, r0
 
 
@@ -69,10 +69,10 @@ def test_shadow_behind_terrain_dark_beside_lit(kind):
     to ~0.7; reverted before committing.
     """
     session, r0 = _corridor_level()
-    light = LightSpec(room=r0, pos=(-190.0, 0.0), color=(255, 255, 255),
+    light = LightSpec(polygon=r0, pos=(-190.0, 0.0), color=(255, 255, 255),
                        intensity=1.0, radius=500.0, kind=kind)
     insts = compute_light_instances(session.sim, light)
-    inst = next(i for i in insts if i.room == r0)
+    inst = next(i for i in insts if i.polygon == r0)
     behind = (60.0, 0.0)    # directly behind the terrain rect from the light
     beside = (60.0, 70.0)   # same distance, clear of the rect's shadow
     a_behind = _atten(inst, behind)
@@ -97,13 +97,13 @@ def test_shadow_behind_terrain_pixel_composite():
 
     pygame.init()
     session, r0 = _corridor_level()
-    session.sim.set_room_terrain(r0, [(0.0, -20.0, 40.0, 20.0)])
+    session.sim.set_polygon_terrain(r0, [(0.0, -20.0, 40.0, 20.0)])
     session.lighting.add_lights(session.sim, [
-        LightSpec(room=r0, pos=(-190.0, 0.0), color=(255, 255, 255),
+        LightSpec(polygon=r0, pos=(-190.0, 0.0), color=(255, 255, 255),
                   intensity=1.2, radius=500.0, kind="static")])
     session.player_light.intensity = 0.0  # isolate the fixture
     ren = Renderer(session, backend="pygame")
-    ren._get_detail = lambda room: []
+    ren._get_detail = lambda polygon: []
     surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
     session.tick(InputFrame(mx=0, my=0, ax=INTERNAL_W / 2, ay=INTERNAL_H / 2,
                              fire=False, alt=False, interact=False, weapon=0))
@@ -131,12 +131,12 @@ def test_shadow_behind_terrain_pixel_composite():
 def test_no_shadow_without_terrain_regression():
     """Same geometry, but no terrain rect installed: the 'behind' sample
     must NOT be dark -- proves the shadow code doesn't fabricate occlusion
-    when `Sim.room_terrain` is empty (the common/shipped case today)."""
+    when `Sim.polygon_terrain` is empty (the common/shipped case today)."""
     session, r0 = _corridor_level(terrain_rect=None)
-    light = LightSpec(room=r0, pos=(-190.0, 0.0), color=(255, 255, 255),
+    light = LightSpec(polygon=r0, pos=(-190.0, 0.0), color=(255, 255, 255),
                        intensity=1.0, radius=500.0, kind="static")
     insts = compute_light_instances(session.sim, light)
-    inst = next(i for i in insts if i.room == r0)
+    inst = next(i for i in insts if i.polygon == r0)
     assert inst.shadow_local == ()
     a_behind = _atten(inst, (60.0, 0.0))
     assert a_behind > 0.15, f"expected no shadow, got attenuation {a_behind}"
@@ -147,13 +147,13 @@ def test_no_shadow_without_terrain_regression():
 # ---------------------------------------------------------------------
 
 def test_terrain_shadow_root_invariance_across_portal():
-    """Terrain shadows are pure room-local geometry (`inst.shadow_local`
-    lives in the SAME room-local frame as `clip_local`/`apex_local`), so a
-    light reaching a room with terrain through a portal must produce
+    """Terrain shadows are pure polygon-local geometry (`inst.shadow_local`
+    lives in the SAME polygon-local frame as `clip_local`/`apex_local`), so a
+    light reaching a polygon with terrain through a portal must produce
     IDENTICAL shadow polygons to computing that light natively in that
-    room -- exactly the reasoning ENGINE_DESIGN.md gives for wedges in
+    polygon -- exactly the reasoning ENGINE_DESIGN.md gives for wedges in
     general (root-frame invariance holds by construction, since the wedge
-    math and now the shadow math are both purely room-local)."""
+    math and now the shadow math are both purely polygon-local)."""
     b = LevelBuilder("TSHADROOT", 1)
     r0 = b.rect(-100.0, -100.0, 200.0, 200.0)
     r1 = b.rect(100.0, -100.0, 200.0, 200.0)
@@ -162,23 +162,23 @@ def test_terrain_shadow_root_invariance_across_portal():
     level = b.build()
     session = GameSession(level, seed=1)
     # terrain in r1, off to one side of the doorway
-    session.sim.set_room_terrain(r1, [(150.0, 20.0, 190.0, 60.0)])
+    session.sim.set_polygon_terrain(r1, [(150.0, 20.0, 190.0, 60.0)])
 
     # light in r0, reaching r1 through the portal
-    light = LightSpec(room=r0, pos=(50.0, 0.0), color=(255, 255, 255),
+    light = LightSpec(polygon=r0, pos=(50.0, 0.0), color=(255, 255, 255),
                        intensity=1.0, radius=250.0, kind="static")
     insts = compute_light_instances(session.sim, light, max_depth=4)
-    inst_r1_via_portal = next(i for i in insts if i.room == r1)
+    inst_r1_via_portal = next(i for i in insts if i.polygon == r1)
 
     # native: put an equivalent light directly in r1 at the SAME local
     # position the portal crossing recovered (apex_local), and compare
     # shadow polygons -- both must occlude the same terrain identically
     # since terrain and the recovered apex are both r1-local.
-    native_light = LightSpec(room=r1, pos=inst_r1_via_portal.apex_local,
+    native_light = LightSpec(polygon=r1, pos=inst_r1_via_portal.apex_local,
                               color=(255, 255, 255), intensity=1.0,
                               radius=inst_r1_via_portal.radius_local, kind="static")
     native_insts = compute_light_instances(session.sim, native_light, max_depth=1)
-    native_inst = next(i for i in native_insts if i.room == r1)
+    native_inst = next(i for i in native_insts if i.polygon == r1)
 
     assert len(inst_r1_via_portal.shadow_local) == len(native_inst.shadow_local) == 1
     poly_a = inst_r1_via_portal.shadow_local[0]
@@ -201,16 +201,16 @@ def test_enemy_visible_in_terrain_shadow():
 
     pygame.init()
     session, r0 = _corridor_level()
-    session.sim.set_room_terrain(r0, [(0.0, -20.0, 40.0, 20.0)])
+    session.sim.set_polygon_terrain(r0, [(0.0, -20.0, 40.0, 20.0)])
     session.lighting.add_lights(session.sim, [
-        LightSpec(room=r0, pos=(-190.0, 0.0), color=(255, 255, 255),
+        LightSpec(polygon=r0, pos=(-190.0, 0.0), color=(255, 255, 255),
                   intensity=1.2, radius=320.0, kind="static")])
     session.player_light.intensity = 0.0
     eid = session.spawn_enemy(r0, (60.0, 0.0), "husk")
     session.enemies[eid]["state"] = "hunt"
 
     ren = Renderer(session, backend="pygame")
-    ren._get_detail = lambda room: []
+    ren._get_detail = lambda polygon: []
     surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
     session.tick(InputFrame(mx=0, my=0, ax=INTERNAL_W / 2, ay=INTERNAL_H / 2,
                              fire=False, alt=False, interact=False, weapon=0))
@@ -250,13 +250,13 @@ def test_lights_pass_stays_within_budget():
     b.connect_pts(r0, (0.0, 0.0), r1, (0.0, 0.0))
     b.player(r0, (-150.0, 0.0))
     level = b.build()
-    level.lights.append(LightSpec(room=r0, pos=(-150.0, 0.0), color=(255, 220, 170),
+    level.lights.append(LightSpec(polygon=r0, pos=(-150.0, 0.0), color=(255, 220, 170),
                                    intensity=1.0, radius=250.0, kind="static"))
-    level.lights.append(LightSpec(room=r1, pos=(150.0, 0.0), color=(200, 220, 255),
+    level.lights.append(LightSpec(polygon=r1, pos=(150.0, 0.0), color=(200, 220, 255),
                                    intensity=1.0, radius=250.0, kind="static"))
     session = GameSession(level, seed=1, screen=(INTERNAL_W, INTERNAL_H))
-    session.sim.set_room_terrain(r0, [(-60.0, -20.0, -20.0, 20.0)])
-    session.sim.set_room_terrain(r1, [(20.0, -20.0, 60.0, 20.0)])
+    session.sim.set_polygon_terrain(r0, [(-60.0, -20.0, -20.0, 20.0)])
+    session.sim.set_polygon_terrain(r1, [(20.0, -20.0, 60.0, 20.0)])
     ren = Renderer(session, backend="pygame")
     surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
     session.tick(InputFrame(mx=0, my=0, ax=INTERNAL_W / 2, ay=INTERNAL_H / 2,

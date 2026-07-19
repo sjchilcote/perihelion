@@ -30,10 +30,10 @@ STATUS_H = 22
 BG = (16, 18, 22)
 GRID_COLOR = (32, 36, 44)
 GRID_AXIS = (52, 58, 70)
-ROOM_FILL = (30, 46, 56)
-ROOM_FILL_SEL = (44, 70, 62)
-ROOM_EDGE = (150, 205, 225)
-ROOM_ID_COLOR = (120, 150, 165)
+POLYGON_FILL = (30, 46, 56)
+POLYGON_FILL_SEL = (44, 70, 62)
+POLYGON_EDGE = (150, 205, 225)
+POLYGON_ID_COLOR = (120, 150, 165)
 VERTEX_COLOR = (215, 225, 235)
 VERTEX_SEL = (255, 220, 80)
 VERTEX_BAD = (255, 70, 70)
@@ -46,7 +46,7 @@ WARN_COLOR = (255, 205, 40)
 PLAYER_COLOR = (140, 230, 255)
 EXIT_COLOR = (120, 255, 172)
 TERMINAL_COLOR = (150, 210, 255)
-LORE_ROOM_TINT = (60, 90, 60)
+LORE_POLYGON_TINT = (60, 90, 60)
 STATUS_BG = (10, 11, 13)
 STATUS_OK = (120, 230, 140)
 STATUS_ERR = (255, 110, 110)
@@ -72,7 +72,7 @@ GLYPH = {
 
 KEYBIND_HELP = (
     "MMB/arrows pan  wheel zoom  G grid  S snap  I indices | "
-    "click select  RMB/M drag room  DEL delete  ^Z/^Y undo/redo | "
+    "click select  RMB/M drag polygon  DEL delete  ^Z/^Y undo/redo | "
     "R rect  P poly(Enter)  E entity([ ] cycle) | "
     "C connect(+Shift=door)  X del-connect | "
     "^S save  ^O info  ^N new  F5 playtest"
@@ -199,9 +199,9 @@ class EditorApp:
     # ------------------------------------------------------------------
 
     def _fit_camera(self) -> None:
-        rooms = self.model.data.get("rooms", [])
+        polygons = self.model.data.get("polygons", [])
         xs, ys = [], []
-        for r in rooms:
+        for r in polygons:
             for v in r.get("verts", []):
                 xs.append(v[0])
                 ys.append(v[1])
@@ -359,9 +359,9 @@ class EditorApp:
 
     def _commit_poly(self) -> None:
         if len(self.poly_pts) >= 3:
-            ri = self.model.add_poly_room(self.poly_pts)
-            self.model.selection = ("room", ri)
-            self._set_status(f"room {ri} created")
+            ri = self.model.add_poly_polygon(self.poly_pts)
+            self.model.selection = ("polygon", ri)
+            self._set_status(f"polygon {ri} created")
         self.poly_pts = []
 
     def _handle_wheel(self, event) -> None:
@@ -386,10 +386,10 @@ class EditorApp:
             return
 
         if event.button == 3:
-            ri = self.model.nearest_room(wx, wy)
+            ri = self.model.nearest_polygon(wx, wy)
             if ri is not None:
-                self.model.selection = ("room", ri)
-                self.drag = {"kind": "room", "ri": ri, "anchor": (wx, wy), "dx": 0.0, "dy": 0.0}
+                self.model.selection = ("polygon", ri)
+                self.drag = {"kind": "polygon", "ri": ri, "anchor": (wx, wy), "dx": 0.0, "dy": 0.0}
             return
 
         if event.button != 1:
@@ -414,7 +414,7 @@ class EditorApp:
                 return
             if self.connect_first is None:
                 self.connect_first = edge
-                self._set_status(f"connect: room {edge[0]} edge {edge[1]} -> click second edge "
+                self._set_status(f"connect: polygon {edge[0]} edge {edge[1]} -> click second edge "
                                   f"(hold Shift for a door)")
             else:
                 ra, ea = self.connect_first
@@ -424,21 +424,21 @@ class EditorApp:
                     def submit(key):
                         if key is not None:
                             self.model.connect_door(ra, ea, rb, eb, key)
-                            self._set_status(f"door room{ra}#{ea} <-> room{rb}#{eb} ({key})")
+                            self._set_status(f"door polygon{ra}#{ea} <-> polygon{rb}#{eb} ({key})")
                         self.overlay = None
                     self.overlay = KeyPrompt(submit)
                 else:
                     self.model.connect_edges(ra, ea, rb, eb)
                     kind = "mirror" if (ra, ea) == (rb, eb) else "connect"
-                    self._set_status(f"{kind} room{ra}#{ea} <-> room{rb}#{eb}")
+                    self._set_status(f"{kind} polygon{ra}#{ea} <-> polygon{rb}#{eb}")
                 self.connect_first = None
             return
 
         if self.mode == "move":
-            ri = self.model.nearest_room(wx, wy)
+            ri = self.model.nearest_polygon(wx, wy)
             if ri is not None:
-                self.model.selection = ("room", ri)
-                self.drag = {"kind": "room", "ri": ri, "anchor": (wx, wy), "dx": 0.0, "dy": 0.0}
+                self.model.selection = ("polygon", ri)
+                self.drag = {"kind": "polygon", "ri": ri, "anchor": (wx, wy), "dx": 0.0, "dy": 0.0}
             return
 
         # select mode
@@ -448,11 +448,11 @@ class EditorApp:
             return
         if sel[0] == "vertex":
             ri, vi = sel[1], sel[2]
-            orig = tuple(self.model.data["rooms"][ri]["verts"][vi])
+            orig = tuple(self.model.data["polygons"][ri]["verts"][vi])
             self.drag = {"kind": "vertex", "ri": ri, "vi": vi, "orig": orig, "live": orig}
         elif sel[0] == "entity":
             ri, ei = sel[1], sel[2]
-            orig = tuple(self.model.data["rooms"][ri]["entities"][ei]["pos"])
+            orig = tuple(self.model.data["polygons"][ri]["entities"][ei]["pos"])
             self.drag = {"kind": "entity", "ri": ri, "ei": ei, "orig": orig, "live": orig}
         elif sel[0] == "terminal":
             ti = sel[1]
@@ -461,22 +461,22 @@ class EditorApp:
 
     def _place_entity(self, x: float, y: float) -> None:
         t = M.ENTITY_PALETTE[self.entity_idx]
-        ri = self.model.nearest_room(x, y)
+        ri = self.model.nearest_polygon(x, y)
         if t == "player":
             if ri is None:
-                self._set_status("place player inside a room", True)
+                self._set_status("place player inside a polygon", True)
                 return
             self.model.set_player(ri, x, y)
-            self._set_status(f"player spawn -> room {ri}")
+            self._set_status(f"player spawn -> polygon {ri}")
         elif t == "exit":
             if ri is None:
-                self._set_status("place exit inside a room", True)
+                self._set_status("place exit inside a polygon", True)
                 return
             self.model.set_exit(ri, x, y)
-            self._set_status(f"exit -> room {ri}")
+            self._set_status(f"exit -> polygon {ri}")
         elif t == "terminal":
             if ri is None:
-                self._set_status("place terminal inside a room", True)
+                self._set_status("place terminal inside a polygon", True)
                 return
             def submit(text):
                 if text is not None:
@@ -486,10 +486,10 @@ class EditorApp:
             self.overlay = TextPrompt("terminal text:", "", submit)
         else:
             if ri is None:
-                self._set_status(f"place {t} inside a room", True)
+                self._set_status(f"place {t} inside a polygon", True)
                 return
             self.model.add_entity(ri, t, x, y)
-            self._set_status(f"{t} -> room {ri}")
+            self._set_status(f"{t} -> polygon {ri}")
 
     def _handle_mouseup(self, event) -> None:
         d = self.drag
@@ -504,9 +504,9 @@ class EditorApp:
             w, h = abs(x1 - x0), abs(y1 - y0)
             self.drag = None
             if w >= 4 and h >= 4:
-                ri = self.model.add_rect_room(x, y, w, h)
-                self.model.selection = ("room", ri)
-                self._set_status(f"room {ri} created")
+                ri = self.model.add_rect_polygon(x, y, w, h)
+                self.model.selection = ("polygon", ri)
+                self._set_status(f"polygon {ri} created")
             return
         if d["kind"] == "vertex" and event.button == 1:
             self.drag = None
@@ -526,15 +526,15 @@ class EditorApp:
             if (lx, ly) != d["orig"]:
                 self.model.move_terminal(d["ti"], lx, ly)
             return
-        if d["kind"] == "room" and event.button == 3:
+        if d["kind"] == "polygon" and event.button == 3:
             self.drag = None
             if d["dx"] or d["dy"]:
-                self.model.move_room(d["ri"], d["dx"], d["dy"])
+                self.model.move_polygon(d["ri"], d["dx"], d["dy"])
             return
-        if d["kind"] == "room" and event.button == 1:  # move-tool (M) drag
+        if d["kind"] == "polygon" and event.button == 1:  # move-tool (M) drag
             self.drag = None
             if d["dx"] or d["dy"]:
-                self.model.move_room(d["ri"], d["dx"], d["dy"])
+                self.model.move_polygon(d["ri"], d["dx"], d["dy"])
             return
 
     def _handle_motion(self, event) -> None:
@@ -551,7 +551,7 @@ class EditorApp:
             d["x1"], d["y1"] = self.snap_pt(wx, wy)
         elif d["kind"] in ("vertex", "entity", "terminal"):
             d["live"] = self.snap_pt(wx, wy)
-        elif d["kind"] == "room":
+        elif d["kind"] == "polygon":
             ax, ay = d["anchor"]
             d["dx"], d["dy"] = wx - ax, wy - ay
 
@@ -596,7 +596,7 @@ class EditorApp:
         self._draw_grid(surf)
         self._draw_lore_highlights(surf)
         self._draw_connections(surf)
-        self._draw_rooms(surf)
+        self._draw_polygons(surf)
         self._draw_entities(surf)
         self._draw_player_exit(surf)
         self._draw_in_progress(surf)
@@ -631,39 +631,39 @@ class EditorApp:
             pygame.draw.line(surf, color, (0, sy), (sw, sy))
             gy += g
 
-    def _room_lore_flags(self):
-        """rooms containing a terminal or referenced by an enter_room radio
-        trigger -> highlighted (spec item 1: 'terminals/radio room highlights')."""
+    def _polygon_lore_flags(self):
+        """polygons containing a terminal or referenced by an enter_polygon radio
+        trigger -> highlighted (spec item 1: 'terminals/radio polygon highlights')."""
         flagged = set()
         for t in self.model.data.get("lore", {}).get("terminals", []):
-            flagged.add(t.get("room"))
+            flagged.add(t.get("polygon"))
         for r in self.model.data.get("lore", {}).get("radio", []):
-            m = M._ENTER_ROOM_RE.match(r.get("trigger", ""))
+            m = M._ENTER_POLYGON_RE.match(r.get("trigger", ""))
             if m:
                 flagged.add(int(m.group(1)))
         return flagged
 
     def _draw_lore_highlights(self, surf) -> None:
-        flagged = self._room_lore_flags()
-        rooms = self.model.data.get("rooms", [])
+        flagged = self._polygon_lore_flags()
+        polygons = self.model.data.get("polygons", [])
         for ri in flagged:
-            if not (isinstance(ri, int) and 0 <= ri < len(rooms)):
+            if not (isinstance(ri, int) and 0 <= ri < len(polygons)):
                 continue
-            verts = rooms[ri].get("verts", [])
+            verts = polygons[ri].get("verts", [])
             if len(verts) < 3:
                 continue
             pts = [self.world_to_screen(*v) for v in verts]
             glow = pygame.Surface(surf.get_size(), pygame.SRCALPHA)
-            pygame.draw.polygon(glow, (*LORE_ROOM_TINT, 70), pts)
+            pygame.draw.polygon(glow, (*LORE_POLYGON_TINT, 70), pts)
             surf.blit(glow, (0, 0))
 
-    def _draw_rooms(self, surf) -> None:
-        rooms = self.model.data.get("rooms", [])
+    def _draw_polygons(self, surf) -> None:
+        polygons = self.model.data.get("polygons", [])
         sel = self.model.selection
-        sel_ri = sel[1] if sel and sel[0] in ("room", "vertex") else None
-        drag_ri = self.drag["ri"] if self.drag and self.drag.get("kind") == "room" else None
-        for ri, room in enumerate(rooms):
-            verts = [list(v) for v in room.get("verts", [])]
+        sel_ri = sel[1] if sel and sel[0] in ("polygon", "vertex") else None
+        drag_ri = self.drag["ri"] if self.drag and self.drag.get("kind") == "polygon" else None
+        for ri, polygon in enumerate(polygons):
+            verts = [list(v) for v in polygon.get("verts", [])]
             if len(verts) < 3:
                 continue
             if ri == drag_ri:
@@ -674,9 +674,9 @@ class EditorApp:
                 live_verts = list(verts)
                 live_verts[self.drag["vi"]] = list(self.drag["live"])
             pts = [self.world_to_screen(*v) for v in live_verts]
-            fill = ROOM_FILL_SEL if ri == sel_ri else ROOM_FILL
+            fill = POLYGON_FILL_SEL if ri == sel_ri else POLYGON_FILL
             pygame.draw.polygon(surf, fill, pts)
-            pygame.draw.polygon(surf, ROOM_EDGE, pts, 2 if ri == sel_ri else 1)
+            pygame.draw.polygon(surf, POLYGON_EDGE, pts, 2 if ri == sel_ri else 1)
 
             flags = M.convex_flags(live_verts)
             n = len(live_verts)
@@ -705,7 +705,7 @@ class EditorApp:
             cy = sum(v[1] for v in live_verts) / n
             sx, sy = self.world_to_screen(cx, cy)
             f = get_font(13)
-            img = f.render(f"#{ri}", True, ROOM_ID_COLOR)
+            img = f.render(f"#{ri}", True, POLYGON_ID_COLOR)
             surf.blit(img, (sx - img.get_width() / 2, sy - img.get_height() / 2))
 
     def _conn_endpoints(self, ri, ei, rj, ej):
@@ -770,14 +770,14 @@ class EditorApp:
                     surf.blit(img, (wsx + 6, wsy - 6))
 
     def _draw_entities(self, surf) -> None:
-        rooms = self.model.data.get("rooms", [])
+        polygons = self.model.data.get("polygons", [])
         sel = self.model.selection
         f = get_font(11)
-        for ri, room in enumerate(rooms):
+        for ri, polygon in enumerate(polygons):
             offset = (0.0, 0.0)
-            if self.drag and self.drag.get("kind") == "room" and self.drag["ri"] == ri:
+            if self.drag and self.drag.get("kind") == "polygon" and self.drag["ri"] == ri:
                 offset = (self.drag["dx"], self.drag["dy"])
-            for ei, e in enumerate(room.get("entities", [])):
+            for ei, e in enumerate(polygon.get("entities", [])):
                 if (self.drag and self.drag.get("kind") == "entity"
                         and self.drag["ri"] == ri and self.drag["ei"] == ei):
                     pos = self.drag["live"]

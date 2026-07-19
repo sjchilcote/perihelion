@@ -1,4 +1,4 @@
-"""Smoke tests for the necore PyO3 bindings: build a tiny two-room world and
+"""Smoke tests for the necore PyO3 bindings: build a tiny two-polygon world and
 exercise simulation, visibility, raycasting, and the matrix helpers."""
 
 from __future__ import annotations
@@ -10,17 +10,17 @@ import necore
 SQUARE = [(0.0, 0.0), (0.0, 100.0), (100.0, 100.0), (100.0, 0.0)]
 
 
-def two_room_sim():
+def two_polygon_sim():
     sim = necore.Sim()
-    a = sim.add_room(SQUARE)
-    b = sim.add_room(SQUARE)
+    a = sim.add_polygon(SQUARE)
+    b = sim.add_polygon(SQUARE)
     # Canonical square edge order: 0 left, 1 bottom, 2 right, 3 top.
     sim.connect(a, 2, b, 0)
     return sim, a, b
 
 
-def test_transfer_preserves_speed_and_changes_room():
-    sim, a, b = two_room_sim()
+def test_transfer_preserves_speed_and_changes_polygon():
+    sim, a, b = two_polygon_sim()
     eid = sim.spawn(a, 0.0, 0.0, 5.0, 1.0, 0)
     sim.set_vel(eid, 200.0, 0.0)
 
@@ -33,28 +33,28 @@ def test_transfer_preserves_speed_and_changes_room():
             break
 
     assert transfer is not None, "entity never crossed the portal"
-    _, ent, from_room, to_room, edge, _m9 = transfer
+    _, ent, from_polygon, to_polygon, edge, _m9 = transfer
     assert ent == eid
-    assert from_room == a
-    assert to_room == b
+    assert from_polygon == a
+    assert to_polygon == b
 
-    room, px, py, vx, vy, dx, dy = sim.get(eid)
-    assert room == b
+    polygon, px, py, vx, vy, dx, dy = sim.get(eid)
+    assert polygon == b
     speed = math.hypot(vx, vy)
     assert abs(speed - 200.0) < 1e-6
 
 
 def test_visible_set_returns_sane_instances():
-    sim, a, b = two_room_sim()
+    sim, a, b = two_polygon_sim()
     cam = necore.mat_translate(400.0, 300.0)
     instances = sim.visible_set(a, cam, 0.0, 0.0, 800.0, 600.0, 8, 64)
 
     assert len(instances) >= 2
-    rooms_seen = {inst[0] for inst in instances}
-    assert a in rooms_seen
-    assert b in rooms_seen
+    polygons_seen = {inst[0] for inst in instances}
+    assert a in polygons_seen
+    assert b in polygons_seen
 
-    for room, xform, depth, clip_screen, walls, entry_edge, ents in instances:
+    for polygon, xform, depth, clip_screen, walls, entry_edge, ents in instances:
         assert len(clip_screen) >= 3
         assert isinstance(depth, int)
         assert len(xform) == 9
@@ -63,14 +63,14 @@ def test_visible_set_returns_sane_instances():
 
 
 def test_raycast_crosses_portal_and_hits_far_wall():
-    sim, a, b = two_room_sim()
-    # From the centroid of room a, straight through the shared edge (edge 2,
-    # the +x side) into room b, which should report a wall hit in room b.
-    kind, room, edge, px, py, dist, hops, m9 = sim.raycast(
+    sim, a, b = two_polygon_sim()
+    # From the centroid of polygon a, straight through the shared edge (edge 2,
+    # the +x side) into polygon b, which should report a wall hit in polygon b.
+    kind, polygon, edge, px, py, dist, hops, m9 = sim.raycast(
         a, 0.0, 0.0, 1.0, 0.0, 4, 1000.0, 0xFFFF, -1
     )
     assert kind == "wall"
-    assert room == b
+    assert polygon == b
     assert hops >= 1
     assert dist > 50.0  # travelled past the shared edge into b
 
@@ -97,7 +97,7 @@ def test_mat_helpers_roundtrip():
 def test_errors_are_value_errors():
     sim = necore.Sim()
     try:
-        sim.add_room([(0.0, 0.0), (1.0, 0.0)])
+        sim.add_polygon([(0.0, 0.0), (1.0, 0.0)])
         assert False, "expected ValueError for too-few verts"
     except ValueError:
         pass

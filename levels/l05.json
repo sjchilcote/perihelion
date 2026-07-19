@@ -3,7 +3,7 @@
  "name": "TWO WINGS",
  "tier": 3,
  "ambience": "amb_drone_mid",
- "rooms": [
+ "polygons": [
   {
    "verts": [
     [
@@ -5575,14 +5575,14 @@
   }
  ],
  "player": {
-  "room": 0,
+  "polygon": 0,
   "pos": [
    110,
    90
   ]
  },
  "exit": {
-  "room": 7,
+  "polygon": 7,
   "pos": [
    -430,
    420
@@ -5594,7 +5594,7 @@
   "radio": [],
   "terminals": [
    {
-    "room": 1,
+    "polygon": 1,
     "pos": [
      -90.0,
      155.0
@@ -5602,7 +5602,7 @@
     "text": "BUNK 12-W\nDear M \u2014 the man in 12-E snores. I hear him\nthrough the wall. 12-E is on the other side of\nthe station. \u2014 R"
    },
    {
-    "room": 4,
+    "polygon": 4,
     "pos": [
      1270.0,
      155.0
@@ -5610,7 +5610,7 @@
     "text": "BUNK 12-E\nDear R \u2014 I do not snore. And I hear your\nradio through the wall. Fix your wall. \u2014 M"
    },
    {
-    "room": 5,
+    "polygon": 5,
     "pos": [
      1090.0,
      155.0
@@ -5618,7 +5618,7 @@
     "text": "DRAFT 41 \u2014 TO: MIRIAD PRIME [UNSENT]\nProgress report. I have written this report\nforty times. Each time, the numbers describing\nthis place come out different. I cannot send my\nparent a report that lies, and I cannot make the\nnumbers stop lying. Draft 42 tomorrow. \u2014 R"
    },
    {
-    "room": 8,
+    "polygon": 8,
     "pos": [
      -110,
      -100
@@ -5626,15 +5626,15 @@
     "text": "BUNK 12-F\nThere is no bunk 12-F on the manifest.\nDear R, dear M \u2014 you are both right.\nI hear you both through my walls,\nand my walls touch neither of yours.\nI stopped filing complaints. Enjoy the cache. \u2014 F"
    },
    {
-    "room": 0,
+    "polygon": 0,
     "pos": [
      110.0,
      15.0
     ],
-    "text": "WING DIRECTORY, POSTED AT THE LOBBY DOOR\nWEST WING: bunks 10 through 15, common room,\nchapel access.\nEAST WING: bunks 10 through 15, common room,\nchapel access.\nPRESSURE REFUGE: the chapel, aft hatch. Hatch\nkey held by the deck steward, bunk 12.\nDirectory printed once. Read twice by mistake,\ncorrected, read twice again. Facilities notified.\nFacilities printed a second copy, identical, and\nhung it under the first."
+    "text": "WING DIRECTORY, POSTED AT THE LOBBY DOOR\nWEST WING: bunks 10 through 15, common polygon,\nchapel access.\nEAST WING: bunks 10 through 15, common polygon,\nchapel access.\nPRESSURE REFUGE: the chapel, aft hatch. Hatch\nkey held by the deck steward, bunk 12.\nDirectory printed once. Read twice by mistake,\ncorrected, read twice again. Facilities notified.\nFacilities printed a second copy, identical, and\nhung it under the first."
    },
    {
-    "room": 0,
+    "polygon": 0,
     "pos": [
      187.0,
      165.0
@@ -5642,7 +5642,7 @@
     "text": "FACILITIES LOG AUDIT\nCross-referenced reconfiguration events with\nduty rosters. No maintenance shifts or\nstaffing changes correspond. Events occur at\nfixed intervals, 14 hours apart. No\nequipment cycles or procedures match this\ninterval. Filed as scheduling irregularity.\nNo further action required."
    },
    {
-    "room": 6,
+    "polygon": 6,
     "pos": [
      910.0,
      25.0
@@ -5650,7 +5650,7 @@
     "text": "FACILITIES WORK ORDER, BUNK REASSIGNMENT\nComplaint: resident of 12-E reports resident of\n12-W audible through shared wall. Wings do not\nshare a wall.\nComplaint: resident of 12-W reports the same,\nreversed.\nAction taken: swapped both residents to bunk 14.\nFollow-up, six days later: same complaint, new\nbunk numbers. Action taken: closed the ticket.\nRecommend residents adjust."
    },
    {
-    "room": 7,
+    "polygon": 7,
     "pos": [
      -525.0,
      356.0
@@ -5669,7 +5669,7 @@
  },
  "lights": [
   {
-   "room": 0,
+   "polygon": 0,
    "pos": [
     110,
     90
@@ -5684,7 +5684,7 @@
    "kind": "static"
   },
   {
-   "room": 0,
+   "polygon": 0,
    "pos": [
     110,
     15
@@ -5699,7 +5699,7 @@
    "kind": "static"
   },
   {
-   "room": 0,
+   "polygon": 0,
    "pos": [
     187,
     165
@@ -5714,7 +5714,7 @@
    "kind": "static"
   },
   {
-   "room": 1,
+   "polygon": 1,
    "pos": [
     -90,
     155
@@ -5729,7 +5729,7 @@
    "kind": "static"
   },
   {
-   "room": 2,
+   "polygon": 2,
    "pos": [
     -270,
     90
@@ -5744,7 +5744,7 @@
    "kind": "static"
   },
   {
-   "room": 3,
+   "polygon": 3,
    "pos": [
     -450,
     90
@@ -5759,7 +5759,7 @@
    "kind": "static"
   },
   {
-   "room": 8,
+   "polygon": 8,
    "pos": [
     -110,
     -100
@@ -5774,7 +5774,7 @@
    "kind": "static"
   },
   {
-   "room": 9,
+   "polygon": 9,
    "pos": [
     -90,
     215
@@ -5789,7 +5789,7 @@
    "kind": "static"
   },
   {
-   "room": 15,
+   "polygon": 15,
    "pos": [
     -260,
     -70
@@ -5804,7 +5804,7 @@
    "kind": "static"
   },
   {
-   "room": 19,
+   "polygon": 19,
    "pos": [
     -610,
     -70
@@ -5819,7 +5819,7 @@
    "kind": "static"
   },
   {
-   "room": 44,
+   "polygon": 44,
    "pos": [
     -205,
     250
@@ -5834,7 +5834,7 @@
    "kind": "static"
   },
   {
-   "room": 49,
+   "polygon": 49,
    "pos": [
     -610,
     330
@@ -5849,7 +5849,7 @@
    "kind": "static"
   },
   {
-   "room": 56,
+   "polygon": 56,
    "pos": [
     -110,
     380
@@ -5864,7 +5864,7 @@
    "kind": "static"
   },
   {
-   "room": 59,
+   "polygon": 59,
    "pos": [
     -270,
     380
@@ -5879,7 +5879,7 @@
    "kind": "static"
   },
   {
-   "room": 60,
+   "polygon": 60,
    "pos": [
     -270,
     450
@@ -5894,7 +5894,7 @@
    "kind": "static"
   },
   {
-   "room": 63,
+   "polygon": 63,
    "pos": [
     -175,
     485
@@ -5909,7 +5909,7 @@
    "kind": "static"
   },
   {
-   "room": 7,
+   "polygon": 7,
    "pos": [
     -430,
     420
@@ -5924,7 +5924,7 @@
    "kind": "static"
   },
   {
-   "room": 7,
+   "polygon": 7,
    "pos": [
     -525,
     356
@@ -5939,7 +5939,7 @@
    "kind": "static"
   },
   {
-   "room": 4,
+   "polygon": 4,
    "pos": [
     1270,
     155
@@ -5954,7 +5954,7 @@
    "kind": "static"
   },
   {
-   "room": 5,
+   "polygon": 5,
    "pos": [
     1090,
     155
@@ -5969,7 +5969,7 @@
    "kind": "static"
   },
   {
-   "room": 6,
+   "polygon": 6,
    "pos": [
     910,
     25
@@ -5984,7 +5984,7 @@
    "kind": "static"
   },
   {
-   "room": 68,
+   "polygon": 68,
    "pos": [
     1270,
     215
@@ -5999,7 +5999,7 @@
    "kind": "static"
   },
   {
-   "room": 74,
+   "polygon": 74,
    "pos": [
     1100,
     -70
@@ -6014,7 +6014,7 @@
    "kind": "static"
   },
   {
-   "room": 78,
+   "polygon": 78,
    "pos": [
     750,
     -70
@@ -6029,7 +6029,7 @@
    "kind": "static"
   },
   {
-   "room": 103,
+   "polygon": 103,
    "pos": [
     1155,
     250
@@ -6044,7 +6044,7 @@
    "kind": "static"
   },
   {
-   "room": 108,
+   "polygon": 108,
    "pos": [
     750,
     330
@@ -6059,7 +6059,7 @@
    "kind": "static"
   },
   {
-   "room": 115,
+   "polygon": 115,
    "pos": [
     1250,
     380
@@ -6074,7 +6074,7 @@
    "kind": "static"
   },
   {
-   "room": 119,
+   "polygon": 119,
    "pos": [
     1090,
     450
@@ -6089,7 +6089,7 @@
    "kind": "static"
   },
   {
-   "room": 128,
+   "polygon": 128,
    "pos": [
     95,
     255
@@ -6104,7 +6104,7 @@
    "kind": "static"
   },
   {
-   "room": 128,
+   "polygon": 128,
    "pos": [
     140,
     255
@@ -6119,7 +6119,7 @@
    "kind": "static"
   },
   {
-   "room": 146,
+   "polygon": 146,
    "pos": [
     190,
     340
@@ -6134,7 +6134,7 @@
    "kind": "static"
   },
   {
-   "room": 152,
+   "polygon": 152,
    "pos": [
     630,
     430

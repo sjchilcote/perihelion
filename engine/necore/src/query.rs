@@ -2,30 +2,30 @@ use std::collections::{HashMap, VecDeque};
 
 use crate::math::{Mat3, Vec2};
 use crate::physics::Sim;
-use crate::world::{RoomId, World};
+use crate::world::{PolygonId, World};
 
 #[derive(Debug, Clone)]
 pub enum RayHit {
     Wall {
-        room: RoomId,
+        polygon: PolygonId,
         edge: usize,
         pos: Vec2,
-        /// Accumulated hit-room-local -> origin-room-local transform.
+        /// Accumulated hit-polygon-local -> origin-polygon-local transform.
         xform: Mat3,
         dist: f64,
         hops: usize,
     },
     Entity {
         id: u64,
-        room: RoomId,
+        polygon: PolygonId,
         pos: Vec2,
         xform: Mat3,
         dist: f64,
         hops: usize,
     },
     Nothing {
-        /// Where the ray gave up, in last-room coords.
-        room: RoomId,
+        /// Where the ray gave up, in last-polygon coords.
+        polygon: PolygonId,
         pos: Vec2,
         xform: Mat3,
         dist: f64,
@@ -33,13 +33,13 @@ pub enum RayHit {
     },
 }
 
-/// Cast a ray through the room graph. `mask` selects entity groups the ray can
+/// Cast a ray through the polygon graph. `mask` selects entity groups the ray can
 /// hit (bit per group); walls always stop it. Distances accumulate in each
-/// room's local metric (correct for rigid portals; intentional for scaling
+/// polygon's local metric (correct for rigid portals; intentional for scaling
 /// ones -- gameplay ranges breathe with the space).
 pub fn raycast(
     sim: &Sim,
-    room: RoomId,
+    polygon: PolygonId,
     origin: Vec2,
     dir: Vec2,
     max_hops: usize,
@@ -47,15 +47,15 @@ pub fn raycast(
     mask: u16,
     ignore: Option<u64>,
 ) -> RayHit {
-    let mut room = room;
+    let mut polygon = polygon;
     let mut o = origin;
     let mut d = dir.normalized();
-    let mut xform = Mat3::IDENTITY; // current-room -> origin-room
+    let mut xform = Mat3::IDENTITY; // current-polygon -> origin-polygon
     let mut travelled = 0.0;
     let mut hops = 0;
 
     loop {
-        let r = &sim.world.rooms[room];
+        let r = &sim.world.polygons[polygon];
         // Exit point: nearest positive crossing among edges the ray exits.
         let n_edges = r.verts.len();
         let mut t_exit = f64::INFINITY;
@@ -75,7 +75,7 @@ pub fn raycast(
         }
         let seg_end = t_exit.min(max_len - travelled);
 
-        // Entity hits within this room segment.
+        // Entity hits within this polygon segment.
         let mut best_ent: Option<(u64, f64)> = None;
         for &eid in &r.entities {
             if Some(eid) == ignore {
@@ -108,7 +108,7 @@ pub fn raycast(
         if let Some((eid, t)) = best_ent {
             return RayHit::Entity {
                 id: eid,
-                room,
+                polygon,
                 pos: o + d * t,
                 xform,
                 dist: travelled + t,
@@ -118,7 +118,7 @@ pub fn raycast(
 
         if travelled + t_exit >= max_len {
             return RayHit::Nothing {
-                room,
+                polygon,
                 pos: o + d * (max_len - travelled).max(0.0),
                 xform,
                 dist: max_len,
@@ -129,7 +129,7 @@ pub fn raycast(
             Some(i) => i,
             None => {
                 return RayHit::Nothing {
-                    room,
+                    polygon,
                     pos: o,
                     xform,
                     dist: travelled,
@@ -145,7 +145,7 @@ pub fn raycast(
         match portal {
             None => {
                 return RayHit::Wall {
-                    room,
+                    polygon,
                     edge: ei,
                     pos: hit_pos,
                     xform,
@@ -156,7 +156,7 @@ pub fn raycast(
             Some(p) => {
                 if hops >= max_hops {
                     return RayHit::Nothing {
-                        room,
+                        polygon,
                         pos: hit_pos,
                         xform,
                         dist: travelled + t_exit,
@@ -175,16 +175,16 @@ pub fn raycast(
                 o = o + d * 1e-6;
                 travelled += 1e-6;
                 xform = xform.mul(p.xform);
-                room = p.target_room;
+                polygon = p.target_polygon;
             }
         }
     }
 }
 
-/// Routing tables: for each destination, the edge to take from every room.
+/// Routing tables: for each destination, the edge to take from every polygon.
 #[derive(Default)]
 pub struct Router {
-    tables: HashMap<RoomId, (u64, Vec<Option<usize>>, Vec<u32>)>,
+    tables: HashMap<PolygonId, (u64, Vec<Option<usize>>, Vec<u32>)>,
 }
 
 impl Router {
@@ -192,22 +192,22 @@ impl Router {
         Router::default()
     }
 
-    fn build(world: &World, dest: RoomId) -> (Vec<Option<usize>>, Vec<u32>) {
-        let n = world.rooms.len();
+    fn build(world: &World, dest: PolygonId) -> (Vec<Option<usize>>, Vec<u32>) {
+        let n = world.polygons.len();
         let mut next: Vec<Option<usize>> = vec![None; n];
         let mut dist: Vec<u32> = vec![u32::MAX; n];
         let mut q = VecDeque::new();
         dist[dest] = 0;
         q.push_back(dest);
         while let Some(m) = q.pop_front() {
-            for (em, p) in world.rooms[m].portals.iter().enumerate() {
+            for (em, p) in world.polygons[m].portals.iter().enumerate() {
                 let p = match p {
                     Some(p) => p,
                     None => continue,
                 };
-                // Portal (m, em) -> (t, et). From room t, taking edge et
+                // Portal (m, em) -> (t, et). From polygon t, taking edge et
                 // arrives in m.
-                let t = p.target_room;
+                let t = p.target_polygon;
                 let et = p.target_edge;
                 if dist[t] == u32::MAX {
                     dist[t] = dist[m] + 1;
@@ -223,8 +223,8 @@ impl Router {
     pub fn next_edge(
         &mut self,
         world: &World,
-        from: RoomId,
-        to: RoomId,
+        from: PolygonId,
+        to: PolygonId,
     ) -> Option<usize> {
         if from == to {
             return None;
@@ -240,7 +240,7 @@ impl Router {
         entry.1.get(from).copied().flatten()
     }
 
-    pub fn hop_distance(&mut self, world: &World, from: RoomId, to: RoomId) -> Option<u32> {
+    pub fn hop_distance(&mut self, world: &World, from: PolygonId, to: PolygonId) -> Option<u32> {
         if from == to {
             return Some(0);
         }
@@ -254,8 +254,8 @@ impl Router {
     }
 }
 
-/// Walk-mask terrain as light-occluder geometry for room `room`, in that
-/// room's own local coordinates -- the same frame `Room::verts`/portal
+/// Walk-mask terrain as light-occluder geometry for polygon `polygon`, in that
+/// polygon's own local coordinates -- the same frame `Polygon::verts`/portal
 /// planes live in. Each returned segment is one edge of one terrain rect
 /// (`geom::Rect::edges`); a future lighting/shadow pass can treat these
 /// exactly like wall segments when building a light's visible wedge.
@@ -265,16 +265,16 @@ impl Router {
 /// the director's order) -- this is the clean query surface for it to pick
 /// up later. Terrain never affects `visibility.rs`/vision: this function is
 /// a separate, additive query, not a change to `visible_set`.
-pub fn terrain_light_segments(world: &World, room: RoomId) -> Vec<(Vec2, Vec2)> {
-    match world.rooms.get(room) {
+pub fn terrain_light_segments(world: &World, polygon: PolygonId) -> Vec<(Vec2, Vec2)> {
+    match world.polygons.get(polygon) {
         Some(r) => r.terrain.iter().flat_map(|rect| rect.edges()).collect(),
         None => Vec::new(),
     }
 }
 
 /// Steer a desired direction around walk-mask terrain so bot pathing (which
-/// only routes at ROOM granularity via `Router`) doesn't grind forever
-/// against in-room obstacles it beelines straight into.
+/// only routes at POLYGON granularity via `Router`) doesn't grind forever
+/// against in-polygon obstacles it beelines straight into.
 ///
 /// Physics-level wall sliding (see `physics::Sim::step_entity`) already
 /// handles glancing approaches -- any nonzero tangential velocity component
@@ -292,17 +292,17 @@ pub fn terrain_light_segments(world: &World, room: RoomId) -> Vec<(Vec2, Vec2)> 
 /// whichever side the obstacle's center leans toward relative to `pos` (a
 /// deterministic tie-break -- never zero, never oscillates between ticks for
 /// a static obstacle and desired direction). Otherwise returns `desired`
-/// unchanged (normalized). Room-local in, room-local out.
+/// unchanged (normalized). Polygon-local in, polygon-local out.
 pub fn terrain_avoid_dir(
     world: &World,
-    room: RoomId,
+    polygon: PolygonId,
     pos: Vec2,
     radius: f64,
     desired: Vec2,
     lookahead: f64,
 ) -> Vec2 {
     let d = desired.normalized();
-    let r = match world.rooms.get(room) {
+    let r = match world.polygons.get(polygon) {
         Some(r) => r,
         None => return d,
     };
@@ -330,19 +330,19 @@ pub fn terrain_avoid_dir(
     (d + perp * (side * 0.9)).normalized()
 }
 
-pub fn rooms_within(world: &World, center: RoomId, hops: usize) -> Vec<RoomId> {
-    let mut seen = vec![false; world.rooms.len()];
+pub fn polygons_within(world: &World, center: PolygonId, hops: usize) -> Vec<PolygonId> {
+    let mut seen = vec![false; world.polygons.len()];
     let mut out = vec![center];
     seen[center] = true;
     let mut frontier = vec![center];
     for _ in 0..hops {
         let mut nxt = Vec::new();
         for r in frontier {
-            for p in world.rooms[r].portals.iter().flatten() {
-                if !seen[p.target_room] {
-                    seen[p.target_room] = true;
-                    out.push(p.target_room);
-                    nxt.push(p.target_room);
+            for p in world.polygons[r].portals.iter().flatten() {
+                if !seen[p.target_polygon] {
+                    seen[p.target_polygon] = true;
+                    out.push(p.target_polygon);
+                    nxt.push(p.target_polygon);
                 }
             }
         }
@@ -369,14 +369,14 @@ mod tests {
     #[test]
     fn raycast_crosses_portals_and_hits_walls() {
         let mut w = World::new();
-        let a = w.add_room(&square(50.0)).unwrap();
-        let b = w.add_room(&square(50.0)).unwrap();
+        let a = w.add_polygon(&square(50.0)).unwrap();
+        let b = w.add_polygon(&square(50.0)).unwrap();
         w.connect(a, 2, b, 0).unwrap();
         let sim = Sim::new(w);
         let hit = raycast(&sim, a, v(0.0, 0.0), v(1.0, 0.0), 4, 1000.0, 0xffff, None);
         match hit {
-            RayHit::Wall { room, dist, .. } => {
-                assert_eq!(room, b);
+            RayHit::Wall { polygon, dist, .. } => {
+                assert_eq!(polygon, b);
                 assert!((dist - 150.0).abs() < 1e-6, "dist {dist}");
             }
             other => panic!("expected wall in b, got {other:?}"),
@@ -386,8 +386,8 @@ mod tests {
     #[test]
     fn raycast_hits_entity_through_portal() {
         let mut w = World::new();
-        let a = w.add_room(&square(50.0)).unwrap();
-        let b = w.add_room(&square(50.0)).unwrap();
+        let a = w.add_polygon(&square(50.0)).unwrap();
+        let b = w.add_polygon(&square(50.0)).unwrap();
         w.connect(a, 2, b, 0).unwrap();
         let mut sim = Sim::new(w);
         let t = sim.spawn(b, v(0.0, 0.0), 10.0, 1.0, 1).unwrap();
@@ -404,16 +404,16 @@ mod tests {
     #[test]
     fn router_finds_paths_through_chains() {
         let mut w = World::new();
-        let rooms: Vec<_> = (0..5).map(|_| w.add_room(&square(50.0)).unwrap()).collect();
+        let polygons: Vec<_> = (0..5).map(|_| w.add_polygon(&square(50.0)).unwrap()).collect();
         for i in 0..4 {
-            w.connect(rooms[i], 2, rooms[i + 1], 0).unwrap();
+            w.connect(polygons[i], 2, polygons[i + 1], 0).unwrap();
         }
         let mut router = Router::new();
-        // From room 0 toward room 4: take edge 2 each time.
-        assert_eq!(router.next_edge(&w, rooms[0], rooms[4]), Some(2));
-        assert_eq!(router.hop_distance(&w, rooms[0], rooms[4]), Some(4));
-        assert_eq!(router.next_edge(&w, rooms[4], rooms[0]), Some(0));
-        assert_eq!(router.next_edge(&w, rooms[2], rooms[2]), None);
+        // From polygon 0 toward polygon 4: take edge 2 each time.
+        assert_eq!(router.next_edge(&w, polygons[0], polygons[4]), Some(2));
+        assert_eq!(router.hop_distance(&w, polygons[0], polygons[4]), Some(4));
+        assert_eq!(router.next_edge(&w, polygons[4], polygons[0]), Some(0));
+        assert_eq!(router.next_edge(&w, polygons[2], polygons[2]), None);
     }
 
     // ENGINE_INVARIANTS.md W8/Q3 (wave-1): Router caches a BFS table per
@@ -428,7 +428,7 @@ mod tests {
     // `Router::next_edge`/`hop_distance` staying current.
     //
     // Adversarial dimensions: (a) a topology change that shortens an
-    // existing cached route (add_room/connect shortcut), and (b) a
+    // existing cached route (add_polygon/connect shortcut), and (b) a
     // split_edge that shifts the very edge index the cached table names
     // as the correct hop -- if invalidation didn't fire, the router would
     // hand back an edge index into the OLD topology, which after the
@@ -442,25 +442,25 @@ mod tests {
     #[test]
     fn router_cache_invalidates_on_topology_change() {
         let mut w = World::new();
-        let rooms: Vec<_> = (0..5).map(|_| w.add_room(&square(50.0)).unwrap()).collect();
+        let polygons: Vec<_> = (0..5).map(|_| w.add_polygon(&square(50.0)).unwrap()).collect();
         for i in 0..4 {
-            w.connect(rooms[i], 2, rooms[i + 1], 0).unwrap();
+            w.connect(polygons[i], 2, polygons[i + 1], 0).unwrap();
         }
         let mut router = Router::new();
-        assert_eq!(router.hop_distance(&w, rooms[0], rooms[4]), Some(4));
-        assert_eq!(router.next_edge(&w, rooms[0], rooms[4]), Some(2));
+        assert_eq!(router.hop_distance(&w, polygons[0], polygons[4]), Some(4));
+        assert_eq!(router.next_edge(&w, polygons[0], polygons[4]), Some(2));
 
-        // A direct shortcut 0<->4 via each room's still-free edge 1.
-        // topology_version bumps; the cached table for dest=rooms[4] must
+        // A direct shortcut 0<->4 via each polygon's still-free edge 1.
+        // topology_version bumps; the cached table for dest=polygons[4] must
         // be rebuilt, not silently reused.
-        w.connect(rooms[0], 1, rooms[4], 1).unwrap();
+        w.connect(polygons[0], 1, polygons[4], 1).unwrap();
         assert_eq!(
-            router.hop_distance(&w, rooms[0], rooms[4]),
+            router.hop_distance(&w, polygons[0], polygons[4]),
             Some(1),
             "router served a stale (pre-shortcut) hop count after a topology change"
         );
         assert_eq!(
-            router.next_edge(&w, rooms[0], rooms[4]),
+            router.next_edge(&w, polygons[0], polygons[4]),
             Some(1),
             "router served a stale (pre-shortcut) edge after a topology change"
         );
@@ -468,17 +468,17 @@ mod tests {
         // split_edge on a wall NOT on the cached route also bumps
         // topology_version; the cached table must still be consistent
         // with a fresh BFS build (same result as a brand-new Router).
-        let mid = w.split_edge(rooms[2], 1, 0.3, 0.6).unwrap();
+        let mid = w.split_edge(polygons[2], 1, 0.3, 0.6).unwrap();
         let _ = mid;
         let mut fresh = Router::new();
         assert_eq!(
-            router.hop_distance(&w, rooms[3], rooms[0]),
-            fresh.hop_distance(&w, rooms[3], rooms[0]),
+            router.hop_distance(&w, polygons[3], polygons[0]),
+            fresh.hop_distance(&w, polygons[3], polygons[0]),
             "cached router disagreed with a freshly-built one after split_edge"
         );
         assert_eq!(
-            router.next_edge(&w, rooms[3], rooms[0]),
-            fresh.next_edge(&w, rooms[3], rooms[0])
+            router.next_edge(&w, polygons[3], polygons[0]),
+            fresh.next_edge(&w, polygons[3], polygons[0])
         );
     }
 
@@ -487,12 +487,12 @@ mod tests {
     #[test]
     fn terrain_light_segments_is_empty_absent_a_mask_and_four_edges_once_set() {
         let mut w = World::new();
-        let r = w.add_room(&square(50.0)).unwrap();
+        let r = w.add_polygon(&square(50.0)).unwrap();
         assert!(
             terrain_light_segments(&w, r).is_empty(),
             "absence must mean walkable/unoccluded, not fabricated occluder geometry"
         );
-        w.set_room_terrain(r, vec![crate::geom::Rect::new(v(-5.0, -5.0), v(5.0, 5.0))])
+        w.set_polygon_terrain(r, vec![crate::geom::Rect::new(v(-5.0, -5.0), v(5.0, 5.0))])
             .unwrap();
         let segs = terrain_light_segments(&w, r);
         assert_eq!(segs.len(), 4, "one rect must contribute exactly its 4 edges");
@@ -506,15 +506,15 @@ mod tests {
                 assert!(on_boundary, "segment endpoint off the rect boundary: {:?}", p);
             }
         }
-        // Unknown room: empty, not a panic.
+        // Unknown polygon: empty, not a panic.
         assert!(terrain_light_segments(&w, 999).is_empty());
     }
 
     #[test]
     fn terrain_avoid_dir_passes_through_when_the_path_is_clear() {
         let mut w = World::new();
-        let r = w.add_room(&square(50.0)).unwrap();
-        w.set_room_terrain(r, vec![crate::geom::Rect::new(v(30.0, 30.0), v(40.0, 40.0))])
+        let r = w.add_polygon(&square(50.0)).unwrap();
+        w.set_polygon_terrain(r, vec![crate::geom::Rect::new(v(30.0, 30.0), v(40.0, 40.0))])
             .unwrap();
         // Desired direction doesn't come near the rect at all.
         let desired = v(-1.0, 0.0);
@@ -525,8 +525,8 @@ mod tests {
     #[test]
     fn terrain_avoid_dir_deflects_and_is_deterministic_for_a_static_scene() {
         let mut w = World::new();
-        let r = w.add_room(&square(50.0)).unwrap();
-        w.set_room_terrain(r, vec![crate::geom::Rect::new(v(-5.0, -5.0), v(5.0, 5.0))])
+        let r = w.add_polygon(&square(50.0)).unwrap();
+        w.set_polygon_terrain(r, vec![crate::geom::Rect::new(v(-5.0, -5.0), v(5.0, 5.0))])
             .unwrap();
         let desired = v(1.0, 0.0); // straight at the rect, dead center
         let steered = terrain_avoid_dir(&w, r, v(-30.0, 0.0), 3.0, desired, 40.0);

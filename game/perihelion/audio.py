@@ -88,31 +88,31 @@ class Audio:
     # ------------------------------------------------------------------
 
     def handle_sounds(self, session, sounds, visible_instances=None) -> None:
-        """Consume ("sound", name, room, x, y, vol) fx entries.
+        """Consume ("sound", name, polygon, x, y, vol) fx entries.
 
         `visible_instances` is the same list `Renderer.draw` consumes from
         `session.visible(...)`; pass it to get accurate stereo pan for
-        sources currently on screen. Rooms not in that list (or when it is
+        sources currently on screen. Polygons not in that list (or when it is
         omitted) pan center -- correct for the horror-pacing case of
         hearing something before you can see it.
         """
         if not sounds:
             return
-        proom = session.player_room()
-        visible_rooms: dict[int, tuple] = {}
+        ppolygon = session.player_polygon()
+        visible_polygons: dict[int, tuple] = {}
         if visible_instances:
-            for room, xform, depth, clip_screen, walls, entry_edge, ents in visible_instances:
-                visible_rooms.setdefault(room, xform)
+            for polygon, xform, depth, clip_screen, walls, entry_edge, ents in visible_instances:
+                visible_polygons.setdefault(polygon, xform)
         for ev in sounds:
             if ev[0] != "sound":
                 continue
-            _, name, room, x, y, vol = ev
-            hops = session.sim.hop_distance(room, proom)
+            _, name, polygon, x, y, vol = ev
+            hops = session.sim.hop_distance(polygon, ppolygon)
             if hops < 0:
                 continue
             v = vol * (HOP_ATTENUATION ** hops)
             pan = 0.5
-            xform = visible_rooms.get(room)
+            xform = visible_polygons.get(polygon)
             if xform is not None:
                 sx, _sy = necore.mat_apply(xform, x, y)
                 w = max(1.0, float(session.screen_w))
@@ -143,7 +143,7 @@ class Audio:
 
     def duck_ambience(self, frac: float) -> None:
         """Scale the running ambience loop (1.0 = normal). The corrupted
-        expansion reveal dips the room while the bloom sours."""
+        expansion reveal dips the polygon while the bloom sours."""
         self._ambience_duck = max(0.0, min(1.0, frac))
         if self._ambience_channel is not None:
             self._ambience_channel.set_volume(

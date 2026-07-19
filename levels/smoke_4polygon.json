@@ -1,9 +1,9 @@
 {
  "version": 2,
- "name": "smoke_4room",
+ "name": "smoke_4polygon",
  "tier": 1,
  "ambience": "amb_drone_early",
- "rooms": [
+ "polygons": [
   {
    "verts": [
     [
@@ -142,14 +142,14 @@
  "connects_x": [],
  "doors": [],
  "player": {
-  "room": 0,
+  "polygon": 0,
   "pos": [
    100,
    100
   ]
  },
  "exit": {
-  "room": 3,
+  "polygon": 3,
   "pos": [
    1000,
    100

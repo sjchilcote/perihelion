@@ -77,9 +77,9 @@ pub fn inward_normal(a: Vec2, b: Vec2) -> Vec2 {
 /// fabricates a phantom vertical half-plane anchored at the duplicate
 /// vertex. One duplicated clip vertex then annihilates (or spares — pure
 /// luck of position) everything clipped against that polygon. This was THE
-/// room-decor flicker: `visible_set` wedge clips can carry an adjacent
+/// polygon-decor flicker: `visible_set` wedge clips can carry an adjacent
 /// duplicate vertex whose position shifts per tick, so prims/entities of a
-/// whole room blinked at up to 30Hz while floor and walls (scanline fill /
+/// whole polygon blinked at up to 30Hz while floor and walls (scanline fill /
 /// engine wall spans, no edge normals) stayed. A degenerate edge is not a
 /// constraint; skip it.
 pub const DEGENERATE_EDGE: f64 = 1e-9;
@@ -285,8 +285,8 @@ pub fn depth_in_polygon(p: Vec2, pts: &[Vec2]) -> f64 {
     d
 }
 
-/// Axis-aligned rect in a room's own local coordinates (same frame as the
-/// room's `verts`/floor texture). This is the terrain-mask collision
+/// Axis-aligned rect in a polygon's own local coordinates (same frame as the
+/// polygon's `verts`/floor texture). This is the terrain-mask collision
 /// primitive: a downsampled walk-mask PNG is reduced to a small set of these
 /// (see `game/perihelion/terrain.py`), one per blocked equipment footprint.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -316,7 +316,7 @@ impl Rect {
     }
 
     /// The four edges of the rect as (a, b) segments, winding order matching
-    /// the room's own canonical CCW convention closely enough for occluder
+    /// the polygon's own canonical CCW convention closely enough for occluder
     /// use (a light/shadow pass only needs the segment geometry, not a
     /// polygon interior test).
     pub fn edges(&self) -> [(Vec2, Vec2); 4] {
@@ -330,7 +330,7 @@ impl Rect {
 }
 
 /// Swept-circle-vs-rect entry test along the moving segment `pos -> target`
-/// (circle of `radius`, axis-aligned `rect`, both in the same room-local
+/// (circle of `radius`, axis-aligned `rect`, both in the same polygon-local
 /// frame). Returns the earliest entry parameter `t` in `(0, 1]` and the
 /// OUTWARD face normal (pointing away from the rect, back toward where the
 /// circle came from -- the same convention `physics.rs` wall code uses for
@@ -346,7 +346,7 @@ impl Rect {
 /// A circle whose center is ALREADY inside the padded rect at `pos` (t=0
 /// would be the "crossing") returns `None`: that is not a crossing this
 /// substep, and callers handle an already-embedded center with a separate
-/// positional correction (mirroring how room-wall containment is a
+/// positional correction (mirroring how polygon-wall containment is a
 /// standalone pass, not part of the crossing test).
 pub fn swept_circle_vs_rect(pos: Vec2, target: Vec2, radius: f64, rect: &Rect) -> Option<(f64, Vec2)> {
     let padded = rect.inflate(radius);
@@ -482,7 +482,7 @@ mod tests {
     /// degenerate-edge guards, the duplicate's zero-length edge got the
     /// arbitrary (1,0) fallback normal — a phantom vertical half-plane
     /// that annihilated the result whenever the duplicate sat on the
-    /// right-hand boundary. Room decor blinked at up to 30Hz.
+    /// right-hand boundary. Polygon decor blinked at up to 30Hz.
     #[test]
     fn duplicate_clip_vertex_is_inert() {
         let sq = vec![v(0.0, 0.0), v(0.0, 2.0), v(2.0, 2.0), v(2.0, 0.0)];

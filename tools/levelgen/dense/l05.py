@@ -1,11 +1,11 @@
 """L5 — TWO WINGS, rebuilt to Marathon density (MARATHON_LEVEL_STANDARDS.md).
 
-Standalone rebuild of campaign.py's l05(): the nine skeleton rooms (lobby,
+Standalone rebuild of campaign.py's l05(): the nine skeleton polygons (lobby,
 w1-w3, e1-e3, chapel, bunk_f), every terminal/radio/key/cache/squad of the
 original, and the paradox construct (two wings occupying one volume: the
 lobby's impossible east door into e1's far wall, and the chapel's two doors
 that cannot share a wall) are preserved verbatim — same creation order, so
-room indices in radio triggers still point at the same rooms.
+polygon indices in radio triggers still point at the same polygons.
 
 Around that skeleton, each wing grows an IDENTICAL ~50-cell service district
 (translation by +1360, the same offset that separates the authored wings —
@@ -50,23 +50,23 @@ from perihelion.levels import LevelBuilder  # noqa: E402
 # ---------------------------------------------------------------------------
 
 
-def center(b: LevelBuilder, room: int) -> tuple[float, float]:
-    vs = b.data["rooms"][room]["verts"]
+def center(b: LevelBuilder, polygon: int) -> tuple[float, float]:
+    vs = b.data["polygons"][polygon]["verts"]
     return (sum(v[0] for v in vs) / len(vs), sum(v[1] for v in vs) / len(vs))
 
 
-def squad(b: LevelBuilder, room: int, spec: str, spread: float = 32.0):
+def squad(b: LevelBuilder, polygon: int, spec: str, spread: float = 32.0):
     kinds = spec.split()
-    cx, cy = center(b, room)
+    cx, cy = center(b, polygon)
     n = len(kinds)
     for i, k in enumerate(kinds):
         a = 2 * math.pi * i / max(1, n) + 0.7
         r = spread if n > 1 else 0.0
-        b.entity(room, k, (cx + r * math.cos(a), cy + r * math.sin(a)))
+        b.entity(polygon, k, (cx + r * math.cos(a), cy + r * math.sin(a)))
 
 
-def wall_basis(b: LevelBuilder, room: int, wall: int, t: float = 0.5):
-    verts = b.data["rooms"][room]["verts"]
+def wall_basis(b: LevelBuilder, polygon: int, wall: int, t: float = 0.5):
+    verts = b.data["polygons"][polygon]["verts"]
     n = len(verts)
     cx = sum(v[0] for v in verts) / n
     cy = sum(v[1] for v in verts) / n
@@ -82,26 +82,26 @@ def wall_basis(b: LevelBuilder, room: int, wall: int, t: float = 0.5):
     return mx, my, tx, ty, nx, ny
 
 
-def wall_pos(b: LevelBuilder, room: int, wall: int, t: float = 0.5,
+def wall_pos(b: LevelBuilder, polygon: int, wall: int, t: float = 0.5,
              inset: float = 15.0) -> tuple[float, float]:
-    mx, my, tx, ty, nx, ny = wall_basis(b, room, wall, t)
+    mx, my, tx, ty, nx, ny = wall_basis(b, polygon, wall, t)
     return (mx + nx * inset, my + ny * inset)
 
 
-def cache(b: LevelBuilder, room: int, spec: str, off=(0.0, 0.0),
+def cache(b: LevelBuilder, polygon: int, spec: str, off=(0.0, 0.0),
           wall: int | None = None, t: float = 0.5, inset: float = 16.0):
     if wall is not None:
-        mx, my, tx, ty, nx, ny = wall_basis(b, room, wall, t)
+        mx, my, tx, ty, nx, ny = wall_basis(b, polygon, wall, t)
         bx, by = mx + nx * inset, my + ny * inset
         items = spec.split()
         span = (len(items) - 1) * 13.0
         for i, k in enumerate(items):
             tt = -span / 2.0 + i * 13.0
-            b.entity(room, k, (bx + tx * tt, by + ty * tt))
+            b.entity(polygon, k, (bx + tx * tt, by + ty * tt))
         return
-    cx, cy = center(b, room)
+    cx, cy = center(b, polygon)
     for i, k in enumerate(spec.split()):
-        b.entity(room, k, (cx + off[0] + (i % 3) * 15 - 15,
+        b.entity(polygon, k, (cx + off[0] + (i % 3) * 15 - 15,
                            cy + off[1] + (i // 3) * 15))
 
 
@@ -109,7 +109,7 @@ def cache(b: LevelBuilder, room: int, spec: str, off=(0.0, 0.0),
 # the wing service district: stamped once per wing at x-offset dx.
 # dx=0 -> west wing (w1/w2/w3); dx=1360 -> east wing (e1/e2/e3), the exact
 # translation between the two authored wings, so both districts are the same
-# rooms drawn twice — which is the level's whole complaint.
+# polygons drawn twice — which is the level's whole complaint.
 # ---------------------------------------------------------------------------
 
 DX_EAST = 1360.0
@@ -121,12 +121,12 @@ def _wing_district(b: LevelBuilder, dx: float) -> dict:
 
     d: dict = {}
 
-    # --- south antechamber off the wing room's own south wall (y=170 is
+    # --- south antechamber off the wing polygon's own south wall (y=170 is
     # NOT one of the reserved paradox walls -- only w3's south/west and
     # w1/e1's north are reserved). A 30 s AggroBot walk from spawn spends
     # most of its time fighting the squad in w1/e1 itself, so this is the
-    # room that actually moves this level's median (rule 1): a real 180 u
-    # doorway straight off the wing room, not a detour through the deck
+    # polygon that actually moves this level's median (rule 1): a real 180 u
+    # doorway straight off the wing polygon, not a detour through the deck
     # junction slot. ---
     d["ws1"] = R(-180, 170, 180, 90, "quarters")
     d["ws2"] = R(-180, 260, 90, 90, "storage")
@@ -142,7 +142,7 @@ def _wing_district(b: LevelBuilder, dx: float) -> dict:
     d["nc3"] = R(-480, -110, 90, 80, "corridor")
     d["nc4"] = R(-570, -110, 90, 80, "corridor")
     d["cb5"] = R(-650, -110, 80, 80, "transit")     # west elbow, 3 doors
-    # bunks 10/11/13 off the corridor (bunk 12 is the wing room itself)
+    # bunks 10/11/13 off the corridor (bunk 12 is the wing polygon itself)
     d["cb1"] = R(-568, -190, 86, 80, "quarters")
     d["cb2"] = R(-478, -190, 86, 80, "quarters")
     d["cb3"] = R(-388, -190, 86, 80, "quarters")
@@ -170,7 +170,7 @@ def _wing_district(b: LevelBuilder, dx: float) -> dict:
     d["wr3"] = R(-650, 210, 80, 80, "corridor")
 
     # --- service spine, y 210..290, a dead 40u structural strip between it
-    # and the wing rooms (their south walls stay solid: terminals live there)
+    # and the wing polygons (their south walls stay solid: terminals live there)
     d["s1a"] = R(-570, 210, 50, 80, "corridor")
     d["s1b"] = R(-520, 210, 60, 80, "corridor")
     d["s2"] = R(-460, 210, 110, 80, "corridor")
@@ -190,20 +190,20 @@ def _wing_district(b: LevelBuilder, dx: float) -> dict:
     d["p1"] = R(-255, 290, 80, 50, "pump")          # water reclaim pair
     d["p2"] = R(-335, 290, 80, 50, "pump")
 
-    # --- south block: common room + washrooms ---
+    # --- south block: common polygon + washpolygons ---
     d["dn"] = R(-150, 290, 80, 50, "corridor")
     d["sc1"] = R(-150, 340, 80, 80, "corridor")
     d["sc2"] = R(-230, 340, 80, 80, "corridor")
     d["sc3"] = R(-70, 340, 110, 80, "corridor")
     d["sc0"] = R(-310, 340, 80, 80, "corridor")
-    d["wb1"] = R(-310, 420, 80, 60, "pump")         # washroom
+    d["wb1"] = R(-310, 420, 80, 60, "pump")         # washpolygon
     d["aw"] = R(-360, 354, 50, 52, "storage")
     d["al2"] = R(-30, 296, 50, 44, "storage")       # linen closet
-    d["cm1"] = R(-240, 420, 130, 130, "quarters")   # common room: 2x2
+    d["cm1"] = R(-240, 420, 130, 130, "quarters")   # common polygon: 2x2
     d["cm2"] = R(-110, 420, 130, 130, "quarters")   # chamber, 130u seams,
     d["cm3"] = R(-240, 550, 130, 130, "quarters")   # one 80u door via sc2
     d["cm4"] = R(-110, 550, 130, 130, "quarters")
-    d["cp"] = R(-240, 680, 60, 50, "storage")       # common-room pantry
+    d["cp"] = R(-240, 680, 60, 50, "storage")       # common-polygon pantry
     return d
 
 
@@ -262,8 +262,8 @@ def _lobby_district(b: LevelBuilder) -> dict:
 
 def l05() -> LevelBuilder:
     b = LevelBuilder("TWO WINGS", 3, "amb_drone_mid")
-    # --- skeleton: identical rooms, identical creation order, identical
-    # connections to campaign.l05 (room indices feed the radio triggers) ---
+    # --- skeleton: identical polygons, identical creation order, identical
+    # connections to campaign.l05 (polygon indices feed the radio triggers) ---
     lobby = b.rect(0, 0, 220, 180, kind="corridor")
     w1 = b.rect(-180, 10, 180, 160, kind="quarters")
     w2 = b.rect(-360, 10, 180, 160, kind="quarters")
@@ -317,9 +317,9 @@ def l05() -> LevelBuilder:
     cache(b, bunk_f, "ammo_cell ammo_cell medkit ammo_shell")
     b.terminal(lobby, wall_pos(b, lobby, 3, 0.5, 15.0),
                "WING DIRECTORY, POSTED AT THE LOBBY DOOR\n"
-               "WEST WING: bunks 10 through 15, common room,\n"
+               "WEST WING: bunks 10 through 15, common polygon,\n"
                "chapel access.\n"
-               "EAST WING: bunks 10 through 15, common room,\n"
+               "EAST WING: bunks 10 through 15, common polygon,\n"
                "chapel access.\n"
                "PRESSURE REFUGE: the chapel, aft hatch. Hatch\n"
                "key held by the deck steward, bunk 12.\n"
@@ -383,10 +383,10 @@ def l05() -> LevelBuilder:
     # --- district population: pacing off the critical path (lobby -> w1
     # key -> w2 -> w3 -> chapel), quiet beats left quiet on the east copy ---
     squad(b, west["nc3"], "husk husk")            # bunk-row loiterers
-    squad(b, west["cm2"], "husk mite mite")       # west common room
+    squad(b, west["cm2"], "husk mite mite")       # west common polygon
     squad(b, deck["m22"], "mite mite mite")       # mess infestation
     squad(b, deck["g2"], "spitter")               # stores run
-    squad(b, east["cm2"], "husk husk")            # the same room, again
+    squad(b, east["cm2"], "husk husk")            # the same polygon, again
     cache(b, deck["sr2"], "ammo_9mm ammo_shell", wall=1)
     cache(b, west["a_n1"], "ammo_9mm", wall=2)
     cache(b, east["a_n1"], "medkit", wall=2)      # identical alcove, other
@@ -402,5 +402,5 @@ def build() -> dict:
 
 if __name__ == "__main__":
     d = build()
-    print(f"rooms={len(d['rooms'])} connects={len(d['connects'])} "
+    print(f"polygons={len(d['polygons'])} connects={len(d['connects'])} "
           f"doors={len(d['doors'])}")

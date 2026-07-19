@@ -16,7 +16,7 @@ Two independent defects this catches:
    Detected by tiling 2x2 and comparing gradient magnitude across the
    seam lines to the interior average.
 
-Also: per-kind mean-luminance/chroma "windows" so adjacent same-kind rooms
+Also: per-kind mean-luminance/chroma "windows" so adjacent same-kind polygons
 can be graded toward one shared tone family (style continuity).
 """
 from __future__ import annotations
@@ -78,7 +78,7 @@ def verify_fullbleed(im: Image.Image, mask: np.ndarray | None = None,
     strip (PIPE RUN, HAZARD LANE, COT BAY, CABINET ROW, WALL TROUGH, ...)
     that spans a full edge right where this gate samples -- legitimate
     requested equipment there is geometrically identical to the painted
-    "frame/vignette" this gate exists to catch, so box-conditioned rooms
+    "frame/vignette" this gate exists to catch, so box-conditioned polygons
     were programmatically full-bleed-rejected at a high rate for content
     the pipeline itself asked for. Excluding box footprints (dilated a
     few px) restores the gate's original intent: catch borders that run
@@ -134,7 +134,7 @@ def verify_no_interior_void(im: Image.Image, mask: np.ndarray,
                              black_thresh: float = 12.0,
                              frac_thresh: float = 0.02) -> dict:
     """Catch INVENTED CORNER/INTERIOR VOID: the model paints a chamfered or
-    octagonal room silhouette (solid near-black wedges, usually at corners)
+    octagonal polygon silhouette (solid near-black wedges, usually at corners)
     over a base truth whose true polygon (per level geometry) has no such
     notch there. verify_fullbleed's edge-band-vs-center comparison misses
     this because a localized corner wedge is diluted by the rest of a
@@ -143,7 +143,7 @@ def verify_no_interior_void(im: Image.Image, mask: np.ndarray,
     real floor material is never more than a few percent near-black even
     with heavy grime/shadow, whereas an invented void wedge pushes this
     well past frac_thresh (measured: ~4% on a caught real defect vs
-    0.2-0.9% on clean accepted rooms). `mask` must be the true polygon
+    0.2-0.9% on clean accepted polygons). `mask` must be the true polygon
     mask, resized to `im`'s pixel size, True = real floor.
     """
     gray = np.asarray(im.convert("L")).astype(np.float32)
@@ -239,16 +239,16 @@ def verify_tiling(im: Image.Image, band_px: int = 6,
 def crop_outer_black_margin(im: Image.Image, black_thresh: float = 14.0,
                              row_frac: float = 0.985,
                              max_margin_frac: float = 0.08) -> Image.Image:
-    """The image model systematically renders the room inset by a few
+    """The image model systematically renders the polygon inset by a few
     pixels-to-percent of pure-black margin even when told the floor runs
     flush to the crop (observed on most attempts of the 2026-07-11 sample
-    run: correct room, correct material, killed by a uniform black gutter).
+    run: correct polygon, correct material, killed by a uniform black gutter).
     Crop any FULLY-black outer rows/cols (>= row_frac of the row/col below
     black_thresh), capped at max_margin_frac of each dimension per side --
     a margin bigger than that is a real layout failure (e.g. the model
     painted the whole neighbor composite) and must NOT be rescued; the
     image is returned unchanged and the downstream full-bleed gate fails
-    it honestly. NOTE: rooms whose polygon does not fill its bounding box
+    it honestly. NOTE: polygons whose polygon does not fill its bounding box
     (oblique silhouettes) legitimately have black in the corner regions of
     outer rows/cols -- row_frac only trips on rows/cols that are black
     virtually edge-to-edge, which a diagonal silhouette's bounding rows
@@ -278,10 +278,10 @@ def crop_outer_black_margin(im: Image.Image, black_thresh: float = 14.0,
 
 # ---------------------------------------------------------------------------
 # repetition gate (director's ruling, 2026-07-11: "tiles repeat visibly
-# in-room" -- the 2x2 seam check above only proves the tile edges match,
+# in-polygon" -- the 2x2 seam check above only proves the tile edges match,
 # it says nothing about whether a distinctive feature inside the tile
 # recurs obviously at the tile period once the material is laid across a
-# whole room). Autocorrelation of the finished texture: a strong off-center
+# whole polygon). Autocorrelation of the finished texture: a strong off-center
 # peak at a lag other than (0,0) means the image correlates strongly with
 # a shifted copy of itself -- i.e. it looks like a stamped repeat.
 # ---------------------------------------------------------------------------
@@ -289,7 +289,7 @@ def crop_outer_black_margin(im: Image.Image, black_thresh: float = 14.0,
 def verify_no_repetition(im: Image.Image, mask: np.ndarray | None = None,
                           min_lag_frac: float = 0.12,
                           peak_ratio_thresh: float = 0.28) -> dict:
-    """Detect visible in-room tiling repetition via 2D autocorrelation.
+    """Detect visible in-polygon tiling repetition via 2D autocorrelation.
     `min_lag_frac` excludes a central disk (self-similarity at near-zero
     lag is trivial/expected) of that fraction of the smaller image
     dimension; any autocorrelation peak OUTSIDE that disk, normalized to
@@ -342,7 +342,7 @@ def verify_no_repetition(im: Image.Image, mask: np.ndarray | None = None,
 
 # ---------------------------------------------------------------------------
 # shape-conformance gate (director's ruling, 2026-07-11: "it still doesn't
-# match the shape of the rooms" -- confirmed on l03/room_0, a true
+# match the shape of the polygons" -- confirmed on l03/polygon_0, a true
 # quadrilateral with no right angles, whose shipped texture has a dead
 # axis-aligned plate grid). Sobel gradient-orientation histogram in a band
 # near each wall edge; the dominant structure orientation in that band
@@ -410,9 +410,9 @@ def verify_shape_conformance(im: Image.Image, mask: np.ndarray,
     perfect the seams are). The histogram PEAK measures where structure
     CONCENTRATES, which micro-texture (spread over all angles) cannot
     shift. CALIBRATED 2026-07-11 on known-answer fixtures: old shipped
-    l07/room_7 (director-photographed f52 shape defect -- must FAIL,
+    l07/polygon_7 (director-photographed f52 shape defect -- must FAIL,
     measures 25.2) vs personally-reviewed clean candidates
-    l01_room117_p1_a3 / l05_room004_p1_a1 / l01_room002_p2_a1 (must PASS,
+    l01_polygon117_p1_a3 / l05_polygon004_p1_a1 / l01_polygon002_p2_a1 (must PASS,
     measure 0.5-1.0). tol 12 splits with margin on both sides. The mod-90
     fold (kept from the previous version) is what makes the metric
     measure obliqueness rather than which of the two legitimate seam
@@ -488,10 +488,10 @@ def verify_no_guide_ink(im: Image.Image, mask: np.ndarray,
     """Catch the geometry guide's annotation colors leaking into the
     output: the model occasionally renders the guide's saturated CYAN wall
     lines / MAGENTA doorway marks as literal paint on the floor (caught
-    2026-07-11: pink doorway rectangles rendered into l05/room_4). Also
+    2026-07-11: pink doorway rectangles rendered into l05/polygon_4). Also
     catches the labeled-box conditioning's MIRIAD/TESTATOR box outlines
     leaking the same way -- confirmed 2026-07-13 on the box-conditioning
-    calibration batch (tools/artgen/calibrate_v3.py): l03/room_0's texture
+    calibration batch (tools/artgen/calibrate_v3.py): l03/polygon_0's texture
     shipped with a literal box outline painted around the requested
     center-trough box.
 
@@ -501,8 +501,8 @@ def verify_no_guide_ink(im: Image.Image, mask: np.ndarray,
     verdigris corrosion) "so the annotation itself signals lane at a
     glance" -- which made leaked ink indistinguishable from legitimate
     material. Verified false-positive on OLD, already-shipped,
-    human/Gemini-accepted textures with zero box conditioning (l01/room_0,
-    l01/room_2, pre-51d09a7): the orange channel fired at 0.28%/0.46%
+    human/Gemini-accepted textures with zero box conditioning (l01/polygon_0,
+    l01/polygon_2, pre-51d09a7): the orange channel fired at 0.28%/0.46%
     (thresh 0.15%) on ordinary rust/hazard staining. box_conditioning.py's
     LANE_COLOR now uses hot magenta (MIRIAD) / neon green (TESTATOR),
     colors that occur nowhere in this game's deliberately desaturated
@@ -580,16 +580,16 @@ def grade_toward(im: Image.Image, mask: np.ndarray, window: dict,
 
 # ---------------------------------------------------------------------------
 # detail-budget gate (director's ruling, 2026-07-11 fix round: shipped
-# rooms read "a little visually noisy"). Instrument findings on the 8
-# then-accepted rooms + their approved kind material swatches: intensity
-# ENTROPY does not discriminate (rooms 5.2-6.8 bits vs swatches 5.4-6.8 --
+# polygons read "a little visually noisy"). Instrument findings on the 8
+# then-accepted polygons + their approved kind material swatches: intensity
+# ENTROPY does not discriminate (polygons 5.2-6.8 bits vs swatches 5.4-6.8 --
 # the style itself is entropy-rich), but mean Sobel gradient energy
-# RELATIVE TO THE KIND'S OWN APPROVED SWATCH does: most rooms sat at
-# 0.95-1.16x their swatch while the one room that visibly read as noisy
-# (l07/room_2, otherworld) measured 1.43x. A room floor lives UNDER the
+# RELATIVE TO THE KIND'S OWN APPROVED SWATCH does: most polygons sat at
+# 0.95-1.16x their swatch while the one polygon that visibly read as noisy
+# (l07/polygon_2, otherworld) measured 1.43x. A polygon floor lives UNDER the
 # game's live props/decals/lighting and should be QUIETER than its raw
 # swatch, never busier -- the swatch shows the material at its most
-# weathered. Threshold 1.25x: passes the 7 personally-verified calm rooms
+# weathered. Threshold 1.25x: passes the 7 personally-verified calm polygons
 # with margin, fails the visibly noisy one. Entropy is still measured and
 # reported for the record.
 #
@@ -597,13 +597,13 @@ def grade_toward(im: Image.Image, mask: np.ndarray, window: dict,
 # gate above was floor-only -- it never saw painted equipment. Once the
 # box-conditioning pipeline (commit 51d09a7) started painting real
 # equipment INSIDE labeled item boxes, the uniform whole-mask ratio started
-# routinely failing legitimate rooms: the two v3 calibration rooms
-# (l01/room_000 dock, l03/room_000 hydro) measured whole-room ratios of
+# routinely failing legitimate polygons: the two v3 calibration polygons
+# (l01/polygon_000 dock, l03/polygon_000 hydro) measured whole-polygon ratios of
 # 1.45x and 1.38x against the SAME 1.25x threshold that used to pass calm
-# floor-only rooms with margin. Diagnosis (not a blind widen): equipment
+# floor-only polygons with margin. Diagnosis (not a blind widen): equipment
 # footprint legitimately reads busier than bare material -- crates, troughs,
 # mooring rings all have real edges. Measuring gradient energy separately
-# inside vs. outside the labeled boxes on those same two rooms found the
+# inside vs. outside the labeled boxes on those same two polygons found the
 # BACKGROUND (outside any box) ratio is 1.25 and 1.20 respectively -- i.e.
 # still under the original 1.25x threshold, unchanged -- while the
 # EQUIPMENT (inside boxes) ratio is 1.98 and 1.85x. So the fix is not a
@@ -611,9 +611,9 @@ def grade_toward(im: Image.Image, mask: np.ndarray, window: dict,
 # the model invented busyness on, unrelated to any requested item) is
 # gated at the original 1.25x; equipment footprint is gated separately at a
 # looser but still real ceiling (2.5x, informed by the two calibration
-# equipment ratios of 1.85-1.98x, leaving headroom for legitimately
+# equipment ratios of 1.85-1.98x, leaving headpolygon for legitimately
 # detailed props while still catching a genuinely degenerate/noisy
-# equipment render). A room with no boxes falls back to the original
+# equipment render). A polygon with no boxes falls back to the original
 # whole-mask behavior unchanged.
 # ---------------------------------------------------------------------------
 
@@ -639,7 +639,7 @@ def verify_detail_budget(im: Image.Image, mask: np.ndarray,
         raise ValueError(f"mask shape {mask.shape} != image shape {gray.shape}")
     gx, gy = _sobel(gray)
     grad = np.sqrt(gx ** 2 + gy ** 2)
-    room_grad = float(grad[mask].mean())
+    polygon_grad = float(grad[mask].mean())
 
     mgray = np.asarray(material_im.convert("L")).astype(np.float64)
     mgx, mgy = _sobel(mgray)
@@ -651,9 +651,9 @@ def verify_detail_budget(im: Image.Image, mask: np.ndarray,
     nz = hist[hist > 0]
     entropy = float(-(nz * np.log2(nz)).sum()) if nz.size else 0.0
 
-    ratio = room_grad / max(1e-6, mat_grad)
+    ratio = polygon_grad / max(1e-6, mat_grad)
     result = dict(grad_ratio_vs_material=ratio,
-                  room_grad=room_grad, material_grad=mat_grad,
+                  polygon_grad=polygon_grad, material_grad=mat_grad,
                   entropy_bits=entropy, ratio_thresh=ratio_thresh)
 
     if not boxes:

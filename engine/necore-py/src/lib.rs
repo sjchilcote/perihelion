@@ -9,9 +9,9 @@ use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 
 use necore_core::{
-    geom, raycast as core_raycast, rooms_within as core_rooms_within,
+    geom, raycast as core_raycast, polygons_within as core_polygons_within,
     terrain_avoid_dir as core_terrain_avoid_dir, terrain_light_segments as core_terrain_light_segments,
-    visible_set as core_visible_set, v, Mat3, RayHit, Raster as CoreRaster, Room, Router,
+    visible_set as core_visible_set, v, Mat3, RayHit, Raster as CoreRaster, Polygon, Router,
     Sim as CoreSim, Vec2, World,
 };
 
@@ -29,12 +29,12 @@ fn mat_to_tuple(m: Mat3) -> M9 {
     (a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8])
 }
 
-fn no_room(r: usize) -> PyErr {
-    PyValueError::new_err(format!("no room {r}"))
+fn no_polygon(r: usize) -> PyErr {
+    PyValueError::new_err(format!("no polygon {r}"))
 }
 
 fn no_edge(r: usize, e: usize) -> PyErr {
-    PyValueError::new_err(format!("room {r} has no edge {e}"))
+    PyValueError::new_err(format!("polygon {r} has no edge {e}"))
 }
 
 fn no_ent(id: u64) -> PyErr {
@@ -45,8 +45,8 @@ fn world_err(e: necore_core::WorldError) -> PyErr {
     PyValueError::new_err(e.to_string())
 }
 
-fn get_room(world: &World, r: usize) -> PyResult<&Room> {
-    world.rooms.get(r).ok_or_else(|| no_room(r))
+fn get_polygon(world: &World, r: usize) -> PyResult<&Polygon> {
+    world.polygons.get(r).ok_or_else(|| no_polygon(r))
 }
 
 fn event_to_obj(py: Python<'_>, ev: necore_core::Event) -> PyObject {
@@ -55,12 +55,12 @@ fn event_to_obj(py: Python<'_>, ev: necore_core::Event) -> PyObject {
         Transfer { ent, from, to, edge, xform } => {
             ("transfer", ent, from, to, edge, mat_to_tuple(xform)).into_py(py)
         }
-        WallHit { ent, room, edge, pos, normal, speed } => (
-            "wall", ent, room, edge, pos.x, pos.y, normal.x, normal.y, speed,
+        WallHit { ent, polygon, edge, pos, normal, speed } => (
+            "wall", ent, polygon, edge, pos.x, pos.y, normal.x, normal.y, speed,
         )
             .into_py(py),
-        TerrainHit { ent, room, terrain, pos, normal, speed } => (
-            "terrain", ent, room, terrain, pos.x, pos.y, normal.x, normal.y, speed,
+        TerrainHit { ent, polygon, terrain, pos, normal, speed } => (
+            "terrain", ent, polygon, terrain, pos.x, pos.y, normal.x, normal.y, speed,
         )
             .into_py(py),
         Contact { a, b, pos, normal, rel_speed } => {
@@ -71,14 +71,14 @@ fn event_to_obj(py: Python<'_>, ev: necore_core::Event) -> PyObject {
 
 fn rayhit_to_obj(py: Python<'_>, hit: RayHit) -> PyObject {
     match hit {
-        RayHit::Wall { room, edge, pos, xform, dist, hops } => {
-            ("wall", room, edge, pos.x, pos.y, dist, hops, mat_to_tuple(xform)).into_py(py)
+        RayHit::Wall { polygon, edge, pos, xform, dist, hops } => {
+            ("wall", polygon, edge, pos.x, pos.y, dist, hops, mat_to_tuple(xform)).into_py(py)
         }
-        RayHit::Entity { id, room, pos, xform, dist, hops } => {
-            ("ent", id, room, pos.x, pos.y, dist, hops, mat_to_tuple(xform)).into_py(py)
+        RayHit::Entity { id, polygon, pos, xform, dist, hops } => {
+            ("ent", id, polygon, pos.x, pos.y, dist, hops, mat_to_tuple(xform)).into_py(py)
         }
-        RayHit::Nothing { room, pos, xform, dist, hops } => {
-            ("none", room, pos.x, pos.y, dist, hops, mat_to_tuple(xform)).into_py(py)
+        RayHit::Nothing { polygon, pos, xform, dist, hops } => {
+            ("none", polygon, pos.x, pos.y, dist, hops, mat_to_tuple(xform)).into_py(py)
         }
     }
 }
@@ -101,9 +101,9 @@ impl Sim {
 
     // --- World construction --------------------------------------------
 
-    fn add_room(&mut self, verts: Vec<(f64, f64)>) -> PyResult<usize> {
+    fn add_polygon(&mut self, verts: Vec<(f64, f64)>) -> PyResult<usize> {
         let vs: Vec<Vec2> = verts.into_iter().map(|(x, y)| v(x, y)).collect();
-        self.sim.world.add_room(&vs).map_err(world_err)
+        self.sim.world.add_polygon(&vs).map_err(world_err)
     }
 
     fn connect(&mut self, a: usize, ea: usize, b: usize, eb: usize) -> PyResult<()> {
@@ -122,77 +122,77 @@ impl Sim {
     }
 
     /// Split a solid wall edge at parametric (t0, t1); returns the middle
-    /// sub-edge index. Portals referencing later edges of this room are
-    /// remapped internally (+2) — callers keeping (room, edge) maps in
+    /// sub-edge index. Portals referencing later edges of this polygon are
+    /// remapped internally (+2) — callers keeping (polygon, edge) maps in
     /// Python must apply the same shift.
-    fn split_edge(&mut self, room: usize, edge: usize, t0: f64, t1: f64) -> PyResult<usize> {
-        self.sim.world.split_edge(room, edge, t0, t1).map_err(world_err)
+    fn split_edge(&mut self, polygon: usize, edge: usize, t0: f64, t1: f64) -> PyResult<usize> {
+        self.sim.world.split_edge(polygon, edge, t0, t1).map_err(world_err)
     }
 
-    fn num_rooms(&self) -> usize {
-        self.sim.world.rooms.len()
+    fn num_polygons(&self) -> usize {
+        self.sim.world.polygons.len()
     }
 
-    fn room_verts(&self, r: usize) -> PyResult<Vec<(f64, f64)>> {
-        let room = get_room(&self.sim.world, r)?;
-        Ok(room.verts.iter().map(|p| (p.x, p.y)).collect())
+    fn polygon_verts(&self, r: usize) -> PyResult<Vec<(f64, f64)>> {
+        let polygon = get_polygon(&self.sim.world, r)?;
+        Ok(polygon.verts.iter().map(|p| (p.x, p.y)).collect())
     }
 
-    fn room_portals(&self, r: usize) -> PyResult<Vec<Option<(usize, usize)>>> {
-        let room = get_room(&self.sim.world, r)?;
-        Ok(room
+    fn polygon_portals(&self, r: usize) -> PyResult<Vec<Option<(usize, usize)>>> {
+        let polygon = get_polygon(&self.sim.world, r)?;
+        Ok(polygon
             .portals
             .iter()
-            .map(|p| p.as_ref().map(|p| (p.target_room, p.target_edge)))
+            .map(|p| p.as_ref().map(|p| (p.target_polygon, p.target_edge)))
             .collect())
     }
 
     fn portal_xform(&self, r: usize, e: usize) -> PyResult<Option<M9>> {
-        let room = get_room(&self.sim.world, r)?;
-        let p = room.portals.get(e).ok_or_else(|| no_edge(r, e))?;
+        let polygon = get_polygon(&self.sim.world, r)?;
+        let p = polygon.portals.get(e).ok_or_else(|| no_edge(r, e))?;
         Ok(p.as_ref().map(|p| mat_to_tuple(p.xform)))
     }
 
     fn edge_endpoints(&self, r: usize, e: usize) -> PyResult<(f64, f64, f64, f64)> {
-        let room = get_room(&self.sim.world, r)?;
-        if e >= room.num_edges() {
+        let polygon = get_polygon(&self.sim.world, r)?;
+        if e >= polygon.num_edges() {
             return Err(no_edge(r, e));
         }
-        let (a, b) = room.edge(e);
+        let (a, b) = polygon.edge(e);
         Ok((a.x, a.y, b.x, b.y))
     }
 
     fn edge_midpoint(&self, r: usize, e: usize) -> PyResult<(f64, f64)> {
-        let room = get_room(&self.sim.world, r)?;
-        if e >= room.num_edges() {
+        let polygon = get_polygon(&self.sim.world, r)?;
+        if e >= polygon.num_edges() {
             return Err(no_edge(r, e));
         }
-        let (a, b) = room.edge(e);
+        let (a, b) = polygon.edge(e);
         let m = a.lerp(b, 0.5);
         Ok((m.x, m.y))
     }
 
     fn edge_normal(&self, r: usize, e: usize) -> PyResult<(f64, f64)> {
-        let room = get_room(&self.sim.world, r)?;
-        let n = room.normals.get(e).ok_or_else(|| no_edge(r, e))?;
+        let polygon = get_polygon(&self.sim.world, r)?;
+        let n = polygon.normals.get(e).ok_or_else(|| no_edge(r, e))?;
         Ok((n.x, n.y))
     }
 
-    fn room_radius(&self, r: usize) -> PyResult<f64> {
-        Ok(get_room(&self.sim.world, r)?.radius)
+    fn polygon_radius(&self, r: usize) -> PyResult<f64> {
+        Ok(get_polygon(&self.sim.world, r)?.radius)
     }
 
     // --- Walk-mask terrain --------------------------------------------
 
-    /// Replace room `r`'s walk-mask terrain wholesale: `rects` is a list of
-    /// `(lo_x, lo_y, hi_x, hi_y)` axis-aligned rects in the room's own local
-    /// coordinates (the same frame `room_verts`/the floor texture live in).
+    /// Replace polygon `r`'s walk-mask terrain wholesale: `rects` is a list of
+    /// `(lo_x, lo_y, hi_x, hi_y)` axis-aligned rects in the polygon's own local
+    /// coordinates (the same frame `polygon_verts`/the floor texture live in).
     /// An empty list clears it back to fully walkable -- absence is the
-    /// default (levels.py never calls this when a room has no
+    /// default (levels.py never calls this when a polygon has no
     /// `<texture>_walkmask.png`).
-    fn set_room_terrain(&mut self, r: usize, rects: Vec<(f64, f64, f64, f64)>) -> PyResult<()> {
-        if r >= self.sim.world.rooms.len() {
-            return Err(no_room(r));
+    fn set_polygon_terrain(&mut self, r: usize, rects: Vec<(f64, f64, f64, f64)>) -> PyResult<()> {
+        if r >= self.sim.world.polygons.len() {
+            return Err(no_polygon(r));
         }
         let rs: Vec<geom::Rect> = rects
             .into_iter()
@@ -200,14 +200,14 @@ impl Sim {
             .collect();
         self.sim
             .world
-            .set_room_terrain(r, rs)
+            .set_polygon_terrain(r, rs)
             .map_err(world_err)
     }
 
-    /// Read back room `r`'s current terrain rects (test/tooling use).
-    fn room_terrain(&self, r: usize) -> PyResult<Vec<(f64, f64, f64, f64)>> {
-        let room = get_room(&self.sim.world, r)?;
-        Ok(room
+    /// Read back polygon `r`'s current terrain rects (test/tooling use).
+    fn polygon_terrain(&self, r: usize) -> PyResult<Vec<(f64, f64, f64, f64)>> {
+        let polygon = get_polygon(&self.sim.world, r)?;
+        Ok(polygon
             .terrain
             .iter()
             .map(|rect| (rect.lo.x, rect.lo.y, rect.hi.x, rect.hi.y))
@@ -223,12 +223,12 @@ impl Sim {
     }
 
     /// Light-occlusion INTERFACE ONLY (see ENGINE_DESIGN.md "Walk-mask
-    /// terrain & light occlusion"): the terrain edge segments in room `r`'s
+    /// terrain & light occlusion"): the terrain edge segments in polygon `r`'s
     /// local coordinates that a future lighting pass should treat as
     /// occluders, same as wall segments. NOT consumed by render.py yet.
     fn terrain_light_segments(&self, r: usize) -> PyResult<Vec<(f64, f64, f64, f64)>> {
-        if r >= self.sim.world.rooms.len() {
-            return Err(no_room(r));
+        if r >= self.sim.world.polygons.len() {
+            return Err(no_polygon(r));
         }
         Ok(core_terrain_light_segments(&self.sim.world, r)
             .into_iter()
@@ -236,7 +236,7 @@ impl Sim {
             .collect())
     }
 
-    /// Steer `(dx, dy)` around walk-mask terrain in room `r` so bot AI that
+    /// Steer `(dx, dy)` around walk-mask terrain in polygon `r` so bot AI that
     /// beelines a target doesn't grind forever against an obstacle it
     /// approaches head-on (physics-level wall sliding alone doesn't resolve
     /// that case -- see `query::terrain_avoid_dir`'s doc comment). Returns
@@ -254,8 +254,8 @@ impl Sim {
         dy: f64,
         lookahead: f64,
     ) -> PyResult<(f64, f64)> {
-        if r >= self.sim.world.rooms.len() {
-            return Err(no_room(r));
+        if r >= self.sim.world.polygons.len() {
+            return Err(no_polygon(r));
         }
         let out = core_terrain_avoid_dir(&self.sim.world, r, v(x, y), radius, v(dx, dy), lookahead);
         Ok((out.x, out.y))
@@ -263,9 +263,9 @@ impl Sim {
 
     // --- Entities ---------------------------------------------------------
 
-    fn spawn(&mut self, room: usize, x: f64, y: f64, radius: f64, mass: f64, group: u8) -> PyResult<u64> {
+    fn spawn(&mut self, polygon: usize, x: f64, y: f64, radius: f64, mass: f64, group: u8) -> PyResult<u64> {
         self.sim
-            .spawn(room, v(x, y), radius, mass, group)
+            .spawn(polygon, v(x, y), radius, mass, group)
             .map_err(PyValueError::new_err)
     }
 
@@ -283,14 +283,14 @@ impl Sim {
         Ok(())
     }
 
-    /// Mark a room's walls soft (Otherworld).
-    fn soften_room(&mut self, room: usize) {
-        self.sim.soften_room(room);
+    /// Mark a polygon's walls soft (Otherworld).
+    fn soften_polygon(&mut self, polygon: usize) {
+        self.sim.soften_polygon(polygon);
     }
 
     /// Impulse a soft wall: t in [0,1] along the edge, positive = outward.
-    fn soft_wall_impulse(&mut self, room: usize, edge: usize, t: f64, magnitude: f64) {
-        self.sim.soft_wall_impulse(room, edge, t, magnitude);
+    fn soft_wall_impulse(&mut self, polygon: usize, edge: usize, t: f64, magnitude: f64) {
+        self.sim.soft_wall_impulse(polygon, edge, t, magnitude);
     }
 
     fn set_pos(&mut self, id: u64, x: f64, y: f64) -> PyResult<()> {
@@ -345,30 +345,30 @@ impl Sim {
 
     fn get(&self, id: u64) -> PyResult<(usize, f64, f64, f64, f64, f64, f64)> {
         let e = self.sim.entities.get(&id).ok_or_else(|| no_ent(id))?;
-        Ok((e.room, e.pos.x, e.pos.y, e.vel.x, e.vel.y, e.dir.x, e.dir.y))
+        Ok((e.polygon, e.pos.x, e.pos.y, e.vel.x, e.vel.y, e.dir.x, e.dir.y))
     }
 
     fn get_radius(&self, id: u64) -> PyResult<f64> {
         Ok(self.sim.entities.get(&id).ok_or_else(|| no_ent(id))?.radius)
     }
 
-    fn get_room(&self, id: u64) -> PyResult<usize> {
-        Ok(self.sim.entities.get(&id).ok_or_else(|| no_ent(id))?.room)
+    fn get_polygon(&self, id: u64) -> PyResult<usize> {
+        Ok(self.sim.entities.get(&id).ok_or_else(|| no_ent(id))?.polygon)
     }
 
-    fn room_entities(&self, room: usize) -> PyResult<Vec<u64>> {
-        Ok(get_room(&self.sim.world, room)?.entities.clone())
+    fn polygon_entities(&self, polygon: usize) -> PyResult<Vec<u64>> {
+        Ok(get_polygon(&self.sim.world, polygon)?.entities.clone())
     }
 
     fn set_collision_pair(&mut self, g: u8, h: u8, on: bool) {
         self.sim.set_collision_pair(g, h, on);
     }
 
-    fn set_active_within(&mut self, room: usize, hops: usize) -> PyResult<()> {
-        if room >= self.sim.world.rooms.len() {
-            return Err(no_room(room));
+    fn set_active_within(&mut self, polygon: usize, hops: usize) -> PyResult<()> {
+        if polygon >= self.sim.world.polygons.len() {
+            return Err(no_polygon(polygon));
         }
-        self.sim.set_active_within(room, hops);
+        self.sim.set_active_within(polygon, hops);
         Ok(())
     }
 
@@ -388,12 +388,12 @@ impl Sim {
 
     // --- Rendering query -------------------------------------------------
 
-    #[pyo3(signature = (camera_room, cam_m9, apex_x, apex_y, screen_w, screen_h, max_depth, max_instances))]
+    #[pyo3(signature = (camera_polygon, cam_m9, apex_x, apex_y, screen_w, screen_h, max_depth, max_instances))]
     #[allow(clippy::too_many_arguments)]
     fn visible_set(
         &self,
         py: Python<'_>,
-        camera_room: usize,
+        camera_polygon: usize,
         cam_m9: M9,
         apex_x: f64,
         apex_y: f64,
@@ -402,14 +402,14 @@ impl Sim {
         max_depth: usize,
         max_instances: usize,
     ) -> PyResult<Vec<PyObject>> {
-        if camera_room >= self.sim.world.rooms.len() {
-            return Err(no_room(camera_room));
+        if camera_polygon >= self.sim.world.polygons.len() {
+            return Err(no_polygon(camera_polygon));
         }
         let cam = mat_from_tuple(cam_m9);
         let apex = v(apex_x, apex_y);
         let instances = core_visible_set(
             &self.sim.world,
-            camera_room,
+            camera_polygon,
             cam,
             apex,
             screen_w,
@@ -419,7 +419,7 @@ impl Sim {
         );
         let mut out = Vec::with_capacity(instances.len());
         for inst in instances {
-            let room = &self.sim.world.rooms[inst.room];
+            let polygon = &self.sim.world.polygons[inst.polygon];
             let clip_screen: Vec<(f64, f64)> =
                 inst.clip_screen.iter().map(|p| (p.x, p.y)).collect();
             let walls: Vec<(f64, f64, f64, f64, bool)> = inst
@@ -430,7 +430,7 @@ impl Sim {
             let entry_edge: i64 = inst.entry_edge.map(|e| e as i64).unwrap_or(-1);
 
             let mut ents = Vec::new();
-            for &eid in &room.entities {
+            for &eid in &polygon.entities {
                 if let Some(e) = self.sim.entities.get(&eid) {
                     let d = geom::depth_in_polygon(e.pos, &inst.clip_local);
                     if d < -e.radius {
@@ -446,17 +446,17 @@ impl Sim {
             // Entities STRADDLING a portal from the neighbor's side: their
             // circle pokes into this instance's region, so this instance
             // must draw its share or the body is cut off at the boundary.
-            for portal in room.portals.iter().flatten() {
-                let neighbor = &self.sim.world.rooms[portal.target_room];
+            for portal in polygon.portals.iter().flatten() {
+                let neighbor = &self.sim.world.polygons[portal.target_polygon];
                 for &eid in &neighbor.entities {
                     if let Some(e) = self.sim.entities.get(&eid) {
-                        // neighbor-local -> this-room-local
+                        // neighbor-local -> this-polygon-local
                         let p_here = portal.xform.apply(e.pos);
                         let r_here = e.radius * portal.xform.linear_scale();
                         let d = geom::depth_in_polygon(p_here, &inst.clip_local);
                         if d < -r_here || d >= 0.0 {
                             // not reaching in, or its center is on OUR side
-                            // (then it lives in our room list pass instead)
+                            // (then it lives in our polygon list pass instead)
                             continue;
                         }
                         let sp = inst.xform.apply(p_here);
@@ -472,7 +472,7 @@ impl Sim {
             }
 
             let tup = (
-                inst.room,
+                inst.polygon,
                 mat_to_tuple(inst.xform),
                 inst.depth,
                 clip_screen,
@@ -488,12 +488,12 @@ impl Sim {
 
     // --- Queries -----------------------------------------------------
 
-    #[pyo3(signature = (room, ox, oy, dx, dy, max_hops, max_len, mask, ignore=-1))]
+    #[pyo3(signature = (polygon, ox, oy, dx, dy, max_hops, max_len, mask, ignore=-1))]
     #[allow(clippy::too_many_arguments)]
     fn raycast(
         &self,
         py: Python<'_>,
-        room: usize,
+        polygon: usize,
         ox: f64,
         oy: f64,
         dx: f64,
@@ -503,13 +503,13 @@ impl Sim {
         mask: u16,
         ignore: i64,
     ) -> PyResult<PyObject> {
-        if room >= self.sim.world.rooms.len() {
-            return Err(no_room(room));
+        if polygon >= self.sim.world.polygons.len() {
+            return Err(no_polygon(polygon));
         }
         let ignore_opt = if ignore < 0 { None } else { Some(ignore as u64) };
         let hit = core_raycast(
             &self.sim,
-            room,
+            polygon,
             v(ox, oy),
             v(dx, dy),
             max_hops,
@@ -520,26 +520,26 @@ impl Sim {
         Ok(rayhit_to_obj(py, hit))
     }
 
-    fn next_edge(&mut self, from_room: usize, to_room: usize) -> PyResult<i64> {
-        if from_room >= self.sim.world.rooms.len() {
-            return Err(no_room(from_room));
+    fn next_edge(&mut self, from_polygon: usize, to_polygon: usize) -> PyResult<i64> {
+        if from_polygon >= self.sim.world.polygons.len() {
+            return Err(no_polygon(from_polygon));
         }
-        if to_room >= self.sim.world.rooms.len() {
-            return Err(no_room(to_room));
+        if to_polygon >= self.sim.world.polygons.len() {
+            return Err(no_polygon(to_polygon));
         }
         Ok(self
             .router
-            .next_edge(&self.sim.world, from_room, to_room)
+            .next_edge(&self.sim.world, from_polygon, to_polygon)
             .map(|e| e as i64)
             .unwrap_or(-1))
     }
 
     fn hop_distance(&mut self, a: usize, b: usize) -> PyResult<i64> {
-        if a >= self.sim.world.rooms.len() {
-            return Err(no_room(a));
+        if a >= self.sim.world.polygons.len() {
+            return Err(no_polygon(a));
         }
-        if b >= self.sim.world.rooms.len() {
-            return Err(no_room(b));
+        if b >= self.sim.world.polygons.len() {
+            return Err(no_polygon(b));
         }
         Ok(self
             .router
@@ -548,11 +548,11 @@ impl Sim {
             .unwrap_or(-1))
     }
 
-    fn rooms_within(&self, room: usize, hops: usize) -> PyResult<Vec<usize>> {
-        if room >= self.sim.world.rooms.len() {
-            return Err(no_room(room));
+    fn polygons_within(&self, polygon: usize, hops: usize) -> PyResult<Vec<usize>> {
+        if polygon >= self.sim.world.polygons.len() {
+            return Err(no_polygon(polygon));
         }
-        Ok(core_rooms_within(&self.sim.world, room, hops))
+        Ok(core_polygons_within(&self.sim.world, polygon, hops))
     }
 }
 
@@ -677,10 +677,10 @@ impl Raster {
         self.r.add_xform(mat_from_tuple(m9).m)
     }
 
-    /// Upload (or replace) a room texture: RGB8, row-major, `data` a
+    /// Upload (or replace) a polygon texture: RGB8, row-major, `data` a
     /// `w*h*3`-byte buffer (bytes / bytearray / numpy uint8 array). Persists
     /// across frames — call once per texture, not per frame. `id` is
-    /// caller-chosen (render.py uses the engine room index).
+    /// caller-chosen (render.py uses the engine polygon index).
     fn set_texture(
         &mut self,
         py: Python<'_>,
@@ -709,7 +709,7 @@ impl Raster {
 
     /// Replay a static blob (same wire format as `draw`, as bytes), with
     /// every command's CLIP and XFORM header fields overridden — the
-    /// per-room detail cache path.
+    /// per-polygon detail cache path.
     fn draw_blob(
         &mut self,
         py: Python<'_>,

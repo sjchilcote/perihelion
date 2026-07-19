@@ -173,12 +173,12 @@ reasoning as the soundfonts above):
   - "4x12 Vintage.wav" by jesterdyne,
     https://freesound.org/people/jesterdyne/sounds/129399/, **CC0**.
     `https://cdn.freesound.org/previews/129/129399_867203-hq.mp3`. 5.5ms —
-    a bare cabinet-sim IR (Korg AX1500g unit), no room tail.
+    a bare cabinet-sim IR (Korg AX1500g unit), no polygon tail.
   - "Cabinet IR BG412S Godmode DV77+V30 Mix.wav" by jesterdyne,
     https://freesound.org/people/jesterdyne/sounds/618897/, **CC0**.
     `https://cdn.freesound.org/previews/618/618897_867203-hq.mp3`. 1.28s,
     modified Behringer BG412S w/ Celestion V30 + Eminence DV77, includes
-    room tail.
+    polygon tail.
   - "IR Brown Cab_Audix i5 Center.wav" by tosha73,
     https://freesound.org/people/tosha73/sounds/507167/, **CC0**.
     `https://cdn.freesound.org/previews/507/507167_10725617-hq.mp3`. 0.5s,
@@ -211,7 +211,7 @@ reasoning as the soundfonts above):
   Windows build run under wine 11.9 for headless offline rendering.
   https://github.com/teragonaudio/MrsWatson — scratchpad only.
 - **Dragonfly Reverb 3.2.10** (Michael Willis, GPL-3) — Linux x86_64 VST3
-  (Hall/Room/Plate/Early), loaded headless via pedalboard; factory preset
+  (Hall/Polygon/Plate/Early), loaded headless via pedalboard; factory preset
   values applied verbatim from the source preset table
   (DistrhoPluginInfo.h). Offline authoring only; scratchpad only.
 - **AudioRealism TR-909 Sample Pack** (audiorealism.se) — 853 samples from

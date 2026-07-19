@@ -1,7 +1,7 @@
 """tools/artgen/walkmask.py
 
 Walk-mask dual output (director's order, 2026-07-13, workstream 2): for
-each textured room, a second image the same dimensions as the floor
+each textured polygon, a second image the same dimensions as the floor
 texture, white=walkable, black=painted-in terrain (the equipment placed
 via box_conditioning's labeled boxes). Naming: `<texture stem>_walkmask.png`
 next to the texture -- this is the exact convention the engine loader is
@@ -13,8 +13,8 @@ analysis, not a second paid generation call. Rationale (the three
 approaches the director asked us to evaluate):
 
   (a) second generation call conditioned on the produced texture ("segment
-      the solid equipment") -- doubles per-room generation cost (roughly
-      +$0.05-0.12/room going by cost_log.json's per-call average) for a
+      the solid equipment") -- doubles per-polygon generation cost (roughly
+      +$0.05-0.12/polygon going by cost_log.json's per-call average) for a
       segmentation the pipeline can already derive for free from data it
       already has (the boxes), AND introduces a NEW failure mode (the
       segmentation call inventing/omitting equipment independently of what
@@ -35,7 +35,7 @@ approaches the director asked us to evaluate):
 
 (b) is therefore the cheap-to-evaluate winner and what full-run generation
 will use; kept easy to swap for (a) later (same call site in
-gen_pilot_textures_v2.process_room) if in-situ review of (b)'s masks on
+gen_pilot_textures_v2.process_polygon) if in-situ review of (b)'s masks on
 the calibration batch shows it under-covers real painted equipment.
 """
 from __future__ import annotations
@@ -45,7 +45,7 @@ from collections import deque
 import numpy as np
 from PIL import Image, ImageFilter
 
-from tools.artgen.pilot_texture_lib import room_doorway_edges, _room_xform
+from tools.artgen.pilot_texture_lib import polygon_doorway_edges, _polygon_xform
 
 # pilot_texture_lib's import above already put game/ on sys.path -- pull the
 # real engine constants rather than redefine them locally, or the gate
@@ -79,7 +79,7 @@ def _clean_binary(mask_bool: np.ndarray, radius: int = 2) -> np.ndarray:
     """MORPHOLOGICAL CLEANUP (director's requirement: 'mask must be clean
     binary after thresholding'). Per-pixel deviation thresholding alone
     produces salt-and-pepper speckle wherever the painted equipment has
-    fine internal detail (rivets, highlights) -- calibration on l03/room_0
+    fine internal detail (rivets, highlights) -- calibration on l03/polygon_0
     confirmed this (a solid trough silhouette came out as scattered noise,
     not a clean blob). Open (erode then dilate) removes speckle smaller
     than `radius`; close (dilate then erode) fills small pinholes left
@@ -98,7 +98,7 @@ def _clean_binary(mask_bool: np.ndarray, radius: int = 2) -> np.ndarray:
     return _largest_component(cleaned)
 
 
-def derive_walkmask(room_mask_arr: np.ndarray, boxes: list[dict],
+def derive_walkmask(polygon_mask_arr: np.ndarray, boxes: list[dict],
                      texture: Image.Image | None = None,
                      refine_from_texture: bool = True) -> Image.Image:
     """White (255) = walkable, black (0) = painted-in terrain. Starts from
@@ -107,12 +107,12 @@ def derive_walkmask(room_mask_arr: np.ndarray, boxes: list[dict],
     just the solid-paint sub-area actually rendered there (texture
     analysis, approach (b)'s texture-analysis half): a requested item that
     only fills 60% of its box shouldn't block the other 40% as if it were
-    solid. Pixels outside the room polygon are always black (matches the
+    solid. Pixels outside the polygon polygon are always black (matches the
     texture's own masking -- undefined outside the hull, never "walkable").
     """
-    h, w = room_mask_arr.shape
+    h, w = polygon_mask_arr.shape
     walk = np.zeros((h, w), dtype=bool)
-    walk[room_mask_arr] = True
+    walk[polygon_mask_arr] = True
 
     tex_arr = None
     if refine_from_texture and texture is not None:
@@ -210,15 +210,15 @@ def _bfs_reachable(walk: np.ndarray, start: tuple[int, int]) -> np.ndarray:
     return seen
 
 
-def portal_points_px(stem: str, room_idx: int, level, px_per_unit: float = 3
+def portal_points_px(stem: str, polygon_idx: int, level, px_per_unit: float = 3
                       ) -> list[tuple[int, int, int]]:
-    """Pixel-space sample point just INSIDE each doorway edge of this room
-    (edge midpoint, nudged toward the room centroid by a few px so it
+    """Pixel-space sample point just INSIDE each doorway edge of this polygon
+    (edge midpoint, nudged toward the polygon centroid by a few px so it
     lands on real floor, not exactly on the boundary), plus the edge
     index it belongs to. Returns [(edge_idx, row, col), ...] in the same
-    (H, W) pixel frame room_mask/_room_xform use."""
-    xform, verts = _room_xform(stem, room_idx, px_per_unit)
-    door_edges = room_doorway_edges(stem, room_idx)
+    (H, W) pixel frame polygon_mask/_polygon_xform use."""
+    xform, verts = _polygon_xform(stem, polygon_idx, px_per_unit)
+    door_edges = polygon_doorway_edges(stem, polygon_idx)
     n = len(verts)
     cx = sum(v[0] for v in verts) / n
     cy = sum(v[1] for v in verts) / n
@@ -241,12 +241,12 @@ def portal_points_px(stem: str, room_idx: int, level, px_per_unit: float = 3
     return out
 
 
-def check_room_portal_connectivity(walk_arr: np.ndarray, portal_pts: list[tuple[int, int, int]]
+def check_polygon_portal_connectivity(walk_arr: np.ndarray, portal_pts: list[tuple[int, int, int]]
                                     ) -> dict:
-    """HARD GATE: every portal (doorway) sample point in this room must be
+    """HARD GATE: every portal (doorway) sample point in this polygon must be
     mutually reachable from every other portal sample point through
     walkable cells -- terrain painted via box conditioning must never wall
-    off a doorway or bisect the room so two doors no longer connect. Fails
+    off a doorway or bisect the polygon so two doors no longer connect. Fails
     loud (returns ok=False with the specific unreachable pair) rather than
     silently passing an under-specified mask."""
     if len(portal_pts) < 2:
@@ -263,34 +263,34 @@ def check_room_portal_connectivity(walk_arr: np.ndarray, portal_pts: list[tuple[
 
 
 def check_level_portal_connectivity(stem: str, walkmasks: dict[int, np.ndarray], level=None) -> dict:
-    """Runs check_room_portal_connectivity for every room that has a
-    walk-mask, using the room's real doorway edges from level geometry.
-    Returns per-room results plus an overall ok flag -- this is the hard
+    """Runs check_polygon_portal_connectivity for every polygon that has a
+    walk-mask, using the polygon's real doorway edges from level geometry.
+    Returns per-polygon results plus an overall ok flag -- this is the hard
     gate the director specified: 'every portal remains reachable from
-    every other portal through walkable cells.' A room whose portals fail
+    every other portal through walkable cells.' A polygon whose portals fail
     to connect through its own walkable interior means SOME neighbor pair
-    of rooms lost connectivity through it, so failing this locally is
+    of polygons lost connectivity through it, so failing this locally is
     sufficient (no need to also BFS the whole level graph -- if every
-    room's own doors connect to each other internally, and each doorway
-    is shared with exactly one neighbor room by construction, the whole
+    polygon's own doors connect to each other internally, and each doorway
+    is shared with exactly one neighbor polygon by construction, the whole
     level graph's connectivity is unaffected by walk-mask terrain)."""
     if level is None:
         from tools.artgen.pilot_texture_lib import get_level
         level = get_level(stem)
     results = {}
     all_ok = True
-    for room_idx, walk_arr in walkmasks.items():
-        pts = portal_points_px(stem, room_idx, level)
-        res = check_room_portal_connectivity(walk_arr, pts)
-        results[room_idx] = res
+    for polygon_idx, walk_arr in walkmasks.items():
+        pts = portal_points_px(stem, polygon_idx, level)
+        res = check_polygon_portal_connectivity(walk_arr, pts)
+        results[polygon_idx] = res
         if not res["ok"]:
             all_ok = False
-    return dict(ok=all_ok, rooms=results)
+    return dict(ok=all_ok, polygons=results)
 
 
 # ---------------------------------------------------------------------------
 # hard gate: portal CLEARANCE (director's order, 2026-07-13 -- stop-the-line
-# fix for room 112/l01: its shipped mask passed the plain BFS above but left
+# fix for polygon 112/l01: its shipped mask passed the plain BFS above but left
 # only a ~13-unit-wide bottom channel; the baseline AggroBot burned a full
 # 12-minute budget stuck there, and clearing the terrain by hand flipped it
 # to a 17s clear. REACHABLE != TRAVERSABLE -- portal-to-portal connectivity
@@ -321,7 +321,7 @@ CLEARANCE_RADIUS_UNITS = PLAYER_RADIUS + CLEARANCE_MARGIN_UNITS
 
 
 def clearance_radius_px(px_per_unit: float = PX_PER_UNIT) -> float:
-    """World-unit clearance radius converted to this room's texel grid.
+    """World-unit clearance radius converted to this polygon's texel grid.
     px_per_unit defaults to the engine's own texture density
     (texture_geom.DENSITY) so it matches whatever grid the walk-mask PNG
     was actually rasterized at."""
@@ -343,18 +343,18 @@ def erode_walkable(walk: np.ndarray, radius_px: float) -> np.ndarray:
     return np.asarray(eroded) > 127
 
 
-def check_room_portal_clearance(walk_arr: np.ndarray, portal_pts: list[tuple[int, int, int]],
+def check_polygon_portal_clearance(walk_arr: np.ndarray, portal_pts: list[tuple[int, int, int]],
                                  radius_px: float | None = None) -> dict:
     """HARD GATE: every portal-to-portal route must survive erosion by the
     player-clearance radius, not just the raw BFS. Same portal points and
-    same reachability check as check_room_portal_connectivity -- only the
+    same reachability check as check_polygon_portal_connectivity -- only the
     walkable array fed in differs (eroded first). Returns the same shape as
-    check_room_portal_connectivity plus the radius actually used, so a
+    check_polygon_portal_connectivity plus the radius actually used, so a
     caller can log/tune it."""
     if radius_px is None:
         radius_px = clearance_radius_px()
     eroded = erode_walkable(walk_arr, radius_px)
-    result = check_room_portal_connectivity(eroded, portal_pts)
+    result = check_polygon_portal_connectivity(eroded, portal_pts)
     result["clearance_radius_px"] = radius_px
     result["clearance_radius_units"] = radius_px / PX_PER_UNIT
     return result
@@ -363,16 +363,16 @@ def check_room_portal_clearance(walk_arr: np.ndarray, portal_pts: list[tuple[int
 def check_level_portal_clearance(stem: str, walkmasks: dict[int, np.ndarray], level=None,
                                   radius_px: float | None = None) -> dict:
     """Level-wide clearance gate, mirroring check_level_portal_connectivity
-    but eroding each room's walkable array by the clearance radius first."""
+    but eroding each polygon's walkable array by the clearance radius first."""
     if level is None:
         from tools.artgen.pilot_texture_lib import get_level
         level = get_level(stem)
     results = {}
     all_ok = True
-    for room_idx, walk_arr in walkmasks.items():
-        pts = portal_points_px(stem, room_idx, level)
-        res = check_room_portal_clearance(walk_arr, pts, radius_px=radius_px)
-        results[room_idx] = res
+    for polygon_idx, walk_arr in walkmasks.items():
+        pts = portal_points_px(stem, polygon_idx, level)
+        res = check_polygon_portal_clearance(walk_arr, pts, radius_px=radius_px)
+        results[polygon_idx] = res
         if not res["ok"]:
             all_ok = False
-    return dict(ok=all_ok, rooms=results)
+    return dict(ok=all_ok, polygons=results)

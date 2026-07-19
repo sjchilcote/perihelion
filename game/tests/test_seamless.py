@@ -1,4 +1,4 @@
-"""Invariant 5: room transitions are imperceptible.
+"""Invariant 5: polygon transitions are imperceptible.
 
 Walk the player through portals while tracking every visible wall segment in
 screen space. Between consecutive frames, each wall that is fully on-screen
@@ -79,8 +79,8 @@ def _wall_continuity(level, seed, moves, ticks):
 
 def test_seamless_corridor_walk():
     b = LevelBuilder("corridor", 1)
-    rooms = [b.rect(i * 200, 0, 200, 150) for i in range(5)]
-    b.player(rooms[0], (100, 75))
+    polygons = [b.rect(i * 200, 0, 200, 150) for i in range(5)]
+    b.player(polygons[0], (100, 75))
     violations = _wall_continuity(b.build(), 3, (1.0, 0.0), 420)
     assert not violations, f"wall jumps: {violations[:5]}"
 
@@ -95,7 +95,7 @@ def test_seamless_infinite_loop_walk():
 
 
 def test_seamless_doorway_wobble():
-    # rooms with doorway-split walls (heights chosen so each shared edge is
+    # polygons with doorway-split walls (heights chosen so each shared edge is
     # contained in the neighbor's wall, exercising sub-edge portals)
     b = LevelBuilder("diag", 1)
     r0 = b.rect(0, 0, 180, 190)
@@ -128,9 +128,9 @@ def test_no_brightness_seam_across_transfers():
     pygame.init()
     pygame.display.set_mode((480, 270))
     b = LevelBuilder("bright", 1)
-    rooms = [b.rect(i * 200, 0, 200, 150) for i in range(4)]
-    b.player(rooms[0], (100, 75))
-    b.exit(rooms[3], (700, 75))
+    polygons = [b.rect(i * 200, 0, 200, 150) for i in range(4)]
+    b.player(polygons[0], (100, 75))
+    b.exit(polygons[3], (700, 75))
     s = GameSession(b.build(), seed=2)
     ren = Renderer(s)
     surf = pygame.Surface((480, 270))

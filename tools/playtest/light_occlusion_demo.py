@@ -11,11 +11,11 @@ Shots, in sequence:
   1. The doorway cone       -- a hard-edged wedge through a single doorway
   2. The wall cut           -- the wedge's boundary swept by the player's
                                 own movement, right at the door jamb
-  3. The two-hop bend       -- light reaches a far room ONLY through two
+  3. The two-hop bend       -- light reaches a far polygon ONLY through two
                                 doorways in sequence; the far corner stays
                                 black even at LIGHT_STRENGTH 3.0
   4. The two-source cross   -- two colored fixtures on opposite sides of a
-                                doorwayed room, wedges overlapping (additive
+                                doorwayed polygon, wedges overlapping (additive
                                 mix) in the middle, each cut off by its OWN
                                 occlusion
   5. The many-slit wall     -- five doorways in one wall: five independent
@@ -24,14 +24,14 @@ Shots, in sequence:
                                 glow leaking around the wall)
   6. The non-Euclidean bend -- the same doorway-cone phenomenon through a
                                 connect_x portal with an injected 90-degree
-                                twist: the destination room's geometry (and
+                                twist: the destination polygon's geometry (and
                                 the light wedge cast through it) is rotated
                                 relative to the corridor's own axis, proving
                                 the occlusion math holds under an arbitrary
                                 (non-rigid) portal transform, not just plain
                                 translation
 
-ROOT CAUSE FIXED DURING BUILD: authoring two adjacent rooms on a shared
+ROOT CAUSE FIXED DURING BUILD: authoring two adjacent polygons on a shared
 absolute-canvas wall (so only ONE segment of that wall is the intended
 doorway) causes LevelBuilder.resolve()'s autoconnect pass to ALSO wire the
 solid segments on either side of the door open (it matches ANY exactly-
@@ -74,7 +74,7 @@ FPS = 60
 
 
 def door(b: LevelBuilder, ra: int, pa, rb: int, pb) -> None:
-    """A single doorway between two rooms authored on a shared canvas, with
+    """A single doorway between two polygons authored on a shared canvas, with
     the autoconnect trap (see module docstring) suppressed immediately."""
     b.connect_pts(ra, pa, rb, pb)
     b.no_connect(ra, rb)
@@ -86,7 +86,7 @@ def slit_wall_run(x0: float, x1: float, y: float, centers: list[float],
     (x0,y) to (x1,y), with a pair of notch markers at each slit center
     (width `width`). Walks centers in the x0->x1 direction regardless of
     which is larger, so the same helper builds a wall's verts from either
-    side of it (a room's own winding direction may need either)."""
+    side of it (a polygon's own winding direction may need either)."""
     ordered = sorted(centers, reverse=(x1 < x0))
     pts = []
     for c in ordered:
@@ -104,34 +104,34 @@ def slit_wall_run(x0: float, x1: float, y: float, centers: list[float],
 # THE BRIGHTNESS CHAIN (director's "metric passes, eye fails" catch, round
 # 2 of this demo): under zero ambient the lightmap MULTIPLIES the world
 # layer, so a pixel's final value is floor_albedo * lightmap / 255. The
-# campaign's l01 dock reads bright because its rooms carry bespoke floor
+# campaign's l01 dock reads bright because its polygons carry bespoke floor
 # TEXTURES with albedo ~100-150; a LevelBuilder debug world falls back to
 # the flat corridor floor color (26, 26, 33) -- which caps EVERY lit pixel
 # at 26/255 no matter how strong the light is. The first capture's 88x
 # contrast ratios were ratios of near-nothing. The demo therefore sets a
-# bright flat floor albedo on its own rooms (the demo's parameter, not the
+# bright flat floor albedo on its own polygons (the demo's parameter, not the
 # global palette), sized so a saturated lightmap reads near-white.
 DEMO_FLOOR_ALBEDO = (228, 230, 236)
 
 
 def apply_demo_floor(ren: Renderer, level) -> None:
-    """Pre-fill the renderer's per-room floor-color cache with the demo's
+    """Pre-fill the renderer's per-polygon floor-color cache with the demo's
     bright albedo (both backends read _floor_color through this cache).
-    Applies to every room -- the demo world has no textured rooms, so
+    Applies to every polygon -- the demo world has no textured polygons, so
     nothing legitimate is overridden."""
-    for room in range(len(level.room_verts)):
-        ren._floor_color_cache[room] = DEMO_FLOOR_ALBEDO
+    for polygon in range(len(level.polygon_verts)):
+        ren._floor_color_cache[polygon] = DEMO_FLOOR_ALBEDO
 
 
 def build_world():
     b = LevelBuilder("light-occlusion-proof", tier=1, ambience="amb_drone_early")
     meta: dict = {}
 
-    # -- Room A: fixture room (warm white), shots 1 & 2's light source ---
+    # -- Polygon A: fixture polygon (warm white), shots 1 & 2's light source ---
     vA = [(0, -140), (0, -20), (48, -20), (72, -20), (120, -20), (120, -140)]
-    rA = b.room(vA, detail_seed=1, kind="corridor")
+    rA = b.polygon(vA, detail_seed=1, kind="corridor")
 
-    # -- Room B: dark room, shots 1 & 2 -----------------------------------
+    # -- Polygon B: dark polygon, shots 1 & 2 -----------------------------------
     # Two doors: north (to A) and south (to C, offset -- the bend). Both
     # markers on the SAME wall pair (north/south) rather than north/east:
     # a light's cast wedge widens with distance from its own doorway (the
@@ -143,12 +143,12 @@ def build_world():
     # though, which is where the bend doorway to C lives instead.
     vB = [(48, -20), (0, -20), (0, 100), (66, 100), (90, 100), (120, 100),
           (120, -20), (72, -20)]
-    rB = b.room(vB, detail_seed=2, kind="corridor")
+    rB = b.polygon(vB, detail_seed=2, kind="corridor")
 
-    # -- Room C: dark bend room, shot 3 (south of B, offset in x) --------
+    # -- Polygon C: dark bend polygon, shot 3 (south of B, offset in x) --------
     vC = [(66, 100), (20, 100), (20, 220), (88, 220), (112, 220), (140, 220),
           (140, 100), (90, 100)]
-    rC = b.room(vC, detail_seed=3, kind="corridor")
+    rC = b.polygon(vC, detail_seed=3, kind="corridor")
 
     door(b, rA, (60, -20), rB, (60, -20))
     door(b, rB, (78, 100), rC, (78, 100))
@@ -162,19 +162,19 @@ def build_world():
     # multiplied by C's floor albedo and video-compressed.
     b.light(rA, (60, -80), color=(255, 225, 180), intensity=2.0, radius=700)
 
-    # -- Room M: two-source cross meeting room, shot 4 (south of C) ------
+    # -- Polygon M: two-source cross meeting polygon, shot 4 (south of C) ------
     vM = [(88, 220), (20, 220), (20, 268), (20, 292), (20, 340), (68, 340),
           (92, 340), (140, 340), (140, 292), (140, 268), (140, 220), (112, 220)]
-    rM = b.room(vM, detail_seed=4, kind="corridor")
+    rM = b.polygon(vM, detail_seed=4, kind="corridor")
 
-    # -- Room D: amber fixture --------------------------------------------
+    # -- Polygon D: amber fixture --------------------------------------------
     vD = [(20, 268), (-100, 268), (-100, 340), (-20, 340), (20, 340), (20, 292)]
-    rD = b.room(vD, detail_seed=5, kind="corridor")
+    rD = b.polygon(vD, detail_seed=5, kind="corridor")
 
-    # -- Room E: verdigris fixture -----------------------------------------
+    # -- Polygon E: verdigris fixture -----------------------------------------
     vE = [(140, 268), (140, 292), (140, 340), (220, 340), (260, 340),
           (260, 268)]
-    rE = b.room(vE, detail_seed=6, kind="corridor")
+    rE = b.polygon(vE, detail_seed=6, kind="corridor")
 
     door(b, rC, (100, 220), rM, (100, 220))
     door(b, rD, (20, 280), rM, (20, 280))
@@ -199,7 +199,7 @@ def build_world():
 
     # -- corridor down to the slit wall, shot 5 ---------------------------
     vCORR = [(68, 340), (68, 380), (92, 380), (92, 340)]
-    rCORR = b.room(vCORR, detail_seed=7, kind="corridor")
+    rCORR = b.polygon(vCORR, detail_seed=7, kind="corridor")
     door(b, rM, (80, 340), rCORR, (80, 340))
 
     slit_centers = [-40.0, 30.0, 100.0, 170.0, 240.0]
@@ -209,7 +209,7 @@ def build_world():
     vSD = ([(68, 380), (-80, 380), (-80, 500)] +
            slit_wall_run(-80, 260, 500, slit_centers, slit_w) +
            [(260, 500), (260, 380), (92, 380)])
-    rSD = b.room(vSD, detail_seed=8, kind="corridor")
+    rSD = b.polygon(vSD, detail_seed=8, kind="corridor")
     door(b, rCORR, (80, 380), rSD, (80, 380))
 
     # SLIT_LIGHT: north wall (y=500, shared with SD's south wall) -- doors
@@ -218,7 +218,7 @@ def build_world():
     vSL = list(reversed(
         [(-80, 500)] + slit_wall_run(-80, 260, 500, slit_centers, slit_w) +
         [(260, 500), (260, 620), (-80, 620)]))
-    rSL = b.room(vSL, detail_seed=9, kind="corridor")
+    rSL = b.polygon(vSL, detail_seed=9, kind="corridor")
     for c in slit_centers:
         door(b, rSD, (c, 500), rSL, (c, 500))
     b.light(rSL, (90, 560), color=(255, 245, 230), intensity=2.2, radius=700)
@@ -226,22 +226,22 @@ def build_world():
     # -- non-Euclidean stub + rotated portal, shot 6 -----------------------
     # a corridor stub off SLIT_DARK's west wall; its FAR (untouched) edge
     # connects via connect_x with an injected 90-degree twist into a
-    # fixture room authored far away on the canvas (coordinates don't need
+    # fixture polygon authored far away on the canvas (coordinates don't need
     # to line up -- connect_x's m9 is arbitrary, see module docstring and
     # levels.py's resolve(); keeping it far away just avoids accidental
     # collinear-edge overlap with the rest of the world, which would let
     # the doorway-splitter silently touch it and invalidate the raw edge
     # index this depends on).
     vDS = [(-160, 428), (-160, 452), (-80, 452), (-80, 428)]
-    rDS = b.room(vDS, detail_seed=10, kind="corridor")
+    rDS = b.polygon(vDS, detail_seed=10, kind="corridor")
     door(b, rSD, (-80, 440), rDS, (-80, 440))
     ea_stub = 0  # (-160,428)-(-160,452): untouched, full 24-long west edge
 
     vNE = [(1000, 1000), (1000, 1120), (1120, 1120), (1120, 1000)]
-    rNE = b.room(vNE, detail_seed=11, kind="corridor")
+    rNE = b.polygon(vNE, detail_seed=11, kind="corridor")
     eb_ne = 0  # (1000,1000)-(1000,1120): untouched west edge
     # hue-preserving 1/3 intensity (see the D/E fixtures' note) -- the cold
-    # blue is the point of this room reading as somewhere ELSE
+    # blue is the point of this polygon reading as somewhere ELSE
     b.light(rNE, (1060, 1060), color=(150, 180, 255), intensity=1 / 3.0,
             radius=500)
 
@@ -382,20 +382,20 @@ def build_script() -> Script:
     s.hold(3, mx=-1.0, my=0.0)     # through the SD-DS door, into the stub,
                                      # up close to the portal's aperture
     s.hold(60)                      # hold at the threshold: the rotated
-                                     # room's wedge, seen through the
+                                     # polygon's wedge, seen through the
                                      # portal, occlusion-clipped and twisted
     s.mark("shot6_threshold")
-    s.hold(50, mx=-1.0, my=0.0)    # cross through into the rotated room
+    s.hold(50, mx=-1.0, my=0.0)    # cross through into the rotated polygon
     s.hold(90)                      # hold, looking around inside it
     s.mark("shot6_end")
     return s
 
 
 # ---------------------------------------------------------------------
-# probes: (label, room-key-into-meta, world_x, world_y, expect)
+# probes: (label, polygon-key-into-meta, world_x, world_y, expect)
 # world coords are the SAME authoring-canvas coords used in build_world()
-# (LightSpec/entity positions get recentered per-room internally, but the
-# camera xform for a room instance maps THESE authoring coords straight to
+# (LightSpec/entity positions get recentered per-polygon internally, but the
+# camera xform for a polygon instance maps THESE authoring coords straight to
 # screen space -- see the note in main() where they're transformed).
 # ---------------------------------------------------------------------
 
@@ -470,28 +470,28 @@ def _point_in_poly(x: float, y: float, poly) -> bool:
     return inside
 
 
-def screen_xy_for(session: GameSession, ren: Renderer, room: int,
+def screen_xy_for(session: GameSession, ren: Renderer, polygon: int,
                    wx: float, wy: float) -> tuple[float, float] | None:
     """World (authoring-canvas) point -> current-frame screen pixel, by
-    finding the camera instance for `room` this tick and inverting its
+    finding the camera instance for `polygon` this tick and inverting its
     centroid offset (LightSpec/entities go through the same `local()`
     recentering in levels.level_from_dict; camera xforms operate on THAT
-    recentered local frame, so subtract the room's own centroid first).
-    Returns None if the point isn't actually inside any of this room's
+    recentered local frame, so subtract the polygon's own centroid first).
+    Returns None if the point isn't actually inside any of this polygon's
     visible-this-frame clip polygons (e.g. it's real geometry, but off the
     edge of the camera's current field of view) -- silently sampling void
     for an out-of-frame probe would be worse than flagging it."""
-    cx, cy = session.level.room_centroids[room]
+    cx, cy = session.level.polygon_centroids[polygon]
     lx, ly = wx - cx, wy - cy
     # A non-Euclidean chain can put more than one camera instance of the
-    # SAME room on screen at once (different portal paths reaching it).
+    # SAME polygon on screen at once (different portal paths reaching it).
     # Take every instance whose polygon actually contains the point, and
     # prefer the shallowest (fewest portal hops -- the "main" view a
     # player would read this shot by), not just the first one iterated.
     candidates = []
-    for inst_room, xform, depth, clip_screen, walls, entry_edge, ents in \
+    for inst_polygon, xform, depth, clip_screen, walls, entry_edge, ents in \
             session.visible(ren.max_depth, ren.max_instances):
-        if inst_room == room and len(clip_screen) >= 3:
+        if inst_polygon == polygon and len(clip_screen) >= 3:
             sx, sy = necore.mat_apply(xform, lx, ly)
             if _point_in_poly(sx, sy, clip_screen):
                 candidates.append((depth, sx, sy))
@@ -550,15 +550,15 @@ def main() -> int:
             name = still_ticks[tick]
             if name in PROBES:
                 resolved = []
-                for label, room_key, wx, wy, expect in PROBES[name]:
-                    room = meta[room_key]
-                    sxy = screen_xy_for(session, ren, room, wx, wy)
+                for label, polygon_key, wx, wy, expect in PROBES[name]:
+                    polygon = meta[polygon_key]
+                    sxy = screen_xy_for(session, ren, polygon, wx, wy)
                     if sxy is not None:
                         resolved.append((label, sxy[0], sxy[1], expect))
                     else:
                         print(f"!! probe {name}/{label} at world "
                               f"({wx},{wy}) is not in this frame's visible "
-                              f"clip for room {room} -- dropped")
+                              f"clip for polygon {polygon} -- dropped")
                 probe_screen[name] = resolved
         if ffmpeg is not None:
             frame = surf if surf.get_size() == (OUT_W, OUT_H) else \

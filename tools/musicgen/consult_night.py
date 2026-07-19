@@ -36,7 +36,7 @@ def _block(title: str, path: Path, max_chars: int = 120_000) -> str:
 def build_bot_prompt() -> str:
     p = ["You are consulting on a game-playing bot for PERIHELION, a "
          "non-euclidean top-down shooter (pygame, portal-connected "
-         "room polygons, 60Hz lockstep sim). The bot must play like a "
+         "polygon polygons, 60Hz lockstep sim). The bot must play like a "
          "COMPETENT HUMAN (marketing videos), not a perfect machine. "
          "It currently clears ~0/850 runs of a 4-boss gauntlet whose "
          "bosses were tuned to ~90% fail each; the designer believes "

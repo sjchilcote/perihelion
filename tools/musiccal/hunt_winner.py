@@ -39,7 +39,7 @@ def main():
             r = f.result()
             done += 1
             line = (f"{r['seed']} {r['outcome']:8s} ticks={r['ticks']}"
-                    f" kills={r['kills']} room={r['room']}"
+                    f" kills={r['kills']} polygon={r['polygon']}"
                     f" hp={r.get('hp', '?')}")
             print(line, flush=True)
             if r["outcome"] == "complete":

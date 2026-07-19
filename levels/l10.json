@@ -3,7 +3,7 @@
  "name": "PERIHELION CORE",
  "tier": 4,
  "ambience": "amb_drone_finale",
- "rooms": [
+ "polygons": [
   {
    "verts": [
     [
@@ -8699,14 +8699,14 @@
   }
  ],
  "player": {
-  "room": 0,
+  "polygon": 0,
   "pos": [
    80,
    70
   ]
  },
  "exit": {
-  "room": 7,
+  "polygon": 7,
   "pos": [
    1600,
    180
@@ -8718,7 +8718,7 @@
   "radio": [],
   "terminals": [
    {
-    "room": 2,
+    "polygon": 2,
     "pos": [
      804.4615242270663,
      77.00961894323342
@@ -8726,7 +8726,7 @@
     "text": "TRACK QUANTA-118093 \u2014 FINAL PROTOCOL\n1. Do not bargain with the door.\n2. There is no rule two.\n\nThe vault holds our cargo.\nThe thing beneath the vault holds the door."
    },
    {
-    "room": 7,
+    "polygon": 7,
     "pos": [
      1730.049086604272,
      180.0
@@ -8734,15 +8734,15 @@
     "text": "[SAMPLE VESSEL \u2014 EXTERNAL DIAGNOSTIC PORT]\nHULL BREACH: +214y INTO TRANSIT\nCRYOSTASIS: FAILED / RESTORED\nPAYLOAD: NO VIABLE MATERIAL.\nMAKE NO EFFORT AT RECOVERY."
    },
    {
-    "room": 7,
+    "polygon": 7,
     "pos": [
      1600.0,
      49.95091339572798
     ],
-    "text": "[The door beneath the vault does not\nspeak in words. It rearranges the room\nuntil the room is a sentence.\nThe sentence is an offer.]\n\nGUARD / ACCEPT / KNEEL / BURN\n\n[You think of Ratio. You guard.]"
+    "text": "[The door beneath the vault does not\nspeak in words. It rearranges the polygon\nuntil the polygon is a sentence.\nThe sentence is an offer.]\n\nGUARD / ACCEPT / KNEEL / BURN\n\n[You think of Ratio. You guard.]"
    },
    {
-    "room": 8,
+    "polygon": 8,
     "pos": [
      1300.0,
      645.0
@@ -8750,7 +8750,7 @@
     "text": "[TRANSLATION CONFIDENCE 22%]\nthis alcove held the first watcher.\nit stood here four hundred / thousand /\n[number does not translate] years.\nit is permitted to sit."
    },
    {
-    "room": 1,
+    "polygon": 1,
     "pos": [
      444.4615242270663,
      77.00961894323342
@@ -8758,7 +8758,7 @@
     "text": "MIRIAD PRIME ARCHIVE OFFICE \u2014 NEVER TRANSMITTED\nTrack Quanta-118093 was not discovered in survey\nmonth four. Track Quanta-118093 has been a line\nitem since before this outpost's own founding\ncharter. The charter\nauthorized study of a 'previously catalogued\nanomaly.'\nNobody assigned to the outpost was shown the\nearlier entry. We are not shown it either. Close\nthis file; do not forward the question upward\nagain."
    },
    {
-    "room": 4,
+    "polygon": 4,
     "pos": [
      444.4615242270663,
      437.0096189432334
@@ -8766,7 +8766,7 @@
     "text": "SCRATCHED, LOW ON THE WALL, EASY TO MISS\ntape measure, one (1), still on its reel, no\ntape drawn out.\nSomeone set it down gently."
    },
    {
-    "room": 6,
+    "polygon": 6,
     "pos": [
      1075.5384757729337,
      282.9903810567666
@@ -8786,7 +8786,7 @@
  },
  "lights": [
   {
-   "room": 0,
+   "polygon": 0,
    "pos": [
     80.0,
     70.0
@@ -8801,7 +8801,7 @@
    "kind": "static"
   },
   {
-   "room": 9,
+   "polygon": 9,
    "pos": [
     40.0,
     800.0
@@ -8816,7 +8816,7 @@
    "kind": "static"
   },
   {
-   "room": 16,
+   "polygon": 16,
    "pos": [
     317.3333333333333,
     888.0
@@ -8831,7 +8831,7 @@
    "kind": "static"
   },
   {
-   "room": 17,
+   "polygon": 17,
    "pos": [
     380.0,
     888.0
@@ -8846,7 +8846,7 @@
    "kind": "static"
   },
   {
-   "room": 22,
+   "polygon": 22,
    "pos": [
     493.3333333333333,
     1064.0
@@ -8861,7 +8861,7 @@
    "kind": "static"
   },
   {
-   "room": 25,
+   "polygon": 25,
    "pos": [
     696.0,
     1216.8
@@ -8876,7 +8876,7 @@
    "kind": "static"
   },
   {
-   "room": 8,
+   "polygon": 8,
    "pos": [
     1300.0,
     610.0
@@ -8891,7 +8891,7 @@
    "kind": "static"
   },
   {
-   "room": 111,
+   "polygon": 111,
    "pos": [
     2198.0,
     563.753853761202
@@ -8906,7 +8906,7 @@
    "kind": "static"
   },
   {
-   "room": 113,
+   "polygon": 113,
    "pos": [
     2198.0,
     649.753853761202
@@ -8921,7 +8921,7 @@
    "kind": "static"
   },
   {
-   "room": 212,
+   "polygon": 212,
    "pos": [
     2114.0,
     1822.0
@@ -8936,7 +8936,7 @@
    "kind": "static"
   },
   {
-   "room": 213,
+   "polygon": 213,
    "pos": [
     2127.3333333333335,
     1734.0
@@ -8951,7 +8951,7 @@
    "kind": "static"
   },
   {
-   "room": 214,
+   "polygon": 214,
    "pos": [
     2178.0,
     1734.0
@@ -8966,7 +8966,7 @@
    "kind": "static"
   },
   {
-   "room": 215,
+   "polygon": 215,
    "pos": [
     2114.0,
     1642.0
@@ -8981,7 +8981,7 @@
    "kind": "static"
   },
   {
-   "room": 216,
+   "polygon": 216,
    "pos": [
     2038.0,
     1734.0
@@ -8996,7 +8996,7 @@
    "kind": "static"
   },
   {
-   "room": 217,
+   "polygon": 217,
    "pos": [
     2038.0,
     1642.0
@@ -9011,7 +9011,7 @@
    "kind": "static"
   },
   {
-   "room": 1,
+   "polygon": 1,
    "pos": [
     400.0,
     -4.736951571734001e-15
@@ -9026,7 +9026,7 @@
    "kind": "static"
   },
   {
-   "room": 2,
+   "polygon": 2,
    "pos": [
     760.0,
     -4.736951571734001e-15
@@ -9041,7 +9041,7 @@
    "kind": "static"
   },
   {
-   "room": 3,
+   "polygon": 3,
    "pos": [
     1120.0,
     -4.736951571734001e-15
@@ -9056,7 +9056,7 @@
    "kind": "static"
   },
   {
-   "room": 4,
+   "polygon": 4,
    "pos": [
     400.0,
     360.0
@@ -9071,7 +9071,7 @@
    "kind": "static"
   },
   {
-   "room": 5,
+   "polygon": 5,
    "pos": [
     760.0,
     360.0
@@ -9086,7 +9086,7 @@
    "kind": "static"
   },
   {
-   "room": 6,
+   "polygon": 6,
    "pos": [
     1120.0,
     360.0
@@ -9101,7 +9101,7 @@
    "kind": "static"
   },
   {
-   "room": 178,
+   "polygon": 178,
    "pos": [
     3430.0,
     1582.0
@@ -9116,7 +9116,7 @@
    "kind": "static"
   },
   {
-   "room": 7,
+   "polygon": 7,
    "pos": [
     1600.0,
     180.0
@@ -9131,7 +9131,7 @@
    "kind": "static"
   },
   {
-   "room": 7,
+   "polygon": 7,
    "pos": [
     1600.0,
     140.0

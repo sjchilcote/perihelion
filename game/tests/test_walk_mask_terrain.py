@@ -1,5 +1,5 @@
 """Walk-mask terrain (director's directive): `<texture>_walkmask.png`
-(white=walkable, black=terrain) loads into room-local collision rects that
+(white=walkable, black=terrain) loads into polygon-local collision rects that
 block movement/projectiles exactly like a wall, absence means fully
 walkable, and the PNG decoder in `terrain.py` (stdlib-only, kept out of
 `sim.py`'s pygame-free lane) must read exactly what pygame itself would.
@@ -21,7 +21,7 @@ from perihelion.sim import GameSession
 from perihelion import terrain, texture_geom
 
 
-def _write_mask(root, level_id: str, room_index: int, w: int, h: int,
+def _write_mask(root, level_id: str, polygon_index: int, w: int, h: int,
                  black_rect=None, mode="RGB") -> None:
     """A `w`x`h` walk-mask PNG, white everywhere except `black_rect`
     (tx0, ty0, tx1, ty1) in texel coordinates, if given."""
@@ -35,7 +35,7 @@ def _write_mask(root, level_id: str, room_index: int, w: int, h: int,
         arr = pygame.surfarray.array3d(surf)  # (w, h, 3), x-major
         gray = arr[:, :, 0]  # already 0 or 255 everywhere -> lossless as gray
         surf = pygame.surfarray.make_surface(np.stack([gray] * 3, axis=-1))
-    path = terrain.texture_geom.texture_path(root, level_id, room_index)
+    path = terrain.texture_geom.texture_path(root, level_id, polygon_index)
     path = path.with_name(path.stem + "_walkmask" + path.suffix)
     pygame.image.save(surf, str(path))
 
@@ -87,7 +87,7 @@ def test_absence_of_mask_file_means_fully_walkable(tmp_path, monkeypatch):
     level, root = _tex_root_and_level(tmp_path)
     monkeypatch.setattr(terrain, "TEXTURE_DIR", root)
     session = GameSession(level, seed=1)
-    assert session.sim.room_terrain(0) == []
+    assert session.sim.polygon_terrain(0) == []
 
 
 def test_level_with_no_level_id_never_touches_disk(tmp_path, monkeypatch):
@@ -95,8 +95,8 @@ def test_level_with_no_level_id_never_touches_disk(tmp_path, monkeypatch):
     assert level.level_id == ""
     monkeypatch.setattr(terrain, "TEXTURE_DIR", tmp_path)  # empty dir
     session = GameSession(level, seed=1)  # must not raise, must load no terrain
-    for r in range(session.sim.num_rooms()):
-        assert session.sim.room_terrain(r) == []
+    for r in range(session.sim.num_polygons()):
+        assert session.sim.polygon_terrain(r) == []
 
 
 # ---------------------------------------------------------------------
@@ -104,20 +104,20 @@ def test_level_with_no_level_id_never_touches_disk(tmp_path, monkeypatch):
 # texture's own coordinate mapping.
 # ---------------------------------------------------------------------
 
-def _room0_mask_session(tmp_path, monkeypatch, black_rect_texels):
+def _polygon0_mask_session(tmp_path, monkeypatch, black_rect_texels):
     level, root = _tex_root_and_level(tmp_path)
-    w, h = texture_geom.texture_size_for_room(level.room_verts[0])
+    w, h = texture_geom.texture_size_for_polygon(level.polygon_verts[0])
     _write_mask(root, level.level_id, 0, w, h, black_rect_texels)
     monkeypatch.setattr(terrain, "TEXTURE_DIR", root)
     return GameSession(level, seed=1), w, h
 
 
-def test_walk_mask_installs_matching_room_local_rect(tmp_path, monkeypatch):
-    # Room 0's local bbox is (-80,-60)-(80,60) (rect 160x120, LevelBuilder
+def test_walk_mask_installs_matching_polygon_local_rect(tmp_path, monkeypatch):
+    # Polygon 0's local bbox is (-80,-60)-(80,60) (rect 160x120, LevelBuilder
     # centers it): a black block at texel (200,150)-(280,210) maps to
     # local (-13.33,-10)-(13.33,10) via the texel law.
-    session, w, h = _room0_mask_session(tmp_path, monkeypatch, (200, 150, 280, 210))
-    rects = session.sim.room_terrain(0)
+    session, w, h = _polygon0_mask_session(tmp_path, monkeypatch, (200, 150, 280, 210))
+    rects = session.sim.polygon_terrain(0)
     assert len(rects) >= 1
     lo_x = min(r[0] for r in rects)
     lo_y = min(r[1] for r in rects)
@@ -130,11 +130,11 @@ def test_walk_mask_installs_matching_room_local_rect(tmp_path, monkeypatch):
 
 
 def test_walk_mask_blocks_player_movement(tmp_path, monkeypatch):
-    # A black block centered in the room (texel (200,150)-(280,210) ->
+    # A black block centered in the polygon (texel (200,150)-(280,210) ->
     # local x in roughly [-13, 13]); starting well to its left and walking
     # straight along +x, the player must be stopped at its face, never
     # tunnel through.
-    session, w, h = _room0_mask_session(tmp_path, monkeypatch, (200, 150, 280, 210))
+    session, w, h = _polygon0_mask_session(tmp_path, monkeypatch, (200, 150, 280, 210))
     sim = session.sim
     sim.set_pos(session.pid, -60.0, 0.0)
     sim.set_vel(session.pid, 150.0, 0.0)
@@ -145,7 +145,7 @@ def test_walk_mask_blocks_player_movement(tmp_path, monkeypatch):
 
 
 def test_walk_mask_blocks_projectiles(tmp_path, monkeypatch):
-    session, w, h = _room0_mask_session(tmp_path, monkeypatch, (200, 150, 280, 210))
+    session, w, h = _polygon0_mask_session(tmp_path, monkeypatch, (200, 150, 280, 210))
     sim = session.sim
     bid = sim.spawn(0, -60.0, 0.0, 1.5, 0.01, 2)  # GROUP_PBULLET
     sim.set_props(bid, rest_wall=0.0, max_substep=3.0)
@@ -158,7 +158,7 @@ def test_walk_mask_blocks_projectiles(tmp_path, monkeypatch):
 
 def test_walk_mask_size_mismatch_fails_loudly(tmp_path, monkeypatch):
     level, root = _tex_root_and_level(tmp_path)
-    w, h = texture_geom.texture_size_for_room(level.room_verts[0])
+    w, h = texture_geom.texture_size_for_polygon(level.polygon_verts[0])
     _write_mask(root, level.level_id, 0, w + 10, h, None)  # wrong size, no fallback
     monkeypatch.setattr(terrain, "TEXTURE_DIR", root)
     with pytest.raises(terrain.WalkMaskError):
@@ -166,21 +166,21 @@ def test_walk_mask_size_mismatch_fails_loudly(tmp_path, monkeypatch):
 
 
 # ---------------------------------------------------------------------
-# Streamed chunks: append_chunk must load the appended room's own mask.
+# Streamed chunks: append_chunk must load the appended polygon's own mask.
 # ---------------------------------------------------------------------
 
 def test_append_chunk_loads_its_own_walk_mask(tmp_path, monkeypatch):
     level, root = _tex_root_and_level(tmp_path, level_id="chunkA")
     monkeypatch.setattr(terrain, "TEXTURE_DIR", root)
     session = GameSession(level, seed=1)
-    offset = session.sim.num_rooms()
+    offset = session.sim.num_polygons()
 
     chunk = build_debug_level()
     chunk.level_id = "chunkB"
-    w, h = texture_geom.texture_size_for_room(chunk.room_verts[0])
+    w, h = texture_geom.texture_size_for_polygon(chunk.polygon_verts[0])
     _write_mask(root, chunk.level_id, 0, w, h, (200, 150, 280, 210))
 
     session.append_chunk(chunk)
-    assert session.sim.room_terrain(offset) != []
-    # the original session's own rooms are untouched (no mask authored)
-    assert session.sim.room_terrain(0) == []
+    assert session.sim.polygon_terrain(offset) != []
+    # the original session's own polygons are untouched (no mask authored)
+    assert session.sim.polygon_terrain(0) == []

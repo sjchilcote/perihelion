@@ -31,7 +31,7 @@ def test_top_level_schema(model):
     for key in ("schema", "run_metadata", "total_ticks", "primary_horizon",
                 "horizons", "features", "baseline_features", "saturation",
                 "pca", "stalwart", "contempt", "prayer", "sanity_checks",
-                "per_room_hazard_final_batch", "room_hop_order"):
+                "per_polygon_hazard_final_batch", "polygon_hop_order"):
         assert key in model, f"factor_model.json missing top-level key {key!r}"
     assert model["schema"] == 2
     assert model["primary_horizon"] in model["horizons"]
@@ -51,7 +51,7 @@ def test_saturation_schema(model):
     assert "criterion" in sat and "batches" in sat and "evaluation" in sat
     assert len(sat["batches"]) >= 2
     ev = sat["evaluation"]
-    for key in ("n_covered_rooms", "coverage_frac", "se_criterion_met",
+    for key in ("n_covered_polygons", "coverage_frac", "se_criterion_met",
                 "shift_criterion_met", "saturated"):
         assert key in ev
     assert 0.0 <= ev["coverage_frac"] <= 1.0 + 1e-9
@@ -89,7 +89,7 @@ def test_stalwart_model_schema(model):
 
 def test_contempt_schema(model):
     c = model["contempt"]
-    assert len(c["table"]) == 5  # weak_aggro_same_room bins 0,1,2,3,"4+"
+    assert len(c["table"]) == 5  # weak_aggro_same_polygon bins 0,1,2,3,"4+"
     for row in c["table"]:
         assert row["kills_per_sec"] >= 0.0
     assert len(c["cdf_reference"]) == 101
@@ -114,19 +114,19 @@ def test_hazard_by_zone_is_a_real_measured_effect(model):
 
     GROUND TRUTH, replicated at every corpus prefix from 75 to 2400 runs
     (FITTING_REPORT.md, contradiction #1, has the full writeup): hazard is
-    NOT higher in combat rooms than corridors+loot pooled -- it is
+    NOT higher in combat polygons than corridors+loot pooled -- it is
     slightly LOWER (hazard_combat=0.0126 vs hazard_corridor_or_loot=
     0.0139 at n=1200, the pinned statistic). The three-way decomposition
-    is sharper: LOOT rooms are the deadliest zone class (0.0271, 2.2x
+    is sharper: LOOT polygons are the deadliest zone class (0.0271, 2.2x
     combat's 0.0121) while corridors alone are the SAFEST (0.0072) --
     the pooled corridor+loot > combat statistic is driven entirely by the
-    loot rooms. Traced to real engine/behavior properties, not a
+    loot polygons. Traced to real engine/behavior properties, not a
     measurement bug: (a) `GameSession._enemy_ai` (game/perihelion/sim.py)
     has no de-aggro transition for standard enemies once state=="hunt" --
-    a hunting enemy pathfinds toward the player's CURRENT room via
-    `next_edge(room, proom)` forever, so fight survivors pursue into the
-    'safe' interlude space; (b) hurt bots deliberately path to loot-room
-    medkits, so loot rooms concentrate the lowest-hp population, and hp
+    a hunting enemy pathfinds toward the player's CURRENT polygon via
+    `next_edge(polygon, ppolygon)` forever, so fight survivors pursue into the
+    'safe' interlude space; (b) hurt bots deliberately path to loot-polygon
+    medkits, so loot polygons concentrate the lowest-hp population, and hp
     is the fitted model's dominant hazard factor.
 
     This test therefore checks the thing that must be true regardless of
@@ -146,8 +146,8 @@ def test_hazard_by_zone_is_a_real_measured_effect(model):
     assert abs(h["shuffled_diff_mean"]) < abs(h["observed_diff"]) * 0.5, \
         "shuffled-label control shows nearly as much effect as the real split " \
         "-- the hazard-by-zone comparison has no discriminating power"
-    # ground-truth regression pin (see docstring): corridors/loot rooms
-    # read as SLIGHTLY more hazardous than combat rooms, not less.
+    # ground-truth regression pin (see docstring): corridors/loot polygons
+    # read as SLIGHTLY more hazardous than combat polygons, not less.
     assert h["observed_diff"] < 0, \
         "expected hazard_corridor_or_loot > hazard_combat (see docstring) -- " \
         "if this now shows combat as more hazardous, the de-aggro/persistent-hunt " \
@@ -156,13 +156,13 @@ def test_hazard_by_zone_is_a_real_measured_effect(model):
 
 def test_contempt_trash_vs_heavy_direction(model):
     """GROUND TRUTH, replicated under two different conditioning schemes
-    (segment-level, then kind-specific same-room aggro -- see
+    (segment-level, then kind-specific same-polygon aggro -- see
     sanity_contempt_trash_vs_heavy's docstring): heavy-segment (E/F)
     engagement reads a HIGHER kills/sec (0.48/s) than trash engagement
     (0.30/s), the opposite of the brief's assumption. Most likely
     mechanism: E and F mix escort trash (husk/mite/spitter) alongside
     their signature brute/shrieker/warden, so ticks where a heavy kind is
-    aggro'd in-room often ALSO have escorts dying simultaneously, inflating
+    aggro'd in-polygon often ALSO have escorts dying simultaneously, inflating
     the heavy-conditioned kill rate; isolating a "solo heavy, zero escort"
     tick population was not attempted (see FITTING_REPORT.md caveats).
     This is reported plainly rather than asserted as a design failure --
@@ -179,34 +179,34 @@ def test_contempt_trash_vs_heavy_direction(model):
         "before updating this pin"
 
 
-def test_prayer_in_loot_rooms(model):
+def test_prayer_in_loot_polygons(model):
     """GROUND TRUTH, replicated at n=300/1200: PRAYER (the brief's literal
-    1/(1+n_aggro), GLOBAL aggro count) reads ~0.64 in loot rooms, not ~1.0.
+    1/(1+n_aggro), GLOBAL aggro count) reads ~0.64 in loot polygons, not ~1.0.
     Partial root cause, same as the hazard finding above: enemies that
     survive a fight keep hunting indefinitely (no de-aggro transition in
     `_enemy_ai`), so the global aggro count rarely returns to zero even
-    while the player stands in a room with nothing nearby. The diagnostic
-    ROOM-LOCAL variant (`prayer.mean_in_loot_local`,
-    1/(1+n_aggro_same_room) -- not the official value) is measurably HIGHER
+    while the player stands in a polygon with nothing nearby. The diagnostic
+    POLYGON-LOCAL variant (`prayer.mean_in_loot_local`,
+    1/(1+n_aggro_same_polygon) -- not the official value) is measurably HIGHER
     (0.746 vs 0.640), confirming distant/global hunters explain PART of the
     gap -- but it does NOT reach ~1.0 either (an original hypothesis this
     test held and rejected on the real data): at the density this gauntlet
     was tuned to (10 enemies total across the whole run), persistent
-    hunters sometimes physically catch up into a 'safe' room WITH the
-    player before dying, so even same-room aggro doesn't cleanly zero out
+    hunters sometimes physically catch up into a 'safe' polygon WITH the
+    player before dying, so even same-polygon aggro doesn't cleanly zero out
     in nominally safe space. See FITTING_REPORT.md for the full writeup."""
-    p = model["sanity_checks"]["prayer_loot_rooms"]
+    p = model["sanity_checks"]["prayer_loot_polygons"]
     prayer = model["prayer"]
-    assert p["mean_prayer_in_loot_rooms"] is not None
+    assert p["mean_prayer_in_loot_polygons"] is not None
     local = prayer.get("mean_in_loot_local")
-    assert local is not None, "the room-local PRAYER diagnostic must be present"
-    assert local > p["mean_prayer_in_loot_rooms"], \
-        "the room-local variant should read higher than the global formula " \
+    assert local is not None, "the polygon-local PRAYER diagnostic must be present"
+    assert local > p["mean_prayer_in_loot_polygons"], \
+        "the polygon-local variant should read higher than the global formula " \
         "(distant hunters are part, not all, of the depression) -- see docstring"
     # ground-truth regression pin: global PRAYER stays well below 1.0 in
-    # loot rooms because upstream hunters never give up the chase.
-    assert p["mean_prayer_in_loot_rooms"] < 0.9, \
-        "expected global PRAYER to stay depressed in loot rooms (see docstring) " \
+    # loot polygons because upstream hunters never give up the chase.
+    assert p["mean_prayer_in_loot_polygons"] < 0.9, \
+        "expected global PRAYER to stay depressed in loot polygons (see docstring) " \
         "-- if this now reads near 1.0, the persistent-hunt root cause may have " \
         "changed; re-verify before updating this pin"
 

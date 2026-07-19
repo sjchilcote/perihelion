@@ -12,7 +12,7 @@ seed), and every run file's header records both.
 ## The design being calibrated (director, verbatim)
 
 > "take a subset of mid-game segments and assemble them together, with rest
-> and recharge lootrooms in the middle of long, safe corridors dividing
+> and recharge lootpolygons in the middle of long, safe corridors dividing
 > them. Run a massive quantity of bots through this level - first, keep
 > adjusting it so the total clear rate is maybe 50%. After enough runs -
 > keep rerunning until the statistics reach saturation - the probability of
@@ -30,11 +30,11 @@ originally-guessed feature as an explicit baseline comparison.
 
 | step | file | output |
 |---|---|---|
-| gauntlet assembly | `tools/musiccal/build_gauntlet.py` | `levels/gauntlet_cal.json` + `tools/musiccal/gauntlet_meta.json` (room-zone map) |
+| gauntlet assembly | `tools/musiccal/build_gauntlet.py` | `levels/gauntlet_cal.json` + `tools/musiccal/gauntlet_meta.json` (polygon-zone map) |
 | clear-rate tuning | `tools/musiccal/tune_density.py` | `tools/musiccal/tuning_log.json` |
 | run farm (raw capture) | `tools/musiccal/run_farm.py` | `tools/musiccal/runs/*.jsonl.gz` (gitignored, regenerable; 1 header + 1 array/tick + 1 footer) |
 | analysis / fitting | `tools/musiccal/fit_factors.py` | `tools/musiccal/factor_model.json` + `hazard_by_position.png` |
-| extended saturation (streaming, O(rooms) memory) | `tools/musiccal/saturation_stream.py` | `tools/musiccal/saturation_extended.json` |
+| extended saturation (streaming, O(polygons) memory) | `tools/musiccal/saturation_stream.py` | `tools/musiccal/saturation_extended.json` |
 | structural tests | `game/tests/test_gauntlet_level.py` | — |
 | output schema + sanity pins | `game/tests/test_gauntlet_calibration.py` | — |
 | CONTEMPT aux levels | `tools/musiccal/aux/build_heavy_probe.py` (+ full-density build via `build_gauntlet.py --density 1.0`) | `tools/musiccal/aux/*.json` |
@@ -43,12 +43,12 @@ originally-guessed feature as an explicit baseline comparison.
 
 Six combat clusters copied (geometry + spawns, never referenced) from the
 shipped mid-game levels, ordered easy→hard, joined by seven long
-stub–loot–stub corridors (each loot room: 2 medkits + one stack of each
+stub–loot–stub corridors (each loot polygon: 2 medkits + one stack of each
 ammo type). No keys, no gates — combat only. Bot loadout is a fixed
 "just past l03" state (`run_farm.MID_GAME_STATE`: smg+shotgun, 60×9mm,
 16 shells), because the segments are mid-game content.
 
-| tag | source | rooms | roster at density 1.0 |
+| tag | source | polygons | roster at density 1.0 |
 |---|---|---|---|
 | B | l06 | 18,19,20 | husk, mite, spitter (3) |
 | A | l04 | 4,55,56 | husk×4, mite×2, spitter (7) |
@@ -78,12 +78,12 @@ The final calibration corpus itself (1200 runs, disjoint seed range
 level all inside the band.
 
 **Tuning-mechanism failure worth recording:** density v1 scaled each
-room's count independently via `round(count × density)`. With ~20 rooms
-holding 1–4 enemies each, most rooms' rounding cusps coincide at
+polygon's count independently via `round(count × density)`. With ~20 polygons
+holding 1–4 enemies each, most polygons' rounding cusps coincide at
 density=0.25, so a 0.7% density change (0.2489→0.2507) jumped the level
 from 5 enemies to 15 and clear rate from ~100% to 10%. Replaced with a
 proportional-fair global order (`build_gauntlet._fair_order`: sort key
-`(room_pos+0.5)/room_size`, any prefix is a fair cross-room sample) before
+`(polygon_pos+0.5)/polygon_size`, any prefix is a fair cross-polygon sample) before
 any committed numbers were collected. v1's measured cliff is preserved in
 `tuning_log.json`'s caveats.
 
@@ -126,10 +126,10 @@ Zone-level hazard is stable to ±2% over the last doubling, and the
 ordering **loot > combat > corridor** holds at every single prefix from
 75 runs on (see contradiction #1).
 
-Representative per-room trajectories (hazard; `~d` = estimated deaths in
-that room at 2400 = positive ticks/180):
+Representative per-polygon trajectories (hazard; `~d` = estimated deaths in
+that polygon at 2400 = positive ticks/180):
 
-| room (zone/seg) | 75r | 150r | 300r | 600r | 1200r | 2400r | ~d@2400 |
+| polygon (zone/seg) | 75r | 150r | 300r | 600r | 1200r | 2400r | ~d@2400 |
 |---|---|---|---|---|---|---|---|
 | 14 (combat/D) | .0237 | .0503 | .0577 | .0616 | .0595 | .0521 | 58 |
 | 10 (combat/D) | .0226 | .0378 | .0425 | .0471 | .0482 | .0461 | 46 |
@@ -141,7 +141,7 @@ that room at 2400 = positive ticks/180):
 
 Literal-criterion evaluation per doubling (`saturation_extended.json`):
 
-| doubling | covered rooms | SE<15% ok | shift<15% ok | bins shifted >15% | median obs/pred shift |
+| doubling | covered polygons | SE<15% ok | shift<15% ok | bins shifted >15% | median obs/pred shift |
 |---|---|---|---|---|---|
 | 75→150 | 40 | no | no | 17 | 0.36 |
 | 150→300 | 39 | yes | no | 13 | 0.29 |
@@ -159,10 +159,10 @@ n as literally specified:**
 1. **Tick-level SEs are a false instrument here.** One death paints up to
    180 consecutive ticks positive, so ticks within a run are heavily
    autocorrelated and the binomial tick-SE overstates precision by
-   ~√180 ≈ 13×. The honest sample-size unit is **deaths-per-room**
-   (validated: summing positive-ticks/180 over rooms gives ~1221 vs 1214
-   actual deaths). Per-room death counts at 2400 runs range from ~230
-   (busiest loot room) down to **0–10 for a third of the 95%-coverage
+   ~√180 ≈ 13×. The honest sample-size unit is **deaths-per-polygon**
+   (validated: summing positive-ticks/180 over polygons gives ~1221 vs 1214
+   actual deaths). Per-polygon death counts at 2400 runs range from ~230
+   (busiest loot polygon) down to **0–10 for a third of the 95%-coverage
    set**.
 2. **The observed batch-to-batch shifts are exactly death-count sampling
    noise.** The streaming evaluator compares each bin's observed relative
@@ -195,9 +195,9 @@ batches. Total corpus: **2400 main + 230 auxiliary = 2630 runs.**
 
 | component | EVR | top loadings | reading |
 |---|---|---|---|
-| PC1 | 19.6% | weighted_threat +0.37, n_aggro_same_room +0.35, min_enemy_dist −0.35, has_same_room_threat +0.35, n_aggro +0.32, hp −0.26 | **threat proximity** (the fight, as pressure) |
+| PC1 | 19.6% | weighted_threat +0.37, n_aggro_same_polygon +0.35, min_enemy_dist −0.35, has_same_polygon_threat +0.35, n_aggro +0.32, hp −0.26 | **threat proximity** (the fight, as pressure) |
 | PC2 | 14.7% | hits_3s +0.43, kills_3s +0.43, accuracy_3s +0.40, shots_3s +0.33 | **violence output** (the fight, as throughput) |
-| PC3 | 10.3% | is_loot_zone +0.50, n_pickups_room +0.49, area +0.48, n_lights +0.31 | **rest-room context** |
+| PC3 | 10.3% | is_loot_zone +0.50, n_pickups_polygon +0.49, area +0.48, n_lights +0.31 | **rest-polygon context** |
 | PC4 | 8.4% | weapon smg +0.49 vs shotgun −0.49 | loadout identity |
 | PC5 | 7.7% | total_ammo +0.55, ammo_9mm +0.54 | reserves |
 
@@ -232,10 +232,10 @@ Top standardized coefficients (sign = direction of death risk):
 |---|---|---|
 | hp | −4.56 | the dominant factor by ~2.5× |
 | min_enemy_dist_capped | −1.85 | closer live enemy → higher hazard |
-| has_same_room_threat | −1.84 | joint with min_dist: the "500 = empty room" placeholder correction |
+| has_same_polygon_threat | −1.84 | joint with min_dist: the "500 = empty polygon" placeholder correction |
 | weighted_threat_active | +1.03 | the original guess — real, just not sufficient |
-| **is_loot_zone** | **+0.66** | **death risk is HIGHER in loot rooms, all else equal** (see contradictions) |
-| area | −0.64 | big rooms are survivable; corridors kill |
+| **is_loot_zone** | **+0.66** | **death risk is HIGHER in loot polygons, all else equal** (see contradictions) |
+| area | −0.64 | big polygons are survivable; corridors kill |
 | speed | −0.62 | still moving → alive; pinned → dying |
 | shots_3s | −0.40 | still shooting → still fighting back |
 | dmgtaken_3s | +0.20 | recent damage → more coming |
@@ -243,7 +243,7 @@ Top standardized coefficients (sign = direction of death risk):
 Shape in words: raw P(death|3s) is a **spike, not a slope** — p50 of the
 fitted probability is 2×10⁻⁶, p90 = 0.006, p95 = 0.034, p99 = 0.45. The
 Commando is almost always fine; STALWART lives in the top few percentiles
-where low hp meets a same-room enemy inside ~100 units. The percentile
+where low hp meets a same-polygon enemy inside ~100 units. The percentile
 normalization (101-point ensemble CDF in `factor_model.json:
 stalwart.cdf_reference`) is therefore essential — it converts the spike
 into a usable 0–1 ride. There is no "knee at weighted threat ≈ 7":
@@ -252,9 +252,9 @@ knee** — the same threat reads harmless at 100 hp and lethal at 25.
 
 ### CONTEMPT — kills/sec (directly observed, per the brief)
 
-Binned by same-room weak (husk/mite) aggro count, main corpus:
+Binned by same-polygon weak (husk/mite) aggro count, main corpus:
 
-| weak aggro in room | bot-ticks | kills/sec | SE |
+| weak aggro in polygon | bot-ticks | kills/sec | SE |
 |---|---|---|---|
 | 0 | 6,411,839 | 0.0635 | 0.00006 |
 | 1 | 1,377,098 | 0.0652 | 0.00013 |
@@ -272,7 +272,7 @@ The percentile CDF is in `factor_model.json: contempt.cdf_reference`.
 
 ### PRAYER — 1/(1+n_aggro) (directly observed, per the brief)
 
-| zone | mean PRAYER (global formula) | room-local diagnostic |
+| zone | mean PRAYER (global formula) | polygon-local diagnostic |
 |---|---|---|
 | loot | 0.640 | 0.746 |
 | corridor | 0.689 | 0.779 |
@@ -280,7 +280,7 @@ The percentile CDF is in `factor_model.json: contempt.cdf_reference`.
 
 Shape in words: **flat across zones** (spread ~0.05) — the formula as
 specified does not discriminate rest from combat in this engine (see
-contradiction #3). Validation target "~1.0 in rest rooms" **fails**:
+contradiction #3). Validation target "~1.0 in rest polygons" **fails**:
 0.640 vs 1.0.
 
 ## Sanity checks (fail-first) — what actually held
@@ -294,36 +294,36 @@ hypothesized directions are false, and the third failed its target:**
 
 ## Contradictions of the design assumptions (read back to the director)
 
-1. **The "rest and recharge lootrooms" are the deadliest zone class in
-   the gauntlet — 2.2× the combat rooms.** Three-way decomposition
+1. **The "rest and recharge lootpolygons" are the deadliest zone class in
+   the gauntlet — 2.2× the combat polygons.** Three-way decomposition
    (3s-hazard, 16.4M ticks, stable at every prefix from 75 runs on):
    **loot 0.0271, combat 0.0121, corridor 0.0072.** The pooled sanity
    statistic (corridor+loot 0.0139 vs combat 0.0126, permutation p=0.012
    vs shuffled-label control ≈0) is pinned in
    `test_gauntlet_calibration.py`; the decomposition shows it is driven
-   entirely by the loot rooms — the corridors themselves are the SAFEST
+   entirely by the loot polygons — the corridors themselves are the SAFEST
    zone, so "long, safe corridors" actually held. Two mechanisms, both
    visible in the fitted model:
    - **Pursuit never ends.** Read directly from
      `game/perihelion/sim.py::_enemy_ai`: standard enemies have no
      de-aggro transition — once `state=="hunt"` they pathfind to the
-     player's *current* room via `next_edge(room, proom)` forever (only
+     player's *current* polygon via `next_edge(polygon, ppolygon)` forever (only
      the flicker disengages). Fight survivors follow the player through
-     the corridor and into the loot room.
-   - **Loot rooms concentrate the nearly-dead.** Hurt bots deliberately
+     the corridor and into the loot polygon.
+   - **Loot polygons concentrate the nearly-dead.** Hurt bots deliberately
      path to medkits (HumanBot's medkit-seeking, mirroring real player
-     behavior), so the population standing in loot rooms is
+     behavior), so the population standing in loot polygons is
      hp-selected — and hp is the model's dominant hazard factor (−4.56).
      The +0.66 is_loot_zone coefficient shows extra risk *beyond* the
      hp effect: cornered in a 220×220 box with pursuers arriving.
    The per-position plot (`hazard_by_position.png`) shows the green
    (loot) points riding at or above the neighboring red (combat) points
    through the whole mid-gauntlet. **Design implication for the
-   director's premise: a loot room between segments is not a rest beat —
+   director's premise: a loot polygon between segments is not a rest beat —
    under permanent pursuit it is where wounded runs go to end.**
 
 2. **CONTEMPT (kills/sec) is NOT higher against trash than against
-   heavies.** Kind-specific same-room-aggro conditioning, full-density
+   heavies.** Kind-specific same-polygon-aggro conditioning, full-density
    corpora: trash-engaged 0.295 kills/s vs heavy-engaged 0.477 kills/s.
    Checked twice (segment-level and per-kind conditioning; dedicated
    heavy probe with 36,314 heavy-engaged ticks). Plausible mechanism,
@@ -337,13 +337,13 @@ hypothesized directions are false, and the third failed its target:**
    count* — the main line can derive either from `factor_model.json`'s
    raw stats without new runs.
 
-3. **PRAYER does NOT read ~1.0 in loot rooms** (0.640 measured, target
+3. **PRAYER does NOT read ~1.0 in loot polygons** (0.640 measured, target
    ~1.0). Same root cause as #1: the global aggro count rarely returns to
-   zero once anything upstream survived. The room-local diagnostic
-   variant (1/(1+n_aggro_same_room)) reads 0.746 — higher, confirming
+   zero once anything upstream survived. The polygon-local diagnostic
+   variant (1/(1+n_aggro_same_polygon)) reads 0.746 — higher, confirming
    distant immortal hunters are a large part of the depression — but not
    ~1.0 either: at the tuned density, pursuers physically catch up and
-   enter the loot room with the player. **PRAYER as "inverse of enemies
+   enter the loot polygon with the player. **PRAYER as "inverse of enemies
    currently aggroed" is measuring the pursuit system, not calm.** Note
    for the main line: `music.py::read_inputs` counts aggro the same
    global way, so the live PRAYER heuristic inherits this — after the
@@ -368,13 +368,13 @@ hypothesized directions are false, and the third failed its target:**
 ## Turret intervention (2026-07-13 follow-up) — finding #1, remedied and measured
 
 Director's directive, verbatim: *"let's put friendly turrets in the
-safe-room corridors."* Built: a stationary, indestructible, LOS+range-
+safe-polygon corridors."* Built: a stationary, indestructible, LOS+range-
 gated friendly emplacement (`SENTRIES`/`spawn_sentry`/`_sentry_tick` in
 `game/perihelion/sim.py`; entity type `"sentry"`, pistol-class damage/rof,
 260-unit range, walk-mask-terrain LOS via `_sentry_los_clear`, ~0.17s
 target-acquisition spin-up; reuses the cloister guardians' `kind="turret"`
 bullet tag so the existing player-immunity guard in `_contact` covers it
-for free). Placed one per loot room (`tools/musiccal/build_gauntlet.py`'s
+for free). Placed one per loot polygon (`tools/musiccal/build_gauntlet.py`'s
 `add_corridor`), density knob untouched (still 10/43 enemies, `--density
 0.232558`) so any measured delta is attributable to the turrets alone.
 Fail-first unit/integration tests: `game/tests/test_sentry_turret.py`.
@@ -410,19 +410,19 @@ Turreted-level primary numbers (director's literally-requested 60-run
 batch, seeds 0–59): clear rate 1.000 (60/60), hazard 0.0 in every zone.
 
 **Verdict: the acceptance criterion is met, and by a wide margin.** With
-the modern (retuned) bot, loot rooms are *still* the deadliest zone by
+the modern (retuned) bot, loot polygons are *still* the deadliest zone by
 far when undefended — 7.79x combat, actually a worse ratio than this
 report's original 2.24x, consistent with the mechanism in finding #1
 (a bot that got much better at combat concentrates its remaining deaths
-in the one place with no defense at all). With turrets, loot-room deaths
+in the one place with no defense at all). With turrets, loot-polygon deaths
 go to exactly **zero** at n=600 — safer than combat, not just safer than
 before. The single surviving death (seed 328, 600-run turreted batch) was
-verified in the raw run file to be an ordinary combat-room death (room 9,
-`zone=="combat"`, hp draining to 0 in room) — outside the turrets' scope
-by design (director's order: gauntlet loot-room corridors only, campaign
+verified in the raw run file to be an ordinary combat-polygon death (polygon 9,
+`zone=="combat"`, hp draining to 0 in polygon) — outside the turrets' scope
+by design (director's order: gauntlet loot-polygon corridors only, campaign
 placement deferred). Turrets also have a small, plausible secondary
 effect on combat hazard itself (0.000310 → 0.000143): a run that survives
-a loot room at full health rather than half-dead-or-not-at-all enters its
+a loot polygon at full health rather than half-dead-or-not-at-all enters its
 next fight healthier, and `hp` is this report's dominant hazard
 coefficient (−4.56) — noted as a hypothesis, not re-verified at this
 sample size (only ~1 vs ~2 combat deaths).
@@ -439,10 +439,10 @@ sample size (only ~1 vs ~2 combat deaths).
   percentile `cdf_reference` for 0–1 normalization.
 - `contempt`: kills/sec lookup by weak-aggro bin (+ SEs) and the engaged
   ensemble `cdf_reference`.
-- `prayer`: per-zone means for the specified formula plus the room-local
+- `prayer`: per-zone means for the specified formula plus the polygon-local
   diagnostic.
 - `pca`, `saturation` (criterion, batches, evaluation),
-  `per_room_hazard_final_batch`, `room_hop_order`, `sanity_checks`, run
+  `per_polygon_hazard_final_batch`, `polygon_hop_order`, `sanity_checks`, run
   metadata (n, outcomes, clear rate, git rev, level SHA).
 
 ## Caveats
@@ -462,4 +462,4 @@ sample size (only ~1 vs ~2 combat deaths).
 - CONTEMPT escort-inflation mechanism (#2) is a hypothesis; the direction
   of the measurement itself is replicated and solid.
 - Density v1's rounding-cusp failure is documented in
-  `tuning_log.json` — do not resurrect per-room rounding.
+  `tuning_log.json` — do not resurrect per-polygon rounding.

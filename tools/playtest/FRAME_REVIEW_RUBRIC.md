@@ -27,17 +27,17 @@ titles, HUD numbers, terminal/conversation text, menu items. Quote the text
 you can read; flag what you can't.
 
 **Seamlessness (constitution invariant).** Brightness or palette must never
-step at a room boundary — the world is one continuous space. Watch walls
+step at a polygon boundary — the world is one continuous space. Watch walls
 and floors that span portal lines. Entities (enemies, pickups, bullets,
-props) must never be clipped by a room boundary while straddling it.
+props) must never be clipped by a polygon boundary while straddling it.
 
 **Lighting.** Darkness falls off from the player, warm near, dark far. Flag
-any frame where a whole room pops bright/dark on entry, or glows (muzzle,
+any frame where a whole polygon pops bright/dark on entry, or glows (muzzle,
 screens) fail to punch through the darkness field.
 
-**Diegesis.** Props/terminals should read as belonging to the room's
+**Diegesis.** Props/terminals should read as belonging to the polygon's
 function (dock, chapel, medbay...). Flag floating/misaligned props,
-terminals not mounted to walls, furniture blocking doorways, or rooms that
+terminals not mounted to walls, furniture blocking doorways, or polygons that
 read as empty geometry.
 
 **HUD sanity.** HP/ammo/weapon consistent with the action (firing decreases

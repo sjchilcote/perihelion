@@ -3,7 +3,7 @@
  "name": "The Maze From Arrival",
  "tier": 1,
  "ambience": "amb_drone_early",
- "rooms": [
+ "polygons": [
   {
    "verts": [
     [
@@ -2200,14 +2200,14 @@
  "connects_x": [],
  "doors": [],
  "player": {
-  "room": 66,
+  "polygon": 66,
   "pos": [
    631.5715669589121,
    467.7311071207941
   ]
  },
  "exit": {
-  "room": 67,
+  "polygon": 67,
   "pos": [
    754.4536971980416,
    1080.2929665148513

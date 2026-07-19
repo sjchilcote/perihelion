@@ -1,12 +1,12 @@
 """build_gauntlet3 — GAUNTLET III: tactical geometry, HP 100.
 
 Director 2026-07-16: buff the player with GEOMETRY, not hit points —
-"chokes and environmental hazards (safe-room turrets) to lure enemies
+"chokes and environmental hazards (safe-polygon turrets) to lure enemies
 to, long open corridors to kite them through mowing them down,
 non-euclidean double-backs the player can use to escape". Target 50%
 bot pass at HP 100, no armor.
 
-Chain per combat segment (six source arenas keep their rooms):
+Chain per combat segment (six source arenas keep their polygons):
 
   ... -> KITE LANE (long+open: backpedal and mow; SENTRY ALCOVE with 2
   friendly sentries + ammo + medkit hangs off mid-lane as a lure/fallback;
@@ -38,12 +38,12 @@ from perihelion.levels import LevelBuilder             # noqa: E402
 import build_gauntlet as BG                            # noqa: E402
 from build_gauntlet import SEGMENTS, add_segment, LEVEL_SEED  # noqa: E402
 from build_gauntlet2 import (DEPTH_MIN, KIND_SEP_MULT,        # noqa: E402
-                             ROOM_CAP, poly_area, point_in_poly,
+                             POLYGON_CAP, poly_area, point_in_poly,
                              dist_to_edges)
 from build_gauntlet2 import MIX as MIX2                        # noqa: E402
 
 # STALWART is boss music (director 2026-07-16): wardens live ONLY in
-# boss rooms now, so stalwart>0.9 is geometrically impossible outside
+# boss polygons now, so stalwart>0.9 is geometrically impossible outside
 # them (a spread warden pushed 0.916 in an open arena). Their spread
 # share moves to brutes -- moved, never thinned.
 MIX = dict(MIX2)
@@ -94,8 +94,8 @@ def lane_with_alcove(b: LevelBuilder, idx: int) -> dict:
     seg = seg_len
     bmx = ax + ALCOVE / 2
     # NO sentries in the lane pieces (director 2026-07-16: "there needs
-    # to be, like, 5x as much material between the safe rooms" -- with a
-    # gun in every lane room, kiting-to-turrets was optimal everywhere.
+    # to be, like, 5x as much material between the safe polygons" -- with a
+    # gun in every lane polygon, kiting-to-turrets was optimal everywhere.
     # The safe strongpoints per segment are the ALCOVE and the CHOKE
     # pair only; the lane itself is open ground you fight across).
     b.entity(A, "medkit", (x0 + seg * 0.3, y + LANE_W * 0.5))
@@ -121,7 +121,7 @@ def lane_with_alcove(b: LevelBuilder, idx: int) -> dict:
                 color=(170, 185, 210), intensity=0.8, radius=240.0)
     b.light(alc, (ax + ALCOVE / 2, y - ALCOVE / 2),
             color=(120, 220, 150), intensity=1.0, radius=200.0)
-    return dict(west_room=A, east_room=Cc, alc=alc,
+    return dict(west_polygon=A, east_polygon=Cc, alc=alc,
                 pieces=(A, b1, b2, b3, Cc))
 
 
@@ -130,22 +130,22 @@ def trapezoid(b: LevelBuilder, x0: float, yc: float, length: float,
               kind: str = "corridor") -> tuple[int, int, int]:
     """Convex taper: west edge w_in, east edge w_out; the width change
     happens in the WALLS, both portals stay rigid (equal edge lengths).
-    Returns (room, west_edge_idx, east_edge_idx)."""
+    Returns (polygon, west_edge_idx, east_edge_idx)."""
     x1 = x0 + length
     verts = [(x0, yc - w_in / 2), (x0, yc + w_in / 2),
              (x1, yc + w_out / 2), (x1, yc - w_out / 2)]
-    r = b.room(verts, detail_seed=seed, kind=kind)
+    r = b.polygon(verts, detail_seed=seed, kind=kind)
     return r, 0, 2
 
 
 def hourglass(b: LevelBuilder, x0: float, yc: float, length: float,
               w_in: float, w_out: float, waist: float, seed: int,
               kind: str = "corridor") -> tuple[int, int, int]:
-    """Engine rooms are CONVEX: the pinch is TWO trapezoids whose shared
+    """Engine polygons are CONVEX: the pinch is TWO trapezoids whose shared
     portal IS the waist (waist<->waist, rigid). The choke is literally
-    the doorway. Returns (west room used only for entry bookkeeping is
-    not needed) -> (in_room, west_edge, out_room|east_edge packing):
-    returns (in_room, in_west_edge, out_room, out_east_edge)."""
+    the doorway. Returns (west polygon used only for entry bookkeeping is
+    not needed) -> (in_polygon, west_edge, out_polygon|east_edge packing):
+    returns (in_polygon, in_west_edge, out_polygon, out_east_edge)."""
     half = length / 2
     r1, w1, e1 = trapezoid(b, x0, yc, half, w_in, waist, seed, kind)
     r2, w2, e2 = trapezoid(b, x0 + half, yc, half, waist, w_out,
@@ -172,40 +172,40 @@ def choke(b: LevelBuilder, idx: int, w_in: float, w_out: float) -> tuple:
 
 def populate(level: dict, spawn_free: set, n_total: int, min_sep: float,
              seed: int, margin: float = 22.0, boost: set | None = None,
-             room_total_cap: int = 6):
-    """Gauntlet II spread discipline + anti-clump: hard per-room total
+             polygon_total_cap: int = 6):
+    """Gauntlet II spread discipline + anti-clump: hard per-polygon total
     cap pushes the population OUT of the big arenas and into the lane
-    stream (director's lever: spread more, never thin); lane rooms get
+    stream (director's lever: spread more, never thin); lane polygons get
     a placement weight boost."""
     rng = random.Random(seed)
-    rooms = level["rooms"]
-    n_rooms = len(rooms)
+    polygons = level["polygons"]
+    n_polygons = len(polygons)
     areas = [poly_area(r["verts"]) if i not in spawn_free else 0.0
-             for i, r in enumerate(rooms)]
+             for i, r in enumerate(polygons)]
     if boost:
         for i in boost:
             areas[i] *= 0.25   # lanes are the PLAYER'S tool: a trickle
             #                    only — packed lanes defeat kiting
-    room_totals = [0] * n_rooms
+    polygon_totals = [0] * n_polygons
     counts = {k: int(n_total * f) for k, f in MIX.items()}
     while sum(counts.values()) < n_total:
         k = max(MIX, key=lambda q: n_total * MIX[q] - counts[q])
         counts[k] += 1
     pool = [k for k, c in counts.items() for _ in range(c)]
     rng.shuffle(pool)
-    placed_pts = {i: [] for i in range(n_rooms)}
+    placed_pts = {i: [] for i in range(n_polygons)}
     kind_pts = {k: [] for k in MIX}
-    kind_rooms = {i: {} for i in range(n_rooms)}
+    kind_polygons = {i: {} for i in range(n_polygons)}
     placed = fails = 0
     # (tried pushing wardens to the back third, 2026-07-16: pass rate
     # went 6/20 -> 0/20 -- concentrating the heavies is strictly worse
     # than the Gauntlet-II spread; keep DEPTH_MIN as measured)
     for kind in pool:
         dmin = DEPTH_MIN.get(kind, 0.0)
-        allowed = [i for i in range(n_rooms)
-                   if areas[i] > 0 and i / max(1, n_rooms - 1) >= dmin]
+        allowed = [i for i in range(n_polygons)
+                   if areas[i] > 0 and i / max(1, n_polygons - 1) >= dmin]
         if not allowed:
-            allowed = [i for i in range(n_rooms) if areas[i] > 0]
+            allowed = [i for i in range(n_polygons) if areas[i] > 0]
         aw = [areas[i] for i in allowed]
         sep_scale = 1.0
         ok = False
@@ -214,11 +214,11 @@ def populate(level: dict, spawn_free: set, n_total: int, min_sep: float,
                 sep_scale *= 0.75          # relax, never drop (move,
                 #                            don't thin — director)
             ri = rng.choices(allowed, weights=aw)[0]
-            if room_totals[ri] >= room_total_cap:
+            if polygon_totals[ri] >= polygon_total_cap:
                 continue
-            if kind_rooms[ri].get(kind, 0) >= ROOM_CAP.get(kind, 99):
+            if kind_polygons[ri].get(kind, 0) >= POLYGON_CAP.get(kind, 99):
                 continue
-            vs = rooms[ri]["verts"]
+            vs = polygons[ri]["verts"]
             xs = [v[0] for v in vs]
             ys = [v[1] for v in vs]
             x = rng.uniform(min(xs), max(xs))
@@ -243,11 +243,11 @@ def populate(level: dict, spawn_free: set, n_total: int, min_sep: float,
                 if any(math.hypot(x - qx, yy - qy) < 500.0 * sep_scale
                        for qx, qy in kind_pts.get(other, ())):
                     continue
-            rooms[ri]["entities"].append(dict(type=kind, pos=[x, yy]))
+            polygons[ri]["entities"].append(dict(type=kind, pos=[x, yy]))
             placed_pts[ri].append((x, yy))
             kind_pts[kind].append((x, yy))
-            kind_rooms[ri][kind] = kind_rooms[ri].get(kind, 0) + 1
-            room_totals[ri] += 1
+            kind_polygons[ri][kind] = kind_polygons[ri].get(kind, 0) + 1
+            polygon_totals[ri] += 1
             placed += 1
             ok = True
             break
@@ -256,8 +256,8 @@ def populate(level: dict, spawn_free: set, n_total: int, min_sep: float,
     return placed, fails, counts
 
 
-def _edge_len_of(b: LevelBuilder, room: int, edge: int) -> float:
-    vs = b.data["rooms"][room]["verts"]
+def _edge_len_of(b: LevelBuilder, polygon: int, edge: int) -> float:
+    vs = b.data["polygons"][polygon]["verts"]
     import math as _m
     x1, y1 = vs[edge % len(vs)]
     x2, y2 = vs[(edge + 1) % len(vs)]
@@ -271,13 +271,13 @@ def _rigidify(level: dict) -> int:
     the copied source arenas. Fix: stretch the shorter edge symmetrically
     about its midpoint to the longer length — only on a side whose
     neighboring edges carry no portal (so no other seam changes), and
-    only if the room stays convex. Returns seams fixed; raises if any
+    only if the polygon stays convex. Returns seams fixed; raises if any
     seam is left scaled."""
-    rooms = level["rooms"]
+    polygons = level["polygons"]
     conns = level["connects"] + level.get("connects_x", [])
 
     def edge_vec(r, e):
-        vs = rooms[r]["verts"]
+        vs = polygons[r]["verts"]
         (x1, y1), (x2, y2) = vs[e], vs[(e + 1) % len(vs)]
         return x1, y1, x2, y2, math.hypot(x2 - x1, y2 - y1)
 
@@ -303,10 +303,10 @@ def _rigidify(level: dict) -> int:
         return True
 
     def try_stretch(r, e, target):
-        """Re-length edge e of room r to `target` by moving only
+        """Re-length edge e of polygon r to `target` by moving only
         endpoints whose OTHER edge is not a portal: symmetric when both
         neighbors are free, else slide the single free endpoint."""
-        vs = rooms[r]["verts"]
+        vs = polygons[r]["verts"]
         n = len(vs)
         start_free = (r, (e - 1) % n) not in portal_edges
         end_free = (r, (e + 1) % n) not in portal_edges
@@ -326,7 +326,7 @@ def _rigidify(level: dict) -> int:
             new[(e + 1) % n] = [x1 + ux * target, y1 + uy * target]
         if not convex(new):
             return False
-        rooms[r]["verts"] = new
+        polygons[r]["verts"] = new
         return True
 
     fixed = 0
@@ -370,19 +370,19 @@ def _boss_hall(b, x, y, flip, w=150.0):
     """The long walk in/out — now with TURNS (director 2026-07-18): a
     Z of three straight runs and two square-corner bends. The path is
     LONGER than the old straight shot (~1500u vs 1150), the sightline
-    into the arena is broken, and the arena sits 5 room-hops from the
+    into the arena is broken, and the arena sits 5 polygon-hops from the
     last gunfire outside (alert_hops=1), so the wardens are met IN the
     arena instead of strolling up the hall. `flip` mirrors the Z so
     entry and exit halls bend opposite ways.
 
-    Returns (first_room, last_room, [all room ids]). First's open
+    Returns (first_polygon, last_polygon, [all polygon ids]). First's open
     edge is W(0), last's open edge is E(2), like the old corridor.
-    All seams are square: corner rooms are w x w, so every joined
+    All seams are square: corner polygons are w x w, so every joined
     edge has length w (rigid-portal law).
     """
     s = LEVEL_SEED + int(x) % 9973
     L1, LV, L2 = 430.0, 340.0, 430.0
-    n0 = len(b.data["rooms"])
+    n0 = len(b.data["polygons"])
     h1 = b.rect(x, y, L1, w, seed=s, kind="corridor")
     c1 = b.rect(x + L1, y, w, w, seed=s + 1, kind="corridor")
     vy = y + w if flip else y - LV
@@ -417,11 +417,11 @@ def _boss_hall(b, x, y, flip, w=150.0):
     # the safe-route medkit: behind the second corner, on the walk
     # in and available during a fighting withdrawal (Sol §4.4)
     b.entity(h2, "medkit", (x + L1 + w + 70.0, cy + w / 2))
-    return h1, p2, list(range(n0, len(b.data["rooms"])))
+    return h1, p2, list(range(n0, len(b.data["polygons"])))
 
 
 def boss_donut(b, ox, oy, protected):
-    """B1 PILLAR NAVE: a 3x3 grid of rooms with the center cell OMITTED
+    """B1 PILLAR NAVE: a 3x3 grid of polygons with the center cell OMITTED
     -- one massive pillar the fight rotates around. Positioning: break
     line of sight on the pillar, never get pinched in a corner cell."""
     cells = {}
@@ -433,13 +433,13 @@ def boss_donut(b, ox, oy, protected):
                                    CELL, CELL,
                                    seed=LEVEL_SEED + 9100 + r * 3 + c,
                                    kind="hall")
-    for (r, c), room in cells.items():
+    for (r, c), polygon in cells.items():
         if (r, c + 1) in cells and c + 1 <= 2:
-            b.connect(room, 2, cells[(r, c + 1)], 0)   # E <-> W
+            b.connect(polygon, 2, cells[(r, c + 1)], 0)   # E <-> W
         if (r + 1, c) in cells and r + 1 <= 2:
-            b.connect(room, 1, cells[(r + 1, c)], 3)   # S <-> N
-    for (r, c), room in cells.items():
-        b.light(room, (ox + c * CELL + CELL / 2,
+            b.connect(polygon, 1, cells[(r + 1, c)], 3)   # S <-> N
+    for (r, c), polygon in cells.items():
+        b.light(polygon, (ox + c * CELL + CELL / 2,
                        oy + r * CELL + CELL / 2),
                 color=(200, 150, 110), intensity=0.7, radius=200.0)
     wardens = [((0, 0), (0.5, 0.5)), ((2, 2), (0.5, 0.5)),
@@ -611,24 +611,24 @@ def boss_dark(b, ox, oy, protected):
 BOSSES = {1: boss_donut, 2: boss_cross, 3: boss_ring, 4: boss_dark}
 
 
-def splice_boss(b, i, prev_room, prev_edge, protected, boss_rooms):
-    # boss_rooms: {boss_index: [room ids]} for per-boss fail attribution
+def splice_boss(b, i, prev_polygon, prev_edge, protected, boss_polygons):
+    # boss_polygons: {boss_index: [polygon ids]} for per-boss fail attribution
     """LONG corridor -> boss compound -> LONG corridor, spliced into
     the chain after segment i."""
     oy = BAND_Y - 25000.0 - i * 9000.0
     ox = i * 11000.0
-    n0 = len(b.data["rooms"])
+    n0 = len(b.data["polygons"])
     cin_a, cin_b, cin_ids = _boss_hall(b, ox - 2400, oy + 60,
                                        flip=(i % 2 == 0))
     protected.update(cin_ids)
-    b.connect(prev_room, prev_edge, cin_a, 0)
+    b.connect(prev_polygon, prev_edge, cin_a, 0)
     entry, e_in, exit_, e_out = BOSSES[i](b, ox, oy, protected)
     b.connect(cin_b, 2, entry, e_in)
     cout_a, cout_b, cout_ids = _boss_hall(b, ox + 2600, oy + 60,
                                           flip=(i % 2 == 1))
     protected.update(cout_ids)
     b.connect(exit_, e_out, cout_a, 0)
-    boss_rooms[i] = list(range(n0, len(b.data["rooms"])))
+    boss_polygons[i] = list(range(n0, len(b.data["polygons"])))
     return cout_b, 2
 
 
@@ -636,7 +636,7 @@ def build(n_total: int, min_sep: float, seed: int):
     b = LevelBuilder("GAUNTLET III — TACTICAL CALIBRATION", tier=3,
                      ambience="amb_drone_late")
     texture_map = {}
-    protected = set()          # rooms that stay enemy-free
+    protected = set()          # polygons that stay enemy-free
 
     spawn = b.rect(-600, BAND_Y, 220, LANE_W,
                    seed=LEVEL_SEED + 7999, kind="storage")
@@ -645,14 +645,14 @@ def build(n_total: int, min_sep: float, seed: int):
             color=(150, 170, 200), intensity=1.0, radius=220.0)
     protected.add(spawn)
 
-    prev_room, prev_edge = spawn, E_EDGE
-    lane_rooms = set()
-    boss_rooms: dict = {}
+    prev_polygon, prev_edge = spawn, E_EDGE
+    lane_polygons = set()
+    boss_polygons: dict = {}
     for i, seg in enumerate(SEGMENTS):
         ln = lane_with_alcove(b, i)
-        lane_rooms.update(ln.get("pieces", ()))
+        lane_polygons.update(ln.get("pieces", ()))
         protected.add(ln["alc"])
-        b.connect(prev_room, prev_edge, ln["west_room"], W_EDGE)
+        b.connect(prev_polygon, prev_edge, ln["west_polygon"], W_EDGE)
         # arena first: the choke's east portal must MATCH the arena's
         # entry edge length exactly (rigid m9 — no scaling transforms)
         BG.TEXTURE_MAP.clear()
@@ -664,7 +664,7 @@ def build(n_total: int, min_sep: float, seed: int):
         ck1, ck_w, ck2, ck_e = choke(b, i, LANE_W, entry_len)
         protected.add(ck1)
         protected.add(ck2)
-        b.connect(ln["east_room"], E_EDGE, ck1, ck_w)
+        b.connect(ln["east_polygon"], E_EDGE, ck1, ck_w)
         b.connect(ck2, ck_e, info["entry"][0], info["entry"][1])
         # adapter after the arena: exit edge length -> LANE_W, rigid
         exit_len = _edge_len_of(b, info["exit"][0], info["exit"][1])
@@ -674,15 +674,15 @@ def build(n_total: int, min_sep: float, seed: int):
             LANE_W, LEVEL_SEED + 7300 + i)
         protected.add(ad)
         b.connect(info["exit"][0], info["exit"][1], ad, ad_w)
-        prev_room, prev_edge = ad, ad_e
+        prev_polygon, prev_edge = ad, ad_e
         if i in BOSSES:
-            prev_room, prev_edge = splice_boss(b, i, prev_room,
+            prev_polygon, prev_edge = splice_boss(b, i, prev_polygon,
                                                prev_edge, protected,
-                                               boss_rooms)
+                                               boss_polygons)
 
     out = b.rect(30 * 4000.0, BAND_Y, 260, LANE_W,
                  seed=LEVEL_SEED + 8999, kind="storage")
-    b.connect(prev_room, prev_edge, out, W_EDGE)
+    b.connect(prev_polygon, prev_edge, out, W_EDGE)
     b.exit(out, (30 * 4000.0 + 130, BAND_Y + LANE_W / 2))
     b.light(out, (30 * 4000.0 + 130, BAND_Y + LANE_W / 2),
             color=(150, 200, 160), intensity=1.0, radius=220.0)
@@ -692,13 +692,13 @@ def build(n_total: int, min_sep: float, seed: int):
     level = b.to_dict()
     level["alert_hops"] = 1
     level["texture_map"] = texture_map
-    # forward resupply: with the lane guns gone (safe rooms 5x sparser)
+    # forward resupply: with the lane guns gone (safe polygons 5x sparser)
     # the mid-run died of attrition -- 0/80 completions, ~350 dmg taken
     # vs ~6 heals found. Medkits INSIDE the arena chains reward pushing
-    # through instead of kiting back; a kit every ~3rd combat room.
+    # through instead of kiting back; a kit every ~3rd combat polygon.
     n_med = 0
-    for i, r in enumerate(level["rooms"]):
-        if i in protected or i % 3 or i in lane_rooms:
+    for i, r in enumerate(level["polygons"]):
+        if i in protected or i % 3 or i in lane_polygons:
             continue
         vs = r["verts"]
         cx = sum(v[0] for v in vs) / len(vs)
@@ -710,11 +710,11 @@ def build(n_total: int, min_sep: float, seed: int):
     n_rigid = _rigidify(level)
     print(f"rigidified {n_rigid} residual scaled seams "
           f"(all portals now pure isometries)")
-    all_boss = {r for rs in boss_rooms.values() for r in rs}
+    all_boss = {r for rs in boss_polygons.values() for r in rs}
     placed, fails, counts = populate(level, protected | all_boss,
                                      n_total, min_sep, seed,
-                                     boost=lane_rooms)
-    level["boss_rooms"] = {str(k): v for k, v in boss_rooms.items()}
+                                     boost=lane_polygons)
+    level["boss_polygons"] = {str(k): v for k, v in boss_polygons.items()}
     return level, placed, fails, counts
 
 

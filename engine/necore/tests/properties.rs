@@ -9,7 +9,7 @@ use proptest::prelude::*;
 // ---------------------------------------------------------------------
 
 /// Andrew's monotone-chain convex hull. Orientation of the result is
-/// whatever falls out of the input order; `World::add_room` canonicalizes
+/// whatever falls out of the input order; `World::add_polygon` canonicalizes
 /// winding itself, so callers don't need to care.
 fn convex_hull(mut pts: Vec<Vec2>) -> Vec<Vec2> {
     pts.sort_by(|a, b| {
@@ -71,7 +71,7 @@ fn mat_max_abs_diff(a: Mat3, b: Mat3) -> f64 {
 }
 
 // ---------------------------------------------------------------------
-// Sanity check that the hull strategy itself produces valid convex rooms.
+// Sanity check that the hull strategy itself produces valid convex polygons.
 // ---------------------------------------------------------------------
 
 proptest! {
@@ -80,8 +80,8 @@ proptest! {
         prop_assert!(poly.len() >= 3 && poly.len() <= 8);
         prop_assert!(min_edge_len(&poly) >= 5.0);
         let mut w = World::new();
-        let r = w.add_room(&poly);
-        prop_assert!(r.is_ok(), "add_room rejected hull: {:?}", r.err());
+        let r = w.add_polygon(&poly);
+        prop_assert!(r.is_ok(), "add_polygon rejected hull: {:?}", r.err());
     }
 }
 
@@ -99,14 +99,14 @@ proptest! {
         eb_seed in any::<usize>(),
     ) {
         let mut w = World::new();
-        let a = w.add_room(&poly_a).unwrap();
-        let b = w.add_room(&poly_b).unwrap();
-        let ea = ea_seed % w.rooms[a].num_edges();
-        let eb = eb_seed % w.rooms[b].num_edges();
+        let a = w.add_polygon(&poly_a).unwrap();
+        let b = w.add_polygon(&poly_b).unwrap();
+        let ea = ea_seed % w.polygons[a].num_edges();
+        let eb = eb_seed % w.polygons[b].num_edges();
         w.connect(a, ea, b, eb).unwrap();
 
-        let pa = w.rooms[a].portals[ea].unwrap();
-        let pb = w.rooms[b].portals[eb].unwrap();
+        let pa = w.polygons[a].portals[ea].unwrap();
+        let pb = w.polygons[b].portals[eb].unwrap();
 
         // Mutually inverse.
         let prod = pa.xform.mul(pb.xform);
@@ -116,8 +116,8 @@ proptest! {
 
         // Orientation-flipped endpoint correspondence, tolerance scaled by
         // the edge-length ratio (connect() scales when lengths differ).
-        let (a0, a1) = w.rooms[a].edge(ea);
-        let (b0, b1) = w.rooms[b].edge(eb);
+        let (a0, a1) = w.polygons[a].edge(ea);
+        let (b0, b1) = w.polygons[b].edge(eb);
         let la = a0.dist(a1);
         let lb = b0.dist(b1);
         let s = (la / lb).max(1.0);
@@ -139,10 +139,10 @@ proptest! {
         e_seed in any::<usize>(),
     ) {
         let mut w = World::new();
-        let a = w.add_room(&poly).unwrap();
-        let e = e_seed % w.rooms[a].num_edges();
+        let a = w.add_polygon(&poly).unwrap();
+        let e = e_seed % w.polygons[a].num_edges();
         w.connect(a, e, a, e).unwrap();
-        let p = w.rooms[a].portals[e].unwrap();
+        let p = w.polygons[a].portals[e].unwrap();
         let twice = p.xform.mul(p.xform);
         prop_assert!(mat_max_abs_diff(twice, Mat3::IDENTITY) < 1e-9, "{:?}", twice);
     }
@@ -150,7 +150,7 @@ proptest! {
 
 // ---------------------------------------------------------------------
 // 3. Containment: an entity under random velocity impulses never leaves
-//    its (single, portal-less) room polygon. The anti-tunneling invariant.
+//    its (single, portal-less) polygon polygon. The anti-tunneling invariant.
 // ---------------------------------------------------------------------
 
 proptest! {
@@ -162,13 +162,13 @@ proptest! {
         impulses in proptest::collection::vec((-2000.0f64..2000.0, -2000.0f64..2000.0), 12),
     ) {
         let mut w = World::new();
-        let room = w.add_room(&poly).unwrap();
-        let inradius = geom::depth_in_polygon(Vec2::ZERO, &w.rooms[room].verts);
-        // Entity must plausibly fit with room to move; skip degenerate rooms.
+        let polygon = w.add_polygon(&poly).unwrap();
+        let inradius = geom::depth_in_polygon(Vec2::ZERO, &w.polygons[polygon].verts);
+        // Entity must plausibly fit with polygon to move; skip degenerate polygons.
         prop_assume!(inradius >= radius + 5.0);
 
         let mut sim = Sim::new(w);
-        let id = sim.spawn(room, Vec2::ZERO, radius, 1.0, 0).unwrap();
+        let id = sim.spawn(polygon, Vec2::ZERO, radius, 1.0, 0).unwrap();
         let rest_wall = [0.0, 0.5, 1.0][rest_idx];
         sim.entities.get_mut(&id).unwrap().rest_wall = rest_wall;
 
@@ -180,9 +180,9 @@ proptest! {
             }
             sim.step(1.0 / 60.0);
             let e = &sim.entities[&id];
-            let verts = &sim.world.rooms[e.room].verts;
+            let verts = &sim.world.polygons[e.polygon].verts;
             let d = geom::depth_in_polygon(e.pos, verts);
-            prop_assert!(d >= -1e-6, "escaped room at step {}: pos={:?} depth={}", step, e.pos, d);
+            prop_assert!(d >= -1e-6, "escaped polygon at step {}: pos={:?} depth={}", step, e.pos, d);
         }
     }
 }
@@ -211,14 +211,14 @@ proptest! {
         ),
     ) {
         let mut w = World::new();
-        let room = w.add_room(&poly).unwrap();
-        let inradius = geom::depth_in_polygon(Vec2::ZERO, &w.rooms[room].verts);
+        let polygon = w.add_polygon(&poly).unwrap();
+        let inradius = geom::depth_in_polygon(Vec2::ZERO, &w.polygons[polygon].verts);
         prop_assume!(inradius >= 60.0);
 
         let mut sim = Sim::new(w);
         for i in 0..n_ent {
             let (mass, vx, vy, rest_ent, rest_wall, radius, ox, oy) = specs[i];
-            let id = sim.spawn(room, v(ox, oy), radius, mass, 0).unwrap();
+            let id = sim.spawn(polygon, v(ox, oy), radius, mass, 0).unwrap();
             let e = sim.entities.get_mut(&id).unwrap();
             e.vel = v(vx, vy);
             e.rest_ent = rest_ent;
@@ -304,8 +304,8 @@ proptest! {
         speed in 50.0f64..500.0,
     ) {
         let mut w = World::new();
-        let a = w.add_room(&square100(0.0, 0.0)).unwrap();
-        let b = w.add_room(&square100(0.0, 0.0)).unwrap();
+        let a = w.add_polygon(&square100(0.0, 0.0)).unwrap();
+        let b = w.add_polygon(&square100(0.0, 0.0)).unwrap();
         let ea = ea_seed % 4;
         let eb = eb_seed % 4;
         w.connect(a, ea, b, eb).unwrap();
@@ -313,24 +313,24 @@ proptest! {
         let mut sim = Sim::new(w);
         let start_pos = Vec2::ZERO;
         let id = sim.spawn(a, start_pos, 5.0, 1.0, 0).unwrap();
-        let (ea0, ea1) = sim.world.rooms[a].edge(ea);
+        let (ea0, ea1) = sim.world.polygons[a].edge(ea);
         let mid = (ea0 + ea1) * 0.5;
         let dir = (mid - start_pos).normalized();
         sim.entities.get_mut(&id).unwrap().vel = dir * speed;
-        let normal_a = sim.world.rooms[a].normals[ea];
+        let normal_a = sim.world.polygons[a].normals[ea];
 
         let (xform1, pos_before_crossing) = approach_portal(&mut sim, id, ea0, normal_a);
-        let room_b = sim.entities[&id].room;
-        prop_assert_eq!(room_b, b);
+        let polygon_b = sim.entities[&id].polygon;
+        prop_assert_eq!(polygon_b, b);
         let speed_after_1 = sim.entities[&id].vel.len();
         prop_assert!((speed_after_1 - speed).abs() < 1e-9);
 
         sim.entities.get_mut(&id).unwrap().vel = sim.entities[&id].vel * -1.0;
 
-        let (eb0, _) = sim.world.rooms[room_b].edge(eb);
-        let normal_b = sim.world.rooms[room_b].normals[eb];
+        let (eb0, _) = sim.world.polygons[polygon_b].edge(eb);
+        let normal_b = sim.world.polygons[polygon_b].normals[eb];
         let (xform2, _) = approach_portal(&mut sim, id, eb0, normal_b);
-        prop_assert_eq!(sim.entities[&id].room, a);
+        prop_assert_eq!(sim.entities[&id].polygon, a);
 
         let speed_final = sim.entities[&id].vel.len();
         prop_assert!((speed_final - speed).abs() < 1e-9, "{} vs {}", speed_final, speed);
@@ -354,12 +354,12 @@ proptest! {
 }
 
 // ---------------------------------------------------------------------
-// 6. Euclidean raycast oracle: a 3x2 grid of 100-unit square rooms glued
+// 6. Euclidean raycast oracle: a 3x2 grid of 100-unit square polygons glued
 //    by pure-translation portals must agree exactly with flat-rectangle
 //    ray/boundary intersection in world coordinates.
 // ---------------------------------------------------------------------
 
-/// World-space true center of grid room (i, j): rooms are 100x100, tiled
+/// World-space true center of grid polygon (i, j): polygons are 100x100, tiled
 /// with no gaps across a 300x200 rectangle (i in 0..3, j in 0..2).
 fn true_center(i: usize, j: usize) -> Vec2 {
     v(i as f64 * 100.0 + 50.0, j as f64 * 100.0 + 50.0)
@@ -374,7 +374,7 @@ fn build_translation_grid() -> (World, Vec<Vec<usize>>) {
     for (i, col) in ids.iter_mut().enumerate() {
         for (j, id) in col.iter_mut().enumerate() {
             let _ = (i, j);
-            *id = w.add_room(&square100(0.0, 0.0)).unwrap();
+            *id = w.add_polygon(&square100(0.0, 0.0)).unwrap();
         }
     }
     for j in 0..2 {
@@ -385,8 +385,8 @@ fn build_translation_grid() -> (World, Vec<Vec<usize>>) {
     for i in 0..3 {
         w.connect(ids[i][0], 1, ids[i][1], 3).unwrap();
     }
-    for room in &w.rooms {
-        for p in room.portals.iter().flatten() {
+    for polygon in &w.polygons {
+        for p in polygon.portals.iter().flatten() {
             let m = &p.xform.m;
             assert!(
                 (m[0] - 1.0).abs() < 1e-12
@@ -429,11 +429,11 @@ proptest! {
     ) {
         let (w, ids) = build_translation_grid();
         let sim = Sim::new(w);
-        let start_room = ids[i0][j0];
+        let start_polygon = ids[i0][j0];
         let origin_local = v(ox, oy);
         let dir = v(theta.cos(), theta.sin());
 
-        let hit = raycast(&sim, start_room, origin_local, dir, 10, 1000.0, 0, None);
+        let hit = raycast(&sim, start_polygon, origin_local, dir, 10, 1000.0, 0, None);
         let (world_hit, hit_dist, hops) = match hit {
             RayHit::Wall { pos, xform, dist, hops, .. } => {
                 (true_center(i0, j0) + xform.apply(pos), dist, hops)
@@ -488,11 +488,11 @@ enum FlatEvent {
 
 /// Flat oracle: a circle bouncing elastically inside [r,w-r]x[r,h-r] that
 /// ALSO crosses three internal grid lines (x=100, x=200, y=100 -- the seams
-/// between this test's 3x2 room grid). Mirrors the engine's own per-tick
+/// between this test's 3x2 polygon grid). Mirrors the engine's own per-tick
 /// loop: a tick may contain more than one event (e.g. a bounce right after
 /// a portal crossing near a corner), each handled with the exact nudge the
 /// engine applies (1e-6 wall push, 1e-3 portal push) so world-frame
-/// position tracks the room-graph simulation's small, real discontinuities
+/// position tracks the polygon-graph simulation's small, real discontinuities
 /// instead of assuming crossings are perfectly seamless.
 struct FlatOracle {
     pos: Vec2,
@@ -596,8 +596,8 @@ proptest! {
     ) {
         let (world, ids) = build_translation_grid();
         let mut sim = Sim::new(world);
-        let room0 = ids[i0][j0];
-        let id = sim.spawn(room0, v(ox, oy), radius, 1.0, 0).unwrap();
+        let polygon0 = ids[i0][j0];
+        let id = sim.spawn(polygon0, v(ox, oy), radius, 1.0, 0).unwrap();
         let vel0 = v(theta.cos(), theta.sin()) * speed;
         {
             let e = sim.entities.get_mut(&id).unwrap();
@@ -605,13 +605,13 @@ proptest! {
             e.rest_wall = 1.0;
         }
 
-        let room_ij = |r: usize| -> (usize, usize) {
+        let polygon_ij = |r: usize| -> (usize, usize) {
             for i in 0..3 {
                 for j in 0..2 {
                     if ids[i][j] == r { return (i, j); }
                 }
             }
-            unreachable!("room {} not in translation grid", r)
+            unreachable!("polygon {} not in translation grid", r)
         };
 
         let mut oracle = FlatOracle {
@@ -626,7 +626,7 @@ proptest! {
             sim.step(1.0 / 60.0);
             oracle.step(1.0 / 60.0);
             let e = &sim.entities[&id];
-            let (i, j) = room_ij(e.room);
+            let (i, j) = polygon_ij(e.polygon);
             let world_pos = true_center(i, j) + e.pos;
             // Tolerance relaxed from the task's literal 1e-6 (see report):
             // this is a bouncing-billiard system, which is chaotic --
@@ -651,7 +651,7 @@ proptest! {
 
 // ---------------------------------------------------------------------
 // 8. Visibility soundness (not the full union oracle): every instance's
-//    clip_local is inside its room polygon and inside its own frustum's
+//    clip_local is inside its polygon polygon and inside its own frustum's
 //    half-planes, and is convex.
 // ---------------------------------------------------------------------
 
@@ -661,42 +661,42 @@ proptest! {
     fn visibility_soundness(
         i0 in 0usize..3,
         j0 in 0usize..2,
-        // Kept >=1.0 from every edge line of a 100x100 room (half=50): well
+        // Kept >=1.0 from every edge line of a 100x100 polygon (half=50): well
         // clear of EDGE_BAND (0.5), so the frustum takes the normal
         // (non-wide) three-half-plane form near the entry portal.
         ox in -45.0f64..45.0,
         oy in -45.0f64..45.0,
     ) {
         let (world, ids) = build_translation_grid();
-        let camera_room = ids[i0][j0];
+        let camera_polygon = ids[i0][j0];
         let apex = v(ox, oy);
         let cam = Mat3::translate(v(2000.0, 2000.0));
 
-        let instances = visible_set(&world, camera_room, cam, apex, 4000.0, 4000.0, 12, 4096);
+        let instances = visible_set(&world, camera_polygon, cam, apex, 4000.0, 4000.0, 12, 4096);
         prop_assert!(!instances.is_empty());
 
         for inst in &instances {
-            let room_verts = &world.rooms[inst.room].verts;
+            let polygon_verts = &world.polygons[inst.polygon].verts;
             prop_assert!(
                 geom::is_convex(&inst.clip_local),
-                "non-convex clip_local in room {}: {:?}", inst.room, inst.clip_local
+                "non-convex clip_local in polygon {}: {:?}", inst.polygon, inst.clip_local
             );
             for p in &inst.clip_local {
-                let d = geom::depth_in_polygon(*p, room_verts);
+                let d = geom::depth_in_polygon(*p, polygon_verts);
                 prop_assert!(
                     d >= -1e-6,
-                    "clip vertex {:?} outside room {} polygon (depth {})", p, inst.room, d
+                    "clip vertex {:?} outside polygon {} polygon (depth {})", p, inst.polygon, d
                 );
             }
             if let Some(f) = &inst.frustum {
-                let hps = f.half_planes(&world, inst.room);
+                let hps = f.half_planes(&world, inst.polygon);
                 for p in &inst.clip_local {
                     for hp in &hps {
                         let d = hp.signed_dist(*p);
                         prop_assert!(
                             d >= -1e-6,
-                            "clip vertex {:?} outside frustum half-plane in room {} (dist {})",
-                            p, inst.room, d
+                            "clip vertex {:?} outside frustum half-plane in polygon {} (dist {})",
+                            p, inst.polygon, d
                         );
                     }
                 }
@@ -745,7 +745,7 @@ proptest! {
     ) {
         // convex_hull()'s winding is whatever falls out of point order
         // (see its doc comment); geom::clip_polygon_convex, unlike
-        // World::add_room, does NOT canonicalize for callers -- it
+        // World::add_polygon, does NOT canonicalize for callers -- it
         // assumes canonical (visually-CCW / negative-area) winding to
         // compute correct inward normals. Canonicalize explicitly.
         let mut clip_poly = raw_poly;
@@ -827,10 +827,10 @@ proptest! {
         ty in -200.0f64..200.0,
     ) {
         let mut w = World::new();
-        let a = w.add_room(&poly_a).unwrap();
-        let b = w.add_room(&poly_b).unwrap();
-        let ea = ea_seed % w.rooms[a].num_edges();
-        let eb = eb_seed % w.rooms[b].num_edges();
+        let a = w.add_polygon(&poly_a).unwrap();
+        let b = w.add_polygon(&poly_b).unwrap();
+        let ea = ea_seed % w.polygons[a].num_edges();
+        let eb = eb_seed % w.polygons[b].num_edges();
 
         // Build M = translate(tx,ty) . rotate(theta) . scale(s, sign*s):
         // det = -sign*s^2 (0 iff s==0), spanning both handedness signs.
@@ -843,10 +843,10 @@ proptest! {
             prop_assert!(result.is_err(), "singular transform (det={}) was accepted", m.det());
         } else {
             prop_assert!(result.is_ok(), "invertible transform (det={}) was rejected: {:?}", m.det(), result.err());
-            let pa = w.rooms[a].portals[ea].unwrap();
+            let pa = w.polygons[a].portals[ea].unwrap();
             let prod = pa.xform.mul(pa.inv);
             prop_assert!(mat_max_abs_diff(prod, Mat3::IDENTITY) < 1e-6, "{:?}", prod);
-            let pb = w.rooms[b].portals[eb].unwrap();
+            let pb = w.polygons[b].portals[eb].unwrap();
             let prod2 = pa.xform.mul(pb.xform);
             prop_assert!(mat_max_abs_diff(prod2, Mat3::IDENTITY) < 1e-6, "{:?}", prod2);
         }
@@ -857,11 +857,11 @@ proptest! {
 // 11. ENGINE_INVARIANTS.md P4 (wave-1): the MAX_ITERS/MAX_STALLS corner-
 // trap safety valve in physics.rs::step_entity ("kill motion rather than
 // tunnel or hang") had ZERO direct test coverage of it actually tripping.
-// `containment_after_impulses`'s room-shape strategy filters to
+// `containment_after_impulses`'s polygon-shape strategy filters to
 // min_edge_len >= 5, which incidentally screens out the sharpest wedge
 // angles most likely to need the stall breaker at all -- this test
 // targets exactly that excluded, most-adversarial region: a deliberately
-// acute (0.5-3 degree half-angle) wedge room, an entity slammed at very
+// acute (0.5-3 degree half-angle) wedge polygon, an entity slammed at very
 // high speed (2000-8000 u/s) straight at the vertex with a full 1/60s
 // dt (forcing many sub-collision resolutions inside one step_entity
 // call), rest_wall=1.0 (elastic -- energy isn't absorbed, the hardest
@@ -911,14 +911,14 @@ proptest! {
             v(400.0, -400.0 * half.tan()),
         ];
         let mut w = World::new();
-        let room = w.add_room(&poly).unwrap();
+        let polygon = w.add_polygon(&poly).unwrap();
         let mut sim = Sim::new(w);
         // Spawn well out along the wedge (wide enough there to fit) and
         // aim straight at the narrowing vertex, so the entity converges
         // into the zone where local half-width ~ radius -- exactly where
         // real bounces get short and frequent (the stall breaker's target
         // scenario), rather than a zone the entity can never occupy.
-        let id = sim.spawn(room, v(300.0, 0.0), radius, 1.0, 0).unwrap();
+        let id = sim.spawn(polygon, v(300.0, 0.0), radius, 1.0, 0).unwrap();
         {
             let e = sim.entities.get_mut(&id).unwrap();
             e.vel = v(-speed, 0.0); // straight at the sharp vertex
@@ -935,7 +935,7 @@ proptest! {
                 e.pos.x.is_finite() && e.pos.y.is_finite(),
                 "non-finite position at step {}: {:?}", step, e.pos
             );
-            let verts = &sim.world.rooms[e.room].verts;
+            let verts = &sim.world.polygons[e.polygon].verts;
             let d = geom::depth_in_polygon(e.pos, verts);
             prop_assert!(
                 d >= -1e-3,
@@ -947,7 +947,7 @@ proptest! {
 
 // ---------------------------------------------------------------------
 // ENGINE_INVARIANTS.md T3 -- walk-mask terrain collision is root-frame
-// invariant (director's directive: "mask collision must be room-local so
+// invariant (director's directive: "mask collision must be polygon-local so
 // it's automatically root-invariant -- add a PBT proving collision
 // outcomes are invariant under root change").
 //
@@ -955,13 +955,13 @@ proptest! {
 // portal-chain camera anchor render.py composes transforms from) is pure
 // game-layer (sim.py) bookkeeping, per ENGINE_DESIGN.md invariant #8. The
 // only way a root choice COULD leak into physics is if terrain collision
-// consulted anything beyond the entity's current room-local state -- e.g.
+// consulted anything beyond the entity's current polygon-local state -- e.g.
 // an accumulated transform, a chain-history flag, a global position. It
 // doesn't (`physics::Sim::step_entity` only ever reads
-// `self.world.rooms[e.room]` and the entity's own local fields), so this
-// is provable empirically: reach the SAME room-B local (pos, vel) two
+// `self.world.polygons[e.polygon]` and the entity's own local fields), so this
+// is provable empirically: reach the SAME polygon-B local (pos, vel) two
 // different ways -- natively (spawned directly in a portal-free B) vs.
-// having just crossed a portal from an arbitrary room A on a randomized
+// having just crossed a portal from an arbitrary polygon A on a randomized
 // edge pair (a stand-in for "a different root/chain history") -- and show
 // the subsequent terrain-collision trajectory is identical either way.
 proptest! {
@@ -976,24 +976,24 @@ proptest! {
         let eb = eb_seed % 4;
         let terrain_rect = geom::Rect::new(v(-12.0, -12.0), v(12.0, 12.0));
 
-        // --- Path 1: cross INTO room B through an ordinary portal from
-        // room A on a randomized edge pair (stand-in for "a different
+        // --- Path 1: cross INTO polygon B through an ordinary portal from
+        // polygon A on a randomized edge pair (stand-in for "a different
         // root/chain history reaching this same local state"). ---
         let mut w1 = World::new();
-        let a = w1.add_room(&square100(0.0, 0.0)).unwrap();
-        let b1 = w1.add_room(&square100(0.0, 0.0)).unwrap();
+        let a = w1.add_polygon(&square100(0.0, 0.0)).unwrap();
+        let b1 = w1.add_polygon(&square100(0.0, 0.0)).unwrap();
         w1.connect(a, ea, b1, eb).unwrap();
-        w1.set_room_terrain(b1, vec![terrain_rect]).unwrap();
+        w1.set_polygon_terrain(b1, vec![terrain_rect]).unwrap();
         let mut sim1 = Sim::new(w1);
         let start_pos = Vec2::ZERO;
         let id1 = sim1.spawn(a, start_pos, 4.0, 1.0, 0).unwrap();
-        let (ea0, ea1) = sim1.world.rooms[a].edge(ea);
+        let (ea0, ea1) = sim1.world.polygons[a].edge(ea);
         let mid = (ea0 + ea1) * 0.5;
         let dir0 = (mid - start_pos).normalized();
         sim1.entities.get_mut(&id1).unwrap().vel = dir0 * speed;
-        let normal_a = sim1.world.rooms[a].normals[ea];
+        let normal_a = sim1.world.polygons[a].normals[ea];
         approach_portal(&mut sim1, id1, ea0, normal_a);
-        prop_assert_eq!(sim1.entities[&id1].room, b1);
+        prop_assert_eq!(sim1.entities[&id1].polygon, b1);
 
         // Immediately after the crossing, aim through the terrain (toward
         // B's own center, where the rect sits) and run real collision.
@@ -1004,13 +1004,13 @@ proptest! {
             sim1.step(1.0 / 60.0);
         }
         let final1 = sim1.entities[&id1].pos;
-        let room1 = sim1.entities[&id1].room;
+        let polygon1 = sim1.entities[&id1].polygon;
 
         // --- Path 2: the SAME local (pos, vel), but "root = B itself" --
-        // spawned directly in a portal-free room B, no chain history. ---
+        // spawned directly in a portal-free polygon B, no chain history. ---
         let mut w2 = World::new();
-        let b2 = w2.add_room(&square100(0.0, 0.0)).unwrap();
-        w2.set_room_terrain(b2, vec![terrain_rect]).unwrap();
+        let b2 = w2.add_polygon(&square100(0.0, 0.0)).unwrap();
+        w2.set_polygon_terrain(b2, vec![terrain_rect]).unwrap();
         let mut sim2 = Sim::new(w2);
         let id2 = sim2.spawn(b2, after_pos, 4.0, 1.0, 0).unwrap();
         sim2.entities.get_mut(&id2).unwrap().vel = after_vel_dir * speed;
@@ -1019,7 +1019,7 @@ proptest! {
         }
         let final2 = sim2.entities[&id2].pos;
 
-        prop_assert_eq!(room1, b1);
+        prop_assert_eq!(polygon1, b1);
         prop_assert!(
             final1.dist(final2) < 1e-6,
             "terrain collision outcome depended on portal-chain history: {:?} (via portal) vs {:?} (native)",

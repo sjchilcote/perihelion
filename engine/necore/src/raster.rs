@@ -67,9 +67,9 @@ pub const OP_CLIP_FILL: u32 = 8;
 /// Fill the command's CLIP-table polygon itself (as OP_CLIP_FILL does) but
 /// sample a registered texture instead of a flat color. World layer only.
 /// RGBA header field is repurposed as the u32 texture id (not a color); the
-/// two-float payload is the room-local texture origin `bbox_min`. The
-/// instance's XFORM (room-local -> screen) is inverted per instance (f64)
-/// to map screen pixels back to room-local texture space; see
+/// two-float payload is the polygon-local texture origin `bbox_min`. The
+/// instance's XFORM (polygon-local -> screen) is inverted per instance (f64)
+/// to map screen pixels back to polygon-local texture space; see
 /// `TEX_DENSITY` and `sample_tex`.
 pub const OP_TEX_FILL: u32 = 9;
 
@@ -849,8 +849,8 @@ struct XformEntry {
     scale: f64,
 }
 
-/// A registered room texture: RGB8, row-major, top row first (row y=0 is
-/// room-local `bbox_min.y`, matching an ordinary decoded image).
+/// A registered polygon texture: RGB8, row-major, top row first (row y=0 is
+/// polygon-local `bbox_min.y`, matching an ordinary decoded image).
 struct Texture {
     w: usize,
     h: usize,
@@ -858,7 +858,7 @@ struct Texture {
 }
 
 /// NEAREST-NEIGHBOR sample at screen pixel center `(px+0.5, py+0.5)`:
-/// invert the instance's room-local->screen xform to get the room-local
+/// invert the instance's polygon-local->screen xform to get the polygon-local
 /// point, then `texel = (local - bbox_min) * TEX_DENSITY`, floored and
 /// clamped to the texture bounds. `inv` and the arithmetic order here must
 /// stay bit-identical to the pygame mirror (render.py `_draw_floor_textured`),
@@ -981,7 +981,7 @@ pub struct Raster {
     clips: Vec<ClipEntry>,
     xforms: Vec<XformEntry>,
     overlay: Vec<OverlayJob>,
-    /// Registered room textures (`set_texture`), keyed by caller-chosen id.
+    /// Registered polygon textures (`set_texture`), keyed by caller-chosen id.
     /// Persists across `begin()` — uploaded once, reused every frame.
     textures: std::collections::HashMap<u32, Texture>,
 }
@@ -1011,7 +1011,7 @@ impl Raster {
 
     /// Upload (or replace) a texture: RGB8, row-major, `data.len() ==
     /// w*h*3`. Persists across frames — call once per texture, not per
-    /// frame. `id` is caller-chosen (the game uses the engine room index).
+    /// frame. `id` is caller-chosen (the game uses the engine polygon index).
     pub fn set_texture(&mut self, id: u32, w: usize, h: usize, data: &[u8]) -> Result<(), RasterError> {
         if w == 0 || h == 0 {
             return err("set_texture: width and height must be positive");
@@ -1150,7 +1150,7 @@ impl Raster {
     }
 
     /// Static-blob replay: same wire format, but every command's CLIP and
-    /// XFORM header fields are overridden by the arguments (the per-room
+    /// XFORM header fields are overridden by the arguments (the per-polygon
     /// detail cache path).
     pub fn draw_with_overrides(
         &mut self,
@@ -2793,7 +2793,7 @@ mod tests {
 
     #[test]
     fn tex_fill_samples_nearest_and_matches_coverage() {
-        // Identity xform: screen == room-local. bbox_min = (0,0), so texel
+        // Identity xform: screen == polygon-local. bbox_min = (0,0), so texel
         // = floor((px+0.5)*TEX_DENSITY), clamped. 4x4 raster, 12x12 texture
         // (4 * TEX_DENSITY(3) = 12), value at texel (tx,ty) = (tx*20, ty*20, 128).
         let mut r = Raster::new(4, 4);

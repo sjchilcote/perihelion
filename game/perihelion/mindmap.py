@@ -1,5 +1,5 @@
 """The Mind Map (design doc 9.2): a graph of concepts the Commando has
-room in his soul to metabolize. Expansion costs TIME, not components
+polygon in his soul to metabolize. Expansion costs TIME, not components
 (SEEDPOD_UI_DESIGN.md, director-directed): at the seed pod you choose ONE
 frontier concept to think about; progress accrues in sim ticks during
 normal field play (menus never tick), and the node unfolds -- with
@@ -311,7 +311,7 @@ LABEL_CHAR_W_PX = 8.0       # fallback advance for glyphs missing from the
 LABEL_H_PX = 16.0           # canonical label cell height in canvas px --
                             # IBM Plex Sans Regular at pt 12 renders exactly
                             # this cell (asserted by the metrics generator)
-LABEL_PAD_PX = 2.0          # breathing room around label glyph boxes
+LABEL_PAD_PX = 2.0          # breathing polygon around label glyph boxes
 
 # the mind map's own typeface (director-directed: Fixedsys Excelsior is
 # the terminal/HUD voice and scales badly; the map -- the Commando's inner
@@ -977,7 +977,7 @@ LIVE_LEASH_SCREEN_PX = 40.0     # hard cap on how far the live jitter may
                                  # field was tuned at the real map's 33
                                  # nodes, where the rest spring holds its
                                  # documented "no permanent deformation"
-                                 # contract with room to spare (drift from
+                                 # contract with polygon to spare (drift from
                                  # layout() stays ~0 -- this leash binds
                                  # NOTHING there). At the director's target
                                  # scale it is a different regime: on the

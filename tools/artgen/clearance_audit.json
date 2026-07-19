@@ -6,840 +6,840 @@
     "failures": []
   },
   "results": {
-    "l01/room_003": {
+    "l01/polygon_003": {
       "ok": true,
       "n_portals": 4,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l01/room_064": {
+    "l01/polygon_064": {
       "ok": true,
       "n_portals": 4,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l01/room_061": {
+    "l01/polygon_061": {
       "ok": true,
       "n_portals": 6,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l01/room_002": {
+    "l01/polygon_002": {
       "ok": true,
       "n_portals": 4,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l01/room_001": {
+    "l01/polygon_001": {
       "ok": true,
       "n_portals": 5,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l01/room_062": {
+    "l01/polygon_062": {
       "ok": true,
       "n_portals": 4,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l01/room_041": {
+    "l01/polygon_041": {
       "ok": true,
       "n_portals": 3,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l01/room_055": {
+    "l01/polygon_055": {
       "ok": true,
       "n_portals": 4,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l01/room_006": {
+    "l01/polygon_006": {
       "ok": true,
       "n_portals": 5,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l01/room_005": {
+    "l01/polygon_005": {
       "ok": true,
       "n_portals": 3,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l01/room_042": {
+    "l01/polygon_042": {
       "ok": true,
       "n_portals": 3,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l01/room_021": {
+    "l01/polygon_021": {
       "ok": true,
       "n_portals": 3,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l01/room_078": {
+    "l01/polygon_078": {
       "ok": true,
       "n_portals": 4,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l01/room_052": {
+    "l01/polygon_052": {
       "ok": true,
       "n_portals": 3,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l01/room_082": {
+    "l01/polygon_082": {
       "ok": true,
       "n_portals": 3,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l01/room_022": {
+    "l01/polygon_022": {
       "ok": true,
       "n_portals": 3,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l01/room_046": {
+    "l01/polygon_046": {
       "ok": true,
       "n_portals": 4,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l01/room_071": {
+    "l01/polygon_071": {
       "ok": true,
       "n_portals": 4,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l01/room_110": {
+    "l01/polygon_110": {
       "ok": true,
       "n_portals": 2,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l01/room_023": {
+    "l01/polygon_023": {
       "ok": true,
       "n_portals": 2,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l01/room_050": {
+    "l01/polygon_050": {
       "ok": true,
       "n_portals": 3,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l01/room_080": {
+    "l01/polygon_080": {
       "ok": true,
       "n_portals": 4,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l01/room_026": {
+    "l01/polygon_026": {
       "ok": true,
       "n_portals": 4,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l01/room_085": {
+    "l01/polygon_085": {
       "ok": true,
       "n_portals": 3,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l01/room_104": {
+    "l01/polygon_104": {
       "ok": true,
       "n_portals": 2,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l01/room_024": {
+    "l01/polygon_024": {
       "ok": true,
       "n_portals": 4,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l01/room_032": {
+    "l01/polygon_032": {
       "ok": true,
       "n_portals": 2,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l01/room_038": {
+    "l01/polygon_038": {
       "ok": true,
       "n_portals": 3,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l01/room_033": {
+    "l01/polygon_033": {
       "ok": true,
       "n_portals": 2,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l01/room_097": {
+    "l01/polygon_097": {
       "ok": true,
       "n_portals": 2,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l01/room_040": {
+    "l01/polygon_040": {
       "ok": true,
       "reason": "fewer than 2 doorways -- nothing to connect",
       "n_portals": 1,
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l01/room_112": {
+    "l01/polygon_112": {
       "ok": true,
       "n_portals": 2,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l01/room_106": {
+    "l01/polygon_106": {
       "ok": true,
       "n_portals": 3,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l01/room_019": {
+    "l01/polygon_019": {
       "ok": true,
       "n_portals": 3,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l01/room_044": {
+    "l01/polygon_044": {
       "ok": true,
       "n_portals": 2,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l01/room_027": {
+    "l01/polygon_027": {
       "ok": true,
       "n_portals": 4,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l01/room_037": {
+    "l01/polygon_037": {
       "ok": true,
       "n_portals": 2,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l02/room_002": {
+    "l02/polygon_002": {
       "ok": true,
       "n_portals": 3,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l02/room_005": {
+    "l02/polygon_005": {
       "ok": true,
       "n_portals": 3,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l02/room_007": {
+    "l02/polygon_007": {
       "ok": true,
       "n_portals": 2,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l02/room_030": {
+    "l02/polygon_030": {
       "ok": true,
       "n_portals": 3,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l02/room_032": {
+    "l02/polygon_032": {
       "ok": true,
       "n_portals": 4,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l02/room_033": {
+    "l02/polygon_033": {
       "ok": true,
       "n_portals": 3,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l02/room_011": {
+    "l02/polygon_011": {
       "ok": true,
       "n_portals": 3,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l02/room_014": {
+    "l02/polygon_014": {
       "ok": true,
       "n_portals": 3,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l02/room_021": {
+    "l02/polygon_021": {
       "ok": true,
       "reason": "fewer than 2 doorways -- nothing to connect",
       "n_portals": 1,
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l02/room_071": {
+    "l02/polygon_071": {
       "ok": true,
       "n_portals": 2,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l02/room_075": {
+    "l02/polygon_075": {
       "ok": true,
       "reason": "fewer than 2 doorways -- nothing to connect",
       "n_portals": 1,
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l02/room_139": {
+    "l02/polygon_139": {
       "ok": true,
       "n_portals": 2,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l02/room_140": {
+    "l02/polygon_140": {
       "ok": true,
       "reason": "fewer than 2 doorways -- nothing to connect",
       "n_portals": 1,
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l02/room_122": {
+    "l02/polygon_122": {
       "ok": true,
       "n_portals": 3,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l02/room_135": {
+    "l02/polygon_135": {
       "ok": true,
       "n_portals": 4,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l02/room_124": {
+    "l02/polygon_124": {
       "ok": true,
       "n_portals": 2,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l02/room_082": {
+    "l02/polygon_082": {
       "ok": true,
       "n_portals": 3,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l02/room_092": {
+    "l02/polygon_092": {
       "ok": true,
       "n_portals": 4,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l02/room_101": {
+    "l02/polygon_101": {
       "ok": true,
       "n_portals": 2,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l02/room_104": {
+    "l02/polygon_104": {
       "ok": true,
       "n_portals": 4,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l02/room_080": {
+    "l02/polygon_080": {
       "ok": true,
       "n_portals": 2,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l02/room_137": {
+    "l02/polygon_137": {
       "ok": true,
       "n_portals": 2,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l02/room_142": {
+    "l02/polygon_142": {
       "ok": true,
       "reason": "fewer than 2 doorways -- nothing to connect",
       "n_portals": 1,
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_006": {
+    "l03/polygon_006": {
       "ok": true,
       "n_portals": 4,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_121": {
+    "l03/polygon_121": {
       "ok": true,
       "n_portals": 4,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_007": {
+    "l03/polygon_007": {
       "ok": true,
       "reason": "fewer than 2 doorways -- nothing to connect",
       "n_portals": 1,
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_120": {
+    "l03/polygon_120": {
       "ok": true,
       "n_portals": 4,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_116": {
+    "l03/polygon_116": {
       "ok": true,
       "n_portals": 3,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_122": {
+    "l03/polygon_122": {
       "ok": true,
       "n_portals": 4,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_124": {
+    "l03/polygon_124": {
       "ok": true,
       "n_portals": 2,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_029": {
+    "l03/polygon_029": {
       "ok": true,
       "n_portals": 4,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_126": {
+    "l03/polygon_126": {
       "ok": true,
       "n_portals": 3,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_032": {
+    "l03/polygon_032": {
       "ok": true,
       "n_portals": 2,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_123": {
+    "l03/polygon_123": {
       "ok": true,
       "reason": "fewer than 2 doorways -- nothing to connect",
       "n_portals": 1,
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_022": {
+    "l03/polygon_022": {
       "ok": true,
       "n_portals": 2,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_030": {
+    "l03/polygon_030": {
       "ok": true,
       "n_portals": 4,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_026": {
+    "l03/polygon_026": {
       "ok": true,
       "n_portals": 2,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_141": {
+    "l03/polygon_141": {
       "ok": true,
       "n_portals": 4,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_130": {
+    "l03/polygon_130": {
       "ok": true,
       "n_portals": 4,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_023": {
+    "l03/polygon_023": {
       "ok": true,
       "n_portals": 3,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_027": {
+    "l03/polygon_027": {
       "ok": true,
       "n_portals": 3,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_033": {
+    "l03/polygon_033": {
       "ok": true,
       "n_portals": 2,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_024": {
+    "l03/polygon_024": {
       "ok": true,
       "n_portals": 2,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_034": {
+    "l03/polygon_034": {
       "ok": true,
       "reason": "fewer than 2 doorways -- nothing to connect",
       "n_portals": 1,
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_149": {
+    "l03/polygon_149": {
       "ok": true,
       "n_portals": 2,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_144": {
+    "l03/polygon_144": {
       "ok": true,
       "n_portals": 2,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_035": {
+    "l03/polygon_035": {
       "ok": true,
       "n_portals": 2,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_036": {
+    "l03/polygon_036": {
       "ok": true,
       "n_portals": 3,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_151": {
+    "l03/polygon_151": {
       "ok": true,
       "n_portals": 4,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_043": {
+    "l03/polygon_043": {
       "ok": true,
       "n_portals": 2,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_058": {
+    "l03/polygon_058": {
       "ok": true,
       "n_portals": 6,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_158": {
+    "l03/polygon_158": {
       "ok": true,
       "n_portals": 4,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_169": {
+    "l03/polygon_169": {
       "ok": true,
       "n_portals": 2,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_044": {
+    "l03/polygon_044": {
       "ok": true,
       "n_portals": 5,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_059": {
+    "l03/polygon_059": {
       "ok": true,
       "n_portals": 3,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_159": {
+    "l03/polygon_159": {
       "ok": true,
       "n_portals": 4,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_049": {
+    "l03/polygon_049": {
       "ok": true,
       "n_portals": 5,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_047": {
+    "l03/polygon_047": {
       "ok": true,
       "n_portals": 2,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_160": {
+    "l03/polygon_160": {
       "ok": true,
       "n_portals": 4,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_087": {
+    "l03/polygon_087": {
       "ok": true,
       "n_portals": 2,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_048": {
+    "l03/polygon_048": {
       "ok": true,
       "n_portals": 2,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_164": {
+    "l03/polygon_164": {
       "ok": true,
       "n_portals": 3,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_161": {
+    "l03/polygon_161": {
       "ok": true,
       "n_portals": 3,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_051": {
+    "l03/polygon_051": {
       "ok": true,
       "reason": "fewer than 2 doorways -- nothing to connect",
       "n_portals": 1,
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_176": {
+    "l03/polygon_176": {
       "ok": true,
       "reason": "fewer than 2 doorways -- nothing to connect",
       "n_portals": 1,
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_166": {
+    "l03/polygon_166": {
       "ok": true,
       "n_portals": 2,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_079": {
+    "l03/polygon_079": {
       "ok": true,
       "n_portals": 4,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_167": {
+    "l03/polygon_167": {
       "ok": true,
       "reason": "fewer than 2 doorways -- nothing to connect",
       "n_portals": 1,
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_080": {
+    "l03/polygon_080": {
       "ok": true,
       "n_portals": 4,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_061": {
+    "l03/polygon_061": {
       "ok": true,
       "n_portals": 3,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_091": {
+    "l03/polygon_091": {
       "ok": true,
       "n_portals": 2,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_069": {
+    "l03/polygon_069": {
       "ok": true,
       "n_portals": 3,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_073": {
+    "l03/polygon_073": {
       "ok": true,
       "reason": "fewer than 2 doorways -- nothing to connect",
       "n_portals": 1,
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_074": {
+    "l03/polygon_074": {
       "ok": true,
       "reason": "fewer than 2 doorways -- nothing to connect",
       "n_portals": 1,
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_104": {
+    "l03/polygon_104": {
       "ok": true,
       "n_portals": 2,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_086": {
+    "l03/polygon_086": {
       "ok": true,
       "n_portals": 3,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_094": {
+    "l03/polygon_094": {
       "ok": true,
       "n_portals": 3,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_095": {
+    "l03/polygon_095": {
       "ok": true,
       "n_portals": 2,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_088": {
+    "l03/polygon_088": {
       "ok": true,
       "n_portals": 2,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_096": {
+    "l03/polygon_096": {
       "ok": true,
       "n_portals": 2,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_098": {
+    "l03/polygon_098": {
       "ok": true,
       "reason": "fewer than 2 doorways -- nothing to connect",
       "n_portals": 1,
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_089": {
+    "l03/polygon_089": {
       "ok": true,
       "n_portals": 2,
       "unreachable_edges": [],
       "clearance_radius_px": 39.0,
       "clearance_radius_units": 13.0
     },
-    "l03/room_097": {
+    "l03/polygon_097": {
       "ok": true,
       "n_portals": 3,
       "unreachable_edges": [],

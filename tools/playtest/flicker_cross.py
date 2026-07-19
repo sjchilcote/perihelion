@@ -1,6 +1,6 @@
 """Flicker cross harness (director-ordered minimal reproduction rig).
 
-A square room with four square neighbors, high-contrast chip decals in
+A square polygon with four square neighbors, high-contrast chip decals in
 every neighbor: pixel ground truth for the decor-flicker defect. Every
 tick renders through the REAL game path (GameSession.visible -> Renderer)
 and probes the decal pixels per neighbor. Any tick where a neighbor's ink
@@ -11,7 +11,7 @@ instance sets at those ticks.
 Two worlds:
   cross    -- pure 4-neighbor cross (single chain to every neighbor)
   braided  -- same cross plus ring connections between the neighbors
-              (two+ chains reach every room; exercises dedup/traversal
+              (two+ chains reach every polygon; exercises dedup/traversal
               churn and the max_instances=96 cap, the prime suspects)
 
 Usage:
@@ -41,13 +41,13 @@ from perihelion.levels import LevelBuilder  # noqa: E402
 from perihelion.render import Renderer, INTERNAL_W, INTERNAL_H  # noqa: E402
 from perihelion.sim import GameSession, InputFrame  # noqa: E402
 
-S = 120.0          # room side, world units
+S = 120.0          # polygon side, world units
 DOOR = 24.0        # doorway width
 NEIGHBORS = {"N": (0.0, -1.0), "S": (0.0, 1.0), "E": (1.0, 0.0), "W": (-1.0, 0.0)}
 
 
-def _room_with_doors(b: LevelBuilder, x: float, y: float, kind: str) -> int:
-    """Square room with a centered DOOR-length collinear segment on every
+def _polygon_with_doors(b: LevelBuilder, x: float, y: float, kind: str) -> int:
+    """Square polygon with a centered DOOR-length collinear segment on every
     side (the campaign's carved-doorway shape, not a full open edge)."""
     lo = (S - DOOR) / 2.0
     hi = (S + DOOR) / 2.0
@@ -57,16 +57,16 @@ def _room_with_doors(b: LevelBuilder, x: float, y: float, kind: str) -> int:
         (x + S, y + hi), (x + S, y + lo), (x + S, y),
         (x + hi, y), (x + lo, y),
     ]
-    return b.room(verts, detail_seed=int(x * 7 + y * 13) & 0xFFFF, kind=kind)
+    return b.polygon(verts, detail_seed=int(x * 7 + y * 13) & 0xFFFF, kind=kind)
 
 
 def build_world(braided: bool):
     b = LevelBuilder("flicker-cross" + ("-braided" if braided else ""),
                      tier=1, ambience="amb_drone_early")
-    rooms = {"C": _room_with_doors(b, 0, 0, "corridor")}
+    polygons = {"C": _polygon_with_doors(b, 0, 0, "corridor")}
     offs = {"N": (0, -S), "S": (0, S), "E": (S, 0), "W": (-S, 0)}
     for name, (dx, dy) in offs.items():
-        rooms[name] = _room_with_doors(b, dx, dy, "corridor")
+        polygons[name] = _polygon_with_doors(b, dx, dy, "corridor")
         # connect by shared-door midpoint (safe across the splitter)
         mid = (dx / 2 + S / 2 + (dx / 2), dy / 2 + S / 2 + (dy / 2))
         mx = S / 2 + dx / 2 * 1.0 + (dx and (dx / abs(dx)) * 0 or 0)
@@ -75,14 +75,14 @@ def build_world(braided: bool):
         # keep it simple: shared edge midpoint
         ex = S / 2 + (S / 2) * (dx / S) if dx else S / 2
         ey = S / 2 + (S / 2) * (dy / S) if dy else S / 2
-        b.connect_pts(rooms["C"], (ex, ey), rooms[name], (ex, ey))
+        b.connect_pts(polygons["C"], (ex, ey), polygons[name], (ex, ey))
     if braided:
-        # ring: N-E, E-S, S-W, W-N via diagonal corner rooms so every
+        # ring: N-E, E-S, S-W, W-N via diagonal corner polygons so every
         # neighbor is reachable by 2+ chains of different depth
         diag = {"NE": (S, -S), "SE": (S, S), "SW": (-S, S), "NW": (-S, -S)}
         ring = {}
         for name, (dx, dy) in diag.items():
-            ring[name] = _room_with_doors(b, dx, dy, "corridor")
+            ring[name] = _polygon_with_doors(b, dx, dy, "corridor")
         pairs = [("N", "NE", "E"), ("E", "SE", "S"), ("S", "SW", "W"), ("W", "NW", "N")]
         for a, d, c in pairs:
             (ax, ay), (dx_, dy_) = offs[a], diag[d]
@@ -97,51 +97,51 @@ def build_world(braided: bool):
             else:
                 exm = max(ax, dx_)
                 eym = ay + S / 2
-            b.connect_pts(rooms[a], (exm, eym), ring[d], (exm, eym))
+            b.connect_pts(polygons[a], (exm, eym), ring[d], (exm, eym))
             (cx2, cy2) = offs[c]
             if cx2 == dx_:
                 ex2, ey2 = cx2 + S / 2, max(cy2, dy_)
             else:
                 ex2, ey2 = max(cx2, dx_), cy2 + S / 2
-            b.connect_pts(ring[d], (ex2, ey2), rooms[c], (ex2, ey2))
-    b.player(rooms["C"], (S / 2, S / 2))
-    b.exit(rooms["N"], (S / 2, -S / 2))
-    return b.build(), rooms
+            b.connect_pts(ring[d], (ex2, ey2), polygons[c], (ex2, ey2))
+    b.player(polygons["C"], (S / 2, S / 2))
+    b.exit(polygons["N"], (S / 2, -S / 2))
+    return b.build(), polygons
 
 
 def build_grid(n: int = 7):
     """n x n fully-doorwayed grid -- from the center the visible set can
     legitimately exceed the max_instances=96 cap, like the campaign's
-    open sightline runs. Every room carries probe decals."""
+    open sightline runs. Every polygon carries probe decals."""
     b = LevelBuilder("flicker-grid", tier=1, ambience="amb_drone_early")
-    rooms = {}
+    polygons = {}
     for i in range(n):
         for j in range(n):
-            rooms[f"r{i}_{j}"] = _room_with_doors(b, j * S, i * S, "corridor")
+            polygons[f"r{i}_{j}"] = _polygon_with_doors(b, j * S, i * S, "corridor")
     for i in range(n):
         for j in range(n):
             if j + 1 < n:
-                b.connect_pts(rooms[f"r{i}_{j}"], ((j + 1) * S, i * S + S / 2),
-                              rooms[f"r{i}_{j + 1}"], ((j + 1) * S, i * S + S / 2))
+                b.connect_pts(polygons[f"r{i}_{j}"], ((j + 1) * S, i * S + S / 2),
+                              polygons[f"r{i}_{j + 1}"], ((j + 1) * S, i * S + S / 2))
             if i + 1 < n:
-                b.connect_pts(rooms[f"r{i}_{j}"], (j * S + S / 2, (i + 1) * S),
-                              rooms[f"r{i}_{j + 1 - 1}"] if False else rooms[f"r{i + 1}_{j}"],
+                b.connect_pts(polygons[f"r{i}_{j}"], (j * S + S / 2, (i + 1) * S),
+                              polygons[f"r{i}_{j + 1 - 1}"] if False else polygons[f"r{i + 1}_{j}"],
                               (j * S + S / 2, (i + 1) * S))
     c = n // 2
-    b.player(rooms[f"r{c}_{c}"], (c * S + S / 2, c * S + S / 2))
-    b.exit(rooms["r0_0"], (S / 2, S / 2))
-    return b.build(), rooms, f"r{c}_{c}"
+    b.player(polygons[f"r{c}_{c}"], (c * S + S / 2, c * S + S / 2))
+    b.exit(polygons["r0_0"], (S / 2, S / 2))
+    return b.build(), polygons, f"r{c}_{c}"
 
 
 ARROW = [(0.0, 0.0), (14.0, 0.0), (9.0, -5.0), (9.0, 5.0)]  # shaft+head pts
 
 
-def plant_decals(session, rooms, probe_rooms=None):
-    """Chip decals in a plus/arrow pattern at each probe room's local
+def plant_decals(session, polygons, probe_polygons=None):
+    """Chip decals in a plus/arrow pattern at each probe polygon's local
     center. Chips draw as bright X marks -- ideal pixel probes. Positions
-    are in the room's CENTERED local frame."""
-    targets = probe_rooms if probe_rooms is not None else \
-        {k: rooms[k] for k in NEIGHBORS}
+    are in the polygon's CENTERED local frame."""
+    targets = probe_polygons if probe_polygons is not None else \
+        {k: polygons[k] for k in NEIGHBORS}
     for name, r in targets.items():
         pts = [(0.0, 0.0), (14.0, 0.0), (-14.0, 0.0), (0.0, 14.0), (0.0, -14.0),
                (26.0, 0.0), (-26.0, 0.0)]
@@ -201,19 +201,19 @@ def main() -> int:
 
     pygame.init()
     if args.world == "grid":
-        level, rooms, center = build_grid(args.grid_n)
-        probe_rooms = {k: v for k, v in rooms.items() if k != center}
+        level, polygons, center = build_grid(args.grid_n)
+        probe_polygons = {k: v for k, v in polygons.items() if k != center}
     else:
-        level, rooms = build_world(args.world == "braided")
-        probe_rooms = {k: rooms[k] for k in NEIGHBORS}
+        level, polygons = build_world(args.world == "braided")
+        probe_polygons = {k: polygons[k] for k in NEIGHBORS}
     session = GameSession(level, seed=7, screen=(INTERNAL_W, INTERNAL_H))
-    plant_decals(session, rooms, probe_rooms)
+    plant_decals(session, polygons, probe_polygons)
     ren = Renderer(session)
     surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
     prev_surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
 
     decal_local = {name: [(x, y) for _, x, y, _, _ in session.decals[r]]
-                   for name, r in probe_rooms.items()}
+                   for name, r in probe_polygons.items()}
 
     log = []
     events = []
@@ -229,17 +229,17 @@ def main() -> int:
         ren.draw(surf)
 
         vis = session.visible()
-        by_room: dict[int, list] = {}
+        by_polygon: dict[int, list] = {}
         for inst in vis:
-            by_room.setdefault(inst[0], []).append(inst)
+            by_polygon.setdefault(inst[0], []).append(inst)
 
         px, py = session.player_pos()
         moved = 0.0 if prev_pos is None else math.hypot(px - prev_pos[0], py - prev_pos[1])
         prev_pos = (px, py)
 
         row = {"tick": tick, "n_inst": len(vis), "moved": round(moved, 3)}
-        for name, r in probe_rooms.items():
-            insts = by_room.get(r, [])
+        for name, r in probe_polygons.items():
+            insts = by_polygon.get(r, [])
             ink = 0
             if insts:
                 ink = max(probe_ink(surf, _xform_of(i), decal_local[name])
@@ -248,11 +248,11 @@ def main() -> int:
         log.append(row)
 
         if prev is not None:
-            for name in probe_rooms:
+            for name in probe_polygons:
                 a, b_ = prev[name], row[name]
                 if (a["inst"] > 0 and a["ink"] >= 15 and moved < 3.0
                         and (b_["inst"] == 0 or b_["ink"] < 0.3 * a["ink"])):
-                    ev = {"tick": tick, "room": name, "before": a, "after": b_,
+                    ev = {"tick": tick, "polygon": name, "before": a, "after": b_,
                           "moved": round(moved, 3), "n_inst": row["n_inst"]}
                     events.append(ev)
                     if len(events) <= 20:

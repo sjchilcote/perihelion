@@ -38,7 +38,7 @@ no more subagents on this particular task." Main-line work only.
    past bugs violated, as a regression net.
 8. **Mix-bus physics.** The tanh saturator equalizes peaks — perceived
    dynamics must come from ARRANGEMENT (dead gaps, contrast), not fader moves.
-   Headroom discipline: beds ~1.2 pre-peak, only the one transient that must
+   Headpolygon discipline: beds ~1.2 pre-peak, only the one transient that must
    win goes 2.5+. Impact needs driven harmonics 60–250 Hz to read on small
    speakers. The 150–250 ms dead gap before the drop did more than any layer.
 9. **Census → playbook → verify against the census.** Count what recurs in

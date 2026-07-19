@@ -44,9 +44,9 @@ def test_structure_loads_and_is_traversable(level):
     for d in s.doors:
         if not d["open"]:
             s.sim.connect(d["a"], d["ea"], d["b"], d["eb"])
-    reach = set(s.sim.rooms_within(level.player_room, 99))
-    assert reach == set(range(s.sim.num_rooms())), "unreachable rooms in the gauntlet"
-    assert level.exit_room in reach
+    reach = set(s.sim.polygons_within(level.player_polygon, 99))
+    assert reach == set(range(s.sim.num_polygons())), "unreachable polygons in the gauntlet"
+    assert level.exit_polygon in reach
 
 
 def test_gauntlet_has_no_keys_or_gates(level):
@@ -64,70 +64,70 @@ def test_six_segments_present_with_enemy_rosters(meta):
 
 
 def test_enemies_only_in_combat_zones(level, meta):
-    """Corridors and loot rooms must be enemy-free (they're the director's
-    'long, safe corridors' and 'rest and recharge lootrooms') -- every enemy
-    entity must land in a room the builder tagged zone=='combat'."""
+    """Corridors and loot polygons must be enemy-free (they're the director's
+    'long, safe corridors' and 'rest and recharge lootpolygons') -- every enemy
+    entity must land in a polygon the builder tagged zone=='combat'."""
     from perihelion.sim import ENEMIES
 
     zones = meta["zones"]
-    for room, spec in level.entities:
+    for polygon, spec in level.entities:
         if spec.type in ENEMIES:
-            assert zones[str(room)]["zone"] == "combat", \
-                f"enemy {spec.type} spawned in a non-combat room {room}"
+            assert zones[str(polygon)]["zone"] == "combat", \
+                f"enemy {spec.type} spawned in a non-combat polygon {polygon}"
 
 
-def test_loot_rooms_carry_health_and_ammo(level, meta):
+def test_loot_polygons_carry_health_and_ammo(level, meta):
     from perihelion.sim import PICKUPS, SENTRIES
 
-    loot_rooms = {int(r) for r, z in meta["zones"].items() if z["zone"] == "loot"}
-    assert len(loot_rooms) == 7, "one loot room per corridor (start + 5 between + end)"
-    kinds_by_room: dict[int, set[str]] = {}
-    for room, spec in level.entities:
-        if room in loot_rooms:
+    loot_polygons = {int(r) for r, z in meta["zones"].items() if z["zone"] == "loot"}
+    assert len(loot_polygons) == 7, "one loot polygon per corridor (start + 5 between + end)"
+    kinds_by_polygon: dict[int, set[str]] = {}
+    for polygon, spec in level.entities:
+        if polygon in loot_polygons:
             assert spec.type in PICKUPS or spec.type in SENTRIES, \
-                f"unexpected entity type {spec.type!r} in loot room {room}"
-            kinds_by_room.setdefault(room, set()).add(spec.type)
-    for room in loot_rooms:
-        kinds = kinds_by_room.get(room, set())
-        assert "medkit" in kinds, f"loot room {room} has no health pickup"
+                f"unexpected entity type {spec.type!r} in loot polygon {polygon}"
+            kinds_by_polygon.setdefault(polygon, set()).add(spec.type)
+    for polygon in loot_polygons:
+        kinds = kinds_by_polygon.get(polygon, set())
+        assert "medkit" in kinds, f"loot polygon {polygon} has no health pickup"
         assert any(k.startswith("ammo_") for k in kinds), \
-            f"loot room {room} has no ammo pickup"
+            f"loot polygon {polygon} has no ammo pickup"
 
 
-def test_loot_rooms_each_have_one_sentry(level, meta):
+def test_loot_polygons_each_have_one_sentry(level, meta):
     """Director's directive, 2026-07-13: "let's put friendly turrets in
-    the safe-room corridors" -- FITTING_REPORT.md finding #1 measured loot
-    rooms as the deadliest zone (2.2x combat) because pursuers have no
-    de-aggro path. One sentry per loot room, none anywhere else -- placing
+    the safe-polygon corridors" -- FITTING_REPORT.md finding #1 measured loot
+    polygons as the deadliest zone (2.2x combat) because pursuers have no
+    de-aggro path. One sentry per loot polygon, none anywhere else -- placing
     them is the director's tuning call for campaign levels, not the
     gauntlet's structural default (see build_gauntlet.py's module note)."""
     from perihelion.sim import SENTRIES
 
-    loot_rooms = {int(r) for r, z in meta["zones"].items() if z["zone"] == "loot"}
-    sentries_by_room: dict[int, int] = {}
-    for room, spec in level.entities:
+    loot_polygons = {int(r) for r, z in meta["zones"].items() if z["zone"] == "loot"}
+    sentries_by_polygon: dict[int, int] = {}
+    for polygon, spec in level.entities:
         if spec.type in SENTRIES:
-            assert room in loot_rooms, \
-                f"sentry placed outside a loot room (room {room}) -- gauntlet " \
-                "placement is loot-room-doorway only"
-            sentries_by_room[room] = sentries_by_room.get(room, 0) + 1
-    for room in loot_rooms:
-        assert sentries_by_room.get(room, 0) == 1, \
-            f"loot room {room} should have exactly one sentry"
+            assert polygon in loot_polygons, \
+                f"sentry placed outside a loot polygon (polygon {polygon}) -- gauntlet " \
+                "placement is loot-polygon-doorway only"
+            sentries_by_polygon[polygon] = sentries_by_polygon.get(polygon, 0) + 1
+    for polygon in loot_polygons:
+        assert sentries_by_polygon.get(polygon, 0) == 1, \
+            f"loot polygon {polygon} should have exactly one sentry"
 
 
 def test_corridors_are_long_and_safe(level, meta):
     """'LONG, safe corridors' per the director's brief: every non-combat,
-    non-loot room must be enemy-free (already covered), and each corridor's
-    total authored span must exceed a single room-scale hop."""
+    non-loot polygon must be enemy-free (already covered), and each corridor's
+    total authored span must exceed a single polygon-scale hop."""
     from build_gauntlet import CORRIDOR_STUB_LEN
 
-    corridor_rooms = [r for r, z in meta["zones"].items() if z["zone"] == "corridor"]
-    assert len(corridor_rooms) == 14, "two stub rooms per corridor x 7 corridors"
+    corridor_polygons = [r for r, z in meta["zones"].items() if z["zone"] == "corridor"]
+    assert len(corridor_polygons) == 14, "two stub polygons per corridor x 7 corridors"
     assert CORRIDOR_STUB_LEN >= 300.0, "a corridor stub must read as a real hallway"
 
 
 def test_player_and_exit_at_opposite_ends(level, meta):
-    assert level.player_room == meta["player_room"]
-    assert level.exit_room == meta["exit_room"]
-    assert level.player_room != level.exit_room
+    assert level.player_polygon == meta["player_polygon"]
+    assert level.exit_polygon == meta["exit_polygon"]
+    assert level.player_polygon != level.exit_polygon

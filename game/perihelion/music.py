@@ -68,7 +68,7 @@ TICKS_PER_S = 60.0
 # CORPUS-FITTED (task #34, 2026-07-16): 200 farmed runs, 478k rows,
 # per-unit ridge coefficients against measured 5s-future damage /
 # kill-flow / calm. The surprises the director predicted: an ADJACENT
-# hunting warden is ~73% of a co-room one (the old 0.35 discount was
+# hunting warden is ~73% of a co-polygon one (the old 0.35 discount was
 # badly wrong for heavies); inverse-distance CROWD pressure and aggro
 # INFLUX are first-class danger terms; a hunting shrieker predicts
 # LESS damage (it is running away); being hurt predicts LESS future
@@ -76,7 +76,7 @@ TICKS_PER_S = 60.0
 # gone. Held-out Spearman vs old battery: danger .256/.206,
 # mowing .220/.001, calm .254/.178. See tools/musiccal/tune_battery2.py.
 # warden weights are DESIGN weights now (director 2026-07-16: wardens
-# live only in boss rooms; STALWART is boss music and must clear 0.9
+# live only in boss polygons; STALWART is boss music and must clear 0.9
 # ONLY there) -- raised from the corpus-fitted 12/8.5 so boss fights
 # sit ~2x above the biggest ordinary wave peaks; all other kinds stay
 # corpus-fitted.
@@ -84,10 +84,10 @@ DANGER_CO = {"warden": 20.0, "brute": 1.0, "flicker": 1.9, "husk": 1.0,
              "mite": 0.8, "spitter": 0.6, "shrieker": 0.15}
 DANGER_ADJ = {"warden": 14.0, "brute": 0.3, "flicker": 0.2, "husk": 0.8,
               "mite": 0.3, "spitter": 0.3, "shrieker": 0.1}
-CROWD_W = 27.5           # per unit inverse-distance mass (co-room)
+CROWD_W = 27.5           # per unit inverse-distance mass (co-polygon)
 INFLUX_W = 3.0           # per newly-aggroed enemy per second (3s EMA)
 # (scream term REMOVED, director 2026-07-16: screams correlate with
-# danger because they coincide with entering full rooms -- a
+# danger because they coincide with entering full polygons -- a
 # confounder, not a source. A distant off-camera scream carries no
 # threat; the influx/count terms carry the real thing when the woken
 # wave actually arrives.)
@@ -119,7 +119,7 @@ THREAT_WEIGHT = {
     "brute": 4.0, "warden": 5.0, "flicker": 3.0,
 }
 WEAK_KINDS = {"mite", "husk"}
-OTHER_ROOM_FACTOR = 0.35     # dominant_kind's room discount only
+OTHER_POLYGON_FACTOR = 0.35     # dominant_kind's polygon discount only
 PRAYER_FLOOR = 0.12          # the urgency pulse never fully stops
 STING_RISE = 0.35            # a value jump this big in one bar = a wall
 FALL_STEP = 0.65             # per-bar multiplier on a falling lane gain
@@ -152,7 +152,7 @@ def read_inputs(session) -> dict:
 
     aggro = enemies whose AI is actively engaged (not idle/waking/lurk).
     """
-    proom = session.player_room()
+    ppolygon = session.player_polygon()
     lf = getattr(session, "last_fire_tick", None)
     player_hot = lf is not None and \
         (session.tick_count - lf) < 3 * TICKS_PER_S
@@ -161,16 +161,16 @@ def read_inputs(session) -> dict:
         px, py = session.player_pos()
     except Exception:
         px = py = None
-    aggro = []          # (kind, hops) -- 0 co-room, 1 adjacent, 2 = far
+    aggro = []          # (kind, hops) -- 0 co-polygon, 1 adjacent, 2 = far
     aggro_ids = []
-    crowd = 0.0         # inverse-distance mass of co-room hunters
+    crowd = 0.0         # inverse-distance mass of co-polygon hunters
     tension = 0.0
     for eid, e in session.enemies.items():
         kind = e["kind"]
         state = e["state"]
         if kind == "flicker" and state == "lurk":
             try:
-                if session.sim.get_room(eid) == proom:
+                if session.sim.get_polygon(eid) == ppolygon:
                     tension = min(1.0, tension + 0.5)
             except Exception:
                 pass
@@ -182,17 +182,17 @@ def read_inputs(session) -> dict:
             #             player opens fire (music follows HIS aggression
             #             too, not just the AI's)
         try:
-            room = session.sim.get_room(eid)
-            hops = 0 if room == proom else \
-                session.sim.hop_distance(room, proom)
+            polygon = session.sim.get_polygon(eid)
+            hops = 0 if polygon == ppolygon else \
+                session.sim.hop_distance(polygon, ppolygon)
         except Exception:
             continue
         hops = hops if 0 <= hops <= 1 else 2
         if hops != 0 and px is not None:
             # MELEE-CONTACT override (frame-consistency sweep: a
-            # warden in melee read as adjacent-room -- non-euclidean
+            # warden in melee read as adjacent-polygon -- non-euclidean
             # portals put its center in the next polygon while its
-            # body touched the player). Contact danger IS co-room.
+            # body touched the player). Contact danger IS co-polygon.
             try:
                 import math as _m
                 _, ex, ey, *_ = session.sim.get(eid)
@@ -270,7 +270,7 @@ def values(inputs: dict) -> tuple[float, float, float]:
     - contempt = damage OUTPUT, an independent axis (director
       2026-07-16): trigger duty + kill flow. A boss fight reads
       stalwart AND contempt at once; only silence reads neither.
-    - prayer = the room the fight leaves over, floored: contemplation
+    - prayer = the polygon the fight leaves over, floored: contemplation
       with the mission clock always running.
 
     EMA inputs (influx_rate, dmg_rate, kill_rate, fire_duty) are
@@ -306,11 +306,11 @@ def values(inputs: dict) -> tuple[float, float, float]:
 
 def dominant_kind(aggro) -> str | None:
     """The enemy kind that owns the bassline: highest total threat
-    weight among engaged enemies (same-room weighted up)."""
+    weight among engaged enemies (same-polygon weighted up)."""
     totals: dict[str, float] = {}
     for kind, hops in aggro:
         w = THREAT_WEIGHT[kind] * (1.0 if hops == 0
-                                            else OTHER_ROOM_FACTOR)
+                                            else OTHER_POLYGON_FACTOR)
         totals[kind] = totals.get(kind, 0.0) + w
     if not totals:
         return None
@@ -849,7 +849,7 @@ class MusicSystem:
         chunks = self._slice_bank()
         lane_defs = self._lane_defs(chunks)
         assert len(lane_defs) <= MAX_LANES, sorted(lane_defs)
-        riser_ch_idx = 4 + 2 * MAX_LANES   # room for BOTH lane sets
+        riser_ch_idx = 4 + 2 * MAX_LANES   # polygon for BOTH lane sets
         holy_tail_idx = riser_ch_idx + 1   # the monk's phrase-tail voice
         if pygame.mixer.get_num_channels() < riser_ch_idx + 14:
             pygame.mixer.set_num_channels(riser_ch_idx + 14)
@@ -966,7 +966,7 @@ class MusicSystem:
         dp = max(c - self._prev_vals[1], d - self._prev_vals[2])
         self._prev_vals = self._applied
         aggro = self.inputs.get("aggro", [])
-        # (kind, hops) since the battery refit -- hops==0 is co-room;
+        # (kind, hops) since the battery refit -- hops==0 is co-polygon;
         # the old boolean read had this INVERTED for months of minutes
         n_aggro = sum(1.0 if hops == 0 else 0.4 for _, hops in aggro)
         combat = max(c, d)

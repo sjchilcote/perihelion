@@ -32,7 +32,7 @@
         },
         {
           "role": "rhythm guitar",
-          "timbre": "Down-tuned 8-string electric guitar with high-gain digital amp simulation (reminiscent of a 5150 profile). Extremely tight low-end gating, with a prominent boost in the 'clank' region (1.5kHz - 3kHz) and a sharp high-pass filter cutting everything below 60Hz to make room for the sub-bass.",
+          "timbre": "Down-tuned 8-string electric guitar with high-gain digital amp simulation (reminiscent of a 5150 profile). Extremely tight low-end gating, with a prominent boost in the 'clank' region (1.5kHz - 3kHz) and a sharp high-pass filter cutting everything below 60Hz to make polygon for the sub-bass.",
           "register": "low",
           "articulation": "staccato chugs, heavily palm-muted, locked tightly with the kick drum"
         },
@@ -94,7 +94,7 @@
         },
         {
           "role": "drums",
-          "timbre": "Industrial acoustic-electronic hybrid kit. The kick drum has a clicky transient at 3kHz and a deep sub-thump at 60Hz. The snare is a high-tension metal snare blended with a white-noise burst, heavily compressed with a fast attack and medium release to emphasize the room tone.",
+          "timbre": "Industrial acoustic-electronic hybrid kit. The kick drum has a clicky transient at 3kHz and a deep sub-thump at 60Hz. The snare is a high-tension metal snare blended with a white-noise burst, heavily compressed with a fast attack and medium release to emphasize the polygon tone.",
           "register": "full spectrum, from sub-bass kick to high-frequency cymbals",
           "articulation": "driving, steady half-time rock/metal beat with heavy accentuation on beats 1 and 3"
         }
@@ -997,7 +997,7 @@
       "intensity_level": "high",
       "structural_role": "buildup",
       "change_from_previous_block": "The previous section's ambient, low-frequency drone is suddenly pierced by the entry of the double-tracked rhythm guitars and the driving four-on-the-floor industrial drum loop, instantly shifting the track from atmospheric tension to aggressive momentum.",
-      "notable_production": "The mix features extreme stereo widening on the double-tracked guitars, contrasting with a mono-centered, heavily compressed kick and sub-bass. A gritty, short room reverb (0.8s decay) is applied to the drums and brass to create a claustrophobic, industrial warehouse space, while the lead synth is processed with a ping-pong delay set to dotted eighth notes.",
+      "notable_production": "The mix features extreme stereo widening on the double-tracked guitars, contrasting with a mono-centered, heavily compressed kick and sub-bass. A gritty, short polygon reverb (0.8s decay) is applied to the drums and brass to create a claustrophobic, industrial warehouse space, while the lead synth is processed with a ping-pong delay set to dotted eighth notes.",
       "summary": "This block delivers a high-intensity industrial metal assault, blending crushing, double-tracked guitars with a driving four-on-the-floor electronic beat and a soaring, unstable lead synth. The fusion of organic orchestral brass stabs and harsh digital distortion creates a claustrophobic, high-tension atmosphere perfect for a cosmic-horror setting. The production is dense, aggressive, and meticulously controlled, balancing heavy low-end punch with abrasive high-frequency grit."
     }
   },
@@ -1022,13 +1022,13 @@
         },
         {
           "role": "rhythm guitar",
-          "timbre": "Down-tuned, high-gain distorted electric guitar with a scooped mid-range and a sharp boost around 2-4kHz for pick attack definition. The cabinet emulation sounds tight and close-miked, minimizing room reflections.",
+          "timbre": "Down-tuned, high-gain distorted electric guitar with a scooped mid-range and a sharp boost around 2-4kHz for pick attack definition. The cabinet emulation sounds tight and close-miked, minimizing polygon reflections.",
           "register": "low-mid",
           "articulation": "staccato, palm-muted chugs interspersed with brief, ringing open-chord accents"
         },
         {
           "role": "lead synth",
-          "timbre": "A harsh, detuned dual-sawtooth wave with a high-pass filter set around 300Hz to leave room for the bass. It has a fast attack, moderate decay, and is processed through a sample-rate reducer (bitcrusher) and a short, metallic spring reverb.",
+          "timbre": "A harsh, detuned dual-sawtooth wave with a high-pass filter set around 300Hz to leave polygon for the bass. It has a fast attack, moderate decay, and is processed through a sample-rate reducer (bitcrusher) and a short, metallic spring reverb.",
           "register": "mid to high-mid",
           "articulation": "staccato, syncopated rhythmic pulses"
         },
@@ -1264,7 +1264,7 @@
         },
         {
           "role": "drums",
-          "timbre": "A hybrid acoustic-electronic kit. The kick is a clicky, high-transient sample with a boost at 3kHz and a deep sub-thump at 60Hz. The snare is a metallic, high-tension marching snare blended with a white-noise burst, heavily compressed with a fast release to emphasize room reflections. Cymbals are dark, trashy, and processed through a sample-rate reducer to sound lo-fi and pixelated.",
+          "timbre": "A hybrid acoustic-electronic kit. The kick is a clicky, high-transient sample with a boost at 3kHz and a deep sub-thump at 60Hz. The snare is a metallic, high-tension marching snare blended with a white-noise burst, heavily compressed with a fast release to emphasize polygon reflections. Cymbals are dark, trashy, and processed through a sample-rate reducer to sound lo-fi and pixelated.",
           "register": "full range",
           "articulation": "A driving, industrial metal half-time groove with aggressive double-kick bursts and a relentless snare backbeat on beat 3."
         },
@@ -1382,7 +1382,7 @@
         },
         {
           "role": "drums",
-          "timbre": "A hybrid acoustic-electronic drum kit. The kick drum is a clicky, high-transient sample with a massive sub-bass tail. The snare is a deep, metallic acoustic snare layered with a white-noise burst, heavily compressed with a fast release to emphasize room reflections. The cymbals are trashy, low-fidelity hi-hats and crashes with a bitcrushed edge.",
+          "timbre": "A hybrid acoustic-electronic drum kit. The kick drum is a clicky, high-transient sample with a massive sub-bass tail. The snare is a deep, metallic acoustic snare layered with a white-noise burst, heavily compressed with a fast release to emphasize polygon reflections. The cymbals are trashy, low-fidelity hi-hats and crashes with a bitcrushed edge.",
           "register": "full range",
           "articulation": "A driving, industrial half-time groove. The kick plays a syncopated, double-stroke pattern, the snare hits consistently on beat 3, and the hi-hats maintain a relentless, eighth-note driving pulse."
         },
@@ -1476,7 +1476,7 @@
       "instrumentation": [
         {
           "role": "rhythm guitar",
-          "timbre": "Double-tracked, high-gain tube distortion with a sharp mid-scoop around 500Hz and a harsh boost at 4kHz. High-pass filtered at 80Hz to leave room for the sub-bass. The sound is highly compressed with a fast release to emphasize the pick attack.",
+          "timbre": "Double-tracked, high-gain tube distortion with a sharp mid-scoop around 500Hz and a harsh boost at 4kHz. High-pass filtered at 80Hz to leave polygon for the sub-bass. The sound is highly compressed with a fast release to emphasize the pick attack.",
           "register": "low-mid (D2 to D3)",
           "articulation": "Continuous, rapid 16th-note tremolo picking, maintaining a wall-of-sound texture without palm muting."
         },
@@ -1750,7 +1750,7 @@
       "instrumentation": [
         {
           "role": "rhythm guitar",
-          "timbre": "Dual-tracked, high-gain digital distortion with a sharp notch filter around 4kHz to reduce harshness, but retaining a gritty, saw-like edge. Low-end is tightly controlled with a high-pass filter at 80Hz to leave room for the sub-bass.",
+          "timbre": "Dual-tracked, high-gain digital distortion with a sharp notch filter around 4kHz to reduce harshness, but retaining a gritty, saw-like edge. Low-end is tightly controlled with a high-pass filter at 80Hz to leave polygon for the sub-bass.",
           "register": "low-mid",
           "articulation": "Staccato, palm-muted 16th-note chugs punctuated by sudden, hard-gated silences."
         },
@@ -1942,7 +1942,7 @@
         },
         {
           "role": "drums",
-          "timbre": "Industrial acoustic-electronic hybrid kit. The kick is a compressed, low-end heavy 909-style sample with a transient-shaper boosting the click at 2kHz. The snare is a metallic, high-tension pipe snare blended with a white noise burst, heavily compressed with a fast release to emphasize room reflections.",
+          "timbre": "Industrial acoustic-electronic hybrid kit. The kick is a compressed, low-end heavy 909-style sample with a transient-shaper boosting the click at 2kHz. The snare is a metallic, high-tension pipe snare blended with a white noise burst, heavily compressed with a fast release to emphasize polygon reflections.",
           "register": "low to high-mid",
           "articulation": "A driving, straight-ahead industrial rock beat with the kick on beats 1 and 3, and a crushing snare on beats 2 and 4, accented by rapid, mechanical 16th-note closed hi-hat patterns."
         },
@@ -2030,7 +2030,7 @@
       "instrumentation": [
         {
           "role": "rhythm guitar",
-          "timbre": "Highly saturated, high-gain double-tracked electric guitars. The tone is scooped in the low-mids (around 400Hz) with a harsh, biting presence peak between 2kHz and 4kHz, resembling a solid-state preamp driven into hard clipping. High-pass filtered around 80Hz to leave room for the sub-bass.",
+          "timbre": "Highly saturated, high-gain double-tracked electric guitars. The tone is scooped in the low-mids (around 400Hz) with a harsh, biting presence peak between 2kHz and 4kHz, resembling a solid-state preamp driven into hard clipping. High-pass filtered around 80Hz to leave polygon for the sub-bass.",
           "register": "low-mid",
           "articulation": "Continuous, aggressive 16th-note tremolo picking on a low D pedal note, interspersed with sudden, syncopated palm-muted chugs that choke the sustain."
         },
@@ -2336,7 +2336,7 @@
       "instrumentation": [
         {
           "role": "rhythm guitar",
-          "timbre": "Double-tracked, high-gain digital distortion with a sharp, mid-focused notch filter around 1.2kHz. The waveform is a highly clipped square-like saw with a tight low-end roll-off below 80Hz to prevent muddiness, leaving room for the bass.",
+          "timbre": "Double-tracked, high-gain digital distortion with a sharp, mid-focused notch filter around 1.2kHz. The waveform is a highly clipped square-like saw with a tight low-end roll-off below 80Hz to prevent muddiness, leaving polygon for the bass.",
           "register": "low-mid",
           "articulation": "Sustained, driving down-picked eighth-note chugs with occasional palm-muted accents on the downbeats."
         },
@@ -3114,7 +3114,7 @@
       "instrumentation": [
         {
           "role": "rhythm guitar",
-          "timbre": "Double-tracked, high-gain digital distortion with a sharp notch filter around 4kHz to reduce fizz, boosted low-mids at 250Hz, and a steep high-pass filter cutting everything below 80Hz to leave room for the sub-bass.",
+          "timbre": "Double-tracked, high-gain digital distortion with a sharp notch filter around 4kHz to reduce fizz, boosted low-mids at 250Hz, and a steep high-pass filter cutting everything below 80Hz to leave polygon for the sub-bass.",
           "register": "low-mid",
           "articulation": "Palm-muted staccato chugs on the low D string, alternating with rapid, unmuted tremolo-picked descending chromatic lines."
         },
@@ -3226,7 +3226,7 @@
       "instrumentation": [
         {
           "role": "rhythm guitar",
-          "timbre": "Double-tracked, high-gain digital distortion with a sharp mid-range scoop around 500Hz and a harsh boost at 4kHz. Emulates a high-gain tube amplifier (like a Mesa Boogie Dual Rectifier) pushed by a green overdrive pedal to tighten the low-end. High-pass filtered at 80Hz to leave room for the sub-bass.",
+          "timbre": "Double-tracked, high-gain digital distortion with a sharp mid-range scoop around 500Hz and a harsh boost at 4kHz. Emulates a high-gain tube amplifier (like a Mesa Boogie Dual Rectifier) pushed by a green overdrive pedal to tighten the low-end. High-pass filtered at 80Hz to leave polygon for the sub-bass.",
           "register": "low-mid",
           "articulation": "Staccato, palm-muted chugs executing a syncopated, mechanical gallop pattern, interspersed with brief, unmuted chord stabs."
         },
@@ -3617,7 +3617,7 @@
       ],
       "rhythmic_patterns": {
         "drums": "A driving four-on-the-floor kick drum pattern with the snare hitting consistently on beats 2 and 4. The hi-hats play continuous, frantic 16th-note patterns with occasional stuttering/glitch edits on the grid.",
-        "bass": "Follows the kick drum's pulse with steady quarter-note driving roots, occasionally dropping out for a half-beat to create syncopated breathing room.",
+        "bass": "Follows the kick drum's pulse with steady quarter-note driving roots, occasionally dropping out for a half-beat to create syncopated breathing polygon.",
         "lead_or_harmony": "The lead synth plays a slow, undulating melody focusing on dotted half notes and whole notes, creating a stark, soaring contrast to the fast-paced rhythm section."
       },
       "intensity_level": "building",

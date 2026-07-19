@@ -3,7 +3,7 @@
  "name": "THE FOLD",
  "tier": 4,
  "ambience": "amb_drone_late",
- "rooms": [
+ "polygons": [
   {
    "verts": [
     [
@@ -79,7 +79,7 @@
      ]
     },
     {
-     "type": "safe_room_core",
+     "type": "safe_polygon_core",
      "pos": [
       15.000000000000007,
       14.999999999999998
@@ -6070,14 +6070,14 @@
  "connects_x": [],
  "doors": [],
  "player": {
-  "room": 92,
+  "polygon": 92,
   "pos": [
    -3655.0,
    -45.0
   ]
  },
  "exit": {
-  "room": 0,
+  "polygon": 0,
   "pos": [
    0,
    40
@@ -6085,11 +6085,11 @@
   "gate_kind": "warden"
  },
  "lore": {
-  "intro": "The chapel deck. Folded.\nSix rooms around one. Or one room\naround six. The count depends on the walker.",
+  "intro": "The chapel deck. Folded.\nSix polygons around one. Or one polygon\naround six. The count depends on the walker.",
   "radio": [],
   "terminals": [
    {
-    "room": 0,
+    "polygon": 0,
     "pos": [
      0,
      -60
@@ -6097,15 +6097,15 @@
     "text": "SERMON, UNDELIVERED\nThey ask: is the station haunted?\nNo. A haunting is a place remembering.\nThis is a place being remembered \u2014\nby something on the other side."
    },
    {
-    "room": 1,
+    "polygon": 1,
     "pos": [
      165.8012701892219,
      287.1762239271875
     ],
-    "text": "[TRANSLATION CONFIDENCE 8%]\nsix were sent. six return, always six.\nthe seventh count is a mistake in the counting,\nnot a seventh room. we filed it that way for a\nlong time. the filing is also how the room first\nappeared. we do not file it that way now, and\nthe room has not gone."
+    "text": "[TRANSLATION CONFIDENCE 8%]\nsix were sent. six return, always six.\nthe seventh count is a mistake in the counting,\nnot a seventh polygon. we filed it that way for a\nlong time. the filing is also how the polygon first\nappeared. we do not file it that way now, and\nthe polygon has not gone."
    },
    {
-    "room": 4,
+    "polygon": 4,
     "pos": [
      -165.8012701892219,
      -163.15698604072065
@@ -6113,7 +6113,7 @@
     "text": "[TRANSLATION CONFIDENCE 19%]\nstudents were walked here blind, on purpose,\nearly. counting the doors and losing the count\nwas the whole of the lesson. you cannot fear a\ndirection you have already used to find your way\nhome once."
    },
    {
-    "room": 6,
+    "polygon": 6,
     "pos": [
      -165.801270189222,
      163.15698604072054
@@ -6125,7 +6125,7 @@
  "alert_hops": 1,
  "lights": [
   {
-   "room": 92,
+   "polygon": 92,
    "pos": [
     -3655,
     -45
@@ -6140,7 +6140,7 @@
    "kind": "static"
   },
   {
-   "room": 96,
+   "polygon": 96,
    "pos": [
     -3295,
     -45
@@ -6155,7 +6155,7 @@
    "kind": "static"
   },
   {
-   "room": 98,
+   "polygon": 98,
    "pos": [
     -3115,
     -45
@@ -6170,7 +6170,7 @@
    "kind": "static"
   },
   {
-   "room": 114,
+   "polygon": 114,
    "pos": [
     -3115,
     45
@@ -6185,7 +6185,7 @@
    "kind": "static"
   },
   {
-   "room": 130,
+   "polygon": 130,
    "pos": [
     -2755,
     225
@@ -6200,7 +6200,7 @@
    "kind": "static"
   },
   {
-   "room": 145,
+   "polygon": 145,
    "pos": [
     -2665,
     315
@@ -6215,7 +6215,7 @@
    "kind": "static"
   },
   {
-   "room": 149,
+   "polygon": 149,
    "pos": [
     -2305,
     315
@@ -6230,7 +6230,7 @@
    "kind": "static"
   },
   {
-   "room": 133,
+   "polygon": 133,
    "pos": [
     -2125,
     225
@@ -6245,7 +6245,7 @@
    "kind": "static"
   },
   {
-   "room": 141,
+   "polygon": 141,
    "pos": [
     -1405,
     225
@@ -6260,7 +6260,7 @@
    "kind": "static"
   },
   {
-   "room": 124,
+   "polygon": 124,
    "pos": [
     -1225,
     135
@@ -6275,7 +6275,7 @@
    "kind": "static"
   },
   {
-   "room": 109,
+   "polygon": 109,
    "pos": [
     -1045,
     -45
@@ -6290,7 +6290,7 @@
    "kind": "static"
   },
   {
-   "room": 110,
+   "polygon": 110,
    "pos": [
     -955,
     -45
@@ -6305,7 +6305,7 @@
    "kind": "static"
   },
   {
-   "room": 1,
+   "polygon": 1,
    "pos": [
     130,
     225.2
@@ -6320,7 +6320,7 @@
    "kind": "static"
   },
   {
-   "room": 4,
+   "polygon": 4,
    "pos": [
     -130,
     -225.2
@@ -6335,7 +6335,7 @@
    "kind": "static"
   },
   {
-   "room": 6,
+   "polygon": 6,
    "pos": [
     -130,
     225.2
@@ -6350,7 +6350,7 @@
    "kind": "static"
   },
   {
-   "room": 2,
+   "polygon": 2,
    "pos": [
     260,
     0
@@ -6365,7 +6365,7 @@
    "kind": "static"
   },
   {
-   "room": 3,
+   "polygon": 3,
    "pos": [
     130,
     -225.2
@@ -6380,7 +6380,7 @@
    "kind": "static"
   },
   {
-   "room": 0,
+   "polygon": 0,
    "pos": [
     0,
     0
@@ -6395,7 +6395,7 @@
    "kind": "static"
   },
   {
-   "room": 10,
+   "polygon": 10,
    "pos": [
     -2170,
     450
@@ -6410,7 +6410,7 @@
    "kind": "static"
   },
   {
-   "room": 81,
+   "polygon": 81,
    "pos": [
     -3655,
     -135
@@ -6425,7 +6425,7 @@
    "kind": "static"
   },
   {
-   "room": 111,
+   "polygon": 111,
    "pos": [
     -3655,
     45
@@ -6440,7 +6440,7 @@
    "kind": "static"
   },
   {
-   "room": 73,
+   "polygon": 73,
    "pos": [
     -1405,
     -328.0

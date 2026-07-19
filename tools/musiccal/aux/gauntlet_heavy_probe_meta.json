@@ -5,9 +5,9 @@
   "E": 15,
   "F": 7
  },
- "n_rooms": 19,
- "player_room": 10,
- "exit_room": 18,
+ "n_polygons": 19,
+ "player_polygon": 10,
+ "exit_polygon": 18,
  "level_path": "tools/musiccal/aux/gauntlet_heavy_probe.json",
  "zones": {
   "0": {

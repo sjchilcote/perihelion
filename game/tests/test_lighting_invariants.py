@@ -3,7 +3,7 @@ render.py `_draw_world_lights`). Lights are world objects: `compute_light_
 instances` runs the engine's own `visible_set` from the light's apex (the
 director's law -- "lighting is literally just running our visibility
 engine again but from the perspective of the light") and recovers each
-reached room's OWN local lit polygon by inverting the returned transform.
+reached polygon's OWN local lit polygon by inverting the returned transform.
 Nothing here was covered before this file: lighting did not exist.
 
 Properties covered, each with a fail-first verification note:
@@ -23,15 +23,15 @@ Properties covered, each with a fail-first verification note:
                          surface for both (skipped if this necore build has
                          no Raster backend to compare against).
 
-All test worlds author every room as a rect CENTERED ON ITS OWN CANVAS
-ORIGIN (x=-w/2, y=-h/2). `LevelBuilder` rooms may overlap freely on the
+All test worlds author every polygon as a rect CENTERED ON ITS OWN CANVAS
+ORIGIN (x=-w/2, y=-h/2). `LevelBuilder` polygons may overlap freely on the
 authoring canvas -- only connections define adjacency -- and centering
-each room means its centroid is (0,0), so authored canvas coordinates and
+each polygon means its centroid is (0,0), so authored canvas coordinates and
 the engine's post-centroid-subtraction LOCAL coordinates are identical
 numbers. That sidesteps a whole class of off-by-centroid test bugs when
-hand-authoring light/sample positions in room-local units.
+hand-authoring light/sample positions in polygon-local units.
 
-Adversarial dimensions (hypothesis): sample distance for falloff; room
+Adversarial dimensions (hypothesis): sample distance for falloff; polygon
 count/topology for cache coherence; straddle offset for seam-freeness.
 """
 
@@ -69,13 +69,13 @@ def _atten(inst, point) -> float:
 
 
 class _Slotter:
-    """Places each room in its own 100000-unit-wide canvas slot, centered
-    on the slot (so a room's LOCAL frame -- post centroid-subtraction --
+    """Places each polygon in its own 100000-unit-wide canvas slot, centered
+    on the slot (so a polygon's LOCAL frame -- post centroid-subtraction --
     is just its authored point minus the slot center, i.e. plain centered
-    coordinates) while keeping every room's absolute canvas verts far
+    coordinates) while keeping every polygon's absolute canvas verts far
     apart. This matters: `LevelBuilder.resolve()` autoconnects ANY pair of
     exactly-coincident edges across the whole level, not just the ones an
-    explicit `connect_pts` call names -- so two same-shape rooms centered
+    explicit `connect_pts` call names -- so two same-shape polygons centered
     on the SAME canvas origin (the natural "centroid = local" shortcut)
     would silently auto-wire on every side, not just the one intended.
     """
@@ -92,20 +92,20 @@ class _Slotter:
         self.centers[idx] = (cx, 0.0)
         return idx
 
-    def anchor(self, room: int, local_pt) -> tuple[float, float]:
-        cx, cy = self.centers[room]
+    def anchor(self, polygon: int, local_pt) -> tuple[float, float]:
+        cx, cy = self.centers[polygon]
         return (cx + local_pt[0], cy + local_pt[1])
 
 
 @settings(max_examples=EXAMPLES, deadline=None)
 @given(n_islands=st.integers(min_value=1, max_value=4),
        radius=st.floats(50.0, 5000.0))
-def test_occlusion_zero_contribution_across_disconnected_rooms(n_islands, radius):
-    """The strongest occlusion case: a light in r0, and one or more rooms
+def test_occlusion_zero_contribution_across_disconnected_polygons(n_islands, radius):
+    """The strongest occlusion case: a light in r0, and one or more polygons
     with NO connection to r0 at all (not through any portal chain, at any
     depth) -- i.e. no straight-line-through-portals path exists by
-    construction, regardless of `radius`. Those rooms must never appear
-    in the light's reached-room set, however large the radius.
+    construction, regardless of `radius`. Those polygons must never appear
+    in the light's reached-polygon set, however large the radius.
 
     Note on scope: whether a wedge correctly stops at an actual WALL
     (partial doorway / corner occlusion) is `visibility.rs`'s own job and
@@ -113,13 +113,13 @@ def test_occlusion_zero_contribution_across_disconnected_rooms(n_islands, radius
     4) -- `compute_light_instances` calls the identical `visible_set` the
     camera uses, so it inherits that guarantee for free. This test's job
     is the NEW code's own risk surface: that caching/recovering local
-    coordinates from the light's query never spuriously reports a room
+    coordinates from the light's query never spuriously reports a polygon
     the visibility pass never actually reached.
 
-    Verified fail-first: iterated over ALL of `sim.world`'s rooms and
-    fabricated a `LightInstance` for any room absent from the real result
-    (as a "what if a caching bug unioned in every known room" mutation) --
-    every island room then showed up lit and the test failed. Reverted
+    Verified fail-first: iterated over ALL of `sim.world`'s polygons and
+    fabricated a `LightInstance` for any polygon absent from the real result
+    (as a "what if a caching bug unioned in every known polygon" mutation) --
+    every island polygon then showed up lit and the test failed. Reverted
     before committing (the fabrication was never actually wired into
     `compute_light_instances`, only exercised standalone to confirm the
     assertion is load-bearing).
@@ -131,19 +131,19 @@ def test_occlusion_zero_contribution_across_disconnected_rooms(n_islands, radius
     islands = [slots.rect(120, 120) for _ in range(n_islands)]
     level = b.build()
     session = GameSession(level, seed=1)
-    light = LightSpec(room=r0, pos=(0.0, 0.0), color=(255, 255, 255),
+    light = LightSpec(polygon=r0, pos=(0.0, 0.0), color=(255, 255, 255),
                        intensity=1.0, radius=radius, kind="static")
     insts = compute_light_instances(session.sim, light, max_depth=10, max_instances=64)
-    reached = {inst.room for inst in insts}
+    reached = {inst.polygon for inst in insts}
     for isl in islands:
         assert isl not in reached, (
-            f"light reached room {isl}, which has no connection at all")
+            f"light reached polygon {isl}, which has no connection at all")
 
 
 @settings(max_examples=EXAMPLES, deadline=None)
 @given(frac=st.floats(0.02, 0.98))
 def test_falloff_monotonic_along_unobstructed_ray(frac):
-    """Along an unobstructed ray from the light's own room's apex, the
+    """Along an unobstructed ray from the light's own polygon's apex, the
     attenuation kernel must be non-increasing with distance: sample two
     points at distances `frac*R` and `(frac+eps)*R` and require the closer
     one at least as bright.
@@ -158,10 +158,10 @@ def test_falloff_monotonic_along_unobstructed_ray(frac):
     level = b.build()
     session = GameSession(level, seed=1)
     radius = 300.0
-    light = LightSpec(room=r0, pos=(-190.0, 0.0), color=(255, 255, 255),
+    light = LightSpec(polygon=r0, pos=(-190.0, 0.0), color=(255, 255, 255),
                        intensity=1.0, radius=radius, kind="static")
     insts = compute_light_instances(session.sim, light)
-    inst = next(i for i in insts if i.room == r0)
+    inst = next(i for i in insts if i.polygon == r0)
     eps = 0.01
     frac2 = min(0.999, frac + eps)
     p_near = (-190.0 + frac * radius, 0.0)
@@ -172,39 +172,39 @@ def test_falloff_monotonic_along_unobstructed_ray(frac):
 
 
 @settings(max_examples=EXAMPLES, deadline=None)
-@given(n_rooms=st.integers(min_value=2, max_value=5),
+@given(n_polygons=st.integers(min_value=2, max_value=5),
        radius=st.floats(60.0, 900.0))
-def test_cache_matches_fresh_computation(n_rooms, radius):
+def test_cache_matches_fresh_computation(n_polygons, radius):
     """LightingSystem's cache (built once at construction) must equal a
     fresh `compute_light_instances` call against the same world: same set
-    of reached rooms, and matching apex/radius per room (the render-
+    of reached polygons, and matching apex/radius per polygon (the render-
     critical scalars derived from the clip polygon).
 
     Verified fail-first: had the cache-building call pass `max_depth=2`
-    while this test's fresh call used the default (6) -- for `n_rooms=5`
-    chains the cache came back missing rooms the fresh call found, and the
+    while this test's fresh call used the default (6) -- for `n_polygons=5`
+    chains the cache came back missing polygons the fresh call found, and the
     test failed. Reverted before committing.
     """
     b = LevelBuilder("COH", 1)
     slots = _Slotter(b)
-    rooms = [slots.rect(160, 160) for _ in range(n_rooms)]
-    for i in range(n_rooms - 1):
-        b.connect_pts(rooms[i], slots.anchor(rooms[i], (80, 0)),
-                      rooms[i + 1], slots.anchor(rooms[i + 1], (-80, 0)))
-    b.player(rooms[0], slots.anchor(rooms[0], (0, 0)))
+    polygons = [slots.rect(160, 160) for _ in range(n_polygons)]
+    for i in range(n_polygons - 1):
+        b.connect_pts(polygons[i], slots.anchor(polygons[i], (80, 0)),
+                      polygons[i + 1], slots.anchor(polygons[i + 1], (-80, 0)))
+    b.player(polygons[0], slots.anchor(polygons[0], (0, 0)))
     level = b.build()
-    light = LightSpec(room=rooms[0], pos=(0.0, 0.0), color=(255, 220, 170),
+    light = LightSpec(polygon=polygons[0], pos=(0.0, 0.0), color=(255, 220, 170),
                        intensity=1.0, radius=radius, kind="static")
     level.lights.append(light)
     session = GameSession(level, seed=1)
     fresh = compute_light_instances(session.sim, light)
-    cached_insts = [inst for room_list in session.lighting._by_room.values()
-                    for idx, inst in room_list if idx == 0]
-    cached_by_room = {i.room: i for i in cached_insts}
-    fresh_by_room = {i.room: i for i in fresh}
-    assert set(cached_by_room) == set(fresh_by_room)
-    for room, fi in fresh_by_room.items():
-        ci = cached_by_room[room]
+    cached_insts = [inst for polygon_list in session.lighting._by_polygon.values()
+                    for idx, inst in polygon_list if idx == 0]
+    cached_by_polygon = {i.polygon: i for i in cached_insts}
+    fresh_by_polygon = {i.polygon: i for i in fresh}
+    assert set(cached_by_polygon) == set(fresh_by_polygon)
+    for polygon, fi in fresh_by_polygon.items():
+        ci = cached_by_polygon[polygon]
         assert math.isclose(ci.radius_local, fi.radius_local, rel_tol=1e-6)
         assert math.hypot(ci.apex_local[0] - fi.apex_local[0],
                            ci.apex_local[1] - fi.apex_local[1]) < 1e-6
@@ -222,7 +222,7 @@ def _octagon_portal_world():
     UNDETECTABLE in those worlds (translation and its inverse differ only
     by a sign, not a shape). Only a rotated portal actually exercises
     whether the inversion is real. Returns (level, r0, r1, doorway_mid_r0,
-    doorway_mid_r1, normal, tangent) all in each room's own LOCAL
+    doorway_mid_r1, normal, tangent) all in each polygon's own LOCAL
     (centroid-subtracted) frame."""
     b = LevelBuilder("OCT", 1)
     r0 = b.ngon(100, 75, 100, 8)  # regular octagon: area centroid == (100, 75)
@@ -268,23 +268,23 @@ def test_seam_freeness_across_a_portal(straddle):
     level, r0, r1, door_r0, door_r1, (nx, ny), _tan = _octagon_portal_world()
     session = GameSession(level, seed=1)
     lx, ly = door_r0[0] + nx * 20.0, door_r0[1] + ny * 20.0  # a bit inside r0
-    light = LightSpec(room=r0, pos=(lx, ly), color=(255, 255, 255),
+    light = LightSpec(polygon=r0, pos=(lx, ly), color=(255, 255, 255),
                        intensity=1.0, radius=250.0, kind="static")
     insts = compute_light_instances(session.sim, light, max_depth=4, max_instances=8)
-    inst0 = next(i for i in insts if i.room == r0)
-    inst1 = next((i for i in insts if i.room == r1), None)
+    inst0 = next(i for i in insts if i.polygon == r0)
+    inst1 = next((i for i in insts if i.polygon == r1), None)
     assert inst1 is not None, "light did not reach through the doorway at all"
     # Direct sanity check (catches divergence the attenuation comparison
     # below can miss when a wrong-frame apex lands so far away that BOTH
     # sides clamp to zero attenuation and trivially "agree"): the light's
-    # own room's apex_local must equal its authored local position exactly.
+    # own polygon's apex_local must equal its authored local position exactly.
     assert math.hypot(inst0.apex_local[0] - lx, inst0.apex_local[1] - ly) < 1e-6
     p0 = (door_r0[0] + nx * straddle, door_r0[1] + ny * straddle)  # just inside r0
     p1 = (door_r1[0], door_r1[1] + straddle)  # just inside r1 (its near edge is local y=-60)
     a0 = _atten(inst0, p0)
     a1 = _atten(inst1, p1)
-    # Not pixel-exact: p0/p1 are parametrized along each room's OWN local
-    # axis into the room (r0: the door's inward normal; r1: local +y),
+    # Not pixel-exact: p0/p1 are parametrized along each polygon's OWN local
+    # axis into the polygon (r0: the door's inward normal; r1: local +y),
     # which only coincide with the same physical ray to within the
     # octagon's real (non-axis-aligned) geometry -- a few hundredths of
     # slop at `straddle` up to 4 units is expected sampling noise, not a
@@ -294,31 +294,31 @@ def test_seam_freeness_across_a_portal(straddle):
 
 
 @settings(max_examples=15, deadline=None)
-@given(room_w=st.floats(220.0, 420.0), radius=st.floats(300.0, 700.0),
+@given(polygon_w=st.floats(220.0, 420.0), radius=st.floats(300.0, 700.0),
        light_dx=st.floats(-60.0, 60.0))
-def test_pixel_composite_seam_freeness_across_corridor_portals(room_w, radius, light_dx):
-    """Director-reported ("there are ALSO seams between the rooms in the
-    corridor now, that's new with the lighting stuff"): a straight 3-room
+def test_pixel_composite_seam_freeness_across_corridor_portals(polygon_w, radius, light_dx):
+    """Director-reported ("there are ALSO seams between the polygons in the
+    corridor now, that's new with the lighting stuff"): a straight 3-polygon
     corridor (translation-only portals, the common case) with one static
-    light in the middle room whose wedge reaches both neighbors through
+    light in the middle polygon whose wedge reaches both neighbors through
     their doorways. This exercises the ACTUAL PIXEL COMPOSITE path
     (`Renderer.draw` -> `_draw_world_lights` -> `_blit_light`'s union-fill
     grouping by rounded (light, screen-apex, screen-radius)) that
     `test_seam_freeness_across_a_portal` above does NOT cover -- that test
-    only checks `compute_light_instances`' room-local attenuation math,
+    only checks `compute_light_instances`' polygon-local attenuation math,
     never the rendered surface. Nothing exercised the union-fill grouping
     or the gradient-sprite blit at pixel granularity before this test.
 
     Property: sampling a horizontal scanline across a UNIFORM-ALBEDO floor
     (per the design brief's property (i): "for a light shining through a
-    doorway onto uniform-albedo floor" -- room decoration is seeded per
-    room and legitimately produces its own faint tint lines/props unrelated
+    doorway onto uniform-albedo floor" -- polygon decoration is seeded per
+    polygon and legitimately produces its own faint tint lines/props unrelated
     to lighting, see the module-docstring-adjacent finding below, so this
     test disables `_get_detail` to isolate the lighting composite alone),
     well clear of the player sprite/reticle, the max adjacent-pixel
     luminance delta anywhere on the lit floor -- including directly on
     both portal-boundary columns -- must stay small. A step at a boundary
-    would mean the same light's wedge in the two rooms landed in different
+    would mean the same light's wedge in the two polygons landed in different
     `_blit_light` groups (independent gradient origins/rasterized polygon
     edges meeting instead of unioning).
 
@@ -337,8 +337,8 @@ def test_pixel_composite_seam_freeness_across_corridor_portals(room_w, radius, l
 
     Verified fail-first: temporarily perturbed the group key in
     `_draw_world_lights` (rounding `apex_sx`/`apex_sy` to a coarser unit
-    tied to `room`, i.e. `key = (light_idx, room, round(radius_screen, 1))`
-    -- forcing every room's wedge into its own group even when the apex
+    tied to `polygon`, i.e. `key = (light_idx, polygon, round(radius_screen, 1))`
+    -- forcing every polygon's wedge into its own group even when the apex
     genuinely coincides) and this test failed with a >100-luminance step
     at the shared portal column on every generated example. Reverted
     before committing.
@@ -349,14 +349,14 @@ def test_pixel_composite_seam_freeness_across_corridor_portals(room_w, radius, l
 
     pygame.init()
     b = LevelBuilder("CORRSEAM", 1)
-    r0 = b.rect(-room_w - 100.0, -100.0, room_w, 200.0)
+    r0 = b.rect(-polygon_w - 100.0, -100.0, polygon_w, 200.0)
     r1 = b.rect(-100.0, -100.0, 200.0, 200.0)
-    r2 = b.rect(100.0, -100.0, room_w, 200.0)
+    r2 = b.rect(100.0, -100.0, polygon_w, 200.0)
     b.connect_pts(r0, (-100.0, 0.0), r1, (-100.0, 0.0))
     b.connect_pts(r1, (100.0, 0.0), r2, (100.0, 0.0))
     b.player(r1, (0.0, 0.0))
     level = b.build()
-    level.lights.append(LightSpec(room=r1, pos=(light_dx, 0.0),
+    level.lights.append(LightSpec(polygon=r1, pos=(light_dx, 0.0),
                                    color=(255, 220, 170), intensity=1.2,
                                    radius=radius, kind="static"))
     session = GameSession(level, seed=1, screen=(INTERNAL_W, INTERNAL_H))
@@ -366,19 +366,19 @@ def test_pixel_composite_seam_freeness_across_corridor_portals(room_w, radius, l
     # but this test's `_draw_floor` trace hook (below, to find the portal
     # columns) is pygame-only -- the rust backend emits the floor itself.
     ren = Renderer(session, backend="pygame")
-    ren._get_detail = lambda room: []  # isolate lighting from room decoration (see docstring)
+    ren._get_detail = lambda polygon: []  # isolate lighting from polygon decoration (see docstring)
 
-    # Record each room's own screen clip span so the assertion below can
+    # Record each polygon's own screen clip span so the assertion below can
     # target the two shared PORTAL columns specifically (this property is
     # about portal continuity, not about the level's outer walls, where a
     # real floor-to-void step is expected and not a "seam").
     spans: dict[int, tuple[float, float]] = {}
     orig_floor = ren._draw_floor
 
-    def traced_floor(canvas, room, depth, clip_screen, xform=None):
+    def traced_floor(canvas, polygon, depth, clip_screen, xform=None):
         xs = [p[0] for p in clip_screen]
-        spans[room] = (min(xs), max(xs))
-        return orig_floor(canvas, room, depth, clip_screen, xform)
+        spans[polygon] = (min(xs), max(xs))
+        return orig_floor(canvas, polygon, depth, clip_screen, xform)
 
     ren._draw_floor = traced_floor
 
@@ -387,7 +387,7 @@ def test_pixel_composite_seam_freeness_across_corridor_portals(room_w, radius, l
                              fire=False, alt=False, interact=False, weapon=0))
     ren.consume_fx(session.fx)
     ren.draw(surf)
-    assert set(spans) == {r0, r1, r2}, f"not all 3 rooms rendered: {spans}"
+    assert set(spans) == {r0, r1, r2}, f"not all 3 polygons rendered: {spans}"
     portal_xs = sorted({round(spans[r0][1]), round(spans[r1][0]),
                          round(spans[r1][1]), round(spans[r2][0])})
     # r0's right edge == r1's left edge, r1's right edge == r2's left edge
@@ -395,8 +395,8 @@ def test_pixel_composite_seam_freeness_across_corridor_portals(room_w, radius, l
     assert len(portal_xs) == 2, f"expected 2 portal columns, got {portal_xs}"
 
     arr = pygame.surfarray.array3d(surf).astype(int)
-    # A row well below the player sprite/reticle (they sit on the room's
-    # vertical center) but still inside every room's floor extent.
+    # A row well below the player sprite/reticle (they sit on the polygon's
+    # vertical center) but still inside every polygon's floor extent.
     y = INTERNAL_H // 2 + 60
     lum = arr[:, y, :].sum(axis=1)
     jumps = np.abs(np.diff(lum))
@@ -405,7 +405,7 @@ def test_pixel_composite_seam_freeness_across_corridor_portals(room_w, radius, l
         window = jumps[max(0, x - 2):x + 2]
         assert window.max() <= 12, (
             f"seam at portal column x={x}: max adjacent-pixel luminance "
-            f"jump {window.max()} (room_w={room_w}, radius={radius}, "
+            f"jump {window.max()} (polygon_w={polygon_w}, radius={radius}, "
             f"light_dx={light_dx})")
 
 
@@ -413,7 +413,7 @@ def test_pixel_composite_seam_freeness_across_corridor_portals(room_w, radius, l
 @given(radius=st.floats(150.0, 400.0))
 def test_no_ghost_pixel_at_light_radius_edge(radius):
     """Design brief property (ii), "no-ghost-edges": for a single light in
-    a plain convex room with an oversized radius (so the disc's own edge,
+    a plain convex polygon with an oversized radius (so the disc's own edge,
     not a wall or portal, is what bounds the lit area on-screen), no pixel
     outside the true falloff -- i.e. no lone bright pixel sitting one
     column/row past where the light's own radial gradient sprite stops --
@@ -427,7 +427,7 @@ def test_no_ghost_pixel_at_light_radius_edge(radius):
     kept its raw white-polygon-fill*tint value (never multiplied down)
     and got ADDed at full strength: a single full-brightness pixel sitting
     right at the light's radius edge, deep inside an otherwise near-black
-    room.
+    polygon.
 
     Verified fail-first: reverted `ir` to `int(math.ceil(radius))` (the
     pre-fix form) in a local copy -- this test failed with a lone
@@ -444,19 +444,19 @@ def test_no_ghost_pixel_at_light_radius_edge(radius):
     r0 = b.rect(-500.0, -500.0, 1000.0, 1000.0)  # big enough the disc never hits a wall
     b.player(r0, (0.0, 0.0))
     level = b.build()
-    level.lights.append(LightSpec(room=r0, pos=(0.0, 0.0), color=(255, 255, 255),
+    level.lights.append(LightSpec(polygon=r0, pos=(0.0, 0.0), color=(255, 255, 255),
                                    intensity=1.2, radius=radius, kind="static"))
     session = GameSession(level, seed=1, screen=(INTERNAL_W, INTERNAL_H))
     session.player_light.intensity = 0.0
     ren = Renderer(session, backend="pygame")
-    ren._get_detail = lambda room: []
+    ren._get_detail = lambda polygon: []
     surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
     session.tick(InputFrame(mx=0, my=0, ax=INTERNAL_W / 2, ay=INTERNAL_H / 2,
                              fire=False, alt=False, interact=False, weapon=0))
     ren.consume_fx(session.fx)
     ren.draw(surf)
     arr = pygame.surfarray.array3d(surf).astype(int)
-    y = INTERNAL_H // 2 + 60  # clear of the player sprite/reticle at room center
+    y = INTERNAL_H // 2 + 60  # clear of the player sprite/reticle at polygon center
     lum = arr[:, y, :].sum(axis=1)
     jumps = np.abs(np.diff(lum))
     assert jumps.max() <= 12, (
@@ -493,7 +493,7 @@ def test_lighting_backend_parity():
     r0 = b.rect(-110, -80, 220, 160)
     b.player(r0, (0, 0))
     level = b.build()
-    level.lights.append(LightSpec(room=r0, pos=(0.0, 0.0),
+    level.lights.append(LightSpec(polygon=r0, pos=(0.0, 0.0),
                                    color=(255, 200, 140), intensity=1.2,
                                    radius=180.0, kind="static"))
 

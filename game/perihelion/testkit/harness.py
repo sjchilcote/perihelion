@@ -26,7 +26,7 @@ class Result:
     outcome: str  # 'complete' | 'died' | 'timeout'
     metrics: dict
     ticks_alive: int
-    rooms_visited: int
+    polygons_visited: int
     ammo_timeline: list = field(default_factory=list)   # [(tick, total_ammo), ...]
     hp_timeline: list = field(default_factory=list)      # [(tick, hp), ...]
     ammo_starved_ticks: int = 0
@@ -109,8 +109,8 @@ def run_bot(level: Level, bot: Bot, seed: int, max_ticks: int = DEFAULT_MAX_TICK
     i = 0
     while i < max_ticks and not session.dead and not session.complete:
         snap = session.snapshot()
-        proom = snap["room"]
-        if any(e["room"] == proom for e in snap["enemies"]):
+        ppolygon = snap["polygon"]
+        if any(e["polygon"] == ppolygon for e in snap["enemies"]):
             time_in_combat_ticks += 1
 
         inp = bot.step(snap, session)
@@ -157,7 +157,7 @@ def run_bot(level: Level, bot: Bot, seed: int, max_ticks: int = DEFAULT_MAX_TICK
         outcome=outcome,
         metrics=dict(session.metrics),
         ticks_alive=session.tick_count,
-        rooms_visited=len(session.metrics["rooms_visited"]),
+        polygons_visited=len(session.metrics["polygons_visited"]),
         ammo_timeline=ammo_timeline,
         hp_timeline=hp_timeline,
         ammo_starved_ticks=ammo_starved_ticks,
@@ -172,14 +172,14 @@ def run_bot(level: Level, bot: Bot, seed: int, max_ticks: int = DEFAULT_MAX_TICK
 
 
 def summarize(res: Result) -> dict:
-    """JSON-safe summary of a `Result` (metrics['rooms_visited'] is a set;
+    """JSON-safe summary of a `Result` (metrics['polygons_visited'] is a set;
     everything else is already JSON-native)."""
     m = dict(res.metrics)
-    if isinstance(m.get("rooms_visited"), set):
-        m["rooms_visited"] = sorted(m["rooms_visited"])
+    if isinstance(m.get("polygons_visited"), set):
+        m["polygons_visited"] = sorted(m["polygons_visited"])
     return dict(
         outcome=res.outcome, bot=res.bot, seed=res.seed,
-        ticks_alive=res.ticks_alive, rooms_visited=res.rooms_visited,
+        ticks_alive=res.ticks_alive, polygons_visited=res.polygons_visited,
         ammo_starved_ticks=res.ammo_starved_ticks,
         time_in_combat_ticks=res.time_in_combat_ticks,
         portal_crossings=res.portal_crossings,
@@ -210,7 +210,7 @@ def run_matrix(level: Level, bots: list, seeds: list[int],
                 bot=res.bot, seed=seed, outcome=res.outcome,
                 ticks_alive=res.ticks_alive, kills=res.metrics["kills"],
                 dmg_dealt=res.metrics["dmg_dealt"], dmg_taken=res.metrics["dmg_taken"],
-                rooms_visited=res.rooms_visited, portal_crossings=res.portal_crossings,
+                polygons_visited=res.polygons_visited, portal_crossings=res.portal_crossings,
                 ammo_starved_ticks=res.ammo_starved_ticks,
                 time_in_combat_ticks=res.time_in_combat_ticks,
             ))
@@ -246,14 +246,14 @@ def assert_playable(level: Level, seed: int = 0, max_ticks: int = DEFAULT_MAX_TI
         t = 0
         while t < min(max_ticks, containment_ticks) and not session.dead and not session.complete:
             snap = session.snapshot()
-            room = snap["room"]
-            radius = session.sim.room_radius(room)
+            polygon = snap["polygon"]
+            radius = session.sim.polygon_radius(polygon)
             px, py = snap["pos"]
             r = math.hypot(px, py)
             if r > radius + CONTAINMENT_MARGIN:
                 issues.append(
-                    f"{bot_cls.__name__} escaped room {room} bounds at tick "
-                    f"{snap['tick']} (|pos|={r:.1f} > room_radius+margin={radius + CONTAINMENT_MARGIN:.1f})"
+                    f"{bot_cls.__name__} escaped polygon {polygon} bounds at tick "
+                    f"{snap['tick']} (|pos|={r:.1f} > polygon_radius+margin={radius + CONTAINMENT_MARGIN:.1f})"
                 )
                 break
             inp = bot.step(snap, session)

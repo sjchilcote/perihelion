@@ -37,22 +37,22 @@ LIT_MIN = 60.0
 DARK_MAX = 12.0
 
 
-FIXTURE = LightSpec(room=0, pos=(-230.0, 0.0), color=(255, 225, 180),
+FIXTURE = LightSpec(polygon=0, pos=(-230.0, 0.0), color=(255, 225, 180),
                      intensity=1.3, radius=520.0, kind="static")
 
 
 def build_world():
-    """One room, one terrain rect (synthetic walk-mask, no PNG on disk
+    """One polygon, one terrain rect (synthetic walk-mask, no PNG on disk
     needed -- this tool installs the rects directly via
-    `Sim.set_room_terrain`) between the fixture and open floor.
+    `Sim.set_polygon_terrain`) between the fixture and open floor.
 
     Deliberately does NOT put `FIXTURE` in `level.lights`: a static light's
     shadow geometry is cached ONCE, at whatever moment it's registered
     with `LightingSystem` (level construction, here `GameSession.__init__`)
-    -- caching it before terrain exists on the room bakes in an empty
+    -- caching it before terrain exists on the polygon bakes in an empty
     shadow forever (confirmed fail-first while building this tool: the
     'in_shadow' probe read ~30/255, not black, because the cached instance
-    predated `set_room_terrain`). The caller must install terrain FIRST,
+    predated `set_polygon_terrain`). The caller must install terrain FIRST,
     then register the fixture via `session.lighting.add_lights(...)`."""
     b = LevelBuilder("TSHADDEMO", 1)
     r0 = b.rect(-260.0, -140.0, 520.0, 280.0)
@@ -62,7 +62,7 @@ def build_world():
 
 
 # Close enough to the fixture that the distance-falloff kernel alone still
-# leaves plenty of headroom between "lit" and "dark" samples -- the light's
+# leaves plenty of headpolygon between "lit" and "dark" samples -- the light's
 # radius (520) makes anything much past ~350 units from the apex read dim
 # from distance ALONE, which would make a demo point's dimness ambiguous
 # (shadow? or just far away?) instead of a clean binary contrast.
@@ -77,12 +77,12 @@ def apply_demo_floor(ren, level, r0):
     camera (same reasoning as light_occlusion_demo.apply_demo_floor:
     zero-ambient multiplies the floor, so a dim default albedo caps every
     lit pixel low regardless of light strength)."""
-    for room in range(len(level.room_verts)):
-        ren._floor_color_cache[room] = DEMO_FLOOR_ALBEDO
+    for polygon in range(len(level.polygon_verts)):
+        ren._floor_color_cache[polygon] = DEMO_FLOOR_ALBEDO
 
 
-#: waypoints (room-local) the player walks to in sequence, and how many
-#: ticks to hold once reached before advancing -- room-local, chosen from
+#: waypoints (polygon-local) the player walks to in sequence, and how many
+#: ticks to hold once reached before advancing -- polygon-local, chosen from
 #: the actual shadow-polygon geometry (verified with `_point_in_polygon`
 #: in `lighting.py` while tuning this path, see the module docstring's
 #: fail-first note): the terrain rect ((-40,-50)-(40,30)) is SOLID (blocks
@@ -156,9 +156,9 @@ def main() -> int:
     pygame.init()
     level, r0 = build_world()
     session = GameSession(level, seed=7, screen=(INTERNAL_W, INTERNAL_H))
-    session.sim.set_room_terrain(r0, [TERRAIN_RECT])  # terrain FIRST
+    session.sim.set_polygon_terrain(r0, [TERRAIN_RECT])  # terrain FIRST
     session.player_light.intensity = 0.0  # isolate the fixture, like the occlusion demo
-    fixture = LightSpec(room=r0, pos=FIXTURE.pos, color=FIXTURE.color,
+    fixture = LightSpec(polygon=r0, pos=FIXTURE.pos, color=FIXTURE.color,
                          intensity=FIXTURE.intensity, radius=FIXTURE.radius,
                          kind=FIXTURE.kind)
     session.lighting.add_lights(session.sim, [fixture])  # ...THEN the light

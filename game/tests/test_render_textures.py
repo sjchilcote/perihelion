@@ -1,4 +1,4 @@
-"""Bespoke per-room floor textures (ARTSTYLE_DIRECTION.md lever one):
+"""Bespoke per-polygon floor textures (ARTSTYLE_DIRECTION.md lever one):
 OP_TEX_FILL (rust) and its numpy mirror (pygame) must draw the same
 texture pixel-identically, and the lightmap multiply (zero ambient, per
 the director's order) must still apply to textured pixels exactly as it
@@ -37,16 +37,16 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def _write_white_texture(root, level_id: str, room_index: int, w: int, h: int) -> None:
+def _write_white_texture(root, level_id: str, polygon_index: int, w: int, h: int) -> None:
     (root / level_id).mkdir(parents=True, exist_ok=True)
     surf = pygame.Surface((w, h))
     surf.fill((255, 255, 255))
-    pygame.image.save(surf, str(root / level_id / f"room_{room_index}.png"))
+    pygame.image.save(surf, str(root / level_id / f"polygon_{polygon_index}.png"))
 
 
 def _make_textured_session(monkeypatch, textures_root, seed=1234, light=None,
                             douse_lamp=False):
-    """Debug level, room 0 given a synthetic all-white texture at the
+    """Debug level, polygon 0 given a synthetic all-white texture at the
     convention path; level_id set as if it had been loaded from disk.
 
     `light`, if given, is appended to the level's `lights` list. `douse_
@@ -59,7 +59,7 @@ def _make_textured_session(monkeypatch, textures_root, seed=1234, light=None,
     lamp is the only light that always exists)."""
     level = build_debug_level()
     level.level_id = "texparity"
-    w, h = texture_geom.texture_size_for_room(level.room_verts[0])
+    w, h = texture_geom.texture_size_for_polygon(level.polygon_verts[0])
     _write_white_texture(textures_root, level.level_id, 0, w, h)
     monkeypatch.setattr("perihelion.render.TEXTURE_DIR", textures_root)
     if light is not None:
@@ -88,10 +88,10 @@ def pygame_ready():
     pygame.quit()
 
 
-def test_texture_size_helper_matches_room_bbox():
+def test_texture_size_helper_matches_polygon_bbox():
     level = build_debug_level()
-    verts = level.room_verts[0]  # rect(0, 0, 160, 120) -> local bbox 160x120
-    w, h = texture_geom.texture_size_for_room(verts)
+    verts = level.polygon_verts[0]  # rect(0, 0, 160, 120) -> local bbox 160x120
+    w, h = texture_geom.texture_size_for_polygon(verts)
     assert (w, h) == (480, 360)  # 160*3, 120*3
 
 
@@ -119,7 +119,7 @@ def test_textured_floor_differs_from_untextured_fallback(pygame_ready, tmp_path,
     assert pygame.image.tobytes(textured, "RGB") != pygame.image.tobytes(flat, "RGB")
 
 
-_NEAR_LIGHT = LightSpec(room=0, pos=(-40.0, 0.0), color=(255, 255, 255),
+_NEAR_LIGHT = LightSpec(polygon=0, pos=(-40.0, 0.0), color=(255, 255, 255),
                          intensity=3.0, radius=250.0, kind="static")
 
 
@@ -127,7 +127,7 @@ def _dark_and_lit_sessions(monkeypatch, tmp_path, textured):
     """Two otherwise-identical sessions (same seed, same level, same
     camera path): one with NO light at all (player lamp doused, no world
     lights) and one with ONLY `_NEAR_LIGHT` added (player lamp still
-    doused). Same room-0 geometry either way, so screen coordinates line
+    doused). Same polygon-0 geometry either way, so screen coordinates line
     up exactly between the pair."""
     if textured:
         dark = _make_textured_session(monkeypatch, tmp_path / "dk",
@@ -154,7 +154,7 @@ def test_zero_ambient_black_then_light_falloff_on_world_pixels(
         pygame_ready, tmp_path, monkeypatch, backend, textured):
     """The director's order, literal: "unless there's a specific light
     source, the worklight is the only light" -- a world-layer pixel in a
-    room no ENABLED light reaches renders BLACK, textured or flat, both
+    polygon no ENABLED light reaches renders BLACK, textured or flat, both
     backends; adding a real static light must then light that same pixel
     up (falloff still works, driven by a real light instead of a screen-
     space vignette).

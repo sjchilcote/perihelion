@@ -32,7 +32,7 @@ by stage:
 | Phaser pedals (Mu-Tron Bi-Phase, DOD 70s) | swept allpass notches, the filter MOVES | `_phaser()` -- LFO-swept first-order allpass cascade (6-stage slow for the Bi-Phase, 4-stage faster for the DOD); replaced the earlier static-allpass stand-in that was flagged as a gap |
 | Tape echo (Watkins Copicat) | delay whose repeats saturate + darken + wobble (tape in the loop) | `_tape_echo()` -- fractional modulated-read delay with tanh AND a lowpass inside the feedback path; replaced the clean `delay_fx` stand-in flagged as a gap |
 | Reel-to-reel driven 40dB hot | brutal tape saturation w/ record EQ | `_reel_overdrive()` -- pre-emphasis -> deep tanh -> de-emphasis |
-| Spring reverb tank (wet/dry) | dispersive coil: each reflection is a downward chirp ("boing") | `_spring_reverb()` -- impulse response built as a train of decaying downward chirps at the coil round-trip spacing, FFT-convolved; a Schroeder room reverb cannot make the chirp signature |
+| Spring reverb tank (wet/dry) | dispersive coil: each reflection is a downward chirp ("boing") | `_spring_reverb()` -- impulse response built as a train of decaying downward chirps at the coil round-trip spacing, FFT-convolved; a Schroeder polygon reverb cannot make the chirp signature |
 | **Mini-amp feedback loop** (mic signal routed back into the amp) | **self-oscillating loop choked by the note, swelling back in the gaps** | `feedback_loop()` -- nonlinearity inside a true recursion, loop gain barely past self-sustain, plus a `howl_hz` bandpass giving the loop the single resonant howl frequency a real amp has (found necessary empirically: without frequency selectivity the ring never has to swell -- measured +8.9dB swell over ~0.4s after each note with it) |
 | Chain 1's splitter -> chains 2/3 compressors | cross-chain sidechaining: chain 1's level dynamically ducks the others | `sidechain_duck(c2/c3, trigger=c1)` inside `doom_array()` -- the actual routing, chain 1 as driver, not four peer paths |
 | Final hard compressor + makeup gain | reveal every chain's quiet artifacts once the loud input decays | `tempo_punch()` -- ~20dB GR, 30ms attack, tempo-tuned release, explicit makeup stage |
@@ -221,11 +221,11 @@ def _reel_overdrive(x: np.ndarray, drive: float = 12.0) -> np.ndarray:
 def _spring_reverb(x: np.ndarray, mix: float = 0.35, sr: int = sy.SR) -> np.ndarray:
     """Spring reverb tank with wet/dry: a spring is DISPERSIVE -- high
     frequencies travel the coil slower, so each reflection is a downward
-    chirp ("boing"), unlike a room's flat echoes. Modeled the way that
+    chirp ("boing"), unlike a polygon's flat echoes. Modeled the way that
     effect actually arises: an impulse response made of a train of
     exponentially-decaying downward chirps at the spring's round-trip
     spacing, band-limited to the tank's 250Hz-4kHz voice, applied via FFT
-    convolution. A Schroeder room reverb (synth.py's reverb()) cannot make
+    convolution. A Schroeder polygon reverb (synth.py's reverb()) cannot make
     the chirp signature, which is the entire audible identity of a
     spring."""
     x = np.asarray(x, dtype=np.float64)
@@ -294,7 +294,7 @@ def feedback_loop(x: np.ndarray, delay_s: float, feedback_gain: float = 0.75,
     - CHOKE: while a loud note passes through (input_gain hot enough to
       pin the tanh), the tanh's incremental gain collapses (sech^2 ~ 0 at
       the rails), so the loop's own oscillation decays hard DURING the
-      note -- the note literally spends the amp's headroom.
+      note -- the note literally spends the amp's headpolygon.
     - SWELL: after the note, the ring regrows exponentially from the tiny
       residue at (drive x feedback_gain) per pass. For an AUDIBLE swell
       (hundreds of ms, what Gordon demos in the talk) that per-pass gain
@@ -504,13 +504,13 @@ def organ_choir_chain(source: np.ndarray, drone: bool = True) -> np.ndarray:
     real samples stay largely intact (this is the "sacred" register, not
     the "argent metal" register) but get width via a slow chorus-style
     detuned double and a long reverb tail, so the chant material reads as
-    a real room, not a dry MIDI render."""
+    a real polygon, not a dry MIDI render."""
     n = len(source)
     # cheap chorus: short slap-delay double for width
     doubled = sy.delay_fx(source, delay_s=0.018, feedback=0.0, mix=0.5)
     mixed = sy.mix_layers([sy.pad_to(source, n), sy.pad_to(doubled, n)],
                            gains=[0.8, 0.5])
-    wet = sy.reverb(mixed, room_size=0.85, damping=0.25, tail_s=2.2)
+    wet = sy.reverb(mixed, polygon_size=0.85, damping=0.25, tail_s=2.2)
     out = 0.55 * sy.pad_to(mixed, len(wet)) + 0.45 * wet
     return sy.normalize_peak(out, -3.0)
 

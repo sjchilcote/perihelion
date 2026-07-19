@@ -17,18 +17,18 @@ fn square(half: f64) -> Vec<Vec2> {
 
 fn soft_pair() -> (Sim, usize, usize) {
     let mut w = World::new();
-    let a = w.add_room(&square(50.0)).unwrap();
-    let b = w.add_room(&square(50.0)).unwrap();
+    let a = w.add_polygon(&square(50.0)).unwrap();
+    let b = w.add_polygon(&square(50.0)).unwrap();
     w.connect(a, 2, b, 0).unwrap();
     let mut sim = Sim::new(w);
-    sim.soften_room(a);
-    sim.soften_room(b);
+    sim.soften_polygon(a);
+    sim.soften_polygon(b);
     (sim, a, b)
 }
 
-fn max_len_err(sim: &Sim, room: usize) -> f64 {
-    let r = &sim.world.rooms[room];
-    let rest = &sim.soft.rooms[&room].rest_len;
+fn max_len_err(sim: &Sim, polygon: usize) -> f64 {
+    let r = &sim.world.polygons[polygon];
+    let rest = &sim.soft.polygons[&polygon].rest_len;
     r.edge_len
         .iter()
         .zip(rest.iter())
@@ -44,13 +44,13 @@ fn max_len_err(sim: &Sim, room: usize) -> f64 {
 // addenda), but `on_split`'s own doc comment says "a vertex was
 // inserted... edge, edge+1 are the halves" and its body performs exactly
 // ONE `Vec::insert` on `vel` and `rest_len` -- a one-vertex vs two-vertex
-// mismatch between what actually happened to the room and what the soft
+// mismatch between what actually happened to the polygon and what the soft
 // state thinks happened.
 //
 // This property checks the actual consequence: after `soften` + a real
 // `world.split_edge` + `on_split` (called the way a caller integrating
 // the two features would), do `sr.vel`/`sr.rest_len` stay the same length
-// as `room.verts`? `SoftSystem::step` has its own defensive fallback for
+// as `polygon.verts`? `SoftSystem::step` has its own defensive fallback for
 // exactly this mismatch (re-soften from current geometry, silently
 // dropping velocity/rest-length state) -- so this is not a crash-class
 // bug, but it IS a real, previously undocumented behavior: `on_split` is
@@ -61,28 +61,28 @@ fn max_len_err(sim: &Sim, room: usize) -> f64 {
 //
 // This is reported as an OPEN VIOLATION in ENGINE_INVARIANTS.md (not
 // fixed here -- soft.rs/on_split is in-lane but the game does not
-// currently call `split_edge` on a soft room at all, per the game-layer
+// currently call `split_edge` on a soft polygon at all, per the game-layer
 // catalog's H3/portable-hole audit, so this is latent, not
 // player-visible today; fixing the split-count would require redesigning
 // on_split's two-vertex case, out of scope for a PBT-enforcement pass).
 #[test]
 fn on_split_array_length_tracks_world_split_edge() {
     let mut w = World::new();
-    let a = w.add_room(&square(50.0)).unwrap();
+    let a = w.add_polygon(&square(50.0)).unwrap();
     let mut sim = Sim::new(w);
-    sim.soften_room(a);
-    let n_before = sim.world.rooms[a].verts.len();
-    assert_eq!(sim.soft.rooms[&a].vel.len(), n_before);
-    assert_eq!(sim.soft.rooms[&a].rest_len.len(), n_before);
+    sim.soften_polygon(a);
+    let n_before = sim.world.polygons[a].verts.len();
+    assert_eq!(sim.soft.polygons[&a].vel.len(), n_before);
+    assert_eq!(sim.soft.polygons[&a].rest_len.len(), n_before);
 
     // Edge 0 is a free wall (no portal) -- split_edge accepts it.
     let world = &mut sim.world;
     world.split_edge(a, 0, 0.3, 0.6).unwrap();
-    let n_after = world.rooms[a].verts.len();
+    let n_after = world.polygons[a].verts.len();
     assert_eq!(n_after, n_before + 2, "split_edge itself inserts two vertices");
 
     sim.soft.on_split(&sim.world, a, 0);
-    let sr = &sim.soft.rooms[&a];
+    let sr = &sim.soft.polygons[&a];
     // THE FINDING: on_split only ever inserts one entry per call, so it
     // cannot track a two-vertex split; document the actual (mismatched)
     // outcome precisely rather than asserting the wrong postcondition.
@@ -104,12 +104,12 @@ fn on_split_array_length_tracks_world_split_edge() {
 #[test]
 fn impulse_deforms_then_lengths_restore() {
     let (mut sim, a, _) = soft_pair();
-    let before: Vec<Vec2> = sim.world.rooms[a].verts.clone();
+    let before: Vec<Vec2> = sim.world.polygons[a].verts.clone();
     sim.soft_wall_impulse(a, 0, 0.5, 120.0);
     for _ in 0..12 {
         sim.step(1.0 / 60.0);
     }
-    let moved = sim.world.rooms[a]
+    let moved = sim.world.polygons[a]
         .verts
         .iter()
         .zip(before.iter())
@@ -126,13 +126,13 @@ fn impulse_deforms_then_lengths_restore() {
 #[test]
 fn wave_crosses_the_portal() {
     let (mut sim, a, b) = soft_pair();
-    let before_b: Vec<Vec2> = sim.world.rooms[b].verts.clone();
-    // hit a wall of room a far from the portal; the wave must reach b.
+    let before_b: Vec<Vec2> = sim.world.polygons[b].verts.clone();
+    // hit a wall of polygon a far from the portal; the wave must reach b.
     sim.soft_wall_impulse(a, 0, 0.5, 150.0);
     for _ in 0..90 {
         sim.step(1.0 / 60.0);
     }
-    let moved_b = sim.world.rooms[b]
+    let moved_b = sim.world.polygons[b]
         .verts
         .iter()
         .zip(before_b.iter())
@@ -156,8 +156,8 @@ fn convexity_holds_under_bombardment() {
             sim.soft_wall_impulse(if i % 2 == 0 { a } else { b }, edge, t, 90.0);
         }
         sim.step(1.0 / 60.0);
-        for &room in &[a, b] {
-            let vs = &sim.world.rooms[room].verts;
+        for &polygon in &[a, b] {
+            let vs = &sim.world.polygons[polygon].verts;
             let n = vs.len();
             let area2: f64 = (0..n).map(|k| vs[k].cross(vs[(k + 1) % n])).sum();
             for k in 0..n {
@@ -167,7 +167,7 @@ fn convexity_holds_under_bombardment() {
                 let cr = (c - p).cross(q - c);
                 assert!(
                     cr * area2.signum() >= -1e-6,
-                    "reflex vertex in room {room} at step {i}"
+                    "reflex vertex in polygon {polygon} at step {i}"
                 );
             }
         }
@@ -180,9 +180,9 @@ fn portal_transform_stays_exact_under_deformation() {
     sim.soft_wall_impulse(a, 1, 0.3, 140.0);
     for _ in 0..300 {
         sim.step(1.0 / 60.0);
-        let p = sim.world.rooms[a].portals[2].unwrap();
-        let (pa0, pa1) = sim.world.rooms[a].edge(2);
-        let (pb0, pb1) = sim.world.rooms[b].edge(0);
+        let p = sim.world.polygons[a].portals[2].unwrap();
+        let (pa0, pa1) = sim.world.polygons[a].edge(2);
+        let (pb0, pb1) = sim.world.polygons[b].edge(0);
         assert!(p.xform.apply(pb1).dist(pa0) < 1e-6, "portal map drifted");
         assert!(p.xform.apply(pb0).dist(pa1) < 1e-6, "portal map drifted");
     }
@@ -191,7 +191,7 @@ fn portal_transform_stays_exact_under_deformation() {
 #[test]
 fn hard_hit_reaches_a_new_stable_shape() {
     let (mut sim, a, _) = soft_pair();
-    let before: Vec<Vec2> = sim.world.rooms[a].verts.clone();
+    let before: Vec<Vec2> = sim.world.polygons[a].verts.clone();
     sim.soft_wall_impulse(a, 0, 0.2, 200.0);
     sim.soft_wall_impulse(a, 0, 0.8, 200.0);
     for _ in 0..3600 {
@@ -201,7 +201,7 @@ fn hard_hit_reaches_a_new_stable_shape() {
     let err = max_len_err(&sim, a);
     assert!(err < 2.0, "not settled: len err {err}");
     // ...but the configuration moved: vertices have no rest position.
-    let net = sim.world.rooms[a]
+    let net = sim.world.polygons[a]
         .verts
         .iter()
         .zip(before.iter())

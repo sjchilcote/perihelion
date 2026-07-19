@@ -6,8 +6,8 @@ stacked packs on the same 10 spawn points ("walks into a wall of 50
 enemies and gets crushed like an empty beer can"). This builder:
 
 - keeps gauntlet_cal.json's GEOMETRY/lights/textures verbatim (the
-  rooms, connects, doors, exit are untouched);
-- SPREADS a full enemy population across all rooms: placement by room
+  polygons, connects, doors, exit are untouched);
+- SPREADS a full enemy population across all polygons: placement by polygon
   area, minimum separation, interior sampling with wall margin;
 - represents EVERY enemy kind at meaningful share;
 - parameterized (--n, --min-sep, --seed) for the 50%-pass-rate tuning
@@ -30,13 +30,13 @@ ROOT = Path(__file__).resolve().parents[2]
 MIX = {"husk": 0.30, "mite": 0.20, "spitter": 0.15, "shrieker": 0.10,
        "brute": 0.10, "warden": 0.05, "flicker": 0.10}
 
-SAFE_ROOM_RADIUS = 260.0     # no spawns near the player start
+SAFE_POLYGON_RADIUS = 260.0     # no spawns near the player start
 
 # heavy kinds keep out of the early run and out of packs (tuning law:
-# deaths clustered at early rooms with warden packs — move, don't thin)
+# deaths clustered at early polygons with warden packs — move, don't thin)
 DEPTH_MIN = {"warden": 0.55, "brute": 0.40, "shrieker": 0.30}
 KIND_SEP_MULT = {"warden": 3.0, "brute": 2.0, "shrieker": 1.5}
-ROOM_CAP = {"warden": 1, "brute": 1}
+POLYGON_CAP = {"warden": 1, "brute": 1}
 
 
 def poly_area(vs):
@@ -77,20 +77,20 @@ def dist_to_edges(x, y, vs):
 def build(n_total: int, min_sep: float, seed: int, margin: float = 22.0):
     src = json.loads((ROOT / "levels/gauntlet_cal.json").read_text())
     rng = random.Random(seed)
-    rooms = src["rooms"]
-    player_room = src["player"]["room"]
+    polygons = src["polygons"]
+    player_polygon = src["player"]["polygon"]
     ppos = src["player"]["pos"]
 
     # strip old enemies, keep non-enemy entities (pickups etc.)
     kinds = set(MIX)
-    for r in rooms:
+    for r in polygons:
         r["entities"] = [e for e in r.get("entities", [])
                          if e["type"] not in kinds]
 
-    # area-weighted room allocation (player room excluded)
+    # area-weighted polygon allocation (player polygon excluded)
     areas = []
-    for i, r in enumerate(rooms):
-        a = poly_area(r["verts"]) if i != player_room else 0.0
+    for i, r in enumerate(polygons):
+        a = poly_area(r["verts"]) if i != player_polygon else 0.0
         areas.append(a)
     total_area = sum(areas)
 
@@ -100,21 +100,21 @@ def build(n_total: int, min_sep: float, seed: int, margin: float = 22.0):
         k = max(MIX, key=lambda q: n_total * MIX[q] - counts[q])
         counts[k] += 1
 
-    # shuffle a flat kind list, deal onto rooms by area weight
+    # shuffle a flat kind list, deal onto polygons by area weight
     pool = [k for k, c in counts.items() for _ in range(c)]
     rng.shuffle(pool)
 
-    placed_pts: dict[int, list] = {i: [] for i in range(len(rooms))}
+    placed_pts: dict[int, list] = {i: [] for i in range(len(polygons))}
     placed = 0
     fails = 0
     kind_pts: dict[str, list] = {k: [] for k in kinds}
-    kind_rooms: dict[int, dict] = {i: {} for i in range(len(rooms))}
-    n_rooms = len(rooms)
+    kind_polygons: dict[int, dict] = {i: {} for i in range(len(polygons))}
+    n_polygons = len(polygons)
     for kind in pool:
         dmin = DEPTH_MIN.get(kind, 0.0)
-        # allowed rooms for this kind (depth gradient), area-weighted
-        allowed = [i for i in range(n_rooms)
-                   if i / max(1, n_rooms - 1) >= dmin and areas[i] > 0]
+        # allowed polygons for this kind (depth gradient), area-weighted
+        allowed = [i for i in range(n_polygons)
+                   if i / max(1, n_polygons - 1) >= dmin and areas[i] > 0]
         aw = [areas[i] for i in allowed]
         sep_scale = 1.0
         placed_this = False
@@ -124,9 +124,9 @@ def build(n_total: int, min_sep: float, seed: int, margin: float = 22.0):
                 #                              separation instead (move,
                 #                              don't thin — director)
             ri = rng.choices(allowed, weights=aw)[0]
-            if kind_rooms[ri].get(kind, 0) >= ROOM_CAP.get(kind, 99):
+            if kind_polygons[ri].get(kind, 0) >= POLYGON_CAP.get(kind, 99):
                 continue
-            vs = rooms[ri]["verts"]
+            vs = polygons[ri]["verts"]
             xs = [v[0] for v in vs]
             ys = [v[1] for v in vs]
             x = rng.uniform(min(xs), max(xs))
@@ -135,8 +135,8 @@ def build(n_total: int, min_sep: float, seed: int, margin: float = 22.0):
                 continue
             if dist_to_edges(x, y, vs) < margin:
                 continue
-            if ri == player_room or \
-                    math.hypot(x - ppos[0], y - ppos[1]) < SAFE_ROOM_RADIUS:
+            if ri == player_polygon or \
+                    math.hypot(x - ppos[0], y - ppos[1]) < SAFE_POLYGON_RADIUS:
                 continue
             if any(math.hypot(x - qx, y - qy) < min_sep * sep_scale
                    for qx, qy in placed_pts[ri]):
@@ -145,10 +145,10 @@ def build(n_total: int, min_sep: float, seed: int, margin: float = 22.0):
             if any(math.hypot(x - qx, y - qy) < ksep
                    for qx, qy in kind_pts[kind]):
                 continue                     # same heavies never pack
-            rooms[ri]["entities"].append(dict(type=kind, pos=[x, y]))
+            polygons[ri]["entities"].append(dict(type=kind, pos=[x, y]))
             placed_pts[ri].append((x, y))
             kind_pts[kind].append((x, y))
-            kind_rooms[ri][kind] = kind_rooms[ri].get(kind, 0) + 1
+            kind_polygons[ri][kind] = kind_polygons[ri].get(kind, 0) + 1
             placed += 1
             placed_this = True
             break

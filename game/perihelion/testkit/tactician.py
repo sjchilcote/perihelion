@@ -1,9 +1,9 @@
 """Sonnet tactical layer (BOT_REALISM_DESIGN.md §7): pause-and-think policy
 consults for `HumanBot`.
 
-Consults are rate-limited and event-driven (run start, a new room entered,
+Consults are rate-limited and event-driven (run start, a new polygon entered,
 HP crossing a low-HP threshold, or the bot going unusually long without
-reaching a new room), never per-tick -- the diegetic equivalent of a player
+reaching a new polygon), never per-tick -- the diegetic equivalent of a player
 stopping to think. Each consult sends a compact JSON digest of the current
 situation to `claude -p` (headless CLI, sonnet model) and parses back a
 policy object; `HumanBot.policy` is updated with whatever it returns.
@@ -23,7 +23,7 @@ import time
 from random import Random
 
 CONSULT_MIN_INTERVAL_S = 25.0
-STUCK_PROGRESS_TICKS = 60 * 45  # ~45s without reaching a new room
+STUCK_PROGRESS_TICKS = 60 * 45  # ~45s without reaching a new polygon
 LOW_HP_FRACTION = 0.4
 CONSULT_TIMEOUT_S = 45.0
 
@@ -36,7 +36,7 @@ _PROMPT_TEMPLATE = (
     "You are the tactical adviser for a game-playing bot in a top-down "
     "shooter. You will be given a compact JSON digest of its current "
     "situation (position, HP, weapons/ammo, threats already encountered in "
-    "this room, and why this consult was triggered). Reply with ONLY a "
+    "this polygon, and why this consult was triggered). Reply with ONLY a "
     "single JSON object, no prose, no markdown fences, with exactly these "
     "keys:\n"
     '  "movement": one of explore | advance-carefully | hold-choke | kite | '
@@ -63,21 +63,21 @@ class Tactician:
         self.on_consult = on_consult  # callback(dict) for events.jsonl logging
         self.log: list[dict] = []
         self._last_consult_t = float("-inf")
-        self._last_room: int | None = None
-        self._last_new_room_tick = 0
+        self._last_polygon: int | None = None
+        self._last_new_polygon_tick = 0
         self._was_low_hp = False
 
     def _trigger_reason(self, snapshot: dict, tick: int) -> str | None:
-        proom = snapshot["room"]
-        if self._last_room is None:
+        ppolygon = snapshot["polygon"]
+        if self._last_polygon is None:
             return "run-start"
-        if proom != self._last_room:
-            return "new-room"
+        if ppolygon != self._last_polygon:
+            return "new-polygon"
         max_hp = max(1, snapshot.get("max_hp", 100) or 100)
         low = (snapshot["hp"] / max_hp) < LOW_HP_FRACTION
         if low and not self._was_low_hp:
             return "low-hp"
-        if tick - self._last_new_room_tick > STUCK_PROGRESS_TICKS:
+        if tick - self._last_new_polygon_tick > STUCK_PROGRESS_TICKS:
             return "stuck"
         return None
 
@@ -86,15 +86,15 @@ class Tactician:
         """Call once per game tick. Returns the consult record if a consult
         actually ran this tick, else None (the overwhelmingly common case)."""
         now = time.monotonic() if now is None else now
-        proom = snapshot["room"]
+        ppolygon = snapshot["polygon"]
         max_hp = max(1, snapshot.get("max_hp", 100) or 100)
         low_hp = (snapshot["hp"] / max_hp) < LOW_HP_FRACTION
 
         reason = self._trigger_reason(snapshot, tick) if self.enabled else None
 
-        if proom != self._last_room:
-            self._last_new_room_tick = tick
-        self._last_room = proom
+        if ppolygon != self._last_polygon:
+            self._last_new_polygon_tick = tick
+        self._last_polygon = ppolygon
         self._was_low_hp = low_hp
 
         if reason is None:
@@ -120,10 +120,10 @@ class Tactician:
             if e.get("hops") == 0:
                 threats[e["kind"]] = threats.get(e["kind"], 0) + 1
         return dict(
-            reason=reason, tick=tick, room=snapshot["room"],
+            reason=reason, tick=tick, polygon=snapshot["polygon"],
             hp=snapshot["hp"], max_hp=snapshot.get("max_hp"),
             weapon=snapshot["weapon"], weapons=snapshot["weapons"],
-            ammo=snapshot["ammo"], threats_in_room=threats,
+            ammo=snapshot["ammo"], threats_in_polygon=threats,
             exit_gate_remaining=snapshot.get("exit_gate_remaining", 0),
             exit_key_needed=snapshot.get("exit_key_needed") or None,
             current_policy=dict(self.bot.policy),

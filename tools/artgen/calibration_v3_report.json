@@ -1,6 +1,6 @@
 {
-  "l01/room_000": {
-    "key": "l01/room_000",
+  "l01/polygon_000": {
+    "key": "l01/polygon_000",
     "kind": "dock",
     "cost": 0.086933,
     "n_boxes": 4,
@@ -30,7 +30,7 @@
       },
       "detail_budget": {
         "grad_ratio_vs_material": 1.1440246217147454,
-        "room_grad": 58.136457726296754,
+        "polygon_grad": 58.136457726296754,
         "material_grad": 50.81748821031291,
         "entropy_bits": 6.668085761067508,
         "ratio_thresh": 1.25,
@@ -48,7 +48,7 @@
         "fidelity_ok": true,
         "fullbleed_ok": false,
         "verdict": "fail",
-        "notes": "The generated texture matches the requested box-conditioned props (crates, hazard lane, mooring rings) and matches the style anchor closely. However, it fails fullbleed_ok due to a prominent dark frame border and raised trim/conduit line running around the entire outer perimeter of the room.",
+        "notes": "The generated texture matches the requested box-conditioned props (crates, hazard lane, mooring rings) and matches the style anchor closely. However, it fails fullbleed_ok due to a prominent dark frame border and raised trim/conduit line running around the entire outer perimeter of the polygon.",
         "_cost": 0.0072405
       },
       "item_placement": {
@@ -84,12 +84,12 @@
       }
     },
     "overall_ok": false,
-    "review_texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/v3_l01_room000_texture.png",
-    "review_boxed_guide": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/v3_l01_room000_boxed_guide.png",
-    "review_walkmask": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/v3_l01_room000_walkmask.png"
+    "review_texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/v3_l01_polygon000_texture.png",
+    "review_boxed_guide": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/v3_l01_polygon000_boxed_guide.png",
+    "review_walkmask": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/v3_l01_polygon000_walkmask.png"
   },
-  "l03/room_000": {
-    "key": "l03/room_000",
+  "l03/polygon_000": {
+    "key": "l03/polygon_000",
     "kind": "hydro",
     "cost": 0.085797,
     "n_boxes": 3,
@@ -119,7 +119,7 @@
       },
       "detail_budget": {
         "grad_ratio_vs_material": 1.2747749939683777,
-        "room_grad": 64.3329444727107,
+        "polygon_grad": 64.3329444727107,
         "material_grad": 50.46611737530408,
         "entropy_bits": 6.469998630260152,
         "ratio_thresh": 1.25,
@@ -170,8 +170,8 @@
       }
     },
     "overall_ok": false,
-    "review_texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/v3_l03_room000_texture.png",
-    "review_boxed_guide": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/v3_l03_room000_boxed_guide.png",
-    "review_walkmask": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/v3_l03_room000_walkmask.png"
+    "review_texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/v3_l03_polygon000_texture.png",
+    "review_boxed_guide": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/v3_l03_polygon000_boxed_guide.png",
+    "review_walkmask": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/v3_l03_polygon000_walkmask.png"
   }
 }

@@ -1,9 +1,9 @@
 {
-  "l05/room_004": {
-    "key": "l05/room_004",
+  "l05/polygon_004": {
+    "key": "l05/polygon_004",
     "status": "accepted",
     "attempt": 1,
-    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l05/room_4.png",
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l05/polygon_4.png",
     "cost": 0.0764345,
     "verdicts": [
       {
@@ -13,9 +13,9 @@
         "fidelity_ok": true,
         "fullbleed_ok": true,
         "verdict": "pass",
-        "notes": "The generated texture correctly renders a continuous, high-fidelity floor surface filling the entire square room geometry. It is free of any discrete props, borders, or layout drift, and matches the rusty industrial style anchor perfectly.",
+        "notes": "The generated texture correctly renders a continuous, high-fidelity floor surface filling the entire square polygon geometry. It is free of any discrete props, borders, or layout drift, and matches the rusty industrial style anchor perfectly.",
         "_cost": 0.0067725,
-        "_raw": "```json\n{\"geometry_ok\": true, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": true, \"verdict\": \"pass\", \"notes\": \"The generated texture correctly renders a continuous, high-fidelity floor surface filling the entire square room geometry. It is free of any discrete props, borders, or layout drift, and matches the rusty industrial style anchor perfectly.\"}\n```",
+        "_raw": "```json\n{\"geometry_ok\": true, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": true, \"verdict\": \"pass\", \"notes\": \"The generated texture correctly renders a continuous, high-fidelity floor surface filling the entire square polygon geometry. It is free of any discrete props, borders, or layout drift, and matches the rusty industrial style anchor perfectly.\"}\n```",
         "_fullbleed": {
           "ok": true,
           "edge_mean": 92.04969787597656,
@@ -35,14 +35,14 @@
       "mean_g": 91.0528564453125,
       "mean_b": 82.92890167236328
     },
-    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/l05_room004.png",
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/l05_polygon004.png",
     "used_neighbor_composite": true
   },
-  "l03/room_059": {
-    "key": "l03/room_059",
+  "l03/polygon_059": {
+    "key": "l03/polygon_059",
     "status": "accepted",
     "attempt": 1,
-    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/room_59.png",
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l03/polygon_59.png",
     "cost": 0.0768665,
     "verdicts": [
       {
@@ -74,14 +74,14 @@
       "mean_g": 105.96878051757812,
       "mean_b": 108.83683013916016
     },
-    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/l03_room059.png",
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/l03_polygon059.png",
     "used_neighbor_composite": true
   },
-  "l01/room_117": {
-    "key": "l01/room_117",
+  "l01/polygon_117": {
+    "key": "l01/polygon_117",
     "status": "accepted",
     "attempt": 2,
-    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l01/room_117.png",
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l01/polygon_117.png",
     "cost": 0.145754,
     "verdicts": [
       {
@@ -90,7 +90,7 @@
         "_detail_budget": {
           "ok": false,
           "grad_ratio_vs_material": 1.3279121421216147,
-          "room_grad": 45.97063462846768,
+          "polygon_grad": 45.97063462846768,
           "material_grad": 34.61873204579639,
           "entropy_bits": 6.200753797406076,
           "ratio_thresh": 1.25
@@ -125,11 +125,11 @@
       "mean_g": 98.37889099121094,
       "mean_b": 91.96195220947266
     },
-    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/l01_room117.png",
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/l01_polygon117.png",
     "used_neighbor_composite": false
   },
-  "l07/room_002": {
-    "key": "l07/room_002",
+  "l07/polygon_002": {
+    "key": "l07/polygon_002",
     "status": "dropped",
     "cost": 0.210137,
     "verdicts": [
@@ -139,7 +139,7 @@
         "_detail_budget": {
           "ok": false,
           "grad_ratio_vs_material": 1.5640206657018103,
-          "room_grad": 66.54434208091632,
+          "polygon_grad": 66.54434208091632,
           "material_grad": 42.54697111118824,
           "entropy_bits": 6.731790285167711,
           "ratio_thresh": 1.25
@@ -147,7 +147,7 @@
       },
       {
         "verdict": "fail",
-        "notes": "programmatic full-bleed check rejected: border/vignette/invented-void detected inside the polygon (darken_ratio=2.350143745239515, grad_ratio=0.9302168716699636). The floor material must run flush to the room's true wall line with no darkened margin or drawn border.",
+        "notes": "programmatic full-bleed check rejected: border/vignette/invented-void detected inside the polygon (darken_ratio=2.350143745239515, grad_ratio=0.9302168716699636). The floor material must run flush to the polygon's true wall line with no darkened margin or drawn border.",
         "_fullbleed": {
           "ok": false,
           "edge_mean": 30.407793045043945,
@@ -162,7 +162,7 @@
       },
       {
         "verdict": "fail",
-        "notes": "programmatic shape-conformance check rejected: mean wall-vs-plate-seam angle error 21.7 deg (threshold 12.0 deg) -- the plate/seam grid is not tracking this room's actual (often oblique) wall angles. Angle the plate rows/seams to run parallel to the nearest wall segment shown in the geometry guide, especially near corners and doorways.",
+        "notes": "programmatic shape-conformance check rejected: mean wall-vs-plate-seam angle error 21.7 deg (threshold 12.0 deg) -- the plate/seam grid is not tracking this polygon's actual (often oblique) wall angles. Angle the plate rows/seams to run parallel to the nearest wall segment shown in the geometry guide, especially near corners and doorways.",
         "_shape": {
           "ok": false,
           "mean_err": 21.690693847234257,
@@ -198,11 +198,11 @@
     ],
     "removed_stale_texture": true
   },
-  "l01/room_000": {
-    "key": "l01/room_000",
+  "l01/polygon_000": {
+    "key": "l01/polygon_000",
     "status": "accepted",
     "attempt": 1,
-    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l01/room_0.png",
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l01/polygon_0.png",
     "cost": 0.0770045,
     "verdicts": [
       {
@@ -234,14 +234,14 @@
       "mean_g": 104.44641876220703,
       "mean_b": 94.79100036621094
     },
-    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/l01_room000.png",
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/l01_polygon000.png",
     "used_neighbor_composite": true
   },
-  "l01/room_002": {
-    "key": "l01/room_002",
+  "l01/polygon_002": {
+    "key": "l01/polygon_002",
     "status": "accepted",
     "attempt": 2,
-    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l01/room_2.png",
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l01/polygon_2.png",
     "cost": 0.154196,
     "verdicts": [
       {
@@ -273,9 +273,9 @@
         "fidelity_ok": true,
         "fullbleed_ok": true,
         "verdict": "pass",
-        "notes": "The generated texture correctly fills the simple rectangular geometry defined in the base truth. It successfully replicates the industrial paneled floor aesthetic of the style anchor, featuring consistent rust, dirt, and diamond-plate detailing with no added room-prop elements.",
+        "notes": "The generated texture correctly fills the simple rectangular geometry defined in the base truth. It successfully replicates the industrial paneled floor aesthetic of the style anchor, featuring consistent rust, dirt, and diamond-plate detailing with no added polygon-prop elements.",
         "_cost": 0.0067605,
-        "_raw": "```json\n{\"geometry_ok\": true, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": true, \"verdict\": \"pass\", \"notes\": \"The generated texture correctly fills the simple rectangular geometry defined in the base truth. It successfully replicates the industrial paneled floor aesthetic of the style anchor, featuring consistent rust, dirt, and diamond-plate detailing with no added room-prop elements.\"}\n```",
+        "_raw": "```json\n{\"geometry_ok\": true, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": true, \"verdict\": \"pass\", \"notes\": \"The generated texture correctly fills the simple rectangular geometry defined in the base truth. It successfully replicates the industrial paneled floor aesthetic of the style anchor, featuring consistent rust, dirt, and diamond-plate detailing with no added polygon-prop elements.\"}\n```",
         "_fullbleed": {
           "ok": true,
           "edge_mean": 88.57501983642578,
@@ -295,14 +295,14 @@
       "mean_g": 95.19695281982422,
       "mean_b": 86.09130096435547
     },
-    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/l01_room002.png",
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/l01_polygon002.png",
     "used_neighbor_composite": true
   },
-  "l01/room_055": {
-    "key": "l01/room_055",
+  "l01/polygon_055": {
+    "key": "l01/polygon_055",
     "status": "accepted",
     "attempt": 2,
-    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l01/room_55.png",
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l01/polygon_55.png",
     "cost": 0.14680549999999998,
     "verdicts": [
       {
@@ -311,7 +311,7 @@
         "_detail_budget": {
           "ok": false,
           "grad_ratio_vs_material": 1.2760495443461102,
-          "room_grad": 41.73920906874569,
+          "polygon_grad": 41.73920906874569,
           "material_grad": 32.709708846088915,
           "entropy_bits": 6.983838344195128,
           "ratio_thresh": 1.25
@@ -346,17 +346,17 @@
       "mean_g": 105.75090789794922,
       "mean_b": 98.97673797607422
     },
-    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/l01_room055.png",
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/l01_polygon055.png",
     "used_neighbor_composite": true
   },
-  "l03/room_000": {
-    "key": "l03/room_000",
+  "l03/polygon_000": {
+    "key": "l03/polygon_000",
     "status": "dropped",
     "cost": 0.210223,
     "verdicts": [
       {
         "verdict": "fail",
-        "notes": "programmatic full-bleed check rejected: border/vignette/invented-void detected inside the polygon (darken_ratio=1.21901030414352, grad_ratio=2.3880734606587612). The floor material must run flush to the room's true wall line with no darkened margin or drawn border.",
+        "notes": "programmatic full-bleed check rejected: border/vignette/invented-void detected inside the polygon (darken_ratio=1.21901030414352, grad_ratio=2.3880734606587612). The floor material must run flush to the polygon's true wall line with no darkened margin or drawn border.",
         "_fullbleed": {
           "ok": false,
           "edge_mean": 66.4786148071289,
@@ -371,7 +371,7 @@
       },
       {
         "verdict": "fail",
-        "notes": "programmatic full-bleed check rejected: border/vignette/invented-void detected inside the polygon (darken_ratio=1.2579021176687128, grad_ratio=1.8453686934594042). The floor material must run flush to the room's true wall line with no darkened margin or drawn border.",
+        "notes": "programmatic full-bleed check rejected: border/vignette/invented-void detected inside the polygon (darken_ratio=1.2579021176687128, grad_ratio=1.8453686934594042). The floor material must run flush to the polygon's true wall line with no darkened margin or drawn border.",
         "_fullbleed": {
           "ok": false,
           "edge_mean": 69.63722229003906,
@@ -386,7 +386,7 @@
       },
       {
         "verdict": "fail",
-        "notes": "programmatic full-bleed check rejected: border/vignette/invented-void detected inside the polygon (darken_ratio=1.229464320267716, grad_ratio=2.807185589679052). The floor material must run flush to the room's true wall line with no darkened margin or drawn border.",
+        "notes": "programmatic full-bleed check rejected: border/vignette/invented-void detected inside the polygon (darken_ratio=1.229464320267716, grad_ratio=2.807185589679052). The floor material must run flush to the polygon's true wall line with no darkened margin or drawn border.",
         "_fullbleed": {
           "ok": false,
           "edge_mean": 87.7285385131836,
@@ -402,8 +402,8 @@
     ],
     "removed_stale_texture": false
   },
-  "l03/room_005": {
-    "key": "l03/room_005",
+  "l03/polygon_005": {
+    "key": "l03/polygon_005",
     "status": "dropped",
     "cost": 0.2239705,
     "verdicts": [
@@ -414,9 +414,9 @@
         "fidelity_ok": true,
         "fullbleed_ok": false,
         "verdict": "fail",
-        "notes": "The generated texture has totally incorrect room geometry compared to the simple quadrilateral in the base truth, and it includes prominent frame-like border troughs and a central panel structure that violate the full-bleed requirement.",
+        "notes": "The generated texture has totally incorrect polygon geometry compared to the simple quadrilateral in the base truth, and it includes prominent frame-like border troughs and a central panel structure that violate the full-bleed requirement.",
         "_cost": 0.0067575,
-        "_raw": "```json\n{\"geometry_ok\": false, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": false, \"verdict\": \"fail\", \"notes\": \"The generated texture has totally incorrect room geometry compared to the simple quadrilateral in the base truth, and it includes prominent frame-like border troughs and a central panel structure that violate the full-bleed requirement.\"}\n```",
+        "_raw": "```json\n{\"geometry_ok\": false, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": false, \"verdict\": \"fail\", \"notes\": \"The generated texture has totally incorrect polygon geometry compared to the simple quadrilateral in the base truth, and it includes prominent frame-like border troughs and a central panel structure that violate the full-bleed requirement.\"}\n```",
         "_fullbleed": {
           "ok": true,
           "edge_mean": 65.2763671875,
@@ -431,7 +431,7 @@
       },
       {
         "verdict": "fail",
-        "notes": "programmatic shape-conformance check rejected: mean wall-vs-plate-seam angle error 12.1 deg (threshold 12.0 deg) -- the plate/seam grid is not tracking this room's actual (often oblique) wall angles. Angle the plate rows/seams to run parallel to the nearest wall segment shown in the geometry guide, especially near corners and doorways.",
+        "notes": "programmatic shape-conformance check rejected: mean wall-vs-plate-seam angle error 12.1 deg (threshold 12.0 deg) -- the plate/seam grid is not tracking this polygon's actual (often oblique) wall angles. Angle the plate rows/seams to run parallel to the nearest wall segment shown in the geometry guide, especially near corners and doorways.",
         "_shape": {
           "ok": false,
           "mean_err": 12.092954408147397,
@@ -471,9 +471,9 @@
         "fidelity_ok": true,
         "fullbleed_ok": false,
         "verdict": "fail",
-        "notes": "The generated texture completely fails to respect the input geometry, projecting tiles and panels far outside the boundaries of the original quadrilateral room shape defined in the base truth.",
+        "notes": "The generated texture completely fails to respect the input geometry, projecting tiles and panels far outside the boundaries of the original quadrilateral polygon shape defined in the base truth.",
         "_cost": 0.0066765,
-        "_raw": "```json\n{\"geometry_ok\": false, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": false, \"verdict\": \"fail\", \"notes\": \"The generated texture completely fails to respect the input geometry, projecting tiles and panels far outside the boundaries of the original quadrilateral room shape defined in the base truth.\"}\n```",
+        "_raw": "```json\n{\"geometry_ok\": false, \"style_ok\": true, \"palette_ok\": true, \"fidelity_ok\": true, \"fullbleed_ok\": false, \"verdict\": \"fail\", \"notes\": \"The generated texture completely fails to respect the input geometry, projecting tiles and panels far outside the boundaries of the original quadrilateral polygon shape defined in the base truth.\"}\n```",
         "_fullbleed": {
           "ok": true,
           "edge_mean": 77.15177917480469,
@@ -489,14 +489,14 @@
     ],
     "removed_stale_texture": false
   },
-  "l07/room_006": {
-    "key": "l07/room_006",
+  "l07/polygon_006": {
+    "key": "l07/polygon_006",
     "status": "dropped",
     "cost": 0.20992899999999998,
     "verdicts": [
       {
         "verdict": "fail",
-        "notes": "programmatic full-bleed check rejected: border/vignette/invented-void detected inside the polygon (darken_ratio=1.1730173349692246, grad_ratio=2.4297108835849444). The floor material must run flush to the room's true wall line with no darkened margin or drawn border.",
+        "notes": "programmatic full-bleed check rejected: border/vignette/invented-void detected inside the polygon (darken_ratio=1.1730173349692246, grad_ratio=2.4297108835849444). The floor material must run flush to the polygon's true wall line with no darkened margin or drawn border.",
         "_fullbleed": {
           "ok": false,
           "edge_mean": 97.42272186279297,
@@ -515,7 +515,7 @@
         "_detail_budget": {
           "ok": false,
           "grad_ratio_vs_material": 1.4855394454272546,
-          "room_grad": 48.59156273930589,
+          "polygon_grad": 48.59156273930589,
           "material_grad": 32.709708846088915,
           "entropy_bits": 6.673768624184044,
           "ratio_thresh": 1.25
@@ -523,7 +523,7 @@
       },
       {
         "verdict": "fail",
-        "notes": "programmatic full-bleed check rejected: border/vignette/invented-void detected inside the polygon (darken_ratio=3.2748401930409066, grad_ratio=1.3979536934909902). The floor material must run flush to the room's true wall line with no darkened margin or drawn border.",
+        "notes": "programmatic full-bleed check rejected: border/vignette/invented-void detected inside the polygon (darken_ratio=3.2748401930409066, grad_ratio=1.3979536934909902). The floor material must run flush to the polygon's true wall line with no darkened margin or drawn border.",
         "_fullbleed": {
           "ok": false,
           "edge_mean": 35.432411193847656,
@@ -539,16 +539,16 @@
     ],
     "removed_stale_texture": false
   },
-  "l07/room_007": {
-    "key": "l07/room_007",
+  "l07/polygon_007": {
+    "key": "l07/polygon_007",
     "status": "accepted",
     "attempt": 3,
-    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l07/room_7.png",
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l07/polygon_7.png",
     "cost": 0.215941,
     "verdicts": [
       {
         "verdict": "fail",
-        "notes": "programmatic full-bleed check rejected: border/vignette/invented-void detected inside the polygon (darken_ratio=1.2755081083090096, grad_ratio=1.8662996184107052). The floor material must run flush to the room's true wall line with no darkened margin or drawn border.",
+        "notes": "programmatic full-bleed check rejected: border/vignette/invented-void detected inside the polygon (darken_ratio=1.2755081083090096, grad_ratio=1.8662996184107052). The floor material must run flush to the polygon's true wall line with no darkened margin or drawn border.",
         "_fullbleed": {
           "ok": false,
           "edge_mean": 82.72562408447266,
@@ -567,7 +567,7 @@
         "_detail_budget": {
           "ok": false,
           "grad_ratio_vs_material": 1.3659869975122125,
-          "room_grad": 44.681036976167654,
+          "polygon_grad": 44.681036976167654,
           "material_grad": 32.709708846088915,
           "entropy_bits": 6.450003991622408,
           "ratio_thresh": 1.25
@@ -602,17 +602,17 @@
       "mean_g": 100.39288330078125,
       "mean_b": 93.70787811279297
     },
-    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/l07_room007.png",
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/l07_polygon007.png",
     "used_neighbor_composite": false
   },
-  "l03/room_075": {
-    "key": "l03/room_075",
+  "l03/polygon_075": {
+    "key": "l03/polygon_075",
     "status": "dropped",
     "cost": 0.2082465,
     "verdicts": [
       {
         "verdict": "fail",
-        "notes": "programmatic full-bleed check rejected: border/vignette/invented-void detected inside the polygon (darken_ratio=1.30283460181297, grad_ratio=2.1721219265188223). The floor material must run flush to the room's true wall line with no darkened margin or drawn border.",
+        "notes": "programmatic full-bleed check rejected: border/vignette/invented-void detected inside the polygon (darken_ratio=1.30283460181297, grad_ratio=2.1721219265188223). The floor material must run flush to the polygon's true wall line with no darkened margin or drawn border.",
         "_fullbleed": {
           "ok": false,
           "edge_mean": 84.18732452392578,
@@ -627,7 +627,7 @@
       },
       {
         "verdict": "fail",
-        "notes": "programmatic full-bleed check rejected: border/vignette/invented-void detected inside the polygon (darken_ratio=1.8576799398133965, grad_ratio=2.665344903032648). The floor material must run flush to the room's true wall line with no darkened margin or drawn border.",
+        "notes": "programmatic full-bleed check rejected: border/vignette/invented-void detected inside the polygon (darken_ratio=1.8576799398133965, grad_ratio=2.665344903032648). The floor material must run flush to the polygon's true wall line with no darkened margin or drawn border.",
         "_fullbleed": {
           "ok": false,
           "edge_mean": 65.89613342285156,
@@ -646,7 +646,7 @@
         "_detail_budget": {
           "ok": false,
           "grad_ratio_vs_material": 1.3323339590340906,
-          "room_grad": 43.58025588576206,
+          "polygon_grad": 43.58025588576206,
           "material_grad": 32.709708846088915,
           "entropy_bits": 6.1344781617760615,
           "ratio_thresh": 1.25
@@ -655,8 +655,8 @@
     ],
     "removed_stale_texture": true
   },
-  "l07/room_009": {
-    "key": "l07/room_009",
+  "l07/polygon_009": {
+    "key": "l07/polygon_009",
     "status": "dropped",
     "cost": 0.21008849999999998,
     "verdicts": [
@@ -676,7 +676,7 @@
         "_detail_budget": {
           "ok": false,
           "grad_ratio_vs_material": 1.4706397245687157,
-          "room_grad": 48.10419720813508,
+          "polygon_grad": 48.10419720813508,
           "material_grad": 32.709708846088915,
           "entropy_bits": 6.323208924098205,
           "ratio_thresh": 1.25
@@ -700,16 +700,16 @@
     ],
     "removed_stale_texture": true
   },
-  "l07/room_049": {
-    "key": "l07/room_049",
+  "l07/polygon_049": {
+    "key": "l07/polygon_049",
     "status": "accepted",
     "attempt": 2,
-    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l07/room_49.png",
+    "texture": "/home/login/PycharmProjects/noneuclideantopdownshooter/game/perihelion/assets/textures/l07/polygon_49.png",
     "cost": 0.14565099999999997,
     "verdicts": [
       {
         "verdict": "fail",
-        "notes": "programmatic full-bleed check rejected: border/vignette/invented-void detected inside the polygon (darken_ratio=1.128093797746611, grad_ratio=2.143708241598243). The floor material must run flush to the room's true wall line with no darkened margin or drawn border.",
+        "notes": "programmatic full-bleed check rejected: border/vignette/invented-void detected inside the polygon (darken_ratio=1.128093797746611, grad_ratio=2.143708241598243). The floor material must run flush to the polygon's true wall line with no darkened margin or drawn border.",
         "_fullbleed": {
           "ok": false,
           "edge_mean": 100.24777221679688,
@@ -751,7 +751,7 @@
       "mean_g": 102.76325988769531,
       "mean_b": 96.81095886230469
     },
-    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/l07_room049.png",
+    "review_overlay": "/home/login/PycharmProjects/noneuclideantopdownshooter/tools/artgen/review/l07_polygon049.png",
     "used_neighbor_composite": false
   }
 }

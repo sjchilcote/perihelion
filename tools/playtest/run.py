@@ -5,8 +5,8 @@ Runs a deterministic bot policy over a level with no window, no human, and
 prints the run's `Result` summary as JSON to stdout — the entry point an
 LLM (or CI) uses to judge whether a level is playable.
 
-    uv run python tools/playtest/run.py --level levels/smoke_4room.json --bot aggro --seed 3
-    uv run python tools/playtest/run.py --level levels/smoke_4room.json --bot aggro --seed 3 --gif
+    uv run python tools/playtest/run.py --level levels/smoke_4polygon.json --bot aggro --seed 3
+    uv run python tools/playtest/run.py --level levels/smoke_4polygon.json --bot aggro --seed 3 --gif
 
 `--gif` captures frames every `--capture-every` ticks (default 6) into a
 scratch directory via `perihelion.render` (lazily imported; if that module

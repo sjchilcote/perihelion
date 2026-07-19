@@ -2,7 +2,7 @@
 
 Operates directly on the RESOLVED level dict -- the exact JSON shape written
 to `levels/*.json` (see `perihelion.levels` for the loader/format doc). Each
-room's `verts` are absolute authoring-canvas coordinates; the model mutates
+polygon's `verts` are absolute authoring-canvas coordinates; the model mutates
 that dict in place and can write it straight back out with `json.dumps`.
 
 No pygame import anywhere in this module -- `game/tests/test_editor.py`
@@ -26,10 +26,10 @@ PICKUP_TYPES = [
     "weapon_smg", "weapon_shotgun", "weapon_rail", "implant_lightning",
     "key_red", "key_blue", "key_gold", "key_void",
 ]
-# Types that live in a room's own `entities` list (spawnable by GameSession).
-ROOM_ENTITY_TYPES = set(ENEMY_TYPES) | set(PICKUP_TYPES)
+# Types that live in a polygon's own `entities` list (spawnable by GameSession).
+POLYGON_ENTITY_TYPES = set(ENEMY_TYPES) | set(PICKUP_TYPES)
 # Full palette order for the E-tool cycle (player/exit move the singleton
-# markers instead of creating a room entity; terminal appends to lore).
+# markers instead of creating a polygon entity; terminal appends to lore).
 ENTITY_PALETTE = ["player", "exit"] + ENEMY_TYPES + PICKUP_TYPES + ["terminal"]
 
 KEY_PRESETS = ["red", "blue", "gold", "void"]
@@ -37,7 +37,7 @@ GATE_KIND_PRESETS = ["", *ENEMY_TYPES]
 
 UNDO_CAP = 100
 
-_ENTER_ROOM_RE = re.compile(r"^enter_room:(\d+)$")
+_ENTER_POLYGON_RE = re.compile(r"^enter_polygon:(\d+)$")
 
 
 # ---------------------------------------------------------------------------
@@ -136,7 +136,7 @@ def _blank_level() -> dict:
         "name": "untitled",
         "tier": 1,
         "ambience": "amb_drone_early",
-        "rooms": [],
+        "polygons": [],
         "connects": [],
         "connects_x": [],
         "doors": [],
@@ -149,16 +149,16 @@ def _blank_level() -> dict:
 def _normalize(d: dict) -> dict:
     """Fill in missing optional keys so the rest of the model never has to
     guard against a hand-edited/partial file. Never raises on missing keys;
-    a genuinely broken `rooms` entry will surface later via validate()."""
+    a genuinely broken `polygons` entry will surface later via validate()."""
     d = dict(d)
     d.setdefault("version", LEVEL_VERSION)
     d.setdefault("name", "untitled")
     d.setdefault("tier", 1)
     d.setdefault("ambience", "amb_drone_early")
-    d["rooms"] = list(d.get("rooms") or [])
-    for room in d["rooms"]:
-        room.setdefault("verts", [])
-        room.setdefault("entities", [])
+    d["polygons"] = list(d.get("polygons") or [])
+    for polygon in d["polygons"]:
+        polygon.setdefault("verts", [])
+        polygon.setdefault("entities", [])
     d["connects"] = list(d.get("connects") or [])
     d["connects_x"] = list(d.get("connects_x") or [])
     d["doors"] = list(d.get("doors") or [])
@@ -182,7 +182,7 @@ class EditorModel:
 
     `self.data` is the literal level dict (same shape as the JSON on disk).
     Selection is a tuple:
-        ("room", ri) ("vertex", ri, vi) ("entity", ri, ei)
+        ("polygon", ri) ("vertex", ri, vi) ("entity", ri, ei)
         ("player",) ("exit",) ("terminal", ti)
         ("connect", kind, idx)   kind in {"connect", "connect_x", "door"}
     """
@@ -296,45 +296,45 @@ class EditorModel:
 
     def validate(self) -> list:
         errs: list = []
-        rooms = self.data.get("rooms", [])
-        n_rooms = len(rooms)
+        polygons = self.data.get("polygons", [])
+        n_polygons = len(polygons)
 
-        for ri, room in enumerate(rooms):
+        for ri, polygon in enumerate(polygons):
             try:
-                verts = room.get("verts", [])
+                verts = polygon.get("verts", [])
                 if len(verts) < 3:
-                    errs.append(f"room {ri}: fewer than 3 vertices")
+                    errs.append(f"polygon {ri}: fewer than 3 vertices")
                     continue
                 if _shoelace(verts) >= 0:
-                    errs.append(f"room {ri}: wrong winding (author y-down visual-CCW)")
+                    errs.append(f"polygon {ri}: wrong winding (author y-down visual-CCW)")
                 bad = [i for i, f in enumerate(convex_flags(verts)) if f]
                 if bad:
-                    errs.append(f"room {ri}: concave/degenerate at vertex {bad}")
+                    errs.append(f"polygon {ri}: concave/degenerate at vertex {bad}")
             except Exception as exc:
-                errs.append(f"room {ri}: malformed ({exc})")
+                errs.append(f"polygon {ri}: malformed ({exc})")
 
         player = self.data.get("player")
         if not player:
             errs.append("no player spawn")
-        elif not (isinstance(player.get("room"), int) and 0 <= player["room"] < n_rooms):
-            errs.append("player spawn room index out of range")
+        elif not (isinstance(player.get("polygon"), int) and 0 <= player["polygon"] < n_polygons):
+            errs.append("player spawn polygon index out of range")
 
         exit_ = self.data.get("exit")
         if not exit_:
             if not self.data.get("vigil"):
                 errs.append("no exit")
-        elif not (isinstance(exit_.get("room"), int) and 0 <= exit_["room"] < n_rooms):
-            errs.append("exit room index out of range")
+        elif not (isinstance(exit_.get("polygon"), int) and 0 <= exit_["polygon"] < n_polygons):
+            errs.append("exit polygon index out of range")
 
         used: dict = {}
 
         def check(ri, ei, label) -> bool:
-            if not (isinstance(ri, int) and 0 <= ri < n_rooms):
-                errs.append(f"{label}: room {ri!r} out of range")
+            if not (isinstance(ri, int) and 0 <= ri < n_polygons):
+                errs.append(f"{label}: polygon {ri!r} out of range")
                 return False
-            nv = len(rooms[ri].get("verts", []))
+            nv = len(polygons[ri].get("verts", []))
             if not (isinstance(ei, int) and 0 <= ei < nv):
-                errs.append(f"{label}: room {ri} edge {ei!r} out of range")
+                errs.append(f"{label}: polygon {ri} edge {ei!r} out of range")
                 return False
             return True
 
@@ -378,7 +378,7 @@ class EditorModel:
             uniq = sorted(set(labels))
             if len(uniq) > 1:
                 errs.append(
-                    f"edge room{ri}#{ei} used by multiple connections: {', '.join(uniq)}"
+                    f"edge polygon{ri}#{ei} used by multiple connections: {', '.join(uniq)}"
                 )
 
         self.last_errors = errs
@@ -387,7 +387,7 @@ class EditorModel:
     # -- geometry helpers -----------------------------------------------
 
     def edge_endpoints(self, ri: int, ei: int):
-        verts = self.data["rooms"][ri]["verts"]
+        verts = self.data["polygons"][ri]["verts"]
         n = len(verts)
         return verts[ei % n], verts[(ei + 1) % n]
 
@@ -399,59 +399,59 @@ class EditorModel:
         a, b = self.edge_endpoints(ri, ei)
         return math.hypot(b[0] - a[0], b[1] - a[1])
 
-    # -- room ops -----------------------------------------------------
+    # -- polygon ops -----------------------------------------------------
 
-    def add_rect_room(self, x: float, y: float, w: float, h: float) -> int:
+    def add_rect_polygon(self, x: float, y: float, w: float, h: float) -> int:
         verts = [[x, y], [x, y + h], [x + w, y + h], [x + w, y]]
-        return self._add_room(verts)
+        return self._add_polygon(verts)
 
-    def add_poly_room(self, verts) -> int:
-        return self._add_room(canonical_winding([list(v) for v in verts]))
+    def add_poly_polygon(self, verts) -> int:
+        return self._add_polygon(canonical_winding([list(v) for v in verts]))
 
-    def _add_room(self, verts) -> int:
+    def _add_polygon(self, verts) -> int:
         self.snapshot()
-        self.data.setdefault("rooms", []).append(
+        self.data.setdefault("polygons", []).append(
             {"verts": [list(v) for v in verts], "entities": []}
         )
-        return len(self.data["rooms"]) - 1
+        return len(self.data["polygons"]) - 1
 
-    def move_room(self, ri: int, dx: float, dy: float) -> None:
+    def move_polygon(self, ri: int, dx: float, dy: float) -> None:
         self.snapshot()
-        self._translate_room(ri, dx, dy)
+        self._translate_polygon(ri, dx, dy)
 
-    def _translate_room(self, ri: int, dx: float, dy: float) -> None:
-        room = self.data["rooms"][ri]
-        room["verts"] = [[v[0] + dx, v[1] + dy] for v in room["verts"]]
-        for e in room.get("entities", []):
+    def _translate_polygon(self, ri: int, dx: float, dy: float) -> None:
+        polygon = self.data["polygons"][ri]
+        polygon["verts"] = [[v[0] + dx, v[1] + dy] for v in polygon["verts"]]
+        for e in polygon.get("entities", []):
             e["pos"] = [e["pos"][0] + dx, e["pos"][1] + dy]
         player = self.data.get("player")
-        if player and player.get("room") == ri:
+        if player and player.get("polygon") == ri:
             player["pos"] = [player["pos"][0] + dx, player["pos"][1] + dy]
         exit_ = self.data.get("exit")
-        if exit_ and exit_.get("room") == ri:
+        if exit_ and exit_.get("polygon") == ri:
             exit_["pos"] = [exit_["pos"][0] + dx, exit_["pos"][1] + dy]
         for t in self.data.get("lore", {}).get("terminals", []):
-            if t.get("room") == ri:
+            if t.get("polygon") == ri:
                 t["pos"] = [t["pos"][0] + dx, t["pos"][1] + dy]
 
     def set_vertex(self, ri: int, vi: int, x: float, y: float) -> None:
         self.snapshot()
-        self.data["rooms"][ri]["verts"][vi] = [x, y]
+        self.data["polygons"][ri]["verts"][vi] = [x, y]
 
     def delete_vertex(self, ri: int, vi: int) -> bool:
-        rooms = self.data.get("rooms", [])
-        if not (0 <= ri < len(rooms)):
+        polygons = self.data.get("polygons", [])
+        if not (0 <= ri < len(polygons)):
             return False
-        verts = rooms[ri]["verts"]
+        verts = polygons[ri]["verts"]
         n = len(verts)
         if n <= 3 or not (0 <= vi < n):
-            return False  # never drop a room below a triangle
+            return False  # never drop a polygon below a triangle
         self.snapshot()
         mapping = _vertex_delete_edge_map(n, vi)
         del verts[vi]
 
-        def fix(room_field, edge_field):
-            if room_field != ri:
+        def fix(polygon_field, edge_field):
+            if polygon_field != ri:
                 return edge_field
             return mapping.get(edge_field)
 
@@ -493,12 +493,12 @@ class EditorModel:
         self.selection = None
         return True
 
-    def delete_room(self, ri: int) -> None:
-        rooms = self.data.get("rooms", [])
-        if not (0 <= ri < len(rooms)):
+    def delete_polygon(self, ri: int) -> None:
+        polygons = self.data.get("polygons", [])
+        if not (0 <= ri < len(polygons)):
             return
         self.snapshot()
-        del rooms[ri]
+        del polygons[ri]
 
         def remap(idx):
             if idx is None:
@@ -543,32 +543,32 @@ class EditorModel:
 
         player = self.data.get("player")
         if player:
-            nr = remap(player.get("room"))
-            self.data["player"] = None if nr is None else dict(player, room=nr)
+            nr = remap(player.get("polygon"))
+            self.data["player"] = None if nr is None else dict(player, polygon=nr)
 
         exit_ = self.data.get("exit")
         if exit_:
-            nr = remap(exit_.get("room"))
-            self.data["exit"] = None if nr is None else dict(exit_, room=nr)
+            nr = remap(exit_.get("polygon"))
+            self.data["exit"] = None if nr is None else dict(exit_, polygon=nr)
 
         lore = self.data.setdefault("lore", {"intro": "", "radio": [], "terminals": []})
         new_terms = []
         for t in lore.get("terminals", []):
-            nr = remap(t.get("room"))
+            nr = remap(t.get("polygon"))
             if nr is None:
                 continue
-            new_terms.append(dict(t, room=nr))
+            new_terms.append(dict(t, polygon=nr))
         lore["terminals"] = new_terms
 
         new_radio = []
         for r in lore.get("radio", []):
             trig = r.get("trigger", "")
-            m = _ENTER_ROOM_RE.match(trig)
+            m = _ENTER_POLYGON_RE.match(trig)
             if m:
                 nr = remap(int(m.group(1)))
                 if nr is None:
                     continue
-                r = dict(r, trigger=f"enter_room:{nr}")
+                r = dict(r, trigger=f"enter_polygon:{nr}")
             new_radio.append(r)
         lore["radio"] = new_radio
 
@@ -577,31 +577,31 @@ class EditorModel:
     # -- entity ops -----------------------------------------------------
 
     def add_entity(self, ri: int, type_: str, x: float, y: float, props: dict | None = None) -> int:
-        if type_ not in ROOM_ENTITY_TYPES:
-            raise ValueError(f"unknown room-entity type {type_!r}")
+        if type_ not in POLYGON_ENTITY_TYPES:
+            raise ValueError(f"unknown polygon-entity type {type_!r}")
         self.snapshot()
         ent = {"type": type_, "pos": [x, y]}
         if props:
             ent["props"] = dict(props)
-        self.data["rooms"][ri]["entities"].append(ent)
-        return len(self.data["rooms"][ri]["entities"]) - 1
+        self.data["polygons"][ri]["entities"].append(ent)
+        return len(self.data["polygons"][ri]["entities"]) - 1
 
     def move_entity(self, ri: int, ei: int, x: float, y: float) -> None:
         self.snapshot()
-        self.data["rooms"][ri]["entities"][ei]["pos"] = [x, y]
+        self.data["polygons"][ri]["entities"][ei]["pos"] = [x, y]
 
     def delete_entity(self, ri: int, ei: int) -> None:
         self.snapshot()
-        del self.data["rooms"][ri]["entities"][ei]
+        del self.data["polygons"][ri]["entities"][ei]
 
     def set_player(self, ri: int, x: float, y: float) -> None:
         self.snapshot()
-        self.data["player"] = {"room": ri, "pos": [x, y]}
+        self.data["player"] = {"polygon": ri, "pos": [x, y]}
 
     def set_exit(self, ri: int, x: float, y: float) -> None:
         self.snapshot()
         prev = self.data.get("exit") or {}
-        ex = {"room": ri, "pos": [x, y]}
+        ex = {"polygon": ri, "pos": [x, y]}
         if prev.get("key"):
             ex["key"] = prev["key"]
         if prev.get("gate_kind"):
@@ -631,7 +631,7 @@ class EditorModel:
     def add_terminal(self, ri: int, x: float, y: float, text: str) -> int:
         self.snapshot()
         lore = self.data.setdefault("lore", {"intro": "", "radio": [], "terminals": []})
-        lore.setdefault("terminals", []).append({"room": ri, "pos": [x, y], "text": text})
+        lore.setdefault("terminals", []).append({"polygon": ri, "pos": [x, y], "text": text})
         return len(lore["terminals"]) - 1
 
     def move_terminal(self, ti: int, x: float, y: float) -> None:
@@ -670,13 +670,13 @@ class EditorModel:
     # -- picking / selection -----------------------------------------------------
 
     def nearest_edge(self, x: float, y: float, tol: float):
-        """Nearest raw polygon edge (any room), for connect-mode picking --
+        """Nearest raw polygon edge (any polygon), for connect-mode picking --
         distinct from nearest_connection, which finds existing connection
         arcs rather than unclaimed edges."""
         best = None
         bd = tol * tol
-        for ri, room in enumerate(self.data.get("rooms", [])):
-            verts = room.get("verts", [])
+        for ri, polygon in enumerate(self.data.get("polygons", [])):
+            verts = polygon.get("verts", [])
             n = len(verts)
             for ei in range(n):
                 a, b = verts[ei], verts[(ei + 1) % n]
@@ -686,18 +686,18 @@ class EditorModel:
                     best = (ri, ei)
         return best
 
-    def nearest_room(self, x: float, y: float):
+    def nearest_polygon(self, x: float, y: float):
         hit = None
-        for ri, room in enumerate(self.data.get("rooms", [])):
-            if _point_in_poly(x, y, room.get("verts", [])):
-                hit = ri  # last (topmost-drawn) room containing the point wins
+        for ri, polygon in enumerate(self.data.get("polygons", [])):
+            if _point_in_poly(x, y, polygon.get("verts", [])):
+                hit = ri  # last (topmost-drawn) polygon containing the point wins
         return hit
 
     def nearest_vertex(self, x: float, y: float, tol: float):
         best = None
         bd = tol * tol
-        for ri, room in enumerate(self.data.get("rooms", [])):
-            for vi, v in enumerate(room.get("verts", [])):
+        for ri, polygon in enumerate(self.data.get("polygons", [])):
+            for vi, v in enumerate(polygon.get("verts", [])):
                 d = (v[0] - x) ** 2 + (v[1] - y) ** 2
                 if d <= bd:
                     bd = d
@@ -707,8 +707,8 @@ class EditorModel:
     def nearest_entity_like(self, x: float, y: float, tol: float):
         best = None
         bd = tol * tol
-        for ri, room in enumerate(self.data.get("rooms", [])):
-            for ei, e in enumerate(room.get("entities", [])):
+        for ri, polygon in enumerate(self.data.get("polygons", [])):
+            for ei, e in enumerate(polygon.get("entities", [])):
                 p = e.get("pos", [0, 0])
                 d = (p[0] - x) ** 2 + (p[1] - y) ** 2
                 if d <= bd:
@@ -777,9 +777,9 @@ class EditorModel:
         c = self.nearest_connection(x, y, tol)
         if c is not None:
             return c
-        r = self.nearest_room(x, y)
+        r = self.nearest_polygon(x, y)
         if r is not None:
-            return ("room", r)
+            return ("polygon", r)
         return None
 
     def delete_selected(self) -> bool:
@@ -787,8 +787,8 @@ class EditorModel:
         if sel is None:
             return False
         kind = sel[0]
-        if kind == "room":
-            self.delete_room(sel[1])
+        if kind == "polygon":
+            self.delete_polygon(sel[1])
         elif kind == "vertex":
             self.delete_vertex(sel[1], sel[2])
         elif kind == "entity":

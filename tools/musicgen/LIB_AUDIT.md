@@ -149,9 +149,9 @@ end-to-end at ~65–95x realtime. Three CC0 cab IRs fetched to
 this project's existing sourcing convention — see SOURCES_LICENSES.md
 append):
   - `jesterdyne_4x12_vintage_129399.wav` — 5.5ms (very short, likely a bare
-    speaker-cone IR from a Korg AX1500g cab-sim unit, no room tail)
+    speaker-cone IR from a Korg AX1500g cab-sim unit, no polygon tail)
   - `jesterdyne_bg412s_godmode_618897.wav` — 1.28s (modified Behringer
-    BG412S w/ Celestion V30 + Eminence DV77, includes room tail)
+    BG412S w/ Celestion V30 + Eminence DV77, includes polygon tail)
   - `tosha73_brown_cab_507167.wav` — 0.5s (mic'd cab, Audix i5, normal
     cab-IR length — probably the best default starting point of the three)
 

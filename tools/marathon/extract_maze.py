@@ -11,7 +11,7 @@ scratchpad): portal-BFS from cell 150 restricted to polygons with centroid
 inside x 22800-32700, y 13000-24500 internal units and area < 2 WU². That
 yields exactly the brown maze cells and excludes the wide green transit
 corridor (polys 230/160) that crosses OVER the maze without connecting —
-Marathon's own 5D trick, preserved here because rooms may overlap on our
+Marathon's own 5D trick, preserved here because polygons may overlap on our
 authoring canvas too (only connects define adjacency).
 
 Rerun after changing the selection:
@@ -81,11 +81,11 @@ def main() -> None:
     ox = min(p[0] for p in all_pts)
     oy = min(p[1] for p in all_pts)
 
-    rooms = []
+    polygons = []
     for mi in sel:
         verts = [(x - ox, y - oy) for x, y in lvl.poly_verts(mi)]
         verts.reverse()  # engine-canonical winding (negative shoelace)
-        rooms.append((mi, verts))
+        polygons.append((mi, verts))
 
     connects = []   # (i, j, midpoint) internal-unit midpoint, local frame
     grafts = {}     # name -> (i, midpoint) graft edge midpoints, local frame
@@ -117,9 +117,9 @@ def main() -> None:
     w = max(p[0] for p in all_pts) - ox
     h = max(p[1] for p in all_pts) - oy
 
-    def fmt_rooms():
+    def fmt_polygons():
         out = []
-        for mi, verts in rooms:
+        for mi, verts in polygons:
             vs = ", ".join(f"({x}, {y})" for x, y in verts)
             out.append(f"    ({mi}, [{vs}]),")
         return "\n".join(out)
@@ -136,13 +136,13 @@ def main() -> None:
             for name, (i, (mx, my)) in sorted(grafts.items()))
 
     body = TEMPLATE.format(
-        n=len(rooms), n_conn=len(connects), n_nc=len(no_connect),
+        n=len(polygons), n_conn=len(connects), n_nc=len(no_connect),
         w_wu=w / WU, h_wu=h / WU,
-        rooms=fmt_rooms(), connects=fmt_connects(),
+        polygons=fmt_polygons(), connects=fmt_connects(),
         no_connect=",\n".join(f"    ({a}, {b})" for a, b in no_connect),
         grafts=fmt_grafts())
     OUT.write_text(body)
-    print(f"{OUT}: {len(rooms)} rooms, {len(connects)} connects, "
+    print(f"{OUT}: {len(polygons)} polygons, {len(connects)} connects, "
           f"{len(no_connect)} no_connects, grafts: {sorted(grafts)}")
 
 
@@ -155,7 +155,7 @@ hand-edit the data tables; rerun the extractor). It is the earliest piece
 of genuinely non-Euclidean space Bungie ever shipped: several of its
 corridors overlap in plan without touching, and a wide transit hall
 (Marathon polys 230/160, deliberately NOT extracted) crosses straight over
-its middle. Our engine reproduces that for free — rooms may overlap on the
+its middle. Our engine reproduces that for free — polygons may overlap on the
 authoring canvas; only connects define adjacency — so the stamp keeps the
 original plan coordinates and the original overlaps.
 
@@ -184,11 +184,11 @@ from __future__ import annotations
 WU = 1024  # marathon internal units per world unit
 
 # (marathon_poly_index, verts) - engine-canonical winding, local frame
-_ROOMS = [
-{rooms}
+_POLYGONS = [
+{polygons}
 ]
 
-# (room_i, room_j, edge midpoint) - every walkable Marathon portal
+# (polygon_i, polygon_j, edge midpoint) - every walkable Marathon portal
 _CONNECTS = [
 {connects}
 ]
@@ -199,7 +199,7 @@ _NO_CONNECT = [
 {no_connect}
 ]
 
-# name -> (room index, edge midpoint in local frame)
+# name -> (polygon index, edge midpoint in local frame)
 _GRAFTS = {{
 {grafts}
 }}
@@ -210,9 +210,9 @@ def build_maze(b, origin: tuple, scale: float = 80.0) -> dict:
 
     `scale` is PERIHELION units per Marathon WU; 80.0 is the canonical
     mapping (median Marathon door -> our 80 u doorway). Returns a dict:
-    "rooms" (marathon poly index -> builder room id), plus a graft point
-    per name above: (builder_room_id, (x, y) authoring coords) — feed
-    each straight into `b.connect_pts` / `b.door_pts`. Rooms are tagged
+    "polygons" (marathon poly index -> builder polygon id), plus a graft point
+    per name above: (builder_polygon_id, (x, y) authoring coords) — feed
+    each straight into `b.connect_pts` / `b.door_pts`. Polygons are tagged
     corridor/transit by adjacency degree; retag freely.
     """
     s = scale / WU
@@ -221,22 +221,22 @@ def build_maze(b, origin: tuple, scale: float = 80.0) -> dict:
     def pt(p):
         return (ox + p[0] * s, oy + p[1] * s)
 
-    deg = [0] * len(_ROOMS)
+    deg = [0] * len(_POLYGONS)
     for i, j, _ in _CONNECTS:
         deg[i] += 1
         deg[j] += 1
 
     ids = []
-    for k, (mi, verts) in enumerate(_ROOMS):
+    for k, (mi, verts) in enumerate(_POLYGONS):
         kind = "transit" if deg[k] >= 3 else "corridor"
-        ids.append(b.room([pt(v) for v in verts],
+        ids.append(b.polygon([pt(v) for v in verts],
                           detail_seed=mi * 7919 + 13, kind=kind))
     for i, j, mid in _CONNECTS:
         b.connect_pts(ids[i], pt(mid), ids[j], pt(mid))
     for i, j in _NO_CONNECT:
         b.no_connect(ids[i], ids[j])
 
-    out = {{"rooms": {{mi: ids[k] for k, (mi, _) in enumerate(_ROOMS)}}}}
+    out = {{"polygons": {{mi: ids[k] for k, (mi, _) in enumerate(_POLYGONS)}}}}
     for name, (i, mid) in _GRAFTS.items():
         out[name] = (ids[i], pt(mid))
     return out
