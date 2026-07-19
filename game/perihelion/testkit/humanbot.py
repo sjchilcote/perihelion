@@ -1054,6 +1054,12 @@ class HumanBot(_UnstickMixin, Bot):
         # snapshot['spits'] added same day). Strong blend, still below
         # contact-evasion: the thing biting you outranks the thing
         # merely flying at you.
+        # (Cross-room spit dodging was tried 2026-07-18 and REGRESSED
+        # the bank hard, median 207->117s: with portal spits visible,
+        # the dodge override — weighted for rare same-room spits —
+        # fires continuously through every doorway siege and thrashes
+        # navigation, withdrawal, and fire. The late reaction window
+        # on portal shots is the lesser cost.)
         ddx = ddy = 0.0
         for sp in snapshot.get("spits", ()):
             spx, spy = sp["pos"]
