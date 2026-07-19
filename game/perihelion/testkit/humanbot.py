@@ -1938,7 +1938,14 @@ class HumanBot(_UnstickMixin, Bot):
             ammo_t = WEAPONS.get(snapshot["weapon"], {}).get("ammo")
             cur_dry = ammo_t is not None \
                 and snapshot["ammo"].get(ammo_t, 0) <= 0
-            if not cur_dry and snapshot["tick"] < \
+            # CONTACT BYPASS (2216 footage: died with the RAIL in
+            # hand, five single shots into a mite swarm chewing at
+            # touch range — the anti-thrash lock held the sniper
+            # through the emergency). Commitment is for range;
+            # anything inside 60u unlocks the swap instantly.
+            contact = any(_dist(e["pos"], (px, py)) < 60.0
+                          for e in perceived)
+            if not cur_dry and not contact and snapshot["tick"] < \
                     getattr(self, "_weapon_lock_until", 0):
                 inp.weapon = 0
             else:
