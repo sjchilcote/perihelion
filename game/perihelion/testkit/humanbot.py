@@ -617,7 +617,12 @@ class HumanBot(_UnstickMixin, Bot):
             occ: dict[int, int] = {}
             for e in distant:
                 if e.get("active"):
-                    occ[e["room"]] = occ.get(e["room"], 0) + 1
+                    # a warden is not "one occupant" — it is a wall
+                    # (2234 trace: the guns-run pathed THROUGH a
+                    # warden pair, body-blocked at the portal for 5s,
+                    # ground from 94 to dead while 'running')
+                    w = 10 if e.get("kind") == "warden" else 1
+                    occ[e["room"]] = occ.get(e["room"], 0) + w
             fdest = trail[-1]
             if occ.get(fdest, 0) >= 2:
                 cands = [p[0] for p in session.sim.room_portals(proom)
