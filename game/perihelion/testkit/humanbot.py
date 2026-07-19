@@ -623,7 +623,29 @@ class HumanBot(_UnstickMixin, Bot):
                     # ground from 94 to dead while 'running')
                     w = 10 if e.get("kind") == "warden" else 1
                     occ[e["room"]] = occ.get(e["room"], 0) + w
+            def _longdim(r):
+                try:
+                    vs = session.level.room_verts[r]
+                    xs = [v[0] for v in vs]; ys = [v[1] for v in vs]
+                    return max(max(xs) - min(xs), max(ys) - min(ys))
+                except Exception:
+                    return 999.0
             fdest = trail[-1]
+            # KITE SPACE (2224 footage: mid-kite at hp 98 the bot
+            # backed into a ~150u medbay pocket and died against its
+            # far wall in 6s — the warden filled the doorway). Under
+            # warden pursuit a room shorter than the 350u standoff
+            # is a death box whatever its door count; retreat along
+            # rooms you can keep kiting in.
+            if n_ward_hunt >= 1 and _longdim(fdest) < 300.0:
+                cands = [p[0] for p in session.sim.room_portals(proom)
+                         if p is not None]
+                roomy = [r for r in cands if _longdim(r) >= 300.0
+                         and occ.get(r, 0) < 2]
+                if roomy:
+                    fdest = min(roomy, key=lambda r: (
+                        occ.get(r, 0),
+                        0 if r in self._visited_rooms else 1))
             if occ.get(fdest, 0) >= 2:
                 cands = [p[0] for p in session.sim.room_portals(proom)
                          if p is not None]
@@ -947,6 +969,10 @@ class HumanBot(_UnstickMixin, Bot):
         # The brood arrives speed-sorted (mites first, ALONE) into the
         # close-range machinery; the warden itself never gets to
         # touch.
+        # (Direction-to-nav-only was tried 2026-07-18 and collapsed
+        # the bank 298->117s mean, 0 clears: the raw away-vector IS
+        # what holds the 350u gap mid-withdrawal; nav alone loses the
+        # race. The medbay pocket-push is the lesser evil.)
         wrx = wry = 0.0
         for e in co_room:
             if e.get("kind") != "warden" or \
