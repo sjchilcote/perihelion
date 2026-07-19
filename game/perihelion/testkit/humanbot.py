@@ -464,6 +464,24 @@ class HumanBot(_UnstickMixin, Bot):
                     inp.fire = True
                     want = choose_weapon(dict(snapshot, enemies=distant),
                                          dist_est, len(distant))
+                    # tau ricochet veto, same rule as the co-room
+                    # branch: never in a narrow room
+                    if WEAPON_ORDER[want - 1] == "tau":
+                        try:
+                            vs = session.level.room_verts[snapshot["room"]]
+                            xs = [v[0] for v in vs]
+                            ys = [v[1] for v in vs]
+                            narrow = min(max(xs) - min(xs),
+                                         max(ys) - min(ys)) < 220.0
+                        except Exception:
+                            narrow = False
+                        if narrow:
+                            want = choose_weapon(
+                                dict(snapshot, enemies=distant,
+                                     weapons=[w for w in
+                                              snapshot["weapons"]
+                                              if w != "tau"]),
+                                dist_est, len(distant))
                     cur = WEAPON_ORDER.index(snapshot["weapon"]) + 1 \
                         if snapshot["weapon"] in WEAPON_ORDER else 0
                     self._weapon_want_ticks = \
@@ -1898,7 +1916,12 @@ class HumanBot(_UnstickMixin, Bot):
         # while the cursor swings are honest human misses. (Every prior
         # gate -- ray-lateral, per-weapon slop, sight-settle -- measured
         # as some flavor of "ABSURDLY gunshy", director, three rounds
-        # running.)
+        # running.) ONE exception, measured 2026-07-18: automatic spray
+        # beyond 300u — 45% of ALL damage the bot took was its own
+        # missed rounds wrapping back through the fold lanes (428
+        # self-hits/12 runs, ~SMG x0.75 apiece). Long-range chip
+        # through mouse wobble was near-worthless anyway; aimed
+        # single-cycle weapons (rail/shotgun/pistol) stay free.
         inp.fire = True
         # (The enrage-preparation gate died with the NPC-internals
         # purge, director 2026-07-18: it read the warden's hp. The
@@ -1914,10 +1937,25 @@ class HumanBot(_UnstickMixin, Bot):
         # cell-dry in 8/24 while shells sat at 75-111 — no rail left
         # for wardens 6-9. Below 40 cells the tau stays holstered
         # while any other ammo lives.
+        # ...and NEVER in a narrow room: the tau ricochets (rest_wall
+        # 1, up to 3 bounces at 1900u/s) — in a 150u corridor a miss
+        # comes straight back down the axis into the shooter's face.
+        # Measured 2026-07-18: self-returned rounds were 39-43% of ALL
+        # damage taken, ~460 hits per 12 runs, and the fold-lane
+        # theory was wrong — it's ricochet physics. Tau is an open-
+        # room weapon.
+        def _shortdim(r):
+            try:
+                vs = session.level.room_verts[r]
+                xs = [v[0] for v in vs]; ys = [v[1] for v in vs]
+                return min(max(xs) - min(xs), max(ys) - min(ys))
+            except Exception:
+                return 999.0
         if WEAPON_ORDER[want - 1] == "tau" \
-                and snapshot["ammo"].get("cell", 0) < 40 \
-                and (snapshot["ammo"].get("9mm", 0) > 0
-                     or snapshot["ammo"].get("shell", 0) > 0):
+                and (_shortdim(snapshot["room"]) < 220.0
+                     or (snapshot["ammo"].get("cell", 0) < 40
+                         and (snapshot["ammo"].get("9mm", 0) > 0
+                              or snapshot["ammo"].get("shell", 0) > 0))):
             want = choose_weapon(
                 dict(snapshot, enemies=perceived,
                      weapons=[w for w in snapshot["weapons"]
