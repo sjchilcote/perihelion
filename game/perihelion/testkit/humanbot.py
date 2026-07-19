@@ -943,6 +943,38 @@ class HumanBot(_UnstickMixin, Bot):
                     vx += 1.5 * wb * sxb / smb
                     vy += 1.5 * wb * syb / smb
 
+        # POCKET-DOOR BARRIER (same idiom): while a co-room warden
+        # hunts, the mouths of SMALL rooms repel — the r33 medbay
+        # deaths were the standoff repulsion field-pushing the bot
+        # through a pocket door it never chose (10/64; disabling the
+        # repulsion instead collapsed the bank). Kill the funnel-into-
+        # coffin at the door, keep the push.
+        if any(e.get("kind") == "warden" and e.get("active")
+               for e in co_room):
+            for edge, portal in enumerate(
+                    session.sim.room_portals(proom)):
+                if portal is None:
+                    continue
+                try:
+                    vs = session.level.room_verts[portal[0]]
+                    xs = [v[0] for v in vs]; ys = [v[1] for v in vs]
+                    if max(max(xs) - min(xs),
+                           max(ys) - min(ys)) >= 300.0:
+                        continue
+                except Exception:
+                    continue
+                mxb, myb = session.sim.edge_midpoint(proom, edge)
+                dpx, dpy = px - mxb, py - myb
+                dp = math.hypot(dpx, dpy)
+                if dp < 75.0:
+                    wb = (75.0 - dp) / 75.0
+                    sxb, syb = necore.mat_apply_dir(
+                        session.cam, dpx / max(dp, 1e-6),
+                        dpy / max(dp, 1e-6))
+                    smb = math.hypot(sxb, syb) or 1.0
+                    vx += 1.2 * wb * sxb / smb
+                    vy += 1.2 * wb * syb / smb
+
         # ENTRY-LIP LEASH (Sol §1.2): while the warden's brood is
         # live, fight from the door lip — the add-first targeting
         # walked the bot toward the far-side spawn wave, i.e. into
