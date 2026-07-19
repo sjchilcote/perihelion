@@ -355,12 +355,43 @@ class HumanBot(_UnstickMixin, Bot):
                 xf = session.sim.portal_xform(proom, edge)
                 if xf is not None:
                     adj_xf[portal[0]] = xf
+
+        def _chain_xf(target_room):
+            # composed transform target_room-local -> proom-local
+            # along the shortest portal path, up to 3 hops (director
+            # 2026-07-19: one hop was never the law)
+            got = adj_xf.get(target_room)
+            if got is not None:
+                return got
+            xf_ = None
+            r_ = proom
+            for _ in range(3):
+                if r_ == target_room:
+                    return xf_
+                e_ = session.sim.next_edge(r_, target_room)
+                if e_ < 0:
+                    return None
+                step = session.sim.portal_xform(r_, e_)
+                if step is None:
+                    return None
+                xf_ = step if xf_ is None else necore.mat_mul(xf_, step)
+                r_ = session.sim.room_portals(r_)[e_][0]
+            return xf_ if r_ == target_room else None
+
         for e in distant:
-            xf = adj_xf.get(e["room"])
-            if xf is None or not e.get("active"):
+            if not e.get("active"):
+                continue
+            # adjacent enemies merge unconditionally; deeper ones only
+            # when the renderer confirms them on screen (honest
+            # perception: a wall-hidden third-room enemy stays unknown)
+            if e["room"] not in adj_xf and \
+                    e["id"] not in visible_screens:
+                continue
+            xf = _chain_xf(e["room"])
+            if xf is None:
                 continue
             lx, ly = necore.mat_apply(xf, *e["pos"])
-            if math.hypot(lx - px, ly - py) < 260.0:
+            if math.hypot(lx - px, ly - py) < 340.0:
                 t_e = dict(e)
                 t_e["pos"] = (lx, ly)
                 t_e["thru"] = True

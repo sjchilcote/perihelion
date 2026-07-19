@@ -1629,22 +1629,41 @@ class GameSession:
                 continue
             # --- engagement target: the player's position in THIS room's
             # local frame. Rooms are individual polygons, so co-room is
-            # just the identity case; one hop out, the portal transform
-            # maps the player into this frame and combat continues through
-            # the doorway — aiming, spitting, lunging, the brood. An enemy
-            # that goes inert the moment the player steps over a threshold
-            # is not a fight (director 2026-07-18).
+            # just the identity case; further out, the portal transforms
+            # COMPOSE along the chain (director 2026-07-19: one hop was
+            # never the law — sightlines run as deep as the geometry
+            # lets them) and combat continues through every doorway the
+            # ray clears — aiming, spitting, lunging, the brood. An
+            # enemy that goes inert when the player steps over a
+            # threshold is not a fight.
             tx = ty = None
             if room == proom:
                 tx, ty = px, py
-            elif s.hop_distance(room, proom) == 1:
-                pedge = s.next_edge(room, proom)
-                pxf = s.portal_xform(room, pedge) if pedge >= 0 else None
-                if pxf is not None:
+            elif 1 <= s.hop_distance(room, proom) <= 3:
+                pxf = None
+                r_ = room
+                for _hop in range(3):
+                    if r_ == proom:
+                        break
+                    pedge = s.next_edge(r_, proom)
+                    if pedge < 0:
+                        pxf = None
+                        break
+                    step_xf = s.portal_xform(r_, pedge)
+                    if step_xf is None:
+                        pxf = None
+                        break
+                    pxf = step_xf if pxf is None \
+                        else necore.mat_mul(pxf, step_xf)
+                    portal = s.room_portals(r_)[pedge]
+                    r_ = portal[0]
+                else:
+                    pxf = None if r_ != proom else pxf
+                if pxf is not None and r_ == proom:
                     wx, wy = necore.mat_apply(pxf, px, py)
                     wdx, wdy = wx - ex, wy - ey
                     wdl = math.hypot(wdx, wdy) or 1e-6
-                    hit = s.raycast(room, ex, ey, wdx / wdl, wdy / wdl, 1,
+                    hit = s.raycast(room, ex, ey, wdx / wdl, wdy / wdl, 3,
                                     wdl + 40.0, 1 << GROUP_PLAYER, eid)
                     if hit[0] == "ent" and hit[1] == self.pid:
                         tx, ty = wx, wy
