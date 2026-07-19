@@ -857,7 +857,17 @@ class GameSession:
         self.metrics["shots"] += 1
         self._snd(w["sound"], proom, (px, py))
         self._shake(w.get("kick", 2.0))
-        mx_, my_ = px + adx * (PLAYER_RADIUS + 5), py + ady * (PLAYER_RADIUS + 5)
+        # MUZZLE CLAMP (2026-07-19, ground-truth trace): firing within
+        # muzzle length of a portal plane (or wall) put the spawn
+        # point OUTSIDE the room polygon; penetration resolution then
+        # shoved the fresh round back inside — into the shooter
+        # (spawn-tick self-hits measured at ~40% of all player damage
+        # taken, misattributed for a day to fold returns). Clamp the
+        # muzzle inside the polygon like the camera apex; the round
+        # then crosses the portal by flying, as physics intends.
+        mx_, my_ = self._clamp_apex(
+            proom, px + adx * (PLAYER_RADIUS + 5),
+            py + ady * (PLAYER_RADIUS + 5))
         self.fx.append(("flash", proom, mx_, my_, 26.0))
         if self.weapon == "rail":
             self._fire_rail(proom, px, py, adx, ady)
@@ -873,7 +883,8 @@ class GameSession:
                 self.sim.set_vel(bid, math.cos(ang) * spd + pvx * 0.4,
                                  math.sin(ang) * spd + pvy * 0.4)
                 self.sim.set_dir(bid, math.cos(ang), math.sin(ang))
-                self.bullets[bid] = dict(kind="bullet", dmg=w["dmg"], ttl=90)
+                self.bullets[bid] = dict(kind="bullet", dmg=w["dmg"], ttl=90,
+                                         born=self.tick_count)
                 if self.weapon == "tau":
                     self.bullets[bid].update(kind="tau", ttl=140,
                                              bounces=w.get("bounces", 0))
@@ -910,7 +921,8 @@ class GameSession:
                              py + ady * (PLAYER_RADIUS + 3), 1.2, 0.0005, GROUP_PBULLET)
         self.sim.set_props(bid, rest_wall=0.0, max_substep=4.0)
         self.sim.set_vel(bid, adx * 5200.0, ady * 5200.0)
-        self.bullets[bid] = dict(kind="tracer", dmg=0, ttl=14)
+        self.bullets[bid] = dict(kind="tracer", dmg=0, ttl=14,
+                                 born=self.tick_count)
         self._hitstop(2)
 
     def _fire_lightning(self, proom, px, py):
@@ -922,7 +934,8 @@ class GameSession:
                              py + ady * (PLAYER_RADIUS + 6), 3.0, 0.02, GROUP_PBULLET)
         self.sim.set_props(bid, rest_wall=0.0, max_substep=4.0)
         self.sim.set_vel(bid, adx * w["speed"] + pvx * 0.5, ady * w["speed"] + pvy * 0.5)
-        self.bullets[bid] = dict(kind="dart", dmg=w["dmg"], ttl=240)
+        self.bullets[bid] = dict(kind="dart", dmg=w["dmg"], ttl=240,
+                                 born=self.tick_count)
         self._snd("lightning_fire", proom, (px, py))
         self._shake(4.0)
         self.alert_enemies(proom, self.level.alert_hops + 1)
@@ -943,7 +956,8 @@ class GameSession:
                              GROUP_PBULLET)
         self.sim.set_props(bid, rest_wall=1.0, max_substep=4.0)
         self.sim.set_vel(bid, adx * 2600.0 + pvx * 0.3, ady * 2600.0 + pvy * 0.3)
-        self.bullets[bid] = dict(kind="taucharged", dmg=dmg, ttl=160, bounces=3)
+        self.bullets[bid] = dict(kind="taucharged", dmg=dmg, ttl=160,
+                                 bounces=3, born=self.tick_count)
         self.metrics["shots"] += 1
         self._snd("tau_charged_fire", proom, (px, py))
         self._shake(4.0 + 5.0 * power)
@@ -2068,6 +2082,14 @@ class GameSession:
                     self._damage_player(WEAPONS["lightning"]["dmg"] * 0.6, room)
                 elif bx["kind"] == "turret":
                     pass  # the guardians do not miss that badly
+                elif self.tick_count - bx.get("born", -99) <= 2:
+                    # spawn-resolution artifact, not a returned round:
+                    # a fresh round shoved back into its shooter by
+                    # wall/portal overlap resolution (ground-truth
+                    # trace 2026-07-19 — the fastest LEGITIMATE
+                    # return, a fold wrap, takes 6+ ticks). Dies
+                    # silently.
+                    pass
                 else:
                     # a round you fired found its way back through the fold
                     self._damage_player(bx["dmg"] * 0.75, room)
@@ -2628,7 +2650,26 @@ class GameSession:
         for bid in list(self.bullets):
             b = self.bullets[bid]
             b["ttl"] -= 1
-            if b["ttl"] <= 0:
+            dead = b["ttl"] <= 0
+            if not dead and b["kind"] in ("bullet", "tracer", "scrap",
+                                          "turret"):
+                # WOUNDED-ROUND GUARD (2026-07-19, ground-truth trace
+                # of bullet 429/seed 2200): a round spawned grazing a
+                # wall loses its aim velocity to spawn-overlap
+                # resolution WITHOUT the wall event that despawns
+                # bullets, and survives as a ~120u/s drifter carrying
+                # the shooter's inherited velocity — measured as ~40%
+                # of ALL damage the player took (the round hits its
+                # own shooter ~0.5-1s later). Straight rounds fly at
+                # constant speed by design: any round at a fraction
+                # of muzzle velocity has already hit something and
+                # must not exist. (tau/taucharged excluded: ricochets
+                # are designed; spit/dart/gland fly slow by design.)
+                if self.sim.exists(bid):
+                    _, _, _, bvx, bvy, _, _ = self.sim.get(bid)
+                    if bvx * bvx + bvy * bvy < 490000.0:   # <700 u/s
+                        dead = True
+            if dead:
                 if b["kind"] == "dart" and self.sim.exists(bid):
                     _, x, y, *_ = self.sim.get(bid)
                     self._detonate_dart(bid, self.sim.get_room(bid), x, y)

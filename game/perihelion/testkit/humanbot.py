@@ -41,8 +41,8 @@ from random import Random
 
 import necore
 
-from ..sim import (ENEMIES, WEAPONS, GameSession,
-                   InputFrame, WEAPON_ORDER)
+from ..sim import (ENEMIES, GROUP_ENEMY, GROUP_PLAYER, PLAYER_RADIUS,
+                   WEAPONS, GameSession, InputFrame, WEAPON_ORDER)
 from .bots import (Bot, _UnstickMixin, _dist, _norm, choose_weapon,
                     nav_to_point)
 from .mouse_model import MouseModel
@@ -1922,12 +1922,12 @@ class HumanBot(_UnstickMixin, Bot):
         # while the cursor swings are honest human misses. (Every prior
         # gate -- ray-lateral, per-weapon slop, sight-settle -- measured
         # as some flavor of "ABSURDLY gunshy", director, three rounds
-        # running.) ONE exception, measured 2026-07-18: automatic spray
-        # beyond 300u — 45% of ALL damage the bot took was its own
-        # missed rounds wrapping back through the fold lanes (428
-        # self-hits/12 runs, ~SMG x0.75 apiece). Long-range chip
-        # through mouse wobble was near-worthless anyway; aimed
-        # single-cycle weapons (rail/shotgun/pistol) stay free.
+        # running.) The 2026-07-19 self-damage arc ended in the SIM's
+        # wounded-round guard (sweep_bullets): rounds that lose their
+        # muzzle velocity to silent spawn-overlap wall grazes now
+        # despawn instead of drifting into their shooter — the
+        # bot-side serpentine and fire-line vetoes that compensated
+        # for it measured survival-negative and were deleted.
         inp.fire = True
         # (The enrage-preparation gate died with the NPC-internals
         # purge, director 2026-07-18: it read the warden's hp. The
