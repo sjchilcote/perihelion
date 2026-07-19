@@ -1957,6 +1957,17 @@ class HumanBot(_UnstickMixin, Bot):
                 return min(max(xs) - min(xs), max(ys) - min(ys))
             except Exception:
                 return 999.0
+        # SCRAP DRIVER (2026-07-18): components are DEAD WEIGHT on
+        # gauntlet4 (no pods, no fabricator) and the bot banks 300+
+        # per run — that is ~150 free shots of a 3x13dmg burst gun.
+        # Spend the salvage as mid-range firepower instead of SMG
+        # spray (whose misses feed the fold-return tax and drain
+        # 9mm).
+        if WEAPON_ORDER[want - 1] == "smg" \
+                and snapshot.get("components", 0) >= 30 \
+                and "scrap" in snapshot["weapons"] \
+                and 60.0 < dist < 260.0:
+            want = WEAPON_ORDER.index("scrap") + 1
         if WEAPON_ORDER[want - 1] == "tau" \
                 and (_shortdim(snapshot["room"]) < 220.0
                      or (snapshot["ammo"].get("cell", 0) < 40
