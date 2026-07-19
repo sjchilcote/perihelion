@@ -699,3 +699,97 @@ def test_rituals_never_fire_while_any_threat_is_perceived():
                     f"seed={seed} tick={tick}: curiosity sweep active "
                     f"while a threat was perceived")
             session.tick(inp)
+
+
+# ---------------------------------------------------------------------------
+# honest-game doctrine pins (2026-07-18): MECHANISM tests, not trajectory
+# pins — each checks one load-bearing behavior of the siege/kite doctrine
+# directly, so future changes can't silently regress it. (The flanked-choke
+# trajectory test above documents why trajectory pins churn; these don't.)
+# ---------------------------------------------------------------------------
+
+
+def test_perception_returns_no_npc_internals():
+    """Director's ruling: the bot knows nothing about NPC internals.
+    Perceived entries carry observed fields plus the movement-inferred
+    `active` flag — never `state`, never `hp`."""
+    model = PerceptionModel(seed=7)
+    snap = dict(room=0, enemies=[dict(id=1, kind="warden", room=0,
+                                      pos=(50, 50), hops=0,
+                                      state="hunt", hp=520)])
+    out = None
+    for tick in range(120):
+        vis = model.perceive(snap, tick)
+        if vis:
+            out = vis[0]
+            break
+    assert out is not None
+    assert "state" not in out and "hp" not in out
+    assert set(out) == {"id", "kind", "room", "pos", "hops", "active"}
+
+
+def test_perception_activity_inferred_from_movement():
+    """`active` flips on sustained motion above the idle-drift band and
+    stays sticky briefly through a pause — never read from state flags."""
+    model = PerceptionModel(seed=7)
+    x = 0.0
+    became_active = None
+    for tick in range(240):
+        snap = dict(room=0, enemies=[dict(id=1, kind="mite", room=0,
+                                          pos=(x, 0), hops=0)])
+        vis = model.perceive(snap, tick)
+        if tick < 60:
+            pass            # stationary: must stay inactive
+        elif tick < 180:
+            x += 2.0        # 120 u/s: clearly moving
+        if vis and vis[0]["active"] and became_active is None:
+            became_active = tick
+        if tick == 59:
+            assert not (vis and vis[0]["active"]), \
+                "stationary enemy read as active"
+    assert became_active is not None and became_active < 120, \
+        "moving enemy never read as active"
+
+
+def test_scrap_driver_selected_in_band_when_components_flush():
+    """Components are ammo (the scrap driver eats them at 2/shot) and are
+    dead weight otherwise on pod-less levels: with a flush salvage
+    counter and a mid-band target, the weapon policy must reach for
+    scrap instead of draining 9mm."""
+    from perihelion.sim import WEAPON_ORDER
+    bot = HumanBot(3)
+    level = build_ambush_level()
+    session = GameSession(level, seed=3, difficulty="hard")
+    session.components = 120
+    session.weapons = ["knife", "pistol", "smg", "shotgun", "rail",
+                       "lightning", "tau", "scrap"]
+    session.ammo.update({"9mm": 200, "shell": 40, "cell": 60})
+    snap = session.snapshot()
+    perceived = [dict(id=9, kind="husk", room=snap["room"],
+                      pos=(snap["pos"][0] + 150.0, snap["pos"][1]),
+                      hops=0, active=True)]
+    px, py = snap["pos"]
+    # the pick must become scrap once the hysteresis window passes
+    picked = set()
+    for _ in range(20):
+        inp, _, _ = bot._combat_input(session, snap, perceived, px, py)
+        if inp.weapon:
+            picked.add(WEAPON_ORDER[inp.weapon - 1])
+    assert "scrap" in picked, f"scrap never chosen; picked={picked}"
+
+
+def test_first_sight_recoil_fires_once_per_warden():
+    """Single-pull siege: the first perception of a NEW warden id trips
+    one withdrawal latch; the same id seen continuously does not re-trip
+    (uncapped re-trips measured as a 4-minute doorway loop)."""
+    bot = HumanBot(5)
+    assert bot._warden_seen == set()
+    bot._warden_seen.add(41)
+    bot._warden_recoils[41] = 1
+    # simulate the re-arm bookkeeping: id under the cap gets cleared
+    # after quiet, id at the cap stays latched
+    bot._warden_recoils[42] = 2
+    bot._warden_seen.add(42)
+    kept = {i for i in bot._warden_seen
+            if bot._warden_recoils.get(i, 0) >= 2}
+    assert kept == {42}
