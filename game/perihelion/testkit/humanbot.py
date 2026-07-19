@@ -1084,6 +1084,14 @@ class HumanBot(_UnstickMixin, Bot):
             vx = vx * 0.4 + 1.5 * sxw / smw
             vy = vy * 0.4 + 1.5 * syw / smw
 
+        # (CORNER-PEEK COVER was built and measured 2026-07-19: mean
+        # 276->143s, the worst single result of the program. Anchoring
+        # at a doorway mouth to peek-fire pins the bot exactly where
+        # portal-plane touch grind and brood streams live; every
+        # cover-family variant — lateral routing, spit-merge dodging,
+        # peeking — measures negative because this game's melee-flood
+        # dynamics punish ANY stationarity near mouths. Cover suits
+        # slower threat mixes; here, flow is armor.)
         # SPIT-DODGE REFLEX (2026-07-18): projectiles are dodgeable —
         # sidestep off the flight line of any spit closing within
         # ~0.55s. The enraged warden's radial bursts were literally
