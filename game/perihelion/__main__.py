@@ -23,6 +23,10 @@ def main(argv=None) -> None:
                         help=argparse.SUPPRESS)
     parser.add_argument("--tactician", action="store_true",
                         help=argparse.SUPPRESS)
+    parser.add_argument("--play", action="store_true",
+                        help="human controls even with --record on "
+                             "(--record alone defaults to the aggro bot "
+                             "for the headless capture pipeline)")
     parser.add_argument("--record", type=str, default=None, metavar="DIR",
                         help=argparse.SUPPRESS)
     parser.add_argument("--record-every", type=int, default=2,
@@ -41,7 +45,7 @@ def main(argv=None) -> None:
     parser.add_argument("--no-music", action="store_true",
                         help="disable the dynamic music system")
     args = parser.parse_args(argv)
-    if args.record and not args.bot:
+    if args.record and not args.bot and not args.play:
         args.bot = "aggro"
     if args.bot:
         args.autoplay = True

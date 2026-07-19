@@ -411,7 +411,8 @@ class App:
             self._rec = dict(dir=rec_dir, every=max(1, int(args.record_every)),
                              frames=0, saved=0,
                              max_frames=int(args.record_seconds * 60),
-                             events=open(rec_dir / "events.jsonl", "w"))
+                             events=open(rec_dir / "events.jsonl", "w"),
+                             inputs=open(rec_dir / "inputs.jsonl", "w"))
             self.audio.tap = self._audio_tap
 
         self._start_scene()
@@ -832,6 +833,8 @@ class App:
             self.clock.tick(0 if self.dummy else 60)
         if self._rec is not None:
             self._rec["events"].close()
+            if self._rec.get("inputs") is not None:
+                self._rec["inputs"].close()
             print(f"[record] {self._rec['saved']} frames + events.jsonl in "
                   f"{self._rec['dir']}", file=sys.stderr)
         self._persist_save()
@@ -861,6 +864,15 @@ class App:
                     break
         else:
             inp = game._input_frame(self)
+        if self._rec is not None and self._rec.get("inputs") is not None:
+            # input stream capture (director 2026-07-19: human play must
+            # be studyable — frames alone can't be re-simulated; the
+            # per-tick InputFrame stream can)
+            self._rec["inputs"].write(json.dumps(dict(
+                t=game.session.tick_count, mx=inp.mx, my=inp.my,
+                ax=inp.ax, ay=inp.ay, fire=bool(inp.fire),
+                alt=bool(inp.alt), weapon=inp.weapon,
+                interact=bool(getattr(inp, "interact", False)))) + "\n")
         was_dead = game.session.dead
         was_complete = game.session.complete
         game.session.tick(inp)

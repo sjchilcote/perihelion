@@ -2772,6 +2772,68 @@ class GameSession:
             n += 1
         return n
 
+    def sight_map(self, polygon: int, x: float, y: float,
+                  radius: float = 700.0, max_depth: int = 4,
+                  max_instances: int = 24) -> list:
+        """The renderer's own portal-clipped visibility from an
+        arbitrary viewpoint, served to the AI (director 2026-07-19:
+        'that shadow-solving information has already been calculated
+        by the rendering engine — save it and make it available').
+        Same engine query the lighting system uses for occlusion.
+
+        Returns a list of dicts, one per visible polygon instance:
+          polygon: the polygon id seen
+          xform:   matrix mapping that polygon's LOCAL frame into the
+                   viewer-centred frame (viewer at the origin)
+          clip:    the visible region of that instance, as a polygon
+                   in the viewer-centred frame
+        A point P (local to polygon Q) is visible from the viewpoint
+        iff some instance with polygon==Q maps P (via xform) inside
+        its clip. The complement of the clips is shadow — real cover,
+        by the same math that decides what draws on screen."""
+        pad = radius * 0.1
+        win = 2.0 * (radius + pad)
+        off = radius + pad
+        cam = necore.mat_translate(off - x, off - y)
+        raw = self.sim.visible_set(polygon, cam, x, y, win, win,
+                                   max_depth, max_instances)
+        out = []
+        for poly, xform, _depth, clip_screen, _w, _e, _ents in raw:
+            if len(clip_screen) < 3:
+                continue
+            out.append(dict(
+                polygon=poly,
+                xform=necore.mat_mul(
+                    necore.mat_translate(-off, -off), xform),
+                clip=tuple((cx - off, cy - off)
+                           for cx, cy in clip_screen)))
+        return out
+
+    @staticmethod
+    def point_in_sight(sight: list, polygon: int,
+                       px: float, py: float) -> bool:
+        """Is local point (px, py) of `polygon` visible in `sight`
+        (a `sight_map` result)? Standard even-odd test against each
+        matching instance's clip region."""
+        for inst in sight:
+            if inst["polygon"] != polygon:
+                continue
+            sx, sy = necore.mat_apply(inst["xform"], px, py)
+            verts = inst["clip"]
+            n = len(verts)
+            inside = False
+            j = n - 1
+            for i in range(n):
+                xi, yi = verts[i]
+                xj, yj = verts[j]
+                if (yi > sy) != (yj > sy) and \
+                        sx < (xj - xi) * (sy - yi) / ((yj - yi) or 1e-12) + xi:
+                    inside = not inside
+                j = i
+            if inside:
+                return True
+        return False
+
     def _spit_snapshot(self, ppolygon: int) -> list:
         """Enemy projectiles in the player's polygon — a human SEES spit
         flying at them; bots read the same honest snapshot boundary."""
