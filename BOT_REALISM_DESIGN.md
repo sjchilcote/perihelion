@@ -42,7 +42,7 @@ instead of sprinkling noise on top of machine behavior.
   known spawn sites already seen this run, direction of recent damage/audio).
 - Pre-aimed threats get fast reactions; unanticipated ones get slow reactions. This
   asymmetry is the single most human-looking property the bot can have.
-- **Room-entry protocol**: pause at thresholds, lamp-sweep dark rooms from the
+- **Polygon-entry protocol**: pause at thresholds, lamp-sweep dark polygons from the
   doorway (zero-ambient makes this read beautifully on video), enter along a wall,
   not through the centerline.
 
@@ -71,7 +71,7 @@ instead of sprinkling noise on top of machine behavior.
 
 ## 6. Humanity between fights (marketing surface)
 
-- **Curiosity beats**: entering a new distinctive room draws a look-around sweep;
+- **Curiosity beats**: entering a new distinctive polygon draws a look-around sweep;
   the bot reads terminals (dwell time scaled to text length — the story is a selling
   point and the video should linger on it); pauses on vistas/reveals.
 - Pickup behavior with human priorities: detours for visible ammo/health, but not

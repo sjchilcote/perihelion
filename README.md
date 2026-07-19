@@ -2,7 +2,7 @@
 
 A Teleglitch-style top-down survival shooter set aboard a station falling into
 the sun — built on a non-Euclidean engine. The world is a graph of convex
-rooms connected by portals that don't have to make sense: corridors loop onto
+polygons connected by portals that don't have to make sense: corridors loop onto
 themselves, two wings occupy the same volume, a ward's south wall reflects
 more than light. The game never tells you. You find out.
 
@@ -48,12 +48,12 @@ Full keybinding reference in [EDITOR.md](EDITOR.md).
 
 ## Architecture
 
-- `engine/necore` — Rust core: room-graph geometry, analytic portal
+- `engine/necore` — Rust core: polygon-graph geometry, analytic portal
   visibility, deterministic physics with an event stream, portal raycasts,
   routing. Property-tested, including an oracle test that checks the
   non-Euclidean machinery against flat Euclidean geometry on levels where
   the two must agree. No world space exists anywhere: every coordinate is
-  room-local; only portal transforms relate rooms.
+  polygon-local; only portal transforms relate polygons.
 - `engine/necore-py` — PyO3 bindings (module `necore`).
 - `game/perihelion` — the game: deterministic `GameSession` (same level +
   seed + inputs ⇒ bit-identical run), immediate-mode lo-fi renderer at
@@ -78,13 +78,13 @@ invariant there, the change is wrong.
 
 PERIHELION is a top-down survival shooter aboard a station falling into the
 sun — one continuous, seamless station whose geometry is not Euclidean:
-corridors loop back on themselves, mirror rooms reflect more than light,
-and a sixteen-room tesseract deck runs on graph rules no floor plan can
+corridors loop back on themselves, mirror polygons reflect more than light,
+and a sixteen-polygon tesseract deck runs on graph rules no floor plan can
 draw. Ten decks stream past with no loading screen between the dock where
 you make landfall and the core where it ends. Combat follows the Teleglitch
 model — ammunition is scarce, engagements are short, and a mistake in a
 corridor is usually the last one you make. The portable hole cuts a doorway
-through any wall on command; the Cloister, a safe room folded into the
+through any wall on command; the Cloister, a safe polygon folded into the
 station's blind spots, is where you go when the hole isn't enough.
 
 Ratio, the station's remaining rational mind, talks you deck to deck over a
@@ -92,7 +92,7 @@ tight-beam relay — and remembers how you answer. Trust her or needle her;
 by the end, what she's willing to say depends on it. The crew is gone, but
 their terminals aren't: work orders, watch logs, and transfer appeals that
 add up to more than anyone logged on purpose. The tau cannon fires bolts
-that bounce off portals the same way they bounce off walls, so the room
+that bounce off portals the same way they bounce off walls, so the polygon
 layout is part of the loadout. Hard mode makes everything tougher and
 meaner; New Game+ starts the fall over with the arsenal you finished with.
 

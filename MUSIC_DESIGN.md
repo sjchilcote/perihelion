@@ -4,7 +4,7 @@ Extracted 2026-07-16 from three days of directed iteration, per the director's
 order: "once we get this debugged we need to extract the actual design we've
 arrived at, delete all code and start over from the design." This documents
 WHAT the system is and WHY each law exists. It is the specification for the
-clean-room rewrite; the current implementation is the disposable prototype.
+clean-polygon rewrite; the current implementation is the disposable prototype.
 
 (External-facing counterpart: `MUSIC_AUTHORING.md` — the authoring contract
 for composers delivering banks, with `tools/musicgen/check_bank.py` as its
@@ -22,7 +22,7 @@ instantly, all of it. That is the only thing that ever stops PRAYER.
 - **CONTEMPT** — damage OUTPUT ("ass-kicking music"). Driven by the player's
   trigger duty and kill flow. Firing feeds ONLY this.
 - **STALWART** — danger INPUT ("things just got serious"). Driven by what
-  hunts him: kind-weighted aggro (co-room/adjacent), inverse-distance crowd
+  hunts him: kind-weighted aggro (co-polygon/adjacent), inverse-distance crowd
   pressure, aggro influx, damage taken. NOT by his own firing.
 - A boss fight is BOTH high. Trash-mowing is contempt alone. Being hunted
   while unable to fight back is stalwart alone.
@@ -34,7 +34,7 @@ instantly, all of it. That is the only thing that ever stops PRAYER.
   top; overrides are explicit and commented (warden weights raised so
   stalwart>0.9 is boss-exclusive; FIRED_W forced to 0 by the
   firing→CONTEMPT law). Corpus surprises that became law: adjacent heavies
-  ≈ 73% of co-room weight; screams are a confounder, not a source; being
+  ≈ 73% of co-polygon weight; screams are a confounder, not a source; being
   hurt does not amplify danger.
 - Engine-side EMAs: influx/damage/kills at 3s tau, trigger duty at 1s.
 - Nonlinear filter: values low-passed with a one-bar tau (no waking for
@@ -110,7 +110,7 @@ bed (tier drone), drums (kit; drums_boss ≥0.8 with 0.8/0.7 hysteresis),
 holy (prayer stem: monk+choir+bells), groove (contempt), wall (stalwart),
 lead + lead2 (weapon voices, equal-power crossfade at 0.25/bar with a
 sticky 50/50 deadzone — alternating weapons park both leads on), bass
-(dominant-enemy cells; selection by threat weight, co-room emphasized),
+(dominant-enemy cells; selection by threat weight, co-polygon emphasized),
 boss (overlay ≥0.88: sub-octave root + octave pedal; tritone rejected).
 
 ## 4. Form steering
@@ -133,7 +133,7 @@ band), peak (boss), outro. At bar lines the playhead may steer:
 ## 5. Transitions (judged grammar)
 
 - Rises get walls: gains rise ≤0.35/bar normally. The SLAM (instant
-  wall) is AMBUSH-ONLY: heavy co-room contact arriving after ≥2s of
+  wall) is AMBUSH-ONLY: heavy co-polygon contact arriving after ≥2s of
   true quiet onto a calm mix — a watched approach always builds
   through the tau ("never during a normal fight"). The slam's lead-up
   is a half-bar reversed-bell micro-riser into the instant wall

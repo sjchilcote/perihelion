@@ -16,7 +16,7 @@ data** expand the **mind map** — a graph of concepts the Commando is or isn't 
 himself think. Expanding a node unlocks new upgrades. Some nodes are pure flavor: no
 mechanical benefit, characterization only. Every mechanical node is dual-purpose — a
 tactical unlock *and* a philosophical position, because "spend components" and "decide
-what the Commando's soul has room for" are the same action. **Scarcity is the point**:
+what the Commando's soul has polygon for" are the same action. **Scarcity is the point**:
 there is never enough to expand everything, so the player's build *is* the read on
 faith vs. apostasy (§9.1/§8.1 in NARRATIVE_DESIGN_DOC.md — faith is computed from
 investment pattern, not a visible meter).
@@ -37,7 +37,7 @@ Void's — see bridges below), 2–4 **tier-1/2** nodes branching off it, and a 
 (tier 3) gated behind converging tier-2 prereqs. This gives every region an internal
 spine long enough to feel like a commitment (a capstone costs more than the entry +
 two branch nodes combined) without forcing a single linear order — the branch nodes
-within a tier are siblings, so the player picks which one the Commando has room for.
+within a tier are siblings, so the player picks which one the Commando has polygon for.
 
 ### 2.2 Cross-region bridges
 
@@ -95,7 +95,7 @@ both other tracks draw from, never a destination for drift.
 
 `game/perihelion/sim.py` today has **no components/data currency** — pickups are
 `ammo_9mm`, `ammo_shell`, `ammo_cell`, `medkit`, and mission items (keys, implants,
-`safe_room_core`, `portable_hole`). `DROP_TABLES` (sim.py:105) gives each of the six
+`safe_polygon_core`, `portable_hole`). `DROP_TABLES` (sim.py:105) gives each of the six
 enemy kinds (`husk`, `mite`, `spitter`, `brute`, `shrieker`, `warden`) a chance to drop
 one of those on death. **This document assumes the sim agent adds two new pickup kinds
 — `components` (from Adversary-kind kills, analogous to today's ammo drops) and `data`

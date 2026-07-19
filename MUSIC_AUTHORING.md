@@ -168,7 +168,7 @@ stems soloed.
   rotates between banks mid-level with a crossfade that is not
   tempo-matched; a shared tempo keeps every handoff musical.
 - 32–36 bars is the proven size. Longer is legal; nothing under ~24 bars
-  will give the arranger enough room.
+  will give the arranger enough polygon.
 
 ### 1.3 One melody at every time-scale
 
@@ -359,9 +359,9 @@ The seven enemy species, for the bass cells —
 | `mite` | Tiny, fastest thing in the game, dies to a breath, comes in swarms. Skittering. |
 | `husk` | The standard shambler. Baseline fodder menace. |
 | `spitter` | Ranged acid-lobber that keeps its distance and pelts you. |
-| `shrieker` | Fragile screamer — never touches you; it flees and *wakes the room*. Panic, not weight. |
+| `shrieker` | Fragile screamer — never touches you; it flees and *wakes the polygon*. Panic, not weight. |
 | `brute` | Slow heavy charger; hits like a truck. |
-| `warden` | The boss. A 300-hp sentinel that lives only in boss rooms — crushing melee plus ranged fire. Its cell is boss-fight bass. |
+| `warden` | The boss. A 300-hp sentinel that lives only in boss polygons — crushing melee plus ranged fire. Its cell is boss-fight bass. |
 | `flicker` | Ambush predator: near-invisible lurker that explodes into a burst-lunge at close range. Dread, then violence. |
 
 The ten leads and seven basses re-render two musical ideas (one line,
@@ -456,7 +456,7 @@ These are the game's punctuation, and the standing law is: **punctuation
 must sound like part of the song, never like a sound effect laid over
 it.** Each is cut from your own palette. Own lengths (they're not on the
 form grid), and only §2.2's *format* rules apply (WAV/44.1k/stereo, no
-DC, peak headroom) — the fold mechanism does not: a one-shot's
+DC, peak headpolygon) — the fold mechanism does not: a one-shot's
 natural release simply lives inside its own file (your sting rings out
 to silence within `sting.wav`).
 

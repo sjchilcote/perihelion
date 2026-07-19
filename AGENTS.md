@@ -12,14 +12,14 @@ When working on rendering performance or any performance-related issues:
 Key expensive areas identified:
 - `hubA_near_edge`: Long corridor sightlines (often 100ms+)
 - `hubB_center`: Large 8-sided hub with many connections
-- `mirror_room`: Self-connecting room creates infinite recursion potential
+- `mirror_polygon`: Self-connecting polygon creates infinite recursion potential
 
 ## Code Style
 
 - Don't add unnecessary comments
 - Be careful of "bad splices" - match surrounding code style
 - Check if new functionality should be commonized
-- The main game loop is in `main.py`, rendering happens in `Room.draw()`
+- The main game loop is in `main.py`, rendering happens in `Polygon.draw()`
 
 ## Running the Game
 

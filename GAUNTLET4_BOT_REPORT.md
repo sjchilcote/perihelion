@@ -9,10 +9,10 @@ end. This report is the decision document.
 ## What happened to the game
 
 The 50.8% clear rate of the morning was an artifact: enemy combat AI
-ran only when co-room, so tethered wardens were inert statues farmed
-through doorways (98% of warden damage dealt cross-room, broods never
-hatched). The cross-room honesty fix (director's law: rooms are
-polygons; cross-room functionality is never optional) plus
+ran only when co-polygon, so tethered wardens were inert statues farmed
+through doorways (98% of warden damage dealt cross-polygon, broods never
+hatched). The cross-polygon honesty fix (director's law: polygons are
+polygons; cross-polygon functionality is never optional) plus
 untethering made every fight real — and roughly 3x costlier. The
 bot's measured baseline collapsed from 52% to 0/64, mean survival
 80s.
@@ -23,12 +23,12 @@ bot's measured baseline collapsed from 52% to 0/64, mean survival
 min each; keepers audited on a held-out bank; negatives reverted and
 recorded in code comments and commit messages):
 
-- **Cross-room threat unification** — the bot had the sim's old
+- **Cross-polygon threat unification** — the bot had the sim's old
   disease: reflexes blind to enemies 25u away across a portal plane.
   Same cure as the sim: portal-transformed 1-hop hunters merge into
   the local threat frame.
 - **NPC-internals purge** (director's ruling) — perception returns
-  id/kind/room/pos/hops plus movement-INFERRED activity only. No
+  id/kind/polygon/pos/hops plus movement-INFERRED activity only. No
   state flags, no enemy hp. Mechanism-pinned in tests.
 - **Siege doctrine** — first-sight recoil (one hard pull-withdrawal
   per new warden, capped at two), 10s fresh-pull latches that string
@@ -42,7 +42,7 @@ recorded in code comments and commit messages):
   into sentry fields.
 - **Resource honesty** — the scrap driver converts the otherwise
   dead component/salvage economy (~300/run, no shops on this level)
-  into the mid-range workhorse; tau vetoed in narrow rooms (its
+  into the mid-range workhorse; tau vetoed in narrow polygons (its
   ricochets were self-inflicted wounds); geometric lightning
   discharge.
 

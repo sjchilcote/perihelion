@@ -78,7 +78,7 @@ for judging fidelity only.
    Testators space by golden angle / golden-ratio gaps. Reads instantly as
    deliberate-but-not-human, is one line of code, and IS the reverence.
 
-3. HOSPITALITY COMPUTED, NOT REMEMBERED. The station is a classroom with
+3. HOSPITALITY COMPUTED, NOT REMEMBERED. The station is a classpolygon with
    good chairs, built by minds that inferred what embodied visitors need
    rather than remembering it. So the furniture is right but subtly
    over-solved: seats face sight lines a human architect wouldn't have
@@ -100,7 +100,7 @@ for judging fidelity only.
    smaller rotated copy of itself, arcs that reference other arcs — their
    inscriptions are diagrams of spatial connection, and (pedagogy!) the
    diagrams are lessons: the decoration near a non-Euclidean join quietly
-   diagrams the join. Attentive players can learn to read the room.
+   diagrams the join. Attentive players can learn to read the polygon.
 
 6. TIME-WEAR, CURATED. 1.1 million years, but the station maintains
    itself. Testator surfaces are not grimy (MIRIAD's lane) — they are worn
@@ -127,7 +127,7 @@ reads as one material that has been one material for a megayear.
 - Line weight: MIRIAD 1px uniform; Testator variable 1-3px, arcs > lines.
 - Chapel = hybrid per audit: Testator floor geometry (irregular ring,
   off-grid dais, bone-tone inlay) under visibly improvised MIRIAD
-  furniture in plain PROP_COLOR (the outpost dragged pews into a room
+  furniture in plain PROP_COLOR (the outpost dragged pews into a polygon
   that awed them).
 - Split _props_core: l07 staff-mind closet gets MIRIAD server language;
   l10 reactor keeps the mandala but de-regularized per the above.

@@ -58,12 +58,12 @@ its own kind of world-building (a piece of tech visibly aged between games).
 **Per-level container (the "wad").** Inside the data fork, `strings` on the
 raw bytes recovers a stable set of short all-caps chunk tags repeated across
 all three games' map files: `PNTS`/`EPNT` (points/endpoints), `LINS` (lines),
-`SIDS` (sides/wall surfaces), `POLY` (polygons/rooms), `OBJS` (object —
+`SIDS` (sides/wall surfaces), `POLY` (polygons/polygons), `OBJS` (object —
 monster/item/player — placements), `LITE` (lights), `PLAT` (platforms: doors,
 lifts), `NOTE` (map notes), and, in M1 only, a `NAME` tag. Each level is one
 self-contained chunked record inside one shared file — geometry, object
 placement, and lighting all travel together per-level, the way PERIHELION's
-`levels/l0N.json` bundles `rooms`, `entities`, `doors`, and `lore` into one
+`levels/l0N.json` bundles `polygons`, `entities`, `doors`, and `lore` into one
 file per level (`game/perihelion/levels.py`).
 
 **Terminal text is NOT plain-recoverable by `strings`.** I searched the
@@ -249,17 +249,17 @@ pooryorick_reordered.html, riserobotrei_reordered.html). A diegetic archive
 that is honest about its own curation is *more* convincing, not less — the
 disclosure itself becomes a trust signal.
 
-**A14. Automap room labels read the level as an operational floor plan, not
-an arena.** Marathon's in-game map names rooms with function-first labels —
+**A14. Automap polygon labels read the level as an operational floor plan, not
+an arena.** Marathon's in-game map names polygons with function-first labels —
 "BioCore Vent," "Quarantine Center," "Engineering Storage," "M.C. Control,"
 "Shuttle Drydock" — so the station reads as a coherent working system even
-in rooms the player never gets a terminal for (mapannotations.html).
+in polygons the player never gets a terminal for (mapannotations.html).
 **Annotation tone itself escalates with stakes**: early military levels use
 flat numbered designations ("Hangar 7A (Port)," "Observation Deck #221");
 later levels turn evocative or morbid ("Death Valley," "Dead Sea," a
 scrapped "Carnage Central") (mapannotations.html).
 
-**A15. Weapons and ammo are gated to a named functional room, and the
+**A15. Weapons and ammo are gated to a named functional polygon, and the
 terminal foreshadows the pickup before the player reaches it.** Marathon
 1's very first level's entry terminal promises a bigger gun is coming; its
 exit terminal routes the player to a storage area to get it — text and
@@ -278,8 +278,8 @@ levels by function — "garrison" (destroy all Pfhor; starter pistol/AR/
 fusion gun), "citadel" (explore/activate abandoned structures; ammo
 scavenged from corpses, flamethrower appears), "corvette" (crash/escape) —
 so combat economy follows from a level's *narrative type*, decided before
-any room is drawn (M2 Story Outline, developer planning document). Rescue/
-escort levels are staged by matching room openness to NPC density directly
+any polygon is drawn (M2 Story Outline, developer planning document). Rescue/
+escort levels are staged by matching polygon openness to NPC density directly
 ("open level; lots of bobs near lots of aliens" — Level 05 sheet, Greg
 Kirkpatrick) — geometry serves the objective, the objective doesn't get
 retrofitted onto geometry.
@@ -294,14 +294,14 @@ independent confirmation the approach is sound, not a new idea to adopt.
 
 **A18. A level's spatial "handwriting" can track its in-fiction author,
 which supports internally consistent regional style.** Marathon's three
-lead designers produced recognizably different room-shapes at scale: one
+lead designers produced recognizably different polygon-shapes at scale: one
 rigid/angular with switch-puzzle secrets, one sprawling/curved/heavily-lit
 and immersion-first, one open/atmospheric and sound-paced
 (levelcredits.html). A station built by more than one faction/era (as
 PERIHELION's MIRIAD outpost vs. the Testator "Testament" layer already are,
 per `NARRATIVE_DESIGN_DOC.md` §4) can use consistent *geometric* dialects
 per builder-faction the way Marathon's designers each had one, reinforcing
-the fiction that different eras/builders made these rooms.
+the fiction that different eras/builders made these polygons.
 
 **A19. Cut content is left visible rather than silently patched, and the
 seam is treated as honest, not embarrassing.** A shotgun removed late in
@@ -328,7 +328,7 @@ it is architectural:
   "Electric Sheep" levels make this structural rather than atmospheric: the
   player can "get caught in the loop and start out over again" (dejavu.html).
 - **"Where am I?"** identifies non-linear *inter-level* connectivity itself
-  — not any single room's geometry — as the primary disorientation engine:
+  — not any single polygon's geometry — as the primary disorientation engine:
   players can loop back over previously explored territory or skip whole
   sections, so the campaign's sequence, not any one space, becomes
   uncertain. The analysis's operative line: "how should we interpret a
@@ -349,8 +349,8 @@ tell — that's the whole premise of `design_document_2.md` §8.1's escalation
 curve — but Marathon's playbook says **pair every geometric anomaly with a
 textual one that contradicts what the player already believes about the
 space** (a terminal, a radio line, an NPC line), because the contradiction,
-not the warped room alone, is what does the *narrative* work. A mirror room
-is unsettling; a mirror room whose terminal insists "there is nothing else
+not the warped polygon alone, is what does the *narrative* work. A mirror polygon
+is unsettling; a mirror polygon whose terminal insists "there is nothing else
 in the ward" while the player has just fought its double is unsettling
 *and* meaningful. PERIHELION's `l06.json` (MIRROR WARD) already does close
 to exactly this (Ratio: "There you are on the ward camera. Twice. Commando,
@@ -832,7 +832,7 @@ buried-depth study (§B.c).
    the two surviving Artificial Intelligences aboard the Marathon. I have
    been severely damaged, and am working to understand the current
    situation. / Find the teleport terminal located in the Hangar's control
-   room." (Arrival T1); (b) **explicit verification bookkeeping** — she
+   polygon." (Arrival T1); (b) **explicit verification bookkeeping** — she
    sorts what she confirmed from what she was told ("This I can verify
    through my own optical instruments" — Bigger Guns Nearby T1) and flags
    her own unreliability as a logistics fact ("Do not rely too much on
@@ -969,7 +969,7 @@ pipeline can be pointed at the actual texture, not a paraphrase of it.*
 > Artificial Intelligences aboard the Marathon. I have been severely
 > damaged, and am working to understand the current situation.
 >
-> Find the teleport terminal located in the Hangar's control room. By
+> Find the teleport terminal located in the Hangar's control polygon. By
 > that time, I should have a better idea of what is going on.
 >
 > \*\*\*END MESSAGE\*\*\*
@@ -1224,7 +1224,7 @@ Before prescribing changes: a direct read of `game/perihelion/levels.py`,
 converges on several Marathon conventions independently:
 
 - **Terminals are point-fixtures, not full-wall set-dressing.** `TerminalSpec`
-  (`levels.py:37-40`) is `(room, pos, text)` — a placed object in room-local
+  (`levels.py:37-40`) is `(polygon, pos, text)` — a placed object in polygon-local
   space, scanned by proximity (`sim.py:_terminal_scan`) and rendered as a
   marker (`render.py:_draw_exit_and_terminals`), exactly Marathon's wall-panel
   convention (§A below) rather than ambient environmental text.
@@ -1235,7 +1235,7 @@ converges on several Marathon conventions independently:
   research below); PERIHELION should keep this and use it deliberately rather
   than incidentally.
 - **Radio lines are trigger-keyed** (`RadioLine.trigger`: `start` /
-  `enter_room:<idx>` / `kills:<n>` / `pickup:<key>` / `exit` —
+  `enter_polygon:<idx>` / `kills:<n>` / `pickup:<key>` / `exit` —
   `levels.py:44-46`) — functionally Marathon's checkpoint/event-based
   terminal framing, already implemented as engine-native triggers rather than
   a cutscene system.
@@ -1257,13 +1257,13 @@ converges on several Marathon conventions independently:
 ### E.1 Terminal-as-wall-fixture: what to change in `levels.py` / campaign authoring
 
 - **Add an access-tier or location-class field to `TerminalSpec`** (currently
-  just `room, pos, text` — `levels.py:37-40`). §A1/A9 show Marathon uses
+  just `polygon, pos, text` — `levels.py:37-40`). §A1/A9 show Marathon uses
   *where* a terminal physically sits (which door, which security class) as
   a silent narrative signal (whose control the ship is currently under).
-  PERIHELION's rooms already carry no such metadata; even an informal
-  convention — control-room terminals vs. storage-alcove terminals get
+  PERIHELION's polygons already carry no such metadata; even an informal
+  convention — control-polygon terminals vs. storage-alcove terminals get
   different prose registers — would buy this for free without an engine
-  change, using the existing `(room, pos, text)` tuple plus authoring
+  change, using the existing `(polygon, pos, text)` tuple plus authoring
   discipline in `campaign.py`.
 - **Speaker color-coding (§A10) is cheap to add and high-value.** `sim.py`'s
   terminal fx event (`self.fx.append(("terminal", t["text"]))`,
@@ -1282,7 +1282,7 @@ converges on several Marathon conventions independently:
   A15.** `campaign.py`'s existing pattern already half-does this — e.g. L2's
   terminal at `pump_b` (`campaign.py:195-198`) narrates a discrepancy the
   player is about to walk into — but the *reward* half (terminal promises
-  X, next room delivers X) is inconsistent across levels. Worth an explicit
+  X, next polygon delivers X) is inconsistent across levels. Worth an explicit
   authoring checklist item in `campaign.py`'s docstring.
 
 ### E.2 Level names as places: what to change in `campaign.py`
@@ -1304,15 +1304,15 @@ converges on several Marathon conventions independently:
   Ferroque, Fatum Iustum Stultorum); PERIHELION's names go the *opposite*
   direction at the same narrative moment (more clinical, not less),
   which is a legitimate choice but should be a chosen one, not a default.
-- **Automap room labels (§A14) are currently absent below the level-name
-  layer** — individual rooms in `campaign.py` are named only in code
+- **Automap polygon labels (§A14) are currently absent below the level-name
+  layer** — individual polygons in `campaign.py` are named only in code
   comments (`dock`, `hall`, `junction`, `ring_nw` — `campaign.py:76-90`),
-  never surfaced to the player. Marathon's room-level naming
+  never surfaced to the player. Marathon's polygon-level naming
   ("BioCore Vent," "Engineering Storage") is cheap texture available at
-  zero engine cost: expose room names via terminal/radio text rather than
+  zero engine cost: expose polygon names via terminal/radio text rather than
   UI chrome (the way `l02.json`'s terminals already reference "Coolant
-  Row," "the filter room," "the armory annex" in prose — `campaign.py:
-  195-217` — do this consistently for every room that gets combat, not
+  Row," "the filter polygon," "the armory annex" in prose — `campaign.py:
+  195-217` — do this consistently for every polygon that gets combat, not
   just the ones that happen to get a terminal).
 
 ### E.3 Lore-depth practices: what to change in `conversations.py` / `campaign.py`
@@ -1321,7 +1321,7 @@ converges on several Marathon conventions independently:
   registers across widely separated triggers, and let a diegetic tell
   (not narration) mark whether it was intentional — maps directly onto the
   existing `RadioLine` trigger system (`kills:<n>`, `pickup:<key>`,
-  `enter_room:<idx>` — `levels.py:44-46`). These triggers are already
+  `enter_polygon:<idx>` — `levels.py:44-46`). These triggers are already
   *numeric* and *scattered by design* (level 3's `"kills:8"` radio line,
   `campaign.py:301`; level 8's `"kills:14"`, `campaign.py:639`; level 10's
   `"kills:20"`, `campaign.py:803`) — an escalating kill-count series across
@@ -1400,7 +1400,7 @@ converges on several Marathon conventions independently:
 §A.d is the most important single finding for this project: Marathon pairs
 *every* geometric anomaly with a *textual* one that contradicts what the
 player already believes about the space, because the contradiction — not
-the warped room alone — carries the narrative weight. `design_document_2.md`
+the warped polygon alone — carries the narrative weight. `design_document_2.md`
 §8.1's escalation curve already stages geometric impossibility deliberately
 (deniable → confirmable → overt → pure graph); the missing piece, per this
 research, is a matching *textual* escalation running in parallel, keyed to
@@ -1432,14 +1432,14 @@ the same tiers:
 distinct geometric style — suggests PERIHELION could assign a consistent
 *shape vocabulary* per station stratum (`NARRATIVE_DESIGN_DOC.md` §4's
 three strata: the MIRIAD research outpost, the Testator "Testament," the
-Breach) rather than letting every level's room-shape choice be independent.
-Concretely: rectilinear/angular rooms for the human-built outpost tier
+Breach) rather than letting every level's polygon-shape choice be independent.
+Concretely: rectilinear/angular polygons for the human-built outpost tier
 (already true — L1-L2 are essentially all `b.rect`), increasingly
-non-rectilinear/radial rooms for the Testator tier (already true — L3's
+non-rectilinear/radial polygons for the Testator tier (already true — L3's
 `sector_ring`, L8's `ngon` petals), and something structurally alien for
 the Breach (already true — L9's hypercube, L10's Cayley graph). **This
 convention is already present as an emergent property of the escalation
-curve** (`tools/levelgen/campaign.py` room-shape helpers correlate with
+curve** (`tools/levelgen/campaign.py` polygon-shape helpers correlate with
 tier almost exactly) — worth stating explicitly as a design invariant in
 `design_document_2.md` §11 so it's maintained deliberately as new levels
 are added, rather than staying an accident of the first ten.

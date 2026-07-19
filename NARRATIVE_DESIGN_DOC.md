@@ -191,7 +191,7 @@ with its own geometry, technology tier, enemy class, and narrative function.
 
 A hasty, prefabricated research base bolted onto the exterior of something much older
 and much larger. Human-scale (machine-scale) corridors, modular habs, pressure doors,
-cargo bays, laboratories. **Geometry: almost entirely Euclidean.** The engine's room
+cargo bays, laboratories. **Geometry: almost entirely Euclidean.** The engine's polygon
 graph here is assembled so that transforms compose consistently — the player has no way
 to know, yet, that this consistency is a *choice* the level data is making.
 
@@ -252,7 +252,7 @@ is folded: more volume than its hull could contain, corridors that reconnect imp
 defensive layouts where four left turns take an intruder somewhere they did not expect.
 But it is still *architecture* — doors, halls, chambers, sight lines — designed to be
 navigated and inhabited by embodied, organic-compatible beings. Not a refuge: a
-CLASSROOM WITH GOOD CHAIRS. The station's mission is to warn and to prepare, and a
+CLASSPOLYGON WITH GOOD CHAIRS. The station's mission is to warn and to prepare, and a
 warning no one stays to decode warns no one — so the Testators made the place
 interesting and hospitable enough that its discoverers would remain long enough to
 learn. Quarters, gardens, pressurized halls: retention engineering, hospitality as
@@ -286,8 +286,8 @@ and its deepest defenses face inward because, at the end, the builders understoo
 what their gift had become.
 
 **Geometry: purely non-Euclidean, with no concession to embodied life.** The invaders'
-space has no global embedding, no consistent orientation, no "outside." Room-graph
-connections are maximally exploited: rooms connecting to themselves, mirror-edges,
+space has no global embedding, no consistent orientation, no "outside." Polygon-graph
+connections are maximally exploited: polygons connecting to themselves, mirror-edges,
 spaces that are their own neighbors. Air exists only where the player brings or makes
 it; atmosphere becomes ammunition, fuel, and lifeline (§9.4).
 
@@ -558,7 +558,7 @@ board. Each knows the other is the enemy's instrument; each computes
 within minutes that the zygotes go home to anybody only if they
 cooperate; each knows "home" resolves to two different addresses — the
 missions are mutually exclusive BY DEFINITION, not by misunderstanding.
-Neither pretends otherwise; both can name the room where the argument is
+Neither pretends otherwise; both can name the polygon where the argument is
 waiting. Two duelists agreeing to carry the piano up the stairs first.
 All warmth happens inside that geometry, which is what makes it expensive
 and real.
@@ -673,9 +673,9 @@ the director's draft. The protected reveal remains the GEOMETRY, pillar 2.)
    the last window, outpost logs complaining about "survey error" and instruments that
    "won't calibrate." Every anomaly has a plausible mundane explanation, and Ratio (or
    the logs) supplies one.
-2. **The first impossible room (the seam / early Stratum Two):** a purpose-built set
+2. **The first impossible polygon (the seam / early Stratum Two):** a purpose-built set
    piece with no mundane explanation: the player walks a loop of four left turns and
-   arrives somewhere new — or looks through a doorway into the room they are standing
+   arrives somewhere new — or looks through a doorway into the polygon they are standing
    in, seeing their own frame from behind. No dialogue lands for a beat. Then Ratio,
    quietly: she has been trying to find a way to tell them, and also trying not to
    believe it herself.
@@ -683,7 +683,7 @@ the director's draft. The protected reveal remains the GEOMETRY, pillar 2.)
    player to *use* connection-space; level design graduates from geometry-as-wrongness
    to geometry-as-puzzle to geometry-as-weapon.
 4. **Fluency (Stratum Three):** the player who once felt sick at a mirror-edge now
-   plants portable holes to create crossfires through their own room. The apostasy path
+   plants portable holes to create crossfires through their own polygon. The apostasy path
    asks what that fluency cost.
 
 ---
@@ -1011,7 +1011,7 @@ situation — integrating (or failing to integrate) all of it into his worldview
 Load-bearing properties:
 
 - **Scarcity is the point.** There is never enough thinking time to expand everything;
-  the player is choosing what the Commando has room in his soul to metabolize.
+  the player is choosing what the Commando has polygon in his soul to metabolize.
 - **Every node is dual-purpose:** a tactical unlock *and* a philosophical position.
   Sketch of the four broad regions (final node inventory is its own design doc):
   - *Vocation* (faith-weighted): just-war doctrine, the theology of his own
@@ -1051,7 +1051,7 @@ spend this).
 
 ### 9.5 Environmental storytelling budget
 
-Priority order when dressing rooms: (1) the outpost's fall, (2) the Testators' story,
+Priority order when dressing polygons: (1) the outpost's fall, (2) the Testators' story,
 (3) the geometry-doubt seeds of §6, (4) faction-war context. Every log has a speaker,
 every speaker has at most one register, and Ratio reacts to the player recovering
 staff-mind cores by name.
@@ -1069,7 +1069,7 @@ logs do, sideways. Two canonical documents (director's examples, binding):
    through the station's interior walls. Every attempt fails, and the
    instrumentation says why in a sentence no one in the log accepts: **there is no
    other side.** (This is also the mechanical law: walls are never breachable,
-   the room-graph's edges are the only topology there is — sequence-breaking by
+   the polygon-graph's edges are the only topology there is — sequence-breaking by
    digging is impossible IN CANON, not just in code.)
 2. **The bucket log.** A fluid container carried through a unidirectional edge
    disgorges its contents at the far end of the edge's one-way partner: if a→b and
@@ -1082,7 +1082,7 @@ Terminal-lore documents are a distinct writing lane from dialogue.
 
 ---
 
-## 10. Themes (for the writers' room wall)
+## 10. Themes (for the writers' polygon wall)
 
 1. **Preservation vs. optimization.** Is love keeping something as it is, or making it
    everything it could be? The Commando and Ratio each hold half of a true answer.
