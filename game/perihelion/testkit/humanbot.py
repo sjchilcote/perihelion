@@ -444,7 +444,11 @@ class HumanBot(_UnstickMixin, Bot):
                 # ...except WARDENS: a parked boss astride the route
                 # gets the deliberate opening shot — that IS the pull
                 # (timeout footage: 4+ minutes recoil-looping at one
-                # doorway, unable to provoke or pass)
+                # doorway, unable to provoke or pass). (A 250u
+                # minimum poke range was tried 2026-07-18 and
+                # measured mildly negative: Z-bends often have no
+                # long vantage, so the rule only deferred the pull
+                # into a worse co-room entry.)
                 cand = [visible_screens[e["id"]] for e in distant
                         if e["id"] in visible_screens
                         and (e.get("active")
@@ -1859,6 +1863,13 @@ class HumanBot(_UnstickMixin, Bot):
         dx, dy = ex - px, ey - py
         dist = math.hypot(dx, dy) or 1e-6
         true_angle = math.atan2(dy, dx)
+        # (STOP-AND-POP was tried twice 2026-07-18 against the 38%
+        # backpedal rail hit rate — global-phase plants (mean 296->
+        # 257s) AND discharge-phase-locked plants via the bot's own
+        # cell counter (mean 308->264s, tail 15->8) both measured
+        # NEGATIVE: any deliberate stillness near a closing warden
+        # costs more than the accuracy buys. Axis closed; the duel
+        # hit rate is a skill/mouse property, not a stance one.)
         self._aim_world_angle = true_angle
 
         aim_angle = true_angle + self._flinch_angle
