@@ -78,7 +78,7 @@ def test_render_headless_smoke(pygame_ready, backend):
         if tick % DRAW_EVERY == 0:
             surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
             t0 = time.perf_counter()
-            renderer.draw(surf, debug=False)
+            pygame.surfarray.blit_array(surf, renderer.draw(surf, debug=False))
             draw_times.append(time.perf_counter() - t0)
             frames.append((tick, surf))
 

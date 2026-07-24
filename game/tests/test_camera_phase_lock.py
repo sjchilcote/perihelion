@@ -447,8 +447,7 @@ def test_world_aligned_frames_across_crossing():
         for m9 in m9_log[n_m9:]:
             base = necore.mat_mul(m9, base)
         ren.consume_fx(session.fx)
-        ren.draw(surf)
-        arr = np.transpose(pygame.surfarray.array3d(surf), (1, 0, 2)).copy()
+        arr = np.transpose(ren.draw(surf), (1, 0, 2)).copy()
         frames[t] = (arr, necore.mat_mul(session.cam, base))
     assert transfer_ticks, "no transfer happened; world drive broken"
     tt = transfer_ticks[0]

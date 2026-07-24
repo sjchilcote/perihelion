@@ -55,7 +55,7 @@ def test_neighbor_decor_never_blinks(braided):
                                 fire=False, alt=False, interact=False, weapon=0))
         random.seed(tick)
         ren.consume_fx(session.fx)
-        ren.draw(surf)
+        pygame.surfarray.blit_array(surf, ren.draw(surf))
         vis = session.visible()
         by_polygon = {}
         for inst in vis:

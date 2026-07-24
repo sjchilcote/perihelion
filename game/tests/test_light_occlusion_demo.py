@@ -75,7 +75,7 @@ def _run_to_marks(marks_needed: set[str]):
         session.tick(InputFrame(mx=mx, my=my, ax=INTERNAL_W / 2, ay=INTERNAL_H / 2,
                                 fire=False, alt=False, interact=False, weapon=0))
         ren.consume_fx(session.fx)
-        ren.draw(surf)
+        pygame.surfarray.blit_array(surf, ren.draw(surf))
         if tick in still_ticks:
             name = still_ticks[tick]
             if name in marks_needed and name in locc.PROBES:

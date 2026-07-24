@@ -108,8 +108,7 @@ def test_shadow_behind_terrain_pixel_composite():
     session.tick(InputFrame(mx=0, my=0, ax=INTERNAL_W / 2, ay=INTERNAL_H / 2,
                              fire=False, alt=False, interact=False, weapon=0))
     ren.consume_fx(session.fx)
-    ren.draw(surf)
-    arr = pygame.surfarray.array3d(surf).astype(int)
+    arr = ren.draw(surf).astype(int)
 
     def screen_of(local_pt):
         return necore.mat_apply(session.cam, *local_pt)
@@ -215,8 +214,7 @@ def test_enemy_visible_in_terrain_shadow():
     session.tick(InputFrame(mx=0, my=0, ax=INTERNAL_W / 2, ay=INTERNAL_H / 2,
                              fire=False, alt=False, interact=False, weapon=0))
     ren.consume_fx(session.fx)
-    ren.draw(surf)
-    arr = pygame.surfarray.array3d(surf).astype(int)
+    arr = ren.draw(surf).astype(int)
 
     sx, sy = necore.mat_apply(session.cam, 60.0, 0.0)
     ix, iy = int(round(sx)), int(round(sy))

@@ -1,185 +1,122 @@
-"""Minimalist lo-fi HUD: HP (bottom-left), weapon/ammo (bottom-right), keys
-(top-right), crosshair. Pure pygame.draw + small bitmap font, no Surface
-allocation beyond what pygame.font.render necessarily returns per string.
+"""Diegetic lo-fi HUD, drawn straight onto the renderer's numpy framebuffer
+(no pygame). Three readouts in the game's own typeface (FSEX300, via
+`text.py` -- the same path menus use), plus the aiming crosshair:
+
+    * health         -- number + thin bar, bottom-left, reddening as it drops
+    * weapon + ammo  -- current weapon and its remaining rounds, bottom-left
+    * salvage        -- banked components, top-left
+
+Kept minimal and monochrome-warm to sit in the Marathon register: small dark
+backing plates for legibility over floor debris, no banners, no chrome. The
+hurt vignette still carries the "you are bleeding" read (render's _draw_post);
+this HUD is the exact numeric state.
 """
 
 from __future__ import annotations
 
-import math
+import numpy as np
 
-import pygame
+from .sim import WEAPONS, LIGHTNING_RECHARGE_TICKS
+from .render import INTERNAL_RES_ZOOM_SCALE, ui
+from . import text
 
-from .sim import WEAPONS, LIGHTNING_RECHARGE_TICKS, PLAYER_HP
-from .render import INTERNAL_RES_ZOOM_SCALE, KEY_COLORS, ui
-
-_FONT_CACHE: dict[int, "pygame.font.Font"] = {}
-
-
-def _font(size: int) -> "pygame.font.Font":
-    from .menus import get_font
-    return get_font(size)
+_INK = (225, 214, 180)        # warm parchment, the HUD's default type color
+_PLATE = (12, 12, 16)         # near-black backing plate
+_HP_OK = (150, 210, 160)
+_HP_LOW = (214, 96, 84)
+_AMMO = (150, 196, 220)
+_CROSS = (220, 240, 240)
 
 
-AMMO_LABEL = {"pistol": "9mm", "smg": "9mm", "shotgun": "shell", "rail": "cell", "tau": "cell"}
+def _fill(fb, x, y, w, h, color, alpha=255):
+    """Fill (or alpha-blend) a screen-space rect on the (W, H, 3) frame."""
+    W, H, _ = fb.shape
+    x0, y0 = max(0, int(x)), max(0, int(y))
+    x1, y1 = min(W, int(x + w)), min(H, int(y + h))
+    if x1 <= x0 or y1 <= y0:
+        return
+    region = fb[x0:x1, y0:y1]
+    if alpha >= 255:
+        region[...] = np.asarray(color, dtype=np.uint8)
+    else:
+        col = np.asarray(color, dtype=np.uint16)
+        d = region.astype(np.uint16)
+        region[...] = ((col * alpha + d * (255 - alpha) + 127) // 255).astype(np.uint8)
 
 
 class HUD:
-    def draw(self, surf: "pygame.Surface", session, mouse_pos=None) -> None:
-        w, h = surf.get_size()
-        if getattr(session.level, "vigil", False):
-            img = _font(11).render(f"WAVE {session.metrics.get('wave', 0)}",
-                                   True, (200, 190, 170))
-            surf.blit(img, (ui(6), ui(24)))
-        self._draw_hp(surf, session, h)
-        self._draw_economy(surf, session)
-        self._draw_think(surf, session)
-        self._draw_weapon(surf, session, w, h)
-        self._draw_keys(surf, session, w)
+    def draw(self, fb, session, mouse_pos=None) -> None:
+        """Paint the HUD onto `fb` (the renderer's (W, H, 3) numpy frame).
+        `mouse_pos` is the aim point in internal-resolution pixels."""
+        self._draw_salvage(fb, session)
+        self._draw_health(fb, session)
+        self._draw_weapon(fb, session)
         if mouse_pos is not None:
-            self._draw_crosshair(surf, session, mouse_pos)
+            self._draw_crosshair(fb, session, mouse_pos)
 
-    def _draw_hp(self, surf, session, h):
-        # top-left, clear of the bottom-right weapon/ammo cluster
-        bar_w, bar_h = ui(70), ui(5)
-        x, y = ui(6), ui(12)
-        low = session.hp < 35 and not session.dead
-        pulse = 0.5 + 0.5 * math.sin(session.tick_count * 0.35) if low else 1.0
-        # pulse floor stays readable: at the old floor the digit hit
-        # (40,40,40) mid-pulse — invisible exactly when hp matters most
-        color = (int(120 * pulse) + 115, 45, 45) if low else (235, 235, 235)
-        # backing plate: combat debris/glyphs behind the corner otherwise
-        # render right through the digits
-        img = _font(11).render(f"{max(0, int(session.hp))}", True, color)
-        plate_w = bar_w + ui(12) + img.get_width()
-        pygame.draw.rect(surf, (12, 12, 16), (x - ui(3), y - ui(8), plate_w, ui(18)))
-        pygame.draw.rect(surf, (40, 40, 40), (x, y, bar_w, bar_h))
-        frac = max(0.0, min(1.0, session.hp / PLAYER_HP))
-        pygame.draw.rect(surf, color, (x, y, int(bar_w * frac), bar_h))
-        pygame.draw.rect(surf, (90, 90, 90), (x, y, bar_w, bar_h), max(1, ui(1)))
-        surf.blit(img, (x + bar_w + ui(6), y - ui(6)))
+    # -- readouts -------------------------------------------------------
 
-    def _draw_economy(self, surf, session):
-        # under the hp bar: salvage and racked hulls (only once either
-        # exists -- the HUD stays clean until the economy is live)
-        comp = getattr(session, "components", 0)
-        chas = getattr(session, "chassis", 0)
-        kits = getattr(session, "station_kits", 0)
-        if not (comp or chas or kits or getattr(session, "recalls", 0)):
-            return
-        text = f"{comp}c"
-        if chas:
-            text += f"  {chas} chassis"
-        if kits:
-            text += f"  {kits} kit"
-        rec = getattr(session, "recalls", 0)
-        if rec:
-            text += f"  {rec} recall"
-        # Void node: the count that will not stop being counted
-        if "loss_ledger_display" in getattr(session, "mind_unlocks", ()):
-            text += f"  {session.metrics.get('deaths', 0)} lost"
-        y = ui(38) if getattr(session.level, "vigil", False) else ui(24)
-        img = _font(11).render(text, True, (170, 200, 180))
-        pygame.draw.rect(surf, (12, 12, 16),
-                         (ui(3), y - ui(2), img.get_width() + ui(6), ui(14)))
-        surf.blit(img, (ui(6), y))
+    def _plate(self, fb, x, y, w, h):
+        _fill(fb, x - ui(3), y - ui(2), w + ui(6), h + ui(4), _PLATE, alpha=190)
 
-    def _draw_think(self, surf, session):
-        """Minimal think-progress pip (SEEDPOD_UI_DESIGN.md): a small ring
-        under the economy line that fills as the focus concept accrues in
-        the field, and pulses quietly once a thought has finished (the
-        unlock itself waits for the pod)."""
-        focus = getattr(session, "think_focus", None)
-        done = getattr(session, "think_done", [])
-        if focus is None and not done:
-            return
-        y = ui(38) if getattr(session.level, "vigil", False) else ui(24)
-        comp = getattr(session, "components", 0)
-        if comp or getattr(session, "chassis", 0) or \
-                getattr(session, "station_kits", 0) or \
-                getattr(session, "recalls", 0):
-            y += ui(16)  # sit below the economy line when it is shown
-        cx, cy, r = ui(10), y + ui(5), ui(4)
-        pygame.draw.rect(surf, (12, 12, 16),
-                         (cx - r - ui(2), cy - r - ui(2),
-                          2 * (r + ui(2)), 2 * (r + ui(2))))
-        if done:
-            pulse = 0.55 + 0.45 * math.sin(session.tick_count * 0.12)
-            col = (int(150 + 64 * pulse), int(145 + 60 * pulse),
-                   int(128 + 54 * pulse))
-            pygame.draw.circle(surf, col, (cx, cy), r)
+    def _draw_salvage(self, fb, session) -> None:
+        comp = int(getattr(session, "components", 0))
+        s = f"{comp}c"
+        size = ui(14)
+        tw, th = text.measure(s, size)
+        x, y = ui(6), ui(6)
+        self._plate(fb, x, y, tw, th)
+        text.blit_text(fb, s, x, y, _INK, size)
+
+    def _draw_health(self, fb, session) -> None:
+        W, H, _ = fb.shape
+        hp = max(0, int(getattr(session, "hp", 0)))
+        maxhp = max(1, int(getattr(session, "max_hp", 100)))
+        frac = min(1.0, hp / maxhp)
+        col = _HP_LOW if frac <= 0.34 else _HP_OK
+        size = ui(14)
+        label = f"{hp}"
+        tw, th = text.measure(label, size)
+        x = ui(6)
+        y = H - ui(6) - th
+        self._plate(fb, x, y, tw + ui(5) + ui(44), th)
+        text.blit_text(fb, label, x, y, col, size)
+        # thin bar to the right of the number
+        bx = x + tw + ui(5)
+        bw = ui(44)
+        by = y + th // 2 - ui(1)
+        _fill(fb, bx, by, bw, ui(3), (40, 44, 50))
+        _fill(fb, bx, by, max(ui(1), int(bw * frac)), ui(3), col)
+
+    def _draw_weapon(self, fb, session) -> None:
+        W, H, _ = fb.shape
+        name = getattr(session, "weapon", "")
+        spec = WEAPONS.get(name, {})
+        atype = spec.get("ammo")
+        if atype is None:
+            ammo_str = ""            # melee: no ammo readout
+        elif atype == "components":
+            ammo_str = f"{int(getattr(session, 'components', 0))}"
         else:
-            from . import mindmap
-            frac = min(1.0, session.think_progress.get(focus, 0)
-                       / max(1, mindmap.think_ticks(focus)))
-            pygame.draw.circle(surf, (45, 62, 54), (cx, cy), r, max(1, ui(1)))
-            if frac > 0.0:
-                start = -math.pi / 2
-                steps = max(1, int(frac * 20))
-                pts = [(cx, cy)]
-                for i in range(steps + 1):
-                    a = start + frac * 2 * math.pi * (i / steps)
-                    pts.append((cx + math.cos(a) * r, cy + math.sin(a) * r))
-                if len(pts) >= 3:
-                    pygame.draw.polygon(surf, (108, 168, 140),
-                                        [(int(px), int(py)) for px, py in pts])
+            ammo_str = f"{int(getattr(session, 'ammo', {}).get(atype, 0))}"
+        size = ui(12)
+        label = name.upper()
+        tw, th = text.measure(label, size)
+        # sits just above the health line
+        _, hh = text.measure("0", ui(14))
+        y = H - ui(6) - hh - ui(3) - th
+        x = ui(6)
+        aw = 0
+        if ammo_str:
+            aw = text.measure(ammo_str, size)[0] + ui(6)
+        self._plate(fb, x, y, tw + aw, th)
+        text.blit_text(fb, label, x, y, _INK, size)
+        if ammo_str:
+            text.blit_text(fb, ammo_str, x + tw + ui(6), y, _AMMO, size)
 
-    def _draw_weapon(self, surf, session, w, h):
-        name = session.weapon
-        f = _font(11)
-        if name == "lightning":
-            frac = min(1.0, session.lightning_charge / LIGHTNING_RECHARGE_TICKS)
-            cx, cy, r = w - ui(16), h - ui(20), ui(9)
-            pygame.draw.circle(surf, (40, 40, 50), (cx, cy), r, max(1, ui(1)))
-            if frac > 0.0:
-                start = -math.pi / 2
-                end = start + frac * 2 * math.pi
-                steps = max(1, int(frac * 24))
-                pts = [(cx, cy)]
-                for i in range(steps + 1):
-                    a = start + (end - start) * (i / max(1, steps))
-                    pts.append((cx + math.cos(a) * r, cy + math.sin(a) * r))
-                if len(pts) >= 3:
-                    color = (120, 240, 255) if frac >= 1.0 else (70, 130, 150)
-                    pygame.draw.polygon(surf, color, [(int(px), int(py)) for px, py in pts])
-            label = f.render("LIGHTNING", True, (200, 235, 255))
-            surf.blit(label, (w - ui(16) - label.get_width() - ui(16), h - ui(34)))
-        else:
-            ammo_t = AMMO_LABEL.get(name)
-            if name == "scrap":
-                count = f"{getattr(session, 'components', 0)}c"
-            elif name == "gland":
-                count = "1 INTEGRITY/SHOT"
-            elif name == "hole":
-                count = str(getattr(session, "holes", 0))
-                if session.hole_mark is not None:
-                    count += "*"  # one wall marked
-            elif name == "lightning":
-                ready = session.lightning_charge >= LIGHTNING_RECHARGE_TICKS
-                count = "RDY" if ready else                     f"{int(100 * session.lightning_charge / LIGHTNING_RECHARGE_TICKS)}%"
-            elif ammo_t is None:
-                count = "∞"
-            else:
-                count = str(session.ammo.get(ammo_t, 0))
-                if name == "tau" and session.tau_charge > 0:
-                    count += f" [{min(100, int(100 * session.tau_charge / 80))}%]"
-            label = f.render(f"{name.upper()}  {count}", True, (230, 230, 230))
-            surf.blit(label, (w - label.get_width() - ui(8), h - ui(16)))
+    # -- crosshair ------------------------------------------------------
 
-    def _draw_keys(self, surf, session, w):
-        from .render import draw_key_glyph
-        x = w - ui(12)
-        y = ui(8)
-        for key in sorted(session.keys):
-            color = KEY_COLORS.get(key, (200, 170, 60))
-            meta = getattr(session, "held_key_meta", {}).get(key)
-            item = getattr(meta, "item_name", None)
-            if not draw_key_glyph(surf, item, x, y + ui(5), ui(5), color):
-                pygame.draw.circle(surf, color, (x, y + ui(4)), ui(4))
-                pygame.draw.circle(surf, (0, 0, 0), (x, y + ui(4)), ui(4),
-                                   max(1, ui(1)))
-            x -= ui(16)
-
-    def _draw_crosshair(self, surf, session, mouse_pos):
+    def _draw_crosshair(self, fb, session, mouse_pos) -> None:
         mx, my = mouse_pos
         weapon = WEAPONS.get(session.weapon, {})
         if session.weapon == "lightning":
@@ -188,14 +125,14 @@ class HUD:
         else:
             maxcd = weapon.get("cd") or 1
             expand = (session.cooldown / maxcd) * 4.0 if maxcd else 0.0
-        # float math scaled by the raw ratio (not ui()'s rounding) so the
-        # default-res pixel truncation is bit-identical to the unscaled code
         s = INTERNAL_RES_ZOOM_SCALE
         size = (3 + expand) * s
         gap = 2 * s
-        width = max(1, ui(1))
-        color = (220, 240, 240)
-        pygame.draw.line(surf, color, (mx - size, my), (mx - gap, my), width)
-        pygame.draw.line(surf, color, (mx + gap, my), (mx + size, my), width)
-        pygame.draw.line(surf, color, (mx, my - size), (mx, my - gap), width)
-        pygame.draw.line(surf, color, (mx, my + gap), (mx, my + size), width)
+        wdt = max(1, ui(1))
+        cx, cy = int(mx), int(my)
+        h = wdt // 2
+        # four axis-aligned ticks (filled thin rects, so no line rasterizer)
+        _fill(fb, cx - size, cy - h, size - gap, wdt, _CROSS)          # left
+        _fill(fb, cx + gap, cy - h, size - gap, wdt, _CROSS)           # right
+        _fill(fb, cx - h, cy - size, wdt, size - gap, _CROSS)          # up
+        _fill(fb, cx - h, cy + gap, wdt, size - gap, _CROSS)           # down

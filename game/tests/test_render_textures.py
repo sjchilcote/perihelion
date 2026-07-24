@@ -77,8 +77,7 @@ def _draw(session, backend, ticks=20):
         session.tick(InputFrame(mx=0.0, my=0.0, ax=INTERNAL_W / 2, ay=INTERNAL_H / 2,
                                 fire=False, alt=False, interact=False, weapon=0))
         ren.consume_fx(session.fx)
-    ren.draw(surf)
-    return surf
+    return ren.draw(surf)
 
 
 @pytest.fixture(scope="module")
@@ -116,7 +115,7 @@ def test_textured_floor_differs_from_untextured_fallback(pygame_ready, tmp_path,
     session_flat = GameSession(level, seed=1234, screen=(INTERNAL_W, INTERNAL_H))
     flat = _draw(session_flat, "rust")
 
-    assert pygame.image.tobytes(textured, "RGB") != pygame.image.tobytes(flat, "RGB")
+    assert textured.tobytes() != flat.tobytes()
 
 
 _NEAR_LIGHT = LightSpec(polygon=0, pos=(-40.0, 0.0), color=(255, 255, 255),
@@ -171,8 +170,8 @@ def test_zero_ambient_black_then_light_falloff_on_world_pixels(
     the discovered sample point (near-white/mid-grey instead) for every
     (backend, textured) combination. Reverted before committing."""
     dark_session, lit_session = _dark_and_lit_sessions(monkeypatch, tmp_path, textured)
-    dark = pygame.surfarray.array3d(_draw(dark_session, backend))
-    lit = pygame.surfarray.array3d(_draw(lit_session, backend))
+    dark = _draw(dark_session, backend)
+    lit = _draw(lit_session, backend)
 
     diff = np.abs(dark.astype(int) - lit.astype(int)).sum(axis=2)
     margin = 40

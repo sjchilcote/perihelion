@@ -124,7 +124,9 @@ def run_bot(level: Level, bot: Bot, seed: int, max_ticks: int = DEFAULT_MAX_TICK
                 # only draw()+save is throttled to capture_every.
                 capture_renderer.consume_fx(session.fx)
                 if capture_dir is not None and session.tick_count % capture_every == 0:
-                    capture_renderer.draw(capture_surf)
+                    import pygame
+                    frame = capture_renderer.draw(capture_surf)
+                    pygame.surfarray.blit_array(capture_surf, frame)
                     if not _save_frame(capture_surf, capture_dir, frame_idx):
                         capture_skipped = True
                     frame_idx += 1

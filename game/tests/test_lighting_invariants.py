@@ -360,41 +360,37 @@ def test_pixel_composite_seam_freeness_across_corridor_portals(polygon_w, radius
                                    color=(255, 220, 170), intensity=1.2,
                                    radius=radius, kind="static"))
     session = GameSession(level, seed=1, screen=(INTERNAL_W, INTERNAL_H))
-    session.player_light.intensity = 0.0  # isolate the static light's own composite
-    # pygame backend explicitly: `_draw_world_lights`/`_blit_light` run
-    # identically on both backends (see `test_lighting_backend_parity`),
-    # but this test's `_draw_floor` trace hook (below, to find the portal
-    # columns) is pygame-only -- the rust backend emits the floor itself.
-    ren = Renderer(session, backend="pygame")
+    session.douse_player_lights()  # isolate the static light's own composite
+    ren = Renderer(session)
     ren._get_detail = lambda polygon: []  # isolate lighting from polygon decoration (see docstring)
-
-    # Record each polygon's own screen clip span so the assertion below can
-    # target the two shared PORTAL columns specifically (this property is
-    # about portal continuity, not about the level's outer walls, where a
-    # real floor-to-void step is expected and not a "seam").
-    spans: dict[int, tuple[float, float]] = {}
-    orig_floor = ren._draw_floor
-
-    def traced_floor(canvas, polygon, depth, clip_screen, xform=None):
-        xs = [p[0] for p in clip_screen]
-        spans[polygon] = (min(xs), max(xs))
-        return orig_floor(canvas, polygon, depth, clip_screen, xform)
-
-    ren._draw_floor = traced_floor
 
     surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
     session.tick(InputFrame(mx=0, my=0, ax=INTERNAL_W / 2, ay=INTERNAL_H / 2,
                              fire=False, alt=False, interact=False, weapon=0))
     ren.consume_fx(session.fx)
-    ren.draw(surf)
-    assert set(spans) == {r0, r1, r2}, f"not all 3 polygons rendered: {spans}"
+    frame = ren.draw(surf)
+
+    # Each polygon's own screen clip span, read from the renderer's own
+    # visibility set (backend-independent — the same instances the draw pass
+    # consumes) rather than a pygame-only draw hook. The assertion below
+    # targets the two shared PORTAL columns specifically: this property is
+    # about portal continuity, not the level's outer walls, where a real
+    # floor-to-void step is expected and not a "seam".
+    spans: dict[int, tuple[float, float]] = {}
+    for polygon, xform, depth, clip_screen, walls, entry_edge, ents in \
+            session.visible(ren.max_depth, ren.max_instances):
+        if len(clip_screen) < 3:
+            continue
+        xs = [p[0] for p in clip_screen]
+        spans[polygon] = (min(xs), max(xs))
+    assert set(spans) >= {r0, r1, r2}, f"not all 3 polygons rendered: {spans}"
     portal_xs = sorted({round(spans[r0][1]), round(spans[r1][0]),
                          round(spans[r1][1]), round(spans[r2][0])})
     # r0's right edge == r1's left edge, r1's right edge == r2's left edge
     # (touching axis-aligned rects): exactly 2 distinct shared columns.
     assert len(portal_xs) == 2, f"expected 2 portal columns, got {portal_xs}"
 
-    arr = pygame.surfarray.array3d(surf).astype(int)
+    arr = frame.astype(int)
     # A row well below the player sprite/reticle (they sit on the polygon's
     # vertical center) but still inside every polygon's floor extent.
     y = INTERNAL_H // 2 + 60
@@ -447,15 +443,14 @@ def test_no_ghost_pixel_at_light_radius_edge(radius):
     level.lights.append(LightSpec(polygon=r0, pos=(0.0, 0.0), color=(255, 255, 255),
                                    intensity=1.2, radius=radius, kind="static"))
     session = GameSession(level, seed=1, screen=(INTERNAL_W, INTERNAL_H))
-    session.player_light.intensity = 0.0
-    ren = Renderer(session, backend="pygame")
+    session.douse_player_lights()
+    ren = Renderer(session)
     ren._get_detail = lambda polygon: []
     surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
     session.tick(InputFrame(mx=0, my=0, ax=INTERNAL_W / 2, ay=INTERNAL_H / 2,
                              fire=False, alt=False, interact=False, weapon=0))
     ren.consume_fx(session.fx)
-    ren.draw(surf)
-    arr = pygame.surfarray.array3d(surf).astype(int)
+    arr = ren.draw(surf).astype(int)
     y = INTERNAL_H // 2 + 60  # clear of the player sprite/reticle at polygon center
     lum = arr[:, y, :].sum(axis=1)
     jumps = np.abs(np.diff(lum))
@@ -464,48 +459,73 @@ def test_no_ghost_pixel_at_light_radius_edge(radius):
         f"x={int(jumps.argmax())} (radius={radius})")
 
 
-@pytest.mark.skipif(not hasattr(necore, "Raster"),
-                     reason="this necore build has no Raster (rust render backend)")
-def test_lighting_backend_parity():
-    """`_draw_world_lights` runs post-hoc on the composed pixel surface
-    for BOTH backends identically (it does not branch on `self.backend`),
-    so a frame with lights on comes out close to byte-identical between
-    the pygame and rust backends whenever the underlying (unlit) frame
-    already does -- lighting adds no new parity surface to maintain, it
-    composites on top of whichever one already exists. This is the "new
-    raster op" the design brief anticipated; none was needed because
-    compositing happens after either backend's frame is already
-    assembled into the same pixel surface.
+# (test_lighting_backend_parity deleted 2026-07-22 with the pygame render
+# backend — there is only one renderer now, so there is nothing to compare.)
+
+
+def test_muzzle_flash_lights_across_the_portal_without_a_seam():
+    """Director 2026-07-22: "Muzzle flash causes room seams. Rework it to
+    use the actual lighting system. It should light up the whole room."
+
+    Fire a shot right beside an open portal and diff the frame against the
+    identical no-fire frame, isolating the shot's illumination. Two
+    properties, calibrated against measured pre/post-fix values:
+
+    * the flash must CROSS the portal (pre-fix the per-room glow disc put
+      mean 2.4 luminance into the neighbor strip; the real light puts >200)
+    * no portal-aligned cliff: pre-fix every lit row fell to EXACTLY ZERO
+      at the portal column (per-column means ...14, 12, 11, 0, 0, 0); a
+      real light's wedge continues through the doorway.
     """
     import numpy as np
     import pygame
 
-    from perihelion.render import INTERNAL_H, INTERNAL_W, Renderer
+    from perihelion.render import Renderer
 
-    # init, but deliberately NO pygame.quit() afterwards: this module sorts
-    # alphabetically before test_podscene, and quitting the font module here
-    # poisons menus.get_font's process-wide _FONT_CACHE for every later test
-    # file ("Invalid font (font module quit since font created)"). The
-    # suite's other pygame-quitting render test modules all sort after 'p',
-    # which is why they get away with their module-scoped quit fixtures.
     pygame.init()
-    b = LevelBuilder("PARITY", 1)
-    r0 = b.rect(-110, -80, 220, 160)
-    b.player(r0, (0, 0))
-    level = b.build()
-    level.lights.append(LightSpec(polygon=r0, pos=(0.0, 0.0),
-                                   color=(255, 200, 140), intensity=1.2,
-                                   radius=180.0, kind="static"))
 
-    frames = {}
-    for backend in ("pygame", "rust"):
-        session = GameSession(level, seed=3)
-        r = Renderer(session, backend=backend)
-        surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
-        r.draw(surf)
-        frames[backend] = pygame.surfarray.array3d(surf)
+    def shot_frame(fire):
+        b = LevelBuilder("MZSEAM", 1)
+        r0 = b.rect(0, 0, 160, 160, kind="dock")
+        r1 = b.rect(160, 0, 160, 160, kind="dock")
+        b.connect(r0, 2, r1, 0)
+        b.player(r0, (140, 80))
+        b.exit(r1, (300, 80))
+        s = GameSession(b.build(), seed=5, screen=(640, 360), zoom=1.0)
+        s.weapons = ["smg"]
+        s.weapon = "smg"
+        s.ammo["9mm"] = 99
+        s._shake = lambda *a, **k: None   # camera shake would smear the diff
+        r = Renderer(s)
+        surf = pygame.Surface((640, 360))
+        for t in range(3):
+            s.tick(InputFrame(ax=440.0, ay=180.0, fire=(fire and t == 2)))
+        r.consume_fx(s.fx)
+        # sprite fx (muzzle sparks, gibs) are not illumination; drop them so
+        # the diff below measures LIGHT alone
+        r._sparks.clear()
+        r._gibs.clear()
+        return r.draw(surf).astype(np.int32)
 
-    diff = np.abs(frames["pygame"].astype(int) - frames["rust"].astype(int))
-    # a handful of edge/AA texels differ under the existing
-    # (pre-lighting) parity tolerance; lighting must not widen it.
-    assert diff.max() <= 40, f"backend divergence with lights on: max diff {diff.max()}"
+    d = np.abs(shot_frame(True) - shot_frame(False)).sum(axis=2)
+
+    # (a) the shot's light reaches the neighboring room
+    r1_strip = float(d[345:420, 150:210].mean())
+    assert r1_strip > 40.0, (
+        f"muzzle flash does not light the neighboring room: mean diff "
+        f"{r1_strip:.1f} in the strip past the portal (pre-fix: 2.4)")
+
+    # (b) no row's illumination collapses AT the portal column. The old
+    # per-room disc was clipped at x=340 for every row it spanned; a wedge
+    # shadow edge is diagonal and cannot zero a whole band of rows at one
+    # column. Rows around the tracer line are excluded.
+    rows = [y for y in range(120, 240) if not 170 <= y <= 190]
+    cliffs = 0
+    for y in rows:
+        before = float(d[335:339, y].mean())
+        after = float(d[341:345, y].mean())
+        if before > 8.0 and after < 0.25 * before:
+            cliffs += 1
+    assert cliffs == 0, (
+        f"{cliffs} rows lose their illumination exactly at the portal "
+        f"column — the per-room glow-disc seam (pre-fix: every lit row)")

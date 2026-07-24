@@ -225,8 +225,7 @@ def _render_root_and_nonroot(tmp_path, backend, level_fn, level_id, margin_frac=
         surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
         session.tick(InputFrame())
         ren.consume_fx(session.fx)
-        ren.draw(surf)
-        arr = pygame.surfarray.pixels3d(surf).copy()
+        arr = ren.draw(surf)
         return _sample_textured_polygon(session, ren, arr, r0), session.player_polygon()
 
     map_root, root_a = _render(199.9)  # player still in r0 -> r0 is root
@@ -294,8 +293,7 @@ def test_flat_floor_is_root_frame_invariant(pygame_ready, tmp_path, backend):
         surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
         session.tick(InputFrame())
         ren.consume_fx(session.fx)
-        ren.draw(surf)
-        arr = pygame.surfarray.pixels3d(surf).copy()
+        arr = ren.draw(surf)
         instances = session.visible(ren.max_depth, ren.max_instances)
         px_screen = None
         for polygon, xform, depth, clip_screen, walls, entry_edge, ents in instances:
@@ -591,8 +589,7 @@ def test_darkness_enabled_multipolygon_is_root_frame_invariant(
         surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
         session.tick(InputFrame())
         ren.consume_fx(session.fx)
-        ren.draw(surf)
-        arr = pygame.surfarray.pixels3d(surf).copy()
+        arr = ren.draw(surf)
         return (_sample_polygon_screen_grid(session, ren, arr, rA),
                 _sample_polygon_screen_grid(session, ren, arr, rB),
                 session.player_polygon())

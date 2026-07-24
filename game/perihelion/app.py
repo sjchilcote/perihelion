@@ -251,10 +251,15 @@ class GameScene(menus.Scene):
                 return
 
     def draw(self, app, surf) -> None:
-        self.renderer.draw(surf, debug=app.debug)
+        # render.py returns a raw (W, H, 3) numpy framebuffer (no pygame);
+        # the HUD paints straight onto it, then we blit it to the display
+        # surface and let the pygame-side float texts / menu overlays draw
+        # on top.
+        frame = self.renderer.draw(surf, debug=app.debug)
         is_top = not app.scenes or app.scenes[-1] is self
         mouse_internal = app.window_to_internal(pygame.mouse.get_pos())
-        self.hud.draw(surf, self.session, mouse_internal)
+        self.hud.draw(frame, self.session, mouse_internal)
+        pygame.surfarray.blit_array(surf, frame)
         if not is_top:
             # a menu overlay is on top: its own text owns the screen --
             # objectives/floats pause (undrawn, undecayed) until it closes,

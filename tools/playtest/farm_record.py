@@ -94,8 +94,9 @@ def main():
         audio.handle_sounds(session, fx)
         music.update(session)
         if t % a.every == 0:
-            renderer.draw(surf)
-            hud.draw(surf, session)
+            frame = renderer.draw(surf)
+            hud.draw(frame, session)
+            pygame.surfarray.blit_array(surf, frame)
             pygame.image.save(surf,
                               str(out / f"frame_{saved:06d}.png"))
             saved += 1

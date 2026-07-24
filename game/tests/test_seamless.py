@@ -140,9 +140,7 @@ def test_no_brightness_seam_across_transfers():
         s.tick(InputFrame(mx=1.0))
         ren.consume_fx(s.fx)
         if t % 2 == 0:
-            ren.draw(surf)
-            import pygame.surfarray as sa
-            m = float(sa.array3d(surf).mean())
+            m = float(ren.draw(surf).mean())
             if prev is not None:
                 worst = max(worst, abs(m - prev))
             prev = m

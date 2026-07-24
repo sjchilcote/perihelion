@@ -1,30 +1,28 @@
-"""Immediate-mode renderer: necore draw lists -> a 640x360 pygame.Surface.
+"""Immediate-mode renderer: necore draw lists -> a 640x360 numpy framebuffer.
 
-Two rasterization backends behind one Renderer:
+ONE renderer: world/entity/coverage rasterize in Rust via a necore.Raster
+display list. Per-polygon detail props are encoded once into cached command
+blobs (polygon-local coords; the raster transforms and clips them without the
+GIL), everything dynamic is emitted already-rounded in screen space, and the
+composed RGBA frame is blitted back. Darkness (including the otherworld
+inverse field), deferred glows, bolts, post overlays, and debug text
+composite in Python on the blitted frame.
 
-* "rust" (default when the necore build has Raster): world/entity/coverage
-  rasterize in Rust via a necore.Raster display list. Per-polygon detail props
-  are encoded once into cached command blobs (polygon-local coords; the raster
-  transforms and clips them without the GIL), everything dynamic is emitted
-  already-rounded in screen space, and the composed RGBA frame is blitted
-  back. Darkness (including the otherworld inverse field), deferred glows,
-  bolts, post overlays, and debug text still composite in Python on the
-  blitted frame — identical code to the pygame backend, so the two backends
-  produce bit-identical frames.
-* "pygame": the original pygame.draw path, unchanged semantics.
+There used to be a second, pure-pygame world renderer behind a `backend`
+switch, kept as a "byte-identical" fallback/parity reference. It was deleted
+(2026-07-22): two renderers meant tests and frame-reviews could validate the
+pygame one while the game shipped rust, and they were NOT identical where it
+mattered. There is exactly one renderer now, so what the tests see is what
+ships.)
 
-Select with Renderer(session, backend=...) or the PERIHELION_RENDER_BACKEND
-environment variable ("rust" | "pygame").
-
-The no-seams invariant holds identically in both backends: entities draw
-WHOLE onto their own layer/plane and are masked per-pixel by the UNION of
-every instance's clip region (pygame: cov-mask + BLEND_RGBA_MIN; rust: the
-coverage plane filled by Raster.add_clip with the same fill and rounding).
-
-No pygame.display dependency anywhere in this module (fonts are OK) so it
-runs the same under a real window and under SDL_VIDEODRIVER=dummy. All
-Surfaces used for post effects/glows are pre-baked once in __init__; draw()
-never allocates a Surface.
+This module contains NO pygame at all: world/entity/coverage rasterize in
+Rust (necore.Raster), every composite step (lightmap multiply, glow/light
+accumulation, otherworld darkness field, post overlays) is numpy on the
+framebuffer, textures load via PIL, and text goes through the bitmap-font
+path in `text.py`. `draw()` returns a (W, H, 3) uint8 array (pygame
+surfarray axis order); the caller owns whatever display Surface it blits to.
+All post/glow buffers are pre-baked numpy arrays; draw() allocates only the
+returned snapshot.
 
 Effect pools (gibs, sparks, flashes, lightning, screams, hitflash, hurt/die
 overlays) are time-decayed in `consume_fx`, which the caller drives once per
@@ -42,13 +40,15 @@ import random
 from pathlib import Path
 
 import numpy as np
-import pygame
+from PIL import Image
 
 import necore
 
 from . import texture_geom
-from .sim import DT
+from . import text
+from .sim import BUILDING_UNPACK_TICKS, CALL_TRANSMIT_TICKS, DT
 from .sim import ENEMIES as SIM_ENEMIES
+from .sim import SENTRIES as SENTRY_SPECS
 
 _DEFAULT_INTERNAL_W, _DEFAULT_INTERNAL_H = 640, 360
 
@@ -74,11 +74,11 @@ def _parse_internal_res() -> tuple[int, int]:
 
 INTERNAL_W, INTERNAL_H = _parse_internal_res()
 
-# The camera's baseline zoom (GameSession's default 1.35, sim.py) is
+# The camera's baseline zoom (GameSession's default 1.0, sim.py) is
 # authored for the 640x360 default internal resolution. Scale it by the
 # resolution ratio so the world-space field of view is unchanged when
 # PERIHELION_INTERNAL_RES changes the internal render size (ARTSTYLE_DIRECTION.md:
-# "at 1280x720 zoom doubles, ~3 px/world-unit territory" -- 1.35 * 2 = 2.7).
+# "at 1280x720 zoom doubles, ~3 px/world-unit territory" -- 1.0 * 2 = 2.0).
 INTERNAL_RES_ZOOM_SCALE = INTERNAL_W / _DEFAULT_INTERNAL_W
 
 
@@ -92,6 +92,29 @@ def ui(px: float) -> int:
 
 
 TEXTURE_DIR = Path(__file__).resolve().parent / "assets" / "textures"
+# how far the entity coverage mask is dilated past the visible world, in
+# screen px: a hair over the largest body radius at the shipped zoom, so
+# nothing is ever cut in half at a polygon boundary
+ENTITY_SPILL_PX = 18
+
+
+def _dilate_poly(pts, px):
+    """Push a screen polygon outward from its centroid by `px`. Used only
+    to widen the ENTITY coverage mask, never the floor fill."""
+    n = len(pts)
+    if n < 3:
+        return list(pts)
+    cx = sum(p[0] for p in pts) / n
+    cy = sum(p[1] for p in pts) / n
+    out = []
+    for x, y in pts:
+        dx, dy = x - cx, y - cy
+        d = math.hypot(dx, dy)
+        if d < 1e-6:
+            out.append((x, y))
+        else:
+            out.append((x + dx / d * px, y + dy / d * px))
+    return out
 
 FLOOR_BASE = (104, 104, 132)       # flat-floor ALBEDO (2026-07-13): under zero-ambient
                                    # multiply lighting the floor color is the brightness
@@ -226,7 +249,44 @@ ENEMY_SHAPE = {
     # in its OWN silhouette, jagged rather than the biological lumpiness
     # the other kinds use).
     "flicker": _regular_lumpy(6, [1.05, 0.55, 0.95, 0.5, 1.0, 0.6], phase=0.4),
+    # the Adversary's own geometry: too many sides, none of them agreeing
+    # radii kept near 1.0 on purpose: at gameplay scale the old 0.45-1.2
+    # spread read as a TRIANGLE from one angle and a DIAMOND from another,
+    # so one species looked like two (frame review, 2026-07-21). The
+    # never-still quality comes from _boil, not from the base shape.
+    "vagrant": _regular_lumpy(8, [1.08, 0.86, 1.0, 0.84, 1.1, 0.88, 0.98,
+                                  0.86], phase=0.2),
+    "lacuna": _regular_lumpy(10, [1.12, 0.82, 1.04, 0.8, 1.1, 0.84, 1.0,
+                                  0.86, 1.06, 0.8], phase=0.55),
 }
+# Adversary sensor trace: these do not return like a body does. Drawn as an
+# unfilled, doubled outline whose vertices are re-solved every frame (see
+# _draw_enemy), in a channel colour nothing in the Testator lane uses.
+ADVERSARY_TRACE = {"vagrant": (120, 245, 230), "lacuna": (185, 140, 255)}
+# how much wider than its hitbox the Adversary's trace is drawn — see
+# _draw_adversary. Render-only: the sim never reads this. Was 2.3 while the
+# capture pipeline was mistakenly recording at zoom 0.45 (a THIRD of the
+# real game's 1.35), where a 9.5u body was an 8px speck and needed heavy
+# inflation to read at all. At the true zoom the base body is already ~3x
+# larger on screen, so 2.3 over-dominated close passes; 1.5 keeps the trace
+# clearly larger-than-the-body (the "unresolvable return" read) without
+# swallowing the frame.
+ADVERSARY_TRACE_SCALE = 1.5
+
+
+def _boil(pts, tick, eid, amp):
+    """Re-solve a silhouette's vertices for this frame: every vertex walks
+    its own little orbit, so the outline never settles. Deterministic in
+    (tick, eid, vertex) — the same frame always boils the same way."""
+    out = []
+    for i, (x, y) in enumerate(pts):
+        h = ((eid * 2654435761) + i * 40503) % 997 / 997.0
+        a = (tick * 0.13) + h * 6.283
+        out.append((x + math.cos(a * (1.0 + h)) * amp,
+                    y + math.sin(a * (1.6 - h * 0.5)) * amp))
+    return out
+
+
 ENEMY_COLOR = {
     "husk": (126, 142, 116),
     "mite": (208, 220, 198),
@@ -235,6 +295,10 @@ ENEMY_COLOR = {
     "shrieker": (236, 228, 205),
     "warden": (52, 32, 60),
     "flicker": (150, 60, 150),
+    # shadow/silhouette passes only — the Adversary's live trace is drawn
+    # by _draw_adversary, which never touches these
+    "vagrant": (40, 90, 88),
+    "lacuna": (62, 48, 92),
 }
 
 
@@ -271,34 +335,109 @@ def _rgba(color):
         | ((color[2] & 0xFF) << 8) | 0xFF
 
 
-class _PygameCanvas:
-    """Forwards to pygame.draw on a target Surface (world or entity layer)."""
+class Rect:
+    """Minimal screen-space rectangle — the renderer's rectangle datatype,
+    replacing pygame.Rect. Iterable as (x, y, w, h) so a canvas.rect() call
+    unpacks it directly; exposes the handful of edge/center accessors the
+    glyph/prop code reads. Ints throughout (pygame.Rect truncated too)."""
 
-    __slots__ = ("surf",)
+    __slots__ = ("x", "y", "w", "h")
 
-    def __init__(self, surf):
-        self.surf = surf
+    def __init__(self, x, y=None, w=None, h=None):
+        if y is None:  # constructed from a single 4-iterable (x, y, w, h)
+            x, y, w, h = x
+        self.x, self.y, self.w, self.h = int(x), int(y), int(w), int(h)
 
-    def polygon(self, color, pts, width=0):
-        pygame.draw.polygon(self.surf, color, pts, width)
+    def __iter__(self):
+        return iter((self.x, self.y, self.w, self.h))
 
-    def line(self, color, a, b, width=1):
-        pygame.draw.line(self.surf, color, a, b, width)
+    @property
+    def left(self):
+        return self.x
 
-    def lines(self, color, closed, pts, width=1):
-        pygame.draw.lines(self.surf, color, closed, pts, width)
+    @property
+    def top(self):
+        return self.y
 
-    def circle(self, color, center, radius, width=0):
-        pygame.draw.circle(self.surf, color, center, radius, width)
+    @property
+    def right(self):
+        return self.x + self.w
 
-    def rect(self, color, r, width=0):
-        pygame.draw.rect(self.surf, color, r, width)
+    @property
+    def bottom(self):
+        return self.y + self.h
 
-    def ellipse(self, color, r):
-        pygame.draw.ellipse(self.surf, color, r)
+    @property
+    def width(self):
+        return self.w
 
-    def set_at(self, pos, color):
-        self.surf.set_at(pos, color)
+    @property
+    def height(self):
+        return self.h
+
+    @property
+    def centerx(self):
+        return self.x + self.w // 2
+
+    @property
+    def centery(self):
+        return self.y + self.h // 2
+
+    @property
+    def topleft(self):
+        return (self.x, self.y)
+
+    @property
+    def center(self):
+        return (self.centerx, self.centery)
+
+    @center.setter
+    def center(self, pos):
+        cx, cy = pos
+        self.x = int(cx) - self.w // 2
+        self.y = int(cy) - self.h // 2
+
+
+def _size_of(surf) -> tuple[int, int]:
+    """(w, h) of a draw target, duck-typed so render.py never imports pygame:
+    a pygame.Surface (get_size), a numpy frame ((W, H, ...) shape), or a plain
+    (w, h) tuple all work. The target is used ONLY for sizing; draw() returns
+    the composited framebuffer, it never writes back into `surf`."""
+    gs = getattr(surf, "get_size", None)
+    if gs is not None:
+        return gs()
+    if isinstance(surf, np.ndarray):
+        return int(surf.shape[0]), int(surf.shape[1])
+    w, h = surf
+    return int(w), int(h)
+
+
+def _mult_into(dst: np.ndarray, src) -> None:
+    """In-place pygame BLEND_RGB_MULT: dst = (src*dst + 255) >> 8, per channel
+    (the exact pygame-ce 2.5.7 multiply). `dst` is a (..., 3) uint8 view;
+    `src` is a broadcastable uint8 array or 3-tuple."""
+    d = dst.astype(np.uint32)
+    s = np.asarray(src, dtype=np.uint32)
+    np.copyto(dst, ((s * d + 255) >> 8).astype(np.uint8))
+
+
+def _add_into(dst: np.ndarray, src) -> None:
+    """In-place pygame BLEND_RGB_ADD: dst = min(255, src + dst)."""
+    d = dst.astype(np.uint16)
+    s = np.asarray(src, dtype=np.uint16)
+    np.copyto(dst, np.minimum(d + s, 255).astype(np.uint8))
+
+
+def _alpha_over(fb: np.ndarray, rgb, alpha) -> None:
+    """In-place source-over alpha composite onto `fb` (a (W, H, 3) uint8
+    view). `rgb` is a 3-tuple or (W, H, 3) array; `alpha` is a scalar, a
+    (W, H) field, or broadcastable — 0..255. Rounds like SDL (+127)//255."""
+    a = np.asarray(alpha, dtype=np.uint16)
+    if a.ndim:
+        a = a[..., None]
+    src = np.asarray(rgb, dtype=np.uint16)
+    d = fb.astype(np.uint16)
+    np.copyto(fb, ((src * a + d * (255 - a) + 127) // 255).astype(np.uint8))
 
 
 class _RustCanvas:
@@ -367,7 +506,7 @@ class _RustCanvas:
         pygame-ce 2.5.7 draw_ellipse_filled, emitting its horizontal spans
         as 1px-high rect fills. Only the filled form exists in this
         codebase (draw_key_glyph's signet)."""
-        rr = pygame.Rect(r)
+        rr = r if isinstance(r, Rect) else Rect(r)
         x0, y0, w, h = rr.x, rr.y, rr.w, rr.h
         if w == 1:
             self.line(color, (x0, y0), (x0, y0 + h - 1), 1)
@@ -416,12 +555,11 @@ class _RustCanvas:
                 d2 += dx - dy + rx * rx
 
 
-def draw_key_glyph(surf, item_name, cx, cy, r, color) -> bool:
+def draw_key_glyph(canvas, item_name, cx, cy, r, color) -> bool:
     """Tiny object silhouette for a diegetic key item; returns False when
     the name matches no known family (caller draws its fallback).
 
-    `surf` may be a pygame.Surface (HUD callers) or a renderer canvas."""
-    canvas = _PygameCanvas(surf) if isinstance(surf, pygame.Surface) else surf
+    `canvas` is a renderer draw canvas (_RustCanvas)."""
     name = (item_name or "").upper()
     ix, iy, r = int(cx), int(cy), max(4, int(r))
     if "WHEEL" in name:
@@ -433,7 +571,7 @@ def draw_key_glyph(surf, item_name, cx, cy, r, color) -> bool:
         return True
     if "CARTRIDGE" in name or "CANISTER" in name:
         w, h = max(4, int(r * 0.9)), max(6, int(r * 1.4))
-        rect = pygame.Rect(ix - w // 2, iy - h // 2, w, h)
+        rect = Rect(ix - w // 2, iy - h // 2, w, h)
         canvas.rect(color, rect, 1)
         for k in range(3):
             y = rect.top + 2 + k * max(2, h // 4)
@@ -442,7 +580,7 @@ def draw_key_glyph(surf, item_name, cx, cy, r, color) -> bool:
         return True
     if "CARD" in name:
         w, h = max(8, int(r * 1.5)), max(5, int(r * 0.9))
-        rect = pygame.Rect(ix - w // 2, iy - h // 2, w, h)
+        rect = Rect(ix - w // 2, iy - h // 2, w, h)
         canvas.rect(color, rect, 1)
         canvas.line(color, (rect.right - 3, rect.top),
                     (rect.right, rect.top + 3), 1)
@@ -1348,44 +1486,34 @@ _POLYGON_PROP_GENERATORS = {
 
 
 class Renderer:
-    """`Renderer(session).draw(surf, debug=False)` paints one frame.
+    """`Renderer(session).draw(surf, debug=False)` paints one frame and
+    returns it as a (W, H, 3) uint8 numpy array (pygame surfarray axis order).
 
-    `surf` must be a 640x360 pygame.Surface. Immediate-mode: nothing is
+    `surf` supplies only the frame size (a pygame.Surface, a numpy frame, or a
+    (w, h) tuple -- see `_size_of`); render.py never writes into it and imports
+    no pygame. Immediate-mode: nothing is
     retained across frames except the effect pools and the per-polygon detail
     cache (both intentionally persistent — grime is stable per polygon, decals
     live in `session.decals`).
     """
 
-    def __init__(self, session, max_depth: int = 22, max_instances: int = 320,
-                 backend: "str | None" = None):
+    def __init__(self, session, max_depth: int = 22, max_instances: int = 320):
         self.session = session
         self.max_depth = max_depth
         self.max_instances = max_instances
 
-        # backend resolution: explicit arg > PERIHELION_RENDER_BACKEND env
-        # var > default. The default prefers rust and falls back to pygame
-        # only when this necore build has no Raster; an EXPLICIT rust
-        # request that cannot be honored fails loudly instead.
-        explicit = backend if backend is not None \
-            else os.environ.get("PERIHELION_RENDER_BACKEND")
-        if explicit is None:
-            backend = "rust" if hasattr(necore, "Raster") else "pygame"
-        else:
-            backend = explicit
-            if backend not in ("rust", "pygame"):
-                raise ValueError(
-                    f"unknown render backend {backend!r} (want 'rust' or 'pygame')")
-            if backend == "rust" and not hasattr(necore, "Raster"):
-                raise ValueError(
-                    "render backend 'rust' requested but this necore build "
-                    "has no Raster (rebuild with maturin develop)")
-        self.backend = backend
-
-        # rust-backend state (raster/framebuffer sized lazily to the draw
+        # state (raster/framebuffer sized lazily to the draw
         # surface: tests render at 480x270, the game at 640x360)
         self._raster = None
         self._framebuf: "bytearray | None" = None
-        self._frame: "pygame.Surface | None" = None
+        # (W, H, 3) uint8 view onto _framebuf's RGB (surfarray axis order);
+        # every composite step writes here, draw() returns a copy.
+        self._rgb: "np.ndarray | None" = None
+        # a second Raster (+ buffer/view) used purely to rasterize light-wedge
+        # and otherworld coverage masks with pixel-exact pygame parity.
+        self._mask_raster = None
+        self._maskbuf: "bytearray | None" = None
+        self._mask_arr: "np.ndarray | None" = None
         self._blob_cache: dict[int, tuple] = {}
 
         # -- bespoke per-polygon floor textures (ARTSTYLE_DIRECTION.md lever
@@ -1401,26 +1529,19 @@ class Renderer:
         # rust backend: texture ids already uploaded to the CURRENT Raster
         # instance (cleared whenever _ensure_raster rebuilds the Raster).
         self._uploaded_tex_ids: set[int] = set()
-        # pygame backend: reusable full-surface alpha mask for the exact
-        # same clip-polygon coverage the rust OP_TEX_FILL / OP_CLIP_FILL
-        # spans use (see _draw_floor_textured).
-        self._tex_mask: "pygame.Surface | None" = None
 
-        self._ent_layer: "pygame.Surface | None" = None
-        self._cov_mask: "pygame.Surface | None" = None
         self._floor_color_cache: dict[int, tuple] = {}
         self._wall_color_cache: dict[int, tuple] = {}
-        self._inv_darkness: "pygame.Surface | None" = None
-        self._lightmap: "pygame.Surface | None" = None
-        self._ow_field: "pygame.Surface | None" = None
-        self._ow_mask: "pygame.Surface | None" = None
+        # (W, H, 3) inverted cold otherworld field; (W, H, 3) per-frame
+        # lightmap; both numpy, allocated lazily at frame size.
+        self._inv_darkness: "np.ndarray | None" = None
+        self._lightmap: "np.ndarray | None" = None
         self._detail_cache: dict[int, list] = {}
         self._pal_cache: dict[int, tuple] = {}
         self._portal_edges: "dict[int, set[int]] | None" = None
 
         self._gibs: list[dict] = []
         self._sparks: list[dict] = []
-        self._flashes: list[dict] = []
         self._bolts: list[dict] = []
         self._screams: list[dict] = []
         self._hitflash: dict[int, int] = {}
@@ -1428,94 +1549,58 @@ class Renderer:
         self._death_fade = 0
         self._dying = False
 
-        self._font = None
-
         self._bake_glows()
         self._bake_vignette()
-        self._deferred_glows: list = []
         self._deferred_bolts: list = []
         self._deferred_screen_glows: list = []
-        self._bake_overlays()
+        # bolt glow discs that feed the lightmap (the bright bolt CORE draws
+        # straight onto the entity layer in _draw_effects, so it survives the
+        # darkness multiply unattenuated, same as every entity sprite).
+        self._deferred_bolt_glows: list = []
 
     # ------------------------------------------------------------------
-    # one-time surface baking
+    # one-time buffer baking (numpy sprites, row=y col=x)
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _radial_sprite(r, rgb):
+        """(d, d, 3) uint8 glow disc, radius `r`, premultiplied `a*a` falloff
+        (additive blits don't attenuate by alpha, so the falloff lives in the
+        RGB). Row=y, col=x, matching the old pygame set_at((x, y)) order."""
+        d = r * 2 + 4
+        yy, xx = np.mgrid[0:d, 0:d].astype(np.float32)
+        c = d / 2.0
+        dist = np.hypot(xx - c, yy - c)
+        a = np.where(dist <= r, np.clip(1.0 - dist / r, 0.0, 1.0), 0.0)
+        aa = a * a
+        img = np.empty((d, d, 3), dtype=np.uint8)
+        for ch, base in enumerate(rgb):
+            img[..., ch] = (base * aa).astype(np.uint8)  # int() truncation
+        return img
 
     def _bake_glows(self):
-        # Additive blits add source RGB directly (alpha does NOT attenuate),
-        # so the radial falloff must be premultiplied into the RGB itself —
-        # otherwise the glow is a hard solid disc, not light on the floor.
         sizes = [8, 16, 26, 40, 60, 90]
         self._glow_sizes = sizes
-        self._glow_cache = {}
-        for r in sizes:
-            d = r * 2 + 4
-            s = pygame.Surface((d, d))  # black = adds nothing
-            cx = cy = d / 2.0
-            for yy in range(d):
-                for xx in range(d):
-                    dist = math.hypot(xx - cx, yy - cy)
-                    if dist <= r:
-                        a = max(0.0, 1.0 - dist / r)
-                        aa = a * a
-                        s.set_at((xx, yy), (int(235 * aa), int(212 * aa), int(164 * aa)))
-            self._glow_cache[r] = s
-
+        self._glow_cache = {r: self._radial_sprite(r, (235, 212, 164))
+                            for r in sizes}
         # A second, smaller, green-phosphor-tinted glow for lit instruments
         # (lab consoles, wall terminals) -- a separate palette from the warm
         # muzzle/lightning glow above so a screen reads as its own light
         # source, not a gunshot afterimage.
         screen_sizes = [6, 10, 16]
         self._screen_glow_sizes = screen_sizes
-        self._screen_glow_cache = {}
-        for r in screen_sizes:
-            d = r * 2 + 4
-            s = pygame.Surface((d, d))
-            cx = cy = d / 2.0
-            for yy in range(d):
-                for xx in range(d):
-                    dist = math.hypot(xx - cx, yy - cy)
-                    if dist <= r:
-                        a = max(0.0, 1.0 - dist / r)
-                        aa = a * a
-                        s.set_at((xx, yy), (int(70 * aa), int(200 * aa), int(150 * aa)))
-            self._screen_glow_cache[r] = s
+        self._screen_glow_cache = {r: self._radial_sprite(r, (70, 200, 150))
+                                   for r in screen_sizes}
 
     def _bake_vignette(self):
+        # _vig_alpha: (W, H) uint8 edge-falloff field for the low-hp/hurt red
+        # vignette (the constant (160, 8, 8) tint is applied at composite).
         w, h = INTERNAL_W, INTERNAL_H
         yy, xx = np.mgrid[0:h, 0:w]
         cx, cy = w / 2.0, h / 2.0
         dist = np.sqrt(((xx - cx) / (w / 2.0)) ** 2 + ((yy - cy) / (h / 2.0)) ** 2)
-
-        a = np.clip((dist - 0.62) / 0.6, 0.0, 1.0)
-        alpha = (a * 110).astype(np.uint8)
-        surf = pygame.Surface((w, h), pygame.SRCALPHA)
-        arr = pygame.surfarray.pixels_alpha(surf)
-        arr[:, :] = alpha.T
-        del arr
-        self._vignette = surf
-
         a2 = np.clip((dist - 0.20) / 0.85, 0.0, 1.0)
-        alpha2 = (a2 * 190).astype(np.uint8)
-        surf2 = pygame.Surface((w, h), pygame.SRCALPHA)
-        arr2 = pygame.surfarray.pixels_alpha(surf2)
-        arr2[:, :] = alpha2.T
-        del arr2
-        rgb2 = pygame.surfarray.pixels3d(surf2)
-        rgb2[:, :, 0] = 160
-        rgb2[:, :, 1] = 8
-        rgb2[:, :, 2] = 8
-        del rgb2
-        self._vignette_lowhp = surf2
-
-    def _bake_overlays(self):
-        w, h = INTERNAL_W, INTERNAL_H
-        hurt = pygame.Surface((w, h), pygame.SRCALPHA)
-        hurt.fill((190, 26, 26, 255))
-        self._hurt_overlay = hurt
-        death = pygame.Surface((w, h), pygame.SRCALPHA)
-        death.fill((0, 0, 0, 255))
-        self._death_overlay = death
+        self._vig_alpha = (a2 * 190).astype(np.uint8).T  # (W, H)
 
     # ------------------------------------------------------------------
     # fx ingestion (call once per sim tick, after session.tick())
@@ -1534,9 +1619,6 @@ class Renderer:
             sp["life"] -= 1
         self._sparks = [sp for sp in self._sparks if sp["life"] > 0][-200:]
 
-        for fl in self._flashes:
-            fl["life"] -= 1
-        self._flashes = [fl for fl in self._flashes if fl["life"] > 0][-30:]
 
         for b in self._bolts:
             b["life"] -= 1
@@ -1570,15 +1652,12 @@ class Renderer:
             elif tag == "spark":
                 _, polygon, x, y, nx, ny = fx
                 self._sparks.append(dict(polygon=polygon, x=x, y=y, nx=nx, ny=ny, life=4))
-            elif tag == "flash":
-                _, polygon, x, y, radius = fx
-                self._flashes.append(dict(polygon=polygon, x=x, y=y, radius=radius, life=3))
-            elif tag == "holemark":
-                _, polygon, x, y = fx
-                self._flashes.append(dict(polygon=polygon, x=x, y=y, radius=12.0, life=6))
-            elif tag == "holeopen":
-                _, polygon, x, y = fx
-                self._flashes.append(dict(polygon=polygon, x=x, y=y, radius=26.0, life=8))
+            # ("flash"/"holemark"/"holeopen" no longer exist: muzzle
+            # flashes, discharges and breaches are REAL lights in the sim
+            # (muzzle_light / pulse_light) so they cross portals through
+            # occlusion wedges — the per-room glow discs these tags fed
+            # ended in a hard bright edge at the first portal, the seam
+            # the director reported on every shot, 2026-07-22)
             elif tag == "alerted":
                 _, polygon, x, y = fx
                 self._screams.append(dict(polygon=polygon, x=x, y=y, age=0, maxage=10))
@@ -1613,7 +1692,7 @@ class Renderer:
     # per-frame draw
     # ------------------------------------------------------------------
 
-    def draw(self, surf: "pygame.Surface", debug: bool = False) -> None:
+    def draw(self, surf, debug: bool = False) -> np.ndarray:
         """Zero ambient (the director's order): the world layer's ONLY
         illumination is the per-frame lightmap -- static/attached world
         lights plus this frame's dynamic point lights (muzzle flashes,
@@ -1628,115 +1707,60 @@ class Renderer:
         IS the light source, self-luminous, sculpted by the inverted
         cold-distance field) -- untouched by this order, which is about
         eliminating a screen-space AMBIENT field for ordinary polygons, not
-        otherworld's already-diegetic self-illumination."""
+        otherworld's already-diegetic self-illumination.
+
+        Returns the composited (W, H, 3) uint8 framebuffer (pygame surfarray
+        axis order). `surf` is used only to size the frame -- render.py never
+        writes back into it; the caller owns whatever it blits the return into.
+        The bright bolt CORES already drew onto the entity layer inside
+        _draw_effects (so the darkness multiply never dims them)."""
         session = self.session
-        self._deferred_glows = []
         self._deferred_bolts = []
         self._deferred_screen_glows = []
+        self._deferred_bolt_glows = []
         instances = session.visible(self.max_depth, self.max_instances)
-        if self.backend == "rust":
-            # no surf.fill: the composed frame blit covers every pixel
-            ow_polys = self._draw_world_rust(surf, instances)
-            if ow_polys:
-                # raster came back full-bright (world+entities, unmultiplied):
-                # composite both darkness fields (now: lightmap + inverted
-                # otherworld field) through the otherworld mask here
-                lightmap = self._build_lightmap(surf.get_size(), session, instances)
-                self._apply_darkness(surf, ow_polys, lightmap)
-            # else: the raster already multiplied world-by-lightmap and
-            # folded entities in unmultiplied on top (see _draw_world_rust)
-        else:
-            surf.fill((0, 0, 0))
-            ow_polys = self._draw_world_pygame(surf, instances)
-            lightmap = self._build_lightmap(surf.get_size(), session, instances)
-            if ow_polys:
-                # Otherworld coverage keeps its pre-existing, untouched
-                # compositing: entities bake in BEFORE the field multiply,
-                # same as the rust backend's raster (darkness off entirely
-                # for this frame, entities folded in unmultiplied, then
-                # Python's _apply_darkness multiplies the WHOLE blitted
-                # frame). Parity, not a new sensor-trace exemption here --
-                # that exemption is specifically the zero-ambient default-
-                # world case below, which otherworld is out of scope for.
-                surf.blit(self._ent_layer, (0, 0))
-                self._apply_darkness(surf, ow_polys, lightmap)
-            else:
-                surf.blit(lightmap, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
-                # entities drawn full-bright ON TOP of the multiply --
-                # sensor traces read by instrument, not by light
-                surf.blit(self._ent_layer, (0, 0))
-        # dynamic FX that remain visible dynamic overlays regardless of
-        # light (their glow already fed the lightmap above; this is just
-        # the bright core/tracer itself, same footing as the entity layer)
-        for color, pieces, glow in self._deferred_bolts:
-            for piece in pieces:
-                pygame.draw.lines(surf, color, False, _pts(piece), 1)
-        self._draw_post(surf)
+        size = _size_of(surf)
+        ow_polys = self._draw_world_rust(size, instances)
+        fb = self._rgb  # (W, H, 3) view of the rust framebuffer
+        if ow_polys:
+            # raster came back full-bright (world+entities, unmultiplied):
+            # composite both darkness fields (now: lightmap + inverted
+            # otherworld field) through the otherworld mask here
+            lightmap = self._build_lightmap(size, session, instances)
+            self._apply_darkness(fb, ow_polys, lightmap)
+        # else: the raster already multiplied world-by-lightmap and
+        # folded entities in unmultiplied on top (see _draw_world_rust)
+        self._draw_post(fb)
         if debug:
-            self._draw_debug(surf, instances)
+            self._draw_debug(fb, instances)
+        return fb.copy()
+
 
     # ------------------------------------------------------------------
-    # world pass, pygame backend
-    # ------------------------------------------------------------------
-
-    def _draw_world_pygame(self, surf, instances) -> list:
-        # The no-seams invariant (ported from the original engine): entities
-        # draw WHOLE and unclipped onto their own layer, which is then
-        # masked per-pixel by the UNION of every instance's visible region.
-        # A body is only ever cut exactly where the rendered world itself
-        # ends — against void — so a cut edge can never be visible: there is
-        # nothing on the other side of it to contrast with. Per-instance
-        # polygon clipping of bodies (the old way) put cut edges INSIDE the
-        # picture whenever a sibling wedge or lit floor continued past them.
-        if self._ent_layer is None or self._ent_layer.get_size() != surf.get_size():
-            self._ent_layer = pygame.Surface(surf.get_size(), pygame.SRCALPHA)
-            self._cov_mask = pygame.Surface(surf.get_size(), pygame.SRCALPHA)
-        self._ent_layer.fill((0, 0, 0, 0))
-        self._cov_mask.fill((0, 0, 0, 0))
-        world = _PygameCanvas(surf)
-        ent = _PygameCanvas(self._ent_layer)
-        kinds = self.session.level.polygon_kinds
-        ow_polys = []
-        for polygon, xform, depth, clip_screen, walls, entry_edge, ents in instances:
-            if len(clip_screen) < 3:
-                continue
-            self._draw_floor(world, polygon, depth, clip_screen, xform)
-            self._draw_detail(world, polygon, xform, clip_screen, depth)
-            self._draw_decals(world, polygon, xform, clip_screen)
-            self._draw_exit_and_terminals(world, polygon, xform, clip_screen)
-            self._draw_walls(world, walls, depth, polygon)
-            self._draw_doors(world, polygon, xform, clip_screen)
-            pygame.draw.polygon(self._cov_mask, (255, 255, 255, 255),
-                                _pts(clip_screen))
-            if polygon < len(kinds) and kinds[polygon] == "otherworld":
-                ow_polys.append(clip_screen)
-            self._draw_entities(ent, ents, None)
-            self._draw_effects(ent, polygon, xform, clip_screen)
-        self._ent_layer.blit(self._cov_mask, (0, 0),
-                             special_flags=pygame.BLEND_RGBA_MIN)
-        # NOT blitted onto surf here: entities are the sensor-trace layer,
-        # composited by `draw()` AFTER the lightmap multiply so they stay
-        # visible in the dark. `self._ent_layer` is the return channel.
-        return ow_polys
-
-    # ------------------------------------------------------------------
-    # world pass, rust backend (necore.Raster display list)
+    # world pass (necore.Raster display list)
     # ------------------------------------------------------------------
 
     def _ensure_raster(self, size) -> None:
         if self._raster is not None and \
                 (self._raster.width, self._raster.height) == size:
             return
-        self._raster = necore.Raster(size[0], size[1])
-        self._framebuf = bytearray(size[0] * size[1] * 4)
+        w, h = size
+        self._raster = necore.Raster(w, h)
+        self._framebuf = bytearray(w * h * 4)
         # a fresh Raster has an empty texture registry; every polygon texture
         # must be re-uploaded lazily on next use
         self._uploaded_tex_ids.clear()
-        # one-time zero-copy wrap: finish_into writes into _framebuf, the
-        # wrapping Surface sees the pixels with no per-frame allocation.
-        # RGBX (alpha byte ignored) so the full-frame blit is an opaque
-        # copy, not a per-pixel alpha blend — the frame is opaque anyway.
-        self._frame = pygame.image.frombuffer(self._framebuf, size, "RGBX")
+        # Zero-copy numpy view of the rust framebuffer's RGB channels in
+        # (W, H, 3) surfarray order: finish_into writes RGBX row-major (H, W, 4)
+        # into _framebuf, and this strided view exposes it as fb[x, y] with no
+        # per-frame allocation. Every Python composite step writes through it.
+        self._rgb = (np.frombuffer(self._framebuf, dtype=np.uint8)
+                     .reshape(h, w, 4)[:, :, :3].transpose(1, 0, 2))
+        # mask raster: same size, its own buffer/view, for coverage passes
+        self._mask_raster = necore.Raster(w, h)
+        self._maskbuf = bytearray(w * h * 4)
+        self._mask_arr = (np.frombuffer(self._maskbuf, dtype=np.uint8)
+                          .reshape(h, w, 4)[:, :, :3].transpose(1, 0, 2))
 
     def _get_blob(self, polygon: int):
         """Per-polygon detail prims encoded once as a display-list blob:
@@ -1814,14 +1838,14 @@ class Renderer:
         self._blob_cache[polygon] = blob
         return blob
 
-    def _draw_world_rust(self, surf, instances) -> list:
-        """Same layer semantics as `_draw_world_pygame`, rasterized by
-        necore.Raster: WORLD commands per instance in submission order,
-        ENTITY commands (drawn whole, no clipping) onto the entity plane,
-        coverage unioned by add_clip — the no-seams fold then happens in
-        Rust (entity.a = min(entity.a, coverage), binary-alpha select)."""
+    def _draw_world_rust(self, size, instances) -> list:
+        """One rasterized frame: WORLD commands per instance in submission
+        order, ENTITY commands (drawn whole, no clipping) onto the entity
+        plane, coverage unioned by add_clip — the no-seams fold then happens in
+        Rust (entity.a = min(entity.a, coverage), binary-alpha select). Writes
+        the composed frame into _framebuf (visible through self._rgb)."""
         session = self.session
-        self._ensure_raster(surf.get_size())
+        self._ensure_raster(size)
         r = self._raster
         r.begin(0x000000FF)
         # Dynamic commands accumulate into ONE pair of Python lists (a
@@ -1836,16 +1860,31 @@ class Renderer:
         ent = _RustCanvas(_LAYER_ENTITY, cmds, coords)
         kinds = session.level.polygon_kinds
         ow_polys = []
+        # TWO PASSES over the instance list (director, fifth telling,
+        # 2026-07-22: "draw the floors, then everything else on top").
+        # Instances arrive far-to-near, and floor fills are opaque, so with
+        # a single interleaved pass a nearer instance's floor OVERPAINTED
+        # the half of any world-layer sprite (station, repair cabinet,
+        # decal, door stroke) that overhung a shared boundary — the
+        # building-cut-in-half the frame reviews kept finding. Proven by
+        # the seam vectors in test_render_layers.py: a station straddling
+        # the portal kept 63% of its pixels from one side and 100% from
+        # the other, the signature of draw-order overpaint rather than
+        # clipping. Pass A paints every floor; pass B paints everything
+        # else, so no floor can ever land on top of a sprite.
+        staged = []
         for polygon, xform, depth, clip_screen, walls, entry_edge, ents in instances:
             if len(clip_screen) < 3:
                 continue
-            clip_idx = r.add_clip(clip_screen, True)  # unions coverage
+            clip_idx = r.add_clip(clip_screen, False)
+            # coverage-only: the ENTITY mask is dilated by a body's worth
+            # of pixels so nothing is ever cut in half at a boundary; the
+            # floor fill still uses the exact clip above
+            r.add_clip(_dilate_poly(clip_screen, ENTITY_SPILL_PX), True)
             xform_idx = r.add_xform(xform)
             # floor: a bespoke texture (OP_TEX_FILL) if this polygon has one,
             # else OP_CLIP_FILL paints the registered clip polygon itself
-            # from its f64 points — pixel-identical to the pygame path's
-            # polygon(_pts(clip_screen)) AND to the coverage union, with no
-            # Python-side rounding or payload
+            # from its f64 points, with no Python-side rounding or payload
             polygon_tex = self._polygon_texture_for_raster(polygon)
             if polygon_tex is not None:
                 tex_id, bx, by = polygon_tex
@@ -1855,14 +1894,20 @@ class Renderer:
             else:
                 cmds.extend((_OP_CLIP_FILL, _flags(_LAYER_WORLD), clip_idx,
                              _IDX_NONE, _rgba(self._floor_color(polygon)), 0))
+            if polygon < len(kinds) and kinds[polygon] == "otherworld":
+                ow_polys.append(clip_screen)
+            staged.append((polygon, xform, depth, clip_screen, walls,
+                           ents, clip_idx, xform_idx))
+        for polygon, xform, depth, clip_screen, walls, ents, clip_idx, \
+                xform_idx in staged:
             blob_c, blob_f, glows = self._get_blob(polygon)
             if blob_c.size:
                 pieces.append(("dyn", len(cmds), len(coords)))
                 pieces.append(("blob", blob_c, blob_f, clip_idx, xform_idx))
             if glows:
-                # same gating + deferral _draw_detail does on the pygame
-                # path; the glow itself feeds the lightmap in Python
-                # (_build_lightmap), same as world lights and muzzle FX
+                # deferred like _draw_detail's; the glow itself feeds the
+                # lightmap in Python (_build_lightmap), same as world
+                # lights and muzzle FX
                 scale = None
                 for gx, gy, grad in glows:
                     sx, sy = necore.mat_apply(xform, gx, gy)
@@ -1875,8 +1920,6 @@ class Renderer:
             self._draw_exit_and_terminals(world, polygon, xform, clip_screen)
             self._draw_walls(world, walls, depth, polygon)
             self._draw_doors(world, polygon, xform, clip_screen)
-            if polygon < len(kinds) and kinds[polygon] == "otherworld":
-                ow_polys.append(clip_screen)
             self._draw_entities(ent, ents, None)
             self._draw_effects(ent, polygon, xform, clip_screen)
         # assemble the final stream: dynamic slices + patched blob copies
@@ -1915,15 +1958,18 @@ class Renderer:
         # Python, so those frames come back full-bright (world+entities,
         # unmultiplied) for `_apply_darkness` to composite.
         if not ow_polys:
-            lightmap = self._build_lightmap(surf.get_size(), session, instances)
-            r.set_lightmap(pygame.image.tobytes(lightmap, "RGB"))
+            lightmap = self._build_lightmap(size, session, instances)
+            # rust set_lightmap wants row-major (H, W, 3) RGB8 bytes; the
+            # lightmap is (W, H, 3), so transpose back and make contiguous.
+            r.set_lightmap(
+                np.ascontiguousarray(lightmap.transpose(1, 0, 2)).tobytes())
         r.set_darkness(not ow_polys)
         r.finish_into(self._framebuf)
-        surf.blit(self._frame, (0, 0))
         return ow_polys
 
-    def _apply_darkness(self, surf, ow_polys, lightmap) -> None:
-        """Composite this frame's illumination field onto `surf`.
+    def _apply_darkness(self, fb, ow_polys, lightmap) -> None:
+        """Composite this frame's illumination field onto `fb` (the (W, H, 3)
+        framebuffer view).
 
         Ordinary (non-otherworld) coverage: zero ambient, by the director's
         order -- straight multiply by `lightmap` (built by `_build_lightmap`;
@@ -1936,52 +1982,33 @@ class Renderer:
         at distance, your presence stops mattering to the light. That field
         is untouched by this order and blends only inside otherworld
         coverage; ordinary coverage there still gets the lightmap."""
-        size = surf.get_size()
-        if self._inv_darkness is None or self._inv_darkness.get_size() != size:
-            import numpy as np
-            w, h = size
-            yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
+        w, h, _ = fb.shape
+        inv = self._inv_darkness
+        if inv is None or inv.shape[:2] != (w, h):
+            yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)  # (h, w)
             cx, cy = w / 2.0, h / 2.0
             d = np.sqrt((xx - cx) ** 2 + (yy - cy) ** 2)
             d = np.clip(d / (0.72 * max(w, h)), 0.0, 1.0)
             k = d * d * (3.0 - 2.0 * d)  # smoothstep
             ik = 1.0 - k  # inverted: bright far, dim near
             iarr = np.empty((h, w, 3), dtype=np.uint8)
-            # cold: green survives longest out there
             iarr[..., 0] = (255 * (1.0 - 0.62 * ik)).astype(np.uint8)
             iarr[..., 1] = (255 * (1.0 - 0.38 * ik)).astype(np.uint8)
             iarr[..., 2] = (255 * (1.0 - 0.50 * ik)).astype(np.uint8)
-            idark = pygame.Surface(size)
-            pygame.surfarray.blit_array(idark, iarr.swapaxes(0, 1))
-            self._inv_darkness = idark
+            inv = self._inv_darkness = np.ascontiguousarray(
+                iarr.transpose(1, 0, 2))  # (W, H, 3)
         if not ow_polys:
-            surf.blit(lightmap, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
+            _mult_into(fb, lightmap)
             return
-        # composite the two fields (lightmap / inverted-otherworld) through
-        # the otherworld mask
-        if self._ow_field is None or self._ow_field.get_size() != size:
-            self._ow_field = pygame.Surface(size)
-        field = self._ow_field
-        field.blit(lightmap, (0, 0))
-        if self._ow_mask is None or self._ow_mask.get_size() != size:
-            self._ow_mask = pygame.Surface(size)
-        mask = self._ow_mask
-        mask.fill((0, 0, 0))
-        for poly in ow_polys:
-            if len(poly) >= 3:
-                pygame.draw.polygon(mask, (255, 255, 255), _pts(poly))
-        # field = lightmap*(1-m) + inv*m  via masked blits
-        inv_cut = self._inv_darkness.copy()
-        inv_cut.blit(mask, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
-        neg = mask.copy()
-        arr2 = pygame.surfarray.pixels3d(neg)
-        arr2[...] = 255 - arr2
-        del arr2
-        field.blit(neg, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
-        field.blit(inv_cut, (0, 0), special_flags=pygame.BLEND_RGB_ADD)
-        surf.blit(field, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
+        # field = lightmap where NOT otherworld, inverted cold field where it
+        # is -- exactly the old masked (lightmap*(1-m) + inv*m) composite, but
+        # a binary select since the coverage mask is 0/255. Coverage rasterizes
+        # via the mask raster (pixel-exact pygame parity, no seam).
+        cov = self._coverage_mask([p for p in ow_polys if len(p) >= 3], ())
+        field = np.where(cov[..., None] > 0, inv, lightmap)
+        _mult_into(fb, field)
 
-    def _build_lightmap(self, size, session, instances) -> "pygame.Surface":
+    def _build_lightmap(self, size, session, instances) -> np.ndarray:
         """Black-by-default per-frame lightmap: every source of world
         illumination -- static/attached `levels.LightSpec` world lights,
         muzzle flashes, lightning bolts, lit screens/terminals -- accumulate
@@ -1989,16 +2016,16 @@ class Renderer:
         layer by this map instead of adding glows on top of an already-lit
         scene: the lightmap literally IS the world's illumination. A pixel
         no enabled light reaches stays (0, 0, 0)."""
+        w, h = size
         lm = self._lightmap
-        if lm is None or lm.get_size() != size:
-            lm = self._lightmap = pygame.Surface(size)
-        lm.fill((0, 0, 0))
+        if lm is None or lm.shape[:2] != (w, h):
+            lm = self._lightmap = np.zeros((w, h, 3), dtype=np.uint8)
+        else:
+            lm[...] = 0
         self._draw_world_lights(lm, session, instances)
-        for sx, sy, radius, clip_screen in self._deferred_glows:
-            self._blit_glow(lm, sx, sy, radius, clip_screen)
         for sx, sy, radius, clip_screen in self._deferred_screen_glows:
             self._blit_screen_glow(lm, sx, sy, radius, clip_screen)
-        for _color, _pieces, glow in self._deferred_bolts:
+        for glow in self._deferred_bolt_glows:
             if glow is not None:
                 self._blit_glow(lm, *glow)
         return lm
@@ -2106,45 +2133,74 @@ class Renderer:
                         g["n"] = n
                         break
                 else:
+                    cone = None
+                    if inst.dir_local is not None:
+                        dsx, dsy = necore.mat_apply_dir(
+                            xform, inst.dir_local[0], inst.dir_local[1])
+                        dm = math.hypot(dsx, dsy)
+                        if dm > 1e-9:
+                            cone = math.atan2(dsy / dm, dsx / dm)
                     buckets.append({"apex_sx": apex_sx, "apex_sy": apex_sy,
                                      "radius_screen": radius_screen,
                                      "polys": [gated],
-                                     "shadow_polys": list(shadow_gated), "n": 1})
+                                     "shadow_polys": list(shadow_gated),
+                                     "cone_ang": cone, "n": 1})
         for light_idx, buckets in groups_by_light.items():
             light = lighting.lights[light_idx]
             for g in buckets:
+                cone = None
+                if g.get("cone_ang") is not None and light.arc > 0.0:
+                    cone = (g["cone_ang"], light.arc)
                 self._blit_light(surf, g["apex_sx"], g["apex_sy"],
                                   g["radius_screen"], light.color,
-                                  light.intensity, g["polys"], g["shadow_polys"])
+                                  light.intensity, g["polys"],
+                                  g["shadow_polys"], cone=cone)
 
-    def _light_gradient(self, radius: float) -> "pygame.Surface":
+    def _light_gradient(self, radius: float) -> np.ndarray:
         """White radial-falloff sprite of pixel radius `radius`, kernel
         `a = clamp(1 - dist/r); a*a` -- the SAME curve `OP_GLOW` /
-        `_bake_glows` already use (smooth-to-zero at radius,
-        C1-continuous) rather than a second falloff law. Baked once at a
-        high-res base and smoothscaled per distinct radius; the cache
-        stays tiny because a static light's screen radius is constant
-        while the zoom is (which it always is in play)."""
+        `_bake_glows` already use (smooth-to-zero at radius, C1-continuous).
+        Returned as a (d, d) uint8 coverage array (row=y, col=x), d = 2*key,
+        evaluated directly at the target radius (was: smoothscale of a 512px
+        base -- the direct evaluation of the same smooth kernel is identical
+        to sub-level precision and drops the pygame dependency). Cached per
+        distinct radius; a static light's screen radius is constant."""
         cache = getattr(self, "_light_grad_cache", None)
         if cache is None:
             cache = self._light_grad_cache = {}
-            base_r = 256
-            d = base_r * 2
-            yy = (np.arange(d, dtype=np.float32) - base_r + 0.5)[:, None]
-            xx = (np.arange(d, dtype=np.float32) - base_r + 0.5)[None, :]
-            a = np.clip(1.0 - np.hypot(xx, yy) / base_r, 0.0, 1.0)
-            v = (a * a * 255.0).astype(np.uint8)
-            base = pygame.Surface((d, d))
-            pygame.surfarray.blit_array(
-                base, np.repeat(v[:, :, None], 3, axis=2).swapaxes(0, 1))
-            self._light_grad_base = base
         key = max(2, int(round(radius)))
-        s = cache.get(key)
-        if s is None:
-            s = pygame.transform.smoothscale(self._light_grad_base,
-                                             (key * 2, key * 2))
-            cache[key] = s
-        return s
+        g = cache.get(key)
+        if g is None:
+            d = key * 2
+            yy = (np.arange(d, dtype=np.float32) - key + 0.5)[:, None]
+            xx = (np.arange(d, dtype=np.float32) - key + 0.5)[None, :]
+            a = np.clip(1.0 - np.hypot(xx, yy) / key, 0.0, 1.0)
+            g = cache[key] = (a * a * 255.0).astype(np.uint8)  # (d, d) row=y
+        return g
+
+    def _coverage_mask(self, white_polys, black_polys) -> np.ndarray:
+        """(W, H) uint8 0/255 coverage of `white_polys` minus `black_polys`,
+        rasterized by the mask Raster so it is pixel-exact with pygame's
+        polygon fill (the parity the seam-freeness tests depend on): white
+        union fill saturates at shared edges, black polys punch shadow. Returns
+        the mask raster's red channel (a view valid until the next call)."""
+        mr = self._mask_raster
+        mr.begin(0x000000FF)
+        cmds: list[int] = []
+        coords: list[float] = []
+        c = _RustCanvas(_LAYER_WORLD, cmds, coords)
+        for poly in white_polys:
+            if len(poly) >= 3:
+                c.polygon((255, 255, 255), [(p[0], p[1]) for p in poly])
+        for poly in black_polys:
+            if len(poly) >= 3:
+                c.polygon((0, 0, 0), [(p[0], p[1]) for p in poly])
+        if cmds:
+            mr.draw(np.array(cmds, dtype=np.uint32),
+                    np.array(coords, dtype=np.float32))
+        mr.set_darkness(False)
+        mr.finish_into(self._maskbuf)
+        return self._mask_arr[:, :, 0]
 
     # Director-tuned global light strength (2026-07-11): "Triple the
     # strength of all lights, I want them to carry." One knob, applied at
@@ -2154,22 +2210,36 @@ class Renderer:
     # unmissable.
     LIGHT_STRENGTH = 3.0
 
-    def _blit_light(self, surf, cx, cy, radius, color, intensity, gate_polys,
-                     shadow_polys=()) -> None:
+    @staticmethod
+    def _cone_wedge(cx, cy, radius, angle, arc, segs=10):
+        """Exact convex wedge polygon for a directional light: apex at
+        (cx, cy), arc fan of `segs` chords out past `radius`. The cone
+        is a CLIP, not a sprite — sprite rotation can never be
+        root-frame invariant at the pixel level, and this engine's
+        whole look is clipped wedges anyway (arc < pi keeps it
+        convex, which Sutherland-Hodgman clipping requires)."""
+        half = arc / 2.0
+        rr = radius * 1.25
+        pts = [(cx, cy)]
+        for i in range(segs + 1):
+            a2 = angle - half + arc * i / segs
+            pts.append((cx + rr * math.cos(a2), cy + rr * math.sin(a2)))
+        return pts
+
+    def _blit_light(self, lm, cx, cy, radius, color, intensity, gate_polys,
+                     shadow_polys=(), cone=None) -> None:
         """Additive radial-falloff fill of the UNION of `gate_polys`
         (already occlusion- and camera-clipped wedges of one light at one
-        screen apex), centered at (cx, cy) in screen space.
+        screen apex), centered at (cx, cy) in screen space, accumulated into
+        the numpy lightmap `lm` ((W, H, 3)).
 
-        Composited entirely with C-level surface ops (a numpy per-pixel
-        version of the same math cost ~12 ms on the l01 dock view; this
-        form fits the ~3 ms lighting budget): inside the working rect
-        (union bbox x light-disc bbox x screen), scratch = white polygons
-        (union: overlaps/shared edges saturate, never double);
-        scratch *= color*intensity (solid MULT fill); scratch *= radial
-        gradient sprite (MULT); surf += scratch (ADD). Clamping the rect
-        to the disc bbox guarantees the gradient sprite covers every
-        working pixel, so the multiply chain has no uncovered remainder
-        (attenuation past the radius is zero anyway)."""
+        Inside the working rect (union bbox x light-disc bbox x screen):
+        coverage = white-polygon union (mask raster, pygame-exact; overlaps
+        saturate, never double) minus shadow polys; scratch = coverage *
+        (color*intensity) [MULT] * radial gradient [MULT]; lm += scratch [ADD].
+        Clamping the rect to the gradient's own half-width means every working
+        pixel has gradient coverage, so nothing past the radius survives (the
+        old "ghost pixel at the radius edge" is structurally impossible)."""
         # Reject sub-pixel sliver wedges (a far light grazing along a wall
         # produces them): pygame.draw.polygon always rasterizes at least
         # its 1px OUTLINE, so a polygon with near-zero interior would show
@@ -2189,9 +2259,22 @@ class Renderer:
                 polys.append(poly)
         if not polys:
             return
+        # cone clip happens BEFORE coverage so the mask fills the clipped
+        # wedge (matches the old scratch draw order).
+        if cone is not None:
+            cone_ang, cone_arc = cone
+            wedge = self._cone_wedge(cx, cy, radius, cone_ang, cone_arc)
+            clipped = []
+            for poly in polys:
+                cpoly = necore.clip_polygon(poly, wedge)
+                if len(cpoly) >= 3:
+                    clipped.append(cpoly)
+            polys = clipped
+            if not polys:
+                return
         xs = [p[0] for poly in polys for p in poly]
         ys = [p[1] for poly in polys for p in poly]
-        sw, sh = surf.get_size()
+        sw, sh, _ = lm.shape
         # `ir` MUST be the gradient sprite's own actual half-width, not a
         # separately-rounded copy of `radius`: the sprite is cached/sized
         # by `_light_gradient` as `max(2, round(radius))`, which differs
@@ -2209,8 +2292,8 @@ class Renderer:
         # i.e. an UNMULTIPLIED pixel] spike one column past `icx - round
         # (radius)` amid a field of (0,0,0) in `test_pixel_composite_seam_
         # freeness_across_corridor_portals` before this fix.
-        grad = self._light_gradient(radius)
-        ir = grad.get_width() // 2
+        grad = self._light_gradient(radius)  # (d, d) uint8, row=y col=x
+        ir = grad.shape[0] // 2
         icx, icy = int(round(cx)), int(round(cy))
         x0 = max(0, int(math.floor(min(xs))), icx - ir)
         y0 = max(0, int(math.floor(min(ys))), icy - ir)
@@ -2218,35 +2301,24 @@ class Renderer:
         y1 = min(sh, int(math.ceil(max(ys))) + 1, icy + ir)
         if x1 - x0 <= 0 or y1 - y0 <= 0:
             return
-        rect = pygame.Rect(x0, y0, x1 - x0, y1 - y0)
-        scratch = getattr(self, "_light_scratch", None)
-        if scratch is None or scratch.get_size() != (sw, sh):
-            scratch = self._light_scratch = pygame.Surface((sw, sh))
-        scratch.set_clip(rect)
-        scratch.fill((0, 0, 0))
-        for poly in polys:
-            pygame.draw.polygon(scratch, (255, 255, 255), poly)
-        # Walk-mask terrain shadows: subtract (punch black) from the just-
-        # filled union BEFORE the tint/gradient multiply below, so a
-        # shadowed pixel ends up multiplied to black same as one outside
-        # every gate polygon entirely -- "clip/subtract before the union
-        # fill" from the director's spec, done at the same raster-op level
-        # the union fill itself already uses (Sutherland-Hodgman gave us
-        # polygon intersection, not boolean difference, so this is the
-        # pixel-level equivalent).
-        for poly in shadow_polys:
-            if len(poly) >= 3:
-                pygame.draw.polygon(scratch, (0, 0, 0), poly)
+        # coverage: white union of the wedges minus the shadow polys, filled
+        # by the mask raster for pixel-exact pygame parity (the union
+        # saturates at shared edges; the seam-freeness tests depend on this).
+        cov = self._coverage_mask(polys, shadow_polys)  # (W, H) 0/255
+        cov_reg = cov[x0:x1, y0:y1].astype(np.uint32)   # (dx, dy)
+        # gradient region, aligned so grad center (ir, ir) sits at (icx, icy);
+        # grad is row=y col=x, transpose to (x, y) to match lm's axes.
+        gy0, gx0 = y0 - (icy - ir), x0 - (icx - ir)
+        gsub = grad[gy0:gy0 + (y1 - y0), gx0:gx0 + (x1 - x0)].T.astype(np.uint32)
         intensity = intensity * self.LIGHT_STRENGTH
-        tint = (min(255, int(color[0] * intensity)),
-                min(255, int(color[1] * intensity)),
-                min(255, int(color[2] * intensity)))
-        scratch.fill(tint, special_flags=pygame.BLEND_RGB_MULT)
-        scratch.blit(grad, (icx - ir, icy - ir),
-                     special_flags=pygame.BLEND_RGB_MULT)
-        scratch.set_clip(None)
-        surf.blit(scratch, rect.topleft, area=rect,
-                  special_flags=pygame.BLEND_RGB_ADD)
+        tint = np.array(
+            (min(255, int(color[0] * intensity)),
+             min(255, int(color[1] * intensity)),
+             min(255, int(color[2] * intensity))), dtype=np.uint32)
+        # scratch = (coverage_white * tint) MULT, then * gradient MULT
+        scratch = (cov_reg[..., None] * tint[None, None, :] + 255) >> 8
+        scratch = (scratch * gsub[..., None] + 255) >> 8
+        _add_into(lm[x0:x1, y0:y1], scratch.astype(np.uint8))
 
     # -- (1) floor ------------------------------------------------------
 
@@ -2319,10 +2391,8 @@ class Renderer:
             level_id, local_idx = key
             path = texture_geom.texture_path(TEXTURE_DIR, level_id, local_idx)
             if path.is_file():
-                surf = pygame.image.load(str(path))
-                w, h = surf.get_size()
-                raw = pygame.image.tobytes(surf, "RGB")
-                arr = np.frombuffer(raw, dtype=np.uint8).reshape((h, w, 3)).copy()
+                with Image.open(str(path)) as im:
+                    arr = np.asarray(im.convert("RGB"), dtype=np.uint8).copy()
                 verts = self.session.level.polygon_verts[polygon]
                 bx, by, _, _ = texture_geom.polygon_bbox(verts)
                 result = (arr, bx, by)
@@ -2342,59 +2412,10 @@ class Renderer:
             self._uploaded_tex_ids.add(polygon)
         return polygon, bx, by
 
-    def _draw_floor(self, canvas, polygon, depth, clip_screen, xform=None):
-        tex = self._load_polygon_texture(polygon) if xform is not None else None
-        if tex is not None and isinstance(canvas, _PygameCanvas):
-            self._draw_floor_textured(canvas.surf, polygon, xform, clip_screen, tex)
-            return
-        canvas.polygon(self._floor_color(polygon), _pts(clip_screen))
-
-    # -- (an aside for readers auditing the dual-backend split): the rust
-    # backend never calls _draw_floor -- _draw_world_rust emits the floor
-    # command (OP_TEX_FILL or OP_CLIP_FILL) directly, see below.
-
-    def _draw_floor_textured(self, surf, polygon, xform, clip_screen, tex):
-        """pygame/numpy mirror of the rust OP_TEX_FILL job: same coverage
-        (pygame.draw.polygon IS the ground truth the rust span math ports),
-        same f64 inverse-affine (necore.mat_inv is the exact same Rust
-        Mat3::inverse() the raster calls), same nearest floor+clamp sample."""
-        arr, bx, by = tex
-        th, tw, _ = arr.shape
-        pts = _pts(clip_screen)
-        xs = [p[0] for p in pts]
-        ys = [p[1] for p in pts]
-        sw, sh = surf.get_size()
-        minx = max(0, min(xs))
-        miny = max(0, min(ys))
-        maxx = min(sw - 1, max(xs))
-        maxy = min(sh - 1, max(ys))
-        if maxx < minx or maxy < miny:
-            return
-        if self._tex_mask is None or self._tex_mask.get_size() != (sw, sh):
-            self._tex_mask = pygame.Surface((sw, sh), pygame.SRCALPHA)
-        region = pygame.Rect(minx, miny, maxx - minx + 1, maxy - miny + 1)
-        self._tex_mask.fill((0, 0, 0, 0), region)
-        pygame.draw.polygon(self._tex_mask, (255, 255, 255, 255), pts)
-        alpha = pygame.surfarray.pixels_alpha(self._tex_mask)[
-            minx:maxx + 1, miny:maxy + 1]
-        cov = alpha > 0
-        del alpha
-        if not cov.any():
-            return
-        im0, im1, im2, im3, im4, im5, _, _, _ = necore.mat_inv(xform)
-        xs_idx = np.arange(minx, maxx + 1, dtype=np.float64) + 0.5
-        ys_idx = np.arange(miny, maxy + 1, dtype=np.float64) + 0.5
-        px, py = np.meshgrid(xs_idx, ys_idx, indexing="ij")
-        lx = im0 * px + im1 * py + im2
-        ly = im3 * px + im4 * py + im5
-        tx = np.floor((lx - bx) * texture_geom.DENSITY).astype(np.int64)
-        ty = np.floor((ly - by) * texture_geom.DENSITY).astype(np.int64)
-        np.clip(tx, 0, tw - 1, out=tx)
-        np.clip(ty, 0, th - 1, out=ty)
-        sampled = arr[ty, tx]
-        dest = pygame.surfarray.pixels3d(surf)[minx:maxx + 1, miny:maxy + 1]
-        dest[cov] = sampled[cov]
-        del dest
+    # The floor is emitted straight into the rust command stream by
+    # _draw_world_rust (OP_TEX_FILL for a bespoke texture, else OP_CLIP_FILL);
+    # there is no Python floor draw. (The old pygame-backend _draw_floor /
+    # _draw_floor_textured mirror was deleted with the pygame backend.)
 
     # -- (2) polygon detail --------------------------------------------------
 
@@ -2563,8 +2584,28 @@ class Renderer:
 
     # -- (4) exit pad + terminals ------------------------------------------
 
+    def _draw_hub_dressing(self, canvas, xform, tick):
+        """Infested tissue on the hub-chamber floor: violet nodes ringed
+        around the core with tendrils reaching to it, so the sanctum reads as
+        grown-into organic tissue, not a bare spotlight."""
+        beat = 0.5 + 0.5 * math.sin(tick * 0.08)
+        for k in range(11):
+            a = k * (2.0 * math.pi / 11.0)
+            rr = 40.0 + 9.0 * ((k * 7) % 5)
+            lx, ly = math.cos(a) * rr, math.sin(a) * rr
+            sx, sy = necore.mat_apply(xform, lx, ly)
+            ix, iy = _pt((sx, sy))
+            mx, my = necore.mat_apply(xform, lx * 0.55, ly * 0.55)
+            canvas.line((92, 40, 118), (ix, iy), _pt((mx, my)), 1)  # tendril in
+            r = 3 + int(2 * beat)
+            canvas.circle((46, 16, 60), (ix, iy), r)               # node
+            canvas.circle((150, 55, 190), (ix, iy), r, 1)          # violet rim
+
     def _draw_exit_and_terminals(self, canvas, polygon, xform, clip_screen):
         session = self.session
+        hub = getattr(session, "hub", None)
+        if hub is not None and polygon == hub["chamber"]:
+            self._draw_hub_dressing(canvas, xform, session.tick_count)
         if session.exit_polygon == polygon:
             sx, sy = necore.mat_apply(xform, *session.exit_pos)
             if _point_in_poly(sx, sy, clip_screen):
@@ -2585,25 +2626,196 @@ class Renderer:
             if not _point_in_poly(sx, sy, clip_screen):
                 continue
             ix, iy = _pt((sx, sy))
-            # the seed: an obelisk pedestal on a base plate. Sized like the
-            # fixture it is (interact radius 30u): two framechecks in a row
-            # read the smaller versions as "a tiny icon"
-            plate = [(ix - 14, iy + 11), (ix + 14, iy + 11),
-                     (ix + 11, iy + 5), (ix - 11, iy + 5)]
-            canvas.polygon((26, 38, 34), plate)
-            canvas.polygon((80, 140, 110), plate, 1)
+            # ROOTS: the pod digs into the deck to extract resources, so
+            # tendrils crawl out from its foot and lengthen with age up to a
+            # cap (~45s to full). The native spawn pod is already dug in
+            # (planted_tick << 0 -> instantly full). Drawn before the plate
+            # so the chassis sits on top of where they emerge.
+            age = session.tick_count - st.get("planted_tick", session.tick_count)
+            grow = max(0.0, min(1.0, age / (BUILDING_UNPACK_TICKS * 1.5)))
+            if grow > 0.02:
+                # roots spread into the DECK, so they fan through the lower
+                # hemisphere (down and to the sides), never straight up like
+                # spokes; each kinks and forks so it reads organic, not wired.
+                nroots = 5
+                roff = math.sin(st["pos"][0] * 0.21) * 0.4   # per-pod waver
+                pulse = 0.5 + 0.5 * math.sin(
+                    (session.tick_count % 120) / 120.0 * 2 * math.pi)
+                for r in range(nroots):
+                    a = math.pi / 2 + (r / (nroots - 1) - 0.5) * 3.7 + roff
+                    rl = (6 + 13 * grow)
+                    bxp, byp = ix + math.cos(a) * 4, iy + 8
+                    kx = bxp + math.cos(a) * rl * 0.55
+                    ky = byp + math.sin(a) * rl * 0.55
+                    tx = kx + math.cos(a + 0.25) * rl * 0.5
+                    ty = ky + math.sin(a + 0.25) * rl * 0.5
+                    canvas.line((36, 54, 46), (int(bxp), int(byp)),
+                                (int(kx), int(ky)), 1)
+                    canvas.line((30, 46, 40), (int(kx), int(ky)),
+                                (int(tx), int(ty)), 1)
+                    # a shorter fork off the kink -- rootlets, not a fan
+                    fx2 = kx + math.cos(a - 0.5) * rl * 0.4
+                    fy2 = ky + math.sin(a - 0.5) * rl * 0.4
+                    canvas.line((30, 46, 40), (int(kx), int(ky)),
+                                (int(fx2), int(fy2)), 1)
+                    # the growing tip glows faintly when nearly extended
+                    tipc = int(70 + 60 * grow * pulse)
+                    canvas.set_at((int(tx), int(ty)),
+                                  (tipc, min(255, tipc + 40), tipc))
+            # THE CUCULUS. Not a fixture the player uses — the player
+            # IS this, and the thing that walks and shoots is a body it
+            # prints and drives (director 2026-07-21). So it reads as a
+            # GENERAL-PURPOSE FACTORY seated on the deck: base plate with
+            # bolts, ribbed column, a lit core slit, a fabricator arm over
+            # an output chute, and a visible rack of the blank bodies it
+            # still holds — the number you gamble with every death.
+            plate = [(ix - 15, iy + 12), (ix + 15, iy + 12),
+                     (ix + 12, iy + 5), (ix - 12, iy + 5)]
+            canvas.polygon((24, 36, 32), plate)
+            canvas.polygon((92, 150, 120), plate, 1)
+            for bx in (-11, 0, 11):                       # deck bolts
+                canvas.set_at((ix + bx, iy + 10), (140, 200, 170))
             body = [(ix - 9, iy + 6), (ix + 9, iy + 6),
-                    (ix + 6, iy - 14), (ix - 6, iy - 14)]
-            canvas.polygon((36, 52, 46), body)
+                    (ix + 7, iy - 15), (ix - 7, iy - 15)]
+            canvas.polygon((32, 48, 42), body)
             canvas.polygon((150, 240, 185), body, 1)
-            for dy in (-9, -4, 1):
-                canvas.line((190, 250, 210), (ix - 4, iy + dy),
-                            (ix + 4, iy + dy), 1)
+            # ribs down the column
+            for dy in (-11, -6, -1, 4):
+                canvas.line((70, 120, 96), (ix - 6, iy + dy),
+                            (ix + 6, iy + dy), 1)
+            # the core slit, breathing
             phase = (session.tick_count % 120) / 120.0
+            glow = 0.5 + 0.5 * math.sin(phase * 2 * math.pi)
+            core = (int(120 + 120 * glow), int(230 + 25 * glow),
+                    int(170 + 60 * glow))
+            canvas.rect(core, Rect(ix - 2, iy - 12, 4, 9))
+            # the fabricator arm: a jointed boom over the output chute,
+            # which is what makes it read as a factory and not a monument
+            ax0, ay0 = ix + 7, iy - 11
+            ax1, ay1 = ix + 13, iy - 4
+            canvas.line((120, 190, 155), (ax0, ay0), (ax1, ay1), 2)
+            canvas.line((150, 240, 185), (ax1, ay1), (ax1 - 3, iy + 3), 1)
+            canvas.rect((60, 96, 82), Rect(ix + 8, iy + 3, 7, 3))
+            canvas.rect((150, 240, 185), Rect(ix + 8, iy + 3, 7, 3), 1)
+            # THE RACK: one blank body per chassis still stocked, on the
+            # plate beside the column. INF (the spawn pod) shows a full
+            # rack with a bar over it.
+            stock = st.get("stock", 0)
+            if st.get("infinite"):
+                shown, cap = 3, True
+            else:
+                shown, cap = max(0, min(3, int(stock))), False
+            for k in range(shown):
+                bxp = ix - 13 + k * 9
+                # on the PLATE, below the column: a slot tucked behind the
+                # column reads as no body at all (checked at 3/2/1/0)
+                canvas.rect((44, 66, 58), Rect(bxp, iy + 7, 7, 4))
+                canvas.rect((160, 245, 195), Rect(bxp, iy + 7, 7, 4), 1)
+            if cap:
+                canvas.line((160, 245, 195), (ix - 13, iy + 6),
+                            (ix + 12, iy + 6), 1)
+            elif shown == 0:                       # empty rack reads empty
+                canvas.rect((110, 50, 46), Rect(ix - 13, iy + 7, 25, 4), 1)
             rr = 19 + 6 * math.sin(phase * 2 * math.pi)
             canvas.circle((140, 240, 185), (ix, iy), max(2, int(rr)), 1)
             canvas.circle((90, 165, 130), (ix, iy),
                           max(2, int(rr * 0.62)), 1)
+            # CONDUIT: a visible feed line from the pod to every turret it
+            # supplies in this polygon. Same-polygon is 0 hops, always within
+            # SENTRY_SUPPLY_HOPS, so a same-polygon supplied turret is fed by
+            # THIS pod. Cross-polygon supply still works mechanically; only
+            # the straight-line cable is drawn (no portal to route it through).
+            for tid, tur in getattr(session, "sentries", {}).items():
+                if not tur.get("supplied"):
+                    continue
+                if session.sim.get_polygon(tid) != polygon:
+                    continue
+                _, twx, twy, *_ = session.sim.get(tid)
+                tsx, tsy = necore.mat_apply(xform, twx, twy)
+                if not _point_in_poly(tsx, tsy, clip_screen):
+                    continue
+                canvas.line((58, 104, 86), (ix, iy - 2),
+                            (int(tsx), int(tsy)), 1)
+                # a bright pip flowing pod -> turret reads as feed, not decor
+                f = (session.tick_count % 44) / 44.0
+                px = ix + (tsx - ix) * f
+                py = (iy - 2) + (tsy - (iy - 2)) * f
+                canvas.set_at((int(px), int(py)), (150, 240, 185))
+        for b in getattr(session, "boosters", ()):
+            if b["polygon"] != polygon:
+                continue
+            sx, sy = necore.mat_apply(xform, *b["pos"])
+            if not _point_in_poly(sx, sy, clip_screen):
+                continue
+            ix, iy = _pt((sx, sy))
+            # repair station: a low field cabinet on skids, its pool read
+            # as a bar across the front. Thin-walled — it LOOKS breakable.
+            # A FIELD INFIRMARY: cabinet on skids, hinged lid thrown
+            # open, a segmented pool gauge and a red cross on white. Built
+            # from real parts rather than a rectangle so it reads as
+            # equipment somebody carried in (director 2026-07-21: "the
+            # building graphics need work").
+            skid = [(ix - 15, iy + 11), (ix + 15, iy + 11),
+                    (ix + 12, iy + 8), (ix - 12, iy + 8)]
+            canvas.polygon((38, 34, 32), skid)
+            canvas.polygon((120, 112, 104), skid, 1)
+            body = [(ix - 12, iy + 8), (ix + 12, iy + 8),
+                    (ix + 10, iy - 6), (ix - 10, iy - 6)]
+            canvas.polygon((58, 54, 52), body)
+            canvas.polygon((240, 236, 228), body, 1)
+            # lid, hinged back and standing open
+            lid = [(ix - 10, iy - 6), (ix + 10, iy - 6),
+                   (ix + 7, iy - 14), (ix - 13, iy - 14)]
+            canvas.polygon((44, 42, 44), lid)
+            canvas.polygon((205, 200, 194), lid, 1)
+            # A LATIN CROSS, engraved in bone-ivory (director 2026-07-23:
+            # the red medical cross is trademarked and wrong on a robot —
+            # "replace it with Christian iconography instead"). The
+            # resurrection machine wears the resurrection symbol: long
+            # stem, crossbar set high, no red. Reads as devotional, not
+            # medical.
+            cross = (224, 216, 196)
+            canvas.line(cross, (ix, iy - 15), (ix, iy - 5), 2)     # stem
+            canvas.line(cross, (ix - 4, iy - 12), (ix + 4, iy - 12), 2)  # bar
+            # segmented pool gauge across the front
+            frac = max(0.0, min(1.0, b["charge"]
+                                / float(session.REPAIR_POOL_MAX)))
+            for k in range(6):
+                x0 = ix - 9 + k * 3
+                on = (k + 0.5) / 6.0 <= frac
+                canvas.rect((150, 245, 215) if on else (34, 48, 46),
+                            Rect(x0, iy + 1, 2, 5))
+            canvas.rect((110, 106, 100), Rect(ix - 10, iy, 20, 7), 1)
+            # feet
+            canvas.line((120, 112, 104), (ix - 11, iy + 11), (ix - 11, iy + 14), 1)
+            canvas.line((120, 112, 104), (ix + 11, iy + 11), (ix + 11, iy + 14), 1)
+            # UNPACKING: a closing ring while the station seats over its
+            # first 30s -- visibly not yet online (inert + fragile until it
+            # is), and no heal aura yet
+            if session.tick_count < b.get("ready_at", 0):
+                rem = (b["ready_at"] - session.tick_count) \
+                    / float(BUILDING_UNPACK_TICKS)
+                canvas.circle((205, 200, 194), (ix, iy),
+                              max(4, int(6 + 9 * rem)), 1)
+            # the aura only once it's seated AND can actually pay out
+            elif b["charge"] > 0:
+                phase = (session.tick_count % 150) / 150.0
+                rr = 20 + 7 * math.sin(phase * 2 * math.pi)
+                canvas.circle((225, 220, 212), (ix, iy), max(2, int(rr)), 1)
+            hurt = b.get("hp", session.REPAIR_HP) / float(session.REPAIR_HP)
+            if hurt < 1.0:
+                canvas.rect((44, 20, 18), Rect(ix - 10, iy - 12, 20, 2))
+                canvas.rect((235, 110, 80),
+                            Rect(ix - 10, iy - 12, int(20 * hurt), 2))
+        # BREACHES the hub reached through (ADVERSARY_DESIGN): reinforcements
+        # pour out of these, well behind the front where a caller opened them
+        for br in getattr(session, "breaches", ()):
+            if br["polygon"] != polygon:
+                continue
+            bsx, bsy = necore.mat_apply(xform, *br["pos"])
+            if not _point_in_poly(bsx, bsy, clip_screen):
+                continue
+            self._draw_breach(canvas, bsx, bsy, session.tick_count)
 
     def _nearest_wall_point(self, polygon: int, pos):
         """Nearest point on a polygon's wall to `pos` (polygon-local), for
@@ -2650,7 +2862,7 @@ class Renderer:
             sx, sy = necore.mat_apply(xform, *t["pos"])
             if not _point_in_poly(sx, sy, clip_screen):
                 return
-            rect = pygame.Rect(0, 0, 6, 8)
+            rect = Rect(0, 0, 6, 8)
             rect.center = _pt((sx, sy))
             canvas.rect((20, 30, 24), rect)
             canvas.rect(screen_color, rect, 1)
@@ -2738,7 +2950,7 @@ class Renderer:
                 a, b = seg[0], seg[-1]
                 canvas.line(color, _pt(a), _pt(b), 3)
                 mx, my = (a[0] + b[0]) / 2.0, (a[1] + b[1]) / 2.0
-                rect = pygame.Rect(0, 0, 4, 4)
+                rect = Rect(0, 0, 4, 4)
                 rect.center = _pt((mx, my))
                 canvas.rect(color, rect)
 
@@ -2757,6 +2969,11 @@ class Renderer:
         p = s.pickups.get(eid)
         if p is not None:
             return "pickup", p["kind"]
+        t = getattr(s, "sentries", {}).get(eid)
+        if t is not None:
+            # emplacements were resolving to None here — they shot, killed
+            # and blocked, but never drew a single pixel (2026-07-20)
+            return "sentry", t["kind"]
         return None, None
 
     def _draw_entities(self, canvas, ents, clip_screen):
@@ -2771,6 +2988,10 @@ class Renderer:
                 continue
             ang = math.atan2(diry, dirx) if (dirx or diry) else 0.0
             if role == "player":
+                # what the body is hauling reads ON the body (director
+                # 2026-07-23: the HUD no longer says "carrying a pod"). Drawn
+                # first so the chassis sits on top of its load.
+                self._draw_carried(canvas, sx, sy, ang, max(srad, 2.0))
                 pts = _xform_pts(PLAYER_SHAPE, sx, sy, max(srad, 2.0), ang)
                 if clip_screen is not None and not fully_inside:
                     pts = necore.clip_polygon(pts, clip_screen)
@@ -2791,6 +3012,125 @@ class Renderer:
                 self._draw_bullet(canvas, kind, sx, sy, dirx, diry, clip_screen)
             elif role == "pickup":
                 self._draw_pickup(canvas, eid, kind, sx, sy, srad, clip_screen)
+            elif role == "sentry":
+                self._draw_sentry(canvas, eid, sx, sy, ang, clip_screen)
+
+    def _draw_carried(self, canvas, sx, sy, ang, srad):
+        """The load on the body's back. A hauled revival POD reads as a
+        mini-CUCULUS sac (the teal factory palette, a breathing core) slung
+        opposite the facing; repair/sentry kits read as small crates behind
+        it. Multiple pods stack further back and drag it down — which is
+        exactly what POD_CARRY_SLOW does to the handling."""
+        carried = getattr(self.session, "carried", None)
+        if not carried:
+            return
+        pods = [k for k in carried if k == "pod"]
+        kits = [k for k in carried if k != "pod"]
+        bx, by = -math.cos(ang), -math.sin(ang)          # straight back
+        phase = (self.session.tick_count % 120) / 120.0
+        glow = 0.5 + 0.5 * math.sin(phase * 2 * math.pi)
+        d = srad * 1.15                                  # first slot's gap
+        # a strap from the chassis to the first thing on the rack
+        if pods or kits:
+            canvas.line((150, 200, 175),
+                        _pt((sx + bx * srad * 0.5, sy + by * srad * 0.5)),
+                        _pt((sx + bx * d, sy + by * d)), 1)
+        pr = max(2, int(round(srad * 0.95)))
+        # an OCTAGON body (the CUCULUS silhouette) transformed by the body's
+        # facing, so the load turns WITH the chassis -- it reads as a thing
+        # strapped to his back, not a sprite trailing him (director 2026-07-24)
+        _oct = [(math.cos(i * math.pi / 4.0), math.sin(i * math.pi / 4.0))
+                for i in range(8)]
+        for _ in pods:
+            cx, cy = sx + bx * d, sy + by * d
+            body = _xform_pts(_oct, cx, cy, pr, ang)
+            canvas.polygon((26, 42, 36), body)                      # sac body
+            canvas.polygon((150, 240, 185), body, 1)                # rim
+            core = (int(120 + 120 * glow), int(230 + 25 * glow),
+                    int(170 + 60 * glow))
+            canvas.circle(core, _pt((cx, cy)), max(1, pr // 3))
+            d += pr * 1.7
+        kr = max(2, int(round(srad * 0.7)))
+        _sq = [(1.0, 1.0), (-1.0, 1.0), (-1.0, -1.0), (1.0, -1.0)]
+        for _ in kits:
+            cx, cy = sx + bx * d, sy + by * d
+            crate = _xform_pts(_sq, cx, cy, kr, ang)   # crate turns with the body
+            canvas.polygon((48, 48, 54), crate)
+            canvas.polygon((150, 160, 170), crate, 1)
+            d += kr * 2.1
+
+    def _draw_sentry(self, canvas, eid, sx, sy, ang, clip_screen):
+        """A re-sworn guardian on its tripod. Drawn at FIXED pixel size,
+        like the revival pod: an emplacement you paid salvage for has to
+        read at the shipped 0.45 zoom, not shrink to three dark pixels."""
+        if clip_screen is not None and not _point_in_poly(sx, sy, clip_screen):
+            return
+        t = self.session.sentries.get(eid)
+        if t is None:
+            return
+        ix, iy = _pt((sx, sy))
+        # the turret ROTATES to face its target (sim slews t["face"]); the
+        # legs stay put, only the head/barrel turn (director 2026-07-23)
+        ang = t.get("face", ang)
+        tick = self.session.tick_count
+        unpacking = tick < t.get("ready_at", 0)
+        # AMBER, not blue: at gameplay scale a blue-outlined triangle was
+        # indistinguishable from a teal Adversary, so reviewers could not
+        # tell a player's gun from the thing attacking it. The gun wears
+        # the colour of its own tracers. Built as a real emplacement —
+        # three splayed legs, a drum, a turret head and a muzzle — rather
+        # than a triangle (director 2026-07-21).
+        for leg in (-1.0, 0.0, 1.0):
+            la = ang + math.pi + leg * 0.85
+            canvas.line((150, 116, 58),
+                        (ix, iy + 2),
+                        (int(ix + math.cos(la) * 11),
+                         int(iy + math.sin(la) * 11)), 2)
+        # ammo drum, offset behind the head
+        dx = int(ix - math.cos(ang) * 5)
+        dy = int(iy - math.sin(ang) * 5)
+        canvas.circle((78, 60, 28), (dx, dy), 5)
+        canvas.circle((205, 160, 78), (dx, dy), 5, 1)
+        # turret head
+        head = [(ix, iy - 7), (ix - 7, iy + 3), (ix + 7, iy + 3)]
+        canvas.polygon((92, 70, 34), head)
+        canvas.polygon((255, 214, 130), head, 1)
+        # barrel with a muzzle collar, pointing where it last tracked
+        bx = int(ix + math.cos(ang) * 15)
+        by = int(iy + math.sin(ang) * 15)
+        canvas.line((255, 236, 180), (ix, iy - 1), (bx, by), 2)
+        canvas.circle((255, 245, 205), (bx, by), 2, 1)
+        # MUZZLE FLASH + FLARE at the barrel: bright for the first ~4 ticks
+        # after a shot (director 2026-07-23). The room-lighting flare is a
+        # real pulse light from the sim; this is the sprite core.
+        since = tick - t.get("fire_tick", -999)
+        if 0 <= since < 4:
+            fl = 1.0 - since / 4.0
+            fx_ = int(ix + math.cos(ang) * 17)
+            fy_ = int(iy + math.sin(ang) * 17)
+            canvas.circle((255, 240, 200), (fx_, fy_), max(2, int(2 + 4 * fl)))
+            canvas.circle((255, 255, 235), (fx_, fy_), max(1, int(1 + 2 * fl)))
+            # a short flare streak down the bore
+            canvas.line((255, 236, 190), (bx, by),
+                        (int(ix + math.cos(ang) * (22 + 6 * fl)),
+                         int(iy + math.sin(ang) * (22 + 6 * fl))), 1)
+        # UNPACKING: a folding ring closes over the first 30s — the gun is
+        # visibly not yet online (and is inert + fragile until it is)
+        if unpacking:
+            rem = (t["ready_at"] - tick) / float(BUILDING_UNPACK_TICKS)
+            canvas.circle((150, 130, 90), (ix, iy),
+                          max(4, int(6 + 8 * rem)), 1)
+        # DRY: a stranded, spent gun (no pod within supply range) reads
+        # cold — an empty drum ring
+        elif t.get("ammo", 1) <= 0 and not t.get("supplied", True):
+            canvas.circle((90, 70, 40), (dx, dy), 6, 1)
+        # damage tell: the frame browns out as the Adversary tears at it
+        full = float(SENTRY_SPECS.get(t["kind"], {}).get("hp", 45.0))
+        frac = max(0.0, min(1.0, t.get("hp", full) / full))
+        if frac < 1.0:
+            canvas.rect((40, 20, 18), Rect(ix - 8, iy + 9, 16, 2))
+            canvas.rect((225, 110, 80),
+                        Rect(ix - 8, iy + 9, int(16 * frac), 2))
 
     def _draw_scan_pips(self, canvas, eid, sx, sy, srad, clip_screen):
         """Mind map: a deep-scan node renders wounded enemies' integrity as
@@ -2809,9 +3149,173 @@ class Renderer:
             return
         wbar = max(6, int(srad * 1.6))
         x0, y0 = int(sx - wbar // 2), int(sy - srad - 5)
-        canvas.rect((22, 26, 30), pygame.Rect(x0, y0, wbar, 2))
+        canvas.rect((22, 26, 30), Rect(x0, y0, wbar, 2))
         canvas.rect((120, 220, 235),
-                    pygame.Rect(x0, y0, max(1, int(wbar * frac)), 2))
+                    Rect(x0, y0, max(1, int(wbar * frac)), 2))
+
+    def _draw_adversary(self, canvas, eid, kind, sx, sy, ang, srad,
+                        clip_screen, fully_inside, flashed):
+        """The Adversary's sensor trace. Not a body with an outline — a
+        return the instrument cannot resolve into an object.
+
+        The first cut drew a stable silhouette with three arcs orbiting it,
+        which the director read exactly as it looked: "little satellites
+        that spin in a circle" (2026-07-21). Formless horror under other
+        physical laws does not orbit. So:
+
+        * the contour NEVER CLOSES. It is drawn as arcs with gaps, and the
+          gaps move, so the eye can't seal it into a shape.
+        * it is drawn at SEVERAL RADII AT ONCE, each turning at its own
+          rate and each solved separately — one object occupying several
+          depths, which is what a projection of something with an extra
+          dimension looks like from inside three of them.
+        * TENDRILS grow and retract from the contour, some crossing the
+          interior, so the boundary is not where the thing ends.
+        * the interior is darker than the floor and carries chords that
+          connect points the outline does not — inside is not enclosed.
+        """
+        col = ADVERSARY_TRACE[kind]
+        if flashed:
+            col = (255, 255, 255)
+        if clip_screen is not None and not fully_inside \
+                and not _point_in_poly(sx, sy, clip_screen):
+            return
+        tick = self.session.tick_count
+        shape = ENEMY_SHAPE.get(kind, _CIRCLE_SHAPE)
+        # A vagrant's body radius is 9.5u, which at the play zoom of 0.45 is
+        # about eight pixels — every shell, tendril and chord below landed
+        # inside a speck, so the thing read as one more small blob no matter
+        # how much structure it had. The trace is not the body: what the
+        # instrument fails to resolve is LARGER than what you can collide
+        # with. Drawing wider is a render-only change, so the hitbox, the
+        # balance and the recorded seeds are all untouched.
+        r = max(srad * ADVERSARY_TRACE_SCALE, 7.0)
+        h = (eid * 2654435761) % 997 / 997.0
+        n = len(shape)
+
+        # SECOND ITERATION (director 2026-07-22: "they just look like a
+        # scribble — iterate more"). The scribble came from three shells,
+        # three tendrils and two chords ALL drawn as 1px lines of similar
+        # brightness: plenty of motion, no hierarchy, nothing for the eye
+        # to hold. This pass builds a hierarchy — mass, then a single
+        # dominant edge, then accents — while keeping every constraint
+        # (contour never closes, no orbiting parts, no vertex ever still).
+
+        # 1) MASS AS ABSENCE: a near-black core, slowly boiling. The old
+        #    hole was filled at 0.10 of the trace colour and vanished on
+        #    dark floors, leaving only linework. Against the lit floor
+        #    the core reads as a BITE out of the world — the instrument
+        #    returning nothing at all from the middle of the thing.
+        core = _boil(_xform_pts(shape, sx, sy, r * 0.86, ang), tick // 2,
+                     eid, max(0.8, r * 0.08))
+        if len(core) >= 3:
+            canvas.polygon((7, 9, 12), _pts(core))
+
+        # 2) ONE dominant contour: full-brightness, 2px, a single gap that
+        #    crawls segment-to-segment. The body SWAYS (bounded sine, a
+        #    breathing rock) rather than spinning — rotation is what read
+        #    as "little satellites" in the first cut.
+        a1 = ang + math.sin(tick * 0.013 + h * 6.283) * 0.35
+        rim = _boil(_xform_pts(shape, sx, sy, r * 1.02, a1), tick,
+                    eid * 3, max(0.7, r * 0.10))
+        gap = (tick // 6 + int(h * n)) % n
+        for i in range(n):
+            if i == gap:
+                continue
+            canvas.line(col, _pt(rim[i]), _pt(rim[(i + 1) % n]), 2)
+
+        # 3) a faint counter-shell inside, swaying the other way: depth
+        #    without clutter, and its own two moving gaps
+        a2 = ang - math.sin(tick * 0.017 + h * 2.0) * 0.5
+        inner = _boil(_xform_pts(shape, sx, sy, r * 0.58, a2), tick + 41,
+                      eid * 5, max(0.6, r * 0.12))
+        shade = _scale_color(col, 0.42)
+        skip = (tick // 4 + int(h * 5)) % n
+        for i in range(n):
+            if i == skip or i == (skip + n // 2) % n:
+                continue
+            canvas.line(shade, _pt(inner[i]), _pt(inner[(i + 1) % n]), 1)
+
+        # 4) TWO tendrils that reach with intent — long, slow grow/retract,
+        #    a whip in the middle — instead of three jittering hairs
+        anchor = _xform_pts(shape, sx, sy, r, a1)
+        for k in range(2):
+            phase = tick * 0.03 + k * 3.1 + h * 6.283
+            grow = 0.5 + 0.5 * math.sin(phase)
+            i = (int(tick * 0.02) + k * (n // 2)) % n
+            bx, by = anchor[i]
+            ex = sx + (bx - sx) * (1.0 + 2.2 * grow)
+            ey = sy + (by - sy) * (1.0 + 2.2 * grow)
+            mx = sx + (bx - sx) * (0.7 + 1.0 * grow)                 + math.cos(phase * 1.9) * r * 0.35
+            my = sy + (by - sy) * (0.7 + 1.0 * grow)                 + math.sin(phase * 1.4) * r * 0.35
+            faint = _scale_color(col, 0.45 + 0.5 * grow)
+            canvas.line(faint, _pt((bx, by)), _pt((mx, my)), 1)
+            canvas.line(faint, _pt((mx, my)), _pt((ex, ey)), 1)
+
+        # 5) interior GLINTS that blink — brief bright sparks deep in the
+        #    core, mostly dark — instead of two chords always on
+        for k in range(2):
+            if (tick // 7 + k * 5 + eid) % 3:
+                continue
+            gi = (int(h * n) + k * 3 + tick // 11) % n
+            ax_, ay_ = _xform_pts(shape, sx, sy, r * 0.34, a2)[gi]
+            bx_, by_ = _xform_pts(shape, sx, sy, r * 0.5, a2)[(gi + 1) % n]
+            canvas.line(_brighten(col, 60), _pt((ax_, ay_)), _pt((bx_, by_)), 1)
+
+    def _draw_caller_tell(self, canvas, sx, sy, srad, call_t):
+        """A caller mid-transmit: violet 'signal' rings ping outward from it,
+        quicker and brighter as the call nears completion, plus a swelling
+        core -- so the transmit is legible from across the room and the
+        player can go silence it. Violet, distinct from the player's teal
+        structures and the amber sentries."""
+        # No caller tell at all (director 2026-07-24: "the swelling core is
+        # wrong too -- just the breach itself is plenty"). The transmitting unit
+        # renders like any other; the breach opening is the whole tell.
+        return
+
+    def _draw_breach(self, canvas, sx, sy, tick):
+        """A breach the hub reached through: a dark tear (you cannot shoot a
+        hole -- it is absence of material) rimmed in violent violet energy
+        that reaches with tendrils and pulses as reinforcements come through.
+        Reads as alien and dangerous, never like a player structure."""
+        ix, iy = _pt((sx, sy))
+        pulse = 0.5 + 0.5 * math.sin(tick * 0.13)
+        # bigger than a floor stain, and a dark-VIOLET well (not near-black) so
+        # it never reads as blood/grime -- the whole point is "obviously a tear"
+        r = int(16 + 4 * pulse)
+        canvas.circle((24, 7, 34), (ix, iy), r)               # the violet void
+        canvas.circle((210, 85, 240), (ix, iy), r, 1)         # bright hot rim
+        canvas.circle((170, 62, 205), (ix, iy), max(2, r - 1), 1)   # rim depth
+        canvas.circle((130, 45, 175), (ix, iy), max(2, int(r * 0.62)), 1)
+        canvas.circle((150, 55, 190), (ix, iy), max(2, int(r * 0.32)), 1)  # inner well
+        for k in range(7):                                     # reaching tendrils
+            a = k * (2.0 * math.pi / 7.0) + tick * 0.02
+            r2 = r + 5 + int(6 * pulse)
+            canvas.line((185, 70, 215),
+                        (ix + int(math.cos(a) * r), iy + int(math.sin(a) * r)),
+                        (ix + int(math.cos(a) * r2), iy + int(math.sin(a) * r2)), 1)
+
+    def _draw_hub_core(self, canvas, sx, sy, srad, flashed):
+        """The spawn hub's heart (ADVERSARY_DESIGN): a big pulsing violet organ
+        deep in the chamber -- obviously the thing to destroy. It BEATS (rim +
+        a hot centre), with veins radiating into the deck."""
+        ix, iy = _pt((sx, sy))
+        tick = self.session.tick_count
+        beat = 0.5 + 0.5 * math.sin(tick * 0.11)
+        r = max(6, int(srad))
+        canvas.circle((255, 255, 255) if flashed else (42, 12, 54),
+                      (ix, iy), r)                             # organ body
+        canvas.circle((208, 82, 238), (ix, iy), r, 1)         # violet membrane
+        canvas.circle((160, 55, 200), (ix, iy), max(2, r - 2), 1)
+        for k in range(8):                                     # radiating veins
+            a = k * (math.pi / 4.0) + tick * 0.01
+            r2 = r + 4 + int(6 * beat)
+            canvas.line((150, 55, 190),
+                        (ix + int(math.cos(a) * r), iy + int(math.sin(a) * r)),
+                        (ix + int(math.cos(a) * r2), iy + int(math.sin(a) * r2)), 1)
+        hot = max(2, int(r * (0.32 + 0.26 * beat)))            # the beating heart
+        canvas.circle((min(255, int(205 + 50 * beat)),
+                       min(255, int(120 + 90 * beat)), 245), (ix, iy), hot)
 
     def _draw_enemy(self, canvas, eid, kind, sx, sy, ang, srad, clip_screen, fully_inside):
         flashed = self._hitflash.get(eid, 0) > 0
@@ -2828,11 +3332,21 @@ class Renderer:
         # composites post-lightmap-multiply like every entity does.
         e = self.session.enemies.get(eid)
         intensity = e.get("trace_intensity", 1.0) if e else 1.0
+        # CALLER TELL (ADVERSARY_DESIGN): a unit transmitting a fix for the
+        # hub reads from across the room -- expanding "signal" rings that
+        # quicken and brighten as it nears completion (the window to stop it
+        # is closing). Drawn under the body so the body stays legible on top.
+        if e is not None and e.get("state") == "call":
+            self._draw_caller_tell(canvas, sx, sy, srad,
+                                   e.get("call_t", CALL_TRANSMIT_TICKS))
         if intensity < 0.999 and not flashed:
             fill = _scale_color(fill, intensity)
             rim = _scale_color(rim, intensity)
         if flashed:
             fill = rim = (255, 255, 255)
+        if kind == "hub_core":
+            self._draw_hub_core(canvas, sx, sy, srad, flashed)
+            return
         if kind == "mite":
             if clip_screen is not None and not fully_inside \
                     and not _point_in_poly(sx, sy, clip_screen):
@@ -2840,6 +3354,10 @@ class Renderer:
             r = max(1, int(round(srad * 0.85)))
             canvas.circle(fill, _pt((sx, sy)), r)
             canvas.circle(rim, _pt((sx, sy)), r, 1)
+            return
+        if kind in ADVERSARY_TRACE:
+            self._draw_adversary(canvas, eid, kind, sx, sy, ang, srad,
+                                 clip_screen, fully_inside, flashed)
             return
         shape = ENEMY_SHAPE.get(kind, _CIRCLE_SHAPE)
         pts = _xform_pts(shape, sx, sy, max(srad, 2.0), ang)
@@ -2924,18 +3442,18 @@ class Renderer:
         r = max(2.5, srad)
         ix, iy = _pt((sx, sy))
         if kind == "ammo_9mm":
-            rect = pygame.Rect(0, 0, int(r * 1.6), int(r * 1.2))
+            rect = Rect(0, 0, int(r * 1.6), int(r * 1.2))
             rect.center = (ix, iy)
             canvas.rect((200, 150, 40), rect)
         elif kind == "ammo_shell":
-            rect = pygame.Rect(0, 0, int(r * 1.6), int(r * 1.2))
+            rect = Rect(0, 0, int(r * 1.6), int(r * 1.2))
             rect.center = (ix, iy)
             canvas.rect((180, 60, 50), rect)
         elif kind == "ammo_cell":
             canvas.circle((60, 200, 220), (ix, iy), max(2, int(r * 0.8)))
             canvas.circle((200, 250, 255), (ix, iy), max(2, int(r * 0.8)), 1)
         elif kind == "medkit":
-            rect = pygame.Rect(0, 0, int(r * 1.8), int(r * 1.8))
+            rect = Rect(0, 0, int(r * 1.8), int(r * 1.8))
             rect.center = (ix, iy)
             canvas.rect((40, 40, 44), rect)
             canvas.line((235, 235, 235),
@@ -2955,27 +3473,61 @@ class Renderer:
             canvas.circle((220, 205, 255), (ix, iy), 1)
         elif kind.startswith("weapon_"):
             canvas.rect((190, 195, 200),
-                        pygame.Rect(ix - int(r), iy - 1, int(r * 2), 2))
+                        Rect(ix - int(r), iy - 1, int(r * 2), 2))
             canvas.rect((190, 195, 200),
-                        pygame.Rect(ix - int(r * 0.3), iy - int(r * 0.7),
+                        Rect(ix - int(r * 0.3), iy - int(r * 0.7),
                                     max(1, int(r * 0.4)), int(r * 0.7)))
         elif kind == "components":
             # salvaged mass: a small scatter of scrap facets
             canvas.polygon((150, 130, 90),
                            [(ix - 3, iy + 2), (ix, iy - 3), (ix + 3, iy + 1)])
             canvas.rect((110, 100, 80),
-                        pygame.Rect(ix - 1, iy + 1, 3, 2))
+                        Rect(ix - 1, iy + 1, 3, 2))
             canvas.polygon((190, 170, 120),
                            [(ix - 3, iy + 2), (ix, iy - 3), (ix + 3, iy + 1)], 1)
         elif kind == "corpse_frame":
             # a wrecked frame, prone; the faint pulse marks it recoverable
-            canvas.rect((40, 44, 50), pygame.Rect(ix - int(r), iy - 3,
+            canvas.rect((40, 44, 50), Rect(ix - int(r), iy - 3,
                                                   int(r * 2), 6))
             canvas.circle((40, 44, 50), (ix + int(r), iy), 3)
             phase = (self.session.tick_count % 90) / 90.0
             a = 0.5 + 0.5 * math.sin(phase * 2 * math.pi)
             rim = (int(90 + 90 * a), int(160 + 60 * a), int(120 + 60 * a))
-            canvas.rect(rim, pygame.Rect(ix - int(r), iy - 3, int(r * 2), 6), 1)
+            canvas.rect(rim, Rect(ix - int(r), iy - 3, int(r * 2), 6), 1)
+        elif kind == "dropped_pod":
+            # the seed obelisk, undeployed and lying on its side in its
+            # carry crate — same green pod palette as the planted fixture
+            crate = [(ix - int(r * 1.4), iy - int(r * 0.7)),
+                     (ix + int(r * 1.4), iy - int(r * 0.7)),
+                     (ix + int(r * 1.1), iy + int(r * 0.8)),
+                     (ix - int(r * 1.1), iy + int(r * 0.8))]
+            canvas.polygon((30, 46, 40), crate)
+            canvas.polygon((150, 240, 185), crate, 1)
+            for dx in (-int(r * 0.5), 0, int(r * 0.5)):
+                canvas.line((90, 165, 130), (ix + dx, iy - int(r * 0.6)),
+                            (ix + dx, iy + int(r * 0.7)), 1)
+            phase = (self.session.tick_count % 120) / 120.0
+            a = 0.5 + 0.5 * math.sin(phase * 2 * math.pi)
+            canvas.circle((int(90 + 60 * a), int(200 + 40 * a),
+                           int(150 + 40 * a)), (ix, iy), 2)
+        elif kind == "dropped_repair":
+            # the repair cabinet, folded down onto its skids
+            crate = [(ix - int(r * 1.3), iy - int(r * 0.5)),
+                     (ix + int(r * 1.3), iy - int(r * 0.5)),
+                     (ix + int(r * 1.1), iy + int(r * 0.7)),
+                     (ix - int(r * 1.1), iy + int(r * 0.7))]
+            canvas.polygon((28, 34, 44), crate)
+            canvas.polygon((120, 200, 235), crate, 1)
+            canvas.line((150, 245, 220), (ix - int(r * 0.5), iy),
+                        (ix + int(r * 0.5), iy), 1)
+        elif kind == "dropped_sentry":
+            # a gun folded onto its tripod, muzzle down
+            pts = [(ix, iy + int(r * 0.8)), (ix - int(r), iy - int(r * 0.6)),
+                   (ix + int(r), iy - int(r * 0.6))]
+            canvas.polygon((72, 56, 28), pts)
+            canvas.polygon((235, 190, 110), pts, 1)
+            canvas.line((235, 190, 110), (ix, iy - int(r * 0.6)),
+                        (ix, iy + int(r * 0.4)), 1)
         elif kind == "implant_lightning":
             pts = [(ix, iy - r), (ix + r, iy), (ix, iy + r), (ix - r, iy)]
             canvas.polygon((90, 220, 255), [(int(x), int(y)) for x, y in pts])
@@ -2996,40 +3548,44 @@ class Renderer:
 
     # -- (7) particles / effects pools --------------------------------------
 
-    def _blit_glow(self, surf, sx, sy, radius, clip_screen):
+    def _add_sprite(self, lm, img, sx, sy, clip_screen) -> None:
+        """Additively blit numpy glow sprite `img` ((d, d, 3), row=y col=x)
+        onto lightmap `lm` ((W, H, 3)), centered at (sx, sy) and clipped to the
+        bounding box of `clip_screen` -- the numpy equal of the old
+        set_clip + BLEND_RGB_ADD blit."""
+        ih, iw, _ = img.shape
+        destx, desty = int(sx - iw / 2), int(sy - ih / 2)
+        xs = [p[0] for p in clip_screen]
+        ys = [p[1] for p in clip_screen]
+        cx0, cy0 = int(min(xs)), int(min(ys))
+        cx1 = cx0 + int(max(xs) - min(xs)) + 1
+        cy1 = cy0 + int(max(ys) - min(ys)) + 1
+        W, H, _ = lm.shape
+        x0 = max(0, destx, cx0)
+        y0 = max(0, desty, cy0)
+        x1 = min(W, destx + iw, cx1)
+        y1 = min(H, desty + ih, cy1)
+        if x1 <= x0 or y1 <= y0:
+            return
+        # img is (row=y, col=x); slice the visible window and transpose to
+        # (x, y) to match lm's axes.
+        sub = img[y0 - desty:y1 - desty, x0 - destx:x1 - destx].transpose(1, 0, 2)
+        _add_into(lm[x0:x1, y0:y1], sub)
+
+    def _blit_glow(self, lm, sx, sy, radius, clip_screen):
         if radius <= 1:
             return
         best = min(self._glow_sizes, key=lambda r: abs(r - radius))
-        img = self._glow_cache[best]
-        iw, ih = img.get_size()
-        dest = (int(sx - iw / 2), int(sy - ih / 2))
-        xs = [p[0] for p in clip_screen]
-        ys = [p[1] for p in clip_screen]
-        clip_rect = pygame.Rect(int(min(xs)), int(min(ys)),
-                                 int(max(xs) - min(xs)) + 1, int(max(ys) - min(ys)) + 1)
-        prev_clip = surf.get_clip()
-        surf.set_clip(clip_rect)
-        surf.blit(img, dest, special_flags=pygame.BLEND_RGB_ADD)
-        surf.set_clip(prev_clip)
+        self._add_sprite(lm, self._glow_cache[best], sx, sy, clip_screen)
 
-    def _blit_screen_glow(self, surf, sx, sy, radius, clip_screen):
+    def _blit_screen_glow(self, lm, sx, sy, radius, clip_screen):
         if radius <= 1:
             return
         best = min(self._screen_glow_sizes, key=lambda r: abs(r - radius))
-        img = self._screen_glow_cache[best]
-        iw, ih = img.get_size()
-        dest = (int(sx - iw / 2), int(sy - ih / 2))
-        xs = [p[0] for p in clip_screen]
-        ys = [p[1] for p in clip_screen]
-        clip_rect = pygame.Rect(int(min(xs)), int(min(ys)),
-                                 int(max(xs) - min(xs)) + 1, int(max(ys) - min(ys)) + 1)
-        prev_clip = surf.get_clip()
-        surf.set_clip(clip_rect)
-        surf.blit(img, dest, special_flags=pygame.BLEND_RGB_ADD)
-        surf.set_clip(prev_clip)
+        self._add_sprite(lm, self._screen_glow_cache[best], sx, sy, clip_screen)
 
     def _draw_effects(self, canvas, polygon, xform, clip_screen):
-        if not (self._gibs or self._sparks or self._flashes
+        if not (self._gibs or self._sparks
                 or self._bolts or self._screams):
             return  # nothing pooled: skip the per-instance scale hypot
         scale = _xform_scale(xform)
@@ -3054,18 +3610,14 @@ class Renderer:
             ex, ey = sx + ndx / nl * 5, sy + ndy / nl * 5
             canvas.line(SPARK_COLOR, _pt((sx, sy)), _pt((ex, ey)), 1)
 
-        for fl in self._flashes:
-            if fl["polygon"] != polygon:
-                continue
-            sx, sy = necore.mat_apply(xform, fl["x"], fl["y"])
-            self._deferred_glows.append((sx, sy, fl["radius"] * scale, clip_screen))
-
         for b in self._bolts:
             if b["polygon"] != polygon:
                 continue
             sx, sy = necore.mat_apply(xform, b["x"], b["y"])
-            pieces = []
             if b["life"] % 2 == 0:
+                # the bright bolt CORE goes straight onto the entity layer, so
+                # the darkness multiply never dims it (same footing as every
+                # entity sprite); its glow feeds the lightmap below.
                 for seg in b["segs"]:
                     spts = []
                     for dx, dy in seg:
@@ -3073,10 +3625,9 @@ class Renderer:
                         spts.append((sx + wdx, sy + wdy))
                     for piece in necore.clip_polyline(spts, clip_screen):
                         if len(piece) >= 2:
-                            pieces.append(piece)
-            self._deferred_bolts.append(
-                (LIGHTNING_COLOR, pieces,
-                 (sx, sy, b["radius"] * scale * 0.6, clip_screen)))
+                            canvas.lines(LIGHTNING_COLOR, False, _pts(piece), 1)
+            self._deferred_bolt_glows.append(
+                (sx, sy, b["radius"] * scale * 0.6, clip_screen))
 
         for sc in self._screams:
             if sc["polygon"] != polygon:
@@ -3091,37 +3642,46 @@ class Renderer:
 
     # -- (8) post -------------------------------------------------------
 
-    def _draw_post(self, surf):
+    def _vig_alpha_for(self, w, h) -> np.ndarray:
+        """(W, H) low-hp/hurt vignette edge-falloff field at the given frame
+        size (rebuilt off the default-res bake if a test renders at another
+        resolution)."""
+        va = self._vig_alpha
+        if va.shape == (w, h):
+            return va
+        yy, xx = np.mgrid[0:h, 0:w]
+        cx, cy = w / 2.0, h / 2.0
+        dist = np.sqrt(((xx - cx) / (w / 2.0)) ** 2 + ((yy - cy) / (h / 2.0)) ** 2)
+        a2 = np.clip((dist - 0.20) / 0.85, 0.0, 1.0)
+        return (a2 * 190).astype(np.uint8).T
+
+    def _draw_post(self, fb):
         session = self.session
+        w, h, _ = fb.shape
+        vig = None
+        if (session.hp < 35 and not session.dead) or self._hurt_ticks > 0:
+            vig = self._vig_alpha_for(w, h).astype(np.uint16)
         if session.hp < 35 and not session.dead:
             pulse = 0.55 + 0.45 * math.sin(session.tick_count * 0.25)
             a = max(0, min(255, int(150 * pulse)))
-            self._vignette_lowhp.set_alpha(a)
-            surf.blit(self._vignette_lowhp, (0, 0))
+            _alpha_over(fb, (160, 8, 8), (vig * a) // 255)
         if self._hurt_ticks > 0:
             # pain reads at the screen edges (red vignette) + a faint cast;
             # the center of the world must stay readable through the flash
             k = self._hurt_ticks / 2.0
-            self._vignette_lowhp.set_alpha(int(230 * k))
-            surf.blit(self._vignette_lowhp, (0, 0))
-            self._hurt_overlay.set_alpha(int(36 * k))
-            surf.blit(self._hurt_overlay, (0, 0))
+            _alpha_over(fb, (160, 8, 8), (vig * int(230 * k)) // 255)
+            _alpha_over(fb, (190, 26, 26), int(36 * k))
         if session.dead and self._death_fade > 0:
             a = min(255, int(255 * self._death_fade / 40))
-            self._death_overlay.set_alpha(a)
-            surf.blit(self._death_overlay, (0, 0))
+            _alpha_over(fb, (0, 0, 0), a)
 
     # -- debug ------------------------------------------------------------
 
-    def _draw_debug(self, surf, instances):
-        if self._font is None:
-            if not pygame.font.get_init():
-                pygame.font.init()
-            self._font = pygame.font.Font(None, ui(12))
+    def _draw_debug(self, fb, instances):
         for polygon, xform, depth, clip_screen, walls, entry_edge, ents in instances:
             if not clip_screen:
                 continue
             cx = sum(p[0] for p in clip_screen) / len(clip_screen)
             cy = sum(p[1] for p in clip_screen) / len(clip_screen)
-            img = self._font.render(f"r{polygon} d{depth}", True, (255, 0, 255))
-            surf.blit(img, (cx - 12, cy - 6))
+            text.blit_text(fb, f"r{polygon} d{depth}",
+                           int(cx - 12), int(cy - 6), (255, 0, 255), ui(12))
