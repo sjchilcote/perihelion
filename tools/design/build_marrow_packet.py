@@ -178,7 +178,12 @@ def load(journal: Path):
 
 
 def lane_letter(lane_name: str) -> str:
-    m = re.match(r"\s*LANE\s+([A-F])", lane_name or "")
+    """First letter of a lane label.
+
+    Lanes label themselves inconsistently -- 'LANE G — ...' and bare
+    'L — emergent focal points ...' both occur -- so accept either form.
+    """
+    m = re.match(r"\s*(?:LANE\s+)?([A-Z])\s*[—\-–:.]", lane_name or "")
     return m.group(1) if m else "?"
 
 
@@ -194,7 +199,7 @@ def build_flag_index(critique) -> dict:
         return flags
     pool = (critique.get("unsourced_or_suspect_claims") or []) + (critique.get("thin_lanes") or [])
     for item in pool:
-        m = re.match(r"\s*LANE\s+([A-F])\b(.*)", item, re.DOTALL)
+        m = re.match(r"\s*LANE\s+([A-Z])\b(.*)", item, re.DOTALL)
         if not m:
             continue
         letter, rest = m.group(1), m.group(2)
@@ -272,6 +277,8 @@ def main() -> int:
         print(__doc__, file=sys.stderr)
         return 2
     journal = Path(sys.argv[1])
+    out_path = Path(sys.argv[2]) if len(sys.argv) > 2 else OUT
+    globals()["OUT"] = out_path
     if not journal.exists():
         print(f"FATAL: journal not found: {journal}", file=sys.stderr)
         return 2
