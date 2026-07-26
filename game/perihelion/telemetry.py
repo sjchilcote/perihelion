@@ -128,6 +128,16 @@ class BreachLifecycle:
 
 
 @dataclass(frozen=True, slots=True)
+class CorePartEvent:
+    KIND = "core_part"
+    tick: int
+    part_id: int          # -1 for organ-wide events (blackout, reform)
+    part_kind: str        # "" for organ-wide events
+    event: str            # destroyed | blackout | reformed
+    detail: str
+
+
+@dataclass(frozen=True, slots=True)
 class ReserveSample:
     KIND = "reserve_sample"
     tick: int

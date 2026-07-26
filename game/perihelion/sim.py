@@ -23,9 +23,10 @@ from .capture import CaptureSpec, CaptureSystem
 from .topology import TopologyManager, TopologyError
 from .hub import build_hub
 from .marrow import Breach, MarrowController
+from .core_organ import CORE_KINDS, PART_SPEC, CoreOrgan
 from .callmedium import CallMedium
 from . import scouts
-from .telemetry import (AgentTransition, BreachLifecycle, DamageApplied,
+from .telemetry import (AgentTransition, BreachLifecycle, CorePartEvent, DamageApplied,
                         DispatchDecision, FieldSample, ImpulseApplied,
                         InputRecord, PortalCrossing, ReserveSample,
                         TopologyChanged, TraceBus)
@@ -166,6 +167,34 @@ ENEMIES: dict[str, dict] = {
                    turn=3.2, touch_dmg=4,
                    touch_cd=50, alert_snd="enemy_alert_mite",
                    die_snd="enemy_die_mite", score=4),
+    # The CORE's organ bodies (U11): shootable parts of the marrow's
+    # production machine — no AI of their own (skipped in _enemy_ai);
+    # damage flows through the ONE door and is reported to the organ.
+    # HP quantized to weapon arithmetic (42 rail / 84 charged tau / 168).
+    "core_collar": dict(hp=126, radius=13.0, mass=60.0, accel=0.0, fric=8.0,
+                        turn=0.1, touch_dmg=0, touch_cd=999,
+                        alert_snd="terminal_type", die_snd="enemy_die_brute",
+                        score=6),
+    "core_scriptorium": dict(hp=84, radius=14.0, mass=60.0, accel=0.0,
+                             fric=8.0, turn=0.1, touch_dmg=0, touch_cd=999,
+                             alert_snd="terminal_type",
+                             die_snd="enemy_die_brute", score=5),
+    "core_caretaker": dict(hp=42, radius=9.0, mass=40.0, accel=0.0, fric=8.0,
+                           turn=0.1, touch_dmg=0, touch_cd=999,
+                           alert_snd="terminal_type",
+                           die_snd="enemy_die_mite", score=3),
+    "core_anchor": dict(hp=84, radius=12.0, mass=60.0, accel=0.0, fric=8.0,
+                        turn=0.1, touch_dmg=0, touch_cd=999,
+                        alert_snd="terminal_type", die_snd="enemy_die_brute",
+                        score=4),
+    "core_bud": dict(hp=42, radius=7.0, mass=40.0, accel=0.0, fric=8.0,
+                     turn=0.1, touch_dmg=0, touch_cd=999,
+                     alert_snd="terminal_type", die_snd="enemy_die_mite",
+                     score=2),
+    "core_source": dict(hp=168, radius=15.0, mass=80.0, accel=0.0, fric=8.0,
+                        turn=0.1, touch_dmg=0, touch_cd=999,
+                        alert_snd="terminal_type", die_snd="enemy_die_brute",
+                        score=12),
     # Adversary-lane ambush predator (director's directive, 2026-07-13):
     # "add an enemy that deliberately keeps to the shadows until the
     # player gets close, then ambushes." Named for the sensor-trace
@@ -278,6 +307,14 @@ DROP_TABLES = {
     # scouts travel light: killing one pays in denial, not salvage
     "vagrant": [(0.3, "ammo_9mm")],
     "lacuna": [(0.2, "ammo_9mm")],
+    # the organ's parts pay in economy damage, not loot — except the
+    # Scriptorium, whose destruction spills what it was transcribing
+    "core_collar": [],
+    "core_scriptorium": [(1.0, "ammo_cell"), (1.0, "medkit")],
+    "core_caretaker": [],
+    "core_anchor": [],
+    "core_bud": [],
+    "core_source": [],
 }
 
 
@@ -560,6 +597,8 @@ class GameSession:
         # guardian shelf — real, dispatchable bodies in the courts: when
         # they leave, the entrance genuinely weakens
         self.marrow = MarrowController()
+        self.core = CoreOrgan()
+        self._embody_core()
         self.breaches: list[dict] = []
         self._breach_seq = 0
         self._free_seams = list(self.hub.breach_edges)
@@ -908,6 +947,7 @@ class GameSession:
         self._turret_tick()
         self._sentry_tick()
         self.captures.step(self.sim, self._capture_burn)
+        self._core_tick()
         self._marrow_tick()
         if self.muzzle_light.intensity > 0.0:
             self.muzzle_light.intensity = (
@@ -1654,6 +1694,11 @@ class GameSession:
             if e["kind"] in ADVERSARY:
                 return (e["kind"], "adversary", "scout",
                         frozenset((e["state"],)), GROUP_ENEMY)
+            if e["kind"] in CORE_KINDS:
+                # organ parts read as structure to the senses: agents
+                # never target or rally around them as fighters
+                return (e["kind"], "adversary", "organ",
+                        frozenset((e["state"],)), GROUP_ENEMY)
             return (e["kind"], "testator", "fighter",
                     frozenset((e["state"],)), GROUP_ENEMY)
         return None
@@ -1690,7 +1735,11 @@ class GameSession:
         e["hp"] -= dmg
         if e["kind"] in ADVERSARY:
             e["scout_hit"] = self.tick_count   # a scout reads this as "made"
-        self._set_enemy_state(eid, e, "hunt")
+        if e["kind"] not in CORE_KINDS:
+            # organs never hunt: a part's answer to damage is the
+            # organ's muster, not a state flip (and the music must not
+            # count a wounded Bud as a combatant)
+            self._set_enemy_state(eid, e, "hunt")
         self.metrics["hits"] += 1
         self.metrics["dmg_dealt"] += dmg
         polygon = self.sim.get_polygon(eid)
@@ -1698,6 +1747,10 @@ class GameSession:
         self.trace.emit(DamageApplied(
             tick=self.tick_count, target_id=eid, target_kind=e["kind"],
             amount=round(dmg, 3), source=source))
+        if e["kind"] in CORE_KINDS:
+            self.core.on_damage(eid, self.tick_count)
+            if eid in self.core.parts:
+                self.core.parts[eid].hp = e["hp"]
         # Distress: an agent was harmed here — the inflammation analogue,
         # keyed to agent harm only (there is no structural damage)
         self.signals.emit(SignalKind.DISTRESS, polygon, 0.15, self.tick_count)
@@ -1715,6 +1768,20 @@ class GameSession:
     def _kill_enemy(self, eid: int, polygon: int, pos, ndir):
         self.captures.release_for_entity(eid)
         self.medium.release(eid)
+        was_part = eid in self.core.parts
+        part_kind = self.core.parts[eid].kind if was_part else ""
+        if self.core.on_destroyed(eid, self.tick_count) == "blackout":
+            # the core-kill status effect: reserve driven deep negative,
+            # repaid from the home universe — the outage IS the debt
+            from .marrow import CORE_KILL_DEBT
+            self.marrow.depot.set_debt(CORE_KILL_DEBT)
+            self.trace.emit(CorePartEvent(
+                tick=self.tick_count, part_id=-1, part_kind="",
+                event="blackout", detail=f"reserve={CORE_KILL_DEBT}"))
+        elif was_part:
+            self.trace.emit(CorePartEvent(
+                tick=self.tick_count, part_id=eid, part_kind=part_kind,
+                event="destroyed", detail=""))
         e = self.enemies.pop(eid)
         if e["kind"] in ADVERSARY:
             self.adversary_census[e["kind"]] -= 1
@@ -1852,6 +1919,8 @@ class GameSession:
                               else "step_soft", polygon, (ex, ey),
                               0.6 if e["state"] == "hunt" else 0.35)
 
+            if kind in CORE_KINDS:
+                continue          # organs are bodies; the organ thinks
             if kind in ADVERSARY and (e.get("scout")
                                       or self._maybe_task_scout(eid, e, polygon)):
                 self._scout_ai(eid, e, polygon, ex, ey, evx, evy)
@@ -1928,7 +1997,8 @@ class GameSession:
                         continue
                     peers = [self.enemies[oid]
                              for oid in s.polygon_entities(polygon)
-                             if oid != eid and oid in self.enemies]
+                             if oid != eid and oid in self.enemies
+                             and self.enemies[oid]["kind"] not in CORE_KINDS]
                     committed = sum(1 for oe in peers
                                     if oe["state"] in ("waking", "hunt"))
                     exc = coord.quorum_excitation(
@@ -2169,6 +2239,68 @@ class GameSession:
                 self._budget_move(eid, e, d, polygon, ex, ey, evx, evy,
                                   sx, sy, accel)
 
+    def _embody_core(self) -> None:
+        """Give the organ its bodies, placed per the ratified layout:
+        Sources in the Source Cells, Collars in the Collar Chapels,
+        Anchors (2 each) in the Anchor Chapels, the Scriptorium in its
+        hall, Buds strung along the trunk and vestibule, Caretakers at
+        the gatehouse/trunk/vestibule/connector."""
+        c = self.hub.chambers
+        placement = (
+            [("core_source", c[n], (0.0, 0.0)) for n in ("S1", "S2", "S3")]
+            + [("core_collar", c[n], (0.0, -20.0)) for n in ("C1", "C2")]
+            + [("core_anchor", c[n], (dx, 20.0))
+               for n in ("AN1", "AN2") for dx in (-25.0, 25.0)]
+            + [("core_scriptorium", c["SC"], (0.0, 0.0))]
+            + [("core_caretaker", c[n], (18.0, -18.0))
+               for n in ("R", "N2", "V", "L")]
+            + [("core_bud", c[n], (dx, dy))
+               for n in ("N1", "N2", "N3", "N4")
+               for dx, dy in ((-30.0, -25.0), (30.0, 25.0))]
+            + [("core_bud", c["V"], (dx, -40.0))
+               for dx in (-120.0, -40.0, 40.0, 120.0)])
+        for kind, chamber, pos in placement:
+            eid = self.spawn_enemy(chamber, pos, kind)
+            self.core.add_part(eid, kind, chamber)
+
+    def _core_tick(self) -> None:
+        """The organ lives: caretakers repair what they touch, sources
+        knit after quiet, damage summons an ordinary response, and a
+        repaid blackout reforms the minimal organ."""
+        t_ = self.tick_count
+        if t_ % 15 != 0:
+            return
+        contacts = []
+        caretakers = [p for p in self.core.live("core_caretaker")
+                      if p.part_id in self.enemies]
+        for ct in caretakers:
+            _, cx0, cy0, *_ = self.sim.get(ct.part_id)
+            for p in self.core.parts.values():
+                if p.part_id == ct.part_id or p.chamber != ct.chamber:
+                    continue
+                _, px0, py0, *_ = self.sim.get(p.part_id)
+                if math.hypot(px0 - cx0, py0 - cy0) < 46.0:
+                    contacts.append(p.part_id)
+        for pid_, hp_ in self.core.step_heal(t_, contacts):
+            if pid_ in self.enemies:
+                self.enemies[pid_]["hp"] = hp_
+        for chamber in self.core.due_musters(t_):
+            self.signals.emit(SignalKind.MUSTER, chamber, 0.4, t_)
+            self.signals.emit(SignalKind.DISTRESS, chamber, 0.2, t_)
+        if self.core.reform_due(self.marrow.depot.reserve):
+            for kind, count in self.core.reform():
+                for i in range(count):
+                    chamber = self.hub.chambers[
+                        "V" if kind == "core_bud" else
+                        ("S1" if kind == "core_source" else
+                         ("AN1" if kind == "core_anchor" else "R"))]
+                    eid = self.spawn_enemy(chamber,
+                                           (-30.0 + 30.0 * i, 0.0), kind)
+                    self.core.add_part(eid, kind, chamber)
+            self.trace.emit(CorePartEvent(
+                tick=t_, part_id=-1, part_kind="", event="reformed",
+                detail="minimal organ"))
+
     def _marrow_tick(self) -> None:
         """Drive the marrow one tick: it consumes at most one imprint
         (whether or not it can act — a dry call is spent), advances the
@@ -2184,7 +2316,10 @@ class GameSession:
             bid = br["obj"].breach_id
             if any(e.get("dispatched") == bid for e in self.enemies.values()):
                 br["obj"].note_interest(t_)
-        for cmd in self.marrow.step(t_, imprint, live):
+        for cmd in self.marrow.step(
+                t_, imprint, live,
+                dispatch_factor=self.core.dispatch_factor(),
+                capacity=self.core.production_capacity()):
             if cmd.kind == "open":
                 self._open_breach(cmd.imprint)
             elif cmd.kind == "dispatch":

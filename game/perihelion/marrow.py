@@ -45,9 +45,15 @@ class ReserveDepot:
     def __init__(self, reserve: float = RESERVE_CAP):
         self.reserve = float(reserve)
 
-    def advance(self, elapsed_seconds: float) -> None:
-        empty = max(0.0, min(1.0, 1.0 - self.reserve / RESERVE_CAP))
-        regen = REGEN_BASE * (1.0 + REGEN_EMPTY_BOOST * empty)
+    def advance(self, elapsed_seconds: float, capacity: float = 1.0) -> None:
+        """`capacity` scales LOCAL production (the CORE's sources and
+        buds). Debt repayment is home-universe resupply and ignores it —
+        which is why a blackout always ends even with the organ gutted."""
+        if self.reserve < 0.0:
+            regen = REGEN_BASE * (1.0 + REGEN_EMPTY_BOOST)
+        else:
+            empty = max(0.0, min(1.0, 1.0 - self.reserve / RESERVE_CAP))
+            regen = REGEN_BASE * (1.0 + REGEN_EMPTY_BOOST * empty)                 * max(0.0, capacity)
         self.reserve = min(RESERVE_CAP, self.reserve + regen * elapsed_seconds)
 
     def can_pay(self, cost: float) -> bool:
@@ -174,9 +180,11 @@ class MarrowController:
     def on_breach_sealed(self, breach_id: int) -> None:
         self.sched.remove_breach(breach_id)
 
-    def step(self, tick: int, imprint, live_breaches) -> list[MarrowCommand]:
+    def step(self, tick: int, imprint, live_breaches,
+             dispatch_factor: float = 1.0,
+             capacity: float = 1.0) -> list[MarrowCommand]:
         out: list[MarrowCommand] = []
-        self.depot.advance(1.0 / 60.0)
+        self.depot.advance(1.0 / 60.0, capacity)
         if imprint is not None and self.depot.reserve >= EXHAUSTED_FLOOR:
             # ratified: when the reserve is exhausted the marrow STOPS
             # OPENING portals — the consumed call stays dry
@@ -207,7 +215,11 @@ class MarrowController:
                     else:
                         self._shelf_queue.pop(0)
                     self._pending_kind = None
-                    self._next_dispatch = tick + DISPATCH_INTERVAL_TICKS
+                    # collar damage stretches the cadence IMMEDIATELY —
+                    # the dispatch machinery visibly missing beats is the
+                    # third-ranked tell
+                    self._next_dispatch = tick + int(
+                        DISPATCH_INTERVAL_TICKS * max(1.0, dispatch_factor))
                     out.append(MarrowCommand(kind="dispatch",
                                              breach_id=bid, unit_kind=kind))
         for b in live_breaches:

@@ -3268,7 +3268,8 @@ class Renderer:
         r = int(26 + 6 * pulse)
         canvas.circle((36, 10, 52), (ix, iy), r + 6)          # outer bruise
         canvas.circle((24, 7, 34), (ix, iy), r)               # the violet void
-        canvas.circle((228, 110, 255), (ix, iy), r, 2)        # bright hot rim
+        canvas.circle((228, 110, 255), (ix, iy), r, 1)        # bright hot rim
+        canvas.circle((228, 110, 255), (ix, iy), r - 1, 1)     # doubled
         canvas.circle((150, 60, 200), (ix, iy), r + 6, 1)     # halo ring
         canvas.circle((170, 62, 205), (ix, iy), max(2, r - 1), 1)   # rim depth
         canvas.circle((130, 45, 175), (ix, iy), max(2, int(r * 0.62)), 1)
