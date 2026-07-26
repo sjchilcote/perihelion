@@ -2584,28 +2584,8 @@ class Renderer:
 
     # -- (4) exit pad + terminals ------------------------------------------
 
-    def _draw_hub_dressing(self, canvas, xform, tick):
-        """Infested tissue on the hub-chamber floor: violet nodes ringed
-        around the core with tendrils reaching to it, so the sanctum reads as
-        grown-into organic tissue, not a bare spotlight."""
-        beat = 0.5 + 0.5 * math.sin(tick * 0.08)
-        for k in range(11):
-            a = k * (2.0 * math.pi / 11.0)
-            rr = 40.0 + 9.0 * ((k * 7) % 5)
-            lx, ly = math.cos(a) * rr, math.sin(a) * rr
-            sx, sy = necore.mat_apply(xform, lx, ly)
-            ix, iy = _pt((sx, sy))
-            mx, my = necore.mat_apply(xform, lx * 0.55, ly * 0.55)
-            canvas.line((92, 40, 118), (ix, iy), _pt((mx, my)), 1)  # tendril in
-            r = 3 + int(2 * beat)
-            canvas.circle((46, 16, 60), (ix, iy), r)               # node
-            canvas.circle((150, 55, 190), (ix, iy), r, 1)          # violet rim
-
     def _draw_exit_and_terminals(self, canvas, polygon, xform, clip_screen):
         session = self.session
-        hub = getattr(session, "hub", None)
-        if hub is not None and polygon == hub["chamber"]:
-            self._draw_hub_dressing(canvas, xform, session.tick_count)
         if session.exit_polygon == polygon:
             sx, sy = necore.mat_apply(xform, *session.exit_pos)
             if _point_in_poly(sx, sy, clip_screen):

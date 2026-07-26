@@ -49,7 +49,8 @@ def test_stream_lazy_load_arrival_and_completion():
     s = GameSession(load_level(paths[0]), seed=3)
     ws = WorldStreamer(s, paths)
     assert s.exit_enabled is False
-    assert s.sim.num_polygons() == 4  # chunk 0 + its spine
+    hub_n = len(s.hub.chambers)   # every world carries the marrow hub
+    assert s.sim.num_polygons() == 4 + hub_n  # chunk 0 + spine + hub
     spine_a = ws.chunks[0]["spine_polygons"][0]
     assert _go(s, ws, spine_a, (0, 0), fire=True)
     assert ws.chunks[0]["loaded_next"]

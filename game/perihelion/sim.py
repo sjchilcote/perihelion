@@ -20,6 +20,8 @@ from .senses import SenseQuery
 from .signals import SignalField, SignalKind
 from . import coordination as coord
 from .capture import CaptureSpec, CaptureSystem
+from .topology import TopologyManager
+from .hub import build_hub
 from .callmedium import CallMedium
 from . import scouts
 from .telemetry import (AgentTransition, DamageApplied, FieldSample,
@@ -546,6 +548,12 @@ class GameSession:
         # Adversary census — every scout death is permanent
         self.medium = CallMedium()
         self.adversary_census = {k: 0 for k in ADVERSARY}
+        # runtime topology has ONE owner (the scale-1 guard lives there),
+        # and every world builds the marrow hub at initialization — off
+        # the reachable map, never None (DESIGN_7_25 architectural rule)
+        self.topology = TopologyManager(self,
+                                        on_change=self.signals.on_topology_changed)
+        self.hub = build_hub(self, self.topology)
         self.decals: dict[int, list] = {}  # polygon -> [(kind,x,y,size,angle)]
         self._objective_fired: set[str] = set()  # once-gates for objective fx
         self.metrics = dict(ticks=0, shots=0, hits=0, kills=0, dmg_dealt=0.0,

@@ -33,14 +33,15 @@ def test_portable_hole_links_two_walls():
     ax2, ay2 = necore.mat_apply(s.cam, px, py + 50)
     s.tick(InputFrame(ax=ax2, ay=ay2, fire=True))
     assert s.hole_mark is None and s.holes == 1
-    assert s.sim.num_polygons() == 2  # corridor added
+    assert s.sim.num_polygons() == 2 + len(s.hub.chambers)  # corridor + the ever-present hub
     crossed = [s.player_polygon()]
     for _ in range(500):
         s.tick(InputFrame(my=1.0))
         r = s.player_polygon()
         if crossed[-1] != r:
             crossed.append(r)
-    assert 1 in crossed and crossed.count(0) >= 2, crossed
+    cor = s.sim.num_polygons() - 1   # the hole's corridor is newest
+    assert cor in crossed and crossed.count(0) >= 2, crossed
 
 
 def test_hole_corridor_excludes_brutes_admits_mites():

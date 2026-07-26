@@ -34,7 +34,12 @@ def test_level_structure(path):
         if not d["open"]:
             s.sim.connect(d["a"], d["ea"], d["b"], d["eb"])
     reach = set(s.sim.polygons_within(lvl.player_polygon, 99))
-    assert reach == set(range(s.sim.num_polygons())), "unreachable polygons"
+    # the marrow hub is built into EVERY world and is deliberately off
+    # the reachable map until a live breach exists (DESIGN_7_25)
+    hub_polys = set(s.hub.chambers.values())
+    assert reach == set(range(s.sim.num_polygons())) - hub_polys, \
+        "unreachable polygons"
+    assert not (reach & hub_polys), "the hub leaked onto the reachable map"
     assert lvl.exit_polygon in reach
 
 

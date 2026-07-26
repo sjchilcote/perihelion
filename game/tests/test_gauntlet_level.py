@@ -45,7 +45,9 @@ def test_structure_loads_and_is_traversable(level):
         if not d["open"]:
             s.sim.connect(d["a"], d["ea"], d["b"], d["eb"])
     reach = set(s.sim.polygons_within(level.player_polygon, 99))
-    assert reach == set(range(s.sim.num_polygons())), "unreachable polygons in the gauntlet"
+    hub_polys = set(s.hub.chambers.values())   # off-map by design
+    assert reach == set(range(s.sim.num_polygons())) - hub_polys, \
+        "unreachable polygons in the gauntlet"
     assert level.exit_polygon in reach
 
 
