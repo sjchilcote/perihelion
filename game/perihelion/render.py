@@ -3281,27 +3281,86 @@ class Renderer:
                         (ix + int(math.cos(a) * r), iy + int(math.sin(a) * r)),
                         (ix + int(math.cos(a) * r2), iy + int(math.sin(a) * r2)), 1)
 
-    def _draw_hub_core(self, canvas, sx, sy, srad, flashed):
-        """The spawn hub's heart (ADVERSARY_DESIGN): a big pulsing violet organ
-        deep in the chamber -- obviously the thing to destroy. It BEATS (rim +
-        a hot centre), with veins radiating into the deck."""
+    def _draw_core_part(self, canvas, eid, kind, sx, sy, srad, flashed):
+        """The CORE's organ parts (DESIGN_7_25 §1b): one violet family —
+        sessile, radially calm, grown rather than mustered — with each
+        part's job legible in its silhouette. The Source keeps the old
+        hub-heart's beating language (obviously the thing to destroy);
+        the Collar is a clamped valve, the Anchor is braced into the
+        deck, the Bud a budding nodule, the Caretaker pale and soft,
+        the Scriptorium inscribed. All pulse phases are keyed to eid so
+        the organ never beats in lockstep."""
         ix, iy = _pt((sx, sy))
         tick = self.session.tick_count
-        beat = 0.5 + 0.5 * math.sin(tick * 0.11)
-        r = max(6, int(srad))
-        canvas.circle((255, 255, 255) if flashed else (42, 12, 54),
-                      (ix, iy), r)                             # organ body
-        canvas.circle((208, 82, 238), (ix, iy), r, 1)         # violet membrane
-        canvas.circle((160, 55, 200), (ix, iy), max(2, r - 2), 1)
-        for k in range(8):                                     # radiating veins
-            a = k * (math.pi / 4.0) + tick * 0.01
-            r2 = r + 4 + int(6 * beat)
-            canvas.line((150, 55, 190),
-                        (ix + int(math.cos(a) * r), iy + int(math.sin(a) * r)),
-                        (ix + int(math.cos(a) * r2), iy + int(math.sin(a) * r2)), 1)
-        hot = max(2, int(r * (0.32 + 0.26 * beat)))            # the beating heart
-        canvas.circle((min(255, int(205 + 50 * beat)),
-                       min(255, int(120 + 90 * beat)), 245), (ix, iy), hot)
+        beat = 0.5 + 0.5 * math.sin(tick * 0.11 + (eid % 97) * 0.31)
+        r = max(4, int(srad))
+        body = (255, 255, 255) if flashed else (42, 12, 54)
+        membrane = (208, 82, 238)
+        if kind == "core_source":
+            canvas.circle(body, (ix, iy), r)
+            canvas.circle(membrane, (ix, iy), r, 1)
+            canvas.circle((160, 55, 200), (ix, iy), max(2, r - 2), 1)
+            for k in range(8):                             # radiating veins
+                a = k * (math.pi / 4.0) + tick * 0.01
+                r2 = r + 4 + int(6 * beat)
+                canvas.line((150, 55, 190),
+                            (ix + int(math.cos(a) * r),
+                             iy + int(math.sin(a) * r)),
+                            (ix + int(math.cos(a) * r2),
+                             iy + int(math.sin(a) * r2)), 1)
+            hot = max(2, int(r * (0.32 + 0.26 * beat)))    # the beating heart
+            canvas.circle((min(255, int(205 + 50 * beat)),
+                           min(255, int(120 + 90 * beat)), 245),
+                          (ix, iy), hot)
+        elif kind == "core_collar":
+            canvas.circle(body, (ix, iy), r)
+            canvas.circle(membrane, (ix, iy), r, 1)
+            # the valve: a bright inner ring pinched by four clamp ticks
+            canvas.circle((226, 96, 150), (ix, iy), max(2, int(r * 0.62)), 1)
+            for k in range(4):
+                a = k * (math.pi / 2.0) + 0.785
+                x0 = ix + int(math.cos(a) * r * 0.62)
+                y0 = iy + int(math.sin(a) * r * 0.62)
+                canvas.line((226, 96, 150), (x0, y0),
+                            (ix + int(math.cos(a) * (r + 2)),
+                             iy + int(math.sin(a) * (r + 2))), 1)
+            canvas.circle((30, 8, 40), (ix, iy), max(1, int(r * 0.3)))
+        elif kind == "core_anchor":
+            # braced into the deck: a low dark block with taut guy-lines
+            pts = _xform_pts([(1.0, 0.0), (0.35, 0.9), (-1.0, 0.55),
+                              (-1.0, -0.55), (0.35, -0.9)], sx, sy, r, 0.0)
+            canvas.polygon((30, 10, 40) if not flashed else body, _pts(pts))
+            canvas.polygon((160, 80, 200), _pts(pts), 1)
+            for side in (-1, 1):
+                canvas.line((120, 60, 150), (ix, iy),
+                            (ix + side * int(r * 1.6),
+                             iy + int(r * 1.1)), 1)
+        elif kind == "core_bud":
+            canvas.circle((60, 20, 72) if not flashed else body, (ix, iy), r)
+            canvas.circle(membrane, (ix, iy), r, 1)
+            # the growing nucleus swells with its own slow phase
+            canvas.circle((208, 82, 238), (ix - r // 3, iy - r // 3),
+                          max(1, int(r * (0.3 + 0.2 * beat))))
+        elif kind == "core_caretaker":
+            canvas.circle((150, 120, 160) if not flashed else body,
+                          (ix, iy), r)
+            canvas.circle((230, 200, 240), (ix, iy), r, 1)
+            # the suture mark
+            canvas.line((230, 200, 240), (ix - r // 2, iy),
+                        (ix + r // 2, iy), 1)
+            canvas.line((230, 200, 240), (ix, iy - r // 2),
+                        (ix, iy + r // 2), 1)
+        else:  # core_scriptorium
+            canvas.circle((48, 16, 58) if not flashed else body, (ix, iy), r)
+            canvas.circle(membrane, (ix, iy), r, 1)
+            canvas.circle((235, 225, 150), (ix, iy), max(2, int(r * 0.55)), 1)
+            for k in range(6):                    # the script: radial ticks
+                a = k * (math.pi / 3.0) + tick * 0.004
+                canvas.line((235, 225, 150),
+                            (ix + int(math.cos(a) * r * 0.55),
+                             iy + int(math.sin(a) * r * 0.55)),
+                            (ix + int(math.cos(a) * r * 0.8),
+                             iy + int(math.sin(a) * r * 0.8)), 1)
 
     def _draw_enemy(self, canvas, eid, kind, sx, sy, ang, srad, clip_screen, fully_inside):
         flashed = self._hitflash.get(eid, 0) > 0
@@ -3337,8 +3396,8 @@ class Renderer:
             rim = _mix(rim, (255, 255, 255), t_)
         if flashed:
             fill = rim = (255, 255, 255)
-        if kind == "hub_core":
-            self._draw_hub_core(canvas, sx, sy, srad, flashed)
+        if kind.startswith("core_"):
+            self._draw_core_part(canvas, eid, kind, sx, sy, srad, flashed)
             return
         if kind == "mite":
             if clip_screen is not None and not fully_inside \
