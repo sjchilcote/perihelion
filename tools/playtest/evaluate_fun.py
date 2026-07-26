@@ -172,6 +172,15 @@ UNVERIFIABLE (with skepticism) findings.
 Question, exactly as the director posed it: Is P(this is a fun,
 critically acclaimed, commercially successful game) > {bar}?
 
+SCOPE (director's ruling): judge the CHANGES CURRENTLY BEING MADE —
+the moment-to-moment combat, the reinforcement loop, readability,
+pacing of what is on film. The rest of the game is NOT in scope:
+missing win states, campaign content, future systems (buildings,
+new enemy modes), or content breadth must NOT count against the
+probability. The question is whether THIS slice, as filmed, executes
+to the standard of a fun, acclaimed, commercially successful game —
+'you can't commit until the game is done' is explicitly not the bar.
+
 Be honest and calibrated. A game where enemies stand still under
 fire, where nothing presses the player, or where the signature
 reinforcement mechanic never lands on screen cannot pass. List the
