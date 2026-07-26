@@ -20,6 +20,8 @@ from .senses import SenseQuery
 from .signals import SignalField, SignalKind
 from . import coordination as coord
 from .capture import CaptureSpec, CaptureSystem
+from .callmedium import CallMedium
+from . import scouts
 from .telemetry import (AgentTransition, DamageApplied, FieldSample,
                         ImpulseApplied, InputRecord, PortalCrossing,
                         TopologyChanged, TraceBus)
@@ -148,6 +150,18 @@ ENEMIES: dict[str, dict] = {
                    touch_cd=48, alert_snd="shrieker_scream", die_snd="enemy_die_brute",
                    spit_cd=70, spit_speed=460.0, spit_dmg=13, keep_min=0.0,
                    keep_max=100.0, score=10),
+    # The ADVERSARY lane (DESIGN_7_25 §1b): finite personnel, authored at
+    # world build, never produced by any core — the only classes that can
+    # call reinforcements. Runners, not fighters: fast, fragile-ish,
+    # wide turning. Lacuna is the weaker CLASS and therefore calls first.
+    "vagrant": dict(hp=84, radius=9.5, mass=1.5, accel=701.0, fric=3.4,
+                    turn=3.5, touch_dmg=6,
+                    touch_cd=50, alert_snd="enemy_alert_mite",
+                    die_snd="enemy_die_mite", score=6),
+    "lacuna": dict(hp=42, radius=8.5, mass=1.4, accel=653.0, fric=3.8,
+                   turn=3.2, touch_dmg=4,
+                   touch_cd=50, alert_snd="enemy_alert_mite",
+                   die_snd="enemy_die_mite", score=4),
     # Adversary-lane ambush predator (director's directive, 2026-07-13):
     # "add an enemy that deliberately keeps to the shadows until the
     # player gets close, then ambushes." Named for the sensor-trace
@@ -169,6 +183,7 @@ for _ename, _e in ENEMIES.items():
     assert _e["turn"] > 0.0, f"{_ename} has no turn-rate model"
 assert ENEMIES["warden"]["hp"] == 168, "warden is a normal enemy: 2 charged tau / 4 rail"
 WARDEN_CRUISE = ENEMIES["warden"]["accel"] / ENEMIES["warden"]["fric"]
+ADVERSARY = ("vagrant", "lacuna")
 
 PICKUPS: dict[str, dict] = {
     "ammo_9mm": dict(radius=5.0, amount=30),
@@ -256,6 +271,9 @@ DROP_TABLES = {
     "warden": [(1.0, "medkit"), (1.0, "ammo_9mm"), (1.0, "ammo_shell"),
                (0.5, "ammo_cell")],
     "flicker": [(0.4, "ammo_9mm"), (0.1, "medkit")],
+    # scouts travel light: killing one pays in denial, not salvage
+    "vagrant": [(0.3, "ammo_9mm")],
+    "lacuna": [(0.2, "ammo_9mm")],
 }
 
 
@@ -524,6 +542,10 @@ class GameSession:
         # generic captor/captive service (warden engulf is the first
         # user); damage flows back through _capture_burn, never directly
         self.captures = CaptureSystem()
+        # the world call medium (one radio channel) and the finite
+        # Adversary census — every scout death is permanent
+        self.medium = CallMedium()
+        self.adversary_census = {k: 0 for k in ADVERSARY}
         self.decals: dict[int, list] = {}  # polygon -> [(kind,x,y,size,angle)]
         self._objective_fired: set[str] = set()  # once-gates for objective fx
         self.metrics = dict(ticks=0, shots=0, hits=0, kills=0, dmg_dealt=0.0,
@@ -577,6 +599,8 @@ class GameSession:
                                  # the raid-fan coin (~1/3 take route B)
                                  q_thr=self.rng.uniform(*coord.QUORUM_THRESHOLD_BAND),
                                  raid=self.rng.random() < coord.RAID_FRACTION)
+        if kind in ADVERSARY:
+            self.adversary_census[kind] += 1
         return eid
 
     def spawn_pickup(self, polygon: int, pos, kind: str, meta=None,
@@ -756,7 +780,9 @@ class GameSession:
         return self.sim.get_polygon(self.pid)
 
     WAKE_TICKS = {"husk": 32, "mite": 18, "spitter": 26, "brute": 45,
-                  "shrieker": 12, "warden": 20}
+                  "shrieker": 12, "warden": 20,
+                  # scouts notice fast — they live by noticing
+                  "vagrant": 14, "lacuna": 14}
 
     # ------------------------------------------------------------------
     # the tick
@@ -1594,6 +1620,9 @@ class GameSession:
             return ("player", "commando", "intruder", tags, GROUP_PLAYER)
         e = self.enemies.get(eid)
         if e is not None:
+            if e["kind"] in ADVERSARY:
+                return (e["kind"], "adversary", "scout",
+                        frozenset((e["state"],)), GROUP_ENEMY)
             return (e["kind"], "testator", "fighter",
                     frozenset((e["state"],)), GROUP_ENEMY)
         return None
@@ -1628,6 +1657,8 @@ class GameSession:
         if self._crit_p > 0.0 and self.rng.random() < self._crit_p:
             dmg *= self._crit_mul
         e["hp"] -= dmg
+        if e["kind"] in ADVERSARY:
+            e["scout_hit"] = self.tick_count   # a scout reads this as "made"
         self._set_enemy_state(eid, e, "hunt")
         self.metrics["hits"] += 1
         self.metrics["dmg_dealt"] += dmg
@@ -1652,7 +1683,10 @@ class GameSession:
 
     def _kill_enemy(self, eid: int, polygon: int, pos, ndir):
         self.captures.release_for_entity(eid)
+        self.medium.release(eid)
         e = self.enemies.pop(eid)
+        if e["kind"] in ADVERSARY:
+            self.adversary_census[e["kind"]] -= 1
         kind = e["kind"]
         d = ENEMIES[kind]
         self.metrics["kills"] += 1
@@ -1786,6 +1820,11 @@ class GameSession:
                     self._snd("step_heavy" if kind in ("brute", "warden")
                               else "step_soft", polygon, (ex, ey),
                               0.6 if e["state"] == "hunt" else 0.35)
+
+            if kind in ADVERSARY and (e.get("scout")
+                                      or self._maybe_task_scout(eid, e, polygon)):
+                self._scout_ai(eid, e, polygon, ex, ey, evx, evy)
+                continue
 
             if e["state"] == "idle":
                 if polygon == ppolygon:
@@ -2125,6 +2164,140 @@ class GameSession:
                         damage_per_second=WARDEN_ENGULF_DPS))
                     self._snd("player_hurt", polygon, (tx, ty), 1.0)
                     self.fx.append(("engulfed", polygon, tx, ty))
+
+    def _maybe_task_scout(self, eid: int, e: dict, polygon: int) -> bool:
+        """The ratified selection rule: if no ally in the room is already
+        tasked with calling, the WEAKEST Adversary class present takes the
+        duty (lacuna before vagrant; ties to the lowest id) — stronger
+        units keep fighting. (The no-live-breach-here condition joins with
+        U9, when runtime-opened seams exist to sense.)"""
+        if (self.tick_count + eid) % 30 != 0:
+            return False
+        mates = [(oid, self.enemies[oid])
+                 for oid in self.sim.polygon_entities(polygon)
+                 if oid in self.enemies
+                 and self.enemies[oid]["kind"] in ADVERSARY]
+        if any(oe.get("scout") and oe.get("scout") != "flee"
+               for oid, oe in mates if oid != eid):
+            return False
+        classes = {oe["kind"] for _, oe in mates}
+        weakest = scouts.weakest_class_present(classes)
+        if weakest != e["kind"]:
+            return False
+        peers_same = sorted(oid for oid, oe in mates
+                            if oe["kind"] == e["kind"])
+        if peers_same and peers_same[0] != eid:
+            return False
+        e["scout"] = "seek"
+        e["scout_mode"] = e.get("scout_mode", "contact")
+        return True
+
+    def _scout_move_to(self, eid, e, polygon, ex, ey, evx, evy, target):
+        s = self.sim
+        d = ENEMIES[e["kind"]]
+        for edge, portal in enumerate(s.polygon_portals(polygon)):
+            if portal is not None and portal[0] == target:
+                mx_, my_ = s.edge_midpoint(polygon, edge)
+                ddx, ddy = mx_ - ex, my_ - ey
+                dist = math.hypot(ddx, ddy) or 1e-6
+                nx, ny = ddx / dist, ddy / dist
+                sx, sy = s.terrain_avoid_dir(polygon, ex, ey, d["radius"],
+                                             nx, ny,
+                                             max(40.0, min(dist, 120.0)))
+                sx, sy = self._steer_heading(eid, e, d, sx, sy)
+                self._budget_move(eid, e, d, polygon, ex, ey, evx, evy,
+                                  sx, sy, d["accel"])
+                return
+        # target not adjacent anymore: drift and rethink next beat
+        e["scout_target"] = None
+
+    def _scout_ai(self, eid, e, polygon, ex, ey, evx, evy) -> None:
+        """The tasked caller's loop: creep to the edge of the hot zone,
+        brace, take the world's ONE call lease, transmit rooted and fully
+        exposed (pulsing once a second through the ordinary audio), leave
+        the imprint, watch three seconds for an answer it cannot be told
+        about, then alternate the expansion legs (quiet ground <-> danger
+        peak). Damage interrupts everything — the scout is the
+        vulnerability."""
+        s = self.sim
+        t_ = self.tick_count
+        st = e.get("scout")
+        # tasked scouts run their own machine: whatever combat-wake state
+        # the standard machine left behind is just cleared. Only DAMAGE
+        # interrupts — that is the "catch the transmitting agent" rule.
+        if e["state"] != "idle":
+            self._set_enemy_state(eid, e, "idle")
+        if e.pop("scout_hit", None) is not None:
+            self.medium.release(eid)
+            e["trace_intensity"] = 1.0
+            e["scout"] = "flee"
+            e["scout_t"] = scouts.FLEE_TICKS
+            st = "flee"
+        nbh = self.signals.neighborhood(polygon, t_)
+        if st == "flee":
+            e["scout_t"] = e.get("scout_t", 0) - 1
+            if e["scout_t"] <= 0:
+                e["scout"] = "seek"
+                return
+            tgt = scouts.safe_target(nbh)
+            if tgt is not None:
+                self._scout_move_to(eid, e, polygon, ex, ey, evx, evy, tgt)
+            return
+        if st == "brace":
+            s.set_vel(eid, 0.0, 0.0)
+            e["scout_t"] = e.get("scout_t", 0) - 1
+            if e["scout_t"] <= 0:
+                e["scout"] = "transmit"
+                e["scout_t"] = scouts.root_ticks(e["kind"])
+                e["call_t"] = e["scout_t"]
+            return
+        if st == "transmit":
+            s.set_vel(eid, 0.0, 0.0)
+            e["scout_t"] = e.get("scout_t", 0) - 1
+            e["call_t"] = e["scout_t"]
+            beat = e["scout_t"] % 60
+            e["trace_intensity"] = 2.0 if beat < 6 else 1.0
+            if beat == 0 and e["scout_t"] > 0:
+                self._snd("terminal_type", polygon, (ex, ey), 0.8)
+            if e["scout_t"] <= 0:
+                e["trace_intensity"] = 1.0
+                self.medium.complete(eid, polygon, (ex, ey), t_, e["kind"])
+                e["scout_mode"] = {"contact": "safe", "safe": "peak",
+                                   "peak": "safe"}[e.get("scout_mode",
+                                                         "contact")]
+                e["scout"] = "observe"
+                e["scout_t"] = scouts.POUR_OBSERVE_TICKS
+            return
+        if st == "observe":
+            e["scout_t"] = e.get("scout_t", 0) - 1
+            if e["scout_t"] <= 0:
+                e["scout"] = "seek"
+            return
+        # seek: move by the current mode's judgment, brace when placed
+        mode = e.get("scout_mode", "contact")
+        if mode == "contact":
+            if scouts.ready_to_plant(nbh):
+                if self.medium.try_lease(eid, t_) is not None:
+                    e["scout"] = "brace"
+                    e["scout_t"] = scouts.BRACE_TICKS
+                return
+            tgt = scouts.approach_target(nbh)
+        elif mode == "safe":
+            tgt = scouts.safe_target(nbh)
+            if tgt is None:   # thinnest ground reached: plant here
+                if self.medium.try_lease(eid, t_) is not None:
+                    e["scout"] = "brace"
+                    e["scout_t"] = scouts.BRACE_TICKS
+                return
+        else:  # peak
+            tgt = scouts.peak_target(nbh)
+            if tgt is None:   # local danger peak: the raid call lands here
+                if self.medium.try_lease(eid, t_) is not None:
+                    e["scout"] = "brace"
+                    e["scout_t"] = scouts.BRACE_TICKS
+                return
+        if tgt is not None:
+            self._scout_move_to(eid, e, polygon, ex, ey, evx, evy, tgt)
 
     def _peer_bodies(self, eid: int, polygon: int):
         out = []
