@@ -120,8 +120,7 @@ class TitleScene(Scene):
     def __init__(self):
         self.t = 0.0
         self.sel = 0
-        self.items = ["New Game", "The Vigil (endless)", "Level Select",
-                      "Settings", "Quit"]
+        self.items = ["New Game", "Level Select", "Settings", "Quit"]
         self.dust = [(random.uniform(0, INTERNAL_W), random.uniform(0, INTERNAL_H),
                       random.uniform(6, 18)) for _ in range(40)]
         self._text_band: "pygame.Surface | None" = None
@@ -137,12 +136,6 @@ class TitleScene(Scene):
         app.audio.ambience("amb_drone_early")  # the station is never silent
         if app.save_data.get("ng_plus") and "New Game+" not in self.items:
             self.items.insert(1, "New Game+")
-        best = app.save_data.get("best_wave", 0)
-        if best:
-            self.items = [
-                (f"The Vigil (endless) - best {best}"
-                 if it.startswith("The Vigil") else it)
-                for it in self.items]
 
     def update(self, app, dt: float) -> None:
         self.t += dt
@@ -163,8 +156,6 @@ class TitleScene(Scene):
             app.push(DifficultyScene())
         elif item == "New Game+":
             app.push(DifficultyScene(plus=True))
-        elif item.startswith("The Vigil"):
-            app.start_vigil()
         elif item == "Level Select":
             app.push(LevelSelectScene())
         elif item == "Settings":
@@ -389,11 +380,8 @@ COMMANDO_LOGS = [
 
 
 class DeathScene(Scene):
-    def __init__(self, deaths: int, wave: int = 0, best_wave: int = 0,
-                 chassis: int = 0):
+    def __init__(self, deaths: int, chassis: int = 0):
         self.deaths = deaths
-        self.wave = wave
-        self.best_wave = best_wave
         self.chassis = chassis
         self.t = 0.0
         self._overlay: "pygame.Surface | None" = None
@@ -430,9 +418,6 @@ class DeathScene(Scene):
         surf.blit(img, (w // 2 - img.get_width() // 2, ui(100)))
         mf = get_font(12)
         deaths_text = f"frames lost: {self.deaths}"
-        if self.wave:
-            deaths_text = (f"the watch held for {self.wave} waves"
-                           f"   (best: {self.best_wave})")
         img2 = mf.render(deaths_text, True, (190, 150, 150))
         surf.blit(img2, (w // 2 - img2.get_width() // 2, ui(140)))
         if self.chassis > 0:

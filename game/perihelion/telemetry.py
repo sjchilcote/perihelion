@@ -109,6 +109,15 @@ class ImpulseApplied:
 
 
 @dataclass(frozen=True, slots=True)
+class FieldSample:
+    KIND = "field_sample"
+    tick: int
+    totals: Mapping[str, float]      # signal kind -> world total
+    player_polygon: int
+    player_own: Mapping[str, float]  # the player's chamber's values
+
+
+@dataclass(frozen=True, slots=True)
 class TopologyChanged:
     KIND = "topology_changed"
     tick: int
@@ -126,7 +135,8 @@ class TopologyChanged:
 # structure_event.
 
 TraceEvent = (InputRecord | AgentTransition | PortalCrossing
-              | DamageApplied | ImpulseApplied | TopologyChanged)
+              | DamageApplied | ImpulseApplied | TopologyChanged
+              | FieldSample)
 
 
 class TraceBus:

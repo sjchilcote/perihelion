@@ -17,9 +17,11 @@ import necore
 from .levels import Level
 from .lighting import LightingSystem, light_level_at
 from .senses import SenseQuery
-from .telemetry import (AgentTransition, DamageApplied, ImpulseApplied,
-                        InputRecord, PortalCrossing, TopologyChanged,
-                        TraceBus)
+from .signals import SignalField, SignalKind
+from . import coordination as coord
+from .telemetry import (AgentTransition, DamageApplied, FieldSample,
+                        ImpulseApplied, InputRecord, PortalCrossing,
+                        TopologyChanged, TraceBus)
 from . import terrain
 
 DT = 1.0 / 60.0
@@ -485,8 +487,6 @@ class GameSession:
 
         self.exit_polygon = level.exit_polygon
         self.exit_pos = level.exit_pos
-        self.wave = 0
-        self.wave_timer = 60 * 6 if level.vigil else -1
         if st.get("cloister"):
             self._build_cloister()
 
@@ -499,10 +499,12 @@ class GameSession:
         # the shared find/senses infrastructure (DESIGN_7_25): every
         # "what can I see from here?" goes through this one query object
         self.senses = SenseQuery(self.sim, self._describe_entity)
+        # the nine-field signal substrate — the shared medium the whole
+        # Adversary coordinates through. Always on; every world has one.
+        self.signals = SignalField(self.sim, tick=0)
         self.decals: dict[int, list] = {}  # polygon -> [(kind,x,y,size,angle)]
         self._objective_fired: set[str] = set()  # once-gates for objective fx
         self.metrics = dict(ticks=0, shots=0, hits=0, kills=0, dmg_dealt=0.0,
-                            wave=0,
                             dmg_taken=0.0, pickups=0, transfers=0, deaths=0,
                             polygons_visited={level.player_polygon}, hp_series=[],
                             completed=False)
@@ -546,7 +548,13 @@ class GameSession:
         state = "lurk" if kind == "flicker" else "idle"
         self.enemies[eid] = dict(kind=kind, hp=d["hp"] * self._hp_mul, state=state,
                                  touch_cd=0, spit_cd=0, scream_cd=0,
-                                 wander_cd=0, buff=0, trace_intensity=1.0)
+                                 wander_cd=0, buff=0, trace_intensity=1.0,
+                                 # per-agent quorum threshold, sampled ONCE
+                                 # at spawn (killing habitual low-threshold
+                                 # initiators thins future cascades), and
+                                 # the raid-fan coin (~1/3 take route B)
+                                 q_thr=self.rng.uniform(*coord.QUORUM_THRESHOLD_BAND),
+                                 raid=self.rng.random() < coord.RAID_FRACTION)
         return eid
 
     def spawn_pickup(self, polygon: int, pos, kind: str, meta=None,
@@ -728,20 +736,6 @@ class GameSession:
     WAKE_TICKS = {"husk": 32, "mite": 18, "spitter": 26, "brute": 45,
                   "shrieker": 12, "warden": 20}
 
-    def alert_enemies(self, polygon: int, hops: int):
-        for eid, e in self.enemies.items():
-            if e["state"] != "idle":
-                continue  # hunting already, or mid-wake (keep the beat)
-            er = self.sim.get_polygon(eid)
-            d = self.sim.hop_distance(er, polygon)
-            if 0 <= d <= hops:
-                self._set_enemy_state(eid, e, "waking")
-                e["wake"] = self.WAKE_TICKS[e["kind"]]
-                if d == 0:
-                    _, ex, ey, *_ = self.sim.get(eid)
-                    self._snd(ENEMIES[e["kind"]]["alert_snd"], er, (ex, ey), 0.8)
-                    self.fx.append(("alerted", er, ex, ey))
-
     # ------------------------------------------------------------------
     # the tick
     # ------------------------------------------------------------------
@@ -768,6 +762,31 @@ class GameSession:
                 pos=[round(px_s, 1), round(py_s, 1)], weapon=self.weapon,
                 kills=m["kills"], deaths=m["deaths"],
                 dmg_taken=round(m["dmg_taken"], 1), ammo=dict(self.ammo)))
+        # the signal medium: spread on its fixed cadence; the intruder's
+        # passage re-arms the Trail scent in his chamber; every agent
+        # thickens Kin where it stands (the underdefended-ground gradient)
+        self.signals.step_to(self.tick_count)
+        if not self.dead and self.sim.exists(self.pid):
+            if self.tick_count % 5 == 0:
+                self.signals.emit_at_least(SignalKind.TRAIL,
+                                           self.player_polygon(), 0.80,
+                                           self.tick_count)
+        if self.tick_count % 15 == 0:
+            for _eid in self.enemies:
+                self.signals.emit(SignalKind.KIN,
+                                  self.sim.get_polygon(_eid), 0.011,
+                                  self.tick_count)
+        if self.tick_count % 60 == 0:
+            _t = self.tick_count
+            _pp = self.player_polygon() if self.sim.exists(self.pid) else -1
+            self.trace.emit(FieldSample(
+                tick=_t,
+                totals={k.value: round(self.signals.total(k, _t), 4)
+                        for k in SignalKind},
+                player_polygon=_pp,
+                player_own={} if _pp < 0 else
+                {k.value: round(self.signals.sample(k, _pp, _t), 4)
+                 for k in SignalKind}))
         if self.tick_count % 60 == 0:
             self.metrics["hp_series"].append(self.hp)
         if self.dead or self.complete:
@@ -829,8 +848,6 @@ class GameSession:
         self._station_scan(ppolygon, inp)
         self._exit_scan(ppolygon)
 
-        if self.level.vigil:
-            self._vigil_tick(ppolygon)
         if self.cooldown > 0:
             self.cooldown -= 1
         if self.hurt_cd > 0:
@@ -1008,8 +1025,9 @@ class GameSession:
                     self.bullets[bid].update(kind="tau", ttl=140,
                                              bounces=w.get("bounces", 0))
                     self.sim.set_props(bid, rest_wall=1.0)
-        # gunfire is loud: it travels the graph
-        self.alert_enemies(ppolygon, self.level.alert_hops)
+        # gunfire is loud: the Noise field IS the alert — it spreads
+        # hop-by-hop and the quorum rule decides who commits
+        self.signals.emit(SignalKind.NOISE, ppolygon, 0.8, self.tick_count)
 
     def _fire_rail(self, ppolygon, px, py, adx, ady):
         ox, oy, polygon = px + adx * (PLAYER_RADIUS + 3), py + ady * (PLAYER_RADIUS + 3), ppolygon
@@ -1052,7 +1070,7 @@ class GameSession:
                                  born=self.tick_count)
         self._snd("lightning_fire", ppolygon, (px, py))
         self._shake(4.0)
-        self.alert_enemies(ppolygon, self.level.alert_hops + 1)
+        self.signals.emit(SignalKind.NOISE, ppolygon, 0.9, self.tick_count)
 
     def _fire_tau_charged(self, ppolygon, px, py):
         adx, ady = self.aim
@@ -1085,7 +1103,7 @@ class GameSession:
         self._shake(4.0 + 5.0 * power)
         self._hitstop(2)
         self.pulse_light(ppolygon, (px + adx * 12, py + ady * 12), 300.0, 1.2)
-        self.alert_enemies(ppolygon, self.level.alert_hops)
+        self.signals.emit(SignalKind.NOISE, ppolygon, 1.0, self.tick_count)
 
     # ------------------------------------------------------------------
     # portable hole
@@ -1153,6 +1171,7 @@ class GameSession:
         self.trace.emit(TopologyChanged(
             tick=self.tick_count, op="connect", a_polygon=polygon,
             a_edge=mid_b, b_polygon=cor, b_edge=2, source="hole"))
+        self.signals.on_topology_changed()
         self.level.polygon_seeds.append(cor * 7919 + 13)
         self.holes -= 1
         self.hole_mark = None
@@ -1200,6 +1219,7 @@ class GameSession:
             self.trace.emit(TopologyChanged(
                 tick=self.tick_count, op="connect", a_polygon=a + offset,
                 a_edge=ea, b_polygon=b + offset, b_edge=eb, source="stream"))
+            self.signals.on_topology_changed()
         for a, ea, b, eb, m9 in level.connects_x:
             self.sim.connect_with_xform(a + offset, ea, b + offset, eb, m9)
         for d in level.doors:
@@ -1247,59 +1267,6 @@ class GameSession:
                 (r, e + 2 if r == polygon and e > edge else e)
                 for (r, e) in self.cloister["links"]]
 
-    # ------------------------------------------------------------------
-    # the vigil: the wave director. Things still come through. They are met.
-    # ------------------------------------------------------------------
-
-    # no shriekers: a thing that flees forever stalls a holdout
-    VIGIL_COSTS = (("mite", 1), ("husk", 2), ("spitter", 4), ("brute", 7))
-
-    def _vigil_tick(self, ppolygon: int):
-        if self.wave_timer > 0:
-            self.wave_timer -= 1
-            return
-        if any(e for e in self.enemies.values()):
-            # stragglers do not stall the watch: after a grace period the
-            # next push comes through anyway
-            self.wave_stall = self.wave_stall + 1 if hasattr(self, "wave_stall") else 1
-            if self.wave_stall < 60 * 60:
-                return
-        self.wave_stall = 0
-        self.wave += 1
-        self.metrics["wave"] = self.wave
-        budget = 3 + 2 * self.wave
-        # spawn away from the player: petal polygons only (never polygon 0's heart
-        # unless the player left it)
-        polygons = [r for r in range(self.sim.num_polygons())
-                 if r != ppolygon and (self.cloister is None or
-                 r not in (self.cloister["sanctum"], self.cloister["corridor"]))]
-        spawned = 0
-        while budget > 0 and spawned < 22:
-            kinds = [(k, c) for k, c in self.VIGIL_COSTS if c <= budget]
-            if self.wave >= 5 and self.wave % 5 == 0 and spawned == 0:
-                kind, cost = "warden", budget  # a fresh print at the door
-            else:
-                kind, cost = kinds[self.rng.randrange(len(kinds))]
-            polygon = polygons[self.rng.randrange(len(polygons))]
-            a = self.rng.uniform(0, 6.28)
-            eid = self.spawn_enemy(polygon, (55 * math.cos(a), 55 * math.sin(a)), kind)
-            self.enemies[eid]["state"] = "hunt"
-            budget -= cost
-            spawned += 1
-        self.wave_timer = 60 * 8
-        # wave feedback is the stinger + the HUD wave counter; no dialogue
-        self._snd("stinger_wrongness", ppolygon, self.player_pos(), 0.5)
-        # the seed keeps the pantry stocked between pushes
-        if self.wave % 2 == 0:
-            kind = "medkit" if self.wave % 4 == 0 else                 ("ammo_shell" if self.wave % 3 == 0 else "ammo_9mm")
-            a = self.rng.uniform(0, 6.28)
-            self.spawn_pickup(0, (60 * math.cos(a), 60 * math.sin(a)), kind)
-
-    # ------------------------------------------------------------------
-    # the cloister (safe polygon): an isolated pocket with no address,
-    # linked to wherever the portable hole has cut
-    # ------------------------------------------------------------------
-
     def _build_cloister(self):
         if self.cloister is not None:
             return
@@ -1342,6 +1309,7 @@ class GameSession:
             tick=self.tick_count, op="connect", a_polygon=polygon,
             a_edge=edge, b_polygon=c["corridor"], b_edge=2,
             source="cloister"))
+        self.signals.on_topology_changed()
         c["attached"] = idx
 
     def _rotate_cloister(self):
@@ -1488,6 +1456,7 @@ class GameSession:
         blast. Neighbors inside TAU_AOE_RADIUS take falloff damage and a
         falloff push; the directly-struck body (skip) already resolved."""
         self.fx.append(("lightning", polygon, x, y, TAU_AOE_RADIUS))
+        self.signals.emit(SignalKind.NOISE, polygon, 0.8, self.tick_count)
         self._snd("tau_charged_fire", polygon, (x, y), 0.7)
         self._shake(4.0)
         self._decal(polygon, "scorch", x, y, 10.0)
@@ -1513,6 +1482,7 @@ class GameSession:
         15-20 of the weakest."""
         w = WEAPONS["lightning"]
         self.fx.append(("lightning", polygon, x, y, w["radius"]))
+        self.signals.emit(SignalKind.NOISE, polygon, 1.0, self.tick_count)
         self._snd("lightning_fire", polygon, (x, y), 1.0)
         self._shake(9.0)
         self._hitstop(5)
@@ -1615,6 +1585,9 @@ class GameSession:
         self.trace.emit(DamageApplied(
             tick=self.tick_count, target_id=eid, target_kind=e["kind"],
             amount=round(dmg, 3), source=source))
+        # Distress: an agent was harmed here — the inflammation analogue,
+        # keyed to agent harm only (there is no structural damage)
+        self.signals.emit(SignalKind.DISTRESS, polygon, 0.15, self.tick_count)
         if knock > 0.0:
             self._apply_impulse(eid, ndir[0] * knock, ndir[1] * knock,
                                 source=source)
@@ -1658,8 +1631,10 @@ class GameSession:
                           "components",
                           extra=dict(amount=int(math.ceil(
                               d["score"] * self._salvage_mul))))
-        # nearby enemies hear the death
-        self.alert_enemies(polygon, 1)
+        # Danger: an agent DIED here — no spread, very slow fade; Distress
+        # bumps too (the killing is the strongest disturbance there is)
+        self.signals.emit(SignalKind.DANGER, polygon, 0.40, self.tick_count)
+        self.signals.emit(SignalKind.DISTRESS, polygon, 0.25, self.tick_count)
 
     def _damage_player(self, dmg: float, polygon: int, *, source: str):
         if self.hurt_cd > 0 or self.dead:
@@ -1771,16 +1746,50 @@ class GameSession:
                     dl = math.hypot(ddx, ddy) or 1e-6
                     s.set_dir(eid, ddx / dl, ddy / dl)
                     continue
-                else:
-                    # aimless drift
-                    if e["wander_cd"] <= 0:
-                        e["wander_cd"] = self.rng.randrange(90, 240)
-                        a = self.rng.uniform(0, 6.28)
-                        e["wander"] = (math.cos(a), math.sin(a))
-                    wx, wy = e.get("wander", (0.0, 0.0))
-                    s.set_vel(eid, evx + wx * d["accel"] * 0.25 * DT,
-                              evy + wy * d["accel"] * 0.25 * DT)
-                    continue
+                # staggered awareness beat (every 10 ticks per agent):
+                # fire on line of sight — an intruder plainly visible
+                # through a doorway wakes the watcher (DESIGN_7_25 §3) —
+                # and the FRACTIONAL QUORUM: commit on the fraction of
+                # visible chamber-mates already committed, plus one
+                # bounded virtual supporter from the fields. Calm packed
+                # halls inhibit; sparse pickets flip first.
+                if (self.tick_count + eid) % 10 == 0:
+                    if self.senses.sight_of(eid, self.pid) is not None:
+                        self._set_enemy_state(eid, e, "waking")
+                        e["wake"] = self.WAKE_TICKS[kind]
+                        self._snd(d["alert_snd"], polygon, (ex, ey), 0.7)
+                        self.fx.append(("alerted", polygon, ex, ey))
+                        continue
+                    peers = [self.enemies[oid]
+                             for oid in s.polygon_entities(polygon)
+                             if oid != eid and oid in self.enemies]
+                    committed = sum(1 for oe in peers
+                                    if oe["state"] in ("waking", "hunt"))
+                    exc = coord.quorum_excitation(
+                        self.signals.sample(SignalKind.NOISE, polygon,
+                                            self.tick_count),
+                        self.signals.sample(SignalKind.DISTRESS, polygon,
+                                            self.tick_count))
+                    f = coord.quorum_fraction(committed, len(peers), exc)
+                    if self.rng.random() < coord.commit_probability(
+                            f, e["q_thr"]):
+                        self._set_enemy_state(eid, e, "waking")
+                        e["wake"] = self.WAKE_TICKS[kind]
+                        self._snd(d["alert_snd"], polygon, (ex, ey), 0.5)
+                        continue
+                # aimless drift — and the drift is a PATROL: this chamber
+                # reads as recently searched to the rest of the swarm
+                if self.tick_count % 15 == (eid % 15):
+                    self.signals.emit(SignalKind.PATROL, polygon, 0.04,
+                                      self.tick_count)
+                if e["wander_cd"] <= 0:
+                    e["wander_cd"] = self.rng.randrange(90, 240)
+                    a = self.rng.uniform(0, 6.28)
+                    e["wander"] = (math.cos(a), math.sin(a))
+                wx, wy = e.get("wander", (0.0, 0.0))
+                s.set_vel(eid, evx + wx * d["accel"] * 0.25 * DT,
+                          evy + wy * d["accel"] * 0.25 * DT)
+                continue
 
             if e["state"] == "waking":
                 e["wake"] = e.get("wake", 0) - 1
@@ -1811,6 +1820,68 @@ class GameSession:
             sighting = self.senses.sight_of(eid, self.pid)
             if sighting is not None:
                 tx, ty = sighting.position
+                e["quiet"] = 0
+                # relay-recruit: an agent with the target in sight
+                # re-broadcasts — contact makes signal makes more contact
+                if (self.tick_count + eid) % 5 == 0:
+                    self.signals.emit(SignalKind.MUSTER, polygon, 0.02,
+                                      self.tick_count)
+                    self.signals.emit(SignalKind.DISTRESS, polygon, 0.005,
+                                      self.tick_count)
+            else:
+                # stand-down: a hunter whose neighborhood stays faint ~5s
+                # exits the combat state — the response THINS, it doesn't
+                # chase ghosts forever
+                t_ = self.tick_count
+                peak = max(
+                    self.signals.sample(SignalKind.NOISE, polygon, t_),
+                    self.signals.sample(SignalKind.TRAIL, polygon, t_),
+                    self.signals.sample(SignalKind.DISTRESS, polygon, t_),
+                    self.signals.sample(SignalKind.MUSTER, polygon, t_))
+                if peak < coord.STAND_DOWN_FLOOR:
+                    e["quiet"] = e.get("quiet", 0) + 1
+                else:
+                    e["quiet"] = 0
+                if coord.wants_stand_down(False, peak, e["quiet"]):
+                    self._set_enemy_state(eid, e, "idle")
+                    e["quiet"] = 0
+                    e.pop("route", None)
+                    continue
+            if tx is not None and sighting.portal_depth >= 1:
+                # even a SIGHTED chase respects the threshold-holding
+                # rule: the chamber that keeps killing our kind is not
+                # entered alone just because the killer is visible in it
+                # — that is precisely how a killbox works. Hold at the
+                # doorway and call until a push gathers.
+                pedge = s.next_edge(polygon, sighting.polygon)
+                if pedge >= 0:
+                    portal1 = s.polygon_portals(polygon)[pedge]
+                    t_ = self.tick_count
+                    if portal1 is not None and coord.danger_hold(
+                            self.signals.sample(SignalKind.DANGER,
+                                                portal1[0], t_),
+                            sum(1 for oid in s.polygon_entities(polygon)
+                                if oid != eid and oid in self.enemies
+                                and self.enemies[oid]["state"]
+                                in ("waking", "hunt")),
+                            self.signals.sample(SignalKind.MUSTER,
+                                                polygon, t_)):
+                        if (t_ + eid) % 5 == 0:
+                            self.signals.emit(SignalKind.MUSTER, polygon,
+                                              0.05, t_)
+                        mx_, my_ = s.edge_midpoint(polygon, pedge)
+                        ddx, ddy = mx_ - ex, my_ - ey
+                        dist = math.hypot(ddx, ddy) or 1e-6
+                        if dist > 90.0:
+                            nx, ny = ddx / dist, ddy / dist
+                            s.set_dir(eid, nx, ny)
+                            sx, sy = s.terrain_avoid_dir(
+                                polygon, ex, ey, d["radius"], nx, ny,
+                                max(40.0, min(dist, 120.0)))
+                            sx, sy = self._steer_heading(eid, e, d, sx, sy)
+                            self._budget_move(eid, e, d, polygon, ex, ey,
+                                              evx, evy, sx, sy, accel)
+                        continue
             if tx is not None:
                 ddx, ddy = tx - ex, ty - ey
                 dist = math.hypot(ddx, ddy) or 1e-6
@@ -1852,15 +1923,47 @@ class GameSession:
                         self._spit(eid, polygon, ex, ey, nx, ny, d)
                     if kind != "warden":
                         continue
-                s.set_vel(eid, evx + sx * accel * DT, evy + sy * accel * DT)
+                self._budget_move(eid, e, d, polygon, ex, ey, evx, evy,
+                                  sx, sy, accel)
             else:
                 if e.get("tether"):
                     # holds its ground — but only pursuit is waived; an
                     # engaged tethered guardian fights through the door
                     # via the engagement branch above
                     continue
-                edge = s.next_edge(polygon, ppolygon)
+                # no sighting: hunt the FIELDS, not the player's address —
+                # climb Noise/Trail/Distress across the portal graph
+                # (chemotaxis; the omniscient next_edge pursuit is gone)
+                edge = self._hunt_edge(eid, e, polygon)
                 if edge < 0:
+                    continue
+                portal = s.polygon_portals(polygon)[edge]
+                if portal is None:
+                    e.pop("route", None)
+                    continue
+                t_ = self.tick_count
+                if coord.danger_hold(
+                        self.signals.sample(SignalKind.DANGER, portal[0], t_),
+                        sum(1 for oid in s.polygon_entities(polygon)
+                            if oid != eid and oid in self.enemies
+                            and self.enemies[oid]["state"] in ("waking", "hunt")),
+                        self.signals.sample(SignalKind.MUSTER, polygon, t_)):
+                    # threshold-holding: that chamber keeps killing us —
+                    # stand at the doorway and call until a push gathers
+                    if (t_ + eid) % 5 == 0:
+                        self.signals.emit(SignalKind.MUSTER, polygon, 0.05, t_)
+                    mx_, my_ = s.edge_midpoint(polygon, edge)
+                    ddx, ddy = mx_ - ex, my_ - ey
+                    dist = math.hypot(ddx, ddy) or 1e-6
+                    if dist > 90.0:
+                        nx, ny = ddx / dist, ddy / dist
+                        s.set_dir(eid, nx, ny)
+                        sx, sy = s.terrain_avoid_dir(
+                            polygon, ex, ey, d["radius"], nx, ny,
+                            max(40.0, min(dist, 120.0)))
+                        sx, sy = self._steer_heading(eid, e, d, sx, sy)
+                        self._budget_move(eid, e, d, polygon, ex, ey,
+                                          evx, evy, sx, sy, accel)
                     continue
                 mx_, my_ = s.edge_midpoint(polygon, edge)
                 ddx, ddy = mx_ - ex, my_ - ey
@@ -1870,7 +1973,64 @@ class GameSession:
                 sx, sy = s.terrain_avoid_dir(polygon, ex, ey, d["radius"], nx, ny,
                                              max(40.0, min(dist, 120.0)))
                 sx, sy = self._steer_heading(eid, e, d, sx, sy)
-                s.set_vel(eid, evx + sx * accel * DT, evy + sy * accel * DT)
+                self._budget_move(eid, e, d, polygon, ex, ey, evx, evy,
+                                  sx, sy, accel)
+
+    def _peer_bodies(self, eid: int, polygon: int):
+        out = []
+        for oid in self.sim.polygon_entities(polygon):
+            if oid == eid or oid not in self.enemies:
+                continue
+            _, ox, oy, *_ = self.sim.get(oid)
+            out.append((ox, oy, ENEMIES[self.enemies[oid]["kind"]]["radius"]))
+        return out
+
+    def _budget_move(self, eid, e, d, polygon, ex, ey, evx, evy,
+                     sx, sy, accel) -> None:
+        """Priority-budget locomotion (the ratified flocking correction):
+        keep-apart claims acceleration FIRST, only the remainder chases —
+        opposed demands never average into the doorframe."""
+        sep = coord.separation_request((ex, ey), d["radius"],
+                                       self._peer_bodies(eid, polygon))
+        ax, ay = coord.allocate_acceleration(
+            accel, [(0, sep[0] * accel, sep[1] * accel),
+                    (1, sx * accel, sy * accel)])
+        self.sim.set_vel(eid, evx + ax * DT, evy + ay * DT)
+
+    def _hunt_edge(self, eid: int, e: dict, polygon: int) -> int:
+        """Which doorway calls loudest: Noise + Trail + Distress + Muster
+        one hop away, plus the worn doorway-trail lanes. Raid members take
+        the second-best route so pushes fan. Returns -1 when nothing
+        calls from anywhere — the hunter has nothing to hunt."""
+        t_ = self.tick_count
+        route = e.get("route")
+        if route is not None and route[0] == polygon and t_ - route[2] < 45:
+            return route[1]
+        best = (-1, 0.0)
+        second = (-1, 0.0)
+        for edge, portal in enumerate(self.sim.polygon_portals(polygon)):
+            if portal is None:
+                continue
+            nb = portal[0]
+            att = (self.signals.sample(SignalKind.NOISE, nb, t_)
+                   + self.signals.sample(SignalKind.TRAIL, nb, t_)
+                   + 0.6 * self.signals.sample(SignalKind.DISTRESS, nb, t_)
+                   + 0.4 * self.signals.sample(SignalKind.MUSTER, nb, t_)
+                   + 0.15 * self.signals.doorway_trail(polygon, edge, t_))
+            if att > best[1]:
+                second = best
+                best = (edge, att)
+            elif att > second[1]:
+                second = (edge, att)
+        if best[1] < 0.02:
+            e.pop("route", None)
+            return -1
+        edge = coord.choose_route(best[0],
+                                  second[0] if second[1] >= 0.02 else -1,
+                                  bool(e.get("raid")))
+        e["route"] = (polygon, edge, t_)
+        self.signals.deposit_doorway_trail(polygon, edge, 0.5, t_)
+        return edge
 
     def _steer_heading(self, eid: int, e: dict, d: dict,
                        wx: float, wy: float) -> tuple[float, float]:
@@ -2188,6 +2348,7 @@ class GameSession:
                                 a_polygon=d["a"], a_edge=d["ea"],
                                 b_polygon=d["b"], b_edge=d["eb"],
                                 source="door_shoot"))
+                            self.signals.on_topology_changed()
                             self.door_edges.pop((d["a"], d["ea"]), None)
                             self.door_edges.pop((d["b"], d["eb"]), None)
                             self._snd("door_unlock", polygon, (px_, py_))
@@ -2472,6 +2633,7 @@ class GameSession:
                     tick=self.tick_count, op="connect", a_polygon=d["a"],
                     a_edge=d["ea"], b_polygon=d["b"], b_edge=d["eb"],
                     source="door_unlock"))
+                self.signals.on_topology_changed()
                 self.door_edges.pop((d["a"], d["ea"]), None)
                 self.door_edges.pop((d["b"], d["eb"]), None)
                 mx, my = self.sim.edge_midpoint(d["a"], d["ea"])

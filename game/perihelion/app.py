@@ -605,26 +605,6 @@ class App:
                           file=sys.stderr)
         return build_debug_level(), None
 
-    def start_vigil(self) -> None:
-        path = REPO_ROOT / "levels" / "vigil.json"
-        try:
-            level = load_level(path)
-        except Exception:
-            level = build_debug_level()
-        self.current_level_index = -1
-        self._level_start_state = dict(
-            hp=100, ammo={"9mm": 90, "shell": 12, "cell": 12},
-            weapons=["knife", "pistol", "smg", "shotgun", "rail",
-                     "lightning", "tau"],
-            weapon="smg")
-        game = GameScene(level, self.rng_seed or 1,
-                         player_state=dict(self._level_start_state),
-                         level_path=str(path),
-                         difficulty=self.settings.get('difficulty', 'normal'))
-        self.game = game
-        self.scenes = [game]
-        game.on_enter(self)
-
     def start_new_game(self, plus: bool = False) -> None:
         self.current_level_index = 0
         state = None
@@ -956,19 +936,8 @@ class App:
         game.shakes = [[m * 0.82, t - 1] for m, t in game.shakes if t > 1 and m > 0.05]
 
         if not was_dead and game.session.dead:
-            wave = game.session.metrics.get("wave", 0)
-            if game.session.level.vigil and wave:
-                best = self.save_data.get("best_wave", 0)
-                if wave > best:
-                    self.save_data["best_wave"] = wave
-                self._persist_save()
-                self.push(menus.DeathScene(game.session.metrics["deaths"],
-                                           wave=wave,
-                                           best_wave=self.save_data["best_wave"],
-                                           chassis=game.session.chassis))
-            else:
-                self.push(menus.DeathScene(game.session.metrics["deaths"],
-                                           chassis=game.session.chassis))
+            self.push(menus.DeathScene(game.session.metrics["deaths"],
+                                       chassis=game.session.chassis))
             return
         if not was_complete and game.session.complete:
             carried = dict(hp=max(game.session.hp, 40), ammo=dict(game.session.ammo),
