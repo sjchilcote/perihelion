@@ -235,7 +235,17 @@ def _judge_call(prompt: str, model: str, what: str) -> dict | list:
         text = text.removesuffix("```").strip()
         try:
             return json.loads(text)
-        except json.JSONDecodeError as exc:
+        except json.JSONDecodeError:
+            # tolerate a prose preamble: parse from the first JSON value
+            starts = [i for i in (text.find("{"), text.find("["))
+                      if i >= 0]
+            if starts:
+                try:
+                    obj, _ = json.JSONDecoder().raw_decode(
+                        text[min(starts):])
+                    return obj
+                except json.JSONDecodeError:
+                    pass
             last = RuntimeError(
                 f"{what} returned non-JSON (attempt {attempt}): "
                 f"{text[:300]!r}")
