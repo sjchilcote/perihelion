@@ -50,3 +50,22 @@ holds visually); no seams, smears, or HUD defects; the early fight reads
   authoring must respect sentry coverage.
 - A call from a small-walled chamber returns `dry_no_site: no wall holds
   a 96u seam` — Sol's geometry-migration conflict observed in-game.
+
+## Play-zoom re-capture (same night, after the tear v2 fix)
+
+`out/marrow_pour_close` → `out/marrow_pour_playzoom.mp4` (zoom 1.35, the
+shipping camera). Richer run than the first: ALL THREE apse seams opened
+(t2019, t3235, t7841) and the stream ended the session — cornered the
+bot in a throat and killed it at t10757 with 2 lacunas still alive. The
+marrow can now win on film.
+
+**Personal frame audit (11 frames across the arc):** pre-breach station
+reads clean; mid-pour convergence legible (wardens + doorway arrows);
+corpse fields accumulate correctly; the v2 breach ring + violet
+breach-light wash both read unmistakably at play zoom (fr410, fr1200,
+fr2130); two wardens wind up engulf charges point-blank (fr1570, the
+white-hot rim tell); final frame is a proper death — hp 0, vignette,
+wardens overhead. No seams, no squashed bodies, no HUD defects, no
+overlay-in-void instances spotted at this zoom. The farm-zoom P1
+(breach under-read) is CLOSED by this capture; the overlay-occlusion
+taste question (U14) remains open.
