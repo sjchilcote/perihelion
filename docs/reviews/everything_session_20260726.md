@@ -29,3 +29,27 @@ squash, no HUD defects.
 census — a shrieker rally scream flipped a Dispatch Collar to 'hunt'
 (`DANGER_CO[core_collar]` KeyError). Root fix in `_set_enemy_state`
 itself: organ parts have no state machine; no caller can animate one.
+
+## Fleet frame audit (4 reviewers, 200 frames + supplements)
+
+**0 P0. 0 surviving P1.** Every span verified readability, portal
+seamlessness (zoom-cropped boundary checks), lighting falloff,
+diegesis, combat legibility, HUD sanity (two reviewers cross-checked
+HUD digits against trace.jsonl tick-for-tick — exact match), motion
+continuity, and post-seal breach cleanliness (no orphaned ring or
+glow anywhere after t6893).
+
+Span 1 raised a P1 "14-second combat stall at a pinch" — REFUTED by
+the trace: husk hits land at t859–866 and t1362, turret fire joins at
+t1475, the engagement resolves from t1531 with the expected salvage
+jump. An ~8s cautious hold against spitters at a choke is bot pacing,
+not a deadlock. (Reviewer legend omitted stationary sentries; the
+"threat-marked corpse" note dissolves the same way.)
+
+P2 notes retained for the director's glance: warden hit-flash rim
+reads orange vs the white engulf tell (one-frame, fr4128); a sparse
+dressing stretch fr900–1188 (belongs to the U15 content pass); breach
+ring partly under the salvage counter for 3 frames at fr586. One
+reviewer confirmed pod-unpack rings and scorch decals against
+render.py rather than reporting them — the intended systems read as
+intended.
