@@ -86,6 +86,12 @@ Judge, citing frame files and ticks:
    open somewhere on the station (the wall-tear's screen-space cue).
 2. FIGHT READABILITY — can you tell what is happening: who is a
    threat, what the player is shooting, why the player took damage?
+   SOUNDSCAPE: each frame's HEARD line is what the player is hearing
+   at that moment through positional audio — footfalls, screams,
+   gunfire, the wrongness stinger of a wall tearing. An 'empty'
+   corridor with heavy off-screen combat audio is dread, not dead
+   air; a real player experiences that pressure even with nothing on
+   screen. Weigh pacing with ears as well as eyes.
 3. PACING — dead air vs pressure. Long stretches where nothing
    presses the player are a finding; so is unreadable chaos. HP/ammo
    deltas may land BETWEEN judged frames (2s apart): before calling a
@@ -188,6 +194,23 @@ def run_capture(out: Path, seed: int, ticks: int, zoom: float) -> dict:
     return {"stdout": r.stdout[-2000:]}
 
 
+def _soundscape(rec: Path) -> dict:
+    """second -> {sound: count} from the capture's audio tap."""
+    out: dict[int, dict] = {}
+    ev = rec / "events.jsonl"
+    if not ev.exists():
+        return out
+    with open(ev) as fh:
+        for line in fh:
+            r = json.loads(line)
+            if r.get("kind") != "sound":
+                continue
+            sec = int(r.get("t", 0))
+            d = out.setdefault(sec, {})
+            d[r["name"]] = d.get(r["name"], 0) + 1
+    return out
+
+
 def build_digests(rec: Path, judged: list[Path], window: int = 120) -> dict:
     """frame -> compact log lines within +/-window ticks of its tick."""
     events = defaultdict(list)
@@ -202,11 +225,17 @@ def build_digests(rec: Path, judged: list[Path], window: int = 120) -> dict:
                 events[r["t"] // 60].append(r)
             elif r.get("kind") == "field_sample":
                 player_room[r["t"] // 60] = r.get("player_polygon")
+    sounds = _soundscape(rec)
     digests = {}
     for f in judged:
         tick = int(f.stem.split("_")[1]) * 5
         pr = player_room.get(tick // 60)
         lines = [f'player_chamber={pr}'] if pr is not None else []
+        heard = sounds.get(tick // 60, {})
+        if heard:
+            lines.append("HEARD: " + ", ".join(
+                f"{k}x{v}" for k, v in sorted(
+                    heard.items(), key=lambda kv: -kv[1])[:6]))
         player_lines, other = [], []
         for sec in range((tick - window) // 60, (tick + window) // 60 + 1):
             for r in events.get(sec, []):
