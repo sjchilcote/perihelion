@@ -33,7 +33,8 @@ def run_seed(level, seed: int, ticks: int) -> dict:
     census0 = dict(s.adversary_census)
     m = dict(seed=seed, opened=0, dry=0, sealed=0, dispatches=0,
              knowers=0, replacements=0, first_breach=None,
-             breach_ticks=[], kills=0)
+             breach_ticks=[], kills=0, dry_no_seam=0, dry_no_wall=0,
+             dry_wall_chambers={})
     for _ in range(ticks):
         if s.dead or s.complete:
             break
@@ -49,6 +50,14 @@ def run_seed(level, seed: int, ticks: int) -> dict:
                         m["first_breach"] = r.tick
                 elif ev.startswith("dry"):
                     m["dry"] += 1
+                    detail = r.data.get("detail", "")
+                    if "apse seam" in detail:
+                        m["dry_no_seam"] += 1
+                    elif "96u seam" in detail:
+                        m["dry_no_wall"] += 1
+                        ch = str(r.data.get("world_chamber"))
+                        m["dry_wall_chambers"][ch] = \
+                            m["dry_wall_chambers"].get(ch, 0) + 1
                 elif ev == "sealed":
                     m["sealed"] += 1
             elif r.kind == "dispatch_decision":
@@ -70,6 +79,7 @@ def run_seed(level, seed: int, ticks: int) -> dict:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--seeds", type=int, default=16)
+    ap.add_argument("--seed-start", type=int, default=1)
     ap.add_argument("--ticks", type=int, default=24000)
     ap.add_argument("--level", default="levels/gauntlet4.json")
     ap.add_argument("--out", default="out/marrow_farm.json")
@@ -77,7 +87,7 @@ def main() -> int:
 
     level = load_level(ROOT / a.level)
     rows = []
-    for seed in range(1, a.seeds + 1):
+    for seed in range(a.seed_start, a.seed_start + a.seeds):
         m = run_seed(level, seed, a.ticks)
         rows.append(m)
         fb = m["first_breach"]
@@ -94,7 +104,7 @@ def main() -> int:
     firsts = [r["first_breach"] for r in rows
               if r["first_breach"] is not None]
     agg = dict(
-        seeds=a.seeds, ticks=a.ticks,
+        seeds=a.seeds, seed_start=a.seed_start, ticks=a.ticks,
         survival_rate=len(survived) / len(rows),
         death_tick_mean=(statistics.mean(r["survived_ticks"]
                                          for r in died) if died else None),
@@ -103,12 +113,20 @@ def main() -> int:
         opened_total=sum(r["opened"] for r in rows),
         dry_total=sum(r["dry"] for r in rows),
         no_loop_seeds=sum(1 for r in rows if r["opened"] == 0),
+        dry_no_seam_total=sum(r["dry_no_seam"] for r in rows),
+        dry_no_wall_total=sum(r["dry_no_wall"] for r in rows),
         dispatch_mean=statistics.mean(r["dispatches"] for r in rows),
         knower_fraction=(sum(r["knowers"] for r in rows)
                          / max(1, sum(r["dispatches"] for r in rows))),
         scouts_killed_mean=statistics.mean(r["scouts_killed"]
                                            for r in rows),
     )
+    wall_rooms: dict[str, int] = {}
+    for r in rows:
+        for ch, n in r["dry_wall_chambers"].items():
+            wall_rooms[ch] = wall_rooms.get(ch, 0) + n
+    agg["geometry_migration_worklist"] = dict(
+        sorted(wall_rooms.items(), key=lambda kv: -kv[1]))
     print("\naggregate:", json.dumps(agg, indent=2))
     out = ROOT / a.out
     out.parent.mkdir(parents=True, exist_ok=True)

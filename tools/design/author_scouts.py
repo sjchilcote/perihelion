@@ -35,7 +35,6 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "game"))
 
 SENTRY_TYPES = {"sentry", "turret"}
-MIN_SEAM_WALL = 130.0     # raw-edge proxy for "holds a 96u seam"
 VAGRANT_MIN_AREA = 45_000.0   # top-quartile ground for this station scale
 
 
@@ -46,9 +45,22 @@ def polygon_area(verts) -> float:
     return abs(s) * 0.5
 
 
-def longest_edge(verts) -> float:
-    return max(math.dist(a, b)
-               for a, b in zip(verts, verts[1:] + verts[:1]))
+def seam_viable_chambers(level) -> set[int]:
+    """The REAL check, not a proxy: trial-carve a 96u seam in every
+    chamber of a scratch session and keep the ones that succeed. The
+    first farm bank measured the proxy's failure — raw longest-edge
+    passed chambers whose walls are consumed by doors, and 23 of 58
+    dry calls were geometry failures concentrated in the authored
+    scout homes themselves."""
+    from perihelion.sim import GameSession
+    s = GameSession(level, seed=1)
+    ok = set()
+    for i in range(len(level.polygon_verts)):
+        if i in s.hub.chambers.values():
+            continue
+        if s.topology.carve(i, (0.0, 0.0), 96.0) is not None:
+            ok.add(i)
+    return ok
 
 
 def main() -> int:
@@ -66,6 +78,9 @@ def main() -> int:
     data = json.loads(path.read_text())
     polys = data["polygons"]
     n = len(polys)
+
+    from perihelion.levels import load_level
+    viable = seam_viable_chambers(load_level(path))
 
     # adjacency from the connect tables (both styles)
     adj: dict[int, set[int]] = {i: set() for i in range(n)}
@@ -101,8 +116,8 @@ def main() -> int:
             return False
         if i in sentry_shadow:
             return False
-        if longest_edge(polys[i]["verts"]) < MIN_SEAM_WALL:
-            return False
+        if i not in viable:
+            return False      # a call from home must be able to LAND
         return True
 
     combat_load = {i: sum(1 for e in polys[i].get("entities", [])

@@ -29,3 +29,20 @@ gauntlet4 (authored scouts, HumanBot hard, no harness help). Raw:
   Tuning direction if the director wants it easier/harder lives in
   authored scout count/placement and the beacon knob — never in
   enemy HP/damage inflation (ratified).
+
+## Dry-cause split + re-authoring (same night)
+
+The farm's second revision splits dry causes: across 16 seeds, 58 dry
+= 35 "no free apse seam" (healthy scarcity — all three seams
+committed) + 23 "no wall holds a 96u seam" (geometry). The geometry
+failures concentrated in the AUTHORED SCOUT HOMES (16: 7, 14: 8,
+12: 6, 9: 5, 8: 1) — the authoring tool's raw-longest-edge proxy
+ignored that doors consume walls.
+
+Fix: author_scouts.py now trial-carves a real 96u seam in every
+candidate chamber of a scratch session (the proxy is deleted).
+Re-authored gauntlet4: lacunas moved 14/16 → 24/26. Verification
+bank (6 seeds): dry_no_wall roughly halved, chamber 16 gone, 14 down
+to a single wander-in call. Residual work-list for the U15 geometry
+migration: chambers 12 (position-dependent — carveable at centroid,
+not from every call spot), 9, 8. Suite 740 green throughout.
