@@ -81,9 +81,13 @@ TICKS_PER_S = 60.0
 # sit ~2x above the biggest ordinary wave peaks; all other kinds stay
 # corpus-fitted.
 DANGER_CO = {"warden": 20.0, "brute": 1.0, "flicker": 1.9, "husk": 1.0,
-             "mite": 0.8, "spitter": 0.6, "shrieker": 0.15}
+             "mite": 0.8, "spitter": 0.6, "shrieker": 0.15,
+             "vagrant": 0.15, "lacuna": 0.1}
 DANGER_ADJ = {"warden": 14.0, "brute": 0.3, "flicker": 0.2, "husk": 0.8,
-              "mite": 0.3, "spitter": 0.3, "shrieker": 0.1}
+              "mite": 0.3, "spitter": 0.3, "shrieker": 0.1,
+              # the Adversary lane: scouts flee rather than fight —
+              # their danger reads even lower than a shrieker's
+              "vagrant": 0.1, "lacuna": 0.1}
 CROWD_W = 27.5           # per unit inverse-distance mass (co-polygon)
 INFLUX_W = 3.0           # per newly-aggroed enemy per second (3s EMA)
 # (scream term REMOVED, director 2026-07-16: screams correlate with
@@ -117,6 +121,7 @@ FIRE_PRAY = 0.007
 THREAT_WEIGHT = {
     "mite": 0.6, "husk": 1.0, "spitter": 2.0, "shrieker": 0.8,
     "brute": 4.0, "warden": 5.0, "flicker": 3.0,
+    "vagrant": 0.5, "lacuna": 0.4,
 }
 WEAK_KINDS = {"mite", "husk"}
 OTHER_POLYGON_FACTOR = 0.35     # dominant_kind's polygon discount only
