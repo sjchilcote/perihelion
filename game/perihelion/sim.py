@@ -19,6 +19,7 @@ from .lighting import LightingSystem, light_level_at
 from .senses import SenseQuery
 from .signals import SignalField, SignalKind
 from . import coordination as coord
+from .capture import CaptureSpec, CaptureSystem
 from .telemetry import (AgentTransition, DamageApplied, FieldSample,
                         ImpulseApplied, InputRecord, PortalCrossing,
                         TopologyChanged, TraceBus)
@@ -81,6 +82,23 @@ TAU_AOE_RADIUS = 48.0
 TAU_AOE_DMG = 42.0          # at the center of the burst, falls off linearly
 TAU_AOE_IMP = 300.0
 TAU_CHARGED_IMP = 400.0     # direct-hit impulse at full power, scales down
+
+# WARDEN ENGULF (DESIGN_7_25 §3): stop -> the body flashes brighter twice
+# over ~200ms -> lunge at 2.5x cruise; the state lasts until velocity drops
+# back below cruise. A head-on catch (dot > 0.5, no glancing hits) draws the
+# player into the core at 75 hp/s; the only way out is killing the Warden.
+# trigger only inside the lunge's PHYSICAL reach: ballistic decay from
+# 2.5x cruise back to cruise covers (v0/fric)*(1 - 1/2.5) ~= 100u, plus
+# contact radii ~30u; triggering beyond that guarantees a wasted lunge
+# (measured: a 147u lunge dies 53u short) and the cooldown becomes a
+# free touch-damage window instead of a dodge-or-die moment.
+WARDEN_ENGULF_RANGE = 120.0
+WARDEN_ENGULF_CHARGE = 12          # ~200ms wind-up, rooted and fully exposed
+WARDEN_ENGULF_LUNGE_MULT = 2.5
+WARDEN_ENGULF_DOT = 0.5
+WARDEN_ENGULF_DPS = 75.0
+WARDEN_ENGULF_PULL = 260.0         # u/s drawn into the core while held
+WARDEN_ENGULF_COOLDOWN = 5 * 60
 TAU_CHARGE_FULL = 80        # ticks of held charge for max damage
 TAU_OVERCHARGE = 160        # holding past this hurts
 HOLE_WIDTH = 15.0           # player diameter 13 + clearance; brutes (27) excluded
@@ -150,6 +168,7 @@ for _ename, _e in ENEMIES.items():
     assert _e["mass"] > PLAYER_MASS, f"{_ename} lighter than the Commando"
     assert _e["turn"] > 0.0, f"{_ename} has no turn-rate model"
 assert ENEMIES["warden"]["hp"] == 168, "warden is a normal enemy: 2 charged tau / 4 rail"
+WARDEN_CRUISE = ENEMIES["warden"]["accel"] / ENEMIES["warden"]["fric"]
 
 PICKUPS: dict[str, dict] = {
     "ammo_9mm": dict(radius=5.0, amount=30),
@@ -502,6 +521,9 @@ class GameSession:
         # the nine-field signal substrate — the shared medium the whole
         # Adversary coordinates through. Always on; every world has one.
         self.signals = SignalField(self.sim, tick=0)
+        # generic captor/captive service (warden engulf is the first
+        # user); damage flows back through _capture_burn, never directly
+        self.captures = CaptureSystem()
         self.decals: dict[int, list] = {}  # polygon -> [(kind,x,y,size,angle)]
         self._objective_fired: set[str] = set()  # once-gates for objective fx
         self.metrics = dict(ticks=0, shots=0, hits=0, kills=0, dmg_dealt=0.0,
@@ -829,6 +851,7 @@ class GameSession:
 
         self._turret_tick()
         self._sentry_tick()
+        self.captures.step(self.sim, self._capture_burn)
         if self.muzzle_light.intensity > 0.0:
             self.muzzle_light.intensity = (
                 0.0 if self.muzzle_light.intensity < 0.06
@@ -941,6 +964,14 @@ class GameSession:
     def _fire(self, ppolygon: int, px: float, py: float):
         w = WEAPONS[self.weapon]
         adx, ady = self.aim
+        ft = self.captures.forced_target(self.pid)
+        if ft is not None and self.sim.exists(ft):
+            # engulfed: you are inside its grip — every weapon fires into
+            # the body around you, whichever way you thought you aimed
+            _, fx_, fy_, *_ = self.sim.get(ft)
+            fdx, fdy = fx_ - px, fy_ - py
+            fdl = math.hypot(fdx, fdy) or 1e-6
+            adx, ady = fdx / fdl, fdy / fdl
         if self.weapon == "lightning":
             # the implant fires the same whether triggered or selected
             self.cooldown = 18
@@ -1014,6 +1045,16 @@ class GameSession:
                 ang = math.atan2(ady, adx) + self.rng.uniform(
                     -w["spread"], w["spread"]) * self._spread_mul
                 spd = w["speed"] * self.rng.uniform(0.95, 1.05)
+                if ft is not None and self.sim.exists(ft):
+                    # point-blank inside a grip the trigger pull IS the
+                    # hit: a round spawned inside the captor's body is
+                    # eaten by spawn-overlap resolution before it can
+                    # contact (measured), so the damage goes through the
+                    # one door directly — every weapon hits the captor
+                    self._damage_enemy(ft, w["dmg"],
+                                       (math.cos(ang), math.sin(ang)),
+                                       w["imp"], source=self.weapon)
+                    continue
                 bid = self.sim.spawn(ppolygon, mx_, my_, 1.6, 0.002, GROUP_PBULLET)
                 self.sim.set_props(bid, rest_wall=0.0, rest_ent=0.0, max_substep=3.2)
                 self.sim.set_vel(bid, math.cos(ang) * spd + pvx * 0.4,
@@ -1091,6 +1132,16 @@ class GameSession:
                              GROUP_PBULLET)
         self.sim.set_props(bid, rest_wall=1.0, max_substep=4.0)
         self.sim.set_vel(bid, adx * 2600.0 + pvx * 0.3, ady * 2600.0 + pvy * 0.3)
+        ft = self.captures.forced_target(self.pid)
+        if ft is not None and self.sim.exists(ft):
+            # gripped: the discharge goes straight into the captor
+            self.sim.remove(bid)
+            self._damage_enemy(ft, dmg, (adx, ady),
+                               TAU_CHARGED_IMP * power, source="taucharged")
+            self.metrics["shots"] += 1
+            self._snd("tau_charged_fire", ppolygon, (px, py))
+            self._hitstop(2)
+            return
         # a FULL charge detonates on impact (small AoE + push) instead of
         # ricocheting: bounces=0 so the first contact — enemy or wall —
         # resolves it (see _detonate_tau)
@@ -1600,6 +1651,7 @@ class GameSession:
             self._kill_enemy(eid, polygon, (ex, ey), ndir)
 
     def _kill_enemy(self, eid: int, polygon: int, pos, ndir):
+        self.captures.release_for_entity(eid)
         e = self.enemies.pop(eid)
         kind = e["kind"]
         d = ENEMIES[kind]
@@ -1699,7 +1751,8 @@ class GameSession:
             kind = e["kind"]
             d = ENEMIES[kind]
             _, ex, ey, evx, evy, edx, edy = s.get(eid)
-            for k in ("touch_cd", "spit_cd", "scream_cd", "wander_cd"):
+            for k in ("touch_cd", "spit_cd", "scream_cd", "wander_cd",
+                      "engulf_cd"):
                 if e.get(k, 0) > 0:
                     e[k] -= 1
             if e.get("buff", 0) > 0:
@@ -1807,6 +1860,9 @@ class GameSession:
             if kind == "shrieker":
                 self._shrieker_ai(eid, e, polygon, ppolygon, ex, ey, accel)
                 continue
+            if e.get("engulf") in ("charge", "lunge", "hold"):
+                self._warden_engulf_step(eid, e, polygon, ex, ey)
+                continue
             # --- engagement target: the player's position in THIS polygon's
             # local frame. Polygons are individual polygons, so co-polygon is
             # just the identity case; further out, the portal transforms
@@ -1847,6 +1903,14 @@ class GameSession:
                     e["quiet"] = 0
                     e.pop("route", None)
                     continue
+            if tx is not None and kind == "warden" \
+                    and sighting.portal_depth == 0 \
+                    and e.get("engulf_cd", 0) <= 0 \
+                    and math.hypot(tx - ex, ty - ey) < WARDEN_ENGULF_RANGE:
+                e["engulf"] = "charge"
+                e["engulf_t"] = WARDEN_ENGULF_CHARGE
+                self._warden_engulf_step(eid, e, polygon, ex, ey)
+                continue
             if tx is not None and sighting.portal_depth >= 1:
                 # even a SIGHTED chase respects the threshold-holding
                 # rule: the chamber that keeps killing our kind is not
@@ -1975,6 +2039,92 @@ class GameSession:
                 sx, sy = self._steer_heading(eid, e, d, sx, sy)
                 self._budget_move(eid, e, d, polygon, ex, ey, evx, evy,
                                   sx, sy, accel)
+
+    def _capture_burn(self, captive: int, captor: int, dps: float) -> None:
+        """The capture system's damage door. Continuous burn — a grip
+        deliberately bypasses the ordinary hurt cooldown (that is the
+        point of being held). Only the player can be a captive today;
+        an enemy captive would route through _damage_enemy here."""
+        if captive != self.pid or self.dead:
+            return
+        dmg = dps * DT * self._dmg_mul * self._armor_mul * self.player_resist
+        self.hp -= dmg
+        self.metrics["dmg_taken"] += dmg
+        px, py = self.player_pos()
+        ppolygon = self.player_polygon()
+        if self.tick_count % 5 == 0:
+            self._snd("player_hurt", ppolygon, (px, py))
+            self.trace.emit(DamageApplied(
+                tick=self.tick_count, target_id=self.pid,
+                target_kind="player", amount=round(dmg * 5, 3),
+                source="engulfed"))
+        self.fx.append(("playerhurt", dmg))
+        if self.hp <= 0:
+            self.dead = True
+            self.metrics["deaths"] += 1
+            self.captures.release_for_entity(captive)
+
+    def _warden_engulf_step(self, eid, e, polygon, ex, ey) -> None:
+        """CHARGE: rooted, the body itself flashing brighter twice over
+        the wind-up (driven through trace_intensity — the renderer's real
+        state channel, never a free-running timer). LUNGE: hurled at the
+        sighted target at 2.5x cruise; the state ends when friction drops
+        it below cruise (missed) or a HEAD-ON contact catches (dot > 0.5;
+        glancing hits do not count). HOLD: stands, gripping — the capture
+        system owns the rest."""
+        s = self.sim
+        d = ENEMIES["warden"]
+        if e["engulf"] == "hold":
+            if self.captures.held_by(self.pid) != eid or self.dead:
+                e["engulf"] = None
+                e["engulf_cd"] = WARDEN_ENGULF_COOLDOWN
+                e["trace_intensity"] = 1.0
+            return
+        if e["engulf"] == "charge":
+            s.set_vel(eid, 0.0, 0.0)
+            e["engulf_t"] = e.get("engulf_t", WARDEN_ENGULF_CHARGE) - 1
+            # two flashes across 12 ticks: on/off/on/off in 3-tick beats
+            e["trace_intensity"] = 2.0 if (max(0, e["engulf_t"]) // 3) % 2 == 0 \
+                else 1.0
+            if e["engulf_t"] <= 0:
+                e["trace_intensity"] = 1.0
+                hit = self.senses.sight_of(eid, self.pid)
+                if hit is None or hit.portal_depth > 0:
+                    e["engulf"] = None       # lost the target: abort
+                    e["engulf_cd"] = WARDEN_ENGULF_COOLDOWN
+                    return
+                tx, ty = hit.position
+                dx, dy = tx - ex, ty - ey
+                dl = math.hypot(dx, dy) or 1e-6
+                spd = WARDEN_CRUISE * WARDEN_ENGULF_LUNGE_MULT
+                s.set_dir(eid, dx / dl, dy / dl)
+                s.set_vel(eid, dx / dl * spd, dy / dl * spd)
+                self._snd("shrieker_scream", polygon, (ex, ey), 0.85)
+                e["engulf"] = "lunge"
+            return
+        # lunge
+        _, _, _, vx, vy, _, _ = s.get(eid)
+        spd = math.hypot(vx, vy)
+        if spd < WARDEN_CRUISE:
+            e["engulf"] = None               # spent: it missed
+            e["engulf_cd"] = WARDEN_ENGULF_COOLDOWN
+            return
+        hit = self.senses.sight_of(eid, self.pid)
+        if hit is not None and hit.portal_depth == 0 and not self.dead \
+                and self.captures.held_by(self.pid) is None:
+            tx, ty = hit.position
+            dx, dy = tx - ex, ty - ey
+            dl = math.hypot(dx, dy) or 1e-6
+            if dl < d["radius"] + PLAYER_RADIUS + 8.0:
+                dot = (vx * dx + vy * dy) / ((spd or 1e-6) * dl)
+                if dot >= WARDEN_ENGULF_DOT:
+                    e["engulf"] = "hold"
+                    self.captures.begin(CaptureSpec(
+                        captor_id=eid, captive_id=self.pid,
+                        pull_speed=WARDEN_ENGULF_PULL,
+                        damage_per_second=WARDEN_ENGULF_DPS))
+                    self._snd("player_hurt", polygon, (tx, ty), 1.0)
+                    self.fx.append(("engulfed", polygon, tx, ty))
 
     def _peer_bodies(self, eid: int, polygon: int):
         out = []
@@ -2453,6 +2603,8 @@ class GameSession:
         if a == self.pid or b == self.pid:
             eid = b if a == self.pid else a
             e = self.enemies.get(eid)
+            if e and self.captures.held_by(self.pid) == eid:
+                return  # being held IS the damage; the grip supersedes touch
             if e and e["touch_cd"] <= 0:
                 d = ENEMIES[e["kind"]]
                 if d["touch_dmg"] > 0:

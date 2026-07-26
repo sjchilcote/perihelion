@@ -3342,6 +3342,13 @@ class Renderer:
         if intensity < 0.999 and not flashed:
             fill = _scale_color(fill, intensity)
             rim = _scale_color(rim, intensity)
+        elif intensity > 1.001 and not flashed:
+            # above 1.0 the channel BRIGHTENS: the engulf charge tell —
+            # the body itself flashes toward white, driven by the sim's
+            # own wind-up state (never a free-running animation timer)
+            t_ = min(1.0, intensity - 1.0)
+            fill = _mix(fill, (255, 255, 255), t_)
+            rim = _mix(rim, (255, 255, 255), t_)
         if flashed:
             fill = rim = (255, 255, 255)
         if kind == "hub_core":
