@@ -97,6 +97,14 @@ def _warm(s, chamber, hot=0.20):
     s.signals.emit_at_least(SignalKind.TRAIL, chamber, hot, s.tick_count)
 
 
+def _dry_marrow(s):
+    """Scout-side unit vectors: keep the marrow exhausted so no breach
+    opens mid-vector (an opened breach pours guardians into the tiny
+    test world and interrupts the very broadcast being measured).
+    The marrow-side lifecycle has its own suite (test_marrow)."""
+    s.marrow.depot.reserve = 0.0
+
+
 def test_weakest_class_calls_first():
     level, ra, rb = _warm_pair()
     s = GameSession(level, seed=8)
@@ -104,6 +112,7 @@ def test_weakest_class_calls_first():
     lac = s.spawn_enemy(rb, (0.0, 40.0), "lacuna")
     for t in range(1, 400):
         _warm(s, rb)
+        _dry_marrow(s)
         s.tick(InputFrame())
         if s.enemies[lac].get("scout") in ("brace", "transmit"):
             break
@@ -123,6 +132,7 @@ def test_two_lacunae_only_one_ever_transmits():
     someone_broadcast = False
     for t in range(1, 1200):
         _warm(s, rb)
+        _dry_marrow(s)
         s.tick(InputFrame())
         live = [s.enemies[x].get("scout") for x in (a, b_)
                 if x in s.enemies]
@@ -132,16 +142,40 @@ def test_two_lacunae_only_one_ever_transmits():
     assert someone_broadcast, "nobody ever braced at all"
 
 
+class _TappedMedium(CallMedium):
+    """The marrow consumes imprints inline (same tick they complete);
+    unit vectors read WHAT it consumed through this subclass instead of
+    racing it for the pending count (CallMedium is slotted)."""
+    __slots__ = ("seen",)
+
+    def __init__(self):
+        super().__init__()
+        self.seen = []
+
+    def consume_one(self, tick):
+        imp = super().consume_one(tick)
+        if imp is not None:
+            self.seen.append(imp)
+        return imp
+
+
+def _tap_consumed(s):
+    s.medium = _TappedMedium()
+    return s.medium.seen
+
+
 def test_rooted_broadcast_timing_and_stillness():
     level, ra, rb = _warm_pair()
     for kind, root in (("vagrant", 360), ("lacuna", 480)):
         s = GameSession(level, seed=8)
+        seen = _tap_consumed(s)
         eid = s.spawn_enemy(rb, (0.0, 0.0), kind)
         brace_at = transmit_at = done_at = None
         pos_at_root = None
         max_disp = 0.0
         for t in range(1, 1400):
             _warm(s, rb)
+            _dry_marrow(s)
             s.tick(InputFrame())
             e = s.enemies[eid]
             st = e.get("scout")
@@ -165,9 +199,9 @@ def test_rooted_broadcast_timing_and_stillness():
         assert done_at - transmit_at == root, (
             f"{kind} rooted {done_at - transmit_at}, want {root}")
         assert max_disp < 1e-6, f"{kind} moved {max_disp} while rooted"
-        assert s.medium.pending(s.tick_count) == 1, "the imprint exists"
-        imp = s.medium.consume_one(s.tick_count)
-        assert imp.caller_class == kind and imp.chamber == rb
+        s.tick(InputFrame())               # let the marrow sample it
+        assert seen, "the completed broadcast never left an imprint"
+        assert seen[-1].caller_class == kind and seen[-1].chamber == rb
 
 
 def test_imprint_names_the_body_chamber():
@@ -176,16 +210,17 @@ def test_imprint_names_the_body_chamber():
     let it call past one."""
     level, ra, rb = _warm_pair()
     s = GameSession(level, seed=8)
+    seen = _tap_consumed(s)
     eid = s.spawn_enemy(rb, (0.0, 0.0), "lacuna")
     for t in range(1, 1400):
         _warm(s, rb)
-        _warm(s, ra, 0.6)              # the NEXT chamber smells hotter
+        _warm(s, ra, 0.6)           # the NEXT chamber smells hotter
+        _dry_marrow(s)
         s.tick(InputFrame())
-        if s.medium.pending(s.tick_count):
+        if seen:
             break
-    imp = s.medium.consume_one(s.tick_count)
-    assert imp is not None
-    assert imp.chamber == s.sim.get_polygon(eid), (
+    assert seen, "no imprint was ever completed"
+    assert seen[-1].chamber == s.sim.get_polygon(eid), (
         "the imprint must name the chamber the body occupies")
 
 
@@ -196,6 +231,7 @@ def test_damage_interrupts_and_census_is_permanent():
     assert s.adversary_census["lacuna"] == 1
     for t in range(1, 900):
         _warm(s, rb)
+        _dry_marrow(s)
         s.tick(InputFrame())
         if s.enemies[eid].get("scout") == "transmit":
             break

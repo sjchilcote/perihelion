@@ -118,6 +118,36 @@ class FieldSample:
 
 
 @dataclass(frozen=True, slots=True)
+class BreachLifecycle:
+    KIND = "breach_lifecycle"
+    tick: int
+    breach_id: int
+    event: str            # requested | dry_no_site | opened | sealed
+    world_chamber: int
+    detail: str
+
+
+@dataclass(frozen=True, slots=True)
+class ReserveSample:
+    KIND = "reserve_sample"
+    tick: int
+    reserve: float
+    live_breaches: int
+    pending_kind: str
+
+
+@dataclass(frozen=True, slots=True)
+class DispatchDecision:
+    KIND = "dispatch_decision"
+    tick: int
+    breach_id: int
+    unit_kind: str
+    entity_id: int
+    from_shelf: bool
+    hub_chamber: int
+
+
+@dataclass(frozen=True, slots=True)
 class TopologyChanged:
     KIND = "topology_changed"
     tick: int
@@ -136,7 +166,8 @@ class TopologyChanged:
 
 TraceEvent = (InputRecord | AgentTransition | PortalCrossing
               | DamageApplied | ImpulseApplied | TopologyChanged
-              | FieldSample)
+              | FieldSample | BreachLifecycle | ReserveSample
+              | DispatchDecision)
 
 
 class TraceBus:

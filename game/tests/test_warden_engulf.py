@@ -150,7 +150,8 @@ def test_head_on_captures_and_costs_75_per_second():
     for _ in range(60):
         s.tick(InputFrame())
     lost = hp_at_catch - s.hp
-    assert abs(lost - 75.0) < 1.0, f"60 held ticks cost {lost:.2f}, want 75"
+    # 75 hp/s; one tick of catch-boundary quantization is +-1.25
+    assert abs(lost - 75.0) < 1.3, f"60 held ticks cost {lost:.2f}, want 75"
 
 
 def test_glancing_hit_does_not_capture():

@@ -20,12 +20,14 @@ from .senses import SenseQuery
 from .signals import SignalField, SignalKind
 from . import coordination as coord
 from .capture import CaptureSpec, CaptureSystem
-from .topology import TopologyManager
+from .topology import TopologyManager, TopologyError
 from .hub import build_hub
+from .marrow import Breach, MarrowController
 from .callmedium import CallMedium
 from . import scouts
-from .telemetry import (AgentTransition, DamageApplied, FieldSample,
-                        ImpulseApplied, InputRecord, PortalCrossing,
+from .telemetry import (AgentTransition, BreachLifecycle, DamageApplied,
+                        DispatchDecision, FieldSample, ImpulseApplied,
+                        InputRecord, PortalCrossing, ReserveSample,
                         TopologyChanged, TraceBus)
 from . import terrain
 
@@ -554,6 +556,26 @@ class GameSession:
         self.topology = TopologyManager(self,
                                         on_change=self.signals.on_topology_changed)
         self.hub = build_hub(self, self.topology)
+        # the marrow's mind (blind, closed-loop) and the standing
+        # guardian shelf — real, dispatchable bodies in the courts: when
+        # they leave, the entrance genuinely weakens
+        self.marrow = MarrowController()
+        self.breaches: list[dict] = []
+        self._breach_seq = 0
+        self._free_seams = list(self.hub.breach_edges)
+        self.hub_shelf: list[int] = []
+        from .marrow import GUARDIAN_SHELF
+        courts = list(self.hub.guardian_courts)
+        for i, kind_ in enumerate(GUARDIAN_SHELF):
+            court = courts[i % len(courts)]
+            gx = -40.0 + 40.0 * (i // len(courts))
+            gy = -30.0 + 30.0 * (i % 3)
+            gid = self.spawn_enemy(court, (gx, gy), kind_)
+            # POSTED: a guardian holds its station (fights if engaged,
+            # never wanders off through an open breach) until the marrow
+            # dispatches it — vacant posts must MEAN dispatch happened
+            self.enemies[gid]["tether"] = True
+            self.hub_shelf.append(gid)
         self.decals: dict[int, list] = {}  # polygon -> [(kind,x,y,size,angle)]
         self._objective_fired: set[str] = set()  # once-gates for objective fx
         self.metrics = dict(ticks=0, shots=0, hits=0, kills=0, dmg_dealt=0.0,
@@ -886,6 +908,7 @@ class GameSession:
         self._turret_tick()
         self._sentry_tick()
         self.captures.step(self.sim, self._capture_burn)
+        self._marrow_tick()
         if self.muzzle_light.intensity > 0.0:
             self.muzzle_light.intensity = (
                 0.0 if self.muzzle_light.intensity < 0.06
@@ -1877,6 +1900,8 @@ class GameSession:
                         e["wake"] = self.WAKE_TICKS[kind]
                         self._snd(d["alert_snd"], polygon, (ex, ey), 0.5)
                         continue
+                if e.get("tether"):
+                    continue     # a posted guardian STANDS its post
                 # aimless drift — and the drift is a PATROL: this chamber
                 # reads as recently searched to the rest of the swarm
                 if self.tick_count % 15 == (eid % 15):
@@ -1904,7 +1929,7 @@ class GameSession:
                 self._snd(d["alert_snd"], polygon, (ex, ey), 0.35)
             accel = d["accel"] * (e.get("buff_mul", 1.25)
                                   if e.get("buff", 0) > 0 else 1.0)
-            if kind == "shrieker":
+            if kind == "shrieker" and not e.get("tether"):
                 self._shrieker_ai(eid, e, polygon, ppolygon, ex, ey, accel)
                 continue
             if e.get("engulf") in ("charge", "lunge", "hold"):
@@ -2013,6 +2038,7 @@ class GameSession:
                 # husks lunge: a sudden burst inside close range reads as an
                 # attack, not a shove
                 if kind in ("husk", "brute") and dist < 95.0 \
+                        and not e.get("tether") \
                         and e.get("lunge_cd", 0) <= 0:
                     e["lunge_cd"] = 120 if kind == "husk" else 150
                     burst = 300.0 if kind == "husk" else 240.0
@@ -2025,7 +2051,9 @@ class GameSession:
                 keep_min = d.get("keep_min")
                 if keep_min is not None and d.get("spit_cd") is not None:
                     # ranged: hold the band, spit on cooldown
-                    if dist < d["keep_min"]:
+                    if e.get("tether"):
+                        pass                     # posted: shoot, don't chase
+                    elif dist < d["keep_min"]:
                         s.set_vel(eid, evx - sx * accel * DT, evy - sy * accel * DT)
                     elif dist > d["keep_max"]:
                         s.set_vel(eid, evx + sx * accel * DT, evy + sy * accel * DT)
@@ -2034,8 +2062,9 @@ class GameSession:
                         self._spit(eid, polygon, ex, ey, nx, ny, d)
                     if kind != "warden":
                         continue
-                self._budget_move(eid, e, d, polygon, ex, ey, evx, evy,
-                                  sx, sy, accel)
+                if not e.get("tether"):    # a posted guardian fights
+                    self._budget_move(eid, e, d, polygon, ex, ey,   # from
+                                      evx, evy, sx, sy, accel)      # its post
             else:
                 if e.get("tether"):
                     # holds its ground — but only pursuit is waived; an
@@ -2086,6 +2115,137 @@ class GameSession:
                 sx, sy = self._steer_heading(eid, e, d, sx, sy)
                 self._budget_move(eid, e, d, polygon, ex, ey, evx, evy,
                                   sx, sy, accel)
+
+    def _marrow_tick(self) -> None:
+        """Drive the marrow one tick: it consumes at most one imprint
+        (whether or not it can act — a dry call is spent), advances the
+        blind economy, dispatches on its own cadence, and requests
+        closures. All world-side execution happens HERE; the controller
+        itself never sees the player, the fight, or the geometry."""
+        t_ = self.tick_count
+        imprint = self.medium.consume_one(t_)
+        live = [br["obj"] for br in self.breaches]
+        # route interest: a dispatched body still alive keeps its breach
+        # interesting; so does any recent crossing (note_crossing above)
+        for br in self.breaches:
+            bid = br["obj"].breach_id
+            if any(e.get("dispatched") == bid for e in self.enemies.values()):
+                br["obj"].note_interest(t_)
+        for cmd in self.marrow.step(t_, imprint, live):
+            if cmd.kind == "open":
+                self._open_breach(cmd.imprint)
+            elif cmd.kind == "dispatch":
+                self._dispatch_unit(cmd.breach_id, cmd.unit_kind)
+            elif cmd.kind == "seal":
+                self._seal_breach(cmd.breach_id, cmd.reason)
+        if t_ % 60 == 0:
+            self.trace.emit(ReserveSample(
+                tick=t_, reserve=round(self.marrow.depot.reserve, 3),
+                live_breaches=len(self.breaches),
+                pending_kind=self.marrow._pending_kind or ""))
+
+    def _open_breach(self, imprint) -> None:
+        """Cut the wall the call named and glue it to a free apse seam —
+        scale 1 by construction or not at all. No viable wall or no free
+        seam = a dry call; the scout is never told."""
+        t_ = self.tick_count
+        self._breach_seq += 1
+        bid = self._breach_seq
+        if not self._free_seams:
+            self.trace.emit(BreachLifecycle(
+                tick=t_, breach_id=bid, event="dry_no_site",
+                world_chamber=imprint.chamber, detail="no free apse seam"))
+            return
+        world_h = self.topology.carve(imprint.chamber, imprint.position,
+                                      96.0)
+        if world_h is None:
+            self.trace.emit(BreachLifecycle(
+                tick=t_, breach_id=bid, event="dry_no_site",
+                world_chamber=imprint.chamber,
+                detail="no wall holds a 96u seam"))
+            return
+        seam = self._free_seams.pop(0)
+        seam_apse_idx = self.hub.breach_edges.index(seam)
+        try:
+            link = self.topology.connect_equal(world_h, seam)
+        except TopologyError as exc:
+            self._free_seams.insert(0, seam)
+            self.trace.emit(BreachLifecycle(
+                tick=t_, breach_id=bid, event="dry_no_site",
+                world_chamber=imprint.chamber, detail=str(exc)))
+            return
+        rp, ep = self.topology.current_edge(world_h)
+        mx_, my_ = self.sim.edge_midpoint(rp, ep)
+        hub_r, _ = self.topology.current_edge(seam)
+        obj = Breach(breach_id=bid, world_chamber=rp, hub_chamber=hub_r,
+                     opened_tick=t_, link=link, last_cross_tick=t_,
+                     last_interest_tick=t_)
+        self.breaches.append(dict(polygon=rp, pos=(mx_, my_), obj=obj,
+                                  world_h=world_h, seam=seam,
+                                  apse_idx=seam_apse_idx))
+        self.marrow.on_breach_opened(bid, t_)
+        self._snd("door_unlock", rp, (mx_, my_), 1.0)
+        self._decal(rp, "scorch", mx_, my_, 14.0)
+        self._shake(3.0)
+        self.pulse_light(rp, (mx_, my_), 220.0, 0.9)
+        self.trace.emit(BreachLifecycle(
+            tick=t_, breach_id=bid, event="opened", world_chamber=rp,
+            detail=f"hub {hub_r}"))
+
+    def _dispatch_unit(self, breach_id: int, kind: str) -> None:
+        """The shelf first — real standing guardians physically leave
+        their courts; then production spawns IN THE HUB. Nothing is ever
+        placed world-side: bodies walk out through the breach on their
+        ordinary AI (the fields seep through the open portal and pull)."""
+        t_ = self.tick_count
+        br = next((b for b in self.breaches
+                   if b["obj"].breach_id == breach_id), None)
+        if br is None:
+            return
+        eid = None
+        from_shelf = False
+        for sid in list(self.hub_shelf):
+            if sid in self.enemies and self.enemies[sid]["kind"] == kind:
+                eid = sid
+                self.hub_shelf.remove(sid)
+                from_shelf = True
+                break
+        if eid is None:
+            # production musters in the court BEHIND the breach's own
+            # apse — one hop from the gate, spread so bodies never stack
+            apse_court = self.hub.guardian_courts[br["apse_idx"]]
+            sx_ = self.rng.uniform(-70.0, 70.0)
+            sy_ = self.rng.uniform(-55.0, 55.0)
+            eid = self.spawn_enemy(apse_court, (sx_, sy_), kind)
+        e = self.enemies[eid]
+        e["dispatched"] = breach_id
+        # the marrow's order IS knowledge: the unit knows which chamber
+        # the breach opens into (not where the intruder is) and walks
+        # there; past the gate it runs on ordinary fields and sight.
+        # (The ratified ~10%-know-the-transmitted-position refinement
+        # rides in with the composition tables.)
+        e["dispatch_target"] = br["polygon"]
+        e.pop("tether", None)          # relieved of post: go
+        self._set_enemy_state(eid, e, "hunt")
+        self.trace.emit(DispatchDecision(
+            tick=t_, breach_id=breach_id, unit_kind=kind, entity_id=eid,
+            from_shelf=from_shelf,
+            hub_chamber=self.sim.get_polygon(eid)))
+
+    def _seal_breach(self, breach_id: int, reason: str) -> None:
+        t_ = self.tick_count
+        br = next((b for b in self.breaches
+                   if b["obj"].breach_id == breach_id), None)
+        if br is None:
+            return
+        self.topology.disconnect(br["obj"].link)
+        self._free_seams.append(br["seam"])
+        self.breaches.remove(br)
+        self.marrow.on_breach_sealed(breach_id)
+        self._snd("door_unlock", br["polygon"], br["pos"], 0.6)
+        self.trace.emit(BreachLifecycle(
+            tick=t_, breach_id=breach_id, event="sealed",
+            world_chamber=br["polygon"], detail=reason))
 
     def _capture_burn(self, captive: int, captor: int, dps: float) -> None:
         """The capture system's damage door. Continuous burn — a grip
@@ -2323,6 +2483,13 @@ class GameSession:
         opposed demands never average into the doorframe."""
         sep = coord.separation_request((ex, ey), d["radius"],
                                        self._peer_bodies(eid, polygon))
+        # separation claims FIRST but never the whole budget: in a packed
+        # muster room an uncapped claim saturates every agent's budget and
+        # the crowd jams in place forever (measured: 25 dispatched bodies
+        # mosh-pitting a guardian court, none reaching the door)
+        smag = math.hypot(sep[0], sep[1])
+        if smag > 0.7:
+            sep = (sep[0] / smag * 0.7, sep[1] / smag * 0.7)
         ax, ay = coord.allocate_acceleration(
             accel, [(0, sep[0] * accel, sep[1] * accel),
                     (1, sx * accel, sy * accel)])
@@ -2354,6 +2521,15 @@ class GameSession:
             elif att > second[1]:
                 second = (edge, att)
         if best[1] < 0.02:
+            tgt = e.get("dispatch_target")
+            if tgt is not None:
+                if polygon == tgt:
+                    e.pop("dispatch_target", None)   # through: on your own
+                else:
+                    edge = self.sim.next_edge(polygon, tgt)
+                    if edge >= 0:
+                        e["route"] = (polygon, edge, t_)
+                        return edge
             e.pop("route", None)
             return -1
         edge = coord.choose_route(best[0],
@@ -2633,6 +2809,10 @@ class GameSession:
                     tick=self.tick_count, entity_id=ent, entity_kind=ent_kind,
                     from_polygon=from_polygon, to_polygon=to_polygon,
                     edge=edge))
+                for br in self.breaches:
+                    pair = {br["polygon"], br["obj"].hub_chamber}
+                    if {from_polygon, to_polygon} == pair:
+                        br["obj"].note_crossing(self.tick_count)
                 if ent == self.pid:
                     if self.cloister and to_polygon == self.cloister["sanctum"]:
                         self._rotate_cloister()
@@ -3510,8 +3690,14 @@ class GameSession:
         ppolygon = self.player_polygon()
         px, py = self.player_pos()
         enemies = []
+        hub_polys = set(self.hub.chambers.values())
         for eid, e in self.enemies.items():
             r = self.sim.get_polygon(eid)
+            if r in hub_polys:
+                # the hub is off the reachable map by design; its
+                # residents enter the bots'/tests' world-view the moment
+                # they step OUT of it (dispatch, or an invaded hub)
+                continue
             _, x, y, *_ = self.sim.get(eid)
             enemies.append(dict(id=eid, kind=e["kind"], polygon=r, pos=(x, y),
                                 hp=e["hp"], state=e["state"],

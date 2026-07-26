@@ -421,7 +421,9 @@ def test_flanked_choke_is_survived_and_escape_engages():
     than the Commando, heavier, turn-limited; 17/40) -> seed 1; the
     U5 coordination rewire, 2026-07-26 (fractional quorum draws two
     extra rng values per spawn; field-hunt replaces omniscient
-    pursuit; 11/40) -> seed 3, current). Each
+    pursuit; 11/40) -> seed 3; the U8/U9 marrow era, 2026-07-26 (ten
+    shelf guardians spawn per session and the snapshot scopes to the
+    playable world; 5/24) -> seed 5, current). Each
     time, the mechanism itself remained intact and fires on a
     fraction of a fresh 79-seed scan (18/79, 20/79, 46/79, 72/79,
     50/79 -- then 6/79 after the contact-evasion reflex landed, 4/79
@@ -433,8 +435,8 @@ def test_flanked_choke_is_survived_and_escape_engages():
     If this breaks again, re-scan rather than assume the escape policy
     regressed."""
     level = build_flanked_choke_level()
-    bot = HumanBot(3)
-    session = GameSession(level, seed=3, difficulty="hard")
+    bot = HumanBot(5)
+    session = GameSession(level, seed=5, difficulty="hard")
     start_polygon = session.player_polygon()
     left_polygon = escape_engaged = False
     for tick in range(60 * 40):

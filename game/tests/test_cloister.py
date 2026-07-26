@@ -84,14 +84,21 @@ def test_guardians_kill_pursuers():
     px, py = s.player_pos()
     ax, ay = necore.mat_apply(s.cam, px, py + 60)
     s.tick(InputFrame(weapon=8, ax=ax, ay=ay, fire=True))
-    mites0 = sum(1 for e in s.enemies.values() if e["kind"] == "mite")
+    hub_polys = set(s.hub.chambers.values())
+    mites0 = sum(1 for eid_, e in s.enemies.items()
+                 if e["kind"] == "mite"
+                 and s.sim.get_polygon(eid_) not in hub_polys)
     assert mites0 == 1
     assert _go_to(s, c["sanctum"], (0, 0))
     for _ in range(60 * 12):
         s.tick(InputFrame())
-        if not any(e["kind"] == "mite" for e in s.enemies.values()):
+        if not any(e["kind"] == "mite"
+                   and s.sim.get_polygon(eid_) not in hub_polys
+                   for eid_, e in s.enemies.items()):
             break
-    assert not any(e["kind"] == "mite" for e in s.enemies.values()), \
+    assert not any(e["kind"] == "mite"
+                   and s.sim.get_polygon(eid_) not in hub_polys
+                   for eid_, e in s.enemies.items()), \
         "guardians must kill the pursuing mite"
 
 
