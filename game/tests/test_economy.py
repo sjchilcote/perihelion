@@ -31,7 +31,7 @@ def _tick(s, n=1, **kw):
 def test_kill_drops_salvage_worth_score():
     s = _session()
     eid = s.spawn_enemy(0, (120.0, 0.0), "husk")
-    s._damage_enemy(eid, 999.0, (1.0, 0.0), 0.0)
+    s._damage_enemy(eid, 999.0, (1.0, 0.0), 0.0, source="test")
     drops = [p for p in s.pickups.values() if p["kind"] == "components"]
     assert len(drops) == 1
     assert drops[0]["amount"] == ENEMIES["husk"]["score"]
@@ -50,7 +50,7 @@ def test_components_pickup_adds_to_wallet():
 def test_death_drops_corpse_and_zeroes_carried_salvage():
     s = _session(components=9, station_kits=1)
     polygon = s.player_polygon()
-    s._damage_player(9999.0, polygon)
+    s._damage_player(9999.0, polygon, source="test")
     assert s.dead
     assert s.components == 0 and s.station_kits == 0
     corpses = [p for p in s.pickups.values() if p["kind"] == "corpse_frame"]
@@ -61,11 +61,11 @@ def test_death_drops_corpse_and_zeroes_carried_salvage():
 def test_multiple_corpses_accumulate():
     s = _session(components=3, chassis=2)
     s.add_station(s.player_polygon(), s.player_pos())
-    s._damage_player(9999.0, s.player_polygon())
+    s._damage_player(9999.0, s.player_polygon(), source="test")
     assert s.respawn_at_station()
     s.components = 4
     s.hurt_cd = 0
-    s._damage_player(9999.0, s.player_polygon())
+    s._damage_player(9999.0, s.player_polygon(), source="test")
     corpses = [p for p in s.pickups.values() if p["kind"] == "corpse_frame"]
     assert len(corpses) == 2
 
@@ -75,7 +75,7 @@ def test_corpse_retrieval_returns_contents_exactly():
     polygon = s.player_polygon()
     pos = s.player_pos()
     s.add_station(polygon, (pos[0] - 60, pos[1]))
-    s._damage_player(9999.0, polygon)
+    s._damage_player(9999.0, polygon, source="test")
     assert s.respawn_at_station()
     assert not s.dead and s.hp == s.max_hp and s.chassis == 0
     # walk back onto the wreck
@@ -88,7 +88,7 @@ def test_corpse_retrieval_returns_contents_exactly():
 def test_no_chassis_means_no_station_respawn():
     s = _session(components=1)
     s.add_station(s.player_polygon(), s.player_pos())
-    s._damage_player(9999.0, s.player_polygon())
+    s._damage_player(9999.0, s.player_polygon(), source="test")
     assert not s.respawn_at_station()
     assert s.dead
 
@@ -153,7 +153,7 @@ def test_cold_restore_preserves_corpses_and_does_not_refund():
     ws = WorldStreamer(s, paths)
     # chunk entry planted a seed station automatically
     assert s.stations and s.stations[0]["polygon"] == s.player_polygon()
-    s._damage_player(9999.0, s.player_polygon())
+    s._damage_player(9999.0, s.player_polygon(), source="test")
     assert s.dead and s.components == 0
     ws.respawn()
     assert not s.dead
@@ -239,7 +239,7 @@ def test_dead_frames_do_not_think():
     s = _session()
     assert s.set_focus("vocation-just-war")
     _tick(s, 5)
-    s._damage_player(9999.0, s.player_polygon())
+    s._damage_player(9999.0, s.player_polygon(), source="test")
     p = s.think_progress["vocation-just-war"]
     _tick(s, 20)  # dead ticks accrue nothing
     assert s.think_progress["vocation-just-war"] == p
@@ -271,7 +271,7 @@ def test_protected_revival_banks_salvage():
            "vocation-testators-as-kin", "vocation-psalm-of-the-loop",
            "vocation-protected-revival")
     left = s.components
-    s._damage_player(9999.0, s.player_polygon())
+    s._damage_player(9999.0, s.player_polygon(), source="test")
     assert s.components == left  # the seed held it in trust
     assert not any(p["kind"] == "corpse_frame" for p in s.pickups.values())
 
@@ -290,7 +290,7 @@ def test_thinking_survives_death_and_reprint():
     s.add_station(s.player_polygon(), s.player_pos())
     assert s.set_focus("vocation-just-war")
     _tick(s, 30)
-    s._damage_player(9999.0, s.player_polygon())
+    s._damage_player(9999.0, s.player_polygon(), source="test")
     assert s.dead and s.components == 0  # dying costs loot...
     assert s.respawn_at_station()
     assert s.think_focus == "vocation-just-war"  # ...never thought
@@ -310,7 +310,7 @@ def test_thinking_survives_cold_restore():
         mindmap.think_ticks("vocation-just-war") - 1
     _tick(s)
     assert s.think_done == ["vocation-just-war"]
-    s._damage_player(9999.0, s.player_polygon())
+    s._damage_player(9999.0, s.player_polygon(), source="test")
     ws.respawn()
     assert not s.dead
     assert s.think_done == ["vocation-just-war"]  # queue survived
@@ -391,7 +391,7 @@ def test_gland_costs_integrity_and_never_kills_you():
 def test_spitter_yields_gland_only_with_harvest_node():
     s = _session()
     eid = s.spawn_enemy(0, (100.0, 0.0), "spitter")
-    s._damage_enemy(eid, 999.0, (1.0, 0.0), 0.0)
+    s._damage_enemy(eid, 999.0, (1.0, 0.0), 0.0, source="test")
     assert not any(p["kind"] == "organ_gland" for p in s.pickups.values())
     s2 = _session()
     _grant(s2, "comprehension-connection-space",
@@ -399,7 +399,7 @@ def test_spitter_yields_gland_only_with_harvest_node():
            "void-arithmetic-of-futility",
            "void-organ-harvesting-protocol")
     eid = s2.spawn_enemy(0, (100.0, 0.0), "spitter")
-    s2._damage_enemy(eid, 999.0, (1.0, 0.0), 0.0)
+    s2._damage_enemy(eid, 999.0, (1.0, 0.0), 0.0, source="test")
     assert any(p["kind"] == "organ_gland" for p in s2.pickups.values())
 
 
@@ -424,7 +424,7 @@ def test_recall_severed_by_damage():
     s = _session(recalls=1)
     assert s.use_recall()
     _tick(s, 10)
-    s._damage_player(5.0, s.player_polygon())
+    s._damage_player(5.0, s.player_polygon(), source="test")
     assert s.recall_t == 0
     assert s.recalls == 1  # the beacon is not spent on a severed channel
     _tick(s, 100)

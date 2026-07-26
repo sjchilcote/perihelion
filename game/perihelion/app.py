@@ -420,7 +420,30 @@ class App:
                              inputs=open(rec_dir / "inputs.jsonl", "w"))
             self.audio.tap = self._audio_tap
 
+        # ALWAYS-ON SESSION TRACE (the instrumentation spine, U1): the sim
+        # emits typed events to session.trace; the app drains them to
+        # out/sessions/<stamp>_<level>.jsonl — one file per GameSession, so
+        # every human run leaves the same evidence a bot run does. No flag:
+        # "nothing was watching" must never be the answer again.
+        self._trace_writer = None
+        self._trace_session = None
+
         self._start_scene()
+
+    def _drain_session_trace(self, game) -> None:
+        from .telemetry import TraceWriter
+        if game.session is not self._trace_session:
+            if self._trace_writer is not None:
+                self._trace_writer.close()
+            import time as _time
+            stamp = _time.strftime("%Y%m%d_%H%M%S")
+            name = Path(game.level_path or "session").stem
+            self._trace_writer = TraceWriter(
+                Path("out") / "sessions" / f"{stamp}_{name}.jsonl",
+                header=dict(level=str(game.level_path or ""),
+                            seed=int(game.seed)))
+            self._trace_session = game.session
+        self._trace_writer.drain_from(game.session.trace)
 
     def rotate_music(self):
         """Next album bank (called on level/chunk change)."""
@@ -842,6 +865,8 @@ class App:
                 self._rec["inputs"].close()
             print(f"[record] {self._rec['saved']} frames + events.jsonl in "
                   f"{self._rec['dir']}", file=sys.stderr)
+        if self._trace_writer is not None:
+            self._trace_writer.close()
         self._persist_save()
 
     def _log_bot_event(self, kind: str, payload: dict) -> None:
@@ -883,6 +908,7 @@ class App:
         game.session.tick(inp)
         if game.streamer is not None:
             game.streamer.tick()
+        self._drain_session_trace(game)
         fx = game.session.fx
 
         game.renderer.consume_fx(fx)

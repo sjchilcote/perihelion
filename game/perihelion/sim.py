@@ -16,6 +16,9 @@ import necore
 
 from .levels import Level
 from .lighting import LightingSystem, light_level_at
+from .telemetry import (AgentTransition, DamageApplied, ImpulseApplied,
+                        InputRecord, PortalCrossing, TopologyChanged,
+                        TraceBus)
 from . import terrain
 
 DT = 1.0 / 60.0
@@ -476,6 +479,9 @@ class GameSession:
         # --- output channels ---
         self.fx: list[tuple] = []  # drained by app each tick
         self._oob_fx: list[tuple] = []  # menu-time events; join next tick
+        # the instrumentation spine: always present, emit-only from the
+        # sim's side; app/harness drain it to JSONL (see telemetry.py)
+        self.trace = TraceBus()
         self.decals: dict[int, list] = {}  # polygon -> [(kind,x,y,size,angle)]
         self._objective_fired: set[str] = set()  # once-gates for objective fx
         self.metrics = dict(ticks=0, shots=0, hits=0, kills=0, dmg_dealt=0.0,
@@ -713,7 +719,7 @@ class GameSession:
             er = self.sim.get_polygon(eid)
             d = self.sim.hop_distance(er, polygon)
             if 0 <= d <= hops:
-                e["state"] = "waking"
+                self._set_enemy_state(eid, e, "waking")
                 e["wake"] = self.WAKE_TICKS[e["kind"]]
                 if d == 0:
                     _, ex, ey, *_ = self.sim.get(eid)
@@ -733,6 +739,19 @@ class GameSession:
         self._oob_fx = []
         self.tick_count += 1
         self.metrics["ticks"] = self.tick_count
+        self.trace.emit(InputRecord(
+            tick=self.tick_count, mx=round(inp.mx, 4), my=round(inp.my, 4),
+            ax=round(inp.ax, 2), ay=round(inp.ay, 2), fire=bool(inp.fire),
+            alt=bool(inp.alt), interact=bool(inp.interact),
+            weapon=int(inp.weapon)))
+        if self.tick_count % 15 == 0 and self.sim.exists(self.pid):
+            px_s, py_s = self.player_pos()
+            m = self.metrics
+            self.trace.sample(self.tick_count, dict(
+                hp=round(self.hp, 1), polygon=self.player_polygon(),
+                pos=[round(px_s, 1), round(py_s, 1)], weapon=self.weapon,
+                kills=m["kills"], deaths=m["deaths"],
+                dmg_taken=round(m["dmg_taken"], 1), ammo=dict(self.ammo)))
         if self.tick_count % 60 == 0:
             self.metrics["hp_series"].append(self.hp)
         if self.dead or self.complete:
@@ -876,7 +895,7 @@ class GameSession:
                 if self.tau_charge == 1:
                     self._snd("tau_charge", ppolygon, (px, py), 0.8)
                 if self.tau_charge > TAU_OVERCHARGE:
-                    self._damage_player(12, ppolygon)
+                    self._damage_player(12, ppolygon, source="tau_overcharge")
                     self._snd("tau_overcharge_hurt", ppolygon, (px, py))
                     self.tau_charge = 0
             elif self.tau_charge > 0:
@@ -919,7 +938,8 @@ class GameSession:
                 ang = math.atan2(ddy, ddx) - math.atan2(ady, adx)
                 ang = (ang + math.pi) % (2 * math.pi) - math.pi
                 if abs(ang) <= w["arc"]:
-                    self._damage_enemy(eid, w["dmg"], (ddx / dist, ddy / dist), 260.0)
+                    self._damage_enemy(eid, w["dmg"], (ddx / dist, ddy / dist),
+                                       260.0, source="knife")
                     hit_any = True
             if hit_any:
                 self._snd("knife_hit", ppolygon, (px, py))
@@ -1006,7 +1026,7 @@ class GameSession:
             kind = hit[0]
             if kind == "ent":
                 _, eid, hpolygon, hx, hy, dist, hops, m9 = hit
-                self._damage_enemy(eid, w["dmg"], (dx, dy), 420.0)
+                self._damage_enemy(eid, w["dmg"], (dx, dy), 420.0, source="rail")
                 r = self.sim.get_radius(eid) if self.sim.exists(eid) else 8.0
                 ox, oy, polygon, ignore = hx + dx * (2 * r + 1.0), hy + dy * (2 * r + 1.0), hpolygon, eid
             else:
@@ -1123,6 +1143,12 @@ class GameSession:
                                  (HOLE_CORRIDOR_LEN, w), (HOLE_CORRIDOR_LEN, 0.0)])
         self.sim.connect(m_polygon, mid_a, cor, 0)
         self.sim.connect(polygon, mid_b, cor, 2)
+        self.trace.emit(TopologyChanged(
+            tick=self.tick_count, op="connect", a_polygon=m_polygon,
+            a_edge=mid_a, b_polygon=cor, b_edge=0, source="hole"))
+        self.trace.emit(TopologyChanged(
+            tick=self.tick_count, op="connect", a_polygon=polygon,
+            a_edge=mid_b, b_polygon=cor, b_edge=2, source="hole"))
         self.level.polygon_seeds.append(cor * 7919 + 13)
         self.holes -= 1
         self.hole_mark = None
@@ -1167,6 +1193,9 @@ class GameSession:
         terrain.apply_walk_masks(self.sim, level, offset)
         for a, ea, b, eb in level.connects:
             self.sim.connect(a + offset, ea, b + offset, eb)
+            self.trace.emit(TopologyChanged(
+                tick=self.tick_count, op="connect", a_polygon=a + offset,
+                a_edge=ea, b_polygon=b + offset, b_edge=eb, source="stream"))
         for a, ea, b, eb, m9 in level.connects_x:
             self.sim.connect_with_xform(a + offset, ea, b + offset, eb, m9)
         for d in level.doors:
@@ -1327,8 +1356,16 @@ class GameSession:
         c = self.cloister
         if c["attached"] is not None:
             self.sim.disconnect(c["corridor"], 2)
+            self.trace.emit(TopologyChanged(
+                tick=self.tick_count, op="disconnect",
+                a_polygon=c["corridor"], a_edge=2, b_polygon=-1, b_edge=-1,
+                source="cloister"))
         polygon, edge = c["links"][idx]
         self.sim.connect(polygon, edge, c["corridor"], 2)
+        self.trace.emit(TopologyChanged(
+            tick=self.tick_count, op="connect", a_polygon=polygon,
+            a_edge=edge, b_polygon=c["corridor"], b_edge=2,
+            source="cloister"))
         c["attached"] = idx
 
     def _rotate_cloister(self):
@@ -1494,8 +1531,15 @@ class GameSession:
             nx, ny = ((ex - x) / d, (ey - y) / d) if d > 1e-6 else (1.0, 0.0)
             self.sim.set_vel(eid, evx + nx * w["force"] * fall,
                              evy + ny * w["force"] * fall)
+            m_ = ENEMIES[self.enemies[eid]["kind"]]["mass"] \
+                if eid in self.enemies else 1.0
+            self.trace.emit(ImpulseApplied(
+                tick=self.tick_count, entity_id=eid,
+                jx=round(nx * w["force"] * fall * m_, 3),
+                jy=round(ny * w["force"] * fall * m_, 3),
+                source="lightning"))
             self._damage_enemy(eid, w["dmg"] * (0.6 + 0.4 * fall),
-                               (nx, ny), 0.0)
+                               (nx, ny), 0.0, source="lightning")
             struck.append((ex, ey))
             hit_ids.add(eid)
         # chain arcs: hop to the nearest unstruck enemy within arc range
@@ -1519,12 +1563,25 @@ class GameSession:
             hit_ids.add(eid)
             struck.append((ex, ey))
             self.fx.append(("lightning", polygon, ex, ey, 40.0))
-            self._damage_enemy(eid, w["arc_dmg"], (0.0, 0.0), 0.0)
+            self._damage_enemy(eid, w["arc_dmg"], (0.0, 0.0), 0.0,
+                               source="lightning_arc")
             arcs += 1
 
     # ------------------------------------------------------------------
 
-    def _damage_enemy(self, eid: int, dmg: float, ndir, knock: float):
+    def _set_enemy_state(self, eid: int, e: dict, new: str) -> None:
+        """The one door every enemy state change walks through, so the
+        trace sees each transition exactly once."""
+        old = e["state"]
+        if old == new:
+            return
+        e["state"] = new
+        self.trace.emit(AgentTransition(
+            tick=self.tick_count, entity_id=eid, agent_kind=e["kind"],
+            from_state=old, to_state=new))
+
+    def _damage_enemy(self, eid: int, dmg: float, ndir, knock: float,
+                      *, source: str):
         e = self.enemies.get(eid)
         if e is None:
             return
@@ -1534,14 +1591,24 @@ class GameSession:
         if self._crit_p > 0.0 and self.rng.random() < self._crit_p:
             dmg *= self._crit_mul
         e["hp"] -= dmg
-        e["state"] = "hunt"
+        self._set_enemy_state(eid, e, "hunt")
         self.metrics["hits"] += 1
         self.metrics["dmg_dealt"] += dmg
         polygon = self.sim.get_polygon(eid)
         _, ex, ey, evx, evy, _, _ = self.sim.get(eid)
+        self.trace.emit(DamageApplied(
+            tick=self.tick_count, target_id=eid, target_kind=e["kind"],
+            amount=round(dmg, 3), source=source))
         if knock > 0.0:
             m = ENEMIES[e["kind"]]["mass"]
             self.sim.set_vel(eid, evx + ndir[0] * knock / m, evy + ndir[1] * knock / m)
+            # J = m*dv: in this convention the knock scalar IS the impulse
+            # magnitude (dv = knock/m), so the trace records exactly what
+            # the physics felt regardless of the target's mass
+            self.trace.emit(ImpulseApplied(
+                tick=self.tick_count, entity_id=eid,
+                jx=round(ndir[0] * knock, 3), jy=round(ndir[1] * knock, 3),
+                source=source))
         self._snd("hit_flesh", polygon, (ex, ey), 0.8)
         self._decal(polygon, "blood", ex + self.rng.uniform(-4, 4),
                     ey + self.rng.uniform(-4, 4), self.rng.uniform(3, 7),
@@ -1594,7 +1661,7 @@ class GameSession:
         if not e.get("brood"):
             self.alert_enemies(polygon, 1)
 
-    def _damage_player(self, dmg: float, polygon: int):
+    def _damage_player(self, dmg: float, polygon: int, *, source: str):
         if self.hurt_cd > 0 or self.dead:
             return
         self.hurt_cd = 30
@@ -1605,6 +1672,9 @@ class GameSession:
         dmg *= self.player_resist        # armor: player_state buff lever
         self.hp -= dmg
         self.metrics["dmg_taken"] += dmg
+        self.trace.emit(DamageApplied(
+            tick=self.tick_count, target_id=self.pid, target_kind="player",
+            amount=round(dmg, 3), source=source))
         px, py = self.player_pos()
         self._snd("player_hurt", polygon, (px, py))
         self._shake(min(8.0, 2.0 + dmg * 0.25))
@@ -1693,7 +1763,7 @@ class GameSession:
                 if polygon == ppolygon:
                     # the notice beat: growl first, charge after — the
                     # player always gets the first move
-                    e["state"] = "waking"
+                    self._set_enemy_state(eid, e, "waking")
                     e["wake"] = self.WAKE_TICKS[kind]
                     self._snd(d["alert_snd"], polygon, (ex, ey), 0.9)
                     self.fx.append(("alerted", polygon, ex, ey))
@@ -1715,7 +1785,7 @@ class GameSession:
             if e["state"] == "waking":
                 e["wake"] = e.get("wake", 0) - 1
                 if e["wake"] <= 0:
-                    e["state"] = "hunt"
+                    self._set_enemy_state(eid, e, "hunt")
                 continue
 
             # hunting: audible before visible — the dread channel
@@ -1890,7 +1960,7 @@ class GameSession:
                 orr = s.get_polygon(oid)
                 hd = s.hop_distance(orr, polygon)
                 if 0 <= hd <= 2:
-                    oe["state"] = "hunt"
+                    self._set_enemy_state(oid, oe, "hunt")
                     oe["buff"] = 60 * 5
         e["rally_cd"] = e.get("rally_cd", 0) - 1
         if e["rally_cd"] <= 0 or "rally_polygon" not in e:
@@ -1987,7 +2057,7 @@ class GameSession:
             if polygon == ppolygon:
                 dist = math.hypot(px - ex, py - ey)
                 if dist < d["ambush_radius"]:
-                    e["state"] = "ambush"
+                    self._set_enemy_state(eid, e, "ambush")
                     e["ambush_t"] = d["ambush_ticks"]
                     dx, dy = px - ex, py - ey
                     dl = math.hypot(dx, dy) or 1e-6
@@ -2049,7 +2119,7 @@ class GameSession:
             s.set_dir(eid, nx, ny)
             s.set_vel(eid, evx + nx * d["accel"] * DT, evy + ny * d["accel"] * DT)
             if e["ambush_t"] <= 0:
-                e["state"] = "hunt"
+                self._set_enemy_state(eid, e, "hunt")
                 e["dark_beat"] = 0
             return
 
@@ -2067,7 +2137,7 @@ class GameSession:
             if level < d["disengage_light"] and dist > d["disengage_dist"]:
                 e["dark_beat"] = e.get("dark_beat", 0) + 1
                 if e["dark_beat"] > d["disengage_beat"]:
-                    e["state"] = "lurk"
+                    self._set_enemy_state(eid, e, "lurk")
                     e["dark_beat"] = 0
             else:
                 e["dark_beat"] = 0
@@ -2090,6 +2160,18 @@ class GameSession:
             tag = ev[0]
             if tag == "transfer":
                 _, ent, from_polygon, to_polygon, edge, m9 = ev
+                if ent == self.pid:
+                    ent_kind = "player"
+                elif ent in self.enemies:
+                    ent_kind = self.enemies[ent]["kind"]
+                elif ent in self.bullets:
+                    ent_kind = "bullet:" + self.bullets[ent]["kind"]
+                else:
+                    ent_kind = "other"
+                self.trace.emit(PortalCrossing(
+                    tick=self.tick_count, entity_id=ent, entity_kind=ent_kind,
+                    from_polygon=from_polygon, to_polygon=to_polygon,
+                    edge=edge))
                 if ent == self.pid:
                     if self.cloister and to_polygon == self.cloister["sanctum"]:
                         self._rotate_cloister()
@@ -2131,6 +2213,11 @@ class GameSession:
                                 or (d["b"], d["eb"]) == (polygon, edge)):
                             d["open"] = True
                             self.sim.connect(d["a"], d["ea"], d["b"], d["eb"])
+                            self.trace.emit(TopologyChanged(
+                                tick=self.tick_count, op="connect",
+                                a_polygon=d["a"], a_edge=d["ea"],
+                                b_polygon=d["b"], b_edge=d["eb"],
+                                source="door_shoot"))
                             self.door_edges.pop((d["a"], d["ea"]), None)
                             self.door_edges.pop((d["b"], d["eb"]), None)
                             self._snd("door_unlock", polygon, (px_, py_))
@@ -2188,18 +2275,22 @@ class GameSession:
                         else self.sim.get_polygon(y)
                     self._detonate_dart(x, polygon, cx, cy)
                 elif bx["kind"] in ("bullet", "tau", "taucharged", "turret"):
-                    self._damage_enemy(y, bx["dmg"], (nx if x == b else -nx, ny if x == b else -ny), 90.0)
+                    self._damage_enemy(y, bx["dmg"],
+                                       (nx if x == b else -nx,
+                                        ny if x == b else -ny),
+                                       90.0, source=bx["kind"])
                 self.sim.remove(x)
                 self.bullets.pop(x, None)
                 return
             if bx is not None and y == self.pid:
                 polygon = self.sim.get_polygon(y)
                 if bx["kind"] == "spit":
-                    self._damage_player(bx["dmg"], polygon)
+                    self._damage_player(bx["dmg"], polygon, source="spit")
                 elif bx["kind"] == "dart":
                     self._detonate_dart(x, polygon, cx, cy)
                     px_, py_ = self.player_pos()
-                    self._damage_player(WEAPONS["lightning"]["dmg"] * 0.6, polygon)
+                    self._damage_player(WEAPONS["lightning"]["dmg"] * 0.6,
+                                        polygon, source="lightning_self")
                 elif bx["kind"] == "turret":
                     pass  # the guardians do not miss that badly
                 elif self.tick_count - bx.get("born", -99) <= 2:
@@ -2212,7 +2303,8 @@ class GameSession:
                     pass
                 else:
                     # a round you fired found its way back through the fold
-                    self._damage_player(bx["dmg"] * 0.75, polygon)
+                    self._damage_player(bx["dmg"] * 0.75, polygon,
+                                        source="returned_round")
                 self.sim.remove(x)
                 self.bullets.pop(x, None)
                 return
@@ -2238,7 +2330,8 @@ class GameSession:
                         e["touch_cd"] = d["touch_cd"]
                         self._damage_player(
                             d["touch_dmg"],
-                            self.sim.get_polygon(self.pid))
+                            self.sim.get_polygon(self.pid),
+                            source="contact:" + e["kind"])
 
     # ------------------------------------------------------------------
 
@@ -2413,6 +2506,10 @@ class GameSession:
             if d["key"] == key and not d["open"]:
                 d["open"] = True
                 self.sim.connect(d["a"], d["ea"], d["b"], d["eb"])
+                self.trace.emit(TopologyChanged(
+                    tick=self.tick_count, op="connect", a_polygon=d["a"],
+                    a_edge=d["ea"], b_polygon=d["b"], b_edge=d["eb"],
+                    source="door_unlock"))
                 self.door_edges.pop((d["a"], d["ea"]), None)
                 self.door_edges.pop((d["b"], d["eb"]), None)
                 mx, my = self.sim.edge_midpoint(d["a"], d["ea"])

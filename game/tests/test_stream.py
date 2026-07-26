@@ -91,7 +91,7 @@ def test_stream_respawn_at_chunk_entry():
     hp_entry = ws.entry_states[1]["hp"]
     s.hurt_cd = 0
     s.hp = 1
-    s._damage_player(50, s.player_polygon())
+    s._damage_player(50, s.player_polygon(), source="test")
     assert s.dead
     n_enemies_before = len(s.enemies)
     ws.respawn()

@@ -77,7 +77,7 @@ def _save_frame(surf, capture_dir: str | Path, frame_idx: int) -> bool:
 
 def run_bot(level: Level, bot: Bot, seed: int, max_ticks: int = DEFAULT_MAX_TICKS,
             capture_every: int = 0, capture_dir: str | Path | None = None,
-            renderer=None) -> Result:
+            renderer=None, trace_path: str | Path | None = None) -> Result:
     """Drive `bot` over `level` for up to `max_ticks` (or until death/
     completion), returning a `Result`.
 
@@ -87,8 +87,19 @@ def run_bot(level: Level, bot: Bot, seed: int, max_ticks: int = DEFAULT_MAX_TICK
     when `capture_every > 0`. Frame capture is always best-effort: any
     import/construction/draw failure sets `Result.capture_skipped = True`
     and the run continues untouched.
+
+    `trace_path`, if given, drains the session's TraceBus to that JSONL
+    file each tick — through the SAME writer the app uses for human
+    sessions, so bot and human traces share one schema by construction.
     """
     session = GameSession(level, seed=seed)
+
+    trace_writer = None
+    if trace_path is not None:
+        from ..telemetry import TraceWriter
+        trace_writer = TraceWriter(trace_path,
+                                   header=dict(level=getattr(level, "name", ""),
+                                               seed=int(seed), bot=type(bot).__name__))
 
     events: list[dict] = []
     ammo_timeline: list[tuple[int, int]] = []
@@ -116,6 +127,8 @@ def run_bot(level: Level, bot: Bot, seed: int, max_ticks: int = DEFAULT_MAX_TICK
         inp = bot.step(snap, session)
         session.tick(inp)
         i += 1
+        if trace_writer is not None:
+            trace_writer.drain_from(session.trace)
 
         if capture_renderer is not None and not capture_skipped:
             try:
@@ -154,6 +167,9 @@ def run_bot(level: Level, bot: Bot, seed: int, max_ticks: int = DEFAULT_MAX_TICK
             ammo_timeline.append((session.tick_count, total_ammo))
             hp_timeline.append((session.tick_count, session.hp))
 
+    if trace_writer is not None:
+        trace_writer.drain_from(session.trace)
+        trace_writer.close()
     outcome = "complete" if session.complete else ("died" if session.dead else "timeout")
     return Result(
         outcome=outcome,
