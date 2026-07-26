@@ -437,10 +437,39 @@ def main() -> int:
     ap.add_argument("--chunk-size", type=int, default=40)
     ap.add_argument("--reuse", action="store_true",
                     help="skip capture, judge the existing run")
+    ap.add_argument("--verdict-only", action="store_true",
+                    help="reuse saved chunk reports; re-run only the "
+                         "final verdict (prompt-level iteration)")
     a = ap.parse_args()
 
     seeds = ([int(s) for s in a.seeds.split(",")] if a.seeds
              else [a.seed])
+    if a.verdict_only:
+        reports = []
+        for f in sorted(GATE.glob("chunk_s*_*.json")) or \
+                sorted(GATE.glob("chunk_*.json")):
+            reports.append(json.loads(f.read_text()))
+        if not reports:
+            raise RuntimeError("no saved chunk reports to re-verdict")
+        all_stats = []
+        for seed in seeds:
+            rec = GATE / (f"run_s{seed}" if len(seeds) > 1 else "run")
+            if (rec / "trace.jsonl").exists():
+                all_stats.append(dict(seed=seed, **session_stats(
+                    rec, {"stdout": "(verdict-only)"})))
+        stats = all_stats if len(all_stats) > 1 else all_stats[0]
+        verdict = final_verdict(reports, stats, a.model)
+        (GATE / "verdict.json").write_text(json.dumps(verdict, indent=1))
+        print(json.dumps(verdict, indent=2))
+        if verdict.get("pass") and float(verdict["p"]) > PASS_BAR:
+            (GATE / "PASS").write_text(json.dumps(
+                dict(p=verdict["p"], seeds=seeds, ticks=a.ticks,
+                     zoom=a.zoom), indent=1))
+            print(f"[gate] PASS (p={verdict['p']})")
+            return 0
+        (GATE / "PASS").unlink(missing_ok=True)
+        print(f"[gate] BLOCKED (p={verdict.get('p')})")
+        return 1
     reports = []
     all_stats = []
     for si, seed in enumerate(seeds):
