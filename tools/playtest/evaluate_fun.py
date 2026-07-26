@@ -41,6 +41,19 @@ simulation's own logs. This is chunk {idx}/{total} of one session
 (frames ~2s apart, chronological). You judge like a demanding player
 and a game critic at once, not like a QA scripter.
 
+VISUAL LEGEND (do not misclassify): the player is a white kite/arrow.
+The player's own SENTRY EMPLACEMENTS are amber/yellow tripod turrets
+with a bright triangular head — STATIONARY BY DESIGN, friendly, they
+never move and enemies may ignore them; do not report them as frozen
+enemies. Enemy bodies: green lumpy husks, small pale mites, olive
+pentagon spitters (green nose), thin pale shrieker slivers, violet
+flickers, red-brown brutes with two pale tusk lines (reads as an 'M'
+at distance), dark-violet 9-gon wardens with a white rim; teal/violet
+double outlines are adversary scouts. Small squares/crosses on the
+floor are ammo/medkit pickups; violet concentric rings are breach
+tears; dark red-brown chunks are corpses (they never move or take
+damage). A pale blob with a closing ring is a structure unpacking.
+
 Frames, in order (read EVERY one):
 {frames}
 
@@ -60,6 +73,12 @@ Judge, citing frame files and ticks:
    (check player_chamber in the digest), which is honest simulation,
    NOT a render bug. Only flag state/screen divergence for events in
    the player's own chamber or within one door of it.
+   The player's simulated viewport is wider than the recorded frame:
+   sustained fire toward the frame edge is usually aimed at an enemy
+   visible through a portal fold just off-camera — check the digest
+   for enemy damage lines before calling it firing-at-nothing. A
+   full-frame VIOLET WASH pulse marks the instant a breach tears
+   open somewhere on the station (the wall-tear's screen-space cue).
 2. FIGHT READABILITY — can you tell what is happening: who is a
    threat, what the player is shooting, why the player took damage?
 3. PACING — dead air vs pressure. Long stretches where nothing
@@ -118,6 +137,11 @@ every frame against the simulation logs, plus session statistics.
 {chunks}
 
 Session stats: {stats}
+
+Difficulty-curve context: single sessions cannot establish the curve;
+the 16-seed acceptance bank (mean death ~246s, 12.5% survive a 400s
+cap, first breach 46-68s in) is the calibration reference — judge
+THIS session's pacing and readability, not the curve's tunability.
 
 Findings marked REFUTED failed verification against the simulation
 trace and MUST be ignored entirely; weigh only CONFIRMED (fully) and
@@ -189,6 +213,30 @@ def build_digests(rec: Path, judged: list[Path], window: int = 120) -> dict:
     return digests
 
 
+def _judge_call(prompt: str, model: str, what: str) -> dict | list:
+    """One judge subprocess with a single retry on malformed output —
+    a second failure raises loudly."""
+    last = None
+    for attempt in (1, 2):
+        r = subprocess.run(
+            ["claude", "-p", prompt, "--model", model,
+             "--output-format", "json", "--allowedTools", "Read"],
+            capture_output=True, text=True, timeout=JUDGE_TIMEOUT_S)
+        if r.returncode != 0:
+            last = RuntimeError(f"{what} failed: {r.stderr[:500]}")
+            continue
+        text = json.loads(r.stdout)["result"].strip()
+        text = text.removeprefix("```json").removeprefix("```")
+        text = text.removesuffix("```").strip()
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError as exc:
+            last = RuntimeError(
+                f"{what} returned non-JSON (attempt {attempt}): "
+                f"{text[:300]!r}")
+    raise last
+
+
 def judge_chunk(frames: list[Path], digests: dict, idx: int, total: int,
                 model: str) -> dict:
     digest_txt = "\n".join(
@@ -198,16 +246,7 @@ def judge_chunk(frames: list[Path], digests: dict, idx: int, total: int,
         idx=idx, total=total,
         frames="\n".join(str(f) for f in frames),
         digest=digest_txt[:60000])
-    r = subprocess.run(
-        ["claude", "-p", prompt, "--model", model,
-         "--output-format", "json", "--allowedTools", "Read"],
-        capture_output=True, text=True, timeout=JUDGE_TIMEOUT_S)
-    if r.returncode != 0:
-        raise RuntimeError(f"chunk judge failed: {r.stderr[:500]}")
-    text = json.loads(r.stdout)["result"].strip()
-    text = text.removeprefix("```json").removeprefix("```")
-    text = text.removesuffix("```").strip()
-    return json.loads(text)
+    return _judge_call(prompt, model, f"chunk {idx} judge")
 
 
 def ground_truth(rec: Path) -> dict:
@@ -268,16 +307,8 @@ def verify_findings(reports: list[dict], rec: Path, model: str) -> dict:
     prompt = VERIFY_PROMPT.format(
         findings=listing,
         ground=json.dumps(ground_truth(rec), indent=1))
-    r = subprocess.run(
-        ["claude", "-p", prompt, "--model", model,
-         "--output-format", "json", "--allowedTools", "Read"],
-        capture_output=True, text=True, timeout=JUDGE_TIMEOUT_S)
-    if r.returncode != 0:
-        raise RuntimeError(f"verifier failed: {r.stderr[:500]}")
-    text = json.loads(r.stdout)["result"].strip()
-    text = text.removeprefix("```json").removeprefix("```")
-    text = text.removesuffix("```").strip()
-    verdicts = {v["idx"]: v for v in json.loads(text)}
+    verdicts = {v["idx"]: v
+                for v in _judge_call(prompt, model, "verifier")}
     for i, (ci, f) in enumerate(flat):
         v = verdicts.get(i, {})
         f["verify"] = v.get("verdict", "UNVERIFIABLE")
@@ -293,16 +324,7 @@ def final_verdict(chunk_reports: list[dict], stats: dict,
             for i, c in enumerate(chunk_reports)),
         stats=json.dumps(stats, separators=(",", ":")),
         bar=PASS_BAR)
-    r = subprocess.run(
-        ["claude", "-p", prompt, "--model", model,
-         "--output-format", "json", "--allowedTools", "Read"],
-        capture_output=True, text=True, timeout=JUDGE_TIMEOUT_S)
-    if r.returncode != 0:
-        raise RuntimeError(f"final judge failed: {r.stderr[:500]}")
-    text = json.loads(r.stdout)["result"].strip()
-    text = text.removeprefix("```json").removeprefix("```")
-    text = text.removesuffix("```").strip()
-    v = json.loads(text)
+    v = _judge_call(prompt, model, "final judge")
     if not isinstance(v.get("p"), (int, float)):
         raise RuntimeError(f"malformed verdict: {v!r}")
     return v
