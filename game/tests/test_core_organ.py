@@ -186,3 +186,16 @@ def test_three_source_deaths_are_the_blackout_and_reform_follows():
     assert counts["core_caretaker"] >= 1
     # production capacity reflects the gutted organ, not a reset
     assert s.core.production_capacity() < 0.5
+
+
+def test_no_caller_can_animate_an_organ():
+    """A shrieker rally scream (or any future _set_enemy_state caller)
+    must not flip a part to 'hunt' — the freeze is enforced at the one
+    state door, not as per-caller courtesy. (Caught live: the first
+    everything-session crashed the music census on DANGER_CO['core_collar']
+    after a scream within 2 hops of the collar chapels.)"""
+    s = _world()
+    part = s.core.live("core_collar")[0].part_id
+    e = s.enemies[part]
+    s._set_enemy_state(part, e, "hunt")
+    assert e["state"] == "idle", "the one door let an organ hunt"

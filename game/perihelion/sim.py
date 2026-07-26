@@ -1732,7 +1732,13 @@ class GameSession:
 
     def _set_enemy_state(self, eid: int, e: dict, new: str) -> None:
         """The one door every enemy state change walks through, so the
-        trace sees each transition exactly once."""
+        trace sees each transition exactly once. Organ parts have no
+        state machine at all — a shrieker's rally scream (or any future
+        caller) cannot make a Collar 'hunt'; enforcing it HERE makes an
+        animated organ unrepresentable rather than a per-caller
+        courtesy."""
+        if e["kind"] in CORE_KINDS:
+            return
         old = e["state"]
         if old == new:
             return
@@ -1754,11 +1760,10 @@ class GameSession:
         e["hp"] -= dmg
         if e["kind"] in ADVERSARY:
             e["scout_hit"] = self.tick_count   # a scout reads this as "made"
-        if e["kind"] not in CORE_KINDS:
-            # organs never hunt: a part's answer to damage is the
-            # organ's muster, not a state flip (and the music must not
-            # count a wounded Bud as a combatant)
-            self._set_enemy_state(eid, e, "hunt")
+        # organs never hunt (enforced in _set_enemy_state, the one door):
+        # a part's answer to damage is the organ's muster, and the music
+        # must not count a wounded Bud as a combatant
+        self._set_enemy_state(eid, e, "hunt")
         self.metrics["hits"] += 1
         self.metrics["dmg_dealt"] += dmg
         polygon = self.sim.get_polygon(eid)
