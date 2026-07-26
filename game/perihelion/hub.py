@@ -77,6 +77,47 @@ RESIDENT_PLACEMENT = (
 )
 
 
+# the cathedral's own light (ratified arrival language: 'conduits
+# carrying light inward and agents arriving from deeper say THAT WAY
+# IS DEPTH'). Cold violet at the receiving apses, blackened-brass
+# station light in the courts, processional inlays around the
+# transept, and a warmth/reach ramp down the nave trunk toward the
+# vestibule; the source cells burn reliquary violet-white — the prize
+# reads from the doorway. Colored architectural lights hold intensity
+# 1/3 (the hue clamp: above it the dominant channels whiten); only
+# the reliquaries and thresholds run hot on purpose.
+# (room, (dx, dy) from chamber center, color, intensity, radius)
+HUB_LIGHT_PLAN = (
+    ("A1", (0.0, 0.0), (150, 90, 190), 0.33, 150.0),
+    ("A2", (0.0, 0.0), (150, 90, 190), 0.33, 150.0),
+    ("A3", (0.0, 0.0), (150, 90, 190), 0.33, 150.0),
+    ("G1", (0.0, -20.0), (200, 140, 80), 0.33, 130.0),
+    ("G2", (0.0, -20.0), (200, 140, 80), 0.33, 130.0),
+    ("G3", (0.0, -20.0), (200, 140, 80), 0.33, 130.0),
+    ("T1", (0.0, 0.0), (140, 150, 200), 0.33, 120.0),
+    ("T2", (0.0, 0.0), (140, 150, 200), 0.33, 120.0),
+    ("T3", (0.0, 0.0), (140, 150, 200), 0.33, 120.0),
+    ("R", (0.0, 0.0), (220, 170, 110), 0.40, 140.0),
+    ("C1", (0.0, 0.0), (160, 100, 200), 0.30, 100.0),
+    ("C2", (0.0, 0.0), (160, 100, 200), 0.30, 100.0),
+    # the trunk: reach grows with depth — the conduit ramp
+    ("N1", (0.0, 0.0), (170, 130, 90), 0.33, 110.0),
+    ("N2", (0.0, 0.0), (170, 130, 90), 0.33, 120.0),
+    ("N3", (0.0, 0.0), (170, 130, 90), 0.33, 130.0),
+    ("N4", (0.0, 0.0), (170, 130, 90), 0.33, 140.0),
+    ("AN1", (0.0, 0.0), (160, 100, 200), 0.30, 100.0),
+    ("AN2", (0.0, 0.0), (160, 100, 200), 0.30, 100.0),
+    ("SC", (0.0, 0.0), (235, 225, 150), 0.33, 110.0),
+    ("L", (-120.0, 0.0), (120, 120, 150), 0.30, 100.0),
+    ("L", (120.0, 0.0), (120, 120, 150), 0.30, 100.0),
+    ("V", (-100.0, 0.0), (230, 180, 120), 0.40, 160.0),
+    ("V", (100.0, 0.0), (230, 180, 120), 0.40, 160.0),
+    ("S1", (0.0, 0.0), (235, 160, 255), 0.45, 120.0),
+    ("S2", (0.0, 0.0), (235, 160, 255), 0.45, 120.0),
+    ("S3", (0.0, 0.0), (235, 160, 255), 0.45, 120.0),
+)
+
+
 @dataclass(frozen=True, slots=True)
 class HubLayout:
     chambers: dict          # name -> polygon index
@@ -120,6 +161,14 @@ def build_hub(session, topo: TopologyManager) -> HubLayout:
         if hseam is None:
             raise RuntimeError(f"apse {name} cannot hold its breach seam")
         seams.append(hseam)
+
+    # the cathedral lights itself — registered against the static cache
+    # AFTER the doors are carved, so every wedge sees its doorways
+    from .levels import LightSpec
+    session.lighting.add_lights(s, [
+        LightSpec(polygon=idx[name], pos=pos, color=color,
+                  intensity=inten, radius=radius, kind="static")
+        for name, pos, color, inten, radius in HUB_LIGHT_PLAN])
 
     return HubLayout(
         chambers=dict(idx),

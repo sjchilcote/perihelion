@@ -115,3 +115,32 @@ def test_residents_stay_out_of_the_worldside_snapshot():
     hub_ids = {eid for eid in s.enemies
                if s.sim.get_polygon(eid) in hub_chambers}
     assert not (ids & hub_ids), "hub residents leaked into the snapshot"
+
+
+# ---------------------------------------------------------------------------
+# the cathedral's light (ratified arrival language)
+# ---------------------------------------------------------------------------
+
+def test_hub_lights_itself_at_build():
+    from perihelion.hub import HUB_LIGHT_PLAN
+    s = _world()
+    hub_polys = set(s.hub.chambers.values())
+    hub_lights = [lt for lt in s.lighting.lights
+                  if lt.polygon in hub_polys and lt.kind == "static"]
+    assert len(hub_lights) == len(HUB_LIGHT_PLAN)
+    # every chamber is lit — no pitch-dark rooms in a built place
+    lit = {lt.polygon for lt in hub_lights}
+    assert lit == hub_polys, "every cathedral chamber carries a light"
+    # the reliquaries burn hottest; the trunk's reach grows with depth
+    by_room = {}
+    for name, poly in s.hub.chambers.items():
+        by_room[name] = [lt for lt in hub_lights if lt.polygon == poly]
+    src_i = min(lt.intensity for n in ("S1", "S2", "S3")
+                for lt in by_room[n])
+    other_i = max(lt.intensity for n, ls in by_room.items()
+                  if n not in ("S1", "S2", "S3") for lt in ls)
+    assert src_i >= other_i, "the prize must read hottest"
+    trunk = [by_room[n][0].radius for n in ("N1", "N2", "N3", "N4")]
+    assert trunk == sorted(trunk) and trunk[0] < trunk[-1], (
+        "the conduit ramp must carry light inward — deeper reaches "
+        "farther")
