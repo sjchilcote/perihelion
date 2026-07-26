@@ -1344,7 +1344,15 @@ def relax(seed: dict[str, tuple[float, float]],
     # and if that still isn't at or below the seed's count, fall back to
     # the seed itself -- crossings(seed) <= crossings(seed) always holds,
     # so the property below is true by construction, not by luck.
-    crossings_seed = crossings_of(P0)
+    # the guarantee's baseline is the CONTAINED seed (the best LEGAL
+    # fallback) — the skip condition must measure the same thing, or a
+    # relaxed count landing between raw-seed and contained-seed counts
+    # (raw 135 >= relaxed 134 > contained 133, found 2026-07-19 after
+    # the rename reshuffled the generated-graph corpus) skips the
+    # closer and silently breaks never-worse.
+    P0_contained_gate = P0.copy()
+    _hard_contain(P0_contained_gate, sysd)
+    crossings_seed = crossings_of(P0_contained_gate)
     crossings_now = crossings_of(P)
     if crossings_now > crossings_seed:
         def polish_step(P):
@@ -1511,6 +1519,19 @@ def relax(seed: dict[str, tuple[float, float]],
     if n:
         _hard_contain(P, sysd)
     final = to_frame(P)
+    # PUBLIC-CONTRACT GUARD, measured in RETURN space: every internal
+    # crossing count above lives in px coordinates, but the never-worse
+    # property is consumed (and tested) on the unit-space round-tripped
+    # layouts — quantization can flip a borderline crossing between the
+    # two spaces (found 2026-07-19: internal fold-in saw the contained
+    # seed at 134, the round-tripped baseline measures 133). Do the
+    # final compare exactly as the caller will, and fall back to the
+    # contained seed if the settled layout loses in THAT space.
+    if n and graph is not None:
+        seed_contained = contain_layout(seed, graph)
+        if count_crossings(final, graph) > \
+                count_crossings(seed_contained, graph):
+            final = seed_contained
     if record_every > 0 and (not traj or traj[-1] != final):
         traj.append(final)
     return final, traj
