@@ -25,6 +25,10 @@ def main() -> int:
     ap.add_argument("--seed", type=int, default=2200)
     ap.add_argument("--ticks", type=int, default=12000)
     ap.add_argument("--every", type=int, default=5)
+    ap.add_argument("--zoom", type=float, default=0.45,
+                    help="0.45 = farm-exact; 1.35 = play zoom (feel/visual "
+                         "captures only — visibility-driven bot behavior "
+                         "diverges from the farm at play zoom)")
     a = ap.parse_args()
 
     import os
@@ -59,33 +63,15 @@ def main() -> int:
     state["dmg_taken_mul"] = 1.0
     level = load_level(ROOT / "levels" / "gauntlet4.json")
     session = GameSession(level, seed=a.seed, player_state=state,
-                          screen=(640, 360), zoom=0.45)
+                          screen=(640, 360), zoom=a.zoom)
     session.music_tier = getattr(level, "tier", 1)
     bot = HumanBot(a.seed, skill=DEFAULT_SKILL)
     trace = TraceWriter(out / "trace.jsonl",
-                        header=dict(level="gauntlet4+scouts", seed=a.seed))
+                        header=dict(level="gauntlet4", seed=a.seed))
 
-    # seed the Adversary lane along the opening route (U15 authors these
-    # into the level; the demo only makes tonight's systems visible)
-    start = session.player_polygon()
-    near = set(session.sim.polygons_within(start, 3))
-    sentry_rooms = set()
-    for tid in session.sentries:
-        rr = session.sim.get_polygon(tid)
-        sentry_rooms.update(session.sim.polygons_within(rr, 1))
-    band = [r for r in session.sim.polygons_within(start, 12)
-            if r not in near and r not in sentry_rooms
-            and r not in session.hub.chambers.values()]
-    placed = 0
-    for i, r in enumerate(band):
-        if placed >= 8:
-            break
-        if i % 2:
-            continue                     # spread across the band
-        kind = "lacuna" if placed % 2 == 0 else "vagrant"
-        session.spawn_enemy(r, (0.0, 0.0), kind)
-        placed += 1
-    print(f"[demo] seeded {placed} scouts near the start", flush=True)
+    # the Adversary lane is authored into the level itself (U15a) —
+    # this demo records an ORDINARY session, no seeding
+    print(f"[demo] authored census: {session.adversary_census}", flush=True)
 
     audio = Audio(mute=True)
     audio.tap = tap
