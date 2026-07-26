@@ -57,6 +57,11 @@ damage). A pale blob with a closing ring is a structure unpacking.
 Frames, in order (read EVERY one):
 {frames}
 
+Ground-truth session facts (computed from the FULL trace — calibrate
+your severity against these before asserting stalls or unlogged
+events; prior banks produced P1s the trace refuted):
+{ground}
+
 Log digest for this chunk (tick-stamped; frame N = tick N*5):
 {digest}
 
@@ -238,13 +243,14 @@ def _judge_call(prompt: str, model: str, what: str) -> dict | list:
 
 
 def judge_chunk(frames: list[Path], digests: dict, idx: int, total: int,
-                model: str) -> dict:
+                model: str, ground: dict | None = None) -> dict:
     digest_txt = "\n".join(
         f"{f.name}: " + ("; ".join(digests.get(f.name, [])) or "(quiet)")
         for f in frames)
     prompt = CHUNK_PROMPT.format(
         idx=idx, total=total,
         frames="\n".join(str(f) for f in frames),
+        ground=json.dumps(ground, separators=(",", ":")),
         digest=digest_txt[:60000])
     return _judge_call(prompt, model, f"chunk {idx} judge")
 
@@ -402,7 +408,8 @@ def main() -> int:
         for i, chunk in enumerate(chunks):
             print(f"[gate] seed {seed} chunk {i + 1}/{len(chunks)}...",
                   flush=True)
-            rep = judge_chunk(chunk, digests, i + 1, len(chunks), a.model)
+            rep = judge_chunk(chunk, digests, i + 1, len(chunks),
+                              a.model, ground=ground_truth(rec))
             rep["seed"] = seed
             seed_reports.append(rep)
             (GATE / f"chunk_s{seed}_{i + 1}.json").write_text(
