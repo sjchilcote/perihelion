@@ -283,6 +283,14 @@ impl Sim {
         Ok(())
     }
 
+    /// Mass-scaled impulse: dv = J / m — knockback as force through the
+    /// physics, never a velocity write.
+    fn apply_impulse(&mut self, id: u64, jx: f64, jy: f64) -> PyResult<()> {
+        self.sim
+            .apply_impulse(id, v(jx, jy))
+            .map_err(PyValueError::new_err)
+    }
+
     /// Mark a polygon's walls soft (Otherworld).
     fn soften_polygon(&mut self, polygon: usize) {
         self.sim.soften_polygon(polygon);

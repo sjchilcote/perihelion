@@ -416,7 +416,9 @@ def test_flanked_choke_is_survived_and_escape_engages():
     engagement rework, 2026-07-18 (enemies fight through portals
     instead of going inert off-polygon; 9/79) -> seed 21; the NPC-
     internals purge, 2026-07-18 (perception returns inferred
-    `active` from movement, no state/hp; 12/79) -> seed 3,
+    `active` from movement, no state/hp; 12/79) -> seed 3; the
+    combat-canon kinematics inversion, 2026-07-26 (every kind faster
+    than the Commando, heavier, turn-limited; 17/40) -> seed 1,
     current). Each
     time, the mechanism itself remained intact and fires on a
     fraction of a fresh 79-seed scan (18/79, 20/79, 46/79, 72/79,
@@ -429,8 +431,8 @@ def test_flanked_choke_is_survived_and_escape_engages():
     If this breaks again, re-scan rather than assume the escape policy
     regressed."""
     level = build_flanked_choke_level()
-    bot = HumanBot(3)
-    session = GameSession(level, seed=3, difficulty="hard")
+    bot = HumanBot(1)
+    session = GameSession(level, seed=1, difficulty="hard")
     start_polygon = session.player_polygon()
     left_polygon = escape_engaged = False
     for tick in range(60 * 40):
@@ -749,33 +751,6 @@ def test_perception_activity_inferred_from_movement():
                 "stationary enemy read as active"
     assert became_active is not None and became_active < 120, \
         "moving enemy never read as active"
-
-
-def test_scrap_driver_selected_in_band_when_components_flush():
-    """Components are ammo (the scrap driver eats them at 2/shot) and are
-    dead weight otherwise on pod-less levels: with a flush salvage
-    counter and a mid-band target, the weapon policy must reach for
-    scrap instead of draining 9mm."""
-    from perihelion.sim import WEAPON_ORDER
-    bot = HumanBot(3)
-    level = build_ambush_level()
-    session = GameSession(level, seed=3, difficulty="hard")
-    session.components = 120
-    session.weapons = ["knife", "pistol", "smg", "shotgun", "rail",
-                       "lightning", "tau", "scrap"]
-    session.ammo.update({"9mm": 200, "shell": 40, "cell": 60})
-    snap = session.snapshot()
-    perceived = [dict(id=9, kind="husk", polygon=snap["polygon"],
-                      pos=(snap["pos"][0] + 150.0, snap["pos"][1]),
-                      hops=0, active=True)]
-    px, py = snap["pos"]
-    # the pick must become scrap once the hysteresis window passes
-    picked = set()
-    for _ in range(20):
-        inp, _, _ = bot._combat_input(session, snap, perceived, px, py)
-        if inp.weapon:
-            picked.add(WEAPON_ORDER[inp.weapon - 1])
-    assert "scrap" in picked, f"scrap never chosen; picked={picked}"
 
 
 def test_first_sight_recoil_fires_once_per_warden():

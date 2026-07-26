@@ -8,7 +8,7 @@ from here so a recorded run reproduces a farmed run bit-for-bit.
 
 FULL_LOADOUT = dict(
     weapons=["knife", "pistol", "smg", "shotgun", "rail", "lightning",
-             "tau", "hole", "scrap", "gland"],
-    ammo={"9mm": 400, "shell": 80, "cell": 120, "components": 60},
+             "tau", "hole"],
+    ammo={"9mm": 400, "shell": 80, "cell": 120},
     max_hp=100, hp=100, dmg_taken_mul=1.0,
 )

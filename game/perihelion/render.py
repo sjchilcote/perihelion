@@ -3411,17 +3411,6 @@ class Renderer:
             return
         if kind == "spit":
             canvas.circle((140, 205, 60), _pt((sx, sy)), 2)
-        elif kind == "scrap":
-            # a tumbling salvage shard
-            color = (190, 165, 110)
-            ix, iy = _pt((sx, sy))
-            canvas.polygon(color, [(ix - 2, iy + 2), (ix, iy - 3),
-                                   (ix + 3, iy + 1)])
-        elif kind == "gland":
-            ix, iy = _pt((sx, sy))
-            canvas.circle((110, 190, 70), (ix, iy), 4)
-            canvas.circle((180, 235, 120), (ix, iy), 4, 1)
-            canvas.circle((60, 110, 40), (ix + 1, iy - 1), 1)
         elif kind == "dart":
             color = (120, 240, 255)
             base_ang = math.atan2(diry, dirx) if (dirx or diry) else 0.0
@@ -3531,11 +3520,6 @@ class Renderer:
         elif kind == "implant_lightning":
             pts = [(ix, iy - r), (ix + r, iy), (ix, iy + r), (ix - r, iy)]
             canvas.polygon((90, 220, 255), [(int(x), int(y)) for x, y in pts])
-        elif kind == "organ_gland":
-            # the harvested gland: wet, wrong, and glistening
-            canvas.circle((90, 150, 60), (ix, iy), max(3, int(r * 0.8)))
-            canvas.circle((160, 220, 110), (ix, iy), max(3, int(r * 0.8)), 1)
-            canvas.circle((200, 245, 160), (ix - 1, iy - 2), 1)
         elif kind.startswith("key_"):
             col = KEY_COLORS.get(kind[4:], DOOR_COLOR)
             meta = self.session.pickups.get(eid, {}).get("meta")

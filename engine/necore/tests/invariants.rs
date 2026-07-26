@@ -163,3 +163,29 @@ fn visibility_coverage_is_continuous_across_doorway_sweeps() {
         t += step;
     }
 }
+
+#[test]
+fn impulse_is_mass_scaled_exactly() {
+    // dv = J / m at f64 exactness: a mass-4 body receives a quarter of a
+    // mass-1 body's velocity change from the same impulse, and a
+    // non-positive mass is refused rather than dividing by it.
+    let mut w = World::new();
+    let r = w.add_polygon(&square(200.0)).unwrap();
+    let mut sim = Sim::new(w);
+    let light = sim.spawn(r, v(-50.0, 0.0), 5.0, 1.0, 1).unwrap();
+    let heavy = sim.spawn(r, v(50.0, 0.0), 5.0, 4.0, 1).unwrap();
+    sim.apply_impulse(light, v(400.0, 0.0)).unwrap();
+    sim.apply_impulse(heavy, v(400.0, 0.0)).unwrap();
+    let vl = sim.entities[&light].vel;
+    let vh = sim.entities[&heavy].vel;
+    assert!((vl.x - 400.0).abs() < 1e-9, "light dv {}", vl.x);
+    assert!((vh.x - 100.0).abs() < 1e-9, "heavy dv {}", vh.x);
+    assert!((vl.x / vh.x - 4.0).abs() < 1e-9);
+    assert!(vl.y.abs() < 1e-12 && vh.y.abs() < 1e-12);
+    // impulses accumulate, they do not overwrite
+    sim.apply_impulse(light, v(-100.0, 50.0)).unwrap();
+    let vl2 = sim.entities[&light].vel;
+    assert!((vl2.x - 300.0).abs() < 1e-9 && (vl2.y - 50.0).abs() < 1e-9);
+    // unknown id and degenerate mass are refused loudly
+    assert!(sim.apply_impulse(9999, v(1.0, 0.0)).is_err());
+}

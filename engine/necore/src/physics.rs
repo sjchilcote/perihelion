@@ -241,6 +241,21 @@ impl Sim {
         }
     }
 
+    /// Mass-scaled impulse: dv = J / m. The ONLY sanctioned way gameplay
+    /// pushes a body — knockback as force through the physics, never a
+    /// direct velocity write (DESIGN_7_25 combat canon).
+    pub fn apply_impulse(&mut self, id: u64, j: Vec2) -> Result<(), String> {
+        let e = self
+            .entities
+            .get_mut(&id)
+            .ok_or_else(|| format!("no entity {id}"))?;
+        if !(e.mass > 0.0) {
+            return Err(format!("entity {id} has non-positive mass {}", e.mass));
+        }
+        e.vel = e.vel + j * (1.0 / e.mass);
+        Ok(())
+    }
+
     fn polygon_active(&self, r: PolygonId) -> bool {
         self.all_active || self.active_polygons.get(r).copied().unwrap_or(false)
     }

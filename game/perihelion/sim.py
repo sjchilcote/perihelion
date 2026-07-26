@@ -39,33 +39,45 @@ PLAYER_FRICTION = 5.6  # terminal speed ~133 u/s (discrete 60Hz tick)
 PLAYER_MASS = 1.2
 
 # name: (damage, cooldown_ticks, speed, spread_rad, pellets, ammo_type, ammo_per_shot, sound)
+# `imp` is the weapon's knockback IMPULSE (J = m*dv, applied through the
+# engine's apply_impulse — DESIGN_7_25: ALL weapons push, force through the
+# physics, never a velocity write). Per-pellet for pellet weapons. First-pass
+# values scaled so a pistol visibly arrests a husk's approach between shots.
 WEAPONS: dict[str, dict] = {
-    "knife": dict(dmg=9, cd=22, ammo=None, sound="knife_swing", range=27.0, arc=math.radians(55)),
+    "knife": dict(dmg=9, cd=22, ammo=None, sound="knife_swing", range=27.0,
+                  arc=math.radians(55), imp=420.0),
     "pistol": dict(dmg=12, cd=20, speed=1500.0, spread=math.radians(1.6), pellets=1,
-                   ammo="9mm", per=1, sound="pistol_fire", kick=2.2),
+                   ammo="9mm", per=1, sound="pistol_fire", kick=2.2, imp=260.0),
     "smg": dict(dmg=7, cd=6, speed=1350.0, spread=math.radians(5.5), pellets=1,
-                ammo="9mm", per=1, sound="smg_fire", kick=1.6),
+                ammo="9mm", per=1, sound="smg_fire", kick=1.6, imp=110.0),
     "shotgun": dict(dmg=6, cd=54, speed=1150.0, spread=math.radians(11.0), pellets=8,
-                    ammo="shell", per=1, sound="shotgun_fire", kick=7.0),
-    "rail": dict(dmg=42, cd=84, ammo="cell", per=1, sound="rail_fire", pierce=3, kick=5.0),
+                    ammo="shell", per=1, sound="shotgun_fire", kick=7.0, imp=90.0),
+    "rail": dict(dmg=42, cd=84, ammo="cell", per=1, sound="rail_fire", pierce=3,
+                 kick=5.0, imp=700.0),
     "lightning": dict(dmg=26, cd=None, speed=720.0, sound="lightning_fire",
                       radius=220.0, force=1500.0, arc_range=150.0,
-                      arc_dmg=16, max_arcs=18),
+                      arc_dmg=16, max_arcs=18, imp=1500.0),
     "tau": dict(dmg=9, cd=7, speed=1900.0, spread=math.radians(2.0), pellets=1,
-                ammo="cell", per=1, sound="tau_fire", kick=2.6, bounces=2),
+                ammo="cell", per=1, sound="tau_fire", kick=2.6, bounces=2,
+                imp=160.0),
     "hole": dict(cd=18, sound="terminal_open"),
-    # weaponize what's at hand: the scrap driver fires your salvage as
-    # shot (ammo IS the currency), printed at any fabricator
-    "scrap": dict(dmg=13, cd=46, speed=980.0, spread=math.radians(8.5),
-                  pellets=3, ammo="components", per=2,
-                  sound="scrap_fire", kick=5.5),
-    # a harvested spitter gland, grafted (Void path): fat slow caustic
-    # glob; each discharge costs 1 integrity -- flesh feeds on the frame
-    "gland": dict(dmg=16, cd=36, speed=560.0, spread=math.radians(2.5),
-                  pellets=1, hp_cost=1, sound="gland_fire", kick=3.0),
 }
 WEAPON_ORDER = ["knife", "pistol", "smg", "shotgun", "rail", "lightning",
-                "tau", "hole", "scrap", "gland"]
+                "tau", "hole"]
+
+# Every damaging player weapon pushes — validated at import so a new weapon
+# without an impulse entry is a startup crash, not a silent exception to the
+# canon ("hole" is the one non-damaging tool).
+for _wname, _w in WEAPONS.items():
+    if _wname != "hole":
+        assert _w.get("imp", 0.0) > 0.0, f"weapon {_wname} has no impulse"
+
+# Charged tau: full charge detonates on impact — a small AoE that damages
+# and pushes. 84 max direct damage: two full-charge hits kill a 168 Warden.
+TAU_AOE_RADIUS = 48.0
+TAU_AOE_DMG = 42.0          # at the center of the burst, falls off linearly
+TAU_AOE_IMP = 300.0
+TAU_CHARGED_IMP = 400.0     # direct-hit impulse at full power, scales down
 TAU_CHARGE_FULL = 80        # ticks of held charge for max damage
 TAU_OVERCHARGE = 160        # holding past this hurts
 HOLE_WIDTH = 15.0           # player diameter 13 + clearance; brutes (27) excluded
@@ -77,30 +89,44 @@ LIGHTNING_RECHARGE_TICKS = 60 * 9
 # (discrete-tick terminal; player ~133 u/s) so spacing is a real skill; the
 # husk/brute lunge is the burst that punishes carelessness. Mites nearly
 # match player speed and win by numbers.
+# Speed doctrine (DESIGN_7_25 combat canon, replacing the old Teleglitch
+# spacing rule): EVERY kind is significantly faster than the un-upgraded
+# Commando (~133 u/s terminal), heavier (mass > PLAYER_MASS 1.2), and turns
+# worse (`turn` = max heading slew, rad/s — the Commando turns instantly).
+# Escape is fighting them backward, not outrunning them; what the player
+# buys with knockback is spacing, not distance. terminal = accel / fric,
+# accel values set from MEASURED terminals (discrete-tick friction eats
+# ~6-8%; see test_combat_canon's measurement vectors).
+# First-pass ratios (warden 1.15x ... mite 1.55x) — tuning candidates.
 ENEMIES: dict[str, dict] = {
-    "husk": dict(hp=15, radius=8.0, mass=1.0, accel=430.0, fric=3.2, touch_dmg=12,
+    "husk": dict(hp=15, radius=8.0, mass=1.6, accel=567.0, fric=3.2, turn=5.0,
+                 touch_dmg=12,
                  touch_cd=38, alert_snd="enemy_alert_husk", die_snd="enemy_die_husk",
                  score=1),
-    "mite": dict(hp=4, radius=4.0, mass=0.35, accel=690.0, fric=4.5, touch_dmg=4,
+    "mite": dict(hp=4, radius=4.0, mass=1.4, accel=1012.0, fric=4.5, turn=7.0,
+                 touch_dmg=4,
                  touch_cd=24, alert_snd="enemy_alert_mite", die_snd="enemy_die_mite",
                  score=1),
-    "spitter": dict(hp=18, radius=9.0, mass=1.4, accel=340.0, fric=3.8, touch_dmg=8,
+    "spitter": dict(hp=18, radius=9.0, mass=1.7, accel=653.0, fric=3.8, turn=4.5,
+                    touch_dmg=8,
                     touch_cd=45, alert_snd="enemy_alert_husk", die_snd="enemy_die_husk",
                     spit_cd=95, spit_speed=380.0, spit_dmg=9, keep_min=110.0,
                     keep_max=190.0, score=2),
-    "brute": dict(hp=65, radius=13.5, mass=7.0, accel=260.0, fric=2.6, touch_dmg=24,
+    "brute": dict(hp=65, radius=13.5, mass=7.0, accel=430.0, fric=2.6, turn=3.2,
+                  touch_dmg=24,
                   touch_cd=55, alert_snd="enemy_alert_husk", die_snd="enemy_die_brute",
                   score=4),
-    "shrieker": dict(hp=10, radius=7.0, mass=0.8, accel=520.0, fric=3.4, touch_dmg=0,
+    "shrieker": dict(hp=10, radius=7.0, mass=1.5, accel=701.0, fric=3.4, turn=6.0,
+                     touch_dmg=0,
                      touch_cd=60, alert_snd="shrieker_scream", die_snd="enemy_die_mite",
                      scream_cd=60 * 5, score=3),
-    "warden": dict(hp=520, radius=16.0, mass=12.0, accel=330.0, fric=2.4, touch_dmg=30,
+    # Warden = a normal high-tier enemy (DESIGN_7_25): 168 hp — dies to
+    # exactly 2 full-charge Tau (84) or 4 rail (42); no brood, no enrage.
+    "warden": dict(hp=168, radius=16.0, mass=12.0, accel=386.0, fric=2.4, turn=2.6,
+                   touch_dmg=30,
                    touch_cd=48, alert_snd="shrieker_scream", die_snd="enemy_die_brute",
                    spit_cd=70, spit_speed=460.0, spit_dmg=13, keep_min=0.0,
-                   keep_max=100.0, score=25),
-    # ^ boss hp 300->520 (2026-07-18): the fight must LAST — the music's
-    #   danger signal is one-bar low-passed, and a warden bursted down
-    #   in seconds never lifts STALWART to the boss lines.
+                   keep_max=100.0, score=10),
     # Adversary-lane ambush predator (director's directive, 2026-07-13):
     # "add an enemy that deliberately keeps to the shadows until the
     # player gets close, then ambushes." Named for the sensor-trace
@@ -109,13 +135,18 @@ ENEMIES: dict[str, dict] = {
     # "shadow stalker" flavor label -- clinical/diegetic, matching the
     # existing husk/mite/spitter/brute/shrieker/warden naming register.
     # See `GameSession._flicker_ai` for the LURK/AMBUSH state machine.
-    "flicker": dict(hp=22, radius=8.5, mass=1.0, accel=560.0, fric=3.4,
+    "flicker": dict(hp=22, radius=8.5, mass=1.5, accel=729.0, fric=3.4, turn=6.5,
                     touch_dmg=16, touch_cd=42, alert_snd="enemy_alert_husk",
                     die_snd="enemy_die_husk", score=3,
                     lurk_speed=95.0, ambush_radius=70.0, ambush_burst=560.0,
                     ambush_ticks=18, disengage_light=0.15, disengage_dist=220.0,
                     disengage_beat=90),
 }
+
+for _ename, _e in ENEMIES.items():
+    assert _e["mass"] > PLAYER_MASS, f"{_ename} lighter than the Commando"
+    assert _e["turn"] > 0.0, f"{_ename} has no turn-rate model"
+assert ENEMIES["warden"]["hp"] == 168, "warden is a normal enemy: 2 charged tau / 4 rail"
 
 PICKUPS: dict[str, dict] = {
     "ammo_9mm": dict(radius=5.0, amount=30),
@@ -134,7 +165,6 @@ PICKUPS: dict[str, dict] = {
     "key_gold": dict(radius=5.5), "key_void": dict(radius=5.5),
     "components": dict(radius=5.0),
     "corpse_frame": dict(radius=8.0),
-    "organ_gland": dict(radius=6.0),
 }
 
 # Friendly, stationary defensive emplacement (director's directive,
@@ -185,28 +215,11 @@ SHOP: dict[str, dict] = {
     "chassis": dict(cost=8, label="SPARE CHASSIS"),
     "station_kit": dict(cost=12, label="SEED STATION KIT"),
     "hp_up": dict(cost=10, label="HULL PLATING +15", growth=6),
-    "scrap_driver": dict(cost=15, label="SCRAP DRIVER"),
     "recall": dict(cost=6, label="RECALL BEACON"),
     "ammo_9mm": dict(cost=3, label="9MM x30", ammo=("9mm", 30)),
     "ammo_shell": dict(cost=3, label="SHELLS x7", ammo=("shell", 7)),
     "ammo_cell": dict(cost=4, label="CELLS x8", ammo=("cell", 8)),
 }
-
-# the warden's brood: adds called when the boss fight is truly JOINED
-# (player co-polygon), and again at enrage. Their trash danger-weights are
-# small on their own — the brood's job is melee crowd mass + damage
-# pressure, which is what carries STALWART over the 0.88 boss-music
-# line alongside the warden's 20 (director 2026-07-18: bosses must
-# actually trigger the boss threshold).
-WARDEN_ADDS_ENGAGE = ("mite", "mite", "mite", "mite", "husk",
-                      "mite", "mite", "husk", "mite", "mite")
-WARDEN_ENRAGE_HP = 260.0    # phase-two line (bot's prep gate reads
-#   it). 220 measured: no survival gain, SHORTER boss-music peak —
-#   the long dangerous tail IS the showcase (n=64 A/B, 2026-07-18)
-WARDEN_ADDS_ENRAGE = ("mite", "mite", "husk")
-# ^ no shrieker at enrage (census: a rally-buff stacking on the
-#   enraged warden's speed + radial volley was the measured death
-#   cocktail — 7 of 26 early deaths had one standing there)
 
 DROP_TABLES = {
     "husk": [(0.35, "ammo_9mm"), (0.08, "medkit")],
@@ -612,8 +625,7 @@ class GameSession:
     # system prompt.
 
     ACQUIRE_LABELS = {"cloister": "THE CLOISTER", "hole": "PORTABLE HOLE",
-                      "lightning": "LIGHTNING IMPLANT", "tau": "TAU CANNON",
-                      "scrap": "SCRAP DRIVER", "gland": "GRAFTED GLAND"}
+                      "lightning": "LIGHTNING IMPLANT", "tau": "TAU CANNON"}
 
     def _objective(self, text: str):
         self.fx.append(("objective", text))
@@ -939,33 +951,19 @@ class GameSession:
                 ang = (ang + math.pi) % (2 * math.pi) - math.pi
                 if abs(ang) <= w["arc"]:
                     self._damage_enemy(eid, w["dmg"], (ddx / dist, ddy / dist),
-                                       260.0, source="knife")
+                                       w["imp"], source="knife")
                     hit_any = True
             if hit_any:
                 self._snd("knife_hit", ppolygon, (px, py))
                 self._shake(1.5)
             return
         ammo_t = w.get("ammo")
-        if ammo_t == "components":
-            # the scrap driver eats the currency itself
-            if self.components < w.get("per", 1):
-                self.cooldown = 18
-                self._snd("dry_click", ppolygon, (px, py))
-                return
-            self.components -= w.get("per", 1)
-        elif ammo_t and self.ammo.get(ammo_t, 0) < w.get("per", 1):
+        if ammo_t and self.ammo.get(ammo_t, 0) < w.get("per", 1):
             self.cooldown = 18
             self._snd("dry_click", ppolygon, (px, py))
             return
         elif ammo_t:
             self.ammo[ammo_t] -= w.get("per", 1)
-        hp_cost = w.get("hp_cost", 0)
-        if hp_cost:
-            if self.hp <= hp_cost:
-                self.cooldown = 18
-                self._snd("dry_click", ppolygon, (px, py))
-                return
-            self.hp -= hp_cost  # the gland drinks from the frame
         self.cooldown = w["cd"]
         self.metrics["shots"] += 1
         self._snd(w["sound"], ppolygon, (px, py))
@@ -995,23 +993,17 @@ class GameSession:
                 ang = math.atan2(ady, adx) + self.rng.uniform(
                     -w["spread"], w["spread"]) * self._spread_mul
                 spd = w["speed"] * self.rng.uniform(0.95, 1.05)
-                brad = 3.0 if self.weapon == "gland" else 1.6
-                bid = self.sim.spawn(ppolygon, mx_, my_, brad, 0.002, GROUP_PBULLET)
+                bid = self.sim.spawn(ppolygon, mx_, my_, 1.6, 0.002, GROUP_PBULLET)
                 self.sim.set_props(bid, rest_wall=0.0, rest_ent=0.0, max_substep=3.2)
                 self.sim.set_vel(bid, math.cos(ang) * spd + pvx * 0.4,
                                  math.sin(ang) * spd + pvy * 0.4)
                 self.sim.set_dir(bid, math.cos(ang), math.sin(ang))
                 self.bullets[bid] = dict(kind="bullet", dmg=w["dmg"], ttl=90,
-                                         born=self.tick_count)
+                                         imp=w["imp"], born=self.tick_count)
                 if self.weapon == "tau":
                     self.bullets[bid].update(kind="tau", ttl=140,
                                              bounces=w.get("bounces", 0))
                     self.sim.set_props(bid, rest_wall=1.0)
-                elif self.weapon == "scrap":
-                    # shards of salvage: hard-hitting, short-lived
-                    self.bullets[bid].update(kind="scrap", ttl=34)
-                elif self.weapon == "gland":
-                    self.bullets[bid].update(kind="gland", ttl=170)
         # gunfire is loud: it travels the graph
         self.alert_enemies(ppolygon, self.level.alert_hops)
 
@@ -1026,7 +1018,7 @@ class GameSession:
             kind = hit[0]
             if kind == "ent":
                 _, eid, hpolygon, hx, hy, dist, hops, m9 = hit
-                self._damage_enemy(eid, w["dmg"], (dx, dy), 420.0, source="rail")
+                self._damage_enemy(eid, w["dmg"], (dx, dy), w["imp"], source="rail")
                 r = self.sim.get_radius(eid) if self.sim.exists(eid) else 8.0
                 ox, oy, polygon, ignore = hx + dx * (2 * r + 1.0), hy + dy * (2 * r + 1.0), hpolygon, eid
             else:
@@ -1067,15 +1059,23 @@ class GameSession:
             return
         self.ammo["cell"] -= cost
         power = frac * (0.4 + 0.6 * cost / 5.0)
-        dmg = 18 + 46 * power
+        # 84 at full power: two full-charge hits kill a 168 Warden, the
+        # ratified weapon arithmetic (DESIGN_7_25)
+        dmg = 18 + 66 * power
+        full = power >= 0.999
         _, _, _, pvx, pvy, _, _ = self.sim.get(self.pid)
         bid = self.sim.spawn(ppolygon, px + adx * (PLAYER_RADIUS + 5),
                              py + ady * (PLAYER_RADIUS + 5), 2.2, 0.006,
                              GROUP_PBULLET)
         self.sim.set_props(bid, rest_wall=1.0, max_substep=4.0)
         self.sim.set_vel(bid, adx * 2600.0 + pvx * 0.3, ady * 2600.0 + pvy * 0.3)
+        # a FULL charge detonates on impact (small AoE + push) instead of
+        # ricocheting: bounces=0 so the first contact — enemy or wall —
+        # resolves it (see _detonate_tau)
         self.bullets[bid] = dict(kind="taucharged", dmg=dmg, ttl=160,
-                                 bounces=3, born=self.tick_count)
+                                 bounces=0 if full else 3, aoe=full,
+                                 imp=TAU_CHARGED_IMP * power,
+                                 born=self.tick_count)
         self.metrics["shots"] += 1
         self._snd("tau_charged_fire", ppolygon, (px, py))
         self._shake(4.0 + 5.0 * power)
@@ -1242,34 +1242,6 @@ class GameSession:
             self.cloister["links"] = [
                 (r, e + 2 if r == polygon and e > edge else e)
                 for (r, e) in self.cloister["links"]]
-
-    def _boss_adds(self, polygon: int, ex: float, ey: float, kinds,
-                   px: float, py: float) -> None:
-        """Spawn the warden's brood as a ONE-SIDED, telegraphed wave:
-        a ring around the warden was angular enclosure — a pincer by
-        construction (measured 10/16 engulfment deaths). All spawn
-        points go in the sector BEYOND the warden from the player,
-        staggered wakes (~0.7-3s), so they arrive as a visible front
-        with the player's rear wedge empty (Sol doctrine §2.2)."""
-        away = math.atan2(ey - py, ex - px)     # player -> warden, on
-        n = max(1, len(kinds))                  # through to the far side
-        for i, kind in enumerate(kinds):
-            spread = (-0.7 + 1.4 * i / max(1, n - 1))
-            a = away + spread
-            r = 70.0 + 25.0 * (i % 3)
-            sx, sy = ex + r * math.cos(a), ey + r * math.sin(a)
-            if math.hypot(sx - px, sy - py) < 110.0:
-                sx += 60.0 * math.cos(away)     # never inside the
-                sy += 60.0 * math.sin(away)     # player's close bubble
-            eid = self.spawn_enemy(polygon, (sx, sy), kind)
-            self.enemies[eid]["state"] = "waking"
-            # full Sol cadence (~5s hatch spread): the 0.7-2.8s
-            # stagger still arrived as a wall — census: 48% of deaths
-            # were this entry brawl, mite-dominated
-            self.enemies[eid]["wake"] = 40 + i * 30
-            self.enemies[eid]["brood"] = True
-        self._snd("shrieker_scream", polygon, (ex, ey), 0.8)
-        self.fx.append(("scream", polygon, ex, ey))
 
     # ------------------------------------------------------------------
     # the vigil: the wave director. Things still come through. They are met.
@@ -1505,6 +1477,30 @@ class GameSession:
             self.pulse_light(polygon, (tx + nx * (d["radius"] + 2),
                                        ty + ny * (d["radius"] + 2)), 150.0, 0.7)
 
+    def _detonate_tau(self, bid: int, polygon: int, x: float, y: float,
+                      b: dict, skip: int | None = None):
+        """Full-charge tau impact: a SMALL burst (DESIGN_7_25 — 'detonates
+        on impact with a small AoE + push'), nothing like the lightning
+        blast. Neighbors inside TAU_AOE_RADIUS take falloff damage and a
+        falloff push; the directly-struck body (skip) already resolved."""
+        self.fx.append(("lightning", polygon, x, y, TAU_AOE_RADIUS))
+        self._snd("tau_charged_fire", polygon, (x, y), 0.7)
+        self._shake(4.0)
+        self._decal(polygon, "scorch", x, y, 10.0)
+        for eid in list(self.sim.polygon_entities(polygon)):
+            if eid == skip or eid not in self.enemies:
+                continue
+            _, ex, ey, *_ = self.sim.get(eid)
+            d = math.hypot(ex - x, ey - y)
+            if d > TAU_AOE_RADIUS:
+                continue
+            fall = 1.0 - d / TAU_AOE_RADIUS
+            nx, ny = ((ex - x) / d, (ey - y) / d) if d > 1e-6 else (1.0, 0.0)
+            self._apply_impulse(eid, nx * TAU_AOE_IMP * fall,
+                                ny * TAU_AOE_IMP * fall, source="taucharged_aoe")
+            self._damage_enemy(eid, TAU_AOE_DMG * fall, (nx, ny), 0.0,
+                               source="taucharged_aoe")
+
     def _detonate_dart(self, bid: int, polygon: int, x: float, y: float):
         """The lightning cannon IS the crowd-control option (director,
         2026-07-16): the blast kills weak enemies anywhere inside it
@@ -1529,15 +1525,10 @@ class GameSession:
                 continue
             fall = 1.0 - d / w["radius"]
             nx, ny = ((ex - x) / d, (ey - y) / d) if d > 1e-6 else (1.0, 0.0)
-            self.sim.set_vel(eid, evx + nx * w["force"] * fall,
-                             evy + ny * w["force"] * fall)
-            m_ = ENEMIES[self.enemies[eid]["kind"]]["mass"] \
-                if eid in self.enemies else 1.0
-            self.trace.emit(ImpulseApplied(
-                tick=self.tick_count, entity_id=eid,
-                jx=round(nx * w["force"] * fall * m_, 3),
-                jy=round(ny * w["force"] * fall * m_, 3),
-                source="lightning"))
+            # the cannon's push, generalized to every weapon by the canon:
+            # a mass-scaled impulse — heavy bodies ride it out, light ones fly
+            self._apply_impulse(eid, nx * w["imp"] * fall, ny * w["imp"] * fall,
+                                source="lightning")
             self._damage_enemy(eid, w["dmg"] * (0.6 + 0.4 * fall),
                                (nx, ny), 0.0, source="lightning")
             struck.append((ex, ey))
@@ -1568,6 +1559,14 @@ class GameSession:
             arcs += 1
 
     # ------------------------------------------------------------------
+
+    def _apply_impulse(self, eid: int, jx: float, jy: float, *, source: str):
+        """The one sanctioned push: J through the engine (dv = J/m), traced.
+        Knockback is never a velocity write (DESIGN_7_25 combat canon)."""
+        self.sim.apply_impulse(eid, jx, jy)
+        self.trace.emit(ImpulseApplied(
+            tick=self.tick_count, entity_id=eid,
+            jx=round(jx, 3), jy=round(jy, 3), source=source))
 
     def _set_enemy_state(self, eid: int, e: dict, new: str) -> None:
         """The one door every enemy state change walks through, so the
@@ -1600,15 +1599,8 @@ class GameSession:
             tick=self.tick_count, target_id=eid, target_kind=e["kind"],
             amount=round(dmg, 3), source=source))
         if knock > 0.0:
-            m = ENEMIES[e["kind"]]["mass"]
-            self.sim.set_vel(eid, evx + ndir[0] * knock / m, evy + ndir[1] * knock / m)
-            # J = m*dv: in this convention the knock scalar IS the impulse
-            # magnitude (dv = knock/m), so the trace records exactly what
-            # the physics felt regardless of the target's mass
-            self.trace.emit(ImpulseApplied(
-                tick=self.tick_count, entity_id=eid,
-                jx=round(ndir[0] * knock, 3), jy=round(ndir[1] * knock, 3),
-                source=source))
+            self._apply_impulse(eid, ndir[0] * knock, ndir[1] * knock,
+                                source=source)
         self._snd("hit_flesh", polygon, (ex, ey), 0.8)
         self._decal(polygon, "blood", ex + self.rng.uniform(-4, 4),
                     ey + self.rng.uniform(-4, 4), self.rng.uniform(3, 7),
@@ -1642,12 +1634,6 @@ class GameSession:
                                          pos[1] + self.rng.uniform(-6, 6)), kind_)
                 break
         # Void path: with the harvesting protocol integrated, a spitter's
-        # intact gland is a weapon waiting for a socket
-        if kind == "spitter" and "gland" not in self.weapons and \
-                "adversary_organ_slot_1" in self.mind_unlocks and \
-                not any(p["kind"] == "organ_gland"
-                        for p in self.pickups.values()):
-            self.spawn_pickup(polygon, (pos[0], pos[1] + 8), "organ_gland")
         # salvage: every kill yields its score in components (9.1 -- wrecks
         # are materials; score already priced each enemy's difficulty)
         self.spawn_pickup(polygon, (pos[0] + self.rng.uniform(-5, 5),
@@ -1655,11 +1641,8 @@ class GameSession:
                           "components",
                           extra=dict(amount=int(math.ceil(
                               d["score"] * self._salvage_mul))))
-        # nearby enemies hear the death — except a summoned brood's:
-        # chaff called BY the fight may not punish fast accurate
-        # killing by advancing the polygon-alert front (Sol §4.1)
-        if not e.get("brood"):
-            self.alert_enemies(polygon, 1)
+        # nearby enemies hear the death
+        self.alert_enemies(polygon, 1)
 
     def _damage_player(self, dmg: float, polygon: int, *, source: str):
         if self.hurt_cd > 0 or self.dead:
@@ -1804,7 +1787,7 @@ class GameSession:
             # COMPOSE along the chain (director 2026-07-19: one hop was
             # never the law — sightlines run as deep as the geometry
             # lets them) and combat continues through every doorway the
-            # ray clears — aiming, spitting, lunging, the brood. An
+            # ray clears — aiming, spitting, lunging. An
             # enemy that goes inert when the player steps over a
             # threshold is not a fight.
             tx = ty = None
@@ -1854,6 +1837,7 @@ class GameSession:
                 # for aim/attacks below.
                 sx, sy = s.terrain_avoid_dir(polygon, ex, ey, d["radius"], nx, ny,
                                              max(40.0, min(dist, 120.0)))
+                sx, sy = self._steer_heading(eid, e, d, sx, sy)
                 # husks lunge: a sudden burst inside close range reads as an
                 # attack, not a shove
                 if kind in ("husk", "brute") and dist < 95.0 \
@@ -1864,34 +1848,8 @@ class GameSession:
                     self._snd(d["alert_snd"], polygon, (ex, ey), 0.55)
                 if e.get("lunge_cd", 0) > 0:
                     e["lunge_cd"] -= 1
-                # warden enrage below half health
-                if kind == "warden" and not e.get("enraged") \
-                        and e["hp"] < WARDEN_ENRAGE_HP:
-                    # enrage at 220 (not half of 520): the calm phase
-                    # carries the music, the dangerous tail shortens
-                    # (Sol §4.3). The roar is a RECOVERY beat — the
-                    # first radial volley comes ~1s later, never on
-                    # the same tick as the speed-up (Sol §2.4)
-                    e["enraged"] = True
-                    e["buff"] = 10 ** 9
-                    e["buff_mul"] = 1.15
-                    e["spit_cd"] = max(int(e.get("spit_cd", 0)), 60)
-                    self._snd("shrieker_scream", polygon, (ex, ey), 1.0)
-                    self.fx.append(("scream", polygon, ex, ey))
-                # the brood: once when the duel is joined — co-polygon or
-                # through the doorway — once more at enrage; a lone kited
-                # warden reads danger 20 (stalwart .69), under every
-                # boss-music line; the brood makes a boss fight a boss
-                # FIGHT
-                if kind == "warden":
-                    if not e.get("adds1"):
-                        e["adds1"] = True
-                        self._boss_adds(polygon, ex, ey,
-                                        WARDEN_ADDS_ENGAGE, tx, ty)
-                    elif e.get("enraged") and not e.get("adds2"):
-                        e["adds2"] = True
-                        self._boss_adds(polygon, ex, ey,
-                                        WARDEN_ADDS_ENRAGE, tx, ty)
+                # warden = a normal high-tier enemy (DESIGN_7_25): no
+                # enrage phase, no brood — 168 hp and honest kinematics
                 keep_min = d.get("keep_min")
                 if keep_min is not None and d.get("spit_cd") is not None:
                     # ranged: hold the band, spit on cooldown
@@ -1900,15 +1858,8 @@ class GameSession:
                     elif dist > d["keep_max"]:
                         s.set_vel(eid, evx + sx * accel * DT, evy + sy * accel * DT)
                     if e["spit_cd"] <= 0:
-                        e["spit_cd"] = d["spit_cd"] // 2 if e.get("enraged") \
-                            else d["spit_cd"]
+                        e["spit_cd"] = d["spit_cd"]
                         self._spit(eid, polygon, ex, ey, nx, ny, d)
-                        if e.get("enraged"):
-                            # radial burst: the warden's polygon fills with spit
-                            for k in range(6):
-                                a2 = k * math.pi / 3 + self.tick_count * 0.05
-                                self._spit(eid, polygon, ex, ey,
-                                           math.cos(a2), math.sin(a2), d)
                     if kind != "warden":
                         continue
                 s.set_vel(eid, evx + sx * accel * DT, evy + sy * accel * DT)
@@ -1928,7 +1879,35 @@ class GameSession:
                 s.set_dir(eid, nx, ny)
                 sx, sy = s.terrain_avoid_dir(polygon, ex, ey, d["radius"], nx, ny,
                                              max(40.0, min(dist, 120.0)))
+                sx, sy = self._steer_heading(eid, e, d, sx, sy)
                 s.set_vel(eid, evx + sx * accel * DT, evy + sy * accel * DT)
+
+    def _steer_heading(self, eid: int, e: dict, d: dict,
+                       wx: float, wy: float) -> tuple[float, float]:
+        """Turn-rate-limited steering (DESIGN_7_25 kinematics: every kind
+        turns WORSE than the Commando, who turns instantly). The body's
+        stored heading slews toward the wanted direction at most
+        d['turn'] rad/s; acceleration is applied along the heading, so a
+        fast heavy kind genuinely overshoots and arcs — escape is won by
+        turning inside them, not by outrunning them."""
+        m = math.hypot(wx, wy)
+        if m < 1e-9:
+            return e.get("hdg", (1.0, 0.0))
+        wx, wy = wx / m, wy / m
+        hx, hy = e.get("hdg", (wx, wy))
+        cross = hx * wy - hy * wx
+        dot = hx * wx + hy * wy
+        ang = math.atan2(cross, dot)
+        max_step = d["turn"] * DT
+        if abs(ang) <= max_step:
+            hx, hy = wx, wy
+        else:
+            st = max_step if ang > 0 else -max_step
+            ca, sa = math.cos(st), math.sin(st)
+            hx, hy = hx * ca - hy * sa, hx * sa + hy * ca
+        e["hdg"] = (hx, hy)
+        self.sim.set_dir(eid, hx, hy)   # the body faces where it moves
+        return hx, hy
 
     def _spit(self, eid, polygon, ex, ey, nx, ny, d):
         bid = self.sim.spawn(polygon, ex + nx * (d["radius"] + 4),
@@ -1999,6 +1978,7 @@ class GameSession:
         s.set_dir(eid, nx, ny)
         sx, sy = s.terrain_avoid_dir(polygon, ex, ey, d["radius"], nx, ny,
                                      max(40.0, min(dist, 120.0)))
+        sx, sy = self._steer_heading(eid, e, d, sx, sy)
         s.set_vel(eid, evx + sx * accel * DT, evy + sy * accel * DT)
 
     # ------------------------------------------------------------------
@@ -2235,6 +2215,10 @@ class GameSession:
                         self._decal(polygon, "splat", px_, py_, 4.0)
                     elif b["kind"] == "dart":
                         self._detonate_dart(ent, polygon, px_, py_)
+                    elif b["kind"] == "taucharged" and b.get("aoe"):
+                        # full charge: the wall stops it, the burst still
+                        # happens — anything near the impact point eats it
+                        self._detonate_tau(ent, polygon, px_, py_, b)
                     elif b["kind"] == "bullet":
                         self._decal(polygon, "chip", px_, py_, 2.0)
                         self._snd("hit_wall", polygon, (px_, py_), 0.35)
@@ -2278,7 +2262,14 @@ class GameSession:
                     self._damage_enemy(y, bx["dmg"],
                                        (nx if x == b else -nx,
                                         ny if x == b else -ny),
-                                       90.0, source=bx["kind"])
+                                       bx.get("imp", 90.0), source=bx["kind"])
+                    if bx["kind"] == "taucharged" and bx.get("aoe"):
+                        # full charge detonates on the body it struck:
+                        # the small AoE catches the neighbors (the direct
+                        # target already took full damage + push above)
+                        polygon = self.sim.get_polygon(y) if self.sim.exists(y) \
+                            else self.sim.get_polygon(x)
+                        self._detonate_tau(x, polygon, cx, cy, bx, skip=y)
                 self.sim.remove(x)
                 self.bullets.pop(x, None)
                 return
@@ -2314,24 +2305,11 @@ class GameSession:
             if e and e["touch_cd"] <= 0:
                 d = ENEMIES[e["kind"]]
                 if d["touch_dmg"] > 0:
-                    # brood burst-fairness (Sol 2 §8.3): the SWARM
-                    # lands at most one bite per 12 ticks — eight
-                    # mites at touch_cd 24 each could shred 20
-                    # hits/s, an unreactable burst. Actors, danger
-                    # and music are untouched.
-                    gated = (e.get("brood")
-                             and self.tick_count - getattr(
-                                 self, "_brood_bite_t", -99) < 12)
-                    if gated:
-                        e["touch_cd"] = 6
-                    else:
-                        if e.get("brood"):
-                            self._brood_bite_t = self.tick_count
-                        e["touch_cd"] = d["touch_cd"]
-                        self._damage_player(
-                            d["touch_dmg"],
-                            self.sim.get_polygon(self.pid),
-                            source="contact:" + e["kind"])
+                    e["touch_cd"] = d["touch_cd"]
+                    self._damage_player(
+                        d["touch_dmg"],
+                        self.sim.get_polygon(self.pid),
+                        source="contact:" + e["kind"])
 
     # ------------------------------------------------------------------
 
@@ -2453,12 +2431,6 @@ class GameSession:
                     self.weapons.append("lightning")
                 self._snd("pickup_key", ppolygon, (x, y))
                 self._acquired("lightning")
-            elif kind == "organ_gland":
-                if "gland" not in self.weapons:
-                    self.weapons.append("gland")
-                    self.weapon = "gland"
-                self._snd("pickup_key", ppolygon, (x, y))
-                self._acquired("gland")
             elif kind == "components":
                 n = p.get("amount", 1)
                 self.components += n
@@ -2562,8 +2534,6 @@ class GameSession:
         cost = d["cost"] + d.get("growth", 0) * (self.hp_ups if item == "hp_up" else 0)
         if self.components < cost:
             return False
-        if item == "scrap_driver" and "scrap" in self.weapons:
-            return False  # one is plenty; the pattern doesn't wear out
         self.components -= cost
         if item == "chassis":
             self.chassis += 1
@@ -2573,9 +2543,6 @@ class GameSession:
             self.hp_ups += 1
             self.max_hp += 15
             self.hp = min(self.max_hp, self.hp + 15)
-        elif item == "scrap_driver":
-            self.weapons.append("scrap")
-            self.weapon = "scrap"
         elif item == "recall":
             self.recalls += 1
         elif "ammo" in d:
@@ -2868,8 +2835,7 @@ class GameSession:
             b = self.bullets[bid]
             b["ttl"] -= 1
             dead = b["ttl"] <= 0
-            if not dead and b["kind"] in ("bullet", "tracer", "scrap",
-                                          "turret"):
+            if not dead and b["kind"] in ("bullet", "tracer", "turret"):
                 # WOUNDED-ROUND GUARD (2026-07-19, ground-truth trace
                 # of bullet 429/seed 2200): a round spawned grazing a
                 # wall loses its aim velocity to spawn-overlap
@@ -2881,7 +2847,7 @@ class GameSession:
                 # constant speed by design: any round at a fraction
                 # of muzzle velocity has already hit something and
                 # must not exist. (tau/taucharged excluded: ricochets
-                # are designed; spit/dart/gland fly slow by design.)
+                # are designed; spit/dart fly slow by design.)
                 if self.sim.exists(bid):
                     _, _, _, bvx, bvy, _, _ = self.sim.get(bid)
                     if bvx * bvx + bvy * bvy < 490000.0:   # <700 u/s

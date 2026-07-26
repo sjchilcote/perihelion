@@ -146,8 +146,6 @@ ITEM_DESC = {
                    "forward of the network.",
     "hp_up": "Layered plating bonded to the frame. +15 integrity "
              "ceiling, printed with every future frame.",
-    "scrap_driver": "Fires your salvage as shot. The ammunition is the "
-                    "currency itself.",
     "recall": "A ninety-tick channel home. Any hit severs it.",
     "ammo_9mm": "Thirty rounds, printed to pattern. The pistol and the "
                 "smg drink from the same clip.",
@@ -196,7 +194,7 @@ class PodScene(Scene):
     live in GameSession (deterministic, persisted); this scene is the
     presentation around them."""
 
-    FAB_ORDER = ["chassis", "station_kit", "hp_up", "scrap_driver",
+    FAB_ORDER = ["chassis", "station_kit", "hp_up",
                  "recall", "ammo_9mm", "ammo_shell", "ammo_cell"]
 
     def __init__(self, session):
@@ -706,10 +704,7 @@ class PodScene(Scene):
         y = ui(58)
         for i, item in enumerate(self.FAB_ORDER):
             price = s.shop_price(item)
-            owned_note = ""
-            if item == "scrap_driver" and "scrap" in s.weapons:
-                owned_note = "  [PATTERN HELD]"
-            label = f"{SHOP[item]['label']:<22} {price:>3}c{owned_note}"
+            label = f"{SHOP[item]['label']:<22} {price:>3}c"
             sel = i == self.fab_sel
             if sel:
                 col = (240, 245, 240)
@@ -837,12 +832,6 @@ class PodScene(Scene):
                          (-2, -2), (20, -2), (4, 10), (26, 10)):
                 C(x, y, 1.6, MIRIAD_DIM, 0)
             L(12, -24, 12, -10, AMBER); L(5, -17, 19, -17, AMBER)  # +15
-        elif item == "scrap_driver":
-            # the salvage gun: receiver, hopper, three shard tracers
-            P([(-30, -2), (6, -2), (6, 10), (-30, 10)])
-            P([(-14, -14), (0, -14), (2, -2), (-16, -2)])  # hopper
-            L(6, 1, 26, 1); L(6, 7, 22, 7)
-            L(-24, 10, -20, 22); L(-12, 10, -10, 20)  # grip
             for i, (dx, dy) in enumerate(((34, -6), (40, 2), (36, 8))):
                 P([(dx, dy), (dx + 6, dy + 2), (dx + 2, dy + 5)], AMBER, 1)
         elif item == "recall":

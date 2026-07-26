@@ -348,62 +348,6 @@ def test_thinking_is_deterministic():
 
 
 # ---------------------------------------------------------------------------
-# scavenged weapons: the scrap driver and the grafted gland
-# ---------------------------------------------------------------------------
-
-def test_scrap_driver_fires_components_as_ammo():
-    s = _session(components=30)
-    assert s.buy("scrap_driver")
-    assert s.weapon == "scrap"
-    left = s.components
-    px, py = s.player_pos()
-    s.aim = (1.0, 0.0)
-    s._fire(s.player_polygon(), px, py)
-    assert s.components == left - 2
-    assert sum(1 for b in s.bullets.values() if b["kind"] == "scrap") == 3
-
-
-def test_scrap_driver_dry_when_broke():
-    s = _session(components=16)
-    assert s.buy("scrap_driver")
-    s.components = 1
-    px, py = s.player_pos()
-    s._fire(s.player_polygon(), px, py)
-    assert s.components == 1  # refused, nothing spent
-    assert not s.bullets
-
-
-def test_gland_costs_integrity_and_never_kills_you():
-    s = _session()
-    s.weapons.append("gland")
-    s.weapon = "gland"
-    px, py = s.player_pos()
-    s._fire(s.player_polygon(), px, py)
-    assert s.hp == s.max_hp - 1
-    assert any(b["kind"] == "gland" for b in s.bullets.values())
-    s.hp = 1
-    s.cooldown = 0
-    n = len(s.bullets)
-    s._fire(s.player_polygon(), px, py)
-    assert s.hp == 1 and len(s.bullets) == n  # dry: it will not take the last
-
-
-def test_spitter_yields_gland_only_with_harvest_node():
-    s = _session()
-    eid = s.spawn_enemy(0, (100.0, 0.0), "spitter")
-    s._damage_enemy(eid, 999.0, (1.0, 0.0), 0.0, source="test")
-    assert not any(p["kind"] == "organ_gland" for p in s.pickups.values())
-    s2 = _session()
-    _grant(s2, "comprehension-connection-space",
-           "comprehension-adversary-biology-survey",
-           "void-arithmetic-of-futility",
-           "void-organ-harvesting-protocol")
-    eid = s2.spawn_enemy(0, (100.0, 0.0), "spitter")
-    s2._damage_enemy(eid, 999.0, (1.0, 0.0), 0.0, source="test")
-    assert any(p["kind"] == "organ_gland" for p in s2.pickups.values())
-
-
-# ---------------------------------------------------------------------------
 # recall beacons: emergency teleport home
 # ---------------------------------------------------------------------------
 
