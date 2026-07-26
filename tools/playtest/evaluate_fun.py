@@ -377,11 +377,18 @@ def main() -> int:
     all_stats = []
     for si, seed in enumerate(seeds):
         rec = GATE / (f"run_s{seed}" if len(seeds) > 1 else "run")
-        if not a.reuse:
+        have = len(list(rec.glob("frame_*.png"))) if rec.exists() else 0
+        complete = have >= a.ticks // 5 - 5 and (rec / "trace.jsonl").exists()
+        if a.reuse or complete:
+            # resumable: a finished capture for this seed is evidence
+            # already on disk — killed runs pick up where they died
+            meta = {"stdout": f"(reused capture, {have} frames)"}
+            if complete and not a.reuse:
+                print(f"[gate] seed {seed}: capture already complete, "
+                      f"reusing", flush=True)
+        else:
             print(f"[gate] capturing seed {seed}...", flush=True)
             meta = run_capture(rec, seed, a.ticks, a.zoom)
-        else:
-            meta = {"stdout": "(reused capture)"}
         frames = sorted(rec.glob("frame_*.png"))
         if not frames:
             raise RuntimeError(f"no frames captured (seed {seed})")
