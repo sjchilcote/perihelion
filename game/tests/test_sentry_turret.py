@@ -132,10 +132,18 @@ def test_sentry_never_damages_player():
     assert math.hypot(tx0 - px0, ty0 - py0) < math.hypot(tx0 - hx0, ty0 - hy0)
     assert math.hypot(px0 - hx0, py0 - hy0) > 90.0
 
+    # count shots by the ROUNDS the sentry actually spawns ("turret"-kind
+    # bullets), not by fx: the old "flash" fx tag died when muzzle flashes
+    # became real lights (2026-07-22), and bullets are the more direct
+    # observable anyway
     shots_fired = 0
+    seen_bullets: set[int] = set()
     for _ in range(600):
         s.tick(InputFrame())
-        shots_fired += sum(1 for fx in s.fx if fx[0] == "flash")
+        for bid, b_ in s.bullets.items():
+            if b_.get("kind") == "turret" and bid not in seen_bullets:
+                seen_bullets.add(bid)
+                shots_fired += 1
         assert s.hp == 100 and not s.dead, "sentry fire must never touch the player"
         if husk_id in s.enemies:
             s.sim.set_pos(husk_id, hx0, hy0)

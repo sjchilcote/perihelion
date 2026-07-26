@@ -67,7 +67,7 @@ def test_light_level_at_zero_with_no_lights():
     b.player(r0, (0.0, 0.0))
     level = b.build()
     session = GameSession(level, seed=1)
-    session.player_light.intensity = 0.0
+    session.douse_player_lights()
     light_map = session.lighting.frame_lookup(session.sim)
     assert light_level_at(light_map, session.lighting.lights, r0, 0.0, 0.0) == 0.0
 
@@ -112,7 +112,7 @@ def test_lurk_holds_low_light_position_under_moving_worklight():
     b.player(r0, (-200.0, -200.0))  # far corner -- stays put, never threatens ambush
     level = b.build()
     session = GameSession(level, seed=5)
-    session.player_light.intensity = 0.0  # isolate the swept light below
+    session.douse_player_lights()  # isolate the swept light below
     eid = session.spawn_enemy(r0, (100.0, 100.0), "flicker")
     sweep_light = LightSpec(polygon=r0, pos=(100.0, 100.0), color=(255, 255, 255),
                             intensity=1.0, radius=140.0, kind="attached")

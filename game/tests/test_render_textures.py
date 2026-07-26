@@ -66,12 +66,12 @@ def _make_textured_session(monkeypatch, textures_root, seed=1234, light=None,
         level.lights.append(light)
     session = GameSession(level, seed=seed, screen=(INTERNAL_W, INTERNAL_H))
     if douse_lamp:
-        session.player_light.intensity = 0.0
+        session.douse_player_lights()
     return session
 
 
 def _draw(session, backend, ticks=20):
-    ren = Renderer(session, backend=backend)
+    ren = Renderer(session)
     surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
     for tick in range(1, ticks + 1):
         session.tick(InputFrame(mx=0.0, my=0.0, ax=INTERNAL_W / 2, ay=INTERNAL_H / 2,
@@ -94,14 +94,8 @@ def test_texture_size_helper_matches_polygon_bbox():
     assert (w, h) == (480, 360)  # 160*3, 120*3
 
 
-def test_textured_floor_matches_across_backends(pygame_ready, tmp_path, monkeypatch):
-    session_rust = _make_textured_session(monkeypatch, tmp_path / "rust")
-    surf_rust = _draw(session_rust, "rust")
-
-    session_pg = _make_textured_session(monkeypatch, tmp_path / "pg", seed=1234)
-    surf_pg = _draw(session_pg, "pygame")
-
-    assert pygame.image.tobytes(surf_rust, "RGB") == pygame.image.tobytes(surf_pg, "RGB")
+# (test_textured_floor_matches_across_backends deleted 2026-07-22 with the
+# pygame render backend — one renderer, nothing to compare.)
 
 
 def test_textured_floor_differs_from_untextured_fallback(pygame_ready, tmp_path, monkeypatch):
@@ -138,16 +132,16 @@ def _dark_and_lit_sessions(monkeypatch, tmp_path, textured):
         level_dark = build_debug_level()
         level_dark.level_id = "notex-dark"
         dark = GameSession(level_dark, seed=1234, screen=(INTERNAL_W, INTERNAL_H))
-        dark.player_light.intensity = 0.0
+        dark.douse_player_lights()
         level_lit = build_debug_level()
         level_lit.level_id = "notex-lit"
         level_lit.lights.append(_NEAR_LIGHT)
         lit = GameSession(level_lit, seed=1234, screen=(INTERNAL_W, INTERNAL_H))
-        lit.player_light.intensity = 0.0
+        lit.douse_player_lights()
     return dark, lit
 
 
-@pytest.mark.parametrize("backend", ["rust", "pygame"])
+@pytest.mark.parametrize("backend", ["rust"])
 @pytest.mark.parametrize("textured", [True, False])
 def test_zero_ambient_black_then_light_falloff_on_world_pixels(
         pygame_ready, tmp_path, monkeypatch, backend, textured):

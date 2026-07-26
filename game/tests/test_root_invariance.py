@@ -70,7 +70,7 @@ def _douse_player_lamp(session):
     source continuity is covered separately (test_lighting_invariants
     seam-freeness); here we hold the light still so re-rooting is the
     only variable, per this module's own docstring."""
-    session.player_light.intensity = 0.0
+    session.douse_player_lights()
     return session
 
 
@@ -218,9 +218,16 @@ def _render_root_and_nonroot(tmp_path, backend, level_fn, level_id, margin_frac=
 
     def _render(px):
         level, r0, r1 = level_fn(px, level_id)
+        # Pin zoom to 1.35: this test's subject is floor-texture root-frame
+        # invariance, not the shipping camera. Its 15% interior sampling
+        # margin was probed against the 1.35 framing (see above); the game's
+        # default zoom later dropped to 1.0, which shrinks the octagon until
+        # the interior window catches zero texels. Pinning keeps the sampler
+        # measuring what it was calibrated to measure.
         session = _douse_player_lamp(
-            GameSession(level, seed=1234, screen=(INTERNAL_W, INTERNAL_H)))
-        ren = Renderer(session, backend=backend, max_depth=1)
+            GameSession(level, seed=1234, screen=(INTERNAL_W, INTERNAL_H),
+                        zoom=1.35))
+        ren = Renderer(session, max_depth=1)
         ren._get_detail = lambda polygon: []  # isolate the floor-texture path
         surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
         session.tick(InputFrame())
@@ -241,7 +248,7 @@ def _render_root_and_nonroot(tmp_path, backend, level_fn, level_id, margin_frac=
     return map_root, map_nonroot, interior
 
 
-@pytest.mark.parametrize("backend", ["pygame", "rust"])
+@pytest.mark.parametrize("backend", ["rust"])
 @pytest.mark.parametrize("level_fn,level_id", [
     (_rect_level, "root_inv_rect"),
     (_octagon_level, "root_inv_oct"),
@@ -270,7 +277,7 @@ def test_textured_floor_is_root_frame_invariant(
         f"bookkeeping with zero pixel consequence")
 
 
-@pytest.mark.parametrize("backend", ["pygame", "rust"])
+@pytest.mark.parametrize("backend", ["rust"])
 def test_flat_floor_is_root_frame_invariant(pygame_ready, tmp_path, backend):
     """Same invariant, no bespoke texture -- the OP_CLIP_FILL / flat
     `_floor_color` path must also be indifferent to which side of the
@@ -288,7 +295,7 @@ def test_flat_floor_is_root_frame_invariant(pygame_ready, tmp_path, backend):
         level, r0, r1 = level_fn(px, "root_inv_flat")
         session = _douse_player_lamp(
             GameSession(level, seed=1234, screen=(INTERNAL_W, INTERNAL_H)))
-        ren = Renderer(session, backend=backend, max_depth=1)
+        ren = Renderer(session, max_depth=1)
         ren._get_detail = lambda polygon: []
         surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
         session.tick(InputFrame())
@@ -483,7 +490,7 @@ def test_jamb_walls_visible_before_crossing_within_apex_clamp_margin(
     recording to find."""
     level, rA, rB = _jamb_level("root_inv_jamb")
     session = GameSession(level, seed=1, screen=(INTERNAL_W, INTERNAL_H))
-    session.player_light.intensity = 0.0
+    session.douse_player_lights()
     # Position directly via the physics entity (not level.player_pos +a
     # fresh tick): spawning within a wall's push-out margin triggers the
     # engine's own spawn-clear physics, which relocates the entity on its
@@ -520,7 +527,7 @@ def test_jamb_wall_reveal_is_continuous_across_the_actual_crossing(
     level.player_polygon = rA
     level.player_pos = (-58.0, 0.0)
     session = GameSession(level, seed=1, screen=(INTERNAL_W, INTERNAL_H))
-    session.player_light.intensity = 0.0
+    session.douse_player_lights()
 
     prev_walls = None
     crossed = False
@@ -557,7 +564,7 @@ def test_jamb_wall_reveal_is_continuous_across_the_actual_crossing(
         f"root, got {len(final_walls)}: {final_walls}")
 
 
-@pytest.mark.parametrize("backend", ["pygame", "rust"])
+@pytest.mark.parametrize("backend", ["rust"])
 def test_darkness_enabled_multipolygon_is_root_frame_invariant(
         pygame_ready, tmp_path, backend):
     """The director's report, directly reproduced: crossing a doorway
@@ -576,7 +583,15 @@ def test_darkness_enabled_multipolygon_is_root_frame_invariant(
         level, rA, rB = _hetero_level(px, "root_inv_hetero")
         session = _douse_player_lamp(
             GameSession(level, seed=7, screen=(INTERNAL_W, INTERNAL_H)))
-        ren = Renderer(session, backend=backend)  # real max_depth/instances, real darkness
+        # Station/breach fixtures are decorative line art (the pod's dig-in
+        # roots, supply conduits, breach rims) drawn with canvas.line/set_at
+        # at pixel-rounded coords -- legitimately camera-pose sensitive, the
+        # same class as the _get_detail art isolated below. This test targets
+        # the darkness/palette pipeline, not fixture overlays, so drop them.
+        session.stations = []
+        session.boosters = []
+        session.breaches = []
+        ren = Renderer(session)  # real max_depth/instances, real darkness
         # Isolate the floor/wall/darkness path from decorative line art
         # (hazard stripes etc): those are drawn via canvas.line/polygon at
         # pixel-rounded coordinates, so a hair's difference in camera pose

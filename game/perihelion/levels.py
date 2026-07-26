@@ -54,6 +54,10 @@ class LightSpec:
     intensity: float
     radius: float
     kind: str = "static"  # "static" | "attached"
+    # directional (cone) lights: `dir` is a polygon-local unit vector,
+    # `arc` the full cone angle in radians; dir None = omnidirectional
+    dir: tuple[float, float] | None = None
+    arc: float = 0.0
 
 
 @dataclass

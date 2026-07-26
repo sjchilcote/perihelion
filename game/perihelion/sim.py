@@ -164,6 +164,17 @@ SENTRIES: dict[str, dict] = {
                    bolt_speed=1400.0, alert_snd="pistol_fire"),
 }
 
+# DESIGN_7_25 §2: every placed building spends 30 seconds inert and fragile
+# ("unpack") before it activates — you can't drop a turret into a swarm and
+# have it fight. Consumed by the placement code and by the renderer's
+# unpack-progress draw.
+BUILDING_UNPACK_TICKS = 30 * 60
+
+# DESIGN_7_25 §1b: an Adversary scout's rooted broadcast (lacuna 8s; the
+# per-class split lands with the scout unit). The renderer reads this as the
+# transmit-tell denominator when an enemy doesn't carry its own call_t.
+CALL_TRANSMIT_TICKS = 8 * 60
+
 # The fabricator's price sheet. Components are salvaged mass — every enemy
 # yields its score in components (the same number the metrics already used,
 # so salvage income equals fight difficulty by construction).
@@ -297,11 +308,53 @@ class GameSession:
         # removed.
         self.lighting = LightingSystem(s, level)
         from .levels import LightSpec as _LightSpec
+        # the flashlight proper: a directional cone along the aim
+        # (COMBAT_REDESIGN §10 — directional lights; "the player's
+        # flashlight needs to reach further")
         self.player_light = _LightSpec(
             polygon=level.player_polygon, pos=tuple(level.player_pos),
-            color=(255, 226, 188), intensity=0.95, radius=85.0,
-            kind="attached")
+            color=(255, 226, 188), intensity=1.0, radius=230.0,
+            kind="attached", dir=(1.0, 0.0), arc=1.15)
         self.lighting.lights.append(self.player_light)
+        # ...plus the close work-lamp pool so the frame itself is never
+        # standing in its own darkness
+        # radius 70 -> 88 (2026-07-21): four independent frame reviews of
+        # the gauntlet footage flagged long stretches where nothing but the
+        # player was legible. The flashlight covers where you AIM; this
+        # pool covers where you ARE, and at 70u it was smaller than the
+        # player's own reach. The level's authored darkness is untouched —
+        # this only fills the ring you are standing in.
+        self.player_lamp = _LightSpec(
+            polygon=level.player_polygon, pos=tuple(level.player_pos),
+            color=(255, 226, 188), intensity=0.64, radius=88.0,
+            kind="attached")
+        self.lighting.lights.append(self.player_lamp)
+        # muzzle flash as a REAL light: re-lit on every shot, decaying
+        # over ~5 ticks (see _fire / tick). OMNIDIRECTIONAL and room-sized
+        # (director 2026-07-22: "it should light up the whole room") — the
+        # old narrow cone (arc 1.9, radius 150) left the room mostly dark
+        # while a fake per-room glow disc did the visible flashing, and
+        # that disc was clipped to the firing room, which is exactly the
+        # seam at every portal the director kept seeing.
+        self.muzzle_light = _LightSpec(
+            polygon=level.player_polygon, pos=tuple(level.player_pos),
+            color=(255, 214, 150), intensity=0.0, radius=320.0,
+            kind="attached")
+        self.lighting.lights.append(self.muzzle_light)
+        # transient PULSE lights (tau discharge, sentry muzzles, wall
+        # breaches, the reprint pad): the same idea as the muzzle light, a
+        # small round-robin pool of real attached lights that flare and
+        # decay. Real lights propagate through portals along occlusion
+        # wedges like every other light; the per-room glow discs they
+        # replace ended in a hard bright edge at the first portal.
+        self._pulse_lights = [
+            _LightSpec(polygon=level.player_polygon,
+                       pos=tuple(level.player_pos),
+                       color=(255, 214, 150), intensity=0.0, radius=200.0,
+                       kind="attached")
+            for _ in range(4)]
+        self.lighting.lights.extend(self._pulse_lights)
+        self._pulse_at = 0
 
         # --- doors (pending connections) ---
         self.doors: list[dict] = []
@@ -485,6 +538,38 @@ class GameSession:
             rec.update(extra)
         self.pickups[eid] = rec
         return eid
+
+    def douse_player_lights(self) -> None:
+        """Master off-switch for the player's whole light rig
+        (flashlight cone + work lamp + muzzle flash) — the single
+        hook tests and dark-scene tooling use; poking one spec is no
+        longer enough now the rig is three lights."""
+        self.player_light.intensity = 0.0
+        self.player_lamp.intensity = 0.0
+        self.muzzle_light.intensity = 0.0
+        for _pl in self._pulse_lights:
+            _pl.intensity = 0.0
+        self._lights_doused = True
+
+    def pulse_light(self, polygon: int, pos, radius: float,
+                    intensity: float, color=(255, 214, 150)) -> None:
+        """Flare one of the transient pulse lights (tau discharge, sentry
+        muzzle, wall breach, reprint pad) at `pos`, decaying like the
+        muzzle flash (~5 ticks, see tick()). These are REAL lights: their
+        burst crosses portals through occlusion wedges like every other
+        light, which is the whole point — the per-room glow discs they
+        replaced ended in a hard bright edge at the first portal
+        (director 2026-07-22: "muzzle flash causes room seams — rework it
+        to use the actual lighting system")."""
+        if getattr(self, "_lights_doused", False):
+            return
+        pl = self._pulse_lights[self._pulse_at]
+        self._pulse_at = (self._pulse_at + 1) % len(self._pulse_lights)
+        pl.polygon = polygon
+        pl.pos = (pos[0], pos[1])
+        pl.color = color
+        pl.radius = radius
+        pl.intensity = intensity
 
     def spawn_sentry(self, polygon: int, pos, kind: str = "sentry") -> int:
         d = SENTRIES[kind]
@@ -690,6 +775,14 @@ class GameSession:
 
         self._turret_tick()
         self._sentry_tick()
+        if self.muzzle_light.intensity > 0.0:
+            self.muzzle_light.intensity = (
+                0.0 if self.muzzle_light.intensity < 0.06
+                else self.muzzle_light.intensity * 0.68)
+        for _pl in self._pulse_lights:
+            if _pl.intensity > 0.0:
+                _pl.intensity = (0.0 if _pl.intensity < 0.06
+                                 else _pl.intensity * 0.68)
         if self.dead:
             # death landed mid-tick (contact/spit during the event sweep):
             # a dead frame reads no terminals, opens no shops, exits no
@@ -868,7 +961,12 @@ class GameSession:
         mx_, my_ = self._clamp_apex(
             ppolygon, px + adx * (PLAYER_RADIUS + 5),
             py + ady * (PLAYER_RADIUS + 5))
-        self.fx.append(("flash", ppolygon, mx_, my_, 26.0))
+        # the flash IS a light and nothing else (COMBAT_REDESIGN §10),
+        # decaying over ~5 ticks (see tick())
+        if not getattr(self, "_lights_doused", False):
+            self.muzzle_light.polygon = ppolygon
+            self.muzzle_light.pos = (mx_, my_)
+            self.muzzle_light.intensity = 1.35
         if self.weapon == "rail":
             self._fire_rail(ppolygon, px, py, adx, ady)
         else:
@@ -962,7 +1060,7 @@ class GameSession:
         self._snd("tau_charged_fire", ppolygon, (px, py))
         self._shake(4.0 + 5.0 * power)
         self._hitstop(2)
-        self.fx.append(("flash", ppolygon, px + adx * 12, py + ady * 12, 30.0))
+        self.pulse_light(ppolygon, (px + adx * 12, py + ady * 12), 300.0, 1.2)
         self.alert_enemies(ppolygon, self.level.alert_hops)
 
     # ------------------------------------------------------------------
@@ -997,14 +1095,14 @@ class GameSession:
             self.holes -= 1
             self._decal(polygon, "scorch", hx, hy, 8.0)
             self._snd("door_unlock", polygon, (hx, hy))
-            self.fx.append(("holeopen", polygon, hx, hy))
+            self.pulse_light(polygon, (hx, hy), 220.0, 0.9)
             self._shake(2.5)
             return
         if self.hole_mark is None:
             self.hole_mark = (polygon, edge, t0, t1, hx, hy)
             self._decal(polygon, "scorch", hx, hy, 5.0)
             self._snd("terminal_type", polygon, (hx, hy))
-            self.fx.append(("holemark", polygon, hx, hy))
+            self.pulse_light(polygon, (hx, hy), 140.0, 0.5)
             return
         m_polygon, m_edge, m_t0, m_t1, mx, my = self.hole_mark
         if m_polygon == polygon and m_edge == edge:
@@ -1029,7 +1127,7 @@ class GameSession:
         self.holes -= 1
         self.hole_mark = None
         self._snd("door_unlock", polygon, (hx, hy))
-        self.fx.append(("holeopen", polygon, hx, hy))
+        self.pulse_light(polygon, (hx, hy), 220.0, 0.9)
         self._shake(3.0)
 
     def carve_door(self, polygon: int, near, width: float = 70.0) -> int | None:
@@ -1266,7 +1364,7 @@ class GameSession:
             s.set_vel(bid, nx * 1200.0, ny * 1200.0)
             self.bullets[bid] = dict(kind="turret", dmg=6, ttl=40)
             self._snd("smg_fire", polygon, (tx, ty), 0.35)
-            self.fx.append(("flash", polygon, tx + nx * 8, ty + ny * 8, 14.0))
+            self.pulse_light(polygon, (tx + nx * 8, ty + ny * 8), 190.0, 0.85)
 
     # ------------------------------------------------------------------
     # gauntlet sentries: data-driven, range/LOS-gated defensive turrets
@@ -1364,8 +1462,11 @@ class GameSession:
             s.set_vel(bid, nx * d["bolt_speed"], ny * d["bolt_speed"])
             self.bullets[bid] = dict(kind="turret", dmg=d["dmg"], ttl=50)
             self._snd(d["alert_snd"], polygon, (tx, ty), 0.4)
-            self.fx.append(("flash", polygon, tx + nx * (d["radius"] + 2),
-                            ty + ny * (d["radius"] + 2), 14.0))
+            # muzzle FLARE — a real pulse light at the barrel, brief and
+            # bright (director 2026-07-23: "muzzle flash, and muzzle flare
+            # at the barrel"); the render adds the sprite flash off fire_tick
+            self.pulse_light(polygon, (tx + nx * (d["radius"] + 2),
+                                       ty + ny * (d["radius"] + 2)), 150.0, 0.7)
 
     def _detonate_dart(self, bid: int, polygon: int, x: float, y: float):
         """The lightning cannon IS the crowd-control option (director,
@@ -2035,7 +2136,7 @@ class GameSession:
                             self._snd("door_unlock", polygon, (px_, py_))
                             self._decal(polygon, "scorch", px_, py_, 10.0)
                             self._shake(3.0)
-                            self.fx.append(("holeopen", polygon, px_, py_))
+                            self.pulse_light(polygon, (px_, py_), 220.0, 0.9)
                             break
                 if b is not None:
                     if b["kind"] in ("tau", "taucharged") and b.get("bounces", 0) > 0:
@@ -2422,7 +2523,7 @@ class GameSession:
                                    if self.sim.hop_distance(st["polygon"], ppolygon) >= 0
                                    else 1 << 20))
         polygon, (tx, ty) = best["polygon"], best["pos"]
-        self.fx.append(("flash", ppolygon, px, py, 30.0))
+        self.pulse_light(ppolygon, (px, py), 260.0, 1.0, (180, 235, 255))
         if ppolygon != polygon:
             self.reseat_player(polygon, (tx, ty))
         else:
@@ -2752,6 +2853,11 @@ class GameSession:
         # so its visibility cast can never start outside the polygon either
         self.player_light.polygon = ppolygon
         self.player_light.pos = (px, py)
+        self.player_light.dir = self.aim
+        self.player_lamp.polygon = ppolygon
+        self.player_lamp.pos = (px, py)
+        if self.muzzle_light.intensity > 0.0:
+            self.muzzle_light.polygon = ppolygon
         return self.sim.visible_set(ppolygon, self.cam, px, py,
                                     float(self.screen_w), float(self.screen_h),
                                     max_depth, max_instances)

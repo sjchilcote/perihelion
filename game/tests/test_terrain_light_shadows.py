@@ -102,7 +102,7 @@ def test_shadow_behind_terrain_pixel_composite():
         LightSpec(polygon=r0, pos=(-190.0, 0.0), color=(255, 255, 255),
                   intensity=1.2, radius=500.0, kind="static")])
     session.player_light.intensity = 0.0  # isolate the fixture
-    ren = Renderer(session, backend="pygame")
+    ren = Renderer(session)
     ren._get_detail = lambda polygon: []
     surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
     session.tick(InputFrame(mx=0, my=0, ax=INTERNAL_W / 2, ay=INTERNAL_H / 2,
@@ -208,7 +208,7 @@ def test_enemy_visible_in_terrain_shadow():
     eid = session.spawn_enemy(r0, (60.0, 0.0), "husk")
     session.enemies[eid]["state"] = "hunt"
 
-    ren = Renderer(session, backend="pygame")
+    ren = Renderer(session)
     ren._get_detail = lambda polygon: []
     surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
     session.tick(InputFrame(mx=0, my=0, ax=INTERNAL_W / 2, ay=INTERNAL_H / 2,
@@ -255,7 +255,7 @@ def test_lights_pass_stays_within_budget():
     session = GameSession(level, seed=1, screen=(INTERNAL_W, INTERNAL_H))
     session.sim.set_polygon_terrain(r0, [(-60.0, -20.0, -20.0, 20.0)])
     session.sim.set_polygon_terrain(r1, [(20.0, -20.0, 60.0, 20.0)])
-    ren = Renderer(session, backend="pygame")
+    ren = Renderer(session)
     surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
     session.tick(InputFrame(mx=0, my=0, ax=INTERNAL_W / 2, ay=INTERNAL_H / 2,
                              fire=False, alt=False, interact=False, weapon=0))

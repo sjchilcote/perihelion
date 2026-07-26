@@ -120,42 +120,10 @@ def test_a_body_at_the_edge_of_sight_is_partly_occluded():
 # property itself is covered per element type below)
 
 
-def _bbox(level, spawn) -> tuple[int, int]:
-    """Width and height in pixels of the subject's silhouette."""
-    base = _render(level, None)
-    with_it = _render(level, spawn)
-    diff = np.abs(with_it - base).sum(axis=2) > 12
-    xs, ys = np.where(diff)
-    if len(xs) == 0:
-        return (0, 0)
-    return (int(xs.max() - xs.min() + 1), int(ys.max() - ys.min() + 1))
-
-
-def test_the_adversary_trace_reads_larger_than_an_ordinary_body():
-    """The Adversary is not a body with an outline, it is a return the
-    instrument cannot resolve — and something unresolvable must be BIGGER
-    on screen than the things that resolve fine, or all its structure
-    lands inside a speck and it reads as one more small blob (which is
-    exactly how the director read the first cut).
-
-    A vagrant's hitbox (9.5u) is only fractionally larger than a husk's
-    (8.0u), so this asserts on the DRAWN silhouette, which is the thing
-    the director actually sees.
-    """
-    level = _two_rooms()
-    husk_w, husk_h = _bbox(level, (0, (0, 0), "husk"))
-    adv_w, adv_h = _bbox(level, (0, (0, 0), "vagrant"))
-    assert husk_w > 0 and adv_w > 0, "a subject failed to draw at all"
-    assert adv_w >= husk_w * 1.6 and adv_h >= husk_h * 1.6, (
-        f"the Adversary reads no bigger than a husk: "
-        f"vagrant {adv_w}x{adv_h}px vs husk {husk_w}x{husk_h}px")
-
-
-def test_the_adversary_is_still_occluded_like_everything_else():
-    """Drawing the trace oversized must not exempt it from layer 3 — a
-    vagrant around the corner is still not visible."""
-    level = _corner()
-    assert _silhouette(level, (2, (0.0, -50.0), "vagrant")) == 0
+# The Adversary-trace silhouette vectors (vagrant reads ≥1.6× a husk, and is
+# still occluded like everything else) return with the scout unit that adds
+# the vagrant/lacuna kinds to ENEMIES — a render test cannot draw an enemy
+# the sim cannot spawn.
 
 
 # ---------------------------------------------------------------------------
@@ -179,20 +147,6 @@ def _station_at(pos):
     return setup
 
 
-def _repair_at(x, y):
-    """The exact record `place_repair` builds (same fields, same entity
-    spawn), injected directly: the real call can only plant in the player's
-    own polygon and floats fx text that would contaminate the silhouette."""
-    def setup(s):
-        from perihelion.sim import GROUP_PICKUP
-        bid = s.sim.spawn(0, x, y, 6.5, 100.0, GROUP_PICKUP)
-        s.sim.set_props(bid, transfers=False)
-        s.boosters.append(dict(polygon=0, pos=(x, y),
-                               charge=s.BOOSTER_CHARGE, hp=s.REPAIR_HP,
-                               eid=bid, light=None))
-    return setup
-
-
 def _decal_at(pos):
     def setup(s):
         s.decals.setdefault(0, []).append(("blood", pos[0], pos[1], 14.0, 0.7))
@@ -211,16 +165,9 @@ def test_a_station_on_a_seam_is_not_cut_from_either_side():
             f"{open_px}px in open floor")
 
 
-def test_a_repair_station_on_a_seam_is_not_cut_from_either_side():
-    for side in (0, 1):
-        level = _two_rooms(side)
-        sx = _seam_x(level)
-        open_px = _silhouette(level, None, _repair_at(30.0, 40.0))
-        seam_px = _silhouette(level, None, _repair_at(sx - 4.0, 40.0))
-        assert open_px > 100, f"side {side}: reference cabinet drew {open_px}px"
-        assert seam_px >= open_px * 0.85, (
-            f"side {side}: repair cabinet cut at the seam — {seam_px}px vs "
-            f"{open_px}px in open floor")
+# The repair-cabinet seam vector returns with the buildings unit that adds
+# repair boosters to the sim (it injects the exact `place_repair` record,
+# which does not exist at this base).
 
 
 def test_a_decal_on_a_seam_is_not_cut_from_either_side():

@@ -55,7 +55,7 @@ def pygame_ready():
     pygame.quit()
 
 
-@pytest.mark.parametrize("backend", ["rust", "pygame"])
+@pytest.mark.parametrize("backend", ["rust"])
 def test_render_headless_smoke(pygame_ready, backend):
     import necore
     if backend == "rust" and not hasattr(necore, "Raster"):
@@ -66,7 +66,7 @@ def test_render_headless_smoke(pygame_ready, backend):
     # a mismatched default here would off-center the world and clip it to
     # the old resolution regardless of the surface size draw() targets.
     session = GameSession(level, seed=1234, screen=(INTERNAL_W, INTERNAL_H))
-    renderer = Renderer(session, backend=backend)
+    renderer = Renderer(session)
 
     frames: list[tuple[int, "pygame.Surface"]] = []
     draw_times: list[float] = []

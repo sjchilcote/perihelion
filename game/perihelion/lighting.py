@@ -41,6 +41,9 @@ class LightInstance:
     clip_local: tuple[tuple[float, float], ...]
     apex_local: tuple[float, float]  # the light's virtual position, R-local units
     radius_local: float              # light.radius converted to R-local units
+    # cone direction in the RECEIVING polygon's local frame (None = omni);
+    # the arc lives on the LightSpec
+    dir_local: tuple[float, float] | None = None
     # Walk-mask terrain shadows this light casts INTO this polygon-local
     # instance, polygon-local coords, one convex-ish polygon per occluding
     # rect (see `_shadow_poly_for_rect`). Empty for a polygon with no
@@ -175,7 +178,18 @@ def light_level_at(light_map: dict[int, list[tuple[int, "LightInstance"]]],
         a = max(0.0, min(1.0, 1.0 - dist / max(1e-6, inst.radius_local)))
         if a <= 0.0:
             continue
-        intensity = lights[light_idx].intensity if light_idx < len(lights) else 1.0
+        lt = lights[light_idx] if light_idx < len(lights) else None
+        intensity = lt.intensity if lt is not None else 1.0
+        if inst.dir_local is not None and lt is not None and lt.arc > 0.0 \
+                and dist > 1e-6:
+            cosang = (dx * inst.dir_local[0] + dy * inst.dir_local[1]) / dist
+            half = lt.arc / 2.0
+            ang = math.acos(max(-1.0, min(1.0, cosang)))
+            feather = max(0.05, half * 0.35)
+            if ang > half + feather:
+                continue
+            if ang > half:
+                a *= 1.0 - (ang - half) / feather
         total += a * a * intensity
     return max(0.0, min(1.0, total))
 
@@ -223,8 +237,17 @@ def compute_light_instances(sim, light: LightSpec, max_depth: int = 6,
         # falloff/gate clipping happens downstream (radial kernel, camera
         # clip polygon), this only needs to fully cover the dark region.
         shadow_local = terrain_shadow_polys(sim, polygon, apex_local, radius_local * 4.0)
+        dir_local = None
+        if light.dir is not None:
+            # the query cam is translate-only, so screen dir == light.dir;
+            # map it into the receiving polygon's frame like the apex
+            dlx, dly = necore.mat_apply_dir(inv, light.dir[0], light.dir[1])
+            dm = math.hypot(dlx, dly)
+            if dm > 1e-9:
+                dir_local = (dlx / dm, dly / dm)
         out.append(LightInstance(polygon, clip_local, apex_local, radius_local,
-                                  shadow_local))
+                                  dir_local=dir_local,
+                                  shadow_local=shadow_local))
     return out
 
 
@@ -253,7 +276,12 @@ class LightingSystem:
                 self._by_polygon.setdefault(inst.polygon, []).append((i, inst))
 
     def attached_lights(self) -> list[tuple[int, LightSpec]]:
-        return [(i, lt) for i, lt in enumerate(self.lights) if lt.kind == "attached"]
+        # intensity 0 contributes nothing but would still burn a full
+        # visibility pass per frame — the muzzle flash and the pulse-light
+        # pool sit at 0 almost always, so the gate is what makes a pool of
+        # transient real lights affordable at all
+        return [(i, lt) for i, lt in enumerate(self.lights)
+                if lt.kind == "attached" and lt.intensity > 0.0]
 
     def frame_lookup(self, sim) -> dict[int, list[tuple[int, LightInstance]]]:
         """Call once per frame: static cache plus freshly recomputed
