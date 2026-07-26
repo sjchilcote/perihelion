@@ -19,10 +19,10 @@ The spec is `DESIGN_7_25.md`; where this file and the spec disagree, the spec wi
 
 | # | Unit | Gate core (full vectors in the consult answer) |
 |---|---|---|
-| U0 | Pygame-free renderer (cherry-pick 203da395) | AST: no pygame in render path; one backend; draw() returns (W,H,3) uint8. DONE 2026-07-26 |
-| U1 | Instrumentation spine (`telemetry.py`, TraceBus) | typed events, no query API, import-boundary AST test; 120-tick vector with exact event counts; app/harness emit identical schemas |
-| U2 | Engine impulse + combat canon (Rust `apply_impulse`) | Δv mass law ±1e-9; 4×rail/2×charged-Tau kills a 168 Warden; every weapon pushes; kinematic ratios measured; no `set_vel` knockback anywhere |
-| U3 | find/senses API (`senses.py`) | frozen dataclasses; portal_depth>1 raises; 3-room visibility vector; lacuna probe returns fields+geometry only |
+| U0 | Pygame-free renderer (cherry-pick 203da395) | AST: no pygame in render path; one backend; draw() returns (W,H,3) uint8. DONE 2026-07-26 (200d1cc1) |
+| U1 | Instrumentation spine (`telemetry.py`, TraceBus) | typed events, no query API, import-boundary AST test; 120-tick vector with exact event counts; app/harness emit identical schemas. DONE 2026-07-26 (e6cf05f3) |
+| U2 | Engine impulse + combat canon (Rust `apply_impulse`) | Δv mass law ±1e-9; 4×rail/2×charged-Tau kills a 168 Warden; every weapon pushes; kinematic ratios measured; no `set_vel` knockback anywhere. DONE 2026-07-26 (dd949c3b) |
+| U3 | find/senses API (`senses.py`) | frozen dataclasses; ambient frame one-hop (deeper raises); targeted sight composes to 3 hops per the cross-room law; wallhack vector. DONE 2026-07-26 (5a93dfb2) |
 | U4 | Nine-field signal substrate (`signals.py`) | exponential decay from stored tick delta (update-frequency invariance <1e-9); half-life vectors (Trail 12s/Danger 180s); one-hop sampling; topology invalidation |
 | U5 | Coordination behaviors (`coordination.py`) | fractional quorum (3-peer room ≥2× commits of 12-peer); priority-budget flocking (opposed 100/100 → full left); raid fan 80–120/300 via second route; stand-down; alert_enemies() REMOVED |
 | U6 | Generic capture + Warden engulf (`capture.py`) | no `warden` check in player code; dot 0.49 no-capture / 0.51 capture; 75±1 HP over 60 ticks; release on captor death |

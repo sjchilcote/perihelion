@@ -62,7 +62,7 @@ class HUD:
     def _draw_salvage(self, fb, session) -> None:
         comp = int(getattr(session, "components", 0))
         s = f"{comp}c"
-        size = ui(14)
+        size = ui(16)
         tw, th = text.measure(s, size)
         x, y = ui(6), ui(6)
         self._plate(fb, x, y, tw, th)
@@ -74,7 +74,7 @@ class HUD:
         maxhp = max(1, int(getattr(session, "max_hp", 100)))
         frac = min(1.0, hp / maxhp)
         col = _HP_LOW if frac <= 0.34 else _HP_OK
-        size = ui(14)
+        size = ui(16)
         label = f"{hp}"
         tw, th = text.measure(label, size)
         x = ui(6)
@@ -99,11 +99,11 @@ class HUD:
             ammo_str = f"{int(getattr(session, 'components', 0))}"
         else:
             ammo_str = f"{int(getattr(session, 'ammo', {}).get(atype, 0))}"
-        size = ui(12)
+        size = ui(16)
         label = name.upper()
         tw, th = text.measure(label, size)
         # sits just above the health line
-        _, hh = text.measure("0", ui(14))
+        _, hh = text.measure("0", ui(16))
         y = H - ui(6) - hh - ui(3) - th
         x = ui(6)
         aw = 0

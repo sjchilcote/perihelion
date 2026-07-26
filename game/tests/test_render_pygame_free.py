@@ -84,3 +84,16 @@ def test_draw_returns_numpy_frame():
     assert isinstance(frame, np.ndarray)
     assert frame.shape == (INTERNAL_W, INTERNAL_H, 3)
     assert frame.dtype == np.uint8
+
+
+def test_hud_text_is_16px():
+    """DESIGN_7_25 §4: Fixedsys Excelsior always drawn at 16px. The HUD's
+    14px/12px sizes degraded FSEX's '8' into a dotted-zero lookalike —
+    five independent frame reviewers read hp 82 as 02 (2026-07-26 canon
+    probe). Every HUD text size must be ui(16)."""
+    import re
+    src = (PKG / "hud.py").read_text()
+    sizes = re.findall(r"size = ui\((\d+)\)", src)
+    assert sizes and all(s == "16" for s in sizes), (
+        f"HUD text sizes {sizes} — the ratified rule is 16px, always")
+    assert "ui(14)" not in src and "ui(12)" not in src
