@@ -99,6 +99,9 @@ Judge, citing frame files and ticks:
    A 'dry_no_site: no free apse seam' or 'call from inside the hub'
    entry is a DESIGNED tell of the enemy's finite economy, not a
    failure; only 'no wall holds a 96u seam' indicates a content bug.
+   'lightning_self' damage is the player's own lightning cannon
+   detonating too close — a self-splash skill mechanic with a full
+   bolt-burst visual at the blast site, not an invisible attacker.
    DEATH IS A TRANSLOCATION, not a reset (System Shock rule): on
    death the player reprints at a seed station with full HP while the
    world stays exactly as it lies — a 'player_respawn' log line marks
@@ -349,8 +352,11 @@ def verify_findings(reports: list[dict], rec: Path, model: str) -> dict:
     flat = []
     for ci, rep in enumerate(reports):
         for f in rep.get("findings", []):
-            if f.get("severity") in ("P0", "P1"):
-                flat.append((ci, f))
+            flat.append((ci, f))   # ALL severities: unverified P2s
+            # leaked straight into the final verdict as blockers
+            # (run 20: a fully-logged spit-dip-plus-medkit sequence
+            # survived as 'unexplained HP jump' because only P0/P1
+            # faced the trace)
     if not flat:
         return {}
     listing = "\n".join(
