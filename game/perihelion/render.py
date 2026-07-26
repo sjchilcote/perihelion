@@ -3261,10 +3261,15 @@ class Renderer:
         ix, iy = _pt((sx, sy))
         pulse = 0.5 + 0.5 * math.sin(tick * 0.13)
         # bigger than a floor stain, and a dark-VIOLET well (not near-black) so
-        # it never reads as blood/grime -- the whole point is "obviously a tear"
-        r = int(16 + 4 * pulse)
+        # it never reads as blood/grime -- the whole point is "obviously a
+        # tear". Sized against the 96u seam it is cut from (the first live
+        # frame review read the old 16px ring as 'a dark knot/smudge' at
+        # farm zoom), with a doubled rim and an outer glow ring.
+        r = int(26 + 6 * pulse)
+        canvas.circle((36, 10, 52), (ix, iy), r + 6)          # outer bruise
         canvas.circle((24, 7, 34), (ix, iy), r)               # the violet void
-        canvas.circle((210, 85, 240), (ix, iy), r, 1)         # bright hot rim
+        canvas.circle((228, 110, 255), (ix, iy), r, 2)        # bright hot rim
+        canvas.circle((150, 60, 200), (ix, iy), r + 6, 1)     # halo ring
         canvas.circle((170, 62, 205), (ix, iy), max(2, r - 1), 1)   # rim depth
         canvas.circle((130, 45, 175), (ix, iy), max(2, int(r * 0.62)), 1)
         canvas.circle((150, 55, 190), (ix, iy), max(2, int(r * 0.32)), 1)  # inner well

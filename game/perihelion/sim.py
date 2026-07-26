@@ -2180,9 +2180,15 @@ class GameSession:
         obj = Breach(breach_id=bid, world_chamber=rp, hub_chamber=hub_r,
                      opened_tick=t_, link=link, last_cross_tick=t_,
                      last_interest_tick=t_)
+        # the tear sheds real light — violent violet energy through the
+        # actual lighting system, born with the breach, dying with it
+        from .levels import LightSpec as _LS
+        blight = _LS(polygon=rp, pos=(mx_, my_), color=(190, 80, 235),
+                     intensity=0.85, radius=190.0, kind="attached")
+        self.lighting.lights.append(blight)
         self.breaches.append(dict(polygon=rp, pos=(mx_, my_), obj=obj,
                                   world_h=world_h, seam=seam,
-                                  apse_idx=seam_apse_idx))
+                                  apse_idx=seam_apse_idx, light=blight))
         self.marrow.on_breach_opened(bid, t_)
         self._snd("door_unlock", rp, (mx_, my_), 1.0)
         self._decal(rp, "scorch", mx_, my_, 14.0)
@@ -2240,6 +2246,8 @@ class GameSession:
             return
         self.topology.disconnect(br["obj"].link)
         self._free_seams.append(br["seam"])
+        if br.get("light") in self.lighting.lights:
+            self.lighting.lights.remove(br["light"])
         self.breaches.remove(br)
         self.marrow.on_breach_sealed(breach_id)
         self._snd("door_unlock", br["polygon"], br["pos"], 0.6)
