@@ -133,6 +133,24 @@ def danger_hold(danger_next: float, committed_visible: int,
     return muster_here < DANGER_CROSS_MUSTER
 
 
+# garrison settlement (U10): a follower settles where a Warden stands,
+# nothing hostile is visible, the ground is quiet, and it has HELD that
+# ground continuously — the leader is completely oblivious (no follower
+# count, no base id, no command state ever touches the Warden)
+SETTLE_NOISE_CEIL = 0.20
+SETTLE_DANGER_CEIL = 0.35
+SETTLE_HOLD_TICKS = 12 * 60
+
+
+def may_settle(warden_present: bool, hostile_visible: bool,
+               noise: float, danger: float, held_ticks: int) -> bool:
+    if not warden_present or hostile_visible:
+        return False
+    if noise >= SETTLE_NOISE_CEIL or danger >= SETTLE_DANGER_CEIL:
+        return False
+    return held_ticks >= SETTLE_HOLD_TICKS
+
+
 def choose_route(best_edge: int, second_edge: int, raid_member: bool) -> int:
     """The multi-approach fan: ~1/3 of committed searchers take their
     second-best route so a push arrives from more than one direction."""

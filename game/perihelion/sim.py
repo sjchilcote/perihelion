@@ -1858,6 +1858,48 @@ class GameSession:
                 continue
 
             if e["state"] == "idle":
+                # GARRISON SETTLEMENT (U10): quiet ground held beside a
+                # physically-present Warden long enough becomes a post.
+                # The Warden itself never knows — no follower count, no
+                # base id, nothing on its record; whatever chamber it
+                # happens to stand in emerges as the base.
+                if kind not in ("warden", *ADVERSARY):
+                    if (self.tick_count + eid) % 15 == 0:
+                        warden_here = any(
+                            oid in self.enemies
+                            and self.enemies[oid]["kind"] == "warden"
+                            for oid in s.polygon_entities(polygon))
+                        hostile = self.senses.sight_of(eid, self.pid) \
+                            is not None
+                        t_ = self.tick_count
+                        quiet_ok = coord.may_settle(
+                            warden_here, hostile,
+                            self.signals.sample(SignalKind.NOISE, polygon, t_),
+                            self.signals.sample(SignalKind.DANGER, polygon, t_),
+                            e.get("hold_t", 0))
+                        if warden_here and not hostile:
+                            e["hold_t"] = e.get("hold_t", 0) + 15
+                        else:
+                            e["hold_t"] = 0
+                        if quiet_ok and not e.get("garrison"):
+                            e["garrison"] = polygon
+                            self._set_enemy_state(eid, e, "idle")
+                            self.trace.emit(AgentTransition(
+                                tick=t_, entity_id=eid, agent_kind=kind,
+                                from_state="idle", to_state="settled"))
+                    if e.get("garrison") is not None \
+                            and (self.tick_count + eid) % 15 == 1:
+                        # a lone holder marks the WAY (reach); a pair or
+                        # more holds the WIRE (interior)
+                        gpoly = e["garrison"]
+                        mates = sum(
+                            1 for oid in s.polygon_entities(gpoly)
+                            if oid != eid and oid in self.enemies
+                            and self.enemies[oid].get("garrison") == gpoly)
+                        fkind = SignalKind.GARRISON_INTERIOR if mates >= 1 \
+                            else SignalKind.GARRISON_REACH
+                        self.signals.emit(fkind, gpoly, 0.05,
+                                          self.tick_count)
                 if polygon == ppolygon:
                     # the notice beat: growl first, charge after — the
                     # player always gets the first move
@@ -1876,7 +1918,8 @@ class GameSession:
                 # visible chamber-mates already committed, plus one
                 # bounded virtual supporter from the fields. Calm packed
                 # halls inhibit; sparse pickets flip first.
-                if (self.tick_count + eid) % 10 == 0:
+                if (self.tick_count + eid) % 10 == 0 \
+                        and e.get("garrison") is None:
                     if self.senses.sight_of(eid, self.pid) is not None:
                         self._set_enemy_state(eid, e, "waking")
                         e["wake"] = self.WAKE_TICKS[kind]
@@ -1900,8 +1943,18 @@ class GameSession:
                         e["wake"] = self.WAKE_TICKS[kind]
                         self._snd(d["alert_snd"], polygon, (ex, ey), 0.5)
                         continue
+                if e.get("garrison") is not None \
+                        and (self.tick_count + eid) % 10 == 0 \
+                        and self.senses.sight_of(eid, self.pid) is not None:
+                    self._set_enemy_state(eid, e, "waking")
+                    e["wake"] = self.WAKE_TICKS[kind]
+                    self._snd(d["alert_snd"], polygon, (ex, ey), 0.7)
+                    continue
                 if e.get("tether"):
                     continue     # a posted guardian STANDS its post
+                if e.get("garrison") is not None or e.get("hold_t", 0) > 0:
+                    continue     # holding ground beside the leader IS the
+                                 # behavior: no drifting out mid-settle
                 # aimless drift — and the drift is a PATROL: this chamber
                 # reads as recently searched to the rest of the swarm
                 if self.tick_count % 15 == (eid % 15):
