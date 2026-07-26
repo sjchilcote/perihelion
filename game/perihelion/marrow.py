@@ -14,6 +14,7 @@ the only thing that owns dispatch — is the only thing comparing them.
 """
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass, field
 
 RESERVE_CAP = 120.0
@@ -34,9 +35,21 @@ NO_ROUTE_CLOSE_TICKS = 12 * 60         # nobody hub-side wants it
 EXHAUSTED_FLOOR = 1.0
 
 # the standing guardian shelf: real, dispatchable bodies — when they
-# leave, the entrance genuinely weakens (replacements are U11 work)
+# leave, the entrance genuinely weakens. Replacements cost reserve and
+# arrive no faster than one per 12 s (ratified §1b), which makes the
+# timing the actual skill: the safest moment to invade is while the
+# shelf is away fighting somewhere else.
 GUARDIAN_SHELF = ("mite", "mite", "mite", "husk", "husk",
                   "spitter", "shrieker", "flicker", "brute", "warden")
+REPLACE_INTERVAL_TICKS = 12 * 60
+
+# the delivered strike package (ratified composition): 35% screen /
+# 25% ranged / 15% mobility / 25% breaker over a deterministic 20-slot
+# cycle — breakers never adjacent, the warden lands deep in the cycle
+STRIKE_CYCLE = ("mite", "spitter", "husk", "brute", "mite",
+                "shrieker", "flicker", "husk", "spitter", "brute",
+                "mite", "flicker", "husk", "brute", "spitter",
+                "mite", "shrieker", "brute", "flicker", "warden")
 
 
 class ReserveDepot:
@@ -53,7 +66,8 @@ class ReserveDepot:
             regen = REGEN_BASE * (1.0 + REGEN_EMPTY_BOOST)
         else:
             empty = max(0.0, min(1.0, 1.0 - self.reserve / RESERVE_CAP))
-            regen = REGEN_BASE * (1.0 + REGEN_EMPTY_BOOST * empty)                 * max(0.0, capacity)
+            regen = REGEN_BASE * (1.0 + REGEN_EMPTY_BOOST * empty) \
+                * max(0.0, capacity)
         self.reserve = min(RESERVE_CAP, self.reserve + regen * elapsed_seconds)
 
     def can_pay(self, cost: float) -> bool:
@@ -158,12 +172,13 @@ class MarrowController:
     signature — the blindness is structural."""
 
     __slots__ = ("depot", "sched", "_next_dispatch", "_pending_kind",
-                 "_shelf_queue")
+                 "_shelf_queue", "_next_replace")
 
     def __init__(self) -> None:
         self.depot = ReserveDepot()
         self.sched = CostFairScheduler()
         self._next_dispatch = 0
+        self._next_replace = 0
         self._pending_kind: str | None = None
         # the initial pour leads with the standing shelf — ONE physical
         # set of pre-produced bodies for the whole hub, not one per
@@ -180,11 +195,24 @@ class MarrowController:
     def on_breach_sealed(self, breach_id: int) -> None:
         self.sched.remove_breach(breach_id)
 
-    def step(self, tick: int, imprint, live_breaches,
+    def step(self, tick: int, imprint, live_breaches, *,
+             shelf_census: list[str],
              dispatch_factor: float = 1.0,
              capacity: float = 1.0) -> list[MarrowCommand]:
         out: list[MarrowCommand] = []
         self.depot.advance(1.0 / 60.0, capacity)
+        # the physical hub is authoritative: the pour queue is re-derived
+        # from the bodies actually standing at the posts, so a guardian
+        # shot AT its post leaves the books the same way one that
+        # marched out does — the two can never diverge
+        self._reconcile_shelf(shelf_census)
+        if not live_breaches:
+            # the shelf rebuilds only in quiet: during a pour every
+            # body and every point of reserve belongs to the gate, so
+            # tell #1's arithmetic — wait = (cost - reserve)/regen —
+            # stays exact. The rebuild window after a fight IS the
+            # 'safest moment to invade' from the ratified spec.
+            out.extend(self._step_replacement(tick, shelf_census))
         if imprint is not None and self.depot.reserve >= EXHAUSTED_FLOOR:
             # ratified: when the reserve is exhausted the marrow STOPS
             # OPENING portals — the consumed call stays dry
@@ -230,11 +258,41 @@ class MarrowController:
                                          reason=reason))
         return out
 
+    def _reconcile_shelf(self, shelf_census: list[str]) -> None:
+        remaining = Counter(shelf_census)
+        queue = []
+        for k in GUARDIAN_SHELF:
+            if remaining[k] > 0:
+                remaining[k] -= 1
+                queue.append(k)
+        self._shelf_queue = queue
+
+    def _step_replacement(self, tick: int,
+                          shelf_census: list[str]) -> list[MarrowCommand]:
+        """Rebuild the standing shelf toward its canonical composition:
+        each replacement costs reserve and arrives no faster than one
+        per 12 s (ratified). Canonical order — the screen rebuilds
+        first. Like the gate, this never substitutes: if the next
+        needed body is unaffordable, the post stays vacant until the
+        reserve covers IT."""
+        if tick < self._next_replace \
+                or self.depot.reserve < EXHAUSTED_FLOOR:
+            return []
+        deficit = Counter(GUARDIAN_SHELF) - Counter(shelf_census)
+        kind = next((k for k in GUARDIAN_SHELF if deficit[k] > 0), None)
+        if kind is None:
+            return []
+        cost = float(DISPATCH_COST[kind])
+        if not self.depot.can_pay(cost):
+            return []
+        self.depot.pay(cost)
+        self._next_replace = tick + REPLACE_INTERVAL_TICKS
+        return [MarrowCommand(kind="replace", unit_kind=kind)]
+
     @staticmethod
     def _rotation(tick: int) -> str:
-        """The sustained-pour mix once the shelf is spent — deterministic
-        rotation weighted toward the delivered strike package (first
-        pass; the ratified composition tables land with the CORE organ)."""
-        cycle = ("husk", "mite", "spitter", "husk", "flicker",
-                 "mite", "brute", "shrieker")
-        return cycle[(tick // DISPATCH_INTERVAL_TICKS) % len(cycle)]
+        """The sustained-pour mix once the shelf is spent: the ratified
+        delivered-strike composition — 35% screen, 25% ranged, 15%
+        mobility, 25% breaker — as a deterministic 20-slot cycle."""
+        return STRIKE_CYCLE[(tick // DISPATCH_INTERVAL_TICKS)
+                            % len(STRIKE_CYCLE)]

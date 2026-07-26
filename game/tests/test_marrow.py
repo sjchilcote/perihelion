@@ -104,7 +104,7 @@ def test_the_stall_waits_for_the_selected_unit():
     for t in range(1, 30 * 60):
         br.note_crossing(t)          # keep closure out of this vector
         br.note_interest(t)
-        cmds = m.step(t, None, [br])
+        cmds = m.step(t, None, [br], shelf_census=[])
         for c in cmds:
             assert c.kind != "dispatch" or c.unit_kind == "warden", (
                 f"substituted {c.unit_kind} while a warden was pending")

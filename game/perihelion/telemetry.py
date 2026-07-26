@@ -154,6 +154,16 @@ class DispatchDecision:
     unit_kind: str
     entity_id: int
     from_shelf: bool
+    knows_position: bool  # the ~10% rule: does this body know the site?
+    hub_chamber: int
+
+
+@dataclass(frozen=True, slots=True)
+class ShelfReplaced:
+    KIND = "shelf_replaced"
+    tick: int
+    unit_kind: str
+    entity_id: int
     hub_chamber: int
 
 
@@ -177,7 +187,7 @@ class TopologyChanged:
 TraceEvent = (InputRecord | AgentTransition | PortalCrossing
               | DamageApplied | ImpulseApplied | TopologyChanged
               | FieldSample | BreachLifecycle | ReserveSample
-              | DispatchDecision)
+              | DispatchDecision | ShelfReplaced | CorePartEvent)
 
 
 class TraceBus:

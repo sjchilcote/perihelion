@@ -27,7 +27,7 @@ from .core_organ import CORE_KINDS, PART_SPEC, CoreOrgan
 from .callmedium import CallMedium
 from . import scouts
 from .telemetry import (AgentTransition, BreachLifecycle, CorePartEvent, DamageApplied,
-                        DispatchDecision, FieldSample, ImpulseApplied,
+                        DispatchDecision, ShelfReplaced, FieldSample, ImpulseApplied,
                         InputRecord, PortalCrossing, ReserveSample,
                         TopologyChanged, TraceBus)
 from . import terrain
@@ -2316,14 +2316,20 @@ class GameSession:
             bid = br["obj"].breach_id
             if any(e.get("dispatched") == bid for e in self.enemies.values()):
                 br["obj"].note_interest(t_)
+        self.hub_shelf = [sid for sid in self.hub_shelf
+                          if sid in self.enemies]
+        census = [self.enemies[sid]["kind"] for sid in self.hub_shelf]
         for cmd in self.marrow.step(
                 t_, imprint, live,
+                shelf_census=census,
                 dispatch_factor=self.core.dispatch_factor(),
                 capacity=self.core.production_capacity()):
             if cmd.kind == "open":
                 self._open_breach(cmd.imprint)
             elif cmd.kind == "dispatch":
                 self._dispatch_unit(cmd.breach_id, cmd.unit_kind)
+            elif cmd.kind == "replace":
+                self._replace_shelf_unit(cmd.unit_kind)
             elif cmd.kind == "seal":
                 self._seal_breach(cmd.breach_id, cmd.reason)
         if t_ % 60 == 0:
@@ -2413,18 +2419,40 @@ class GameSession:
             eid = self.spawn_enemy(apse_court, (sx_, sy_), kind)
         e = self.enemies[eid]
         e["dispatched"] = breach_id
-        # the marrow's order IS knowledge: the unit knows which chamber
-        # the breach opens into (not where the intruder is) and walks
-        # there; past the gate it runs on ordinary fields and sight.
-        # (The ratified ~10%-know-the-transmitted-position refinement
-        # rides in with the composition tables.)
-        e["dispatch_target"] = br["polygon"]
+        # ratified: only ~10% of a dispatched group (minimum one — the
+        # pour's first body) knows the transmitted position and walks
+        # to the breach chamber. The rest run on ordinary one-hop
+        # fields, sight, and flocking — following the knowers' doorway
+        # trails out, straying, and seeding garrisons. Killing scouts
+        # is a GRADED counter, not a switch.
+        knows = br.setdefault("sent", 0) % 10 == 0
+        br["sent"] += 1
+        if knows:
+            e["dispatch_target"] = br["polygon"]
         e.pop("tether", None)          # relieved of post: go
         self._set_enemy_state(eid, e, "hunt")
         self.trace.emit(DispatchDecision(
             tick=t_, breach_id=breach_id, unit_kind=kind, entity_id=eid,
-            from_shelf=from_shelf,
+            from_shelf=from_shelf, knows_position=knows,
             hub_chamber=self.sim.get_polygon(eid)))
+
+    def _replace_shelf_unit(self, kind: str) -> None:
+        """A paid shelf replacement arrives at a post: spawned in the
+        guardian court currently holding the fewest shelf bodies,
+        tethered like every posted guardian."""
+        counts = {c: 0 for c in self.hub.guardian_courts}
+        for sid in self.hub_shelf:
+            c = self.sim.get_polygon(sid)
+            if c in counts:
+                counts[c] += 1
+        court = min(self.hub.guardian_courts, key=lambda c: counts[c])
+        eid = self.spawn_enemy(court, (self.rng.uniform(-60.0, 60.0),
+                                       self.rng.uniform(-45.0, 45.0)), kind)
+        self.enemies[eid]["tether"] = True
+        self.hub_shelf.append(eid)
+        self.trace.emit(ShelfReplaced(
+            tick=self.tick_count, unit_kind=kind, entity_id=eid,
+            hub_chamber=court))
 
     def _seal_breach(self, breach_id: int, reason: str) -> None:
         t_ = self.tick_count
