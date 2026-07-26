@@ -63,7 +63,17 @@ Judge, citing frame files and ticks:
 2. FIGHT READABILITY — can you tell what is happening: who is a
    threat, what the player is shooting, why the player took damage?
 3. PACING — dead air vs pressure. Long stretches where nothing
-   presses the player are a finding; so is unreadable chaos.
+   presses the player are a finding; so is unreadable chaos. HP/ammo
+   deltas may land BETWEEN judged frames (2s apart): before calling a
+   change unlogged, check the PREVIOUS frame's digest lines too.
+   A 'dry_no_site: no free apse seam' or 'call from inside the hub'
+   entry is a DESIGNED tell of the enemy's finite economy, not a
+   failure; only 'no wall holds a 96u seam' indicates a content bug.
+   DEATH IS A TRANSLOCATION, not a reset (System Shock rule): on
+   death the player reprints at a seed station with full HP while the
+   world stays exactly as it lies — a 'player_respawn' log line marks
+   it; a sudden HP/position jump matching one is the designed death
+   mechanic, not a bug.
 4. THE REINFORCEMENT LOOP — if the digest shows scout calls,
    breaches, pours: do they LAND on screen (a wall visibly tears,
    bodies pour through, the fight escalates)?
@@ -74,6 +84,32 @@ Reply with ONLY a JSON object, no prose, no fences:
 "chunk_score": 0.0-1.0, "summary": "<two sentences>"}}
 """
 
+VERIFY_PROMPT = """\
+You are the adversarial VERIFIER for playtest findings. Chunk judges
+reported the findings below from frames of a recorded session. You
+have the ground-truth simulation trace. Your job is to REFUTE what
+does not survive the data — judges have previously reported an
+'80-second zero-hit firing stall' when the trace showed the longest
+zero-hit stretch was 0.85s, a '14-second frozen standoff' during
+which the trace showed six chamber transitions and kills, and
+'unlogged damage' that was fully logged two frames earlier.
+
+Findings to verify:
+{findings}
+
+Ground-truth summaries computed from the full trace:
+{ground}
+
+Frame files are available to Read if a finding needs visual
+confirmation.
+
+For each finding, answer CONFIRMED only if the trace/ground data is
+consistent with it; REFUTED with one sentence of discriminating
+evidence otherwise; UNVERIFIABLE if neither. Reply with ONLY a JSON
+array, no prose: [{{"idx": <int>, "verdict": "CONFIRMED"|"REFUTED"|
+"UNVERIFIABLE", "why": "<one sentence>"}}...]
+"""
+
 VERDICT_PROMPT = """\
 You are the final judge of a recorded PERIHELION playtest session.
 Below are the chunk-by-chunk playtest reports from judges who read
@@ -82,6 +118,10 @@ every frame against the simulation logs, plus session statistics.
 {chunks}
 
 Session stats: {stats}
+
+Findings marked REFUTED failed verification against the simulation
+trace and MUST be ignored entirely; weigh only CONFIRMED (fully) and
+UNVERIFIABLE (with skepticism) findings.
 
 Question, exactly as the director posed it: Is P(this is a fun,
 critically acclaimed, commercially successful game) > {bar}?
@@ -115,7 +155,8 @@ def build_digests(rec: Path, judged: list[Path], window: int = 120) -> dict:
     """frame -> compact log lines within +/-window ticks of its tick."""
     events = defaultdict(list)
     keep = {"damage_applied", "agent_transition", "breach_lifecycle",
-            "dispatch_decision", "shelf_replaced", "core_part"}
+            "dispatch_decision", "shelf_replaced", "core_part",
+            "pickup_taken"}
     player_room = {}
     with open(rec / "trace.jsonl") as fh:
         for line in fh:
@@ -129,13 +170,22 @@ def build_digests(rec: Path, judged: list[Path], window: int = 120) -> dict:
         tick = int(f.stem.split("_")[1]) * 5
         pr = player_room.get(tick // 60)
         lines = [f'player_chamber={pr}'] if pr is not None else []
+        player_lines, other = [], []
         for sec in range((tick - window) // 60, (tick + window) // 60 + 1):
             for r in events.get(sec, []):
                 if abs(r["t"] - tick) <= window:
                     slim = {k: v for k, v in r.items()
                             if k not in ("seq",)}
-                    lines.append(json.dumps(slim, separators=(",", ":")))
-        digests[f.name] = lines[:40]
+                    row = json.dumps(slim, separators=(",", ":"))
+                    if r.get("target_kind") == "player":
+                        player_lines.append(row)
+                    else:
+                        other.append(row)
+        digests[f.name] = (lines + player_lines
+                           + other)[:8]   # per-frame budget: the global
+        # prompt slice starved late-chunk frames of ALL coverage (runs
+        # 6-7 'unlogged damage' artifacts); 8 prioritized lines per
+        # frame keeps every frame covered inside the slice
     return digests
 
 
@@ -147,7 +197,7 @@ def judge_chunk(frames: list[Path], digests: dict, idx: int, total: int,
     prompt = CHUNK_PROMPT.format(
         idx=idx, total=total,
         frames="\n".join(str(f) for f in frames),
-        digest=digest_txt[:24000])
+        digest=digest_txt[:60000])
     r = subprocess.run(
         ["claude", "-p", prompt, "--model", model,
          "--output-format", "json", "--allowedTools", "Read"],
@@ -158,6 +208,81 @@ def judge_chunk(frames: list[Path], digests: dict, idx: int, total: int,
     text = text.removeprefix("```json").removeprefix("```")
     text = text.removesuffix("```").strip()
     return json.loads(text)
+
+
+def ground_truth(rec: Path) -> dict:
+    """Hard per-session facts the verifier checks findings against."""
+    import bisect
+    fire, dmg_t, dmg = [], [], []
+    trans = 0
+    pr = {}
+    with open(rec / "trace.jsonl") as fh:
+        for line in fh:
+            r = json.loads(line)
+            k = r.get("kind")
+            if k == "input" and r.get("fire"):
+                fire.append(r["t"])
+            elif k == "damage_applied":
+                dmg_t.append(r["t"])
+                dmg.append((r["t"], r.get("target_kind"),
+                            r.get("source")))
+            elif k == "field_sample":
+                pr[r["t"]] = r.get("player_polygon")
+    fire.sort()
+    dmg_t.sort()
+    longest = 0
+    run_start = None
+    for t in fire:
+        i = bisect.bisect_left(dmg_t, t - 30)
+        near = i < len(dmg_t) and dmg_t[i] <= t + 90
+        if near:
+            run_start = None
+        else:
+            if run_start is None:
+                run_start = t
+            longest = max(longest, t - run_start)
+    return dict(
+        longest_zero_hit_firing_ticks=longest,
+        total_damage_events=len(dmg),
+        player_hits=sum(1 for _, tk, _ in dmg if tk == "player"),
+        damage_by_source=dict(
+            __import__("collections").Counter(s for _, _, s in dmg)),
+        player_chamber_changes=len(set(pr.values())),
+    )
+
+
+def verify_findings(reports: list[dict], rec: Path, model: str) -> dict:
+    """Adversarial pass: every P0/P1 chunk finding is checked against
+    trace ground truth; refuted findings are struck."""
+    flat = []
+    for ci, rep in enumerate(reports):
+        for f in rep.get("findings", []):
+            if f.get("severity") in ("P0", "P1"):
+                flat.append((ci, f))
+    if not flat:
+        return {}
+    listing = "\n".join(
+        f'{i}: [chunk {ci + 1} {f.get("severity")}] {f.get("note")} '
+        f'(frame {f.get("frame")}, tick {f.get("tick")})'
+        for i, (ci, f) in enumerate(flat))
+    prompt = VERIFY_PROMPT.format(
+        findings=listing,
+        ground=json.dumps(ground_truth(rec), indent=1))
+    r = subprocess.run(
+        ["claude", "-p", prompt, "--model", model,
+         "--output-format", "json", "--allowedTools", "Read"],
+        capture_output=True, text=True, timeout=JUDGE_TIMEOUT_S)
+    if r.returncode != 0:
+        raise RuntimeError(f"verifier failed: {r.stderr[:500]}")
+    text = json.loads(r.stdout)["result"].strip()
+    text = text.removeprefix("```json").removeprefix("```")
+    text = text.removesuffix("```").strip()
+    verdicts = {v["idx"]: v for v in json.loads(text)}
+    for i, (ci, f) in enumerate(flat):
+        v = verdicts.get(i, {})
+        f["verify"] = v.get("verdict", "UNVERIFIABLE")
+        f["verify_why"] = v.get("why", "")
+    return verdicts
 
 
 def final_verdict(chunk_reports: list[dict], stats: dict,
@@ -245,6 +370,12 @@ def main() -> int:
         print(f"[gate]   score={rep.get('chunk_score')} "
               f"findings={len(rep.get('findings', []))}", flush=True)
 
+    print("[gate] verifying P0/P1 findings against the trace...",
+          flush=True)
+    verify_findings(reports, rec, a.model)
+    struck = sum(1 for rep in reports for f in rep.get("findings", [])
+                 if f.get("verify") == "REFUTED")
+    print(f"[gate] verification struck {struck} findings", flush=True)
     stats = session_stats(rec, meta)
     verdict = final_verdict(reports, stats, a.model)
     (GATE / "verdict.json").write_text(json.dumps(verdict, indent=1))
