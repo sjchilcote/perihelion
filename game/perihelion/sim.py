@@ -560,6 +560,10 @@ class GameSession:
             dict(polygon=t.polygon, pos=t.pos, text=t.text, read=False)
             for t in level.terminals
         ]
+        # the finite Adversary census — every scout death is permanent.
+        # Initialized BEFORE the authored-entity loop: levels author
+        # scouts (ratified §1b), and spawn_enemy counts them as they land
+        self.adversary_census = {k: 0 for k in ADVERSARY}
         for polygon, spec in level.entities:
             self._spawn_from_spec(polygon, spec)
 
@@ -583,10 +587,8 @@ class GameSession:
         # generic captor/captive service (warden engulf is the first
         # user); damage flows back through _capture_burn, never directly
         self.captures = CaptureSystem()
-        # the world call medium (one radio channel) and the finite
-        # Adversary census — every scout death is permanent
+        # the world call medium — one radio channel
         self.medium = CallMedium()
-        self.adversary_census = {k: 0 for k in ADVERSARY}
         # runtime topology has ONE owner (the scale-1 guard lives there),
         # and every world builds the marrow hub at initialization — off
         # the reachable map, never None (DESIGN_7_25 architectural rule)
@@ -638,6 +640,14 @@ class GameSession:
                 self.enemies[eid]["hp"] = float(spec.props["hp"]) * self._hp_mul
             if spec.props.get("tether"):
                 self.enemies[eid]["tether"] = True
+            if spec.props.get("dormant"):
+                # a dormant spotter (ratified: 'some begin dormant in
+                # quiet chambers with high thresholds'): stone-still and
+                # taskless until local Noise/Distress crosses its
+                # threshold — killing the active scouts may not visibly
+                # reduce pressure, but the census only ever shrinks
+                self.enemies[eid]["dormant"] = float(
+                    spec.props.get("dormant_threshold", 0.5))
         elif t in SENTRIES:
             self.spawn_sentry(polygon, spec.pos, t)
         elif t in PICKUPS:
@@ -1921,6 +1931,15 @@ class GameSession:
 
             if kind in CORE_KINDS:
                 continue          # organs are bodies; the organ thinks
+            if kind in ADVERSARY and e.get("dormant"):
+                amb = max(
+                    self.signals.sample(SignalKind.NOISE, polygon,
+                                        self.tick_count),
+                    self.signals.sample(SignalKind.DISTRESS, polygon,
+                                        self.tick_count))
+                if amb < e["dormant"] and "scout_hit" not in e:
+                    continue      # asleep: no wander, no tasking
+                del e["dormant"]  # woken for good
             if kind in ADVERSARY and (e.get("scout")
                                       or self._maybe_task_scout(eid, e, polygon)):
                 self._scout_ai(eid, e, polygon, ex, ey, evx, evy)
