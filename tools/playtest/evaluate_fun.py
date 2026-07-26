@@ -54,7 +54,12 @@ Judge, citing frame files and ticks:
    into walls, or ignores an obvious fight. Correlate with the log:
    damage_applied entries against an enemy whose position never
    changes across frames = "stands there and takes it" — the exact
-   failure this gate exists to catch.
+   failure this gate exists to catch. IMPORTANT: the log records the
+   WHOLE simulation, most of it far from the camera — an empty frame
+   with busy log lines usually means the fight is in another chamber
+   (check player_chamber in the digest), which is honest simulation,
+   NOT a render bug. Only flag state/screen divergence for events in
+   the player's own chamber or within one door of it.
 2. FIGHT READABILITY — can you tell what is happening: who is a
    threat, what the player is shooting, why the player took damage?
 3. PACING — dead air vs pressure. Long stretches where nothing
@@ -111,15 +116,19 @@ def build_digests(rec: Path, judged: list[Path], window: int = 120) -> dict:
     events = defaultdict(list)
     keep = {"damage_applied", "agent_transition", "breach_lifecycle",
             "dispatch_decision", "shelf_replaced", "core_part"}
+    player_room = {}
     with open(rec / "trace.jsonl") as fh:
         for line in fh:
             r = json.loads(line)
             if r.get("kind") in keep:
                 events[r["t"] // 60].append(r)
+            elif r.get("kind") == "field_sample":
+                player_room[r["t"] // 60] = r.get("player_polygon")
     digests = {}
     for f in judged:
         tick = int(f.stem.split("_")[1]) * 5
-        lines = []
+        pr = player_room.get(tick // 60)
+        lines = [f'player_chamber={pr}'] if pr is not None else []
         for sec in range((tick - window) // 60, (tick + window) // 60 + 1):
             for r in events.get(sec, []):
                 if abs(r["t"] - tick) <= window:
