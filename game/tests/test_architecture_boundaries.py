@@ -62,6 +62,15 @@ def test_sim_stays_pygame_and_io_free():
         assert forbidden not in roots, f"sim.py imports {forbidden}"
 
 
+def test_senses_import_only_stdlib_and_engine():
+    """The senses are shared infrastructure UNDER the game systems: they
+    may see the engine (necore) and nothing above themselves — no sim, no
+    marrow, no audio, no render. Perception can never smuggle in another
+    system's internals."""
+    extra = _imports_of(PKG / "senses.py") - STDLIB_OK - {"necore"}
+    assert not extra, f"senses.py imports beyond stdlib+necore: {extra}"
+
+
 def test_audio_is_not_a_trace_source():
     """Logging/instrumentation must not be coupled to the audio system
     (IMPLEMENTATION CORRECTIONS): audio.py neither imports telemetry nor

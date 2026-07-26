@@ -16,6 +16,7 @@ import necore
 
 from .levels import Level
 from .lighting import LightingSystem, light_level_at
+from .senses import SenseQuery
 from .telemetry import (AgentTransition, DamageApplied, ImpulseApplied,
                         InputRecord, PortalCrossing, TopologyChanged,
                         TraceBus)
@@ -495,6 +496,9 @@ class GameSession:
         # the instrumentation spine: always present, emit-only from the
         # sim's side; app/harness drain it to JSONL (see telemetry.py)
         self.trace = TraceBus()
+        # the shared find/senses infrastructure (DESIGN_7_25): every
+        # "what can I see from here?" goes through this one query object
+        self.senses = SenseQuery(self.sim, self._describe_entity)
         self.decals: dict[int, list] = {}  # polygon -> [(kind,x,y,size,angle)]
         self._objective_fired: set[str] = set()  # once-gates for objective fx
         self.metrics = dict(ticks=0, shots=0, hits=0, kills=0, dmg_dealt=0.0,
@@ -1560,6 +1564,19 @@ class GameSession:
 
     # ------------------------------------------------------------------
 
+    def _describe_entity(self, eid: int):
+        """The senses' identity oracle: who a body is, or None for things
+        that are not sensable beings (bullets, pickups, decoration). The
+        tuple deliberately carries no HP and no private records."""
+        if eid == self.pid:
+            tags = frozenset(("dead",)) if self.dead else frozenset()
+            return ("player", "commando", "intruder", tags, GROUP_PLAYER)
+        e = self.enemies.get(eid)
+        if e is not None:
+            return (e["kind"], "testator", "fighter",
+                    frozenset((e["state"],)), GROUP_ENEMY)
+        return None
+
     def _apply_impulse(self, eid: int, jx: float, jy: float, *, source: str):
         """The one sanctioned push: J through the engine (dv = J/m), traced.
         Knockback is never a velocity write (DESIGN_7_25 combat canon)."""
@@ -1791,36 +1808,9 @@ class GameSession:
             # enemy that goes inert when the player steps over a
             # threshold is not a fight.
             tx = ty = None
-            if polygon == ppolygon:
-                tx, ty = px, py
-            elif 1 <= s.hop_distance(polygon, ppolygon) <= 3:
-                pxf = None
-                r_ = polygon
-                for _hop in range(3):
-                    if r_ == ppolygon:
-                        break
-                    pedge = s.next_edge(r_, ppolygon)
-                    if pedge < 0:
-                        pxf = None
-                        break
-                    step_xf = s.portal_xform(r_, pedge)
-                    if step_xf is None:
-                        pxf = None
-                        break
-                    pxf = step_xf if pxf is None \
-                        else necore.mat_mul(pxf, step_xf)
-                    portal = s.polygon_portals(r_)[pedge]
-                    r_ = portal[0]
-                else:
-                    pxf = None if r_ != ppolygon else pxf
-                if pxf is not None and r_ == ppolygon:
-                    wx, wy = necore.mat_apply(pxf, px, py)
-                    wdx, wdy = wx - ex, wy - ey
-                    wdl = math.hypot(wdx, wdy) or 1e-6
-                    hit = s.raycast(polygon, ex, ey, wdx / wdl, wdy / wdl, 3,
-                                    wdl + 40.0, 1 << GROUP_PLAYER, eid)
-                    if hit[0] == "ent" and hit[1] == self.pid:
-                        tx, ty = wx, wy
+            sighting = self.senses.sight_of(eid, self.pid)
+            if sighting is not None:
+                tx, ty = sighting.position
             if tx is not None:
                 ddx, ddy = tx - ex, ty - ey
                 dist = math.hypot(ddx, ddy) or 1e-6
