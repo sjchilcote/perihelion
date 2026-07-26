@@ -617,6 +617,15 @@ class GameSession:
             # dispatches it — vacant posts must MEAN dispatch happened
             self.enemies[gid]["tether"] = True
             self.hub_shelf.append(gid)
+        # the RESIDENT population — ordinary agents, not posted, not on
+        # the shelf: they live in the cathedral, wander it, and defend
+        # it when the raid comes (ratified: the hub reads visibly
+        # lighter than the strike package it dispatches)
+        from .hub import RESIDENT_PLACEMENT
+        for name_, kind_ in RESIDENT_PLACEMENT:
+            self.spawn_enemy(self.hub.chambers[name_],
+                             (self.rng.uniform(-35.0, 35.0),
+                              self.rng.uniform(-30.0, 30.0)), kind_)
         self.decals: dict[int, list] = {}  # polygon -> [(kind,x,y,size,angle)]
         self._objective_fired: set[str] = set()  # once-gates for objective fx
         self.metrics = dict(ticks=0, shots=0, hits=0, kills=0, dmg_dealt=0.0,
@@ -2968,15 +2977,25 @@ class GameSession:
             # break class in the remaining "actually bright" case.
             e["lurk_retarget_cd"] = e.get("lurk_retarget_cd", 0) - 1
             if level > self.LURK_MAX_LIGHT and e["lurk_retarget_cd"] <= 0:
-                e["lurk_retarget_cd"] = self.rng.randrange(45, 90)
+                # short debounce: it only guards against a single bright
+                # tick at a pool edge. The original 45-90 made a lurker
+                # under a SWEEPING light wait longer than the sweep
+                # period between 44u hops — measured 25-50% lit across
+                # seeds; a lamp pool is 140u deep and must be escapable
+                # in one decision, hence the second sampling ring.
+                e["lurk_retarget_cd"] = self.rng.randrange(12, 24)
                 phase = self.rng.uniform(0.0, 2.0 * math.pi)
                 best = None
                 for k in range(8):
                     a = phase + k * math.pi / 4.0
-                    cand = (ex + math.cos(a) * 44.0, ey + math.sin(a) * 44.0)
-                    lvl = light_level_at(light_map, self.lighting.lights, polygon, *cand)
-                    if best is None or lvl < best[0]:
-                        best = (lvl, cand)
+                    for step in (44.0, 110.0):
+                        cand = (ex + math.cos(a) * step,
+                                ey + math.sin(a) * step)
+                        lvl = light_level_at(light_map,
+                                             self.lighting.lights,
+                                             polygon, *cand)
+                        if best is None or lvl < best[0]:
+                            best = (lvl, cand)
                 e["lurk_target"] = best[1]
             tx, ty = e.get("lurk_target", (ex, ey))
             dx, dy = tx - ex, ty - ey

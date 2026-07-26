@@ -55,6 +55,28 @@ _LINKS = [
 ]
 
 
+# the RESIDENT population (ratified composition: the hub is not what
+# comes through the gate — residents read 60% screen / 18% ranged /
+# 10% mobility / 12% breaker, visibly LIGHTER than the 35/25/15/25
+# strike package it dispatches). 18 bodies, authored by chamber:
+# screen holds the transept loop, the trunk mixes in ranged and the
+# lurkers, the breakers stand at the last commitments. Organ rooms
+# (C*, SC, S*) keep no residents — the organ is its own tenant.
+RESIDENT_PLACEMENT = (
+    ("T1", "mite"), ("T1", "husk"),
+    ("T2", "mite"), ("T2", "husk"),
+    ("T3", "mite"), ("T3", "husk"),
+    ("R", "husk"), ("R", "spitter"),
+    ("N1", "mite"), ("N1", "flicker"),
+    ("N2", "spitter"),
+    ("N3", "mite"), ("N3", "shrieker"),
+    ("N4", "husk"),
+    ("L", "flicker"),
+    ("V", "brute"), ("V", "mite"),
+    ("AN1", "brute"),
+)
+
+
 @dataclass(frozen=True, slots=True)
 class HubLayout:
     chambers: dict          # name -> polygon index
