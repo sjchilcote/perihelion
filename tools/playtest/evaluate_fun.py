@@ -215,8 +215,10 @@ def _soundscape(rec: Path) -> dict:
     with open(ev) as fh:
         for line in fh:
             r = json.loads(line)
-            if r.get("kind") != "sound":
-                continue
+            if r.get("kind") not in ("sound", "sfx"):
+                continue   # the capture taps write kind='sfx' — the
+                #            'sound' filter made HEARD a silent no-op
+                #            for its whole first day (dead-air agent)
             sec = int(r.get("t", 0))
             d = out.setdefault(sec, {})
             d[r["name"]] = d.get(r["name"], 0) + 1
