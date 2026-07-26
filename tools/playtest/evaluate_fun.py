@@ -143,6 +143,14 @@ every frame against the simulation logs, plus session statistics.
 
 Session stats: {stats}
 
+SUPPRESSION IS A WIN, NOT A FAILURE: scouts are finite and authored;
+killing or harrying every caller before it completes a broadcast is
+the game's designed counter-play, and it silences reinforcements for
+that session permanently (the census only ever shrinks). A session
+with zero breaches alongside heavy scout damage in the reports means
+the player EARNED the quiet — judge it as successful denial, not as
+the mechanic failing to activate.
+
 Difficulty-curve context: single sessions cannot establish the curve;
 the 16-seed acceptance bank (mean death ~246s, 12.5% survive a 400s
 cap, first breach 46-68s in) is the calibration reference — judge
