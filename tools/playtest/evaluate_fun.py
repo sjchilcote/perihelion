@@ -357,6 +357,10 @@ def session_stats(rec: Path, capture_meta: dict) -> dict:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--seed", type=int, default=4)
+    ap.add_argument("--seeds", type=str, default=None,
+                    help="comma-separated seeds: multi-session evidence "
+                         "pooled into one verdict (the honest answer to "
+                         "'one session cannot support 0.95 either way')")
     ap.add_argument("--ticks", type=int, default=14400)
     ap.add_argument("--zoom", type=float, default=0.45)
     ap.add_argument("--model", default="sonnet")
@@ -367,45 +371,53 @@ def main() -> int:
                     help="skip capture, judge the existing run")
     a = ap.parse_args()
 
-    rec = GATE / "run"
-    if not a.reuse:
-        print("[gate] capturing...", flush=True)
-        meta = run_capture(rec, a.seed, a.ticks, a.zoom)
-    else:
-        meta = {"stdout": "(reused capture)"}
-    frames = sorted(rec.glob("frame_*.png"))
-    if not frames:
-        raise RuntimeError("no frames captured")
-    judged = frames[:: a.judge_every]
-    print(f"[gate] {len(frames)} frames, judging {len(judged)}", flush=True)
-    digests = build_digests(rec, judged)
-
-    chunks = [judged[i:i + a.chunk_size]
-              for i in range(0, len(judged), a.chunk_size)]
+    seeds = ([int(s) for s in a.seeds.split(",")] if a.seeds
+             else [a.seed])
     reports = []
-    for i, chunk in enumerate(chunks):
-        print(f"[gate] judging chunk {i + 1}/{len(chunks)} "
-              f"({len(chunk)} frames)...", flush=True)
-        rep = judge_chunk(chunk, digests, i + 1, len(chunks), a.model)
-        reports.append(rep)
-        (GATE / f"chunk_{i + 1}.json").write_text(json.dumps(rep, indent=1))
-        print(f"[gate]   score={rep.get('chunk_score')} "
-              f"findings={len(rep.get('findings', []))}", flush=True)
-
-    print("[gate] verifying P0/P1 findings against the trace...",
-          flush=True)
-    verify_findings(reports, rec, a.model)
-    struck = sum(1 for rep in reports for f in rep.get("findings", [])
-                 if f.get("verify") == "REFUTED")
-    print(f"[gate] verification struck {struck} findings", flush=True)
-    stats = session_stats(rec, meta)
+    all_stats = []
+    for si, seed in enumerate(seeds):
+        rec = GATE / (f"run_s{seed}" if len(seeds) > 1 else "run")
+        if not a.reuse:
+            print(f"[gate] capturing seed {seed}...", flush=True)
+            meta = run_capture(rec, seed, a.ticks, a.zoom)
+        else:
+            meta = {"stdout": "(reused capture)"}
+        frames = sorted(rec.glob("frame_*.png"))
+        if not frames:
+            raise RuntimeError(f"no frames captured (seed {seed})")
+        judged = frames[:: a.judge_every]
+        print(f"[gate] seed {seed}: {len(frames)} frames, judging "
+              f"{len(judged)}", flush=True)
+        digests = build_digests(rec, judged)
+        chunks = [judged[i:i + a.chunk_size]
+                  for i in range(0, len(judged), a.chunk_size)]
+        seed_reports = []
+        for i, chunk in enumerate(chunks):
+            print(f"[gate] seed {seed} chunk {i + 1}/{len(chunks)}...",
+                  flush=True)
+            rep = judge_chunk(chunk, digests, i + 1, len(chunks), a.model)
+            rep["seed"] = seed
+            seed_reports.append(rep)
+            (GATE / f"chunk_s{seed}_{i + 1}.json").write_text(
+                json.dumps(rep, indent=1))
+            print(f"[gate]   score={rep.get('chunk_score')} "
+                  f"findings={len(rep.get('findings', []))}", flush=True)
+        print(f"[gate] verifying seed {seed} findings...", flush=True)
+        verify_findings(seed_reports, rec, a.model)
+        struck = sum(1 for rep in seed_reports
+                     for f in rep.get("findings", [])
+                     if f.get("verify") == "REFUTED")
+        print(f"[gate]   struck {struck}", flush=True)
+        reports.extend(seed_reports)
+        all_stats.append(dict(seed=seed, **session_stats(rec, meta)))
+    stats = all_stats if len(all_stats) > 1 else all_stats[0]
     verdict = final_verdict(reports, stats, a.model)
     (GATE / "verdict.json").write_text(json.dumps(verdict, indent=1))
     print(json.dumps(verdict, indent=2))
 
     if verdict.get("pass") and float(verdict["p"]) > PASS_BAR:
         (GATE / "PASS").write_text(json.dumps(
-            dict(p=verdict["p"], seed=a.seed, ticks=a.ticks,
+            dict(p=verdict["p"], seeds=seeds, ticks=a.ticks,
                  zoom=a.zoom), indent=1))
         print(f"[gate] PASS (p={verdict['p']})")
         return 0
