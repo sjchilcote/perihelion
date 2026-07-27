@@ -338,6 +338,8 @@ def ground_truth(rec: Path) -> dict:
     """Hard per-session facts the verifier checks findings against."""
     import bisect
     fire, dmg_t, dmg = [], [], []
+    dmg_full = []
+    hp_samples = {}
     trans = 0
     pr = {}
     with open(rec / "trace.jsonl") as fh:
@@ -350,8 +352,14 @@ def ground_truth(rec: Path) -> dict:
                 dmg_t.append(r["t"])
                 dmg.append((r["t"], r.get("target_kind"),
                             r.get("source")))
+                dmg_full.append((r["t"], r.get("target_kind"),
+                                 r.get("source"),
+                                 float(r.get("amount", 0.0))))
             elif k == "field_sample":
                 pr[r["t"]] = r.get("player_polygon")
+            elif k == "sample":
+                if r.get("hp") is not None:
+                    hp_samples[r["t"]] = float(r["hp"])
     fire.sort()
     dmg_t.sort()
     longest = 0
@@ -365,7 +373,32 @@ def ground_truth(rec: Path) -> dict:
             if run_start is None:
                 run_start = t
             longest = max(longest, t - run_start)
+    # per-event HP correlation: does the HP track each logged player
+    # hit? (a verifier once CONFIRMED an 'HP bar bug' that this exact
+    # check disproves for every cited event)
+    samples = sorted(hp_samples.items())
+    matched = unmatched = 0
+    for t, tk, _src, amt in dmg_full:
+        if tk != "player":
+            continue
+        before = None
+        after = None
+        for ts, v in samples:
+            if ts <= t:
+                before = v
+            elif after is None:
+                after = v
+                break
+        if before is None or after is None:
+            continue
+        if before - after >= 0.8 * amt - 0.5:
+            matched += 1
+        else:
+            unmatched += 1
     return dict(
+        player_hp_drops_match_logged_damage=(
+            f"{matched} of {matched + unmatched} player hits moved the "
+            f"HP bar by their logged amount"),
         longest_zero_hit_firing_ticks=longest,
         total_damage_events=len(dmg),
         player_hits=sum(1 for _, tk, _ in dmg if tk == "player"),
