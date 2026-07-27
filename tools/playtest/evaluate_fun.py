@@ -180,6 +180,16 @@ UNVERIFIABLE (with skepticism) findings.
 Question, exactly as the director posed it: Is P(this is a fun,
 critically acclaimed, commercially successful game) > {bar}?
 
+REFERENCE CLASS (director's ruling): this is a SINGLE-DEVELOPER
+INDIE GAME extended from a game-jam winner. Calibrate against the
+acclaimed titles of that class — the jam-to-hit lineage where
+top-down 2D presentation, minimalist hand-drawn art, and systemic
+depth over production spectacle are the TRADITION. Being 2D,
+low-fi, or sprite-minimal must never rank the game down; judge
+whether the systems, feel, readability and pacing execute at the
+standard of the best games of THIS class, not against AAA
+production values.
+
 SCOPE (director's ruling): judge the CHANGES CURRENTLY BEING MADE —
 the moment-to-moment combat, the reinforcement loop, readability,
 pacing of what is on film. The rest of the game is NOT in scope:
