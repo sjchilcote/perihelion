@@ -89,9 +89,11 @@ Judge, citing frame files and ticks:
    The player's simulated viewport is wider than the recorded frame:
    sustained fire toward the frame edge is usually aimed at an enemy
    visible through a portal fold just off-camera — check the digest
-   for enemy damage lines before calling it firing-at-nothing. A
-   full-frame VIOLET WASH pulse marks the instant a breach tears
-   open somewhere on the station (the wall-tear's screen-space cue).
+   for enemy damage lines before calling it firing-at-nothing. When a
+   breach tears open, VIOLET LIGHT FLOODS FROM THE TEAR ITSELF and
+   pours through connected doorways via the real lighting system,
+   surging bright for ~2s then settling to a standing glow — the cue
+   is at the source, not a screen overlay.
 2. FIGHT READABILITY — can you tell what is happening: who is a
    threat, what the player is shooting, why the player took damage?
    SOUNDSCAPE: each frame's HEARD line is what the player is hearing
