@@ -84,3 +84,41 @@ or component drop). Fresh s7 film: 74/76 dispatched units reached
 the world (was ~half), shriekers 10/11 (their "kind-specific"
 failure was the same bug); both stragglers were end-of-session
 dispatches. 742 tests green.
+
+## Runs 43-44: the verdict moved up a layer
+
+Run 43 (p=0.03) certified every historical blocker fixed — delivery
+97-99%, sidestep pixel-tracked, the engulf death "the strongest beat
+in the footage" — and moved the fight to pacing/economy and on-screen
+spectacle. Its blockers all verified at mechanism level:
+- Seam starvation was CAUSED by the delivery fix: delivered bodies
+  kept their transit tags, route interest pinned every breach open,
+  all 3 apse seams consumed in 85s, later calls dry. Fix: delivered
+  means delivered — the tag drops at the world mouth; breaches
+  idle-close and seams return. Every seed now re-opens breaches
+  after seals (spectacle recurrence).
+- The black second-death was death ORDINAL: the renderer's fade
+  latch never reset after a reprint (first death always filmed
+  perfectly — "passes casual testing, fails players"). Reprint now
+  emits playerreprint fx; renderer resets.
+- Flicker bite metronomes: bite RECOIL (director clarified the
+  flicker ruling was visibility-only). One fixed impulse, mass does
+  the tiering — flicker rebounds ~3 radii, warden shrugs.
+- Door-thrash took three passes to actually kill: (1) anti-backtrack
+  ×0.25 in _hunt_edge — halved it; (2) march memory in the hub
+  override (next_edge flips on breach-topology churn walked one mite
+  across the apse-court door 947 times); (3) HARD backtrack block
+  for 1s + the route-memo bypass (cached routes pointing at each
+  other locked a 3-4-tick bounce the scoring never saw). Worst
+  portal-pair counts: 947 -> 41-69 (ordinary traffic).
+- Instruments: enemy_death + coord_event telemetry, truthful hold
+  durations (last-held-tick, no wall-clock ghosts, no flutter),
+  prowl proven reachable by test, ground_truth dry-fire metric
+  fixed, carve-fallback marked in breach opens.
+- Floaters 16px shadowed; seal light CONTRACTS as it dims (fade was
+  mechanically perfect and perceptually flat — compositing
+  saturates; the judge's photometry was right).
+
+Run 44 bank (pre-judge verification): delivery 98% all seeds,
+shriekers 36/38, transit 167-187t, all dances dead, deaths present,
+ledger clean, prowl organic. Judge in flight.
