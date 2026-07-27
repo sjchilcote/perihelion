@@ -53,7 +53,15 @@ def ground_truth(rec: Path) -> dict:
     fire = [t for t in fire if not _in_dead_span(t)]
     longest = 0
     run_start = None
+    prev_t = None
     for t in fire:
+        # a stretch is CONTIGUOUS firing: any half-second pause in the
+        # trigger ends it (run 42b: the old accumulator bridged idle
+        # walking between fights and reported 889 ticks where the real
+        # dry burst was 88)
+        if prev_t is not None and t - prev_t > 30:
+            run_start = None
+        prev_t = t
         i = bisect.bisect_left(dmg_t, t - 30)
         near = i < len(dmg_t) and dmg_t[i] <= t + 90
         if near:
