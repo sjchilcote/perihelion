@@ -54,7 +54,10 @@ assault units: their designed cycle is wander/observe, root
 motionless to broadcast, flee when shot. A scout loitering, holding
 still, or refusing to press the player is the design working; only
 a scout standing in the open UNDER SUSTAINED FIRE without fleeing is
-a finding. Small squares/crosses on the
+a finding. Vagrants (the larger teal-traced scout) DO fight when not
+calling — the weakest-in-room rule sends the weakest to call while
+stronger adversaries keep fighting; a vagrant pressing the player is
+a threat, not a confused non-combatant. Small squares/crosses on the
 floor are ammo/medkit pickups; violet concentric rings are breach
 tears; dark red-brown chunks are corpses (they never move or take
 damage). A pale blob with a closing ring is a structure unpacking.
