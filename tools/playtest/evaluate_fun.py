@@ -541,7 +541,8 @@ def main() -> int:
     reports = []
     all_stats = []
     for si, seed in enumerate(seeds):
-        rec = GATE / (f"run_s{seed}" if len(seeds) > 1 else "run")
+        rec = GATE / (f"run_s{seed}" if len(seeds) > 1
+                      or (GATE / f"run_s{seed}").exists() else "run")
         have = len(list(rec.glob("frame_*.png"))) if rec.exists() else 0
         complete = have >= a.ticks // 5 - 5 and (rec / "trace.jsonl").exists()
         if a.reuse or complete:
