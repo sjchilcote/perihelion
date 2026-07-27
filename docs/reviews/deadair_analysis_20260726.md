@@ -375,3 +375,16 @@ alert 0.35/0.4/0.5/0.55/0.7/0.9; step 0.35/0.6; `hit_flesh` 0.8;
 `shrieker_scream` 0.85/1.0; `spitter_shoot` 0.9), unioned with
 `damage_applied` ticks from `trace.jsonl`, then taking maximal gaps over
 [0, 240] s. Chamber attribution uses the 0.25 s `sample` records.
+
+## Bot-competence gap measured by the commit gate (2026-07-26)
+
+Gate run 24 (seed 7, attribution-language build) CONFIRMED a P1 that
+is the bot's, not the game's: point-blank melee lock with a flicker,
+HP 77->13 over ~4s, ZERO ammo spent, no repositioning. The
+contact-evasion reflex fired movement but the gun never did — prime
+suspect is perception filtering a lurk-dim flicker (trace_intensity
+channel) out of the fire policy's target list even after its ambush
+commit. The game-side counterplay exists (evade + shoot + the
+attacker now wears a red mark). Fix belongs to the bot program with
+its own A/B protocols; do NOT patch mid-gate — every gate bank today
+is comparable because the bot held constant.

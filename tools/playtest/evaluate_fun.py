@@ -49,7 +49,12 @@ enemies. Enemy bodies: green lumpy husks, small pale mites, olive
 pentagon spitters (green nose), thin pale shrieker slivers, violet
 flickers, red-brown brutes with two pale tusk lines (reads as an 'M'
 at distance), dark-violet 9-gon wardens with a white rim; teal/violet
-double outlines are adversary scouts. Small squares/crosses on the
+double outlines are adversary scouts — scouts are SPOTTERS, not
+assault units: their designed cycle is wander/observe, root
+motionless to broadcast, flee when shot. A scout loitering, holding
+still, or refusing to press the player is the design working; only
+a scout standing in the open UNDER SUSTAINED FIRE without fleeing is
+a finding. Small squares/crosses on the
 floor are ammo/medkit pickups; violet concentric rings are breach
 tears; dark red-brown chunks are corpses (they never move or take
 damage). A pale blob with a closing ring is a structure unpacking.
