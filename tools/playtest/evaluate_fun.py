@@ -1,222 +1,254 @@
 #!/usr/bin/env python3
-"""The commit gate (director, 2026-07-26 pre-dawn): every gameplay
-change must be PLAYTESTED ON FILM before it lands. This script runs a
-real bot session, records every 5th frame plus the full trace, hands a
-Sonnet judge the frames CORRELATED against the logs chunk by chunk,
-and asks the one question that matters:
+"""The commit gate, rebuilt (director, 2026-07-27): a FABLE
+orchestrator computes the north-star posterior by the full Bayescraft
+process over filmed playtest sessions.
 
-    Is P(this is a fun, critically acclaimed, commercially
-    successful game) > 0.95?
+The old pipeline (fixed chunk judges -> verifier -> gestalt verdict)
+consumed data in a fixed order and freehanded the scalar — a
+coincidence of what it saw first. The rebuilt judge is one Fable
+session that must: form hypotheses BEFORE reading evidence, design
+experiments that discriminate between them, run those experiments as
+a dynamic workflow of subagents (Sonnets reading direct video
+segments frame by frame; Opuses coordinating and analyzing the
+structured traces), update in odds form, and report the posterior of
+the north star itself:
 
-The pre-commit hook blocks any commit touching game/perihelion/,
-engine/, or levels/ until a run of this script has passed AFTER the
-latest change to those trees. No bypass: iterate on the game, not on
-the gate.
+    P(this is a fun, critically acclaimed, commercially successful
+    single-developer indie game)  — judged on the current changes.
 
-    uv run python tools/playtest/evaluate_fun.py [--seed 4]
-        [--ticks 14400] [--zoom 0.45] [--model sonnet]
+PASS iff that posterior > 0.95. The pre-commit hook is unchanged: no
+gameplay commit without a fresh PASS marker.
 
-Artifacts land in out/eval_gate/: the capture, per-chunk judge
-reports, the final verdict JSON, and (only on a pass) the PASS marker
-the hook checks.
+    uv run python tools/playtest/evaluate_fun.py --seeds 2,4,7,11
+        [--ticks 14400] [--zoom 0.45] [--reuse]
+
+Artifacts: out/eval_gate/run_s<seed>/ (frames, trace.jsonl,
+events.jsonl, ground_truth.json), verdict.json, PASS (on pass only).
 """
 from __future__ import annotations
 
 import argparse
 import json
 import subprocess
-import sys
-from collections import defaultdict
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 GATE = REPO / "out" / "eval_gate"
-JUDGE_TIMEOUT_S = 600
+ORCH_TIMEOUT_S = 7200
 PASS_BAR = 0.95
 
-CHUNK_PROMPT = """\
-You are playtesting PERIHELION, a top-down shooter in a continuous
-portal space, by reading recorded frames correlated against the
-simulation's own logs. This is chunk {idx}/{total} of one session
-(frames ~2s apart, chronological). You judge like a demanding player
-and a game critic at once, not like a QA scripter.
+ORCHESTRATOR_PROMPT = """\
+You are the final judge of PERIHELION playtest evidence. Your task is
+to compute, honestly and calibratedly, the posterior probability of
+ONE proposition — the project's north star:
 
-VISUAL LEGEND (do not misclassify): the player is a white kite/arrow.
-The player's own SENTRY EMPLACEMENTS are amber/yellow tripod turrets
-with a bright triangular head — STATIONARY BY DESIGN, friendly, they
-never move and enemies may ignore them; do not report them as frozen
-enemies. Enemy bodies: green lumpy husks, small pale mites, olive
-pentagon spitters (green nose), thin pale shrieker slivers, violet
-flickers — flickers are DESIGNED to be nearly invisible: they hold
-dark ground, dim their own sensor return while lurking, and ambush
-from shadow; dying to a flicker you never saw coming is the intended
-horror of the unit, and 'the flicker was hard to see' is the design
-working, never a finding — red-brown brutes with two pale tusk lines (reads as an 'M'
-at distance), dark-violet 9-gon wardens with a white rim; teal/violet
-double outlines are adversary scouts — scouts are SPOTTERS, not
-assault units: their designed cycle is wander/observe, root
-motionless to broadcast, flee when shot. A scout loitering, holding
-still, or refusing to press the player is the design working; only
-a scout standing in the open UNDER SUSTAINED FIRE without fleeing is
-a finding. Vagrants (the larger teal-traced scout) DO fight when not
-calling — the weakest-in-room rule sends the weakest to call while
-stronger adversaries keep fighting; a vagrant pressing the player is
-a threat, not a confused non-combatant. Small squares/crosses on the
-floor are ammo/medkit pickups; violet concentric rings are breach
-tears; dark red-brown chunks are corpses (they never move or take
-damage). A pale blob with a closing ring is a structure unpacking.
+    N = "this is a fun, critically acclaimed, commercially
+         successful game"
 
-Frames, in order (read EVERY one):
-{frames}
+and to report it with the reasoning ledger that produced it. The
+commit gate passes only if P(N) > {bar}. Do not soften or inflate:
+the number must be YOUR posterior, not a diplomatic gesture.
 
-Ground-truth session facts (computed from the FULL trace — calibrate
-your severity against these before asserting stalls or unlogged
-events; prior banks produced P1s the trace refuted):
-{ground}
+## Scope and prior (director's rulings — these bound the question)
 
-Log digest for this chunk (tick-stamped; frame N = tick N*5):
-{digest}
+- REFERENCE CLASS: a single-developer indie game extended from a
+  game-jam winner. Calibrate the PRIOR of N against that lineage —
+  top-down 2D, minimalist art, systemic depth are the tradition of
+  this class, never a deduction. Your prior must be stated and
+  justified from the reference class BEFORE you read any evidence.
+- SCOPE: judge the changes currently being made — moment-to-moment
+  combat, the reinforcement loop, readability, pacing, as filmed.
+  Missing win states, campaign content, and future systems are OUT
+  of scope and must not move the posterior. "You can't commit until
+  the game is done" is explicitly not the bar.
+- Evidence can move the posterior BOTH ways. If the film shows the
+  systems executing at the standard of acclaimed titles in the
+  class, the posterior must be allowed to rise above the prior.
 
-Judge, citing frame files and ticks:
-1. ENEMY INTELLIGENCE — do enemies press the attack, flank, gather
-   and commit together, react when shot, chase what they see? Flag
-   any enemy that stands still under fire, clumps uselessly, walks
-   into walls, or ignores an obvious fight. Correlate with the log:
-   damage_applied entries against an enemy whose position never
-   changes across frames = "stands there and takes it" — the exact
-   failure this gate exists to catch. IMPORTANT: the log records the
-   WHOLE simulation, most of it far from the camera — an empty frame
-   with busy log lines usually means the fight is in another chamber
-   (check player_chamber in the digest), which is honest simulation,
-   NOT a render bug. Only flag state/screen divergence for events in
-   the player's own chamber or within one door of it.
-   The player's simulated viewport is wider than the recorded frame:
-   sustained fire toward the frame edge is usually aimed at an enemy
-   visible through a portal fold just off-camera — check the digest
-   for enemy damage lines before calling it firing-at-nothing. When a
-   breach tears open, VIOLET LIGHT FLOODS FROM THE TEAR ITSELF and
-   pours through connected doorways via the real lighting system,
-   surging bright for ~2s then settling to a standing glow — the cue
-   is at the source, not a screen overlay.
-2. FIGHT READABILITY — can you tell what is happening: who is a
-   threat, what the player is shooting, why the player took damage?
-   SOUNDSCAPE: each frame's HEARD line is what the player is hearing
-   at that moment through positional audio — footfalls, screams,
-   gunfire, the wrongness stinger of a wall tearing. An 'empty'
-   corridor with heavy off-screen combat audio is dread, not dead
-   air; a real player experiences that pressure even with nothing on
-   screen. Weigh pacing with ears as well as eyes.
-3. PACING — dead air vs pressure. Long stretches where nothing
-   presses the player are a finding; so is unreadable chaos. HP/ammo
-   deltas may land BETWEEN judged frames (2s apart): before calling a
-   change unlogged, check the PREVIOUS frame's digest lines too.
-   A 'dry_no_site: no free apse seam' or 'call from inside the hub'
-   entry is a DESIGNED tell of the enemy's finite economy, not a
-   failure; only 'no wall holds a 96u seam' indicates a content bug.
-   'lightning_self' damage is the player's own lightning cannon
-   detonating too close — a self-splash skill mechanic with a full
-   bolt-burst visual at the blast site, not an invisible attacker.
-   DEATH IS A TRANSLOCATION, not a reset (System Shock rule): on
-   death the player reprints at a seed station with full HP while the
-   world stays exactly as it lies — a 'player_respawn' log line marks
-   it; a sudden HP/position jump matching one is the designed death
-   mechanic, not a bug.
-4. THE REINFORCEMENT LOOP — if the digest shows scout calls,
-   breaches, pours: do they LAND on screen (a wall visibly tears,
-   bodies pour through, the fight escalates)?
+## The method (mandatory): Bayescraft, baked into your workflow
 
-Reply with ONLY a JSON object, no prose, no fences:
-{{"findings": [{{"frame": "<file>", "tick": <int>, "severity":
-"P0"|"P1"|"P2", "note": "<one sentence>"}}...],
-"chunk_score": 0.0-1.0, "summary": "<two sentences>"}}
+Structure ALL reasoning as Bayesian updates on N. Do the math — in
+odds form, with the numbers written down. The process:
+
+    state prior odds of N from the reference class
+    enumerate the live sub-hypotheses H_i about THIS build that
+        bear on N (each with >= 2 alternatives, always including
+        instrument/bot-artifact explanations)
+    for each planned observation E:
+        BEFORE looking: write P(E|H), P(E|not-H), and what outcome
+        would LOWER your credence — if no outcome could, it is not
+        an experiment and you must not run it
+    run the experiments; update in odds; log every update
+    the final P(N) is the posterior the ledger actually produces
+
+Rules you must obey:
+- HYPOTHESES FIRST. You may take one cheap structured survey of the
+  traces to FORM hypotheses and priors, but you may not draw any
+  conclusion from unplanned data. Random consumption of frames
+  invites confirmation bias: whatever you happened to see first
+  becomes the story. Preregister, then look.
+- Strong evidence is a small denominator: prefer observations that
+  would be RARE under every alternative. A finding equally likely
+  under "real defect" and "bot artifact" carries zero bits.
+- Conservation of expected evidence: for every experiment, name in
+  advance the result that lowers your credence in the defect (or in
+  N) and by roughly how much. If every outcome would confirm, none
+  does.
+- Priors dominate; use the measured base rates below. Never 0 or 1;
+  reserve mass for "I am missing something."
+- Litany of Tarski: if this build is at the acclaimed-class bar you
+  want to believe it; if it is not, you want to believe it is not.
+
+Corrupted inputs — the math is correct, inputs are not; police
+yours and your subagents':
+- Motivated asymmetry: a welcome hypothesis gets "does the evidence
+  permit?", an unwelcome one "does the evidence compel?". Write both
+  likelihoods before committing to either.
+- Motivated stopping: do not stop at the first narrative that fits;
+  do not demand extra evidence only from conclusions you dislike.
+- Fake explanations: "janky", "unpolished", "reads badly" fit every
+  film and forbid nothing — zero bits. Demand what a claim
+  specifically predicts and what would falsify it.
+- Pattern-match without model: a finding that LOOKS like a known
+  defect class is a cached answer; check the mechanism.
+- The bottom line: if you can predict your verdict before the
+  experiments return, you are performing, not investigating.
+
+Techniques:
+- Notice confusion: evidence straining against your model means the
+  model is probably wrong — do not explain it away.
+- Taboo the word: ban "dead air", "stunlock", "unfair" — restate as
+  observable behavior with ticks and frames.
+- Third alternative: "real defect or judge error" omits bot
+  artifact, sampling-grid artifact, design intent, and instrument
+  gap. Spend 30 seconds on C before choosing between A and B.
+- Reproduce first: a defect that appears in one seed and not the
+  others needs the controlling variable named before it counts.
+- Hold off on proposing fixes until the posterior settles.
+
+## Measured base rates (from 36 prior judged banks — your priors)
+
+- Judge-style frame impressions of "enemy frozen under fire", "HP
+  changed with no cause", "long dead-air stall", and "camera zoom"
+  were REFUTED by the trace in the clear majority of past cases
+  (fabricated durations, missed log lines two frames earlier, the
+  player's own stationary sentries misread as enemies). Treat any
+  single-frame impression as weak evidence until trace-checked.
+- Known BOT artifacts (the test player, not the game): fights while
+  walking backward so payoffs resolve one chamber behind the camera;
+  does not fire at contact-range ambushers; camps its own turret
+  nests. Evidence explainable by these must be priced accordingly.
+- Known DESIGN intents that are never findings: flickers are nearly
+  invisible by design (dying to an unseen flicker is the intended
+  horror); scouts are spotters that loiter, root to broadcast, and
+  flee when shot; a dry call ('no free apse seam' / 'call from
+  inside the hub') is the finite-economy tell; suppression (zero
+  breaches after heavy scout attrition) is the player WINNING;
+  death is a translocation — reprint at a seed station, world
+  persists, marked by a player_respawn log line; 'lightning_self'
+  is the player's own cannon splash; the camera zoom is constant.
+
+## The world on film (visual legend)
+
+Player: white kite/arrow. Player sentries: amber tripod turrets,
+stationary by design, friendly. Enemies: green lumpy husks; small
+pale mites; olive pentagon spitters (green nose, globs with tails);
+thin pale shrieker slivers; violet flickers (near-invisible by
+design); red-brown brutes with two pale tusk lines ('M' at
+distance); dark-violet 9-gon wardens with a white rim. Teal/violet
+double outlines: adversary scouts (vagrants also fight when not
+calling). Floor squares/crosses: pickups. Dark red-brown chunks:
+corpses (never move, never take damage). Violet light FLOODING from
+a wall: a live breach — the light surges ~2s at open then settles,
+poured through real doorway occlusion from the tear itself. A pale
+blob with a closing ring: a structure unpacking.
+
+## Your resources
+
+{resources}
+
+Each session directory contains: frame_NNNNNN.png (every 5th sim
+tick, ~12 per second of play); trace.jsonl (every typed simulation
+event, tick-stamped: damage_applied, agent_transition,
+portal_crossing, breach_lifecycle, dispatch_decision,
+shelf_replaced, core_part, pickup_taken, input, samples including
+per-warden positions each second); events.jsonl (every sound, with
+volume and pan); ground_truth.json (precomputed hard facts: longest
+zero-hit firing stretch, HP-vs-damage correlation, warden movement
+spans, damage by source, camera constancy, session stats).
+
+## Your workflow (dynamic — you design it, these are the materials)
+
+Orchestrate subagents with your Agent tool; bake the Bayescraft
+process into the workflow itself:
+- OPUS subagents (model="opus") for coordination and structured
+  data: trace analysis, cross-seed statistics, hypothesis-relevant
+  queries, experiment-design review. Give each one the specific
+  hypothesis and its preregistered predictions.
+- SONNET subagents (model="sonnet") for direct video segments: a
+  contiguous frame span, read EVERY frame in order (they are the
+  eyes; motion between adjacent frames is part of the evidence).
+  Task each scanner with the specific discriminating observation it
+  is hunting and what would count AGAINST the hypothesis — never
+  "look at these frames and report anything interesting".
+- Run independent lanes in parallel; keep each subagent's brief
+  narrow; require citations of frame files and ticks in everything
+  they return.
+- Iterate: if a load-bearing update leaves odds in the ambiguous
+  band, design a sharper experiment rather than averaging vibes.
+
+## Output
+
+When your ledger is complete, reply with ONLY this JSON object (no
+fences, no prose around it):
+{{"p": <your posterior for N, 0.0-1.0>,
+ "pass": <true iff p > {bar}>,
+ "prior": "<stated prior odds for N and the reference-class basis>",
+ "ledger": [{{"hypothesis": "<H>", "prediction": "<preregistered E,
+   with P(E|H) and P(E|not-H)>", "experiment": "<what you ran>",
+   "observed": "<what came back, with citations>",
+   "update": "<odds before -> after>"}}...],
+ "blockers": ["<confirmed, concrete, actionable — only findings
+   whose ledger entries survived>"...],
+ "strengths": ["..."],
+ "summary": "<three sentences>"}}
 """
 
-VERIFY_PROMPT = """\
-You are the adversarial VERIFIER for playtest findings. Chunk judges
-reported the findings below from frames of a recorded session. You
-have the ground-truth simulation trace. Your job is to REFUTE what
-does not survive the data — judges have previously reported an
-'80-second zero-hit firing stall' when the trace showed the longest
-zero-hit stretch was 0.85s, a '14-second frozen standoff' during
-which the trace showed six chamber transitions and kills, and
-'unlogged damage' that was fully logged two frames earlier.
 
-Findings to verify:
-{findings}
+def _parse_result(text: str):
+    text = text.strip()
+    text = text.removeprefix("```json").removeprefix("```")
+    text = text.removesuffix("```").strip()
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        starts = [i for i in (text.find("{"), text.find("[")) if i >= 0]
+        if starts:
+            obj, _ = json.JSONDecoder().raw_decode(text[min(starts):])
+            return obj
+        raise
 
-Ground-truth summaries computed from the full trace:
-{ground}
 
-Frame files are available to Read if a finding needs visual
-confirmation.
+def run_orchestrator(recs: list[Path], model: str) -> dict:
+    resources = "\n".join(f"- session seed dir: {rec}" for rec in recs)
+    prompt = ORCHESTRATOR_PROMPT.format(bar=PASS_BAR, resources=resources)
+    r = subprocess.run(
+        ["claude", "-p", prompt, "--model", model,
+         "--output-format", "json",
+         "--allowedTools", "Read,Grep,Glob,Bash,Agent,Task"],
+        capture_output=True, text=True, timeout=ORCH_TIMEOUT_S, cwd=REPO)
+    if r.returncode != 0:
+        raise RuntimeError(f"orchestrator failed: {r.stderr[:800]}")
+    payload = json.loads(r.stdout)
+    v = _parse_result(payload["result"])
+    if not isinstance(v.get("p"), (int, float)):
+        raise RuntimeError(f"malformed verdict: {str(v)[:400]}")
+    return v
 
-For each finding, answer CONFIRMED only if the trace/ground data is
-consistent with it; REFUTED with one sentence of discriminating
-evidence otherwise; UNVERIFIABLE if neither. Reply with ONLY a JSON
-array, no prose: [{{"idx": <int>, "verdict": "CONFIRMED"|"REFUTED"|
-"UNVERIFIABLE", "why": "<one sentence>"}}...]
-"""
 
-VERDICT_PROMPT = """\
-You are the final judge of a recorded PERIHELION playtest session.
-Below are the chunk-by-chunk playtest reports from judges who read
-every frame against the simulation logs, plus session statistics.
-
-{chunks}
-
-Session stats: {stats}
-
-SUPPRESSION IS A WIN, NOT A FAILURE: scouts are finite and authored;
-killing or harrying every caller before it completes a broadcast is
-the game's designed counter-play, and it silences reinforcements for
-that session permanently (the census only ever shrinks). A session
-with zero breaches alongside heavy scout damage in the reports means
-the player EARNED the quiet — judge it as successful denial, not as
-the mechanic failing to activate.
-
-Difficulty-curve context: single sessions cannot establish the curve;
-the 16-seed acceptance bank (mean death ~246s, 12.5% survive a 400s
-cap, first breach 46-68s in) is the calibration reference — judge
-THIS session's pacing and readability, not the curve's tunability.
-
-Findings marked REFUTED failed verification against the simulation
-trace and MUST be ignored entirely; weigh only CONFIRMED (fully) and
-UNVERIFIABLE (with skepticism) findings.
-
-Question, exactly as the director posed it: Is P(this is a fun,
-critically acclaimed, commercially successful game) > {bar}?
-
-REFERENCE CLASS (director's ruling): this is a SINGLE-DEVELOPER
-INDIE GAME extended from a game-jam winner. Calibrate against the
-acclaimed titles of that class — the jam-to-hit lineage where
-top-down 2D presentation, minimalist hand-drawn art, and systemic
-depth over production spectacle are the TRADITION. Being 2D,
-low-fi, or sprite-minimal must never rank the game down; judge
-whether the systems, feel, readability and pacing execute at the
-standard of the best games of THIS class, not against AAA
-production values.
-
-SCOPE (director's ruling): judge the CHANGES CURRENTLY BEING MADE —
-the moment-to-moment combat, the reinforcement loop, readability,
-pacing of what is on film. The rest of the game is NOT in scope:
-missing win states, campaign content, future systems (buildings,
-new enemy modes), or content breadth must NOT count against the
-probability. The question is whether THIS slice, as filmed, executes
-to the standard of a fun, acclaimed, commercially successful game —
-'you can't commit until the game is done' is explicitly not the bar.
-
-Be honest and calibrated. A game where enemies stand still under
-fire, where nothing presses the player, or where the signature
-reinforcement mechanic never lands on screen cannot pass. List the
-blockers that keep the probability down, ranked, concrete enough to
-act on.
-
-Reply with ONLY a JSON object, no prose, no fences:
-{{"p": 0.0-1.0, "pass": true|false, "blockers": ["<ranked, concrete,
-actionable>"...], "strengths": ["..."], "summary": "<three
-sentences>"}}
-"""
-
+# --------------------------------------------------------------------------
+# capture + ground truth (mechanics carried over from the first gate)
+# --------------------------------------------------------------------------
 
 def run_capture(out: Path, seed: int, ticks: int, zoom: float) -> dict:
     out.mkdir(parents=True, exist_ok=True)
@@ -230,123 +262,13 @@ def run_capture(out: Path, seed: int, ticks: int, zoom: float) -> dict:
     return {"stdout": r.stdout[-2000:]}
 
 
-def _soundscape(rec: Path) -> dict:
-    """second -> {sound: count} from the capture's audio tap."""
-    out: dict[int, dict] = {}
-    ev = rec / "events.jsonl"
-    if not ev.exists():
-        return out
-    with open(ev) as fh:
-        for line in fh:
-            r = json.loads(line)
-            if r.get("kind") not in ("sound", "sfx"):
-                continue   # the capture taps write kind='sfx' — the
-                #            'sound' filter made HEARD a silent no-op
-                #            for its whole first day (dead-air agent)
-            sec = int(r.get("t", 0))
-            d = out.setdefault(sec, {})
-            d[r["name"]] = d.get(r["name"], 0) + 1
-    return out
-
-
-def build_digests(rec: Path, judged: list[Path], window: int = 120) -> dict:
-    """frame -> compact log lines within +/-window ticks of its tick."""
-    events = defaultdict(list)
-    keep = {"damage_applied", "agent_transition", "breach_lifecycle",
-            "dispatch_decision", "shelf_replaced", "core_part",
-            "pickup_taken"}
-    player_room = {}
-    with open(rec / "trace.jsonl") as fh:
-        for line in fh:
-            r = json.loads(line)
-            if r.get("kind") in keep:
-                events[r["t"] // 60].append(r)
-            elif r.get("kind") == "field_sample":
-                player_room[r["t"] // 60] = r.get("player_polygon")
-    sounds = _soundscape(rec)
-    digests = {}
-    for f in judged:
-        tick = int(f.stem.split("_")[1]) * 5
-        pr = player_room.get(tick // 60)
-        lines = [f'player_chamber={pr}'] if pr is not None else []
-        heard = sounds.get(tick // 60, {})
-        if heard:
-            lines.append("HEARD: " + ", ".join(
-                f"{k}x{v}" for k, v in sorted(
-                    heard.items(), key=lambda kv: -kv[1])[:6]))
-        player_lines, other = [], []
-        for sec in range((tick - window) // 60, (tick + window) // 60 + 1):
-            for r in events.get(sec, []):
-                if abs(r["t"] - tick) <= window:
-                    slim = {k: v for k, v in r.items()
-                            if k not in ("seq",)}
-                    row = json.dumps(slim, separators=(",", ":"))
-                    if r.get("target_kind") == "player":
-                        player_lines.append(row)
-                    else:
-                        other.append(row)
-        digests[f.name] = (lines + player_lines
-                           + other)[:8]   # per-frame budget: the global
-        # prompt slice starved late-chunk frames of ALL coverage (runs
-        # 6-7 'unlogged damage' artifacts); 8 prioritized lines per
-        # frame keeps every frame covered inside the slice
-    return digests
-
-
-def _judge_call(prompt: str, model: str, what: str) -> dict | list:
-    """One judge subprocess with a single retry on malformed output —
-    a second failure raises loudly."""
-    last = None
-    for attempt in (1, 2):
-        r = subprocess.run(
-            ["claude", "-p", prompt, "--model", model,
-             "--output-format", "json", "--allowedTools", "Read"],
-            capture_output=True, text=True, timeout=JUDGE_TIMEOUT_S)
-        if r.returncode != 0:
-            last = RuntimeError(f"{what} failed: {r.stderr[:500]}")
-            continue
-        text = json.loads(r.stdout)["result"].strip()
-        text = text.removeprefix("```json").removeprefix("```")
-        text = text.removesuffix("```").strip()
-        try:
-            return json.loads(text)
-        except json.JSONDecodeError:
-            # tolerate a prose preamble: parse from the first JSON value
-            starts = [i for i in (text.find("{"), text.find("["))
-                      if i >= 0]
-            if starts:
-                try:
-                    obj, _ = json.JSONDecoder().raw_decode(
-                        text[min(starts):])
-                    return obj
-                except json.JSONDecodeError:
-                    pass
-            last = RuntimeError(
-                f"{what} returned non-JSON (attempt {attempt}): "
-                f"{text[:300]!r}")
-    raise last
-
-
-def judge_chunk(frames: list[Path], digests: dict, idx: int, total: int,
-                model: str, ground: dict | None = None) -> dict:
-    digest_txt = "\n".join(
-        f"{f.name}: " + ("; ".join(digests.get(f.name, [])) or "(quiet)")
-        for f in frames)
-    prompt = CHUNK_PROMPT.format(
-        idx=idx, total=total,
-        frames="\n".join(str(f) for f in frames),
-        ground=json.dumps(ground, separators=(",", ":")),
-        digest=digest_txt[:60000])
-    return _judge_call(prompt, model, f"chunk {idx} judge")
-
-
 def ground_truth(rec: Path) -> dict:
-    """Hard per-session facts the verifier checks findings against."""
+    """Hard per-session facts, computed from the full trace."""
     import bisect
+    from collections import Counter
     fire, dmg_t, dmg = [], [], []
     dmg_full = []
     hp_samples = {}
-    trans = 0
     pr = {}
     with open(rec / "trace.jsonl") as fh:
         for line in fh:
@@ -379,16 +301,12 @@ def ground_truth(rec: Path) -> dict:
             if run_start is None:
                 run_start = t
             longest = max(longest, t - run_start)
-    # per-event HP correlation: does the HP track each logged player
-    # hit? (a verifier once CONFIRMED an 'HP bar bug' that this exact
-    # check disproves for every cited event)
     samples = sorted(hp_samples.items())
     matched = unmatched = 0
     for t, tk, _src, amt in dmg_full:
         if tk != "player":
             continue
-        before = None
-        after = None
+        before = after = None
         for ts, v in samples:
             if ts <= t:
                 before = v
@@ -414,73 +332,28 @@ def ground_truth(rec: Path) -> dict:
                 warden_moves[w] = (min(lo_x, x), min(lo_y, y),
                                    max(hi_x, x), max(hi_y, y), ch)
     warden_span = {
-        w: (f"moved {round(((hx - lx)**2 + (hy - ly)**2) ** 0.5)}u, "
+        w: (f"moved {round(((hx - lx) ** 2 + (hy - ly) ** 2) ** 0.5)}u, "
             f"{len(ch)} chambers")
         for w, (lx, ly, hx, hy, ch) in warden_moves.items()}
     return dict(
-        warden_movement_spans=warden_span,
         camera="the camera zoom is CONSTANT for the whole session; "
                "no zoom snap, kill-cam, or close-up exists in the "
-               "engine — any perceived zoom change is a chamber-size "
-               "or shake illusion",
+               "engine",
         player_hp_drops_match_logged_damage=(
             f"{matched} of {matched + unmatched} player hits moved the "
             f"HP bar by their logged amount"),
         longest_zero_hit_firing_ticks=longest,
         total_damage_events=len(dmg),
-        player_hits=sum(1 for _, tk, _ in dmg if tk == "player"),
-        damage_by_source=dict(
-            __import__("collections").Counter(s for _, _, s in dmg)),
+        player_hits=sum(1 for _, tk, _s in dmg if tk == "player"),
+        damage_by_source=dict(Counter(s for _, _, s in dmg)),
         player_chamber_changes=len(set(pr.values())),
+        warden_movement_spans=warden_span,
     )
-
-
-def verify_findings(reports: list[dict], rec: Path, model: str) -> dict:
-    """Adversarial pass: every P0/P1 chunk finding is checked against
-    trace ground truth; refuted findings are struck."""
-    flat = []
-    for ci, rep in enumerate(reports):
-        for f in rep.get("findings", []):
-            flat.append((ci, f))   # ALL severities: unverified P2s
-            # leaked straight into the final verdict as blockers
-            # (run 20: a fully-logged spit-dip-plus-medkit sequence
-            # survived as 'unexplained HP jump' because only P0/P1
-            # faced the trace)
-    if not flat:
-        return {}
-    listing = "\n".join(
-        f'{i}: [chunk {ci + 1} {f.get("severity")}] {f.get("note")} '
-        f'(frame {f.get("frame")}, tick {f.get("tick")})'
-        for i, (ci, f) in enumerate(flat))
-    prompt = VERIFY_PROMPT.format(
-        findings=listing,
-        ground=json.dumps(ground_truth(rec), indent=1))
-    verdicts = {v["idx"]: v
-                for v in _judge_call(prompt, model, "verifier")}
-    for i, (ci, f) in enumerate(flat):
-        v = verdicts.get(i, {})
-        f["verify"] = v.get("verdict", "UNVERIFIABLE")
-        f["verify_why"] = v.get("why", "")
-    return verdicts
-
-
-def final_verdict(chunk_reports: list[dict], stats: dict,
-                  model: str) -> dict:
-    prompt = VERDICT_PROMPT.format(
-        chunks="\n\n".join(
-            f"CHUNK {i + 1}: {json.dumps(c, separators=(',', ':'))}"
-            for i, c in enumerate(chunk_reports)),
-        stats=json.dumps(stats, separators=(",", ":")),
-        bar=PASS_BAR)
-    v = _judge_call(prompt, model, "final judge")
-    if not isinstance(v.get("p"), (int, float)):
-        raise RuntimeError(f"malformed verdict: {v!r}")
-    return v
 
 
 def session_stats(rec: Path, capture_meta: dict) -> dict:
     opened = dry = sealed = dispatches = 0
-    dmg_to_player = kills = 0
+    dmg_to_player = 0
     with open(rec / "trace.jsonl") as fh:
         for line in fh:
             r = json.loads(line)
@@ -495,8 +368,6 @@ def session_stats(rec: Path, capture_meta: dict) -> dict:
             elif k == "damage_applied":
                 if r.get("target_kind") == "player":
                     dmg_to_player += 1
-                else:
-                    kills += 0  # kill counting lives in demo stdout
     return dict(breaches_opened=opened, dry_calls=dry, sealed=sealed,
                 dispatches=dispatches, player_hits_taken=dmg_to_player,
                 capture=capture_meta.get("stdout", "")[-600:])
@@ -505,110 +376,39 @@ def session_stats(rec: Path, capture_meta: dict) -> dict:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--seed", type=int, default=4)
-    ap.add_argument("--seeds", type=str, default=None,
-                    help="comma-separated seeds: multi-session evidence "
-                         "pooled into one verdict (the honest answer to "
-                         "'one session cannot support 0.95 either way')")
+    ap.add_argument("--seeds", type=str, default=None)
     ap.add_argument("--ticks", type=int, default=14400)
     ap.add_argument("--zoom", type=float, default=0.45)
-    ap.add_argument("--model", default="sonnet")
-    ap.add_argument("--judge-every", type=int, default=24,
-                    help="judge every Nth sampled frame (~2s apart)")
-    ap.add_argument("--chunk-size", type=int, default=40)
-    ap.add_argument("--reuse", action="store_true",
-                    help="skip capture, judge the existing run")
-    ap.add_argument("--verdict-only", action="store_true",
-                    help="reuse saved chunk reports; re-run only the "
-                         "final verdict (prompt-level iteration)")
+    ap.add_argument("--model", default="fable",
+                    help="orchestrator model (subagents are chosen BY "
+                         "the orchestrator: sonnet eyes, opus analysts)")
+    ap.add_argument("--reuse", action="store_true")
     a = ap.parse_args()
 
     seeds = ([int(s) for s in a.seeds.split(",")] if a.seeds
              else [a.seed])
-    if a.verdict_only:
-        reports = []
-        for f in sorted(GATE.glob("chunk_s*_*.json")) or \
-                sorted(GATE.glob("chunk_*.json")):
-            reports.append(json.loads(f.read_text()))
-        if not reports:
-            raise RuntimeError("no saved chunk reports to re-verdict")
-        # verify saved reports too — chunk files are written before
-        # verification, so a resumed verdict must re-arm the verifier
-        by_seed = {}
-        for rep in reports:
-            by_seed.setdefault(rep.get("seed"), []).append(rep)
-        for seed, seed_reports in by_seed.items():
-            rec = GATE / (f"run_s{seed}" if seed is not None else "run")
-            if (rec / "trace.jsonl").exists():
-                print(f"[gate] verifying seed {seed} (saved reports)...",
-                      flush=True)
-                verify_findings(seed_reports, rec, a.model)
-        all_stats = []
-        for seed in seeds:
-            rec = GATE / (f"run_s{seed}" if len(seeds) > 1 else "run")
-            if (rec / "trace.jsonl").exists():
-                all_stats.append(dict(seed=seed, **session_stats(
-                    rec, {"stdout": "(verdict-only)"})))
-        stats = all_stats if len(all_stats) > 1 else all_stats[0]
-        verdict = final_verdict(reports, stats, a.model)
-        (GATE / "verdict.json").write_text(json.dumps(verdict, indent=1))
-        print(json.dumps(verdict, indent=2))
-        if verdict.get("pass") and float(verdict["p"]) > PASS_BAR:
-            (GATE / "PASS").write_text(json.dumps(
-                dict(p=verdict["p"], seeds=seeds, ticks=a.ticks,
-                     zoom=a.zoom), indent=1))
-            print(f"[gate] PASS (p={verdict['p']})")
-            return 0
-        (GATE / "PASS").unlink(missing_ok=True)
-        print(f"[gate] BLOCKED (p={verdict.get('p')})")
-        return 1
-    reports = []
-    all_stats = []
-    for si, seed in enumerate(seeds):
-        rec = GATE / (f"run_s{seed}" if len(seeds) > 1
-                      or (GATE / f"run_s{seed}").exists() else "run")
+    recs = []
+    for seed in seeds:
+        rec = GATE / f"run_s{seed}"
         have = len(list(rec.glob("frame_*.png"))) if rec.exists() else 0
-        complete = have >= a.ticks // 5 - 5 and (rec / "trace.jsonl").exists()
+        complete = (have >= a.ticks // 5 - 5
+                    and (rec / "trace.jsonl").exists())
         if a.reuse or complete:
-            # resumable: a finished capture for this seed is evidence
-            # already on disk — killed runs pick up where they died
-            meta = {"stdout": f"(reused capture, {have} frames)"}
-            if complete and not a.reuse:
-                print(f"[gate] seed {seed}: capture already complete, "
-                      f"reusing", flush=True)
+            print(f"[gate] seed {seed}: reusing capture ({have} frames)",
+                  flush=True)
+            meta = {"stdout": "(reused capture)"}
         else:
             print(f"[gate] capturing seed {seed}...", flush=True)
             meta = run_capture(rec, seed, a.ticks, a.zoom)
-        frames = sorted(rec.glob("frame_*.png"))
-        if not frames:
-            raise RuntimeError(f"no frames captured (seed {seed})")
-        judged = frames[:: a.judge_every]
-        print(f"[gate] seed {seed}: {len(frames)} frames, judging "
-              f"{len(judged)}", flush=True)
-        digests = build_digests(rec, judged)
-        chunks = [judged[i:i + a.chunk_size]
-                  for i in range(0, len(judged), a.chunk_size)]
-        seed_reports = []
-        for i, chunk in enumerate(chunks):
-            print(f"[gate] seed {seed} chunk {i + 1}/{len(chunks)}...",
-                  flush=True)
-            rep = judge_chunk(chunk, digests, i + 1, len(chunks),
-                              a.model, ground=ground_truth(rec))
-            rep["seed"] = seed
-            seed_reports.append(rep)
-            (GATE / f"chunk_s{seed}_{i + 1}.json").write_text(
-                json.dumps(rep, indent=1))
-            print(f"[gate]   score={rep.get('chunk_score')} "
-                  f"findings={len(rep.get('findings', []))}", flush=True)
-        print(f"[gate] verifying seed {seed} findings...", flush=True)
-        verify_findings(seed_reports, rec, a.model)
-        struck = sum(1 for rep in seed_reports
-                     for f in rep.get("findings", [])
-                     if f.get("verify") == "REFUTED")
-        print(f"[gate]   struck {struck}", flush=True)
-        reports.extend(seed_reports)
-        all_stats.append(dict(seed=seed, **session_stats(rec, meta)))
-    stats = all_stats if len(all_stats) > 1 else all_stats[0]
-    verdict = final_verdict(reports, stats, a.model)
+        gt = ground_truth(rec)
+        gt["session_stats"] = session_stats(rec, meta)
+        (rec / "ground_truth.json").write_text(json.dumps(gt, indent=1))
+        recs.append(rec)
+
+    print(f"[gate] launching the {a.model} orchestrator over "
+          f"{len(recs)} sessions...", flush=True)
+    verdict = run_orchestrator(recs, a.model)
+    GATE.mkdir(parents=True, exist_ok=True)
     (GATE / "verdict.json").write_text(json.dumps(verdict, indent=1))
     print(json.dumps(verdict, indent=2))
 
@@ -619,9 +419,7 @@ def main() -> int:
         print(f"[gate] PASS (p={verdict['p']})")
         return 0
     (GATE / "PASS").unlink(missing_ok=True)
-    print(f"[gate] BLOCKED (p={verdict.get('p')}) — top blockers:")
-    for b in verdict.get("blockers", [])[:5]:
-        print(f"  - {b}")
+    print(f"[gate] BLOCKED (p={verdict.get('p')})")
     return 1
 
 
