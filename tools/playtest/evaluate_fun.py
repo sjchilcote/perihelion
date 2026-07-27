@@ -458,6 +458,17 @@ def main() -> int:
             reports.append(json.loads(f.read_text()))
         if not reports:
             raise RuntimeError("no saved chunk reports to re-verdict")
+        # verify saved reports too — chunk files are written before
+        # verification, so a resumed verdict must re-arm the verifier
+        by_seed = {}
+        for rep in reports:
+            by_seed.setdefault(rep.get("seed"), []).append(rep)
+        for seed, seed_reports in by_seed.items():
+            rec = GATE / (f"run_s{seed}" if seed is not None else "run")
+            if (rec / "trace.jsonl").exists():
+                print(f"[gate] verifying seed {seed} (saved reports)...",
+                      flush=True)
+                verify_findings(seed_reports, rec, a.model)
         all_stats = []
         for seed in seeds:
             rec = GATE / (f"run_s{seed}" if len(seeds) > 1 else "run")
