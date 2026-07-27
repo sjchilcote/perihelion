@@ -47,7 +47,11 @@ with a bright triangular head — STATIONARY BY DESIGN, friendly, they
 never move and enemies may ignore them; do not report them as frozen
 enemies. Enemy bodies: green lumpy husks, small pale mites, olive
 pentagon spitters (green nose), thin pale shrieker slivers, violet
-flickers, red-brown brutes with two pale tusk lines (reads as an 'M'
+flickers — flickers are DESIGNED to be nearly invisible: they hold
+dark ground, dim their own sensor return while lurking, and ambush
+from shadow; dying to a flicker you never saw coming is the intended
+horror of the unit, and 'the flicker was hard to see' is the design
+working, never a finding — red-brown brutes with two pale tusk lines (reads as an 'M'
 at distance), dark-violet 9-gon wardens with a white rim; teal/violet
 double outlines are adversary scouts — scouts are SPOTTERS, not
 assault units: their designed cycle is wander/observe, root
