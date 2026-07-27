@@ -396,6 +396,10 @@ def ground_truth(rec: Path) -> dict:
         else:
             unmatched += 1
     return dict(
+        camera="the camera zoom is CONSTANT for the whole session; "
+               "no zoom snap, kill-cam, or close-up exists in the "
+               "engine — any perceived zoom change is a chamber-size "
+               "or shake illusion",
         player_hp_drops_match_logged_damage=(
             f"{matched} of {matched + unmatched} player hits moved the "
             f"HP bar by their logged amount"),

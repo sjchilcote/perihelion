@@ -85,9 +85,16 @@ def main() -> int:
 
     saved = 0
     lifecycle = []
+    linger = 0
     for t in range(a.ticks):
-        if session.dead or session.complete:
+        if session.complete:
             break
+        if session.dead:
+            # film the death RESOLUTION: the vignette, the fade, the
+            # corpse state — three seconds of aftermath on screen
+            linger += 1
+            if linger > 180:
+                break
         snap = session.snapshot()
         inp = bot.step(snap, session)
         session.tick(inp)
