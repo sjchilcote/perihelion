@@ -90,10 +90,14 @@ def main() -> int:
         if session.complete:
             break
         if session.dead:
-            # film the death RESOLUTION: the vignette, the fade, the
-            # corpse state — three seconds of aftermath on screen
+            # the death rule IS a translocation: linger through the
+            # fade, then reprint at the nearest seed station ON FILM
+            # and keep playing — sessions end at the tick budget or
+            # when the chassis run out, like the real game
             linger += 1
-            if linger > 180:
+            if linger == 90 and session.respawn_at_station():
+                linger = 0
+            elif linger > 180:
                 break
         snap = session.snapshot()
         inp = bot.step(snap, session)
