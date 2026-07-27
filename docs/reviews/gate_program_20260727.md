@@ -49,3 +49,38 @@ pickup floaters, capped vignettes, death surge.
 - Rule on the design levers above, or schedule U16.
 - Decide whether the ~40-commit-equivalent gameplay diff ships at
   the current verified state or keeps riding the loop.
+
+## Post-collapse addendum (7/27, runs 40-42)
+
+The 198-line judge prompt was ruled prompt theater ("give it the
+north star as I gave it to you, and nothing else — more instructions
+is worse"). GATE_PROMPT.md collapsed to 34 lines: the north-star
+question, reference class, scope, the Bayescraft/workflow orders,
+and bare operational pointers. The judge is Fable in this repo — it
+gets Bayescraft from CLAUDE.md and reads DESIGN_7_25.md itself.
+Two judge-obedience errors were also reverted under the corrected
+legibility law ("mechanics happening ON SCREEN must be clearly
+visible; off-screen events need no representation"): the dry-call
+sfx (there is no "finite economy tell" — my invention) and, earlier,
+the flicker visibility spiral.
+
+Run 41 — the first under the minimal prompt — was the sharpest
+verdict of the program (p=0.05): it located, to the line, that the
+run-39 transit fix was a no-op. activate_also() widened only the
+ENGINE active set (physics); _enemy_ai rebuilt its own
+player-centered BFS and never consulted it, so dispatched units
+kept physics and lost their minds beyond ACTIVE_HOPS: 28-39 of ~70
+units/seed frozen mid-transit, economies draining into a dead hub,
+every late breach sealing unwitnessed, the last third of every
+session filmed as empty corridor. Less prompt produced a better
+judge.
+
+Fixes (verified before run 42): the engine now exposes the one
+canonical active set (active_polygons()) and _enemy_ai consumes it;
+warden sidestep lifted above the sighted-branch gate (two s7 wardens
+had sponged 19 hits with zero dodges); player death unified into
+_player_death (the engulf branch died silent — no sound, fx, corpse,
+or component drop). Fresh s7 film: 74/76 dispatched units reached
+the world (was ~half), shriekers 10/11 (their "kind-specific"
+failure was the same bug); both stragglers were end-of-session
+dispatches. 742 tests green.
