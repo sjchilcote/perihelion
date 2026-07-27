@@ -395,7 +395,24 @@ def ground_truth(rec: Path) -> dict:
             matched += 1
         else:
             unmatched += 1
+    warden_moves = {}
+    with open(rec / "trace.jsonl") as fh:
+        for line in fh:
+            r = json.loads(line)
+            if r.get("kind") == "sample" and "warden" in r:
+                w = r["warden"]
+                x, y = r["pos"]
+                lo_x, lo_y, hi_x, hi_y, ch = warden_moves.get(
+                    w, (x, y, x, y, set()))
+                ch.add(r.get("polygon"))
+                warden_moves[w] = (min(lo_x, x), min(lo_y, y),
+                                   max(hi_x, x), max(hi_y, y), ch)
+    warden_span = {
+        w: (f"moved {round(((hx - lx)**2 + (hy - ly)**2) ** 0.5)}u, "
+            f"{len(ch)} chambers")
+        for w, (lx, ly, hx, hy, ch) in warden_moves.items()}
     return dict(
+        warden_movement_spans=warden_span,
         camera="the camera zoom is CONSTANT for the whole session; "
                "no zoom snap, kill-cam, or close-up exists in the "
                "engine — any perceived zoom change is a chamber-size "
