@@ -480,8 +480,16 @@ class HumanBot(_UnstickMixin, Bot):
                 # measured mildly negative: Z-bends often have no
                 # long vantage, so the rule only deferred the pull
                 # into a worse co-polygon entry.)
+                # RENDERABLE RANGE ONLY (filmed-playtest judge: bot
+                # filmed firing at unrendered enemies, s7 x2 s11 x1 —
+                # `visible()` walks 14 hops but the film at zoom 0.45
+                # only legibly draws ~2-3): a shot at a target beyond
+                # 2 hops reads as flailing at an empty corridor.
+                # Deeper contacts stay on the glance/orient channel
+                # (`_distant_threat_input`); routing is untouched.
                 cand = [visible_screens[e["id"]] for e in distant
                         if e["id"] in visible_screens
+                        and 0 <= e.get("hops", 9) <= 2
                         and (e.get("active")
                              or e.get("kind") == "warden")]
                 if cand:
@@ -1974,7 +1982,13 @@ class HumanBot(_UnstickMixin, Bot):
         # despawn instead of drifting into their shooter — the
         # bot-side serpentine and fire-line vetoes that compensated
         # for it measured survival-negative and were deleted.
-        inp.fire = True
+        # ...held only inside RENDERABLE range (same 2-hop law as the
+        # portal-fire gate in `step`; filmed-playtest judge: bot filmed
+        # firing at unrendered enemies, s7 x2 s11 x1): a 3-hop
+        # chain-merged threat still drives the footwork, but its
+        # chamber isn't legibly drawn at zoom 0.45 — the trigger waits
+        # until it closes to 2 hops.
+        inp.fire = 0 <= nearest.get("hops", 0) <= 2
         # (The enrage-preparation gate died with the NPC-internals
         # purge, director 2026-07-18: it read the warden's hp. The
         # enrage roar is the diegetic cue and the bot has no ears —
