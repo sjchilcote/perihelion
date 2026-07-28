@@ -464,34 +464,21 @@ class HumanBot(_UnstickMixin, Bot):
                 # projectile weapon. Visible on screen = shootable:
                 # point at the closest visible enemy, hold the trigger.
                 pax, pay = necore.mat_apply(session.cam, px, py)
-                # HUNTING TARGETS ONLY (2026-07-18): sniping idle
-                # enemies through portals was free kills against the
-                # old off-polygon-inert game (they walked to the door and
-                # died single-file); on the honest game every such
-                # shot wakes a polygon that arrives as a FIGHTING pack —
-                # measured 48-77 kills by t~75s, a self-made avalanche
-                # that killed every run at the first compound. Sleeping
-                # polygons stay asleep.
-                # ...except WARDENS: a parked boss astride the route
-                # gets the deliberate opening shot — that IS the pull
-                # (timeout footage: 4+ minutes recoil-looping at one
-                # doorway, unable to provoke or pass). (A 250u
-                # minimum poke range was tried 2026-07-18 and
-                # measured mildly negative: Z-bends often have no
-                # long vantage, so the rule only deferred the pull
-                # into a worse co-polygon entry.)
-                # RENDERABLE RANGE ONLY (filmed-playtest judge: bot
-                # filmed firing at unrendered enemies, s7 x2 s11 x1 —
-                # `visible()` walks 14 hops but the film at zoom 0.45
-                # only legibly draws ~2-3): a shot at a target beyond
-                # 2 hops reads as flailing at an empty corridor.
-                # Deeper contacts stay on the glance/orient channel
-                # (`_distant_threat_input`); routing is untouched.
+                # LOS ON A HOSTILE MEANS ACT (director 2026-07-27: "if
+                # you have LOS on a hostile, you should be doing
+                # something about it" — overriding the 2026-07-18
+                # sleeping-polygons-stay-asleep rule, whose avalanche
+                # measurements predate the quorum-wake/marrow economy).
+                # ON SCREEN = SHOOTABLE, period. The gate is membership
+                # in the render-visible set (the same find API the
+                # renderer uses), never a hop count — a battlespace can
+                # cover tens of polygons (director 2026-07-28) and a
+                # long straight sightline is exactly where ranged play
+                # happens. Deeper contacts that are NOT on screen stay
+                # on the glance/orient channel (`_distant_threat_input`);
+                # routing is untouched.
                 cand = [visible_screens[e["id"]] for e in distant
-                        if e["id"] in visible_screens
-                        and 0 <= e.get("hops", 9) <= 2
-                        and (e.get("active")
-                             or e.get("kind") == "warden")]
+                        if e["id"] in visible_screens]
                 if cand:
                     tx_, ty_ = min(cand, key=lambda s: math.hypot(
                         s[0] - pax, s[1] - pay))

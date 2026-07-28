@@ -31,9 +31,13 @@ from typing import Callable, Protocol
 
 import necore
 
-# targeted sight composes portal transforms up to this many crossings —
-# matches the engagement depth the canon base shipped with
-VISION_HOPS = 3
+# Sight is bounded by GEOMETRY — the raycast — never by graph hops. A
+# battlespace can cover tens of polygons (director 2026-07-28), and a
+# straight sightline through a colonnade of small chambers must work at
+# whatever depth the geometry allows. This constant is only a cost
+# ceiling on the compose-transforms walk, set far above any real
+# sightline; it must never be the thing that ends an engagement.
+VISION_HOPS = 12
 
 
 @dataclass(frozen=True, slots=True)

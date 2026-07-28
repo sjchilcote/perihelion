@@ -20,8 +20,8 @@ from perihelion.render import Renderer
 from perihelion.sim import GameSession, InputFrame
 
 
-def _render(level, spawn=None, setup=None):
-    s = GameSession(level, seed=3, screen=(640, 360), zoom=1.0)
+def _render(level, spawn=None, setup=None, zoom=1.0):
+    s = GameSession(level, seed=3, screen=(640, 360), zoom=zoom)
     s.douse_player_lights()          # only authored light, no player lamp
     # structure lamps would smear a light halo into the diff and hide a cut
     # sprite behind a big lit-floor silhouette; the vectors measure the ART
@@ -42,9 +42,9 @@ def _render(level, spawn=None, setup=None):
     return r.draw(surf).astype(np.int32)
 
 
-def _silhouette(level, spawn, setup=None) -> int:
-    base = _render(level, None)
-    with_it = _render(level, spawn, setup)
+def _silhouette(level, spawn, setup=None, zoom=1.0) -> int:
+    base = _render(level, None, zoom=zoom)
+    with_it = _render(level, spawn, setup, zoom=zoom)
     return int((np.abs(with_it - base).sum(axis=2) > 12).sum())
 
 
@@ -102,6 +102,22 @@ def test_a_body_past_the_corner_is_not_drawn():
     """LAYER 3: out of the line of sight is out of the picture."""
     hidden = _silhouette(_corner(), (2, (0.0, -50.0), "husk"))
     assert hidden == 0, f"a body around the corner drew {hidden}px"
+
+
+def test_edge_of_sight_occlusion_scales_with_zoom():
+    """LAYER 3, at zoom 0.45: the entity-mask spill must scale with the
+    VIEW, not be a fixed screen-pixel count. With ENTITY_SPILL fixed at
+    18 screen px, 18px was 40 WORLD units at farm zoom — a body
+    straddling the LOS shadow edge kept ~2.5 body-widths of overhang lit
+    past the line (measured 47px here; the correctly-scaled spill cuts
+    it to 23) and buildings/bodies visibly ignored the shadows on film
+    (director 2026-07-27: 'not correctly cut off ... assumed a certain
+    zoom level')."""
+    edge = _silhouette(_corner(), (1, (60.0, 0.0), "husk"), zoom=0.45)
+    assert 0 < edge <= 34, (
+        f"a body at the edge of sight drew {edge}px at farm zoom — "
+        "expected <=34 (scaled spill ~23px; the old fixed-18-screen-px "
+        "spill leaked 47)")
 
 
 def test_a_body_at_the_edge_of_sight_is_partly_occluded():

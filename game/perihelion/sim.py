@@ -16,7 +16,7 @@ import necore
 
 from .levels import Level
 from .lighting import LightingSystem, light_level_at
-from .senses import SenseQuery
+from .senses import VISION_HOPS, SenseQuery
 from .signals import SignalField, SignalKind
 from . import coordination as coord
 from .capture import CaptureSpec, CaptureSystem
@@ -264,7 +264,15 @@ SENTRIES: dict[str, dict] = {
     # the field in 16/20 calibration runs); the sentry hazard is the
     # director's intended player-buff lever ("environmental hazards ...
     # lure enemies to"), so the guns bite for real now
-    "sentry": dict(radius=7.0, dmg=18, cd=14, range=300.0, spin_up=10,
+    # range: the SIGHTLINE is the real limit (raycast-confirmed, through
+    # portals) — 300u was a bubble a fifth of a screen wide, which read
+    # on film as the guns doing nothing while sighted enemies streamed
+    # past the doorway (director 2026-07-27: "ABSURDLY SMALL range").
+    # dmg/cd: first calibration for the cross-portal envelope — at
+    # 18/14 the authored guns took 57-68% of ALL killing blows every
+    # seed (run 46); 14/18 (-40% dps) keeps the field grinding what the
+    # player softens without owning the scoreboard. Director's lever.
+    "sentry": dict(radius=7.0, dmg=14, cd=18, range=700.0, spin_up=10,
                    bolt_speed=1400.0, alert_snd="pistol_fire"),
 }
 
@@ -343,7 +351,7 @@ class InputFrame:
 
 class GameSession:
     def __init__(self, level: Level, seed: int = 0,
-                 screen: tuple[int, int] = (480, 270), zoom: float = 1.35,
+                 screen: tuple[int, int] = (480, 270), zoom: float = 0.45,
                  player_state: dict | None = None, difficulty: str = "normal"):
         self.level = level
         # Soft (otherworld) polygons deform level.polygon_verts in place via the
@@ -1035,11 +1043,16 @@ class GameSession:
 
     def _player_control(self, inp: InputFrame, ppolygon: int):
         s = self.sim
-        # weapon select
+        # weapon select. Switching costs a SWITCH delay, never the old
+        # weapon's recycle: the single global cooldown made a rail shot
+        # lock every other gun for 84 ticks after the swap — run 46
+        # filmed a fatal engulf as a passive death because the player
+        # had railed, switched, and stood disarmed inside the grip.
         if 1 <= inp.weapon <= len(WEAPON_ORDER):
             w = WEAPON_ORDER[inp.weapon - 1]
-            if w in self.weapons:
+            if w in self.weapons and w != self.weapon:
                 self.weapon = w
+                self.cooldown = min(self.cooldown, 18)
         # aim: maps through the SMOOTH camera, not the whole-pixel
         # rendered one. Historically this used `self.cam` (the snapped
         # copy), which coupled gameplay to render-side rounding; the
@@ -1511,13 +1524,20 @@ class GameSession:
                 continue
             polygon = s.get_polygon(tid)
             _, tx, ty, *_ = s.get(tid)
-            best, bd = None, 1e18
-            for eid in s.polygon_entities(polygon):
-                if eid in self.enemies:
-                    _, ex, ey, *_ = s.get(eid)
-                    d = (ex - tx) ** 2 + (ey - ty) ** 2
-                    if d < bd:
-                        best, bd = (ex, ey), d
+            # sighted targets at any portal depth the ray reaches — the
+            # guardians obey the same cross-room law as everything else
+            best, bd = None, 700.0 * 700.0
+            for eid in list(self.enemies):
+                if not 0 <= s.hop_distance(
+                        polygon, s.get_polygon(eid)) <= VISION_HOPS:
+                    continue
+                hit = self.senses.sight_of(tid, eid)
+                if hit is None:
+                    continue
+                ex, ey = hit.position
+                d = (ex - tx) ** 2 + (ey - ty) ** 2
+                if d < bd:
+                    best, bd = (ex, ey), d
             if best is None:
                 continue
             t["cd"] = 16
@@ -1595,32 +1615,58 @@ class GameSession:
                 t["cd"] -= 1
             polygon = s.get_polygon(tid)
             _, tx, ty, *_ = s.get(tid)
-            # nearest enemy in range WITH a clear shot -- an occluded
-            # nearer target must not blind the sentry to a farther, clear
-            # one (see the fail-first walls/terrain test).
+            # nearest SIGHTED enemy in range, at ANY portal depth the
+            # sightline reaches (cross-room combat law: the map is
+            # polygons in continuous portal space, nothing is blind at
+            # a doorway — a sentry that only scanned its own chamber
+            # did literally nothing on film while sighted enemies
+            # streamed past one hop away: 98.9% of its real target
+            # opportunities, demo seed 2). Bolts are physics bodies
+            # and cross the portal like every other projectile. The
+            # terrain check stays for same-chamber shots; deeper shots
+            # are raycast-confirmed by the senses (no wallhacks) and a
+            # bolt that clips a far crate dies on it like any round.
             best, best_d2 = None, d["range"] * d["range"]
-            for eid in s.polygon_entities(polygon):
-                if eid not in self.enemies:
+            cached = t.get("target")
+            scan = [cached] if cached in self.enemies else []
+            if not scan:
+                # the find API's own cost ceiling, never a targeting law:
+                # a battlespace can cover tens of polygons (director
+                # 2026-07-28) — sight_of's raycast is the real limit
+                scan = [eid for eid in self.enemies
+                        if 0 <= s.hop_distance(
+                            polygon, s.get_polygon(eid)) <= VISION_HOPS]
+            for eid in scan:
+                hit = self.senses.sight_of(tid, eid)
+                if hit is None:
                     continue
-                _, ex, ey, *_ = s.get(eid)
+                ex, ey = hit.position
                 dist2 = (ex - tx) ** 2 + (ey - ty) ** 2
                 if dist2 > best_d2:
                     continue
-                if not self._sentry_los_clear(polygon, tx, ty, ex, ey):
+                if hit.portal_depth == 0 and \
+                        not self._sentry_los_clear(polygon, tx, ty, ex, ey):
                     continue
                 best, best_d2 = (ex, ey), dist2
+                t["target"] = eid
             if best is None:
+                t.pop("target", None)
                 t["spin"] = d["spin_up"]  # target lost: re-acquire from cold
                 continue
+            dx, dy = best[0] - tx, best[1] - ty
+            dl = math.hypot(dx, dy) or 1e-6
+            nx, ny = dx / dl, dy / dl
+            # the barrel tracks the target every tick it holds one —
+            # the renderer's slew/muzzle draw reads these (run 46: they
+            # were never set, so the turret art aimed at nothing)
+            t["face"] = math.atan2(ny, nx)
             if t["spin"] > 0:
                 t["spin"] -= 1  # instant-ish acquisition, not instant
                 continue
             if t["cd"] > 0:
                 continue
             t["cd"] = d["cd"]
-            dx, dy = best[0] - tx, best[1] - ty
-            dl = math.hypot(dx, dy) or 1e-6
-            nx, ny = dx / dl, dy / dl
+            t["fire_tick"] = self.tick_count
             bid = s.spawn(polygon, tx + nx * (d["radius"] + 2), ty + ny * (d["radius"] + 2),
                          1.6, 0.002, GROUP_PBULLET)
             s.set_props(bid, rest_wall=0.0, max_substep=3.2)
@@ -1811,7 +1857,6 @@ class GameSession:
         self.trace.emit(EnemyDeath(
             tick=self.tick_count, entity_id=eid,
             enemy_kind=self.enemies[eid]["kind"], polygon=polygon))
-        self.fx.append(("killpop", polygon, pos[0], pos[1]))
         self.captures.release_for_entity(eid)
         self.medium.release(eid)
         was_part = eid in self.core.parts
@@ -1835,15 +1880,24 @@ class GameSession:
         d = ENEMIES[kind]
         self.metrics["kills"] += 1
         self._snd(d["die_snd"], polygon, pos)
-        self._decal(polygon, "corpse_" + kind, pos[0], pos[1],
-                    d["radius"], math.atan2(ndir[1], ndir[0]))
+        ang = math.atan2(ndir[1], ndir[0])
+        # blood first, THEN the corpse: decals draw in list order, and
+        # the spray landing on top of the body erased the silhouette the
+        # corpsefall animation just spent 14 ticks landing on (run 46)
         for i in range(int(d["radius"])):
             a = self.rng.uniform(0, 6.28)
             r = self.rng.uniform(2, d["radius"] * 1.8)
             self._decal(polygon, "blood", pos[0] + math.cos(a) * r,
                         pos[1] + math.sin(a) * r, self.rng.uniform(2, 5), a)
+        self._decal(polygon, "corpse_" + kind, pos[0], pos[1],
+                    d["radius"], ang)
+        # the death is the BODY's event: the silhouette collapses into its
+        # corpse pose on film (renderer "corpsefall") and the chunks that
+        # fly are pieces of THAT body, in its own palette
+        self.fx.append(("corpsefall", polygon, pos[0], pos[1], kind,
+                        d["radius"], ang))
         self.fx.append(("gib", polygon, pos[0], pos[1], int(d["radius"]),
-                        (ndir[0], ndir[1])))
+                        (ndir[0], ndir[1]), kind))
         self._hitstop(4 if kind in ("husk", "mite") else 7)
         self._shake(2.5)
         self.sim.remove(eid)
@@ -2844,9 +2898,7 @@ class GameSession:
         ppolygon = self.player_polygon()
         if self.tick_count % 5 == 0:
             self._snd("player_hurt", ppolygon, (px, py))
-            _, cx_, cy_, *_ = self.sim.get(captor)
-            self.fx.append(("attacker_mark",
-                            self.sim.get_polygon(captor), cx_, cy_))
+            self.fx.append(("attacker_mark", captor))
             self.trace.emit(DamageApplied(
                 tick=self.tick_count, target_id=self.pid,
                 target_kind="player", amount=round(dmg * 5, 3),
@@ -3714,24 +3766,22 @@ class GameSession:
                 d = ENEMIES[e["kind"]]
                 if d["touch_dmg"] > 0:
                     e["touch_cd"] = d["touch_cd"]
-                    _, ax_, ay_, *_ = self.sim.get(eid)
-                    self.fx.append(("attacker_mark",
-                                    self.sim.get_polygon(eid), ax_, ay_))
+                    # the ATTACKER's own body flashes red: 'why did I
+                    # take damage' must have an answer on screen (run 5),
+                    # and the answer lives ON the body — rings are the
+                    # aggro vocabulary and mean nothing here
+                    self.fx.append(("attacker_mark", eid))
                     held = self.captures.held_by(self.pid) is not None
                     if held:
                         # inside a warden's grip the body is CASED — other
                         # biters get half purchase. Keeps the ratified
                         # grip lethal while the stacked pile-on stays
                         # readable (gate run 10 P0: 82->30 in 1.3s)
-                        self.fx.append(("hitflash", eid))
                         self._damage_player(
                             d["touch_dmg"] * 0.5,
                             self.sim.get_polygon(self.pid),
                             source="contact:" + e["kind"])
                         return
-                    # the ATTACKER flashes too: 'why did I take damage'
-                    # must have an answer on screen (filmed gate run 5)
-                    self.fx.append(("hitflash", eid))
                     self._damage_player(
                         d["touch_dmg"],
                         self.sim.get_polygon(self.pid),

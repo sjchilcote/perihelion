@@ -93,9 +93,13 @@ def ui(px: float) -> int:
 
 TEXTURE_DIR = Path(__file__).resolve().parent / "assets" / "textures"
 # how far the entity coverage mask is dilated past the visible world, in
-# screen px: a hair over the largest body radius at the shipped zoom, so
-# nothing is ever cut in half at a polygon boundary
-ENTITY_SPILL_PX = 18
+# WORLD units: a hair over the largest body radius (warden 16u), converted
+# to screen px per instance by that instance's own transform scale.
+# A fixed 18 SCREEN px baked in the shipped zoom here (run 45 era): at
+# farm zoom 0.45 a body is ~7px, so bodies and buildings leaked 2.5
+# body-widths past the LOS shadow boundary (director 2026-07-27: "not
+# correctly cut off ... the renderer assumed a certain zoom level")
+ENTITY_SPILL_U = 18.0
 
 
 def _dilate_poly(pts, px):
@@ -264,13 +268,11 @@ ENEMY_SHAPE = {
 # _draw_enemy), in a channel colour nothing in the Testator lane uses.
 ADVERSARY_TRACE = {"vagrant": (120, 245, 230), "lacuna": (185, 140, 255)}
 # how much wider than its hitbox the Adversary's trace is drawn — see
-# _draw_adversary. Render-only: the sim never reads this. Was 2.3 while the
-# capture pipeline was mistakenly recording at zoom 0.45 (a THIRD of the
-# real game's 1.35), where a 9.5u body was an 8px speck and needed heavy
-# inflation to read at all. At the true zoom the base body is already ~3x
-# larger on screen, so 2.3 over-dominated close passes; 1.5 keeps the trace
-# clearly larger-than-the-body (the "unresolvable return" read) without
-# swallowing the frame.
+# _draw_adversary. Render-only: the sim never reads this. History: 2.3,
+# then 1.5. At the shipped 0.45 zoom (director 2026-07-28: 0.45 IS the
+# zoom — play, capture, farm) the ENEMY_MIN_PX floors keep the base body
+# legible, and 1.5 keeps the trace clearly larger-than-the-body (the
+# "unresolvable return" read) without swallowing close passes.
 ADVERSARY_TRACE_SCALE = 1.5
 
 
@@ -292,8 +294,8 @@ def _boil(pts, tick, eid, amp):
 # pixels") applied to every combatant, TIERED so threat rank survives
 # any camera: a warden must never compress to the same speck as a
 # mite — the filmed gate's 'every unit renders as an identical small
-# yellow triangle' blocker. At play zoom (1.35) real sizes exceed all
-# of these and nothing changes.
+# yellow triangle' blocker. If the player later zooms IN (planned
+# mousewheel zoom), real sizes exceed these floors and nothing changes.
 ENEMY_MIN_PX = {
     "mite": 3.0,
     "husk": 6.0, "spitter": 6.0, "shrieker": 6.0, "flicker": 6.0,
@@ -1556,6 +1558,8 @@ class Renderer:
         self._portal_edges: "dict[int, set[int]] | None" = None
 
         self._gibs: list[dict] = []
+        self._corpsefalls: list[dict] = []
+        self._attacker_flash: dict[int, int] = {}
         self._sparks: list[dict] = []
         self._bolts: list[dict] = []
         self._screams: list[dict] = []
@@ -1632,6 +1636,11 @@ class Renderer:
             g["life"] -= 1
         self._gibs = [g for g in self._gibs if g["life"] > 0][-400:]
 
+        for cf in self._corpsefalls:
+            cf["age"] += 1
+        self._corpsefalls = [cf for cf in self._corpsefalls
+                             if cf["age"] < cf["maxage"]][-40:]
+
         for sp in self._sparks:
             sp["life"] -= 1
         self._sparks = [sp for sp in self._sparks if sp["life"] > 0][-200:]
@@ -1655,22 +1664,42 @@ class Renderer:
             if self._hitflash[eid] <= 0:
                 del self._hitflash[eid]
 
+        for eid in list(self._attacker_flash):
+            self._attacker_flash[eid] -= 1
+            if self._attacker_flash[eid] <= 0:
+                del self._attacker_flash[eid]
+
         if self._hurt_ticks > 0:
             self._hurt_ticks -= 1
 
         for fx in fx_list:
             tag = fx[0]
             if tag == "gib":
-                _, polygon, x, y, n, (dx, dy) = fx
+                _, polygon, x, y, n, (dx, dy), *rest = fx
+                # chunks are pieces of the body that died: the dying kind's
+                # own palette, darkened toward blood, never a generic red
+                gkind = rest[0] if rest else None
+                base = ENEMY_COLOR.get(gkind)
+                gcol = (tuple(int(c * 0.7) for c in base) if base
+                        else GIB_COLOR)
                 base_ang = math.atan2(dy, dx) if (dx or dy) else 0.0
                 for _ in range(max(0, int(n))):
                     ang = base_ang + random.uniform(-1.1, 1.1)
                     spd = random.uniform(40.0, 220.0)
                     self._gibs.append(dict(
-                        polygon=polygon, x=x, y=y,
+                        polygon=polygon, x=x, y=y, col=gcol,
                         vx=math.cos(ang) * spd, vy=math.sin(ang) * spd,
                         life=random.randint(18, 34), size=random.uniform(1.5, 3.5),
                     ))
+            elif tag == "corpsefall":
+                # the death animation: the silhouette itself collapses into
+                # the corpse pose over ~a quarter second — same shape, same
+                # spot, same final squash/brightness as the persistent
+                # corpse decal, so the last frame lands seamlessly on it
+                _, polygon, x, y, ekind, rad, cang = fx
+                self._corpsefalls.append(dict(
+                    polygon=polygon, x=x, y=y, kind=ekind, rad=rad,
+                    ang=cang, age=0, maxage=14))
             elif tag == "spark":
                 _, polygon, x, y, nx, ny = fx
                 self._sparks.append(dict(polygon=polygon, x=x, y=y, nx=nx, ny=ny, life=4))
@@ -1683,24 +1712,15 @@ class Renderer:
             elif tag == "alerted":
                 _, polygon, x, y = fx
                 self._screams.append(dict(polygon=polygon, x=x, y=y, age=0, maxage=10))
-            elif tag == "killpop":
-                # a death is punctuation: a fast bright ring at the
-                # corpse so 4px kills still land visually (run 38
-                # ledger: 7 trace-verified hits, zero visible juice)
-                _, polygon, x, y = fx
-                self._screams.append(dict(polygon=polygon, x=x, y=y,
-                                          age=0, maxage=9,
-                                          col=(255, 240, 220)))
             elif tag == "attacker_mark":
                 # the shared incoming-hit language: whatever just hurt
-                # the player wears a red pulse for a quarter second —
-                # attribution that survives ambient washes and clutter
-                # (gate run 23: confirmed P1, flicker invisible in
-                # breach-lit magenta while landing 4x16 dmg)
-                _, polygon, x, y = fx
-                self._screams.append(dict(polygon=polygon, x=x, y=y,
-                                          age=0, maxage=16,
-                                          col=(255, 60, 50)))
+                # the player flashes ITS BODY red for a quarter second —
+                # attribution lives on the attacker, never as rings
+                # (rings mean 'gained aggro' and nothing else; run 23's
+                # magenta-wash invisibility is answered by a blinking
+                # red tint, not by spending the aggro vocabulary)
+                _, eid = fx
+                self._attacker_flash[eid] = 16
             elif tag == "lightning":
                 _, polygon, x, y, radius = fx
                 segs = []
@@ -1713,8 +1733,13 @@ class Renderer:
                     segs.append([(0.0, 0.0), mid, end])
                 self._bolts.append(dict(polygon=polygon, x=x, y=y, radius=radius, life=6, segs=segs))
             elif tag == "scream":
+                # a shrieker SCREAMING: its own bone-pale palette, so the
+                # wave reads as coming from that body — plain white rings
+                # stay reserved for 'gained aggro' ("alerted")
                 _, polygon, x, y = fx
-                self._screams.append(dict(polygon=polygon, x=x, y=y, age=0, maxage=16))
+                self._screams.append(dict(polygon=polygon, x=x, y=y,
+                                          age=0, maxage=16,
+                                          col=(236, 228, 150)))
             elif tag == "pickup_text":
                 # resource changes must be legible ON the world, not
                 # only as a HUD delta (first filmed playtest: hp/ammo
@@ -1942,7 +1967,9 @@ class Renderer:
             # coverage-only: the ENTITY mask is dilated by a body's worth
             # of pixels so nothing is ever cut in half at a boundary; the
             # floor fill still uses the exact clip above
-            r.add_clip(_dilate_poly(clip_screen, ENTITY_SPILL_PX), True)
+            r.add_clip(_dilate_poly(clip_screen,
+                                    ENTITY_SPILL_U * _xform_scale(xform)),
+                       True)
             xform_idx = r.add_xform(xform)
             # floor: a bespoke texture (OP_TEX_FILL) if this polygon has one,
             # else OP_CLIP_FILL paints the registered clip polygon itself
@@ -3434,6 +3461,13 @@ class Renderer:
             t_ = min(1.0, intensity - 1.0)
             fill = _mix(fill, (255, 255, 255), t_)
             rim = _mix(rim, (255, 255, 255), t_)
+        af = self._attacker_flash.get(eid, 0)
+        if af > 0 and not flashed and (af // 2) % 2 == 0:
+            # the just-hurt-you flash: a blinking red tint on the
+            # attacker's own body — hue + blink chosen to survive the
+            # breach-magenta wash that dissolved the plain white flash
+            fill = _mix(fill, (255, 60, 45), 0.75)
+            rim = _mix(rim, (255, 120, 90), 0.9)
         if flashed:
             fill = rim = (255, 255, 255)
         if kind.startswith("core_"):
@@ -3446,17 +3480,20 @@ class Renderer:
             # 9-gon silhouette survives every overlay (run 37 ledger:
             # whiten + white rings + white hit-flash dissolved it into
             # 'HP drains in red haze'). No whiten, no full-white flash
-            # during the grip — hits pulse the OUTER ring instead.
+            # during the grip, and NO rings (rings mean aggro, nothing
+            # else — run 46 blocker: this branch also overwrote the red
+            # attacker-blink, making attribution dead code in exactly
+            # the deadliest case it exists for). The RIM is the signal
+            # channel: it blinks red while the grip grinds you (the
+            # attacker flash, kept from above) and flashes white the
+            # frame your shot lands; the dark body never changes.
             fill = ENEMY_COLOR["warden"]
             rim = ENEMY_RIM["warden"]
-            pulse = 2 + int(2 * (0.5 + 0.5 * math.sin(
-                self.session.tick_count * 0.35)))
-            hitk = (255, 255, 255) if flashed else (235, 235, 245)
+            if flashed:
+                rim = (255, 255, 255)
+            elif af > 0 and (af // 2) % 2 == 0:
+                rim = (255, 70, 50)
             flashed = False
-            canvas.circle(hitk, _pt((sx, sy)),
-                          int(srad) + pulse + 3, 1)
-            canvas.circle((200, 200, 215), _pt((sx, sy)),
-                          int(srad) + pulse + 6, 1)
         if kind == "mite":
             if clip_screen is not None and not fully_inside \
                     and not _point_in_poly(sx, sy, clip_screen):
@@ -3534,6 +3571,15 @@ class Renderer:
                 ang = base_ang + a * math.pi / 2.0
                 ex, ey = sx + math.cos(ang) * 4, sy + math.sin(ang) * 4
                 canvas.line(color, _pt((sx, sy)), _pt((ex, ey)), 1)
+            canvas.circle(color, _pt((sx, sy)), 2)
+        elif kind == "turret":
+            # a structure's round, in the player-structure teal — the
+            # scoreboard question "who killed that?" must be answerable
+            # from the tracer alone (run 46: turret bolts were pixel-
+            # identical to the player's own fire)
+            color = (150, 240, 205)
+            tx, ty = sx - dirx * 10, sy - diry * 10
+            canvas.line(color, _pt((sx, sy)), _pt((tx, ty)), 1)
             canvas.circle(color, _pt((sx, sy)), 2)
         else:  # "bullet" / "tracer"
             color = (255, 245, 180)
@@ -3685,7 +3731,7 @@ class Renderer:
         self._add_sprite(lm, self._screen_glow_cache[best], sx, sy, clip_screen)
 
     def _draw_effects(self, canvas, polygon, xform, clip_screen):
-        if not (self._gibs or self._sparks
+        if not (self._gibs or self._sparks or self._corpsefalls
                 or self._bolts or self._screams or self._floaters):
             # nothing pooled: skip the per-instance scale hypot.
             # _floaters MUST be in this guard: without it, pickup text
@@ -3696,6 +3742,25 @@ class Renderer:
             return
         scale = _xform_scale(xform)
 
+        for cf in self._corpsefalls:
+            if cf["polygon"] != polygon:
+                continue
+            sx, sy = necore.mat_apply(xform, cf["x"], cf["y"])
+            if not _point_in_poly(sx, sy, clip_screen):
+                continue
+            ddx, ddy = necore.mat_apply_dir(xform, math.cos(cf["ang"]),
+                                            math.sin(cf["ang"]))
+            sang = math.atan2(ddy, ddx) if (ddx or ddy) else 0.0
+            k = cf["age"] / cf["maxage"]           # 0 = alive, 1 = corpse
+            shape = ENEMY_SHAPE.get(cf["kind"]) or _CIRCLE_SHAPE
+            base = ENEMY_COLOR.get(cf["kind"], (90, 90, 90))
+            bright = 1.0 - 0.55 * k                # full color -> decal's 0.45
+            col = tuple(int(c * bright) for c in base)
+            s = max(1.0, cf["rad"] * scale)
+            pts = _xform_pts(shape, sx, sy, s * (1.0 - 0.1 * k), sang,
+                             squash=1.0 - 0.45 * k)
+            canvas.polygon(col, _pts(pts))
+
         for g in self._gibs:
             if g["polygon"] != polygon:
                 continue
@@ -3703,7 +3768,7 @@ class Renderer:
             if not _point_in_poly(sx, sy, clip_screen):
                 continue
             r = max(1, int(g["size"] * scale * 0.5))
-            canvas.circle(GIB_COLOR, _pt((sx, sy)), r)
+            canvas.circle(g.get("col", GIB_COLOR), _pt((sx, sy)), r)
 
         for sp in self._sparks:
             if sp["polygon"] != polygon:
