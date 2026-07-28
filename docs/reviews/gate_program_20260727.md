@@ -144,3 +144,23 @@ reserve dead-tail pacing (director's design bucket).
 The accumulated diff landed as nine per-unit commits (engine active
 set, telemetry, sim program, render, marrow, audio, bot, levels,
 tests) through the open hook. 745 tests green.
+
+## Runs 46-47 (7/28): the vocabulary redo lands
+
+The director watched the demo video and reported five defects the
+gate had passed: rings on every event (the aggro symbol spent on
+kills, bites, grips), enemies vanishing instead of dying, turrets
+doing nothing (polygon-scoped, 300u), bot and enemies ignoring each
+other, and bodies/buildings leaking past LOS shadows (fixed-px mask
+spill). One session of fixes -> run 46 FAIL p=0.92 (the warden-grip
+branch made the new red attribution dead code; sentries took 57-68%
+of killing blows) -> fixes + retune -> run 47 PASS p=0.97, zero
+blockers, both run-46 blockers confirmed live on film (grip blink
+pixel-proven at s4 f440; sentry share 29-49%, under parity).
+
+Rulings ratified along the way: one symbol = one meaning (rings =
+aggro only; body events on the body); hops are never a targeting law
+(VISION_HOPS=12 is a cost ceiling, the raycast is the limit; "a
+battlespace might cover TENS of polygons"); 0.45 IS the zoom (no
+play-vs-film distinction; mousewheel zoom planned). Landed as
+43f7bfd7 + 74c094fd, 748 tests green.
