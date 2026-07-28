@@ -2,19 +2,15 @@
 (white=walkable, black=terrain) loads into polygon-local collision rects that
 block movement/projectiles exactly like a wall, absence means fully
 walkable, and the PNG decoder in `terrain.py` (stdlib-only, kept out of
-`sim.py`'s pygame-free lane) must read exactly what pygame itself would.
+`sim.py`'s dependency-free lane) must read exactly what a reference PNG
+library (PIL) wrote.
 """
 
 from __future__ import annotations
 
-import os
-
-os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
-os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
-
 import numpy as np
-import pygame
 import pytest
+from PIL import Image, ImageDraw
 
 from perihelion.app import build_debug_level
 from perihelion.sim import GameSession
@@ -26,18 +22,16 @@ def _write_mask(root, level_id: str, polygon_index: int, w: int, h: int,
     """A `w`x`h` walk-mask PNG, white everywhere except `black_rect`
     (tx0, ty0, tx1, ty1) in texel coordinates, if given."""
     (root / level_id).mkdir(parents=True, exist_ok=True)
-    surf = pygame.Surface((w, h))
-    surf.fill((255, 255, 255))
+    img = Image.new("RGB", (w, h), (255, 255, 255))
     if black_rect is not None:
         tx0, ty0, tx1, ty1 = black_rect
-        pygame.draw.rect(surf, (0, 0, 0), (tx0, ty0, tx1 - tx0, ty1 - ty0))
+        ImageDraw.Draw(img).rectangle((tx0, ty0, tx1 - 1, ty1 - 1),
+                                      fill=(0, 0, 0))
     if mode == "gray8":
-        arr = pygame.surfarray.array3d(surf)  # (w, h, 3), x-major
-        gray = arr[:, :, 0]  # already 0 or 255 everywhere -> lossless as gray
-        surf = pygame.surfarray.make_surface(np.stack([gray] * 3, axis=-1))
+        img = img.convert("L")  # already 0 or 255 everywhere -> lossless
     path = terrain.texture_geom.texture_path(root, level_id, polygon_index)
     path = path.with_name(path.stem + "_walkmask" + path.suffix)
-    pygame.image.save(surf, str(path))
+    img.save(path)
 
 
 def _tex_root_and_level(tmp_path, level_id="walkmasktest"):
@@ -47,28 +41,27 @@ def _tex_root_and_level(tmp_path, level_id="walkmasktest"):
 
 
 # ---------------------------------------------------------------------
-# Decoder correctness: our stdlib-only PNG reader vs. pygame ground truth.
+# Decoder correctness: our stdlib-only PNG reader vs. PIL ground truth.
 # ---------------------------------------------------------------------
 
 @pytest.mark.parametrize("mode", ["RGB", "gray8"])
-def test_decoder_matches_pygame_reference(tmp_path, mode):
+def test_decoder_matches_pil_reference(tmp_path, mode):
     w, h = 37, 23  # deliberately not a DOWNSAMPLE multiple
-    surf = pygame.Surface((w, h))
-    surf.fill((10, 10, 10))
-    pygame.draw.rect(surf, (250, 250, 250), (5, 5, 20, 10))
-    pygame.draw.circle(surf, (128, 128, 128), (30, 15), 4)
+    img = Image.new("RGB", (w, h), (10, 10, 10))
+    d = ImageDraw.Draw(img)
+    d.rectangle((5, 5, 24, 14), fill=(250, 250, 250))
+    d.ellipse((26, 11, 34, 19), fill=(128, 128, 128))
     if mode == "gray8":
-        arr = pygame.surfarray.array3d(surf)[:, :, 0]
-        surf = pygame.surfarray.make_surface(np.stack([arr] * 3, axis=-1))
+        img = img.convert("L")
     path = tmp_path / "ref.png"
-    pygame.image.save(surf, str(path))
+    img.save(path)
 
     dw, dh, luma = terrain.decode_png_luminance(path.read_bytes())
     assert (dw, dh) == (w, h)
 
-    ref = pygame.surfarray.array3d(surf).astype(np.int64)  # (w, h, 3)
+    ref = np.asarray(img.convert("RGB")).astype(np.int64)  # (h, w, 3)
     expect_luma = (ref[:, :, 0] * 299 + ref[:, :, 1] * 587 + ref[:, :, 2] * 114) // 1000
-    got = np.frombuffer(luma, dtype=np.uint8).reshape(h, w).T  # row-major -> (w,h)
+    got = np.frombuffer(luma, dtype=np.uint8).reshape(h, w)  # row-major
     # Off-by-one luma rounding at a few edge pixels is fine; must match
     # everywhere to within 1.
     assert np.abs(got.astype(int) - expect_luma).max() <= 1

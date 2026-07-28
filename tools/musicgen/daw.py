@@ -32,6 +32,8 @@ from __future__ import annotations
 import argparse
 import bisect
 import json
+import os
+import queue
 import subprocess
 import sys
 import threading
@@ -41,12 +43,16 @@ from collections import deque
 from pathlib import Path
 
 import numpy as np
-import pygame
 import soundfile as sf
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools/playtest"))
+sys.path.insert(0, str(ROOT / "tools/musicgen"))
 import mkvideo as MK                                    # noqa: E402
+import mgui                                             # noqa: E402
+from mgui import Rect                                   # noqa: E402
+from perihelion import fb2d, text, uievent              # noqa: E402
+from perihelion.audio import EngineChannel, EngineSound  # noqa: E402
 
 DEFAULT_REC = ROOT / "out/winning_session_v1_rec"
 DEFAULT_VIDEO = ROOT / "out/gauntlet_winning_session_v1.mp4"
@@ -421,37 +427,93 @@ class Project:
 
 class Player:
     """Chunk-streamed playback with instant seek (the engine's own
-    queue trick, pointed at the rendered session mix). Every pygame
-    audio call is guarded: an audio-backend death (PipeWire restart,
-    device unplug) sets .err and keeps the last-good playhead instead
-    of killing the process."""
+    queue trick, pointed at the rendered session mix). The engine
+    mixer is THREAD-BOUND (necore.AudioMixer is a thread-affine
+    platform object), so one dedicated audio thread owns every mixer
+    call; play/pause/seek/set_buffer marshal onto it SYNCHRONOUSLY,
+    so callers still see failures immediately. A backend death
+    (PipeWire restart, device unplug) sets .err and keeps the
+    last-good playhead instead of killing the process. The idle side
+    of the same thread advances the chunk queue, so a slow draw or a
+    heavy render can never starve playback (P3.25)."""
 
     def __init__(self):
         self.err = None
         self._plock = threading.RLock()
-        try:
-            self.ch = pygame.mixer.Channel(0)
-        except pygame.error as exc:
-            self.ch = None
-            self.err = f"audio unavailable: {exc}"
+        self.audio = None
+        self.ch = None
         self.buf = None                # int16 (N, 2)
         self.playing = False
         self.t = 0.0
         self._idx = 0
         self._wall = 0.0
         self._sounds = (None, None)
+        self._cmds = queue.Queue()
+        self._audio_thread = threading.Thread(target=self._audio_loop,
+                                              daemon=True)
+        self._audio_thread.start()
+        self._call(self._init_backend)
+
+    # ---- the audio thread owns the mixer ------------------------------
+    def _call(self, fn, *args):
+        """Run fn on the audio thread and return its result (raising
+        what it raised) — the mixer may only be touched there."""
+        if threading.current_thread() is self._audio_thread:
+            return fn(*args)
+        done = threading.Event()
+        box = {}
+        self._cmds.put((fn, args, done, box))
+        if not done.wait(30.0):
+            raise RuntimeError(f"audio thread stalled on {fn.__name__}")
+        if "exc" in box:
+            raise box["exc"]
+        return box.get("ret")
+
+    def _audio_loop(self):
+        while True:
+            try:
+                fn, args, done, box = self._cmds.get(timeout=0.03)
+            except queue.Empty:
+                try:
+                    self._poll()
+                except Exception as exc:
+                    with self._plock:
+                        self.err = f"{exc}"
+                        self.playing = False
+                continue
+            try:
+                box["ret"] = fn(*args)
+            except BaseException as exc:  # marshal even panics back
+                box["exc"] = exc
+            done.set()
+
+    def _init_backend(self):
+        self.audio = mgui.Audio()      # created ON the audio thread
+        if self.audio.mixer is None:
+            self.ch = None
+            self.err = "audio unavailable: no output device"
+        else:
+            self.ch = EngineChannel(self.audio, 0)
+
+    def _free_sounds(self, sounds):
+        for s in sounds:
+            if s is not None:
+                s.free()
 
     def end_t(self):
         return len(self.buf) / RATE if self.buf is not None else 0.0
 
     def set_buffer(self, buf):
+        self._call(self._set_buffer, buf)
+
+    def _set_buffer(self, buf):
         with self._plock:
             was = self.playing
             t = self.playhead()
             self.buf = buf
-            self.seek(t)
+            self._seek(t)
             if was:
-                self.play()
+                self._play()
 
     def _chunk(self, i):
         a = i * CHUNK
@@ -461,8 +523,8 @@ class Player:
         if len(seg) < CHUNK:
             seg = np.vstack([seg, np.zeros((CHUNK - len(seg), 2),
                                            np.int16)])
-        return pygame.mixer.Sound(buffer=np.ascontiguousarray(seg)
-                                  .tobytes())
+        return EngineSound.from_array(self.audio,
+                                      np.ascontiguousarray(seg))
 
     def playhead(self):
         if not self.playing:
@@ -471,6 +533,9 @@ class Player:
                    self.end_t())
 
     def seek(self, t):
+        self._call(self._seek, t)
+
+    def _seek(self, t):
         with self._plock:
             self.t = max(0.0, min(t, self.end_t()))
             if self.playing:
@@ -486,17 +551,21 @@ class Player:
             self._idx = int(self.t / CHUNK_S)
             c0, c1 = self._chunk(self._idx), self._chunk(self._idx + 1)
             if c0 is None:
-                self.pause()
+                self._pause()
                 return
             self.ch.play(c0)
             if c1 is not None:
                 self.ch.queue(c1)
+            self._free_sounds(self._sounds)
             self._sounds = (c0, c1)
             self._wall = time.time()
-        except (pygame.error, AttributeError) as exc:
+        except (RuntimeError, AttributeError, OSError) as exc:
             self._fail(exc)
 
     def play(self):
+        self._call(self._play)
+
+    def _play(self):
         with self._plock:
             if self.buf is None or self.err:
                 return
@@ -506,16 +575,19 @@ class Player:
             self._start()
 
     def pause(self):
+        self._call(self._pause)
+
+    def _pause(self):
         with self._plock:
             self.t = self.playhead()
             self.playing = False
             try:
                 if self.ch is not None:
                     self.ch.stop()
-            except pygame.error as exc:
+            except (RuntimeError, OSError) as exc:
                 self._fail(exc)
 
-    def poll(self):
+    def _poll(self):
         with self._plock:
             if not self.playing or self.err:
                 return
@@ -526,25 +598,31 @@ class Player:
                     nxt = self._chunk(self._idx + 1)
                     if nxt is not None:
                         self.ch.queue(nxt)
+                        old = self._sounds[0]
                         self._sounds = (self._sounds[1], nxt)
+                        if old is not None:
+                            old.free()
                     elif not self.ch.get_busy():
-                        self.pause()
+                        self._pause()
                         self.t = self.end_t()   # designed end state
-            except pygame.error as exc:
+            except (RuntimeError, OSError) as exc:
                 self._fail(exc)
 
     def retry(self):
         """R after an audio failure: re-init the mixer backend."""
+        return self._call(self._retry)
+
+    def _retry(self):
         with self._plock:
-            try:
-                pygame.mixer.quit()
-                pygame.mixer.init(RATE, -16, 2, 512)
-                self.ch = pygame.mixer.Channel(0)
-                self.err = None
-                return True
-            except pygame.error as exc:
-                self.err = f"audio unavailable: {exc}"
+            aud = mgui.Audio()          # fresh, ON the audio thread
+            if aud.mixer is None:
+                self.err = "audio unavailable: no output device"
                 return False
+            self.audio = aud
+            self.ch = EngineChannel(aud, 0)
+            self._sounds = (None, None)   # ids died with the old mixer
+            self.err = None
+            return True
 
 
 class VideoPlayer:
@@ -654,13 +732,12 @@ class VideoPlayer:
             data = p.stdout.read(fsz)
             if not data or len(data) < fsz:
                 break
-            surf = pygame.image.frombuffer(data, self.size, "RGB")
-            try:
-                surf = surf.convert()
-            except pygame.error:
-                pass
+            # (h, w, 3) rows from ffmpeg -> the (w, h, 3) fb2d order
+            frame = np.frombuffer(data, dtype=np.uint8) \
+                .reshape(self.size[1], self.size[0], 3) \
+                .transpose(1, 0, 2)
             with self._flock:
-                self._frames.append((t0 + n / self.fps, surf))
+                self._frames.append((t0 + n / self.fps, frame))
             n += 1
         if gen != self._gen:
             return
@@ -720,10 +797,14 @@ class VideoPlayer:
                 self._shown = self._frames.popleft()
         return self._shown
 
-    def mini(self, surf):
-        if self._mini[0] != id(surf):
-            self._mini = (id(surf), pygame.transform.smoothscale(
-                surf, (320, 180)))
+    def mini(self, frame):
+        if self._mini[0] != id(frame):
+            # exact 2x box filter (decode is 640x360, pane is 320x180)
+            a = frame.astype(np.uint16)
+            small = ((a[0::2, 0::2] + a[1::2, 0::2]
+                      + a[0::2, 1::2] + a[1::2, 1::2]) // 4) \
+                .astype(np.uint8)
+            self._mini = (id(frame), small)
         return self._mini[1]
 
     def _check_mtime(self):
@@ -755,18 +836,15 @@ class App:
             self._use = {i: use for i in range(len(self.proj.banks))}
         else:
             self._use = dict(use or {})
-        if headless:
-            import os
-            os.environ["SDL_VIDEODRIVER"] = "dummy"
-            os.environ["SDL_AUDIODRIVER"] = "dummy"
-        pygame.mixer.pre_init(RATE, -16, 2, 512)
-        pygame.init()
         self.W, self.H = 1280, 720
-        self.screen = pygame.display.set_mode((self.W, self.H))
-        pygame.display.set_caption("PERIHELION session DAW")
-        self.font = pygame.font.SysFont("monospace", 13)
-        self.small = pygame.font.SysFont("monospace", 11)
-        self.big = pygame.font.SysFont("monospace", 17, bold=True)
+        self.display = mgui.Display(self.W, self.H,
+                                    "PERIHELION session DAW",
+                                    headless=headless)
+        self.screen = self.display.fb          # (W, H, 3) uint8
+        self.font = 13          # text.blit_text sizes (FSEX300)
+        self.small = 11
+        self.big = 17
+        self.injected: list = []    # test-injected uievent.Events
         self.player = Player()
         self.video = VideoPlayer(video)
         self.video_note = ""
@@ -780,7 +858,6 @@ class App:
         self.sel = None             # selected track (keyboard M/S)
         self._hit = {}              # element -> rect, rebuilt per draw
         self._hover = (None, 0.0)   # (element, hover-start wall time)
-        self._dims = {}             # cached dim surfaces by (w, h, a)
         self._bank_ok_cache = {}    # name -> (bank.json mtime, ok)
         self.muted: set = set()
         self.solo: set = set()
@@ -850,9 +927,6 @@ class App:
         self._watch_thread = threading.Thread(target=self._watch,
                                               daemon=True)
         self._watch_thread.start()
-        self._feed_thread = threading.Thread(target=self._feed,
-                                             daemon=True)
-        self._feed_thread.start()
 
     # ---- status / notes (single writer) ---------------------------------
     def _set_status(self, text, kind, gen=None):
@@ -1353,49 +1427,49 @@ class App:
 
     # ---- interaction -----------------------------------------------------
     def handle(self, ev):
-        if ev.type == pygame.KEYDOWN:
+        if ev.type == uievent.KEYDOWN:
             if self._goto is not None:      # time-entry mode owns keys
-                if ev.key == pygame.K_ESCAPE:
+                if ev.key == uievent.K_ESCAPE:
                     self._goto = None
-                elif ev.key == pygame.K_RETURN:
+                elif ev.key == uievent.K_RETURN:
                     self._goto_commit()
-                elif ev.key == pygame.K_BACKSPACE:
+                elif ev.key == uievent.K_BACKSPACE:
                     self._goto = self._goto[:-1]
                 elif ev.unicode and ev.unicode in "0123456789:.":
                     self._goto += ev.unicode
                 return True
             if self.help_on:
-                if ev.key in (pygame.K_ESCAPE, pygame.K_F1) or \
+                if ev.key in (uievent.K_ESCAPE, mgui.K_F1) or \
                         ev.unicode == "?":
                     self.help_on = False
                 return True
-            if ev.key == pygame.K_ESCAPE:
+            if ev.key == uievent.K_ESCAPE:
                 if self.picker:
                     self.picker = False
                 elif self.video_big:
                     self.video_big = False
                 else:
                     return False
-            elif ev.unicode == "?" or ev.key == pygame.K_F1:
+            elif ev.unicode == "?" or ev.key == mgui.K_F1:
                 self.help_on = True
-            elif ev.key == pygame.K_SPACE:
+            elif ev.key == uievent.K_SPACE:
                 if self.player.buf is None:
                     self._note("no mix yet — playback starts when "
                                "rendering finishes", "busy")
                 else:
                     (self.player.pause if self.player.playing
                      else self.player.play)()
-            elif ev.key == pygame.K_r:
+            elif ev.key == uievent.K_r:
                 self._retry_all()
-            elif ev.key == pygame.K_a:
+            elif ev.key == uievent.K_a:
                 self._toggle_ab()
-            elif ev.key == pygame.K_g:
+            elif ev.key == uievent.K_g:
                 self._goto = ""
-            elif ev.key == pygame.K_c:
+            elif ev.key == uievent.K_c:
                 self._copy_timestamp()
-            elif ev.key == pygame.K_b:
+            elif ev.key == uievent.K_b:
                 self._bounce()
-            elif ev.key == pygame.K_l:
+            elif ev.key == uievent.K_l:
                 if self.loop:
                     self.loop = None
                     self._static = None
@@ -1403,40 +1477,40 @@ class App:
                     self._note("drag on the ruler to select a range "
                                "(playback loops it; B bounces it)",
                                "warn")
-            elif ev.key == pygame.K_m and self.sel:
+            elif ev.key == uievent.K_m and self.sel:
                 self.muted ^= {self.sel}
                 self.rebuild(src="mutes")
-            elif ev.key == pygame.K_s and self.sel:
+            elif ev.key == uievent.K_s and self.sel:
                 self.solo ^= {self.sel}
                 self.rebuild(src="mutes")
-            elif ev.key == pygame.K_COMMA:
+            elif ev.key == mgui.K_COMMA:
                 self._jump_mark(-1)
-            elif ev.key == pygame.K_PERIOD:
+            elif ev.key == mgui.K_PERIOD:
                 self._jump_mark(+1)
-            elif ev.key == pygame.K_UP:
+            elif ev.key == uievent.K_UP:
                 self._jump_sect(-1)
-            elif ev.key == pygame.K_DOWN:
+            elif ev.key == uievent.K_DOWN:
                 self._jump_sect(+1)
-            elif ev.key in (pygame.K_PLUS, pygame.K_EQUALS,
-                            pygame.K_KP_PLUS):
+            elif ev.key in (mgui.K_PLUS, mgui.K_EQUALS,
+                            mgui.K_KP_PLUS):
                 self._zoom(2.0)
-            elif ev.key in (pygame.K_MINUS, pygame.K_KP_MINUS):
+            elif ev.key in (mgui.K_MINUS, mgui.K_KP_MINUS):
                 self._zoom(0.5)
-            elif ev.key == pygame.K_0:
+            elif ev.key == uievent.K_0:
                 self.view = None
                 self._static = None
-            elif ev.key in (pygame.K_LEFT, pygame.K_RIGHT):
+            elif ev.key in (uievent.K_LEFT, uievent.K_RIGHT):
                 self._arrow_step(ev.key, ev.mod)
                 self._arrow_held = (ev.key, ev.mod,
                                     time.time() + 0.3, 0.0)
-            elif ev.key == pygame.K_HOME:
+            elif ev.key == mgui.K_HOME:
                 self._seek_user(0.0)
-            elif ev.key == pygame.K_END:
+            elif ev.key == mgui.K_END:
                 self._seek_user(self.proj.dur)
-        elif ev.type == pygame.KEYUP:
+        elif ev.type == uievent.KEYUP:
             if self._arrow_held and ev.key == self._arrow_held[0]:
                 self._arrow_held = None
-        elif ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
+        elif ev.type == uievent.MOUSEBUTTONDOWN and ev.button == 1:
             x, y = ev.pos
             if self.help_on:
                 self.help_on = False
@@ -1511,14 +1585,14 @@ class App:
                 if self.y_sect <= y <= self.y_marks + 22:
                     self._seek_user(self._xt(x))
                     self.dragging = "view"
-        elif ev.type == pygame.MOUSEBUTTONUP:
+        elif ev.type == uievent.MOUSEBUTTONUP:
             if self._ruler_press is not None:
                 px, pt = self._ruler_press
                 if abs(ev.pos[0] - px) <= 5:
                     self._seek_user(pt)     # a click, not a drag
                 self._ruler_press = None
             self.dragging = False
-        elif ev.type == pygame.MOUSEMOTION:
+        elif ev.type == uievent.MOUSEMOTION:
             if self._ruler_press is not None and \
                     abs(ev.pos[0] - self._ruler_press[0]) > 5:
                 a, b = sorted((self._ruler_press[1],
@@ -1533,11 +1607,11 @@ class App:
         return True
 
     def _arrow_step(self, key, mod):
-        if mod & pygame.KMOD_SHIFT:
-            d = 10.0 if key == pygame.K_RIGHT else -10.0
+        if mod & uievent.KMOD_SHIFT:
+            d = 10.0 if key == uievent.K_RIGHT else -10.0
             self._seek_user(self.player.playhead() + d)
         else:
-            self._nudge_bar(+1 if key == pygame.K_RIGHT else -1)
+            self._nudge_bar(+1 if key == uievent.K_RIGHT else -1)
 
     # ---- drawing ----------------------------------------------------------
     def _view(self):
@@ -1559,54 +1633,43 @@ class App:
     def txt(self, s, x, y, c=(200, 200, 200), f=None, surf=None,
             maxw=None):
         target = surf if surf is not None else self.screen
-        r = (f or self.font).render(s, True, c)
-        if maxw is not None and r.get_width() > maxw:
-            while s and (f or self.font).size(s + "…")[0] > maxw:
+        size = f or self.font
+        if maxw is not None and text.measure(s, size)[0] > maxw:
+            while s and text.measure(s + "…", size)[0] > maxw:
                 s = s[:-1]
-            r = (f or self.font).render(s + "…", True, c)
-        target.blit(r, (x, y))
-
-    def _dim_surf(self, w, h, alpha):
-        """Reusable dim overlays: allocating + filling a full-screen
-        SRCALPHA surface EVERY frame made lightbox playback stutter."""
-        s = self._dims.get((w, h, alpha))
-        if s is None:
-            s = pygame.Surface((w, h), pygame.SRCALPHA)
-            s.fill((0, 0, 0, alpha))
-            self._dims[(w, h, alpha)] = s
-        return s
+            s += "…"
+        text.blit_text(target, s, x, y, c, size)
 
     def _chip(self, s, x, y, kind, hit=None, surf=None, maxw=None):
-        f = self.font
         full = s
         cap = min(420, maxw) if maxw is not None else 420
         trunc = False
-        while len(s) > 8 and f.size(s + "…")[0] > cap - 10:
+        while len(s) > 8 and text.measure(s + "…", self.font)[0] > cap - 10:
             s = s[:-2]
             trunc = True
         if trunc:
             s += "…"
-        w = f.size(s)[0] + 10
+        w = text.measure(s, self.font)[0] + 10
         col = STATUS_COL[kind]
         bg = tuple(c // 5 for c in col)
         target = surf if surf is not None else self.screen
-        pygame.draw.rect(target, bg, (x, y, w, 18))
-        pygame.draw.rect(target, col, (x, y, w, 18), 1)
+        fb2d.rect(target, bg, (x, y, w, 18))
+        fb2d.rect(target, col, (x, y, w, 18), 1)
         self.txt(s, x + 5, y + 2, col, surf=surf)
         if hit:
-            self._hit[hit] = pygame.Rect(x, y, w, 18)
+            self._hit[hit] = Rect(x, y, w, 18)
         elif trunc:
             # a cut-off message is unread truth: hover expands it in
             # full, foregrounded (director feedback)
             key = f"chipfull:{len(self._chip_full)}"
             self._chip_full[key] = full
-            self._hit[key] = pygame.Rect(x, y, w, 18)
+            self._hit[key] = Rect(x, y, w, 18)
         return x + w + 8
 
     def draw(self):
         scr = self.screen
         proj = self.proj                # one snapshot per frame
-        scr.fill((18, 18, 22))
+        fb2d.fill(scr, (18, 18, 22))
         self._hit = {}
         self._chip_full = {}
         t = self.player.playhead()
@@ -1617,12 +1680,15 @@ class App:
                frozenset(self.solo), self.sel,
                frozenset(self.curve_off), self.loop)
         if self._static is None or self._static[0] != key:
-            surf = pygame.Surface((self.W, self.H - 236),
-                                  pygame.SRCALPHA)
+            # opaque layer prefilled with the screen's own background —
+            # the old transparent-layer composite sat over this same
+            # constant fill, so the result is pixel-identical
+            surf = np.empty((self.W, self.H - 236, 3), np.uint8)
+            surf[...] = (18, 18, 22)
             hits = {}
             self._draw_timeline(surf, hits, proj)
             self._static = (key, surf, hits)
-        scr.blit(self._static[1], (0, 236))
+        fb2d.blit(scr, self._static[1], 0, 236)
         for el, r in self._static[2].items():
             self._hit[el] = r
 
@@ -1640,10 +1706,10 @@ class App:
         # playhead over the static layer
         if v0 <= t <= v1:
             px = self._tx(t)
-            pygame.draw.line(scr, (255, 255, 255), (px, self.y_ruler),
+            fb2d.line(scr, (255, 255, 255), (px, self.y_ruler),
                              (px, self.y_marks + 22))
         opx = self._ox(t)
-        pygame.draw.line(scr, (255, 255, 255), (opx, self.y_wave),
+        fb2d.line(scr, (255, 255, 255), (opx, self.y_wave),
                          (opx, self.y_wave + 58), 1)
 
         # per-track stem key at the playhead (P2.24)
@@ -1662,11 +1728,11 @@ class App:
             self._draw_render_modal(scr)
         self._draw_overlays(scr, proj, t, vf)
         self._draw_tooltip()
-        pygame.display.flip()
+        self.display.flip()
 
     # ---- transport & status ---------------------------------------------
     def _draw_transport(self, scr, proj, t):
-        pygame.draw.rect(scr, (28, 28, 34), (0, 0, self.W, 36))
+        fb2d.rect(scr, (28, 28, 34), (0, 0, self.W, 36))
         if self.player.buf is None:
             glyph = "…"
         elif self.player.playing:
@@ -1676,20 +1742,20 @@ class App:
         else:
             glyph = ">"
         self.txt(glyph, 14, 8, (240, 220, 160), self.big)
-        self._hit["play_glyph"] = pygame.Rect(8, 2, 34, 30)
+        self._hit["play_glyph"] = Rect(8, 2, 34, 30)
         bar_t, bar_idx, _ = proj.bar_at(t)
         name, meta, d = proj.bank_at(t)
         sect = proj.section_at(t)
         if self._goto is not None:
-            pygame.draw.rect(scr, (50, 50, 30), (44, 6, 130, 24))
-            pygame.draw.rect(scr, (240, 220, 160), (44, 6, 130, 24), 1)
+            fb2d.rect(scr, (50, 50, 30), (44, 6, 130, 24))
+            fb2d.rect(scr, (240, 220, 160), (44, 6, 130, 24), 1)
             self.txt(f"{self._goto}_", 50, 10, (255, 255, 200),
                      self.big)
         else:
             mm, ss = divmod(int(t), 60)
             self.txt(f"{mm:02d}:{ss:02d}.{int((t % 1) * 10)}", 48, 10,
                      (255, 255, 255), self.big)
-        self._hit["time_readout"] = pygame.Rect(44, 6, 130, 24)
+        self._hit["time_readout"] = Rect(44, 6, 130, 24)
         self.txt(f"bar {bar_idx % (meta['bars'] if meta else 1):>2}"
                  f"  {sect:<8}", 180, 10, (240, 220, 160), self.big)
         xf = proj.xfade_at(t)
@@ -1700,7 +1766,7 @@ class App:
             title = (meta or {}).get("title", str(name))
             col = (200, 200, 220)
         self.txt(title, 350, 10, col, self.big, maxw=290)
-        self._hit["bank_title"] = pygame.Rect(346, 4, 300, 28)
+        self._hit["bank_title"] = Rect(346, 4, 300, 28)
         # status chip: color-coded, flashes on transition, one writer
         flash = time.time() - self.status_t < 0.35
         kind = self.status_kind
@@ -1715,7 +1781,7 @@ class App:
         else:
             x = self._chip(self.status, x, 9, kind)
         if flash:
-            pygame.draw.rect(scr, (255, 255, 255),
+            fb2d.rect(scr, (255, 255, 255),
                              (652, 9, x - 660, 18), 1)
         limit = self.W - 34             # chips never cover the ? glyph
         if self.clip:
@@ -1728,7 +1794,7 @@ class App:
             x = self._chip(f"hearing PREVIOUS {label} — A returns",
                            x, 9, "warn", hit="ab_chip", maxw=limit - x)
         self.txt("?", self.W - 22, 8, (170, 170, 190), self.big)
-        self._hit["help_glyph"] = pygame.Rect(self.W - 28, 2, 26, 30)
+        self._hit["help_glyph"] = Rect(self.W - 28, 2, 26, 30)
         # line 2: mix identity + liveness chips (all derived)
         y2 = 40
         x2 = 12
@@ -1825,7 +1891,7 @@ class App:
     def _draw_video(self, scr, t, vf):
         vx, vy = self.W - 332, 44
         if self.video.err:
-            pygame.draw.rect(scr, (40, 24, 24), (vx, vy, 320, 40))
+            fb2d.rect(scr, (40, 24, 24), (vx, vy, 320, 40))
             self.txt(self.video.err, vx + 6, vy + 12,
                      STATUS_COL["err"], maxw=308)
             return
@@ -1835,21 +1901,22 @@ class App:
             return
         if vf is not None:
             pts, native = vf
-            scr.blit(self.video.mini(native), (vx, vy))
+            fb2d.blit(scr, self.video.mini(native), vx, vy)
             lag = abs(pts - t)
             if lag > 1.0:
                 # a running stream tracks the playhead within a frame;
                 # a visible lag means it is warming up after a seek —
                 # dim says "not current", the badge marks a real stall
-                scr.blit(self._dim_surf(320, 180, 130), (vx, vy))
+                fb2d.alpha_fill(scr, (0, 0, 0), 130,
+                                (vx, vy, 320, 180))
             if lag > 2.5:
                 self.txt(f"video behind by {lag:.0f}s", vx + 8, vy + 8,
                          STATUS_COL["warn"])
         else:
             self.txt("starting video…", vx + 100, vy + 84,
                      (120, 120, 135))
-        pygame.draw.rect(scr, (70, 70, 80), (vx, vy, 320, 180), 1)
-        self._hit["video_monitor"] = pygame.Rect(vx, vy, 320, 180)
+        fb2d.rect(scr, (70, 70, 80), (vx, vy, 320, 180), 1)
+        self._hit["video_monitor"] = Rect(vx, vy, 320, 180)
         if self.video_note:
             self.txt(self.video_note, vx, vy + 184, STATUS_COL["warn"],
                      maxw=320)
@@ -1864,7 +1931,7 @@ class App:
         v0, v1 = self._view()
         span = v1 - v0
         # ruler with zoom-adaptive ticks
-        pygame.draw.rect(surf, (26, 26, 32),
+        fb2d.rect(surf, (26, 26, 32),
                          (self.x0, T(self.y_ruler),
                           self.x1 - self.x0, 16))
         step = next((s for s in (1, 5, 10, 30, 60, 120)
@@ -1873,7 +1940,7 @@ class App:
         while m <= v1:
             if m >= v0:
                 x = self._tx(m)
-                pygame.draw.line(surf, (80, 80, 95),
+                fb2d.line(surf, (80, 80, 95),
                                  (x, T(self.y_ruler)),
                                  (x, T(self.y_ruler) + 16))
                 self.txt(f"{m // 60}:{m % 60:02d}", x + 3,
@@ -1887,21 +1954,20 @@ class App:
             xa, xb = self._tx(max(a, v0)), self._tx(min(b, v1))
             if xb > xa:
                 col = (120, 220, 160)
-                lr = pygame.Surface((xb - xa, 16), pygame.SRCALPHA)
-                lr.fill((*col, 70))
-                surf.blit(lr, (xa, T(self.y_ruler)))
-                pygame.draw.rect(surf, col,
+                fb2d.alpha_fill(surf, col, 70,
+                                (xa, T(self.y_ruler), xb - xa, 16))
+                fb2d.rect(surf, col,
                                  (xa, T(self.y_ruler), xb - xa, 16), 1)
         # the ruler itself is a hover target: nothing on screen said
         # what dragging here selects (director feedback)
-        hits["ruler"] = pygame.Rect(self.x0, self.y_ruler,
+        hits["ruler"] = Rect(self.x0, self.y_ruler,
                                     self.x1 - self.x0, 18)
         # bank switch lines + labels
         for t0, t1, nm, meta, _ in proj.banks:
             if not (v0 - 1 <= t0 <= v1 + 1) or t0 == 0.0:
                 continue
             x = self._tx(t0)
-            pygame.draw.line(surf, (240, 220, 160), (x, T(self.y_sect)),
+            fb2d.line(surf, (240, 220, 160), (x, T(self.y_sect)),
                              (x, T(self.y_marks) + 14))
         for t0, t1, nm, meta, _ in proj.banks:
             if t1 < v0 or t0 > v1:
@@ -1925,7 +1991,7 @@ class App:
                 spans.append((bt, nxt[0], sec))
         for a, b, sec in spans:
             x, xe = self._tx(max(a, v0)), self._tx(min(b, v1))
-            pygame.draw.rect(surf, SECT_COL.get(sec, (50, 50, 60)),
+            fb2d.rect(surf, SECT_COL.get(sec, (50, 50, 60)),
                              (x, T(self.y_sect), max(1, xe - x), 10))
             if xe - x > 44 and sec:
                 self.txt(sec, x + 3, T(self.y_sect) - 1,
@@ -1938,16 +2004,16 @@ class App:
             xa, xb = self._tx(max(t0, v0)), self._tx(min(t1, v1))
             if xb <= xa:
                 continue
-            band = pygame.Surface((xb - xa, 12), pygame.SRCALPHA)
-            band.fill((255, 200, 120, 60))
+            band = fb2d.overlay(xb - xa, 12)
+            fb2d.fill(band, (255, 200, 120, 60))
             for i in range(0, xb - xa, 6):
-                pygame.draw.line(band, (255, 200, 120, 140),
-                                 (i, 12), (min(i + 6, xb - xa), 0))
-            surf.blit(band, (xa, T(self.y_sect)))
-            hits[f"mark:xfade:{xa}"] = pygame.Rect(
+                fb2d.line(band, (255, 200, 120, 140),
+                          (i, 12), (min(i + 6, xb - xa), 0))
+            fb2d.blit(surf, band, xa, T(self.y_sect))
+            hits[f"mark:xfade:{xa}"] = Rect(
                 xa, self.y_sect, xb - xa, 12)
         # waveform overview — ALWAYS the full session (navigator)
-        pygame.draw.rect(surf, (24, 24, 30),
+        fb2d.rect(surf, (24, 24, 30),
                          (self.x0, T(self.y_wave),
                           self.x1 - self.x0, 58))
         ov = self.overview
@@ -1956,28 +2022,27 @@ class App:
             for i in range(len(ov[0])):
                 hL = int(ov[0][i] * 27)
                 hR = int(ov[1][i] * 27)
-                pygame.draw.line(surf, (90, 130, 110),
+                fb2d.line(surf, (90, 130, 110),
                                  (self.x0 + i, mid - hL),
                                  (self.x0 + i, mid))
-                pygame.draw.line(surf, (80, 118, 128),
+                fb2d.line(surf, (80, 118, 128),
                                  (self.x0 + i, mid),
                                  (self.x0 + i, mid + hR))
         # halt spans: silence is drawn as silence (full-height red)
         for ht, resume in proj.halts:
             xa, xb = self._ox(ht), self._ox(resume)
-            hs = pygame.Surface((max(2, xb - xa), 58), pygame.SRCALPHA)
-            hs.fill((255, 60, 60, 60))
-            surf.blit(hs, (xa, T(self.y_wave)))
+            fb2d.alpha_fill(surf, (255, 60, 60), 60,
+                            (xa, T(self.y_wave), max(2, xb - xa), 58))
         if self.view:
             xa = self._ox(v0)
             xb = self._ox(v1)
-            pygame.draw.rect(surf, (240, 220, 160),
+            fb2d.rect(surf, (240, 220, 160),
                              (xa, T(self.y_wave), max(2, xb - xa), 58),
                              1)
             self.txt("zoom", xa + 3, T(self.y_wave) + 44,
                      (240, 220, 160), self.small, surf=surf)
         # value automation (P/C/S)
-        pygame.draw.rect(surf, (24, 24, 30),
+        fb2d.rect(surf, (24, 24, 30),
                          (self.x0, T(self.y_vals),
                           self.x1 - self.x0, 50))
         for vi, vname in enumerate(("PRAYER", "CONTEMPT", "STALWART")):
@@ -1985,7 +2050,7 @@ class App:
                 if vi in self.curve_off else VAL_COL[vi]
             self.txt(vname, 50, T(self.y_vals) + 2 + vi * 15, col,
                      surf=surf)
-            hits[f"curve:{vi}"] = pygame.Rect(
+            hits[f"curve:{vi}"] = Rect(
                 46, self.y_vals + vi * 15, 80, 15)
         vis = [(vt, v) for vt, v in proj.vals if v0 <= vt <= v1]
         stride = max(1, len(vis) // (self.x1 - self.x0))
@@ -1995,28 +2060,28 @@ class App:
             pts = [(self._tx(vt), T(self.y_vals) + 48 - int(v[vi] * 46))
                    for vt, v in vis[::stride]]
             if len(pts) > 1:
-                pygame.draw.lines(surf, VAL_COL[vi], False, pts)
+                fb2d.lines(surf, VAL_COL[vi], False, pts)
         # lane tracks
         for ln in LANES + [FX]:
             ry = T(self.rows[ln])
             eff_muted = self._is_muted(ln)
             hcol = (255, 240, 200) if ln in self.solo and not eff_muted \
                 else (110, 110, 120) if eff_muted else (200, 200, 210)
-            pygame.draw.rect(surf, (60, 40, 40) if ln in self.muted
+            fb2d.rect(surf, (60, 40, 40) if ln in self.muted
                              else (36, 36, 44), (4, ry, 18, 16))
             self.txt("M", 8, ry + 1, (255, 150, 150) if ln in self.muted
                      else (150, 150, 160), surf=surf)
-            hits[f"mute:{ln}"] = pygame.Rect(4, self.rows[ln], 18, 16)
-            pygame.draw.rect(surf, (60, 60, 30) if ln in self.solo
+            hits[f"mute:{ln}"] = Rect(4, self.rows[ln], 18, 16)
+            fb2d.rect(surf, (60, 60, 30) if ln in self.solo
                              else (36, 36, 44), (26, ry, 18, 16))
             self.txt("S", 31, ry + 1, (255, 240, 140) if ln in self.solo
                      else (150, 150, 160), surf=surf)
-            hits[f"solo:{ln}"] = pygame.Rect(26, self.rows[ln], 18, 16)
+            hits[f"solo:{ln}"] = Rect(26, self.rows[ln], 18, 16)
             if self.sel == ln:
-                pygame.draw.rect(surf, (70, 65, 40), (46, ry, 80, 12))
+                fb2d.rect(surf, (70, 65, 40), (46, ry, 80, 12))
             self.txt(ln, 50, ry + 1, hcol, surf=surf)
-            hits[f"name:{ln}"] = pygame.Rect(46, self.rows[ln], 80, 19)
-            pygame.draw.rect(surf, (24, 24, 29),
+            hits[f"name:{ln}"] = Rect(46, self.rows[ln], 80, 19)
+            fb2d.rect(surf, (24, 24, 29),
                              (self.x0, ry, self.x1 - self.x0, 22))
             if ln == FX:
                 continue
@@ -2035,11 +2100,11 @@ class App:
                 if fade and xe - x >= 3:
                     # farewell bar (~f): the lane RAMPS TO ZERO across
                     # this bar — drawn as its shape, a right taper
-                    pygame.draw.polygon(surf, c, [
+                    fb2d.polygon(surf, c, [
                         (x, ry + 21), (x, ry + 21 - h),
                         (xe, ry + 21 - max(1, h // 5)), (xe, ry + 21)])
                 else:
-                    pygame.draw.rect(surf, c, (x, ry + 21 - h,
+                    fb2d.rect(surf, c, (x, ry + 21 - h,
                                                max(1, xe - x), h))
         # FX / event markers — every glyph is a hover target carrying
         # the same tooltip as its legend twin
@@ -2048,9 +2113,9 @@ class App:
             if t1 < v0 or t0 > v1:
                 continue
             xa, xb = self._tx(t0), self._tx(t1)
-            pygame.draw.line(surf, (200, 120, 220), (xa, ry + 18),
+            fb2d.line(surf, (200, 120, 220), (xa, ry + 18),
                              (xb, ry + 3))
-            pygame.draw.line(surf, (240, 180, 255), (xb, ry + 1),
+            fb2d.line(surf, (240, 180, 255), (xb, ry + 1),
                              (xb, ry + 20), 2)
         for mt_, kind, nm in proj.marks:
             if not (v0 <= mt_ <= v1):
@@ -2060,7 +2125,7 @@ class App:
                 continue        # halts draw as full spans below
             x = self._tx(mt_)
             self._mark_glyph(surf, kind, x, ry)
-            hits[f"mark:{kind}:{x}"] = pygame.Rect(
+            hits[f"mark:{kind}:{x}"] = Rect(
                 x - 5, self.rows[FX], 11, 22)
         # death halts: full-height red spans — silence LOOKS like
         # silence across every row, not a 20px tick
@@ -2069,15 +2134,13 @@ class App:
                 continue
             xa = self._tx(max(ht, v0))
             xb = self._tx(min(resume, v1))
-            hs = pygame.Surface((max(2, xb - xa),
-                                 self.y_marks + 22 - self.y_sect),
-                                pygame.SRCALPHA)
-            hs.fill((255, 60, 60, 36))
-            surf.blit(hs, (xa, T(self.y_sect)))
-            pygame.draw.line(surf, (255, 70, 70),
+            fb2d.alpha_fill(surf, (255, 60, 60), 36,
+                            (xa, T(self.y_sect), max(2, xb - xa),
+                             self.y_marks + 22 - self.y_sect))
+            fb2d.line(surf, (255, 70, 70),
                              (xa, T(self.y_sect)),
                              (xa, T(self.y_marks) + 22), 2)
-            hits[f"mark:music_halt:{xa}"] = pygame.Rect(
+            hits[f"mark:music_halt:{xa}"] = Rect(
                 xa - 4, self.rows[FX], 9, 22)
         # inline marker legend under the fx header: the same glyphs
         # the row uses, hover any for its meaning
@@ -2086,7 +2149,7 @@ class App:
                      "music_sting", "music_stab", "music_halt",
                      "xfade"):
             self._mark_glyph(surf, kind, lx, T(self.y_marks))
-            hits[f"legend:{kind}"] = pygame.Rect(
+            hits[f"legend:{kind}"] = Rect(
                 lx - 6, self.y_marks, 13, 22)
             lx += 17
 
@@ -2095,21 +2158,22 @@ class App:
         """No playable mix (first render, bank re-score, no-taps or a
         failed first render): grey the timeline and say why, front and
         center — the chip alone required knowing what the chip means."""
-        scr.blit(self._dim_surf(self.W, self.H - 236, 165), (0, 236))
-        box = pygame.Rect(self.W // 2 - 310, 372, 620, 96)
+        fb2d.alpha_fill(scr, (0, 0, 0), 165,
+                        (0, 236, self.W, self.H - 236))
+        box = Rect(self.W // 2 - 310, 372, 620, 96)
         col = STATUS_COL[self.status_kind]
-        pygame.draw.rect(scr, (24, 24, 30), box)
-        pygame.draw.rect(scr, col, box, 2)
+        fb2d.rect(scr, (24, 24, 30), box)
+        fb2d.rect(scr, col, box, 2)
         self.txt(self.status, box.x + 20, box.y + 14, col, self.big,
                  maxw=box.w - 40)
         if self.status_kind == "busy":
             el = time.time() - self.render_t0
             if self.est_render:
                 frac = min(1.0, el / self.est_render)
-                pygame.draw.rect(scr, (50, 50, 60),
+                fb2d.rect(scr, (50, 50, 60),
                                  (box.x + 20, box.y + 46,
                                   box.w - 40, 10))
-                pygame.draw.rect(scr, col,
+                fb2d.rect(scr, col,
                                  (box.x + 20, box.y + 46,
                                   int((box.w - 40) * frac), 10))
                 sub = (f"{el:.0f}s of ~{self.est_render:.0f}s — "
@@ -2128,12 +2192,13 @@ class App:
         if self.video_big:
             bw, bh = self.video.size
             bx, by = (self.W - bw) // 2, (self.H - bh) // 2
-            scr.blit(self._dim_surf(self.W, self.H, 170), (0, 0))
+            fb2d.alpha_fill(scr, (0, 0, 0), 170)
             if vf is not None:
-                scr.blit(vf[1], (bx, by))
+                fb2d.blit(scr, vf[1], bx, by)
                 if abs(vf[0] - t) > 1.0:
-                    scr.blit(self._dim_surf(bw, bh, 130), (bx, by))
-            pygame.draw.rect(scr, (200, 200, 210), (bx, by, bw, bh), 2)
+                    fb2d.alpha_fill(scr, (0, 0, 0), 130,
+                                    (bx, by, bw, bh))
+            fb2d.rect(scr, (200, 200, 210), (bx, by, bw, bh), 2)
             self.txt("click or ESC to close", bx + 4, by + bh + 6,
                      (170, 170, 180))
         if self.picker:
@@ -2148,20 +2213,20 @@ class App:
                 hidden = len(names) - max_rows
                 names = names[:max_rows]
             ph = 24 * len(names) + 36 + (16 if hidden else 0)
-            prc = pygame.Rect(350, 40, 340, ph)
-            pygame.draw.rect(scr, (30, 30, 38), prc)
-            pygame.draw.rect(scr, (240, 220, 160), prc, 1)
+            prc = Rect(350, 40, 340, ph)
+            fb2d.rect(scr, (30, 30, 38), prc)
+            fb2d.rect(scr, (240, 220, 160), prc, 1)
             self.txt(f"score pass {pi + 1} (at the playhead) with:",
                      prc.x + 10, prc.y + 8, (240, 220, 160),
                      maxw=prc.w - 20)
             self._picker_rows = []
             yy = prc.y + 30
             for nm in names:
-                r = pygame.Rect(prc.x + 6, yy, prc.w - 12, 22)
+                r = Rect(prc.x + 6, yy, prc.w - 12, 22)
                 ok = nm is None or self._bank_ok(nm)
                 cur = (nm == over)
                 if cur:
-                    pygame.draw.rect(scr, (60, 55, 35), r)
+                    fb2d.rect(scr, (60, 55, 35), r)
                 label = nm or f"(as recorded: {orig})"
                 if not ok:
                     label += "  (incomplete bank.json)"
@@ -2220,7 +2285,7 @@ class App:
         words, lines, cur = s.split(" "), [], ""
         for w in words:
             trial = (cur + " " + w).strip()
-            if self.font.size(trial)[0] > maxw and cur:
+            if text.measure(trial, self.font)[0] > maxw and cur:
                 lines.append(cur)
                 cur = w
             else:
@@ -2230,7 +2295,7 @@ class App:
         return lines
 
     def _draw_help(self, scr):
-        scr.blit(self._dim_surf(self.W, self.H, 235), (0, 0))
+        fb2d.alpha_fill(scr, (0, 0, 0), 235)
         self.txt("KEYS", 80, 40, (240, 220, 160), self.big)
         y = 74
         for k, desc in self.HELP_KEYS:
@@ -2277,29 +2342,29 @@ class App:
         """One glyph vocabulary for the FX row AND its legend — they
         can never drift apart."""
         if kind == "music_halt":
-            pygame.draw.line(surf, (255, 70, 70), (x, ry + 1),
+            fb2d.line(surf, (255, 70, 70), (x, ry + 1),
                              (x, ry + 20), 2)
         elif kind == "music_sting":
-            pygame.draw.circle(surf, (240, 220, 160), (x, ry + 10), 4)
+            fb2d.circle(surf, (240, 220, 160), (x, ry + 10), 4)
         elif kind == "music_stab":
-            pygame.draw.polygon(surf, (160, 220, 255),
+            fb2d.polygon(surf, (160, 220, 255),
                                 [(x, ry + 4), (x + 4, ry + 10),
                                  (x, ry + 16), (x - 4, ry + 10)])
         elif kind == "music_riser":
-            pygame.draw.polygon(surf, (200, 120, 220),
+            fb2d.polygon(surf, (200, 120, 220),
                                 [(x, ry + 18), (x - 4, ry + 4),
                                  (x + 4, ry + 4)])
         elif kind == "music_riser2":
-            pygame.draw.polygon(surf, (255, 120, 80),
+            fb2d.polygon(surf, (255, 120, 80),
                                 [(x, ry + 18), (x - 3, ry + 8),
                                  (x + 3, ry + 8)])
         elif kind == "music_jump":
-            pygame.draw.polygon(surf, (240, 200, 100),
+            fb2d.polygon(surf, (240, 200, 100),
                                 [(x, ry + 4), (x - 3, ry + 14),
                                  (x + 3, ry + 14)])
         elif kind == "xfade":
             for i in (-5, -1, 3):
-                pygame.draw.line(surf, (255, 200, 120),
+                fb2d.line(surf, (255, 200, 120),
                                  (x + i - 2, ry + 16),
                                  (x + i + 3, ry + 5))
 
@@ -2341,7 +2406,7 @@ class App:
         if self.picker or self.video_big or self.help_on or \
                 self._goto is not None:
             return
-        mx, my = pygame.mouse.get_pos()
+        mx, my = self.display.mouse_pos
         over = next((el for el, r in self._hit.items()
                      if r.collidepoint(mx, my)), None)
         if over != self._hover[0]:
@@ -2356,31 +2421,19 @@ class App:
         if not tip:
             return
         lines = self._wrap(tip, 480)
-        rendered = [self.font.render(l, True, (20, 20, 24))
-                    for l in lines]
-        w = max(r.get_width() for r in rendered)
-        h = 18 * len(rendered)
+        w = max(text.measure(l, self.font)[0] for l in lines)
+        h = 18 * len(lines)
         tx = min(mx + 14, self.W - w - 14)
         ty = min(my + 18, self.H - h - 12)
-        pygame.draw.rect(self.screen, (235, 225, 180),
+        fb2d.rect(self.screen, (235, 225, 180),
                          (tx - 6, ty - 4, w + 12, h + 8))
-        pygame.draw.rect(self.screen, (120, 110, 80),
+        fb2d.rect(self.screen, (120, 110, 80),
                          (tx - 6, ty - 4, w + 12, h + 8), 1)
-        for i, r in enumerate(rendered):
-            self.screen.blit(r, (tx, ty + i * 18))
+        for i, l in enumerate(lines):
+            text.blit_text(self.screen, l, tx, ty + i * 18,
+                           (20, 20, 24), self.font)
 
     # ---- main loop --------------------------------------------------------
-    def _feed(self):
-        """Audio chunk feed on its own thread: a slow draw or a heavy
-        render can no longer starve playback (P3.25)."""
-        while not self._quit:
-            try:
-                self.player.poll()
-            except Exception as exc:
-                self.player.err = f"{exc}"
-                self.player.playing = False
-            time.sleep(0.03)
-
     def step(self):
         # selection = loop: the playhead lives inside the green box —
         # wraps at the end, clamped if it's somehow outside (box just
@@ -2417,11 +2470,13 @@ class App:
             self._watch_thread.start()
 
     def run(self):
-        clock = pygame.time.Clock()
+        clock = mgui.Clock()
         running = True
         while running:
-            for ev in pygame.event.get():
-                if ev.type == pygame.QUIT or not self.handle(ev):
+            evs, self.injected = self.injected, []
+            evs.extend(self.display.events())
+            for ev in evs:
+                if ev.type == uievent.QUIT or not self.handle(ev):
                     running = False
                     break               # no ghost events after quit
             self.step()
@@ -2433,7 +2488,6 @@ class App:
         self._quit = True
         self._save_session()
         self.video.stop()           # no orphaned ffmpeg after quit
-        pygame.quit()
 
 
 def main():
@@ -2454,7 +2508,9 @@ def main():
                          f"with events.jsonl, or the file itself)")
     video = Path(a.video) if a.video else \
         (DEFAULT_VIDEO if Path(a.rec) == DEFAULT_REC else None)
-    App(rec, video, use=a.use).run()
+    # the toolchain's headless convention (captures, soaks, CI)
+    headless = os.environ.get("SDL_VIDEODRIVER") == "dummy"
+    App(rec, video, headless=headless, use=a.use).run()
 
 
 if __name__ == "__main__":

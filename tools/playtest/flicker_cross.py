@@ -29,12 +29,9 @@ import random
 import sys
 from pathlib import Path
 
-os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
-os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "game"))
 
-import pygame  # noqa: E402
+import numpy as np  # noqa: E402
 
 import necore  # noqa: E402
 from perihelion.levels import LevelBuilder  # noqa: E402
@@ -156,16 +153,17 @@ def _xform_of(inst):
     raise RuntimeError(f"no 9-float xform in instance: {inst!r}")
 
 
-def probe_ink(surf, xform, decal_pts) -> int:
-    """Count bright pixels in 9x9 boxes at each decal's screen position."""
-    w, h = surf.get_size()
+def probe_ink(frame, xform, decal_pts) -> int:
+    """Count bright pixels in 9x9 boxes at each decal's screen position.
+    `frame` is the (W, H, 3) uint8 array Renderer.draw returned."""
+    w, h = int(frame.shape[0]), int(frame.shape[1])
     ink = 0
     for (x, y) in decal_pts:
         sx, sy = necore.mat_apply(xform, x, y)
         sx, sy = int(sx), int(sy)
         for py in range(max(0, sy - 4), min(h, sy + 5)):
             for px in range(max(0, sx - 4), min(w, sx + 5)):
-                r, g, bl, *_ = surf.get_at((px, py))
+                r, g, bl = frame[px, py]
                 if r > 85 and g > 85:
                     ink += 1
     return ink
@@ -199,7 +197,6 @@ def main() -> int:
         os.environ.get("FLICKER_OUT", "/tmp/flicker_cross")) / args.world
     out.mkdir(parents=True, exist_ok=True)
 
-    pygame.init()
     if args.world == "grid":
         level, polygons, center = build_grid(args.grid_n)
         probe_polygons = {k: v for k, v in polygons.items() if k != center}
@@ -209,8 +206,8 @@ def main() -> int:
     session = GameSession(level, seed=7, screen=(INTERNAL_W, INTERNAL_H))
     plant_decals(session, polygons, probe_polygons)
     ren = Renderer(session)
-    surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
-    prev_surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
+    size = (INTERNAL_W, INTERNAL_H)
+    frame = prev_frame = None
 
     decal_local = {name: [(x, y) for _, x, y, _, _ in session.decals[r]]
                    for name, r in probe_polygons.items()}
@@ -225,8 +222,8 @@ def main() -> int:
                                 fire=False, alt=False, interact=False, weapon=0))
         random.seed(tick)
         ren.consume_fx(session.fx)
-        prev_surf.blit(surf, (0, 0))
-        ren.draw(surf)
+        prev_frame = frame
+        frame = ren.draw(size)
 
         vis = session.visible()
         by_polygon: dict[int, list] = {}
@@ -242,7 +239,7 @@ def main() -> int:
             insts = by_polygon.get(r, [])
             ink = 0
             if insts:
-                ink = max(probe_ink(surf, _xform_of(i), decal_local[name])
+                ink = max(probe_ink(frame, _xform_of(i), decal_local[name])
                           for i in insts)
             row[name] = {"inst": len(insts), "ink": ink}
         log.append(row)
@@ -255,9 +252,12 @@ def main() -> int:
                     ev = {"tick": tick, "polygon": name, "before": a, "after": b_,
                           "moved": round(moved, 3), "n_inst": row["n_inst"]}
                     events.append(ev)
-                    if len(events) <= 20:
-                        pygame.image.save(prev_surf, str(out / f"ev{len(events):03d}_t{tick - 1}.png"))
-                        pygame.image.save(surf, str(out / f"ev{len(events):03d}_t{tick}.png"))
+                    if len(events) <= 20 and prev_frame is not None:
+                        for f, t_ in ((prev_frame, tick - 1), (frame, tick)):
+                            necore.write_png(
+                                str(out / f"ev{len(events):03d}_t{t_}.png"),
+                                INTERNAL_W, INTERNAL_H,
+                                np.ascontiguousarray(f.transpose(1, 0, 2)).tobytes())
         prev = row
 
     (out / "log.json").write_text(json.dumps(log))

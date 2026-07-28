@@ -13,8 +13,6 @@ silhouette measurement that cannot be fooled by floor colour.
 from __future__ import annotations
 
 import numpy as np
-import pygame
-
 from perihelion.levels import LevelBuilder
 from perihelion.render import Renderer
 from perihelion.sim import GameSession, InputFrame
@@ -35,7 +33,7 @@ def _render(level, spawn=None, setup=None, zoom=1.0):
     if setup is not None:
         setup(s)
     r = Renderer(s)
-    surf = pygame.Surface((640, 360))
+    surf = (640, 360)
     for _ in range(2):
         s.tick(InputFrame())
     r.consume_fx(s.fx)

@@ -4,13 +4,13 @@ In-context verification harness for PERIHELION's generated menu art.
 
 Never trust that a generated background "looks right" in isolation -- draw
 the *actual* Scene classes (TitleScene, IntroCard for each tier, DeathScene,
-WinScene) from game/perihelion/menus.py onto real 480x270 pygame Surfaces,
-under SDL_VIDEODRIVER=dummy, with the *actual* game text rendered on top of
+WinScene) from game/perihelion/menus.py onto real internal-res numpy
+framebuffers, with the *actual* game text rendered on top of
 the *actual* accepted background art, then save PNG screenshots for human/
 LLM visual review: is the text readable, is the mood right, are there seams?
 
 Run:
-    SDL_VIDEODRIVER=dummy uv run python tools/artgen/verify_in_context.py
+    uv run python tools/artgen/verify_in_context.py
 """
 from __future__ import annotations
 
@@ -19,14 +19,13 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
-os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
-os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "game"))
 
-import pygame  # noqa: E402
+import numpy as np  # noqa: E402
 
+import necore  # noqa: E402
 from perihelion import menus  # noqa: E402
 from perihelion.app import EPILOGUE_TEXT  # noqa: E402
 from perihelion.render import INTERNAL_H, INTERNAL_W  # noqa: E402
@@ -50,20 +49,18 @@ LEVEL_NAMES = {1: "DECK FOURTEEN", 2: "THE AUDIT", 3: "THE FOLD", 4: "THE CORE"}
 
 
 def _shot(scene: "menus.Scene", name: str, ticks: int) -> Path:
-    surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
+    fb = np.zeros((INTERNAL_W, INTERNAL_H, 3), dtype=np.uint8)
     for _ in range(ticks):
         scene.update(DUMMY_APP, 1 / 60)
-    scene.draw(DUMMY_APP, surf)
+    scene.draw_fb(DUMMY_APP, fb)
     SCRATCH.mkdir(parents=True, exist_ok=True)
     out = SCRATCH / f"{name}.png"
-    pygame.image.save(surf, str(out))
+    necore.write_png(str(out), INTERNAL_W, INTERNAL_H,
+                     np.ascontiguousarray(fb.transpose(1, 0, 2)).tobytes())
     return out
 
 
 def main() -> None:
-    pygame.init()
-    pygame.font.init()
-
     shots = []
 
     title = menus.TitleScene()
@@ -83,7 +80,6 @@ def main() -> None:
         card = menus.IntroCard(LEVEL_NAMES[tier], SAMPLE_INTRO_TEXT, tier)
         shots.append(_shot(card, f"intro_t{tier}_card", ticks=90))
 
-    pygame.quit()
 
     print("Wrote screenshots:")
     for s in shots:

@@ -26,13 +26,7 @@ path specifically.
 
 from __future__ import annotations
 
-import os
-
-os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
-os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
-
 import numpy as np
-import pygame
 import pytest
 
 import necore
@@ -46,13 +40,6 @@ pytestmark = pytest.mark.skipif(
     not hasattr(necore, "Raster"),
     reason="this necore build has no Raster (rust render backend)",
 )
-
-
-@pytest.fixture(scope="module")
-def pygame_ready():
-    pygame.init()
-    yield
-    pygame.quit()
 
 
 def _douse_player_lamp(session):
@@ -83,9 +70,8 @@ def _write_gradient_texture(root, level_id: str, polygon_index: int, w: int, h: 
     arr[..., 0] = np.linspace(0, 255, w)[None, :]
     arr[..., 2] = np.linspace(0, 255, h)[:, None]
     arr[..., 1] = 80
-    surf = pygame.Surface((w, h))
-    pygame.surfarray.blit_array(surf, arr.transpose(1, 0, 2))
-    pygame.image.save(surf, str(root / level_id / f"polygon_{polygon_index}.png"))
+    from PIL import Image
+    Image.fromarray(arr).save(root / level_id / f"polygon_{polygon_index}.png")
 
 
 def _rect_level(px, level_id):
@@ -229,7 +215,7 @@ def _render_root_and_nonroot(tmp_path, backend, level_fn, level_id, margin_frac=
                         zoom=1.35))
         ren = Renderer(session, max_depth=1)
         ren._get_detail = lambda polygon: []  # isolate the floor-texture path
-        surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
+        surf = (INTERNAL_W, INTERNAL_H)
         session.tick(InputFrame())
         ren.consume_fx(session.fx)
         arr = ren.draw(surf)
@@ -254,7 +240,7 @@ def _render_root_and_nonroot(tmp_path, backend, level_fn, level_id, margin_frac=
     (_octagon_level, "root_inv_oct"),
 ])
 def test_textured_floor_is_root_frame_invariant(
-        pygame_ready, tmp_path, backend, level_fn, level_id):
+        tmp_path, backend, level_fn, level_id):
     """A polygon's textured floor, sampled at the same physical location a
     hair on each side of the doorway that flips it root/non-root, must
     render the same color (within tight per-channel tolerance -- a couple
@@ -278,7 +264,7 @@ def test_textured_floor_is_root_frame_invariant(
 
 
 @pytest.mark.parametrize("backend", ["rust"])
-def test_flat_floor_is_root_frame_invariant(pygame_ready, tmp_path, backend):
+def test_flat_floor_is_root_frame_invariant(tmp_path, backend):
     """Same invariant, no bespoke texture -- the OP_CLIP_FILL / flat
     `_floor_color` path must also be indifferent to which side of the
     doorway the camera calls root."""
@@ -297,7 +283,7 @@ def test_flat_floor_is_root_frame_invariant(pygame_ready, tmp_path, backend):
             GameSession(level, seed=1234, screen=(INTERNAL_W, INTERNAL_H)))
         ren = Renderer(session, max_depth=1)
         ren._get_detail = lambda polygon: []
-        surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
+        surf = (INTERNAL_W, INTERNAL_H)
         session.tick(InputFrame())
         ren.consume_fx(session.fx)
         arr = ren.draw(surf)
@@ -481,7 +467,7 @@ def _jamb_walls(session, polygon_idx):
 
 @pytest.mark.parametrize("dist", [0.75, 0.5, 0.26, 0.05])
 def test_jamb_walls_visible_before_crossing_within_apex_clamp_margin(
-        pygame_ready, dist):
+        dist):
     """For every physical distance-to-door the apex clamp can produce
     exactly this pinned band (0 < dist <= _APEX_EPS), the non-root render of
     the polygon behind the door must already show BOTH jamb walls -- the same
@@ -514,8 +500,7 @@ def test_jamb_walls_visible_before_crossing_within_apex_clamp_margin(
         f"the polygon re-roots instead of already matching root's view")
 
 
-def test_jamb_wall_reveal_is_continuous_across_the_actual_crossing(
-        pygame_ready):
+def test_jamb_wall_reveal_is_continuous_across_the_actual_crossing():
     """The continuity property: walk straight through the doorway one tick
     at a time (real ticks, real camera follow, real portal transfer -- not
     a hand-placed pose) and confirm polygon rB's wall list never changes
@@ -566,7 +551,7 @@ def test_jamb_wall_reveal_is_continuous_across_the_actual_crossing(
 
 @pytest.mark.parametrize("backend", ["rust"])
 def test_darkness_enabled_multipolygon_is_root_frame_invariant(
-        pygame_ready, tmp_path, backend):
+        tmp_path, backend):
     """The director's report, directly reproduced: crossing a doorway
     between two DIFFERENT-kind polygons (corridor -> core) must not step
     EITHER polygon's rendered pixels beyond what the ~0.2-unit camera
@@ -604,7 +589,7 @@ def test_darkness_enabled_multipolygon_is_root_frame_invariant(
         # procedural geometry), not a lighting-pipeline defect. The
         # darkness/palette machinery this test targets runs unmodified.
         ren._get_detail = lambda polygon: []
-        surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
+        surf = (INTERNAL_W, INTERNAL_H)
         session.tick(InputFrame())
         ren.consume_fx(session.fx)
         arr = ren.draw(surf)

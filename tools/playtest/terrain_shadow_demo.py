@@ -17,14 +17,13 @@ import subprocess
 import sys
 from pathlib import Path
 
-os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
-os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 os.environ.setdefault("PERIHELION_INTERNAL_RES", "1280x720")
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "game"))
 
-import pygame  # noqa: E402
+import numpy as np  # noqa: E402
+from PIL import Image  # noqa: E402
 
 import necore  # noqa: E402
 from perihelion.levels import LevelBuilder, LightSpec  # noqa: E402
@@ -137,12 +136,10 @@ def _drive(session):
 
 
 def probe(png_path, x, y):
-    surf = pygame.image.load(str(png_path))
-    surf.lock()
-    rgb = surf.get_at((max(0, min(surf.get_width() - 1, x)),
-                        max(0, min(surf.get_height() - 1, y))))[:3]
-    surf.unlock()
-    return rgb
+    arr = np.asarray(Image.open(png_path).convert("RGB"))  # (h, w, 3)
+    h, w = arr.shape[:2]
+    return tuple(int(v) for v in
+                 arr[max(0, min(h - 1, y)), max(0, min(w - 1, x))])
 
 
 def main() -> int:
@@ -153,7 +150,6 @@ def main() -> int:
     ap.add_argument("--quick", action="store_true")
     args = ap.parse_args()
 
-    pygame.init()
     level, r0 = build_world()
     session = GameSession(level, seed=7, screen=(INTERNAL_W, INTERNAL_H))
     session.sim.set_polygon_terrain(r0, [TERRAIN_RECT])  # terrain FIRST
@@ -164,7 +160,7 @@ def main() -> int:
     session.lighting.add_lights(session.sim, [fixture])  # ...THEN the light
     ren = Renderer(session)
     apply_demo_floor(ren, level, r0)
-    surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
+    size = (INTERNAL_W, INTERNAL_H)
 
     out_path = Path(args.out)
     stills_dir = out_path.parent / "stills"
@@ -195,11 +191,13 @@ def main() -> int:
         session.tick(InputFrame(mx=mx, my=my, ax=INTERNAL_W / 2, ay=INTERNAL_H / 2,
                                 fire=False, alt=False, interact=False, weapon=0))
         ren.consume_fx(session.fx)
-        ren.draw(surf)
+        frame = ren.draw(size)
         if ffmpeg is not None:
-            frame = surf if surf.get_size() == (OUT_W, OUT_H) else \
-                pygame.transform.smoothscale(surf, (OUT_W, OUT_H))
-            ffmpeg.stdin.write(pygame.image.tobytes(frame, "RGB"))
+            rows = np.ascontiguousarray(frame.transpose(1, 0, 2))
+            if (INTERNAL_W, INTERNAL_H) != (OUT_W, OUT_H):
+                rows = np.asarray(Image.fromarray(rows).resize(
+                    (OUT_W, OUT_H), Image.BILINEAR))
+            ffmpeg.stdin.write(rows.tobytes())
         frames += 1
         if mark is not None:
             mark_ticks[tick] = mark
@@ -210,7 +208,10 @@ def main() -> int:
             # position, which is pinned near screen-center every frame by
             # the follow camera and so is useless as a world-location probe.
             positions[mark] = necore.mat_apply(session.cam, tx, ty - 22.0)
-            pygame.image.save(surf, str(stills_dir / f"{mark}.png"))
+            necore.write_png(str(stills_dir / f"{mark}.png"),
+                             INTERNAL_W, INTERNAL_H,
+                             np.ascontiguousarray(
+                                 frame.transpose(1, 0, 2)).tobytes())
 
     if ffmpeg is not None:
         ffmpeg.stdin.close()

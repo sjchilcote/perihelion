@@ -121,19 +121,14 @@ def test_no_brightness_seam_across_transfers():
     """Invariant 5, pixel edition: mean screen brightness must evolve
     smoothly while walking a corridor of portals (per-instance dimming
     once snapped at every crossing)."""
-    import os
-    os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
-    import pygame
     from perihelion.render import Renderer
-    pygame.init()
-    pygame.display.set_mode((480, 270))
     b = LevelBuilder("bright", 1)
     polygons = [b.rect(i * 200, 0, 200, 150) for i in range(4)]
     b.player(polygons[0], (100, 75))
     b.exit(polygons[3], (700, 75))
     s = GameSession(b.build(), seed=2)
     ren = Renderer(s)
-    surf = pygame.Surface((480, 270))
+    surf = (480, 270)
     prev = None
     worst = 0.0
     for t in range(60 * 12):

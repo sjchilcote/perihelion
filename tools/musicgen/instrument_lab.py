@@ -418,14 +418,13 @@ def render_all(only_melody: str | None = None):
 def main():
     """The player. It plays wav files from the cache; that is all it
     does. Missing files show as dim rows saying so (run --render)."""
-    import pygame
-    pygame.init()
-    pygame.mixer.init(44100, -16, 2, 512)
+    import mgui
+    from perihelion import fb2d, text, uievent
     W, H = 1240, 760
-    screen = pygame.display.set_mode((W, H))
-    pygame.display.set_caption("PERIHELION instrument lab")
-    font = pygame.font.SysFont("monospace", 14)
-    big = pygame.font.SysFont("monospace", 17, bold=True)
+    disp = mgui.Display(W, H, "PERIHELION instrument lab")
+    screen = disp.fb
+    font, big = 14, 17            # text.blit_text sizes (FSEX300)
+    player = mgui.OneShot(mgui.audio())
 
     melodies = list(G.MELODIES)
     slots = build_slots()
@@ -434,21 +433,21 @@ def main():
 
     rows_top = 46
     row_h = 21
-    clock = pygame.time.Clock()
+    clock = mgui.Clock()
     running = True
     while running:
         mel = melodies[mel_i]
-        for ev in pygame.event.get():
-            if ev.type == pygame.QUIT:
+        for ev in disp.events():
+            if ev.type == uievent.QUIT:
                 running = False
-            elif ev.type == pygame.KEYDOWN:
-                if ev.key == pygame.K_ESCAPE:
+            elif ev.type == uievent.KEYDOWN:
+                if ev.key == uievent.K_ESCAPE:
                     running = False
-                elif ev.key == pygame.K_UP:
+                elif ev.key == uievent.K_UP:
                     mel_i = (mel_i - 1) % len(melodies)
-                elif ev.key == pygame.K_DOWN:
+                elif ev.key == uievent.K_DOWN:
                     mel_i = (mel_i + 1) % len(melodies)
-            elif ev.type == pygame.MOUSEBUTTONDOWN:
+            elif ev.type == uievent.MOUSEBUTTONDOWN:
                 x, y = ev.pos
                 if x < 220:
                     i = (y - rows_top) // 25
@@ -459,20 +458,19 @@ def main():
                     if 0 <= i < len(slots):
                         cp = cache_path(mel, slots[i][0])
                         if cp.exists():
-                            pygame.mixer.stop()
-                            pygame.mixer.Sound(str(cp)).play()
+                            player.play(cp)
                             playing = slots[i][0]
 
-        screen.fill((15, 15, 19))
+        fb2d.fill(screen, (15, 15, 19))
 
         def txt(s, x, y, c=(200, 200, 200), f=font):
-            screen.blit(f.render(s, True, c), (x, y))
+            text.blit_text(screen, s, x, y, c, f)
 
         txt("MELODY (up/down)", 12, 20, (240, 220, 160), big)
         for i, m in enumerate(melodies):
             if i == mel_i:
-                pygame.draw.rect(screen, (85, 65, 35),
-                                 (10, rows_top + i * 25 - 2, 205, 22))
+                fb2d.rect(screen, (85, 65, 35),
+                          (10, rows_top + i * 25 - 2, 205, 22))
             txt(m, 14, rows_top + i * 25,
                 (255, 240, 200) if i == mel_i else (170, 170, 170))
         txt("SLOT              INSTRUMENT                     MATERIAL"
@@ -489,9 +487,8 @@ def main():
                 col, note = (195, 195, 195), ""
             txt(f"{name:16s}  {preset:30.30s} {mat:24.24s} {note}",
                 250, y, col)
-        pygame.display.flip()
+        disp.flip()
         clock.tick(30)
-    pygame.quit()
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 """tools/musiccal/run_farm.py — headless calibration run farm.
 
-Drives `GameSession` directly (no pygame, no app.py render loop — the human
+Drives `GameSession` directly (no renderer, no app.py render loop — the human
 bot's perception model reads `session.snapshot()`/`session` engine state,
 never pixels, so nothing is lost by skipping rendering; see
 `perihelion.testkit.humanbot`) with `--bot human` by default, falling back

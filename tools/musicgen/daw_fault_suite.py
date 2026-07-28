@@ -21,7 +21,6 @@ import time
 from pathlib import Path
 
 import numpy as np
-import pygame
 import soundfile as sf
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -29,6 +28,7 @@ sys.path.insert(0, str(ROOT / "tools/musicgen"))
 sys.path.insert(0, str(ROOT / "tools/playtest"))
 import daw                                              # noqa: E402
 import mkvideo as MK                                    # noqa: E402
+from perihelion import uievent                          # noqa: E402
 
 RATE = 44100
 BPM = 110.0
@@ -367,16 +367,16 @@ def f_audio_death(app):
 
     class Boom:
         def play(self, *a):
-            raise pygame.error("device gone")
+            raise RuntimeError("device gone")
 
         def queue(self, *a):
-            raise pygame.error("device gone")
+            raise RuntimeError("device gone")
 
         def stop(self):
-            raise pygame.error("device gone")
+            raise RuntimeError("device gone")
 
         def get_queue(self):
-            raise pygame.error("device gone")
+            raise RuntimeError("device gone")
 
         def get_busy(self):
             return False
@@ -646,9 +646,9 @@ def f_no_taps(app):
     try:
         wait(lambda: "no music taps" in a2.status, 20, "no-taps status")
         assert a2.status_kind == "err"
-        a2.handle(pygame.event.Event(pygame.KEYDOWN,
-                                     key=pygame.K_SPACE, mod=0,
-                                     unicode=" "))
+        a2.handle(uievent.Event(uievent.KEYDOWN,
+                                key=uievent.K_SPACE, mod=0,
+                                unicode=" "))
         assert has_note(a2, "still rendering") or a2.player.buf is None
     finally:
         close(a2)
@@ -857,8 +857,8 @@ def f_incomplete_bank(app):
         r, nm, ok = next(row for row in a2._picker_rows
                          if row[1] == "broken_bank")
         assert not ok
-        a2.handle(pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1,
-                                     pos=(r.centerx, r.centery)))
+        a2.handle(uievent.Event(uievent.MOUSEBUTTONDOWN, button=1,
+                                pos=(r.centerx, r.centery)))
         assert a2._use == {} and has_note(a2, "incomplete bank.json")
         a2.picker = False
         # the complete single-loop bank scores end to end
@@ -889,7 +889,7 @@ def f_render_modal(app):
     try:
         def strip_mean(a):
             a.draw()
-            px = pygame.surfarray.array3d(a.screen)
+            px = a.screen                   # (W, H, 3) numpy frame
             return float(px[a.x0:a.x1,
                             a.y_sect:a.y_sect + 10].mean())
         ready(a2)
@@ -914,10 +914,10 @@ def f_quit_purity(app):
     try:
         ready(a2)
         gen0 = a2._gen
-        pygame.event.post(pygame.event.Event(
-            pygame.KEYDOWN, key=pygame.K_ESCAPE, mod=0, unicode=""))
-        pygame.event.post(pygame.event.Event(
-            pygame.KEYDOWN, key=pygame.K_r, mod=0, unicode="r"))
+        a2.injected.append(uievent.Event(
+            uievent.KEYDOWN, key=uievent.K_ESCAPE, mod=0, unicode=""))
+        a2.injected.append(uievent.Event(
+            uievent.KEYDOWN, key=uievent.K_r, mod=0, unicode="r"))
         a2.run()                    # returns on the ESC
         assert a2._gen == gen0, "R after quit spawned a rebuild"
     finally:

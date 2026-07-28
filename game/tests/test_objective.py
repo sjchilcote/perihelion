@@ -172,13 +172,10 @@ def test_radio_authoring_raises():
 
 
 def test_no_radio_strip_surface_exists():
-    import pygame
-
     from perihelion import menus
     from perihelion.app import GameScene, build_debug_level
 
     assert not hasattr(menus, "RadioBar")
-    pygame.init()  # no quit: font objects are cached across test modules
     scene = GameScene(build_debug_level(), seed=1)
     assert not hasattr(scene, "radio")
     assert scene.objective is None

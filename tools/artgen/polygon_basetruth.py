@@ -26,23 +26,22 @@ import os
 import sys
 from pathlib import Path
 
-os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
-os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "game"))
 
-import pygame  # noqa: E402
+import numpy as np  # noqa: E402
 import necore  # noqa: E402
 
+from perihelion import fb2d  # noqa: E402
 from perihelion.levels import load_level  # noqa: E402
-from perihelion.render import Renderer, _PygameCanvas  # noqa: E402
+from perihelion.render import Renderer  # noqa: E402
 from perihelion.sim import GameSession  # noqa: E402
 
 DEFAULT_PILOT = ROOT / "tools" / "artgen" / "pilot_polygons.json"
 
 
-def render_polygon(renderer: Renderer, polygon_idx: int, px_per_unit: float) -> "pygame.Surface":
+def render_polygon(renderer: Renderer, polygon_idx: int, px_per_unit: float) -> "np.ndarray":
     level = renderer.session.level
     verts = level.polygon_verts[polygon_idx]
     xs = [v[0] for v in verts]
@@ -52,16 +51,16 @@ def render_polygon(renderer: Renderer, polygon_idx: int, px_per_unit: float) -> 
     w_px = max(1, math.ceil((x1 - x0) * px_per_unit))
     h_px = max(1, math.ceil((y1 - y0) * px_per_unit))
 
-    surf = pygame.Surface((w_px, h_px))
-    surf.fill((0, 0, 0))  # pixels outside the polygon polygon stay black
+    frame = np.zeros((w_px, h_px, 3), dtype=np.uint8)  # outside stays black
 
     xform = necore.mat_mul(necore.mat_scale(px_per_unit, px_per_unit),
                             necore.mat_translate(-x0, -y0))
     polygon_screen = [necore.mat_apply(xform, x, y) for x, y in verts]
 
-    canvas = _PygameCanvas(surf)
-    # depth=0: no fog/darkness dimming -- the flat authored appearance
-    renderer._draw_floor(canvas, polygon_idx, 0, polygon_screen)
+    # depth=0 flat authored appearance: the renderer's own cached floor
+    # color for this polygon (same _shade/palette/tint chain the live
+    # rust display list submits), filled over the polygon's own shape.
+    fb2d.polygon(frame, renderer._floor_color(polygon_idx), polygon_screen)
     # _draw_detail (PROPS: crates, consoles, vent grates, pipe runs, floor
     # chevrons -- every "line"/"polyline"/"poly"/"dot" prim) is DELIBERATELY
     # NOT called here (2026-07-11 fix-round, director's correction: "the
@@ -88,7 +87,7 @@ def render_polygon(renderer: Renderer, polygon_idx: int, px_per_unit: float) -> 
     # it explicitly (per-prop-kind prompt clauses tied to prop screen
     # position), not by re-adding the whole detail render as an implicit
     # "copy this" reference.
-    return surf
+    return frame
 
 
 def main() -> None:
@@ -112,7 +111,7 @@ def main() -> None:
         level_path = ROOT / "levels" / f"{stem}.json"
         level = load_level(level_path)
         session = GameSession(level)
-        renderer = Renderer(session, backend="pygame")
+        renderer = Renderer(session)
         level_out = out_root / stem
         level_out.mkdir(parents=True, exist_ok=True)
         for r in polygons:
@@ -121,9 +120,12 @@ def main() -> None:
                 if idx >= len(level.polygon_verts):
                     raise IndexError(
                         f"polygon {idx} out of range (level has {len(level.polygon_verts)})")
-                surf = render_polygon(renderer, idx, px_per_unit)
+                frame = render_polygon(renderer, idx, px_per_unit)
                 out_path = level_out / f"polygon_{idx:03d}.png"
-                pygame.image.save(surf, str(out_path))
+                necore.write_png(str(out_path),
+                                 frame.shape[0], frame.shape[1],
+                                 np.ascontiguousarray(
+                                     frame.transpose(1, 0, 2)).tobytes())
                 written += 1
             except Exception as exc:  # noqa: BLE001 - report and continue
                 failures.append(dict(level=stem, polygon_index=idx, error=str(exc)))

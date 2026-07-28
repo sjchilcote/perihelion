@@ -60,7 +60,6 @@ import numpy as np
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 
-import pygame
 import pytest
 
 import necore
@@ -150,7 +149,6 @@ def _run(level, ticks: int, seed: int = 7):
     B_t (root-polygon coords -> current-polygon coords, composed from every
     transfer's m9), so tests can form the base-independent mapping
     M_t = cam_t . B_t (root frame -> screen)."""
-    pygame.init()
     session = GameSession(level, seed=seed, screen=(INTERNAL_W, INTERNAL_H))
 
     # spy on the portal re-base to capture each transfer's m9 (test-side
@@ -286,7 +284,6 @@ def test_transfer_rebase_is_exact():
     live camera matrices, with a synthetic ROTATED m9 (68 degrees) so
     the rotation-commutes-with-zoom argument is actually exercised, not
     just the identity-rotation case a real level might happen to hit."""
-    pygame.init()
     level = build_rotated_world()
     session = GameSession(level, seed=7, screen=(INTERNAL_W, INTERNAL_H))
     # advance a bit so cam/cam_smooth aren't both fresh identical copies
@@ -423,7 +420,6 @@ def test_phase_lock_transitive_across_spans(rotated_run):
 
 def test_world_aligned_frames_across_crossing():
     from perihelion.render import Renderer
-    pygame.init()
     level = build_rotated_world()
     # zoom pinned: this vector's lit-pixel instrument guard was
     # authored at 1.35; the phase-lock property itself is zoom-free
@@ -435,7 +431,7 @@ def test_world_aligned_frames_across_crossing():
     session._cam_rebase = lambda m9: (m9_log.append(m9), orig_rebase(m9))
 
     ren = Renderer(session)
-    surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
+    surf = (INTERNAL_W, INTERNAL_H)
 
     base = necore.mat_identity()
     frames = {}   # tick -> (ndarray HxW rgb, M)

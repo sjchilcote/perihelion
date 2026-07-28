@@ -3,7 +3,7 @@
     uv run python tools/musicgen/instrument.py
 
 Drives the REAL game music engine (game/perihelion/music.py MusicSystem,
-same pygame mixer path the game uses) over generated banks in out/banks/.
+same engine mixer path the game uses) over generated banks in out/banks/.
 Everything you hear is exactly what the game would play.
 
 Controls (mouse + keys):
@@ -25,15 +25,16 @@ Controls (mouse + keys):
 from __future__ import annotations
 
 import sys
-import time
 from pathlib import Path
-
-import pygame
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "game"))
+sys.path.insert(0, str(ROOT / "tools/musicgen"))
 
+import mgui                                            # noqa: E402
+from mgui import Rect                                  # noqa: E402
+from perihelion import fb2d, text, uievent             # noqa: E402
 from perihelion import music as M                      # noqa: E402
 from perihelion.audio import Audio                     # noqa: E402
 from perihelion.sim import WEAPONS, WEAPON_ORDER       # noqa: E402
@@ -95,19 +96,16 @@ class FakeSession:
 
 class Btn:
     def __init__(self, rect, label, cb, selected=lambda: False):
-        self.rect = pygame.Rect(rect)
+        self.rect = Rect(*rect)
         self.label = label
         self.cb = cb
         self.selected = selected
 
 
 def main():
-    pygame.init()
-    pygame.mixer.pre_init(44100, -16, 2, 512)
-    screen = pygame.display.set_mode((W, H))
-    pygame.display.set_caption("PERIHELION music instrument")
-    font = pygame.font.SysFont("monospace", 14)
-    big = pygame.font.SysFont("monospace", 18, bold=True)
+    disp = mgui.Display(W, H, "PERIHELION music instrument")
+    screen = disp.fb
+    font, big = 14, 18            # text.blit_text sizes (FSEX300)
 
     audio = Audio()
     audio.master_vol = 1.0
@@ -177,10 +175,10 @@ def main():
     layout()
 
     sliders = {  # name -> rect; manual P/C/S + hp
-        "PRAYER": pygame.Rect(560, 80, 26, 220),
-        "CONTEMPT": pygame.Rect(640, 80, 26, 220),
-        "STALWART": pygame.Rect(720, 80, 26, 220),
-        "hp": pygame.Rect(385, 320, 130, 14),
+        "PRAYER": Rect(560, 80, 26, 220),
+        "CONTEMPT": Rect(640, 80, 26, 220),
+        "STALWART": Rect(720, 80, 26, 220),
+        "hp": Rect(385, 320, 130, 14),
     }
     drag = None
 
@@ -191,55 +189,55 @@ def main():
             audio.play(snd, 0.9, 0.5)
         state["fire_flash"] = 1.0
 
-    clock = pygame.time.Clock()
+    clock = mgui.Clock()
     running = True
     while running:
-        for ev in pygame.event.get():
-            if ev.type == pygame.QUIT:
+        for ev in disp.events():
+            if ev.type == uievent.QUIT:
                 running = False
-            elif ev.type == pygame.KEYDOWN:
-                if ev.key == pygame.K_ESCAPE:
+            elif ev.type == uievent.KEYDOWN:
+                if ev.key == uievent.K_ESCAPE:
                     running = False
-                elif ev.key == pygame.K_m:
+                elif ev.key == uievent.K_m:
                     state["auto"] = not state["auto"]
-                elif ev.key == pygame.K_r:
+                elif ev.key == uievent.K_r:
                     # hot-reload: re-slice the current bank from disk
                     # (drop a replacement stem in the folder, press R)
                     load_bank(state["bank_i"])
-                elif ev.key == pygame.K_a:
+                elif ev.key == uievent.K_a:
                     state["autofire"] = not state["autofire"]
-                elif ev.key == pygame.K_q:
+                elif ev.key == uievent.K_q:
                     state["quantize"] = not state["quantize"]
-                elif ev.key == pygame.K_t:
+                elif ev.key == uievent.K_t:
                     state["tension"] = not state["tension"]
                     sess.set_tension(state["tension"])
                     if state["tension"] and not any(
                             e["kind"] == "flicker"
                             for e in sess.enemies.values()):
                         sess.add_enemy("flicker")
-                elif ev.key == pygame.K_SPACE:
+                elif ev.key == uievent.K_SPACE:
                     state["pending_shot"] = True
-                elif ev.key in (pygame.K_1, pygame.K_2, pygame.K_3,
-                                pygame.K_4):
-                    sess.music_tier = ev.key - pygame.K_0
-                elif ev.key == pygame.K_LEFTBRACKET:
+                elif ev.key in (uievent.K_1, uievent.K_2, uievent.K_3,
+                                uievent.K_4):
+                    sess.music_tier = ev.key - uievent.K_0
+                elif ev.key == uievent.K_LEFTBRACKET:
                     i = WEAPON_ORDER.index(sess.weapon)
                     sess.weapon = WEAPON_ORDER[(i - 1) % len(WEAPON_ORDER)]
-                elif ev.key == pygame.K_RIGHTBRACKET:
+                elif ev.key == uievent.K_RIGHTBRACKET:
                     i = WEAPON_ORDER.index(sess.weapon)
                     sess.weapon = WEAPON_ORDER[(i + 1) % len(WEAPON_ORDER)]
-            elif ev.type == pygame.MOUSEBUTTONDOWN:
+            elif ev.type == uievent.MOUSEBUTTONDOWN:
                 for b in buttons:
                     if b.rect.collidepoint(ev.pos):
                         b.cb()
                 for name, r in sliders.items():
                     if r.inflate(16, 16).collidepoint(ev.pos):
                         drag = name
-                if pygame.Rect(560, 560, 200, 70).collidepoint(ev.pos):
+                if Rect(560, 560, 200, 70).collidepoint(ev.pos):
                     state["pending_shot"] = True
-            elif ev.type == pygame.MOUSEBUTTONUP:
+            elif ev.type == uievent.MOUSEBUTTONUP:
                 drag = None
-            elif ev.type == pygame.MOUSEMOTION and drag:
+            elif ev.type == uievent.MOUSEMOTION and drag:
                 r = sliders[drag]
                 if drag == "hp":
                     v = (ev.pos[0] - r.x) / r.w
@@ -272,10 +270,10 @@ def main():
         state["fire_flash"] *= 0.9
 
         # ---- draw ---------------------------------------------------------
-        screen.fill((16, 16, 20))
+        fb2d.fill(screen, (16, 16, 20))
 
         def txt(s, x, y, c=(200, 200, 200), f=font):
-            screen.blit(f.render(s, True, c), (x, y))
+            text.blit_text(screen, s, x, y, c, f)
 
         txt("MELODY", 12, 24, (240, 220, 160), big)
         txt("STAGE", 230, 24, (240, 220, 160), big)
@@ -290,10 +288,10 @@ def main():
         txt(f"hp {sess.hp:5.0f}", 385, 300)
         for b in buttons:
             sel = b.selected()
-            pygame.draw.rect(screen, (90, 70, 40) if sel else (40, 40, 48),
-                             b.rect)
-            pygame.draw.rect(screen, (140, 120, 80) if sel else (70, 70, 80),
-                             b.rect, 1)
+            fb2d.rect(screen, (90, 70, 40) if sel else (40, 40, 48),
+                      b.rect)
+            fb2d.rect(screen, (140, 120, 80) if sel else (70, 70, 80),
+                      b.rect, 1)
             txt(b.label, b.rect.x + 5, b.rect.y + 3,
                 (255, 240, 200) if sel else (190, 190, 190))
         # sliders + live vals
@@ -303,21 +301,21 @@ def main():
             560, 40, (240, 220, 160), big)
         for i, name in enumerate(["PRAYER", "CONTEMPT", "STALWART"]):
             r = sliders[name]
-            pygame.draw.rect(screen, (36, 36, 42), r)
+            fb2d.rect(screen, (36, 36, 42), r)
             v = vals[i] if state["auto"] else state["manual"][i]
             fh = int(r.h * v)
             col = [(120, 170, 220), (220, 160, 90), (200, 80, 80)][i]
-            pygame.draw.rect(screen, col,
-                             (r.x, r.y + r.h - fh, r.w, fh))
+            fb2d.rect(screen, col,
+                      (r.x, r.y + r.h - fh, r.w, fh))
             lh = int(r.h * min(1.0, live[i]))
-            pygame.draw.rect(screen, (255, 255, 255),
-                             (r.x + r.w + 4, r.y + r.h - lh, 3, lh))
+            fb2d.rect(screen, (255, 255, 255),
+                      (r.x + r.w + 4, r.y + r.h - lh, 3, lh))
             txt(name, r.x - 14, r.y + r.h + 8)
             txt(f"{v:.2f}", r.x, r.y - 18)
         r = sliders["hp"]
-        pygame.draw.rect(screen, (36, 36, 42), r)
-        pygame.draw.rect(screen, (120, 200, 120),
-                         (r.x, r.y, int(r.w * sess.hp / 100), r.h))
+        fb2d.rect(screen, (36, 36, 42), r)
+        fb2d.rect(screen, (120, 200, 120),
+                  (r.x, r.y, int(r.w * sess.hp / 100), r.h))
         # engine state readout
         txt(f"bank: {banks[state['bank_i']].name}   "
             f"bar {ms._bar_idx}   bpm {240/ms.bar_s:.0f}   "
@@ -328,30 +326,29 @@ def main():
         txt("  ".join(act[:5]), 12, 660, (150, 150, 160))
         txt("  ".join(act[5:10]), 12, 678, (150, 150, 160))
         # player sim box
-        pygame.draw.rect(screen, (50, 30, 30), (560, 560, 200, 70))
+        fb2d.rect(screen, (50, 30, 30), (560, 560, 200, 70))
         flash = int(120 + 120 * state["fire_flash"])
-        pygame.draw.rect(screen, (flash, 60, 60), (560, 560, 200, 70), 3)
+        fb2d.rect(screen, (flash, 60, 60), (560, 560, 200, 70), 3)
         txt("FIRE (SPACE)", 600, 580, (255, 200, 200), big)
         txt(f"autofire[A]:{'ON' if state['autofire'] else 'off'}  "
             f"quantize[Q]:{'ON' if state['quantize'] else 'off'}  "
             f"tension[T]:{'ON' if state['tension'] else 'off'}",
             560, 636)
         # beat strip
-        strip = pygame.Rect(12, 700, W - 24, 10)
-        pygame.draw.rect(screen, (30, 30, 36), strip)
+        strip = Rect(12, 700, W - 24, 10)
+        fb2d.rect(screen, (30, 30, 36), strip)
         pos = (t_s % ms.bar_s) / ms.bar_s
         for k in range(8):
             x = strip.x + int(strip.w * k / 8)
-            pygame.draw.line(screen, (70, 70, 90), (x, strip.y),
-                             (x, strip.y + strip.h))
+            fb2d.line(screen, (70, 70, 90), (x, strip.y),
+                      (x, strip.y + strip.h))
         px = strip.x + int(strip.w * pos)
-        pygame.draw.rect(screen, (240, 220, 160), (px - 2, strip.y, 4,
-                                                   strip.h))
-        pygame.display.flip()
+        fb2d.rect(screen, (240, 220, 160), (px - 2, strip.y, 4,
+                                            strip.h))
+        disp.flip()
         clock.tick(FPS)
 
     ms.stop()
-    pygame.quit()
 
 
 if __name__ == "__main__":

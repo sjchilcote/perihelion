@@ -16,8 +16,6 @@ os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 
 import numpy as np
-import pygame
-
 from perihelion.capture import CaptureSpec
 from perihelion.levels import LevelBuilder
 from perihelion.render import Renderer
@@ -25,7 +23,6 @@ from perihelion.sim import GameSession, InputFrame
 
 
 def _gripping_scene():
-    pygame.init()
     b = LevelBuilder("GRIP", 1)
     room = b.rect(0, 0, 400, 300)
     b.player(room, (200, 150))
@@ -43,7 +40,7 @@ def _gripping_scene():
 
 
 def _changed(r, eid, key, on, off):
-    surf = pygame.Surface((640, 360))
+    surf = (640, 360)
     getattr(r, key)[eid] = on
     a = r.draw(surf).astype(int)
     getattr(r, key)[eid] = off

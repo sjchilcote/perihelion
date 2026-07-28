@@ -19,7 +19,6 @@ os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 
 import numpy as np
-import pygame
 import pytest
 
 from perihelion.app import build_debug_level
@@ -48,15 +47,8 @@ def _scripted_input(tick: int) -> InputFrame:
     )
 
 
-@pytest.fixture(scope="module")
-def pygame_ready():
-    pygame.init()
-    yield
-    pygame.quit()
-
-
 @pytest.mark.parametrize("backend", ["rust"])
-def test_render_headless_smoke(pygame_ready, backend):
+def test_render_headless_smoke(backend):
     import necore
     if backend == "rust" and not hasattr(necore, "Raster"):
         pytest.skip("necore build has no Raster")
@@ -68,7 +60,7 @@ def test_render_headless_smoke(pygame_ready, backend):
     session = GameSession(level, seed=1234, screen=(INTERNAL_W, INTERNAL_H))
     renderer = Renderer(session)
 
-    frames: list[tuple[int, "pygame.Surface"]] = []
+    frames: list[tuple[int, "np.ndarray"]] = []
     draw_times: list[float] = []
 
     for tick in range(1, TOTAL_TICKS + 1):
@@ -76,16 +68,15 @@ def test_render_headless_smoke(pygame_ready, backend):
         renderer.consume_fx(session.fx)
 
         if tick % DRAW_EVERY == 0:
-            surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
             t0 = time.perf_counter()
-            pygame.surfarray.blit_array(surf, renderer.draw(surf, debug=False))
+            frame = renderer.draw((INTERNAL_W, INTERNAL_H), debug=False)
             draw_times.append(time.perf_counter() - t0)
-            frames.append((tick, surf))
+            frames.append((tick, frame))
 
     assert len(frames) == TOTAL_TICKS // DRAW_EVERY
 
-    for tick, surf in frames:
-        arr = pygame.surfarray.array3d(surf).astype(np.float64)
+    for tick, frame in frames:
+        arr = frame.astype(np.float64)
         variance = float(arr.std())
         assert variance > 5.0, f"tick {tick}: frame looks all-black (std={variance:.2f})"
 
@@ -106,6 +97,9 @@ def test_render_headless_smoke(pygame_ready, backend):
         f"draw() mean time {mean_draw * 1000:.2f}ms exceeds {DRAW_TIME_BUDGET_S * 1000:.0f}ms budget"
     )
 
+    import necore
     SCRATCH_PNG.parent.mkdir(parents=True, exist_ok=True)
-    pygame.image.save(frames[-1][1], str(SCRATCH_PNG))
+    necore.write_png(str(SCRATCH_PNG), INTERNAL_W, INTERNAL_H,
+                     np.ascontiguousarray(
+                         frames[-1][1].transpose(1, 0, 2)).tobytes())
     assert SCRATCH_PNG.exists()

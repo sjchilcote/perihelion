@@ -2,8 +2,8 @@
 
 THE IN-SITU GATE (director's ruling, property 4 -- "the heart of the
 director's order"): render CONNECTED POLYGON PAIRS with the REAL Renderer
-(game/perihelion/render.py, pygame backend, SDL_VIDEODRIVER=dummy -- same
-class the live game uses, same GameSession, same texture-loading path) at
+(game/perihelion/render.py -- the same renderer the live game uses, same
+GameSession, same texture-loading path) at
 gameplay zoom AND a zoomed-out overview, and judge each doorway boundary
 with Gemini: does the floor read as one continuous physical surface, or
 two mismatched plates? A texture ships only when EVERY doorway boundary
@@ -33,14 +33,13 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
-os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "game"))
 
-import pygame  # noqa: E402
+import numpy as np  # noqa: E402
 
+import necore  # noqa: E402
 from perihelion.levels import load_level  # noqa: E402
 from perihelion.render import Renderer  # noqa: E402
 from perihelion.sim import GameSession  # noqa: E402
@@ -110,7 +109,7 @@ def _find_boundary_pairs(level, textured: set[tuple[str, int]], stem: str):
 
 def _render_shot(stem: str, polygon: int, aim_pt: tuple[float, float],
                   screen: tuple[int, int], zoom: float,
-                  open_door: tuple[int, int, int, int] | None) -> "pygame.Surface":
+                  open_door: tuple[int, int, int, int] | None) -> "np.ndarray":
     level = load_level(ROOT / "levels" / f"{stem}.json")
     level.player_polygon = polygon
     level.player_pos = aim_pt
@@ -121,10 +120,8 @@ def _render_shot(stem: str, polygon: int, aim_pt: tuple[float, float],
             if (d["a"], d["ea"]) == (a, ea) and (d["b"], d["eb"]) == (b, eb):
                 d["open"] = True
                 session.sim.connect(d["a"], d["ea"], d["b"], d["eb"])
-    renderer = Renderer(session, backend="pygame")
-    surf = pygame.Surface(screen)
-    renderer.draw(surf)
-    return surf
+    renderer = Renderer(session)
+    return renderer.draw(screen)
 
 
 def render_pair(stem: str, a: int, ea: int, b: int, eb: int,
@@ -147,8 +144,9 @@ def render_pair(stem: str, a: int, ea: int, b: int, eb: int,
     ov = _render_shot(stem, a, aim, OVERVIEW_SCREEN, OVERVIEW_ZOOM, open_door)
     gp_path = SCRATCH / f"{safe_id}_gameplay.png"
     ov_path = SCRATCH / f"{safe_id}_overview.png"
-    pygame.image.save(gp, str(gp_path))
-    pygame.image.save(ov, str(ov_path))
+    for f, path in ((gp, gp_path), (ov, ov_path)):
+        necore.write_png(str(path), f.shape[0], f.shape[1],
+                         np.ascontiguousarray(f.transpose(1, 0, 2)).tobytes())
     return dict(pair_id=pair_id, level=stem, polygon_a=a, polygon_b=b, is_door=is_door,
                 key=key, gameplay_shot=str(gp_path), overview_shot=str(ov_path))
 

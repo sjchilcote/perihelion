@@ -12,21 +12,18 @@ os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 
 import numpy as np
-import pygame
-
 from perihelion.levels import LevelBuilder
 from perihelion.render import Renderer
 from perihelion.sim import GameSession, InputFrame
 
 
 def test_floater_renders_with_all_other_pools_empty():
-    pygame.init()
     b = LevelBuilder("FLOAT", 1)
     room = b.rect(0, 0, 400, 300)
     b.player(room, (200, 150))
     s = GameSession(b.build(), seed=3, screen=(640, 360), zoom=0.45)
     r = Renderer(s)
-    surf = pygame.Surface((640, 360))
+    surf = (640, 360)
     idle = InputFrame()
     for _ in range(5):
         s.tick(idle)

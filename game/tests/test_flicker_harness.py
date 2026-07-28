@@ -19,10 +19,6 @@ import random
 import sys
 from pathlib import Path
 
-os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
-os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
-
-import pygame
 import pytest
 
 _TOOL = Path(__file__).resolve().parents[2] / "tools" / "playtest" / "flicker_cross.py"
@@ -37,13 +33,12 @@ from perihelion.sim import GameSession, InputFrame  # noqa: E402
 
 @pytest.mark.parametrize("braided", [False, True], ids=["cross", "braided"])
 def test_neighbor_decor_never_blinks(braided):
-    pygame.init()
     level, polygons = flicker_cross.build_world(braided)
     session = GameSession(level, seed=7, screen=(INTERNAL_W, INTERNAL_H))
     probe_polygons = {k: polygons[k] for k in flicker_cross.NEIGHBORS}
     flicker_cross.plant_decals(session, polygons, probe_polygons)
     ren = Renderer(session)
-    surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
+    size = (INTERNAL_W, INTERNAL_H)
     decal_local = {name: [(x, y) for _, x, y, _, _ in session.decals[r]]
                    for name, r in probe_polygons.items()}
     prev = None
@@ -55,7 +50,7 @@ def test_neighbor_decor_never_blinks(braided):
                                 fire=False, alt=False, interact=False, weapon=0))
         random.seed(tick)
         ren.consume_fx(session.fx)
-        pygame.surfarray.blit_array(surf, ren.draw(surf))
+        frame = ren.draw(size)
         vis = session.visible()
         by_polygon = {}
         for inst in vis:
@@ -66,7 +61,7 @@ def test_neighbor_decor_never_blinks(braided):
         row = {}
         for name, r in probe_polygons.items():
             insts = by_polygon.get(r, [])
-            ink = max((flicker_cross.probe_ink(surf, flicker_cross._xform_of(i),
+            ink = max((flicker_cross.probe_ink(frame, flicker_cross._xform_of(i),
                                                decal_local[name])
                        for i in insts), default=0)
             row[name] = (len(insts), ink)

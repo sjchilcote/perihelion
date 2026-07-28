@@ -1,6 +1,6 @@
 """Bespoke per-polygon floor textures (ARTSTYLE_DIRECTION.md lever one):
-OP_TEX_FILL (rust) and its numpy mirror (pygame) must draw the same
-texture pixel-identically, and the lightmap multiply (zero ambient, per
+OP_TEX_FILL (rust) must draw the authored
+texture pixel-exactly, and the lightmap multiply (zero ambient, per
 the director's order) must still apply to textured pixels exactly as it
 does to flat fills.
 
@@ -20,7 +20,6 @@ os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 
 import numpy as np
-import pygame
 import pytest
 
 import necore
@@ -38,10 +37,10 @@ pytestmark = pytest.mark.skipif(
 
 
 def _write_white_texture(root, level_id: str, polygon_index: int, w: int, h: int) -> None:
+    from PIL import Image
     (root / level_id).mkdir(parents=True, exist_ok=True)
-    surf = pygame.Surface((w, h))
-    surf.fill((255, 255, 255))
-    pygame.image.save(surf, str(root / level_id / f"polygon_{polygon_index}.png"))
+    Image.new("RGB", (w, h), (255, 255, 255)).save(
+        root / level_id / f"polygon_{polygon_index}.png")
 
 
 def _make_textured_session(monkeypatch, textures_root, seed=1234, light=None,
@@ -72,19 +71,12 @@ def _make_textured_session(monkeypatch, textures_root, seed=1234, light=None,
 
 def _draw(session, backend, ticks=20):
     ren = Renderer(session)
-    surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
+    surf = (INTERNAL_W, INTERNAL_H)
     for tick in range(1, ticks + 1):
         session.tick(InputFrame(mx=0.0, my=0.0, ax=INTERNAL_W / 2, ay=INTERNAL_H / 2,
                                 fire=False, alt=False, interact=False, weapon=0))
         ren.consume_fx(session.fx)
     return ren.draw(surf)
-
-
-@pytest.fixture(scope="module")
-def pygame_ready():
-    pygame.init()
-    yield
-    pygame.quit()
 
 
 def test_texture_size_helper_matches_polygon_bbox():
@@ -98,7 +90,7 @@ def test_texture_size_helper_matches_polygon_bbox():
 # pygame render backend — one renderer, nothing to compare.)
 
 
-def test_textured_floor_differs_from_untextured_fallback(pygame_ready, tmp_path, monkeypatch):
+def test_textured_floor_differs_from_untextured_fallback(tmp_path, monkeypatch):
     textured = _draw(_make_textured_session(monkeypatch, tmp_path / "tex"), "rust")
 
     # same level, but no texture file anywhere -> falls back to the flat
@@ -144,7 +136,7 @@ def _dark_and_lit_sessions(monkeypatch, tmp_path, textured):
 @pytest.mark.parametrize("backend", ["rust"])
 @pytest.mark.parametrize("textured", [True, False])
 def test_zero_ambient_black_then_light_falloff_on_world_pixels(
-        pygame_ready, tmp_path, monkeypatch, backend, textured):
+        tmp_path, monkeypatch, backend, textured):
     """The director's order, literal: "unless there's a specific light
     source, the worklight is the only light" -- a world-layer pixel in a
     polygon no ENABLED light reaches renders BLACK, textured or flat, both

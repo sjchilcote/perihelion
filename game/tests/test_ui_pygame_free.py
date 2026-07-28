@@ -1,9 +1,7 @@
 """The UI/scene layer is pygame-free: every scene draws onto a plain
 (W, H, 3) numpy framebuffer via draw_fb (fb2d + text.py) and consumes
-uievent.Events. No converted module may import pygame at module level --
-only the clearly-marked transition shims (Scene.draw wrapping a pygame
-surface, menus.get_font for app.py's leftover labels, editor run()'s
-window pump) may touch it, lazily, inside a function body."""
+uievent.Events. No module in the package may import pygame at ANY scope
+-- the transition shims are gone; the whole package is converted."""
 
 from __future__ import annotations
 
@@ -21,25 +19,22 @@ from perihelion.sim import GameSession
 
 PKG = Path(__file__).resolve().parent.parent / "perihelion"
 
-CONVERTED = [
-    "menus.py", "convscene.py", "podscene.py", "mindmap.py", "hud.py",
-    "terrain.py", "texture_geom.py", "telemetry.py", "uievent.py", "fb2d.py",
-    "testkit/harness.py", "editor/__init__.py", "editor/model.py",
-    "editor/view.py",
-]
+CONVERTED = sorted(
+    p.relative_to(PKG).as_posix() for p in PKG.rglob("*.py")
+    if "__pycache__" not in p.parts)
 
 
 # ---------------------------------------------------------------------------
-# structure: no module-level pygame anywhere in the converted set
+# structure: no pygame import anywhere in the package, at any scope
 # ---------------------------------------------------------------------------
 
 @pytest.mark.parametrize("rel", CONVERTED)
-def test_no_module_level_pygame_import(rel):
+def test_no_pygame_import_at_any_scope(rel):
     src = (PKG / rel).read_text()
     assert not re.search(r"^import pygame|^from pygame", src, re.M), (
         f"{rel} imports pygame at module level")
-    # AST double-check: any Import/ImportFrom of pygame must sit inside a
-    # function body (the transition shims), never at class/module scope
+    # AST double-check: no Import/ImportFrom of pygame anywhere -- not even
+    # lazily inside a function body (the transition shims are gone)
     tree = ast.parse(src)
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
@@ -48,9 +43,8 @@ def test_no_module_level_pygame_import(rel):
             names = [(node.module or "").split(".")[0]]
         else:
             continue
-        if "pygame" in names:
-            assert node.col_offset > 0, (
-                f"{rel}: pygame import at column 0 (line {node.lineno})")
+        assert "pygame" not in names, (
+            f"{rel}: pygame import (line {node.lineno})")
 
 
 # ---------------------------------------------------------------------------

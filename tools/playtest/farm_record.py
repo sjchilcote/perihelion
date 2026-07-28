@@ -34,13 +34,9 @@ def main():
     ap.add_argument("--skill", type=float, default=None)
     a = ap.parse_args()
 
-    import os
-    os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
-    os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
-    import pygame
-    pygame.init()
-    pygame.display.set_mode((640, 360))
+    import numpy as np
 
+    import necore
     from perihelion.audio import Audio
     from perihelion.hud import HUD
     from perihelion.levels import load_level
@@ -81,7 +77,7 @@ def main():
                         tick_clock=True)
     renderer = Renderer(session)
     hud = HUD()
-    surf = pygame.Surface((640, 360))
+    surf = (640, 360)
 
     saved = 0
     t = 0
@@ -97,9 +93,9 @@ def main():
         if t % a.every == 0:
             frame = renderer.draw(surf)
             hud.draw(frame, session)
-            pygame.surfarray.blit_array(surf, frame)
-            pygame.image.save(surf,
-                              str(out / f"frame_{saved:06d}.png"))
+            necore.write_png(str(out / f"frame_{saved:06d}.png"), 640, 360,
+                             np.ascontiguousarray(
+                                 frame.transpose(1, 0, 2)).tobytes())
             saved += 1
         frames += 1
         t += 1

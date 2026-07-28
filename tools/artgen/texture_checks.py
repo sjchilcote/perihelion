@@ -1,7 +1,7 @@
 """tools/artgen/texture_checks.py
 
 Programmatic (non-LLM) gates for the rebuilt floor-texture pipeline. Pure
-PIL/numpy, no pygame/necore -- cheap to run on every candidate BEFORE any
+PIL/numpy, no necore -- cheap to run on every candidate BEFORE any
 paid Gemini judging call, per the director's ruling ("reject those before
 any expensive judging").
 

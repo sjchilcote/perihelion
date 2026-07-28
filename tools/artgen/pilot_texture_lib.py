@@ -12,15 +12,14 @@ import os
 import sys
 from pathlib import Path
 
-os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
-os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "game"))
 
 import numpy as np  # noqa: E402
-import pygame  # noqa: E402
 import necore  # noqa: E402
+
+from perihelion import fb2d  # noqa: E402
 
 from perihelion.levels import load_level  # noqa: E402
 
@@ -58,11 +57,9 @@ def polygon_mask(stem: str, polygon_idx: int, px_per_unit: float = 3) -> np.ndar
                             necore.mat_translate(-x0, -y0))
     poly = [necore.mat_apply(xform, x, y) for x, y in verts]
 
-    surf = pygame.Surface((w_px, h_px), depth=8)
-    surf.fill(0)
-    pygame.draw.polygon(surf, 1, poly)
-    mask = pygame.surfarray.pixels2d(surf).T.copy()  # (H, W)
-    return mask.astype(bool)
+    buf = np.zeros((w_px, h_px, 3), dtype=np.uint8)
+    fb2d.polygon(buf, (255, 255, 255), poly)  # same rasterizer basetruth fills with
+    return buf[..., 0].T.astype(bool)  # (H, W)
 
 
 def apply_mask(im, mask: np.ndarray):

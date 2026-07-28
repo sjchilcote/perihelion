@@ -53,15 +53,13 @@ import subprocess
 import sys
 from pathlib import Path
 
-os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
-os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 os.environ.setdefault("PERIHELION_INTERNAL_RES", "1280x720")
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "game"))
 
 import numpy as np  # noqa: E402
-import pygame  # noqa: E402
+from PIL import Image  # noqa: E402
 
 import necore  # noqa: E402
 from perihelion.levels import LevelBuilder  # noqa: E402
@@ -447,13 +445,12 @@ PROBES: dict[str, list[tuple[str, str, float, float, str]]] = {
 
 def probe(png_path: Path, x: int, y: int, box: int = 4) -> tuple[float, float, float]:
     """Mean RGB over a small box, in image pixel coordinates."""
-    surf = pygame.image.load(str(png_path))
-    arr = pygame.surfarray.pixels3d(surf)
-    w, h = surf.get_size()
+    img = Image.open(png_path).convert("RGB")
+    w, h = img.size
+    arr = np.asarray(img).transpose(1, 0, 2)  # (W, H, 3)
     x0, x1 = max(0, x - box), min(w, x + box + 1)
     y0, y1 = max(0, y - box), min(h, y + box + 1)
     region = arr[x0:x1, y0:y1].astype(np.float64)
-    del arr
     return tuple(region.mean(axis=(0, 1)).round(1))
 
 
@@ -510,12 +507,11 @@ def main() -> int:
                     help="no video, just build + a few probe frames")
     args = ap.parse_args()
 
-    pygame.init()
     level, meta = build_world()
     session = GameSession(level, seed=11, screen=(INTERNAL_W, INTERNAL_H))
     ren = Renderer(session)
     apply_demo_floor(ren, level)
-    surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
+    size = (INTERNAL_W, INTERNAL_H)
     script = build_script()
 
     out_path = Path(args.out)
@@ -545,7 +541,7 @@ def main() -> int:
         session.tick(InputFrame(mx=mx, my=my, ax=INTERNAL_W / 2, ay=INTERNAL_H / 2,
                                 fire=False, alt=False, interact=False, weapon=0))
         ren.consume_fx(session.fx)
-        ren.draw(surf)
+        frame = ren.draw(size)
         if tick in still_ticks:
             name = still_ticks[tick]
             if name in PROBES:
@@ -561,12 +557,17 @@ def main() -> int:
                               f"clip for polygon {polygon} -- dropped")
                 probe_screen[name] = resolved
         if ffmpeg is not None:
-            frame = surf if surf.get_size() == (OUT_W, OUT_H) else \
-                pygame.transform.smoothscale(surf, (OUT_W, OUT_H))
-            ffmpeg.stdin.write(pygame.image.tobytes(frame, "RGB"))
+            rows = np.ascontiguousarray(frame.transpose(1, 0, 2))
+            if (INTERNAL_W, INTERNAL_H) != (OUT_W, OUT_H):
+                rows = np.asarray(Image.fromarray(rows).resize(
+                    (OUT_W, OUT_H), Image.BILINEAR))
+            ffmpeg.stdin.write(rows.tobytes())
         frames += 1
         if tick in still_ticks:
-            pygame.image.save(surf, str(stills_dir / f"{still_ticks[tick]}.png"))
+            necore.write_png(str(stills_dir / f"{still_ticks[tick]}.png"),
+                             INTERNAL_W, INTERNAL_H,
+                             np.ascontiguousarray(
+                                 frame.transpose(1, 0, 2)).tobytes())
 
     if ffmpeg is not None:
         ffmpeg.stdin.close()

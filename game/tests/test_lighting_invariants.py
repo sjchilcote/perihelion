@@ -343,11 +343,7 @@ def test_pixel_composite_seam_freeness_across_corridor_portals(polygon_w, radius
     at the shared portal column on every generated example. Reverted
     before committing.
     """
-    import pygame
-
     from perihelion.render import INTERNAL_H, INTERNAL_W, Renderer
-
-    pygame.init()
     b = LevelBuilder("CORRSEAM", 1)
     r0 = b.rect(-polygon_w - 100.0, -100.0, polygon_w, 200.0)
     r1 = b.rect(-100.0, -100.0, 200.0, 200.0)
@@ -364,7 +360,7 @@ def test_pixel_composite_seam_freeness_across_corridor_portals(polygon_w, radius
     ren = Renderer(session)
     ren._get_detail = lambda polygon: []  # isolate lighting from polygon decoration (see docstring)
 
-    surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
+    surf = (INTERNAL_W, INTERNAL_H)
     session.tick(InputFrame(mx=0, my=0, ax=INTERNAL_W / 2, ay=INTERNAL_H / 2,
                              fire=False, alt=False, interact=False, weapon=0))
     ren.consume_fx(session.fx)
@@ -431,11 +427,7 @@ def test_no_ghost_pixel_at_light_radius_edge(radius):
     outside the true lit disc on every generated example where
     frac(radius) < 0.5. Reverted before committing.
     """
-    import pygame
-
     from perihelion.render import INTERNAL_H, INTERNAL_W, Renderer
-
-    pygame.init()
     b = LevelBuilder("GHOSTEDGE", 1)
     r0 = b.rect(-500.0, -500.0, 1000.0, 1000.0)  # big enough the disc never hits a wall
     b.player(r0, (0.0, 0.0))
@@ -446,7 +438,7 @@ def test_no_ghost_pixel_at_light_radius_edge(radius):
     session.douse_player_lights()
     ren = Renderer(session)
     ren._get_detail = lambda polygon: []
-    surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
+    surf = (INTERNAL_W, INTERNAL_H)
     session.tick(InputFrame(mx=0, my=0, ax=INTERNAL_W / 2, ay=INTERNAL_H / 2,
                              fire=False, alt=False, interact=False, weapon=0))
     ren.consume_fx(session.fx)
@@ -478,11 +470,8 @@ def test_muzzle_flash_lights_across_the_portal_without_a_seam():
       real light's wedge continues through the doorway.
     """
     import numpy as np
-    import pygame
 
     from perihelion.render import Renderer
-
-    pygame.init()
 
     def shot_frame(fire):
         b = LevelBuilder("MZSEAM", 1)
@@ -497,7 +486,7 @@ def test_muzzle_flash_lights_across_the_portal_without_a_seam():
         s.ammo["9mm"] = 99
         s._shake = lambda *a, **k: None   # camera shake would smear the diff
         r = Renderer(s)
-        surf = pygame.Surface((640, 360))
+        surf = (640, 360)
         for t in range(3):
             s.tick(InputFrame(ax=440.0, ay=180.0, fire=(fire and t == 2)))
         r.consume_fx(s.fx)

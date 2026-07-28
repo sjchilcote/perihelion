@@ -34,14 +34,13 @@ PICKS = Path(__file__).parent / "director_picks.json"
 
 
 def main():
-    import pygame
-    pygame.init()
-    pygame.mixer.init(44100, -16, 2, 512)
+    import mgui
+    from perihelion import fb2d, text, uievent
     W, H = 1100, 780
-    screen = pygame.display.set_mode((W, H))
-    pygame.display.set_caption("PERIHELION preset browser")
-    font = pygame.font.SysFont("monospace", 14)
-    big = pygame.font.SysFont("monospace", 17, bold=True)
+    disp = mgui.Display(W, H, "PERIHELION preset browser")
+    screen = disp.fb
+    font, big = 14, 17            # text.blit_text sizes (FSEX300)
+    player = mgui.OneShot(mgui.audio())
 
     scores = json.loads(SCORES.read_text()) if SCORES.exists() else {}
     picks = set(json.loads(PICKS.read_text())) if PICKS.exists() else set()
@@ -84,26 +83,26 @@ def main():
     rows_top = 76
     row_h = 20
     n_show = (H - rows_top - 20) // row_h
-    clock = pygame.time.Clock()
+    clock = mgui.Clock()
     running = True
     while running:
         rows = visible()
-        for ev in pygame.event.get():
-            if ev.type == pygame.QUIT:
+        for ev in disp.events():
+            if ev.type == uievent.QUIT:
                 running = False
-            elif ev.type == pygame.KEYDOWN:
-                if ev.key == pygame.K_ESCAPE:
+            elif ev.type == uievent.KEYDOWN:
+                if ev.key == uievent.K_ESCAPE:
                     running = False
-                elif ev.key == pygame.K_SPACE and last_played:
+                elif ev.key == uievent.K_SPACE and last_played:
                     toggle(last_played)
-                elif ev.key == pygame.K_s:
+                elif ev.key == uievent.K_s:
                     order = ["score", "name", "picks"]
                     sort_mode = order[(order.index(sort_mode) + 1)
                                       % len(order)]
-            elif ev.type == pygame.MOUSEWHEEL:
+            elif ev.type == uievent.MOUSEWHEEL:
                 scroll = max(0, min(len(rows) - n_show,
                                     scroll - ev.y * 3))
-            elif ev.type == pygame.MOUSEBUTTONDOWN and ev.button in (1, 3):
+            elif ev.type == uievent.MOUSEBUTTONDOWN and ev.button in (1, 3):
                 x, y = ev.pos
                 if y < rows_top and x < 500:
                     seg = x // 100
@@ -117,19 +116,18 @@ def main():
                         if ev.button == 3:
                             toggle(stem)
                         else:
-                            pygame.mixer.stop()
-                            pygame.mixer.Sound(str(rows[i][5])).play()
+                            player.play(rows[i][5])
                             last_played = stem
 
-        screen.fill((15, 15, 19))
+        fb2d.fill(screen, (15, 15, 19))
 
         def txt(s, x, y, c=(200, 200, 200), f=font):
-            screen.blit(f.render(s, True, c), (x, y))
+            text.blit_text(screen, s, x, y, c, f)
 
         for i, rf in enumerate(["all", "bass", "lead", "pad"]):
             sel = rf == role_filter
-            pygame.draw.rect(screen, (85, 65, 35) if sel else (38, 38, 46),
-                             (10 + i * 100, 12, 92, 26))
+            fb2d.rect(screen, (85, 65, 35) if sel else (38, 38, 46),
+                      (10 + i * 100, 12, 92, 26))
             txt(rf, 24 + i * 100, 18,
                 (255, 240, 200) if sel else (180, 180, 180))
         txt(f"sort[S]: {sort_mode}   picks: {len(picks)}   "
@@ -148,9 +146,8 @@ def main():
             sc_s = f"{sc:.2f}" if sc is not None else "  — "
             txt(f"{mark} {sc_s}  {role:4s}  {preset:44.44s} {bank}",
                 12, y, col)
-        pygame.display.flip()
+        disp.flip()
         clock.tick(30)
-    pygame.quit()
 
 
 if __name__ == "__main__":

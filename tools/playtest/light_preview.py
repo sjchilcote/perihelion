@@ -52,8 +52,9 @@ os.environ.setdefault("PERIHELION_INTERNAL_RES", "1280x720")
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "game"))
 
-import pygame  # noqa: E402
+import numpy as np  # noqa: E402
 
+import necore  # noqa: E402
 from perihelion.levels import load_level  # noqa: E402
 from perihelion.render import Renderer, INTERNAL_W, INTERNAL_H  # noqa: E402
 from perihelion.sim import GameSession, InputFrame  # noqa: E402
@@ -104,10 +105,9 @@ def main() -> int:
         Path("/tmp") / f"light_preview_{Path(args.level).stem}"
     out.mkdir(parents=True, exist_ok=True)
 
-    pygame.init()
     session = GameSession(level, seed=1, screen=(INTERNAL_W, INTERNAL_H))
     ren = Renderer(session)
-    surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
+    surf = (INTERNAL_W, INTERNAL_H)
     idle = InputFrame(mx=0, my=0, ax=INTERNAL_W / 2, ay=INTERNAL_H / 2,
                       fire=False, alt=False, interact=False, weapon=0)
     for polygon in polygons:
@@ -118,9 +118,11 @@ def main() -> int:
         for _ in range(args.settle):
             session.tick(idle)
         ren.consume_fx(session.fx)
-        ren.draw(surf)
+        frame = ren.draw(surf)
         p = out / f"polygon_{polygon:03d}.png"
-        pygame.image.save(surf, str(p))
+        necore.write_png(str(p), INTERNAL_W, INTERNAL_H,
+                         np.ascontiguousarray(
+                             frame.transpose(1, 0, 2)).tobytes())
         print(f"  wrote {p}")
     print(f"done: {out}")
     return 0

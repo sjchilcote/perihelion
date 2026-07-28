@@ -24,11 +24,8 @@ import os
 import sys
 from pathlib import Path
 
-os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
-os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 os.environ.setdefault("PERIHELION_INTERNAL_RES", "1280x720")
 
-import pygame  # noqa: E402
 import pytest  # noqa: E402
 
 _TOOL = Path(__file__).resolve().parents[2] / "tools" / "playtest" / "light_occlusion_demo.py"
@@ -56,7 +53,6 @@ def test_no_spurious_autoconnects():
 
 
 def _run_to_marks(marks_needed: set[str]):
-    pygame.init()
     level, meta = locc.build_world()
     session = GameSession(level, seed=11, screen=(INTERNAL_W, INTERNAL_H))
     ren = Renderer(session)
@@ -65,7 +61,7 @@ def _run_to_marks(marks_needed: set[str]):
     # pixel -- the default debug-world floor (26,26,33) would make even a
     # saturated wedge read black (see the demo's brightness-chain note)
     locc.apply_demo_floor(ren, level)
-    surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
+    size = (INTERNAL_W, INTERNAL_H)
     script = locc.build_script()
     still_ticks = {t: name for name, t in script.marks.items()}
     last_tick = max(t for t, name in still_ticks.items() if name in marks_needed)
@@ -75,7 +71,7 @@ def _run_to_marks(marks_needed: set[str]):
         session.tick(InputFrame(mx=mx, my=my, ax=INTERNAL_W / 2, ay=INTERNAL_H / 2,
                                 fire=False, alt=False, interact=False, weapon=0))
         ren.consume_fx(session.fx)
-        pygame.surfarray.blit_array(surf, ren.draw(surf))
+        frame = ren.draw(size)
         if tick in still_ticks:
             name = still_ticks[tick]
             if name in marks_needed and name in locc.PROBES:
@@ -85,18 +81,16 @@ def _run_to_marks(marks_needed: set[str]):
                     sxy = locc.screen_xy_for(session, ren, polygon, wx, wy)
                     resolved.append((label, sxy, expect))
                 probes_at[name] = resolved
-    return surf, probes_at
+    return frame, probes_at
 
 
-def _brightness(surf, sxy, box=4) -> float:
+def _brightness(frame, sxy, box=4) -> float:
     assert sxy is not None, "probe point not in any visible clip this frame"
     x, y = int(round(sxy[0])), int(round(sxy[1]))
-    arr = pygame.surfarray.pixels3d(surf)
-    w, h = surf.get_size()
+    w, h = int(frame.shape[0]), int(frame.shape[1])
     x0, x1 = max(0, x - box), min(w, x + box + 1)
     y0, y1 = max(0, y - box), min(h, y + box + 1)
-    region = arr[x0:x1, y0:y1].astype(float)
-    del arr
+    region = frame[x0:x1, y0:y1].astype(float)
     return float(region.mean())
 
 
@@ -106,10 +100,10 @@ def _brightness(surf, sxy, box=4) -> float:
     "shot4_end",     # the two-source cross
 ])
 def test_shot_contrast(mark):
-    surf, probes_at = _run_to_marks({mark})
+    frame, probes_at = _run_to_marks({mark})
     probes = probes_at[mark]
-    lit = [_brightness(surf, sxy) for _label, sxy, expect in probes if expect == "lit"]
-    dark = [_brightness(surf, sxy) for _label, sxy, expect in probes if expect == "dark"]
+    lit = [_brightness(frame, sxy) for _label, sxy, expect in probes if expect == "lit"]
+    dark = [_brightness(frame, sxy) for _label, sxy, expect in probes if expect == "dark"]
     assert lit and dark
     # absolute gates (director's order after capture 1: 88x ratios of
     # near-nothing certified an all-but-black frame) -- lit must be

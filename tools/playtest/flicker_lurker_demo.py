@@ -18,15 +18,15 @@ import subprocess
 import sys
 from pathlib import Path
 
-os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
-os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 os.environ.setdefault("PERIHELION_INTERNAL_RES", "1280x720")
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "game"))
 
-import pygame  # noqa: E402
+import numpy as np  # noqa: E402
+from PIL import Image  # noqa: E402
 
+import necore  # noqa: E402
 from perihelion.levels import LevelBuilder, LightSpec  # noqa: E402
 from perihelion.render import Renderer, INTERNAL_W, INTERNAL_H  # noqa: E402
 from perihelion.sim import GameSession, InputFrame  # noqa: E402
@@ -120,7 +120,6 @@ def main() -> int:
     ap.add_argument("--quick", action="store_true")
     args = ap.parse_args()
 
-    pygame.init()
     level, r0 = build_world()
     session = GameSession(level, seed=13, screen=(INTERNAL_W, INTERNAL_H))
     session.sim.set_polygon_terrain(r0, [TERRAIN_RECT])  # terrain FIRST
@@ -131,7 +130,7 @@ def main() -> int:
     lurker = session.spawn_enemy(r0, LURKER_SPAWN, "flicker")
     ren = Renderer(session)
     apply_demo_floor(ren, level)
-    surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
+    size = (INTERNAL_W, INTERNAL_H)
 
     out_path = Path(args.out)
     stills_dir = out_path.parent / "stills"
@@ -161,17 +160,22 @@ def main() -> int:
         session.tick(InputFrame(mx=mx, my=my, ax=INTERNAL_W / 2, ay=INTERNAL_H / 2,
                                 fire=False, alt=False, interact=False, weapon=0))
         ren.consume_fx(session.fx)
-        ren.draw(surf)
+        frame = ren.draw(size)
         if ffmpeg is not None:
-            frame = surf if surf.get_size() == (OUT_W, OUT_H) else \
-                pygame.transform.smoothscale(surf, (OUT_W, OUT_H))
-            ffmpeg.stdin.write(pygame.image.tobytes(frame, "RGB"))
+            rows = np.ascontiguousarray(frame.transpose(1, 0, 2))
+            if (INTERNAL_W, INTERNAL_H) != (OUT_W, OUT_H):
+                rows = np.asarray(Image.fromarray(rows).resize(
+                    (OUT_W, OUT_H), Image.BILINEAR))
+            ffmpeg.stdin.write(rows.tobytes())
         frames += 1
         if mark is not None:
             mark_ticks[tick] = mark
             e = session.enemies.get(lurker)
             states[mark] = e["state"] if e else "dead"
-            pygame.image.save(surf, str(stills_dir / f"{mark}.png"))
+            necore.write_png(str(stills_dir / f"{mark}.png"),
+                             INTERNAL_W, INTERNAL_H,
+                             np.ascontiguousarray(
+                                 frame.transpose(1, 0, 2)).tobytes())
         # keep capturing a bit past the last scripted waypoint so the
         # pounce/commit itself (which may trail the "trigger_zone" mark by
         # a handful of ticks) is fully on camera.
@@ -181,11 +185,13 @@ def main() -> int:
                                         ay=INTERNAL_H / 2, fire=False, alt=False,
                                         interact=False, weapon=0))
                 ren.consume_fx(session.fx)
-                ren.draw(surf)
+                frame = ren.draw(size)
                 if ffmpeg is not None:
-                    frame = surf if surf.get_size() == (OUT_W, OUT_H) else \
-                        pygame.transform.smoothscale(surf, (OUT_W, OUT_H))
-                    ffmpeg.stdin.write(pygame.image.tobytes(frame, "RGB"))
+                    rows = np.ascontiguousarray(frame.transpose(1, 0, 2))
+                    if (INTERNAL_W, INTERNAL_H) != (OUT_W, OUT_H):
+                        rows = np.asarray(Image.fromarray(rows).resize(
+                            (OUT_W, OUT_H), Image.BILINEAR))
+                    ffmpeg.stdin.write(rows.tobytes())
                 frames += 1
 
     if ffmpeg is not None:
