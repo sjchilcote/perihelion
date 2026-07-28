@@ -289,6 +289,36 @@ BUILDING_UNPACK_TICKS = 30 * 60
 # transmit-tell denominator when an enemy doesn't carry its own call_t.
 CALL_TRANSMIT_TICKS = 8 * 60
 
+# --- THE MARK / shrieker (director 2026-07-25, salvaged b2c27600) ----------
+# The shrieker runs a self-contained hunt: SENTINEL (patrol the folds) ->
+# WARNING (shriek + Distress, run home to raise the squad) -> APPROACH
+# (climb the fields to the intruder) -> MARKING (a 3x dash off his firing
+# line, ~300ms lock, fire a real MARKER projectile that leads him) ->
+# RALLYING (spread the alarm) -> stand down to SENTINEL.
+#
+# The MARK is a Brand: on marker contact it renews; while held it lays the
+# follow-me doorway trail on every portal the intruder crosses (a whole
+# worn lane per crossing) and makes his presence pour into the fields. It
+# decays on its own; only a fresh marker renews it.
+BRAND_DURATION = 14 * 60          # the mark fully fades in ~14s unrenewed
+BRAND_NOISE_POUR = 0.30           # per 5-tick beat: marked presence pours
+BRAND_TRAIL_DEPOSIT = 8.0         # doorway trail per crossing while marked
+MARK_SPEED_MULT = 3.0             # MARKING dash: this much over cruise
+MARK_FIRE_RANGE = 210.0           # fires the marker from within this range
+MARK_AIM_TICKS = 18               # ~300ms lock once off his firing line
+MARKER_SPEED = 620.0
+MARKER_TTL = 150
+RALLY_TICKS = 12 * 60             # how long the alarm is spread after firing
+#: how long a keep-apart demand may claim budget without the gap growing
+#: before it is judged futile and yields (2s: long enough that ordinary
+#: jostling in a spreading crowd never trips it).
+SEP_FUTILE_TICKS = 120
+#: how long APPROACH may search without ever sighting him before the
+#: caller gives up and returns to its rounds. Without a ceiling here the
+#: machine had no exit at all short of a fired marker or death.
+SHRIEK_APPROACH_PATIENCE = 45 * 60
+MARK_STANDOFF = 95.0              # how far behind him it tries to sit
+
 # The fabricator's price sheet. Components are salvaged mass — every enemy
 # yields its score in components (the same number the metrics already used,
 # so salvage income equals fight difficulty by construction).
@@ -349,6 +379,31 @@ class InputFrame:
     def unpack(row: list) -> "InputFrame":
         return InputFrame(row[0], row[1], row[2], row[3],
                           bool(row[4]), bool(row[5]), bool(row[6]), row[7])
+
+
+class Brand:
+    """The intruder's MARK. A shrieker's marker projectile calls renew()
+    on contact; decay() lowers strength each tick, so an unrenewed mark
+    fades. While active it amplifies his field presence and lays the
+    follow-me doorway trail where he actually crosses. Rendered as a glob
+    stuck to the player with a dribbling trail."""
+    __slots__ = ("strength", "source_eid")
+
+    def __init__(self) -> None:
+        self.strength = 0.0        # 0..1
+        self.source_eid = -1
+
+    @property
+    def active(self) -> bool:
+        return self.strength > 0.0
+
+    def renew(self, eid: int) -> None:
+        self.strength = 1.0
+        self.source_eid = eid
+
+    def decay(self, per_tick: float) -> None:
+        if self.strength > 0.0:
+            self.strength = max(0.0, self.strength - per_tick)
 
 
 class GameSession:
@@ -519,6 +574,7 @@ class GameSession:
         # any hit severs (an escape you must earn a quiet moment for)
         self.recalls = int(st.get("recalls", 0))
         self.recall_t = 0
+        self.brand = Brand()      # the intruder's MARK (shrieker marker)
         self.stations: list[dict] = []  # {polygon, pos}: planted + chunk seeds
         # the seed you just printed from is a station by definition (the
         # streamer's chunk-entry add_station dedupes against this one)
@@ -604,6 +660,9 @@ class GameSession:
         # runtime topology has ONE owner (the scale-1 guard lives there),
         # and every world builds the marrow hub at initialization — off
         # the reachable map, never None (DESIGN_7_25 architectural rule)
+        # the marrow's per-chamber kind and descent — session state, not
+        # level state (the hub outlives any one level; see build_hub)
+        self.hub_polygon_meta: dict[int, tuple[str, float]] = {}
         self.topology = TopologyManager(self,
                                         on_change=self.signals.on_topology_changed)
         self.hub = build_hub(self, self.topology)
@@ -921,11 +980,29 @@ class GameSession:
         # passage re-arms the Trail scent in his chamber; every agent
         # thickens Kin where it stands (the underdefended-ground gradient)
         self.signals.step_to(self.tick_count)
+        was_branded = self.brand.active
+        self.brand.decay(1.0 / BRAND_DURATION)
+        if was_branded and not self.brand.active:
+            # run 54: both filmed mark_hits were orphan sounds -- the
+            # brand's whole life now sits on the record (renew is at the
+            # marker-connect branch of _consume_events)
+            self.trace.emit(CoordEvent(
+                tick=self.tick_count, entity_id=self.pid,
+                agent_kind="player", event="brand_expired",
+                detail=f"src {self.brand.source_eid}"))
         if not self.dead and self.sim.exists(self.pid):
             if self.tick_count % 5 == 0:
                 self.signals.emit_at_least(SignalKind.TRAIL,
                                            self.player_polygon(), 0.80,
                                            self.tick_count)
+                if self.brand.active:
+                    # the MARK makes his presence POUR: the hunt fields
+                    # (Noise is the loudest term in _hunt_edge) fill from
+                    # his own chamber while the glob holds
+                    self.signals.emit(SignalKind.NOISE,
+                                      self.player_polygon(),
+                                      BRAND_NOISE_POUR * self.brand.strength,
+                                      self.tick_count)
         if self.tick_count % 15 == 0:
             gp = self.sim.get_polygon
             self.signals.emit_many(SignalKind.KIN,
@@ -944,6 +1021,7 @@ class GameSession:
                 {k.value: round(self.signals.sample(k, _pp, _t), 4)
                  for k in SignalKind}))
         if self.tick_count % 60 == 0:
+            self._sample_telemetry()
             self.metrics["hp_series"].append(self.hp)
         if self.dead or self.complete:
             return
@@ -1779,12 +1857,6 @@ class GameSession:
         courtesy."""
         if e["kind"] in CORE_KINDS:
             return
-        if new == "waking":
-            # every first-hand wake path (same chamber, sight, quorum,
-            # damage) transitions through "waking"; only a relayed
-            # scream jumps straight to hunt — so reaching here means
-            # the agent has its own stimulus again
-            e.pop("_scream_woken", None)
         old = e["state"]
         if old == new:
             return
@@ -2056,6 +2128,25 @@ class GameSession:
                     event="prowl_end",
                     detail=f"prowled {t_h - e.pop('_prowling')}t"))
                 e.pop("_prowl_tick", None)
+
+            if kind == "shrieker" and not e.get("tether") \
+                    and not e.get("dormant") \
+                    and e.get("dispatched") is None:
+                # self-contained SENTINEL->WARNING->APPROACH->MARKING->RALLY
+                # machine; off the generic idle/hunt path entirely.
+                # DISPATCHED is generic locomotion, not this machine:
+                # this branch sits above the march/DELIVERED block and
+                # `continue`s, so without the gate a dispatched caller
+                # never marched to its breach and never shed the tag —
+                # route interest pinned the seam open forever (gate 55,
+                # 13/13 breaches across seeds). The machine begins at
+                # the POST, and for a dispatched caller the post is the
+                # delivery ground the generic pipeline walks it to.
+                self._shrieker_ai(eid, e, polygon, ppolygon, ex, ey,
+                                  d["accel"] * (e.get("buff_mul", 1.25)
+                                                if e.get("buff", 0) > 0
+                                                else 1.0))
+                continue
 
             if kind == "flicker":
                 # Deliberately bypasses the standard idle/waking/hunt
@@ -2350,9 +2441,6 @@ class GameSession:
                         self._budget_move(eid, e, d, polygon, ex, ey,
                                           evx, evy, msx, msy, accel)
                         continue
-            if kind == "shrieker" and not e.get("tether"):
-                self._shrieker_ai(eid, e, polygon, ppolygon, ex, ey, accel)
-                continue
             if e.get("engulf") in ("charge", "lunge", "hold"):
                 self._warden_engulf_step(eid, e, polygon, ex, ey)
                 continue
@@ -2708,21 +2796,28 @@ class GameSession:
                 self._replace_shelf_unit(cmd.unit_kind)
             elif cmd.kind == "seal":
                 self._seal_breach(cmd.breach_id, cmd.reason)
-        if t_ % 60 == 0:
-            _pos = {}
-            for weid, we in self.enemies.items():
-                if not self.sim.exists(weid):
-                    continue
-                _, wx2, wy2, *_ = self.sim.get(weid)
-                _pos[str(weid)] = [we["kind"], self.sim.get_polygon(weid),
-                                   round(wx2, 1), round(wy2, 1)]
-            if _pos:
-                self.trace.emit(EnemyPositions(tick=t_, positions=_pos))
-        if t_ % 60 == 0:
-            self.trace.emit(ReserveSample(
-                tick=t_, reserve=round(self.marrow.depot.reserve, 3),
-                live_breaches=len(self.breaches),
-                pending_kind=self.marrow._pending_kind or ""))
+    def _sample_telemetry(self) -> None:
+        """The periodic instrument sample. Lives ABOVE the dead/freeze
+        early-returns and is called from the one unconditional block: a
+        sampler that skips whenever the simulation pauses reports a world
+        that was never observed. Riding _marrow_tick, every hitstop or
+        death linger landing on t%60==0 dropped its sample silently --
+        219-236 of an expected 240 per session, 48 of 55 misses to
+        hitstop alone, and the gap read as 'nothing happened there'."""
+        t_ = self.tick_count
+        _pos = {}
+        for weid, we in self.enemies.items():
+            if not self.sim.exists(weid):
+                continue
+            _, wx2, wy2, *_ = self.sim.get(weid)
+            _pos[str(weid)] = [we["kind"], self.sim.get_polygon(weid),
+                               round(wx2, 1), round(wy2, 1)]
+        if _pos:
+            self.trace.emit(EnemyPositions(tick=t_, positions=_pos))
+        self.trace.emit(ReserveSample(
+            tick=t_, reserve=round(self.marrow.depot.reserve, 3),
+            live_breaches=len(self.breaches),
+            pending_kind=self.marrow._pending_kind or ""))
 
     def _open_breach(self, imprint) -> None:
         """Cut the wall the call named and glue it to a free apse seam —
@@ -2931,6 +3026,10 @@ class GameSession:
         dmg = dps * DT * self._dmg_mul * self._armor_mul * self.player_resist
         self.hp -= dmg
         self.metrics["dmg_taken"] += dmg
+        # the grip is a damage SOURCE like any other: without this the
+        # death record inherited whatever last hurt him, and run 53 filed
+        # two engulf kills as 'lightning_self' and 'contact:brute'
+        self._last_hurt_source = "engulfed"
         px, py = self.player_pos()
         ppolygon = self.player_polygon()
         if self.tick_count % 5 == 0:
@@ -3179,8 +3278,8 @@ class GameSession:
         """Priority-budget locomotion (the ratified flocking correction):
         keep-apart claims acceleration FIRST, only the remainder chases —
         opposed demands never average into the doorframe."""
-        sep = coord.separation_request((ex, ey), d["radius"],
-                                       self._peer_bodies(eid, polygon))
+        peers = self._peer_bodies(eid, polygon)
+        sep = coord.separation_request((ex, ey), d["radius"], peers)
         # separation claims FIRST but never the whole budget: in a packed
         # muster room an uncapped claim saturates every agent's budget and
         # the crowd jams in place forever (measured: 25 dispatched bodies
@@ -3188,6 +3287,43 @@ class GameSession:
         smag = math.hypot(sep[0], sep[1])
         if smag > 0.7:
             sep = (sep[0] / smag * 0.7, sep[1] / smag * 0.7)
+        # ...and a claim that is not WORKING yields it entirely. Pressed
+        # into a wall by a body that never moves (an organ part, a posted
+        # guardian), the demand points into the facet forever and the
+        # objective's remaining 0.3 can never overcome it: run 53 filmed
+        # five hub bodies holding one bit-identical coordinate for up to
+        # 7680 ticks, each with a correct heading at its own doorway.
+        # Keep-apart that keeps nothing apart is fighting the geometry,
+        # so it stands aside until the body is actually clear. A crowd
+        # that is genuinely spreading grows its gap and never trips this.
+        if e.get("_sep_anchor") is not None:
+            # already yielding: it stays yielded until the body is
+            # genuinely clear of the spot it stuck at. Releasing on the
+            # gap alone just re-pins it a moment later -- the demand
+            # returns the instant the neighbour drifts, and the body
+            # ratchets against the facet forever (measured: 1.4u of
+            # travel in 400 ticks).
+            ax_, ay_ = e["_sep_anchor"]
+            if math.hypot(ex - ax_, ey - ay_) > d["radius"] * 2.0:
+                e.pop("_sep_anchor", None)
+                e["_sep_futile"] = 0
+                e.pop("_sep_gap", None)
+            else:
+                sep = (0.0, 0.0)
+        elif smag > 0.1:
+            gap = min((math.hypot(ex - ox, ey - oy) - orad
+                       for ox, oy, orad in peers), default=1e9)
+            if gap <= e.get("_sep_gap", 0.0) + 0.5:
+                e["_sep_futile"] = e.get("_sep_futile", 0) + 1
+            else:
+                e["_sep_futile"] = 0
+            e["_sep_gap"] = gap
+            if e["_sep_futile"] > SEP_FUTILE_TICKS:
+                e["_sep_anchor"] = (ex, ey)
+                sep = (0.0, 0.0)
+        else:
+            e["_sep_futile"] = 0
+            e.pop("_sep_gap", None)
         ax, ay = coord.allocate_acceleration(
             accel, [(0, sep[0] * accel, sep[1] * accel),
                     (1, sx * accel, sy * accel)])
@@ -3412,88 +3548,347 @@ class GameSession:
         self.bullets[bid] = dict(kind="spit", dmg=d["spit_dmg"], ttl=180)
         self._snd("spitter_shoot", polygon, (ex, ey), 0.9)
 
+    # -- shrieker helpers (salvaged b2c27600, adapted to SignalField/senses) --
+
+    def _steer_to_edge(self, eid, e, d, polygon, ex, ey, edge, accel_amt):
+        """Steer an enemy toward a portal edge's midpoint, terrain-avoiding,
+        through the landed turn-limit (_steer_heading)."""
+        s = self.sim
+        mx_, my_ = s.edge_midpoint(polygon, edge)
+        ddx, ddy = mx_ - ex, my_ - ey
+        dl = math.hypot(ddx, ddy) or 1e-6
+        nx, ny = ddx / dl, ddy / dl
+        sx, sy = s.terrain_avoid_dir(polygon, ex, ey, d["radius"], nx, ny,
+                                     max(40.0, min(dl, 120.0)))
+        sx, sy = self._steer_heading(eid, e, d, sx, sy)
+        _, _, _, vx, vy, _, _ = s.get(eid)
+        s.set_vel(eid, vx + sx * accel_amt * DT, vy + sy * accel_amt * DT)
+
+    def _shrieker_patrol(self, eid, e, d, polygon, ex, ey,
+                         accel_mult: float = 0.4) -> None:
+        """Walk the folds room to room, re-picking a random portal when the
+        wander timer lapses -- SENTINEL sweep and RALLYING spread."""
+        s = self.sim
+        prt = s.polygon_portals(polygon)
+        pe = e.get("patrol_edge")
+        if e.get("wander_cd", 0) <= 0 or pe is None \
+                or pe >= len(prt) or prt[pe] is None:
+            opts = [i for i, pt in enumerate(prt) if pt is not None]
+            if not opts:
+                return
+            e["wander_cd"] = self.rng.randrange(150, 360)
+            e["patrol_edge"] = pe = self.rng.choice(opts)
+        self._steer_to_edge(eid, e, d, polygon, ex, ey, pe,
+                            d["accel"] * accel_mult)
+
+    def _shrieker_phase(self, eid: int, e: dict, to: str) -> None:
+        """The one writer of a shrieker's phase. Run 53's telemetry
+        directive reached the mark machine a gate late: run 54 judged
+        both filmed marks as orphan sounds because phase tenure was
+        unmeasurable from the trace. Every transition records itself."""
+        frm = e.get("phase", "sentinel")
+        e["phase"] = to
+        if frm != to:
+            self.trace.emit(CoordEvent(
+                tick=self.tick_count, entity_id=eid,
+                agent_kind="shrieker", event="shrieker_phase",
+                detail=f"{frm}->{to}"))
+
+    def _fire_marker(self, eid, polygon, ex, ey, tx, ty) -> None:
+        """Loose a MARKER projectile at the player; on contact it brands
+        him (the bullet/player branch in _consume_events). It LEADS his
+        motion so the earned shot lands rather than trailing him."""
+        s = self.sim
+        rad = ENEMIES["shrieker"]["radius"]
+        _, _, _, pvx, pvy, _, _ = s.get(self.pid)
+        flight = (math.hypot(tx - ex, ty - ey) or 1e-6) / MARKER_SPEED
+        tx, ty = tx + pvx * flight, ty + pvy * flight
+        ddx, ddy = tx - ex, ty - ey
+        dl = math.hypot(ddx, ddy) or 1e-6
+        nx, ny = ddx / dl, ddy / dl
+        bid = s.spawn(polygon, ex + nx * (rad + 4), ey + ny * (rad + 4),
+                      2.0, 0.008, GROUP_EBULLET)
+        s.set_props(bid, rest_wall=0.0, max_substep=3.0)
+        s.set_vel(bid, nx * MARKER_SPEED, ny * MARKER_SPEED)
+        self.bullets[bid] = dict(kind="marker", dmg=0.0, ttl=MARKER_TTL,
+                                 src=eid, born=self.tick_count)
+        # its OWN voice (gate 54: the launch played shrieker_scream --
+        # one sound, two meanings -- so the one dodge cue this machine
+        # gives the player was indistinguishable from the alarm), and
+        # its own record (both filmed mark_hits were orphan sounds)
+        self.trace.emit(CoordEvent(
+            tick=self.tick_count, entity_id=eid, agent_kind="shrieker",
+            event="marker_fire", detail=f"range {dl:.0f}"))
+        self._snd("marker_launch", polygon, (ex, ey), 1.0)
+        self.fx.append(("marker_fire", polygon, ex, ey, nx, ny))
+
+    def _shrieker_rouse(self, eid, polygon) -> None:
+        """A scream throws every nearby defender (<= 2 hops) straight into
+        the hunt with a short buff -- the original alert-carrying behaviour,
+        kept. Shriekers are left alone (they run their own machine), which
+        is also what makes mutual-rescream latching unrepresentable."""
+        s = self.sim
+        for oid, oe in self.enemies.items():
+            if oid == eid or oe["kind"] == "shrieker" \
+                    or oe["kind"] in CORE_KINDS:
+                continue
+            if oe.get("engulf"):
+                continue
+            if 0 <= s.hop_distance(s.get_polygon(oid), polygon) <= 2:
+                self._set_enemy_state(oid, oe, "hunt")
+                oe["buff"] = 60 * 5
+
     def _shrieker_ai(self, eid, e, polygon, ppolygon, ex, ey, accel):
-        """The alarm caller GOES somewhere (director 2026-07-16: "the
-        shrieker should be _going_ somewhere -- to the nearest cluster
-        of its friends"): it rallies toward the reachable polygon holding
-        the most allies (count discounted by hops), screaming on the
-        way, steering around terrain like everything else -- the old
-        straight-line flee pinned it into walls."""
+        """Self-contained shrieker hunt (director 2026-07-25, salvaged
+        b2c27600: 'actually perfect'). SENTINEL sweeps the folds and
+        commits through the SHARED doors only: its own sightline
+        (senses.sight_of), the generic damage provocation (last_hit,
+        written solely by _damage_enemy), or the fractional quorum every
+        idle watcher runs. The quorum path goes to APPROACH *uncried* --
+        the alarm stays first-hand by construction, because only a
+        sighting or a hit reaches WARNING (shriek + Distress, run home
+        to raise the squad). APPROACH climbs the shared hunt fields
+        (_hunt_edge: anti-backtrack, flank switch, stall stand-down);
+        LOS flips it to MARKING -- a 3x dash for the
+        ground behind him, a ~300ms lock he can be shot during, then a
+        real MARKER projectile; once fired
+        it RALLYs (random portals, shrieking stragglers awake) and
+        stands back down to SENTINEL."""
         s = self.sim
         d = ENEMIES["shrieker"]
-        px, py = self.player_pos()
-        if e["scream_cd"] <= 0 and not e.get("_scream_woken"):
-            # a shrieker whose ONLY stimulus is someone else's scream
-            # does not itself scream: the alarm carries first-hand
-            # position knowledge, it does not self-amplify. Two hunkered
-            # shriekers in N2 re-latched each other into hunt forever
-            # through mutual rescreams (run 49/51 watch item) — the
-            # relay mark breaks the loop while leaving the ratified
-            # sight-scream-rally arc untouched.
-            e["scream_cd"] = d["scream_cd"]
-            self._snd("shrieker_scream", polygon, (ex, ey), 1.0)
-            self.fx.append(("scream", polygon, ex, ey))
-            for oid, oe in self.enemies.items():
-                if oid == eid:
-                    continue
-                orr = s.get_polygon(oid)
-                hd = s.hop_distance(orr, polygon)
-                if 0 <= hd <= 2:
-                    if oe["state"] == "idle":
-                        oe["_scream_woken"] = True
-                    self._set_enemy_state(oid, oe, "hunt")
-                    oe["buff"] = 60 * 5
-        e["rally_cd"] = e.get("rally_cd", 0) - 1
-        if e["rally_cd"] <= 0 or "rally_polygon" not in e:
-            e["rally_cd"] = 60
-            counts: dict[int, int] = {}
-            for oid, oe in self.enemies.items():
-                if oid == eid or oe.get("kind") == "shrieker":
-                    continue
-                r = s.get_polygon(oid)
-                counts[r] = counts.get(r, 0) + 1
-            best, best_score = None, 0.0
-            for r, n in counts.items():
-                hd = s.hop_distance(polygon, r)
-                if not 0 <= hd <= 5 or r == ppolygon:
-                    continue
-                score = n / (1.0 + hd)
-                if score > best_score:
-                    best, best_score = r, score
-            e["rally_polygon"] = best
-        rally = e.get("rally_polygon")
         _, _, _, evx, evy, _, _ = s.get(eid)
-        if rally is not None and rally != polygon:
-            edge = s.next_edge(polygon, rally)
-            if edge >= 0:
-                gx, gy = s.edge_midpoint(polygon, edge)
-            else:
-                gx, gy = ex - (px - ex), ey - (py - ey)
-        elif polygon == ppolygon:
-            gx, gy = ex + (ex - px), ey + (ey - py)   # nowhere better:
-            #                                           back off for now
-        else:
-            # with friends: hold — but a tip goes STALE. The alarm
-            # carrier that reached its squad and stood there for 45s
-            # stands DOWN (the ratified pre-rewrite arc: run home, spread
-            # the alarm, then hunker) instead of statuing in hunt state
-            # forever (run-48 gate blocker: 5400-tick shrieker statues,
-            # honest ones once the activation fix stopped hiding them).
-            e["_rally_still"] = e.get("_rally_still", 0) + 1
-            if e["_rally_still"] > 45 * 60:
-                e.pop("_rally_still", None)
-                e.pop("rally_polygon", None)
-                self._set_enemy_state(eid, e, "idle")
+        phase = e.get("phase", "sentinel")
+        if "home" not in e:
+            # the POST: where the machine first ran (spawn or dormancy
+            # exit) -- assigned at a wake door it collapsed "run home to
+            # raise the squad" to one tick (gate 53: a third of the
+            # machine was dead code, and its unit test only passed by
+            # pre-setting home)
+            e["home"] = polygon
+
+        if phase == "sentinel":
+            # sight_of alone: same-chamber sight is unconditional inside
+            # it (convex chambers), so the address comparison it used to
+            # carry was dead weight
+            if self.senses.sight_of(eid, self.pid) is not None:
+                self._shrieker_phase(eid, e, "warning")
+                self._set_enemy_state(eid, e, "hunt")
+                return
+            if self.tick_count - e.get("last_hit", -10**9) < 30:
+                # shot: the one provocation written outside this machine
+                # (_damage_enemy) -- first-hand contact, so it cries
+                self._shrieker_phase(eid, e, "warning")
+                self._set_enemy_state(eid, e, "hunt")
+                return
+            if (self.tick_count + eid) % 10 == 0:
+                # the fractional quorum, verbatim from the idle branch: a
+                # caller deaf to the firefight next door is a mechanic
+                # that exists and never plays (measured: 6214 sentinel
+                # ticks, 0 marks; one mark per 57600 filmed ticks). It
+                # commits UNCRIED -- no door here can make it SCREAM --
+                # and it hears GUNFIRE ONLY: Distress is this guild's own
+                # channel (WARNING is its heavy emitter), and at a 45s
+                # half-life a door that samples it re-commits the unit
+                # off its OWN residue (gate 54, s4 e406: "nothing calls"
+                # at 7310, max-quorum re-commit at 7414, standing in its
+                # own cry). The MUSTER stand-down exclusion, same law: a
+                # guild's own calling never drives the guild's own door.
+                # Noise -- 3s half-life, poured at 0.8-1.0 a shot against
+                # EXCITE_NORM 0.6 -- still slams this door open, and
+                # physically cannot latch it.
+                t_ = self.tick_count
+                noise = self.signals.sample(SignalKind.NOISE, polygon, t_)
+                if noise >= coord.STAND_DOWN_FLOOR:
+                    # A CROWD ALONE IS NOT A CALL. The door is live only
+                    # while the local Noise is not FAINT -- the same
+                    # floor, in the same ratified sense, that lets a
+                    # hunter exit ("neighborhood faint ~5s"). Without
+                    # this gate the committed-peers term re-arms a
+                    # caller posted in a garrison forever: seed 4
+                    # measured every fast re-commit at committed==peers
+                    # (3/3, 5/5) with noise 0.000-0.015, and the crowd
+                    # door's 12661 ticks of approach tenure bought zero
+                    # markers all session. Peers AMPLIFY a live fight
+                    # (cascade wake); they never substitute for one.
+                    peers = [self.enemies[oid]
+                             for oid in s.polygon_entities(polygon)
+                             if oid != eid and oid in self.enemies
+                             and self.enemies[oid]["kind"] not in CORE_KINDS]
+                    committed = sum(1 for oe in peers
+                                    if oe["state"] in ("waking", "hunt"))
+                    exc = coord.quorum_excitation(noise, 0.0)
+                    f = coord.quorum_fraction(committed, len(peers), exc)
+                    if self.rng.random() < coord.commit_probability(
+                            f, e["q_thr"]):
+                        self._shrieker_phase(eid, e, "approach")
+                        e["approach_t"] = t_
+                        self._set_enemy_state(eid, e, "hunt")
+                        return
+            self._shrieker_patrol(eid, e, d, polygon, ex, ey)
             return
-        e.pop("_rally_still", None)
-        ddx, ddy = gx - ex, gy - ey
-        dist = math.hypot(ddx, ddy) or 1e-6
-        nx, ny = ddx / dist, ddy / dist
-        s.set_dir(eid, nx, ny)
-        sx, sy = s.terrain_avoid_dir(polygon, ex, ey, d["radius"], nx, ny,
-                                     max(40.0, min(dist, 120.0)))
-        sx, sy = self._steer_heading(eid, e, d, sx, sy)
-        s.set_vel(eid, evx + sx * accel * DT, evy + sy * accel * DT)
+
+        if phase == "warning":
+            # shriek + Distress while running home to raise the squad
+            if self.tick_count % 15 == (eid % 15):
+                self.signals.emit(SignalKind.DISTRESS, polygon, 0.25,
+                                  self.tick_count)
+            if e["scream_cd"] <= 0:
+                e["scream_cd"] = d["scream_cd"]
+                e["cried"] = True
+                self._snd("shrieker_scream", polygon, (ex, ey), 1.0)
+                self.fx.append(("scream", polygon, ex, ey))
+                self._shrieker_rouse(eid, polygon)
+            if not e.get("cried"):
+                # the ALARM comes first, structurally: a caller standing
+                # on its own post with a hot scream cooldown used to fall
+                # straight through to APPROACH and tag him having never
+                # raised anything. It keeps running home (or holds, if it
+                # is already there) until the cry actually leaves it.
+                if polygon != e.get("home", polygon):
+                    edge_ = s.next_edge(polygon, e.get("home", polygon))
+                    if edge_ >= 0:
+                        self._steer_to_edge(eid, e, d, polygon, ex, ey,
+                                            edge_, accel)
+                return
+            home = e.get("home", polygon)
+            if polygon == home:
+                # home reached -> stop emitting
+                self._shrieker_phase(eid, e, "approach")
+                e["approach_t"] = self.tick_count
+                return
+            edge = s.next_edge(polygon, home)
+            if edge < 0:
+                # no path home -> go mark anyway
+                self._shrieker_phase(eid, e, "approach")
+                e["approach_t"] = self.tick_count
+                return
+            self._steer_to_edge(eid, e, d, polygon, ex, ey, edge, accel)
+            return
+
+        if phase == "approach":
+            # climb the SHARED hunt fields to the intruder; LOS flips to
+            # MARKING through the same sightline every hunter runs
+            if self.senses.sight_of(eid, self.pid) is not None:
+                if not e.get("cried"):
+                    # first first-hand contact: the alarm comes FIRST,
+                    # every time, whichever door woke it
+                    self._shrieker_phase(eid, e, "warning")
+                    return
+                self._shrieker_phase(eid, e, "marking")
+                e["mark_lock"] = 0
+                e["mark_lost"] = 0
+                return
+            edge = self._hunt_edge(eid, e, polygon)
+            stale = (self.tick_count - e.get("approach_t", self.tick_count)
+                     > SHRIEK_APPROACH_PATIENCE)
+            if edge < 0 or stale:
+                # nothing calls from anywhere, or the search has run its
+                # patience without ever laying eyes on him: the machine
+                # STANDS DOWN. Gate 53 measured 26 shrieker hunt entries
+                # and 0 exits -- LOS or death were APPROACH's only ways
+                # out, so seven callers ended their sessions in permanent
+                # hunt (up to 11062 ticks), each one holding its chamber
+                # active forever, and RALLY->SENTINEL had zero coverage.
+                self.trace.emit(CoordEvent(
+                    tick=self.tick_count, entity_id=eid,
+                    agent_kind="shrieker", event="shrieker_stand_down",
+                    detail=("patience spent" if stale else "nothing calls")))
+                self._shrieker_phase(eid, e, "sentinel")
+                e.pop("cried", None)
+                e.pop("approach_t", None)
+                self._set_enemy_state(eid, e, "idle")
+                return
+            self._steer_to_edge(eid, e, d, polygon, ex, ey, edge, accel)
+            return
+
+        if phase == "marking":
+            # A CALLER TAGS FROM COVER. It does not have to stand in the
+            # killing floor: the sightline is portal-composed, so a body
+            # one doorway away has a real bearing on him and the marker
+            # flies through the door. Demanding depth 0 meant the tag
+            # could only happen inside his chamber, where the caller
+            # lives 13-37 ticks -- a full session offered 15 in-chamber
+            # in-range ticks against an 18-tick lock, so the mechanic
+            # was arithmetically impossible. Two doorways out it closes
+            # in; the counterplay is that a caller holding a doorway is
+            # visible in it, mid-tell, and dies to one burst.
+            hit = self.senses.sight_of(eid, self.pid)
+            if hit is not None and hit.portal_depth <= 1:
+                e["mark_at"] = hit.position
+                e["mark_lost"] = 0
+            if e.get("mark_lock", 0) > 0 and e.get("mark_at") is not None:
+                # COMMITTED: it holds, aims ~300ms and looses, and it
+                # sees the shot through even if he breaks the sightline
+                # -- it fires at where he WAS and can miss. A commitment
+                # that evaporates the instant he steps behind a frame is
+                # not a commitment, and it was the second reason no
+                # marker ever left the machine.
+                tx, ty = e["mark_at"]
+                dist = math.hypot(tx - ex, ty - ey) or 1e-6
+                s.set_dir(eid, (tx - ex) / dist, (ty - ey) / dist)
+                s.set_vel(eid, evx * 0.25, evy * 0.25)
+                e["mark_lock"] += 1
+                if e["mark_lock"] > MARK_AIM_TICKS:
+                    self._fire_marker(eid, polygon, ex, ey, tx, ty)
+                    self._shrieker_phase(eid, e, "rally")
+                    e["rally_t"] = RALLY_TICKS
+                    e["mark_lock"] = 0
+                    e.pop("mark_at", None)
+                return
+            if hit is None:
+                # sightline lost before it committed: blind pursuit is
+                # the SHARED field hunt at dash urgency (the omniscient
+                # next_edge chase is gone here like everywhere else)
+                e["mark_lock"] = 0
+                e["mark_lost"] = e.get("mark_lost", 0) + 1
+                if e["mark_lost"] > 120:
+                    self._shrieker_phase(eid, e, "approach")
+                    e["approach_t"] = self.tick_count
+                    e["mark_lost"] = 0
+                    return
+                edge = self._hunt_edge(eid, e, polygon)
+                if edge >= 0:
+                    self._steer_to_edge(eid, e, d, polygon, ex, ey, edge,
+                                        accel * MARK_SPEED_MULT)
+                return
+            tx, ty = hit.position
+            dist = math.hypot(tx - ex, ty - ey) or 1e-6
+            if hit.portal_depth > 1 or dist >= MARK_FIRE_RANGE:
+                # too far down the chain, or out of range: dash for the
+                # ground behind him at 3x cruise
+                _, _, _, _, _, pfx, pfy = s.get(self.pid)
+                fmag = math.hypot(pfx, pfy) or 1e-6
+                gx = tx - pfx / fmag * MARK_STANDOFF
+                gy = ty - pfy / fmag * MARK_STANDOFF
+                if hit.portal_depth > 0:
+                    gx, gy = tx, ty      # a rotated frame: just close in
+                ddx, ddy = gx - ex, gy - ey
+                dl = math.hypot(ddx, ddy) or 1e-6
+                nx, ny = ddx / dl, ddy / dl
+                sx, sy = s.terrain_avoid_dir(polygon, ex, ey, d["radius"],
+                                             nx, ny, 80.0)
+                sx, sy = self._steer_heading(eid, e, d, sx, sy)
+                s.set_vel(eid, evx + sx * accel * MARK_SPEED_MULT * DT,
+                          evy + sy * accel * MARK_SPEED_MULT * DT)
+                return
+            e["mark_lock"] = 1                            # commit
+            return
+
+        if phase == "rally":
+            e["rally_t"] = e.get("rally_t", RALLY_TICKS) - 1
+            if e["rally_t"] <= 0:
+                self._shrieker_phase(eid, e, "sentinel")
+                e.pop("cried", None)
+                self._set_enemy_state(eid, e, "idle")
+                return
+            if e["scream_cd"] <= 0:
+                e["scream_cd"] = d["scream_cd"]
+                self._snd("shrieker_scream", polygon, (ex, ey), 0.9)
+                self.fx.append(("scream", polygon, ex, ey))
+                self._shrieker_rouse(eid, polygon)   # spread the alarm
+            self._shrieker_patrol(eid, e, d, polygon, ex, ey,
+                                  accel_mult=0.6)
+            return
 
     # ------------------------------------------------------------------
     # flicker: Adversary-lane ambush predator (LURK/AMBUSH state machine)
@@ -3698,6 +4093,14 @@ class GameSession:
                     self._cam_rebase(m9)
                     self.metrics["transfers"] += 1
                     self.metrics["polygons_visited"].add(to_polygon)
+                    if self.brand.active:
+                        # THE MARK's follow-me trail: the marked intruder
+                        # lays the army-ant pheromone on the very doorway
+                        # he crossed, as if a whole lane of hunters had
+                        # gone through — trail-following traces his route
+                        self.signals.deposit_doorway_trail(
+                            from_polygon, edge, BRAND_TRAIL_DEPOSIT,
+                            self.tick_count)
             elif tag == "wall":
                 _, ent, polygon, edge, px_, py_, nx, ny, speed = ev
                 if ent == self.pid:
@@ -3813,7 +4216,20 @@ class GameSession:
                 return
             if bx is not None and y == self.pid:
                 polygon = self.sim.get_polygon(y)
-                if bx["kind"] == "spit":
+                if bx["kind"] == "marker":
+                    # the marker connects -> the intruder is branded. Its
+                    # own sound, not the shrieker's scream: this is a
+                    # player-body event and one sound may mean one thing
+                    renewing = self.brand.active
+                    self.brand.renew(bx.get("src", -1))
+                    self.trace.emit(CoordEvent(
+                        tick=self.tick_count, entity_id=self.pid,
+                        agent_kind="player", event="brand_renew",
+                        detail=(("renew" if renewing else "fresh")
+                                + f" src {bx.get('src', -1)}")))
+                    self._snd("mark_hit", polygon, (cx, cy), 0.9)
+                    self.fx.append(("marked", polygon, cx, cy))
+                elif bx["kind"] == "spit":
                     self._damage_player(bx["dmg"], polygon, source="spit")
                 elif bx["kind"] == "dart":
                     self._detonate_dart(x, polygon, cx, cy)
@@ -4364,7 +4780,10 @@ class GameSession:
         self.freeze = 0
         self.trace.emit(BreachLifecycle(
             tick=self.tick_count, breach_id=-1, event="player_respawn",
-            world_chamber=polygon, detail="chassis print at seed station"))
+            world_chamber=polygon,
+            detail=f"chassis print, {self.chassis} racked, "
+                   f"{self.sim.hop_distance(polygon, death_polygon)} hops "
+                   f"from the wreck"))
         self.tau_charge = 0
         self.hole_mark = None
         self._set_cam(necore.mat_mul(

@@ -182,6 +182,34 @@ HYDRO_STALK = (88, 152, 96)        # growing stalk dot -- dimmer than SCREEN_COL
 _FLOOR_RAMP = ((104, 104, 132), (152, 112, 120), (200, 88, 100))  # x4 albedo (deep clamped ~x3.8)
 _WALL_RAMP = ((184, 196, 204), (194, 186, 178), (206, 168, 154))
 _WALL_MIN_RAMP = ((74, 80, 88), (80, 75, 73), (90, 66, 62))
+# The MARROW's own ramp (marrow visual pass 2026-07-28). The cathedral
+# does not descend toward the Testament's dried-blood warmth — it
+# descends toward the otherworld's cold. Aged bronze and pale bone at
+# the receiving apses, verdigris through the trunk, cold green-blue at
+# the sources, so the architecture stays legibly Testator handcraft
+# under whatever the Adversary has done to it.
+_MARROW_FLOOR_RAMP = ((104, 96, 88), (86, 100, 96), (58, 78, 76))
+_MARROW_WALL_RAMP = ((184, 178, 151), (150, 168, 158), (104, 132, 128))
+_MARROW_WALL_MIN_RAMP = ((78, 74, 64), (66, 78, 74), (52, 66, 64))
+_MARROW_KINDS = ("marrow", "otherworld")
+
+
+def _ow_mix(descent: float) -> float:
+    """How much of the otherworld's inverse-darkness lighting model this
+    chamber composes under. A hard swap at the kind boundary reads as a
+    theme trigger, not as encroaching corruption, so the LIGHTING
+    arrives smoothly while the semantic kind still switches at depth 6.
+
+    The consult proposed smoothstep(0.25, 0.85); measured against the
+    depth table that is 0.88 at the switch itself, which finishes the
+    transition BEFORE the boundary and leaves the whole deep half
+    composing alike. Centering the curve on the switch keeps the deep
+    chambers differentiated — the first otherworld chamber is half under
+    the inverse field and the source cells are wholly under it — while
+    the earlier progression is carried by the palette ramp and the prop
+    corruption, which start much shallower."""
+    d = max(0.0, min(1.0, (descent - 0.45) / 0.55))
+    return d * d * (3.0 - 2.0 * d)
 _PROP_WARM = (18, -6, -16)         # additive full-descent prop temperature shift
 
 GROWTH_FILL = (44, 14, 16)         # the seed's spread: organic patches
@@ -1413,6 +1441,102 @@ def _warm_prims(prims, descent):
 
 
 
+def _props_marrow(rng, verts, walls, x0, y0, x1, y1, descent=0.0, crng=None):
+    """The corrupted Testator cathedral: a consecrated machine seized to
+    manufacture war. Machined ribs at unequal spacing, fold notation that
+    never closes into a ring, bone-tone memorial inserts, and conduits
+    carrying light inward — with the Adversary's growth laid OVER that
+    work rather than replacing it, thickening as the chamber descends.
+    Nothing here repeats a module: each chamber's seed is its maker's
+    idiom."""
+    prims = []
+    cx, cy = (x0 + x1) / 2.0, (y0 + y1) / 2.0
+    w, h = x1 - x0, y1 - y0
+    corrupt = _corruption(descent)
+
+    # RIBS: machined wall stiffeners at deliberately unequal spacing.
+    # (Even spacing reads industrial-modular; the unevenness is the
+    # handcraft law.)
+    for wall in walls:
+        if wall["len"] < 46:
+            continue
+        t = wall["len"] * rng.uniform(0.12, 0.24)
+        while t < wall["len"] - 12.0:
+            bx = wall["p0"][0] + wall["tx"] * t
+            by = wall["p0"][1] + wall["ty"] * t
+            depth_in = rng.uniform(5.0, 11.0)
+            nx, ny = -wall["ty"], wall["tx"]
+            if (cx - bx) * nx + (cy - by) * ny < 0:
+                nx, ny = -nx, -ny
+            half = rng.uniform(2.0, 3.5)
+            rib = [(bx - wall["tx"] * half, by - wall["ty"] * half),
+                   (bx + wall["tx"] * half, by + wall["ty"] * half),
+                   (bx + wall["tx"] * half + nx * depth_in,
+                    by + wall["ty"] * half + ny * depth_in),
+                   (bx - wall["tx"] * half + nx * depth_in,
+                    by - wall["ty"] * half + ny * depth_in)]
+            prims.append(("poly", rib, (78, 70, 54), (128, 116, 88), 1))
+            t += rng.uniform(26.0, 54.0)
+
+    # FOLD NOTATION: nested rotated polygon fragments — the Testators'
+    # own record of a space that folds. Open arcs only; a closed ring is
+    # the aggro symbol and belongs to nothing else.
+    for i in range(rng.randint(1, 3)):
+        n = rng.randint(5, 7)
+        rad = min(w, h) * rng.uniform(0.14, 0.26)
+        ox = cx + rng.uniform(-w * 0.22, w * 0.22)
+        oy = cy + rng.uniform(-h * 0.22, h * 0.22)
+        ang0 = rng.uniform(0, 2 * math.pi)
+        gap = rng.randint(1, 2)
+        pts = [(ox + math.cos(ang0 + 2 * math.pi * j / n) * rad,
+                oy + math.sin(ang0 + 2 * math.pi * j / n) * rad)
+               for j in range(n - gap)]
+        if len(pts) >= 2:
+            prims.append(("polyline", pts, (150, 142, 116), 1, False))
+
+    # MEMORIAL INSERTS: pale bone slabs set into the floor, inscribed.
+    for _ in range(rng.randint(1, 3)):
+        px = cx + rng.uniform(-w * 0.3, w * 0.3)
+        py = cy + rng.uniform(-h * 0.3, h * 0.3)
+        sw, sh = rng.uniform(6.0, 11.0), rng.uniform(9.0, 15.0)
+        a = rng.uniform(0, math.pi)
+        ca, sa = math.cos(a), math.sin(a)
+        slab = [(px + ca * dx - sa * dy, py + sa * dx + ca * dy)
+                for dx, dy in ((-sw, -sh), (sw, -sh), (sw, sh), (-sw, sh))]
+        prims.append(("poly", slab, (96, 92, 78), (184, 178, 151), 1))
+
+    # CONDUITS: light-carrying runs pointing inward — the arrival
+    # language (deeper is that way).
+    for wall in walls[:2]:
+        if wall["len"] < 40:
+            continue
+        t = wall["len"] * rng.uniform(0.3, 0.7)
+        bx = wall["p0"][0] + wall["tx"] * t
+        by = wall["p0"][1] + wall["ty"] * t
+        dx, dy = cx - bx, cy - by
+        dl = math.hypot(dx, dy) or 1.0
+        run = min(dl * rng.uniform(0.35, 0.6), 70.0)
+        prims.append(("line", (bx, by),
+                      (bx + dx / dl * run, by + dy / dl * run),
+                      (120, 132, 112), 2))
+
+    # THE GROWTH: past the corruption threshold the Adversary's own work
+    # crawls along the conduits it found, then departs from them.
+    if corrupt > 0.0 and crng is not None:
+        for _ in range(int(round(corrupt * 5))):
+            bx = cx + crng.uniform(-w * 0.42, w * 0.42)
+            by = cy + crng.uniform(-h * 0.42, h * 0.42)
+            pts = [(bx, by)]
+            ang = crng.uniform(0, 2 * math.pi)
+            for _s in range(crng.randint(2, 4)):
+                ang += crng.uniform(-0.9, 0.9)
+                step = crng.uniform(6.0, 14.0)
+                pts.append((pts[-1][0] + math.cos(ang) * step,
+                            pts[-1][1] + math.sin(ang) * step))
+            prims.append(("polyline", pts, (86, 116, 104), 1, False))
+    return prims
+
+
 def _props_otherworld(rng, verts, walls, x0, y0, x1, y1, descent=0.0, crng=None):
     """The Otherworld: the prop vocabulary with its grammar broken. Familiar
     objects in impossible syntax — a terminal slab floating mid-polygon facing
@@ -1424,15 +1548,23 @@ def _props_otherworld(rng, verts, walls, x0, y0, x1, y1, descent=0.0, crng=None)
     cy = (y0 + y1) / 2.0
     w = x1 - x0
     h = y1 - y0
+    # DESCENT drives this generator (marrow visual pass): shallow
+    # otherworld keeps its furniture and shows one faint echo; deep
+    # otherworld is nearly empty, and the echoes of what the chamber used
+    # to be dominate. A generator that ignores its descent parameter
+    # produces no progression, which is exactly the defect the pass was
+    # called to fix.
+    dsc = max(0.0, min(1.0, descent))
+    keep = 1.0 - 0.65 * dsc          # how much furniture survives
     # afterimages: the polygon's own outline, shrunk and re-shrunk. Soft polygons
     # deform after caching, so these echo what the polygon USED to be.
-    for shrink in (0.82, 0.62):
+    for shrink in ((0.82, 0.62) if dsc > 0.5 else (0.82,)):
         ring = [(cx + (vx - cx) * shrink, cy + (vy - cy) * shrink)
                 for vx, vy in verts]
         prims.append(("polyline", ring, (52, 66, 58), 1, True))
     # a floating console slab, mid-polygon, facing a direction that means
     # nothing, screen glowing at nobody.
-    if rng.random() < 0.8 and min(w, h) > 60:
+    if rng.random() < 0.8 * keep and min(w, h) > 60:
         ang = rng.uniform(0, 2 * math.pi)
         sw, sh = 14.0, 9.0
         ca, sa = math.cos(ang), math.sin(ang)
@@ -1443,12 +1575,17 @@ def _props_otherworld(rng, verts, walls, x0, y0, x1, y1, descent=0.0, crng=None)
                 (px + ca * -sw - sa * sh, py + sa * -sw + ca * sh)]
         prims.append(("poly", slab, (30, 34, 38), (72, 82, 86), 1))
         prims.append(("screenglow", px + ca * 3, py + sa * 3, 7.0))
-    # a ring of half-scale seats around nothing.
+    # half-scale seats set out for nobody. They were an EVENLY SPACED
+    # PERFECT RING, which is both the repetition the handcraft law
+    # forbids and a closed circle, which is the aggro symbol and means
+    # nothing else. Now: an incomplete golden-angle sequence, each seat
+    # its own size and distance, thinning as the chamber descends.
     if rng.random() < 0.6 and min(w, h) > 90:
-        n = rng.randint(5, 8)
-        rad = min(w, h) * 0.22
+        n = max(2, int(round(rng.randint(5, 8) * keep)))
+        base_rad = min(w, h) * 0.22
         for i in range(n):
-            a = 2 * math.pi * i / n
+            a = 2.39996 * i + rng.uniform(-0.12, 0.12)
+            rad = base_rad * rng.uniform(0.72, 1.18)
             bx, by = cx + math.cos(a) * rad, cy + math.sin(a) * rad
             ca2, sa2 = math.cos(a), math.sin(a)
             seat = [(bx + ca2 * -4 - sa2 * -2.5, by + sa2 * -4 + ca2 * -2.5),
@@ -1457,7 +1594,7 @@ def _props_otherworld(rng, verts, walls, x0, y0, x1, y1, descent=0.0, crng=None)
                     (bx + ca2 * -4 - sa2 * 2.5, by + sa2 * -4 + ca2 * 2.5)]
             prims.append(("poly", seat, (36, 40, 42), None, 0))
     # things half-into walls: a crate silhouette centered ON a wall vertex.
-    if walls and rng.random() < 0.7:
+    if walls and rng.random() < 0.7 * keep:
         wd = rng.choice(walls)
         (ax_, ay_), (bx_, by_) = wd["p0"], wd["p1"]
         t = rng.random()
@@ -1467,8 +1604,9 @@ def _props_otherworld(rng, verts, walls, x0, y0, x1, y1, descent=0.0, crng=None)
         prims.append(("poly", [(bx - r, by - r), (bx + r, by - r),
                                (bx + r, by + r), (bx - r, by + r)],
                       (32, 36, 40), (60, 66, 70), 1))
-    # sparse self-luminous floor speckle (the floor is starting to be sky)
-    for _ in range(rng.randint(3, 7)):
+    # self-luminous floor speckle (the floor is starting to be sky), and
+    # the deeper the chamber the more of the floor is sky
+    for _ in range(rng.randint(3, 7) + int(round(dsc * 9))):
         prims.append(("dot", (rng.uniform(x0, x1), rng.uniform(y0, y1))))
     return prims
 
@@ -1488,6 +1626,7 @@ _POLYGON_PROP_GENERATORS = {
     "core": _props_core,
     "generic": _props_generic,
     "otherworld": _props_otherworld,
+    "marrow": _props_marrow,
 }
 
 
@@ -1708,6 +1847,15 @@ class Renderer:
                     end = (math.cos(a) * r, math.sin(a) * r)
                     segs.append([(0.0, 0.0), mid, end])
                 self._bolts.append(dict(polygon=polygon, x=x, y=y, radius=radius, life=6, segs=segs))
+            elif tag == "marked":
+                # marker contact: the glob IS the tell (drawn on the body
+                # every frame while the brand holds); here just the hurt
+                # blink — NO rings, rings mean aggro
+                self._hurt_ticks = 2
+            elif tag == "marker_fire":
+                _, polygon, x, y, nx, ny = fx
+                self._sparks.append(dict(polygon=polygon, x=x, y=y,
+                                         nx=nx, ny=ny, life=4))
             elif tag == "scream":
                 # a shrieker SCREAMING: its own bone-pale palette, so the
                 # wave reads as coming from that body — plain white rings
@@ -1961,13 +2109,16 @@ class Renderer:
             else:
                 cmds.extend((_OP_CLIP_FILL, _flags(_LAYER_WORLD), clip_idx,
                              _IDX_NONE, _rgba(self._floor_color(polygon)), 0))
-            if polygon < len(kinds) and kinds[polygon] == "otherworld":
+            if self._polygon_kind(polygon) == "otherworld":
                 ow_polys.append(clip_screen)
                 # the engine composes the otherworld field itself: its
-                # union of marked clips selects the inverted cold field
-                # over the lightmap, AFTER the entity fold (raster.rs
-                # compose step 6)
-                r.mark_otherworld(clip_idx)
+                # marked clips blend the inverted cold field over the
+                # lightmap, AFTER the entity fold (raster.rs compose step
+                # 6). The mix is the corruption crossfade, so a chamber
+                # at the kind boundary composes mostly ordinary light and
+                # the source cells compose almost pure inverse.
+                r.mark_otherworld(clip_idx,
+                                  _ow_mix(self._polygon_descent(polygon)))
             staged.append((polygon, xform, depth, clip_screen, walls,
                            ents, clip_idx, xform_idx))
         for polygon, xform, depth, clip_screen, walls, ents, clip_idx, \
@@ -2297,10 +2448,27 @@ class Renderer:
         cloister) clamp to the last known value — they are always carved
         near where the player already is, so the error is at most a chunk
         step, which is invisible by construction."""
+        meta = getattr(self.session, "hub_polygon_meta", None)
+        if meta:
+            got = meta.get(polygon)
+            if got is not None:
+                return got[1]
         rd = getattr(self.session.level, "polygon_descent", None)
         if not rd:
             return 0.0
         return rd[polygon] if polygon < len(rd) else rd[-1]
+
+    def _polygon_kind(self, polygon: int) -> str:
+        """This polygon's function tag. The marrow's chambers carry theirs
+        on the SESSION (they belong to no level), so they survive a chunk
+        swap; everything else reads the level's own array."""
+        meta = getattr(self.session, "hub_polygon_meta", None)
+        if meta:
+            got = meta.get(polygon)
+            if got is not None:
+                return got[0]
+        kinds = self.session.level.polygon_kinds
+        return kinds[polygon] if polygon < len(kinds) else "generic"
 
     def _polygon_pal(self, polygon: int) -> tuple:
         """(floor, wall, wall_min) for this polygon's descent, cached — descent
@@ -2308,9 +2476,14 @@ class Renderer:
         pal = self._pal_cache.get(polygon)
         if pal is None:
             d = self._polygon_descent(polygon)
-            pal = (_ramp(_FLOOR_RAMP, d),
-                   _ramp(_WALL_RAMP, d),
-                   _ramp(_WALL_MIN_RAMP, d))
+            if self._polygon_kind(polygon) in _MARROW_KINDS:
+                pal = (_ramp(_MARROW_FLOOR_RAMP, d),
+                       _ramp(_MARROW_WALL_RAMP, d),
+                       _ramp(_MARROW_WALL_MIN_RAMP, d))
+            else:
+                pal = (_ramp(_FLOOR_RAMP, d),
+                       _ramp(_WALL_RAMP, d),
+                       _ramp(_WALL_MIN_RAMP, d))
             self._pal_cache[polygon] = pal
         return pal
 
@@ -2320,12 +2493,16 @@ class Renderer:
         # measurable per-instance cost at 400 instances.
         color = self._floor_color_cache.get(polygon)
         if color is None:
-            kinds = self.session.level.polygon_kinds
-            if polygon < len(kinds) and kinds[polygon] == "otherworld":
+            if self._polygon_kind(polygon) == "otherworld":
                 # the floor is the light source: self-luminous cold base
                 # that the inverted darkness field then sculpts (dim near
-                # the player, glowing at distance)
-                color = OW_FLOOR
+                # the player, glowing at distance). It arrives on the same
+                # crossfade as the lighting model, so the first otherworld
+                # chamber is not a different game from the one before it.
+                m = _ow_mix(self._polygon_descent(polygon))
+                base = self._polygon_pal(polygon)[0]
+                color = tuple(int(round(base[i] + (OW_FLOOR[i] - base[i]) * m))
+                              for i in range(3))
             else:
                 color = _shade(self._polygon_pal(polygon)[0], _floor_dim(0),
                                _polygon_tint(polygon))
@@ -2419,7 +2596,7 @@ class Renderer:
         verts = level.polygon_verts[polygon]
         seed = level.polygon_seeds[polygon] if polygon < len(level.polygon_seeds) else polygon * 7919 + 13
         rng = random.Random(seed)
-        kind = level.polygon_kinds[polygon] if polygon < len(level.polygon_kinds) else "generic"
+        kind = self._polygon_kind(polygon)
         xs = [v[0] for v in verts]
         ys = [v[1] for v in verts]
         x0, x1 = min(xs), max(xs)
@@ -2990,7 +3167,17 @@ class Renderer:
                     canvas.polygon((255, 255, 255), _pts(pts))
                 else:
                     canvas.polygon(PLAYER_COLOR, _pts(pts))
-                canvas.polygon((255, 255, 255), _pts(pts), 1)
+                brand = getattr(self.session, "brand", None)
+                marked = brand is not None and brand.active
+                # THE MARK is a body event and it owns this colour: the
+                # player's own outline goes magenta while the tag holds.
+                # Nothing else in the game outlines the player, so there
+                # is no symbol to collide with, and it reads at 0.45 from
+                # across the chamber where a small glob does not.
+                canvas.polygon((255, 90, 220) if marked else (255, 255, 255),
+                               _pts(pts), 2 if marked else 1)
+                if marked:
+                    self._draw_brand(canvas, sx, sy, max(srad, 2.0))
                 rt = getattr(self.session, "recall_t", 0)
                 if rt > 0:
                     # recall channel: a ring closing on the frame
@@ -3472,10 +3659,49 @@ class Renderer:
         if kind == "husk" and not flashed:
             canvas.circle((66, 78, 62), _pt((sx, sy)), max(1, int(srad * 0.22)))
 
+    def _draw_brand(self, canvas, sx, sy, srad):
+        """The MARK: a wobbling magenta glob stuck to the player's body,
+        dribbling a trail down his travel — the scent tag's instantly
+        obvious visual (director's standing requirement for U10)."""
+        s = self.session
+        tick = s.tick_count
+        try:
+            _, _, _, vx, vy, _, _ = s.sim.get(s.pid)
+        except Exception:
+            vx = vy = 0.0
+        vmag = math.hypot(vx, vy)
+        # the glob rides the body, offset toward his back (opposite travel)
+        ox, oy = (-vx / vmag, -vy / vmag) if vmag > 6.0 else (0.0, -1.0)
+        gx, gy = sx + ox * srad * 0.6, sy + oy * srad * 0.6
+        # the trail dribbles FROM the glob down his travel
+        if vmag > 6.0:
+            ux, uy = vx / vmag, vy / vmag
+            for i in range(1, 7):
+                fx, fy = gx - ux * i * 4.0, gy - uy * i * 4.0
+                canvas.circle((235, 70, 185), _pt((fx, fy)),
+                              max(1, 3 - i // 3))
+        # sized to READ, not to decorate: at 0.45 zoom the body is ~9px
+        # and a 0.7-radius glob changed 8 pixels, which is not the
+        # "instantly obvious" the mark was ordered to be. It sits at
+        # body scale, wobbling, with a bright core.
+        wob = 1.0 + 0.18 * math.sin(tick * 0.4)
+        gr = max(3, int(srad * 1.05 * wob))
+        canvas.circle((255, 80, 210), _pt((gx, gy)), gr)
+        canvas.circle((255, 170, 235), _pt((gx, gy)), max(1, gr - 2))
+        canvas.circle((255, 232, 250), _pt((gx, gy)), max(1, gr // 3))
+
     def _draw_bullet(self, canvas, kind, sx, sy, dirx, diry, clip_screen):
         if clip_screen is not None and not _point_in_poly(sx, sy, clip_screen):
             return
-        if kind == "spit":
+        if kind == "marker":
+            # a shrieker's tag round: a vivid magenta mote with a streak
+            # so its flight is unmistakable
+            color = (255, 90, 220)
+            tx, ty = sx - dirx * 11, sy - diry * 11
+            canvas.line(color, _pt((sx, sy)), _pt((tx, ty)), 2)
+            canvas.circle(color, _pt((sx, sy)), 3)
+            canvas.circle((255, 215, 245), _pt((sx, sy)), 1)
+        elif kind == "spit":
             # a glob STREAKS: the tail multiplies its on-frame presence
             # so ranged pressure is visible in flight, not only on the
             # hit (three-seed gate: 'invisible spitter hits' confirmed)

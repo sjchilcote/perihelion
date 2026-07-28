@@ -241,3 +241,174 @@ Run 51's verdict sat unread for twenty minutes because the ad-hoc watcher
 grepped for `gate.sh` and matched its own command line — it waited on
 itself. gate.sh writes gate.pid and gate.exit; the waiter polls those and
 distinguishes PASS, FAIL, killed-mid-run, and timeout.
+
+## Run 53 (7/28): FAIL p=0.92 — the marrow visual pass, and a machine
+## that ran without ever firing
+
+The diff: all 24 hub chambers reshaped from rectangles into one-off
+convex biogenic shells, the corruption gradient carried into the
+cathedral on a crossfade centred at depth 6, and U10 — the shrieker's
+mark — salvaged from the ratified b2c27600.
+
+The geometry passed cleanly, which was the risky half: six film
+scanners over ~700 frames on four seeds found zero wall-embedding,
+zero tunneling, zero portal pile-ups, and no chamber reading as a
+rectangle, with the kind boundary reading as two architectures and
+the seed-4 negative control (hub never connects) showing zero palette
+leakage. 844 tests green.
+
+Four blockers, every one a thing that runs but does nothing:
+
+1. **The WARNING arc was dead code.** `home` was assigned at the
+   sighting instant, so "run home to raise the squad" exited on the
+   next tick. Its unit test passed only because it pre-set `home`.
+2. **APPROACH had no exit but LOS or death.** 26 shrieker hunt
+   entries, 0 hunt->idle, seven callers ending the session in
+   permanent hunt (up to 11062 ticks), each holding its chamber
+   active forever. RALLY->SENTINEL had zero execution coverage.
+3. **Wall-pinned hub garrison**, novel to the new facets: five
+   non-dispatched bodies held one coordinate for 24-128s.
+4. **PlayerDeath.source lied on 2 of 3 deaths**, and the periodic
+   instrument samples were still dropping 4-9% of their ticks —
+   re-diagnosed as hitstop, not the death lingers fixed in run 52.
+
+And the ledger's sharpest observation: ONE mark landed in 64 minutes
+of play, against a spec that calls tailing-and-marking a defining
+behavior.
+
+## Run 54 (7/28): the blockers, root-caused
+
+Each blocker was reproduced before it was fixed, and the reproduction
+is what changed the diagnosis in three of the four cases.
+
+**The pin was not the stall-breaker's absence.** A headless rerun of
+seed 2 recorded the wedged brute's own steering: it held a *correct*
+heading at its doorway, want=(0.70,-0.71), the exact bearing of the
+portal midpoint, and never moved for 3969+ ticks. The grant was
+(18.4, 200.2) — separation taking its capped 0.7 of the budget and
+spending it pushing the body INTO the facet, with the objective's
+remaining 0.3 unable to overcome it. The peer generating the demand
+was a core organ body, which never moves, so the demand never decayed.
+The 0.7 cap (added when packed muster rooms jammed) bounds the claim
+but not its futility. The rule now: a keep-apart demand that is not
+increasing the gap yields the budget entirely, and stays yielded until
+the body is genuinely clear of where it stuck — releasing on the gap
+alone just re-pins it, which measured 1.4u of travel in 400 ticks.
+
+**The mark could not fire, arithmetically.** Instrumenting the branch's
+own gate conditions over a full session: 15 of 15 in-range marking
+ticks sat inside the player's forward cone, and the lock never started
+once. The lock demanded the caller slip outside his ~120° front arc —
+a condition on the player's INSTANTANEOUS aim, and the Commando turns
+instantly at whatever he sees. A gate the mechanic cannot pass is not
+difficulty, it is deletion. Two further changes followed from the same
+measurement: the tag may now be taken from one doorway away (the
+sightline is portal-composed and the marker flies through the door;
+demanding depth 0 confined the tag to the chamber where a caller lives
+13-37 ticks), and a started lock sees itself through a broken
+sightline — it fires at where he was, and can miss.
+
+**SENTINEL was deaf.** The machine woke only on its own sighting; the
+generic path it replaced also woke on the fractional quorum and on
+damage. Both are restored through the SHARED doors — the same quorum
+every idle watcher runs, and `last_hit`, which only `_damage_enemy`
+writes. The anti-latch property is preserved by construction: the
+quorum commits to APPROACH *uncried*, so another caller's Distress can
+send this one LOOKING but can never make it SCREAM. WARNING now also
+refuses to hand off before the cry actually leaves it — a caller
+standing on its own post with a hot cooldown used to fall straight
+through to the tag having raised nothing.
+
+Measured on seed 2, 14400 ticks, before -> after:
+FSM phases {sentinel: 6214} -> {sentinel: 292, approach: 3096,
+warning: 455, marking: 152, rally: 36}; markers fired 0 -> 2;
+worst hub hunt-stillness 3969t -> 240t.
+
+Instrument note: `consult_adversary.py`'s packet gate refused a clean
+packet, having scraped the translation lexicon's LEFT column — ordinary
+English descriptions of each concept — as if it were the banned
+vocabulary. It now reads the lexicon's own banned-list section and
+refuses to run at all if that section is missing or parses short. A
+checker that fires on correct output teaches you to override it.
+
+## Run 54 (FAIL p=0.89) — the stand-down was cosmetic under alarm
+
+All four run-53 blockers certified dead in situ (WARNING travels home,
+median 117t; patience ceiling exact at 2701t, zero permanent hunters;
+631 wall-pins certified gone, the run-53 sites now roam 519-3338u; mark
+rate 8x with both filmed marks fully legible). The judge's adversarial
+pass then found the machine I had just given an exit could not USE it:
+
+**Quorum self-excitation.** s4 e406: `shrieker_stand_down` ("nothing
+calls") at t=7310, hunt re-entry at t=7414 — 104 ticks later, standing
+in nearly the same spot. Mechanism, confirmed in code: WARNING deposits
+DISTRESS 0.25 every 15t along the run home; DISTRESS carries a 45s
+half-life, so the residue was effectively undecayed when the unit
+returned to SENTINEL inside it; the quorum door sampled that same field
+and re-committed. Its own scream is zero bits — it already knew it
+screamed — but the door double-counted it as fresh evidence. A
+refractory cannot fix this honestly (any window short enough to be
+reasonable re-latches at a longer period; the residue outlives minutes)
+and per-entity field attribution is machinery. The structural fix
+mirrors the ratified MUSTER precedent — a guild's own calling never
+drives the guild's own door: the caller's commit door hears NOISE only.
+Gunfire is what a firefight actually is, pours at 0.8-1.0/shot against
+EXCITE_NORM 0.6, lives 3 seconds, and physically cannot latch anything.
+
+The seed-4 re-probe then caught the SECOND latch channel behind the
+first: with DISTRESS excluded, every fast re-commit (19-209t) ran on
+the committed-peers term alone — committed==peers (3/3, 5/5) at noise
+0.000-0.015. A caller posted in a garrison of permanently-hunting
+bodies re-armed off the CROWD; and all that crowd-driven tenure
+(12661 approach ticks on seed 4) bought zero markers all session —
+pure dead patrol. So the door is now LIVE only while local Noise is
+not FAINT: the same STAND_DOWN_FLOOR (0.05), in the same ratified
+sense, that lets a hunter exit. A crowd alone is not a call; peers
+amplify a live fight (cascade wake), they never substitute for one.
+Sight and damage doors are untouched.
+
+Probes with the film's exact reprint loop, before -> after: seed 4
+flap dead (4 fast re-commits -> 0; callers hold posts, honestly quiet
+— no fight ever crossed their ground); seed 2 keeps its full chain
+(warning 117t -> marking 418t -> marker_fire -> brand_renew, matching
+the film's 1 landed mark); seed 7's single pre-fix mark did not recur
+(its one chain started first-hand and ended before regaining LOS — a
+Poisson-1 event under changed contact geometry). Bank-level mark rate
+~1/16min vs 2/16min pre-fix: the rate the POST design produces once
+evidence-free roaming stops manufacturing contacts. The one fast
+re-commit left anywhere (s2, +32t) is gunfire-justified — the door
+opening for a real fight next door, which is its purpose.
+
+**The marker borrowed the scream** (run-53 note, now a blocker): the
+launch — the one dodge cue the mark machine gives the player — played
+`shrieker_scream`. It has its own voice now, `marker_launch` (a wet
+pneumatic thwip and a falling doppler whistle: a trajectory, not a
+throat), authored in the soundgen bank next to `mark_hit`, whose
+docstring already stated the law.
+
+**The mark machine was invisible to the trace** (run-52 directive,
+two gates late): both filmed mark_hits were orphan sounds and phase
+tenure was unmeasurable. `_shrieker_phase` is now the one writer of
+the phase key and every transition records itself (`shrieker_phase`
+frm->to); `marker_fire` records the shot; `brand_renew` (fresh|renew,
+with source) and `brand_expired` bracket the brand's whole life.
+
+Tests: the door test discriminates by construction — arm 1 saturates
+the caller's chamber with DISTRESS and holds until first legitimate
+sight (mutant run against the pre-fix door: fails at the in-loop
+assertion); arm 2 proves NOISE alone still commits it, so the run-53
+deafness cannot return. Two arena lessons cost an hour: an unreachable
+island chamber gets no AI at all under ACTIVE_HOPS (a wax-museum pass),
+and the patrol has no leash, so any connected arena eventually yields
+legitimate sight — the hold-window must END at first sight, which is
+exactly the law being asserted anyway.
+
+Watch items (judge "review", not blockers): DISTRESS in the generic
+hunter stand-down peak vetoes stand-down for ~105s per cry train (45s
+half-life vs STAND_DOWN_FLOOR 0.05) — s4 mite 9974 hunted 7684t on it.
+From the mite's side the cry is world-signal, the alarm doing its job;
+whether ~2 minutes of sustained aggression per scream is the intended
+difficulty is a design question for the next gate's film, not a patch
+tonight. The warden still borrows `shrieker_scream` (alert + engulf
+lunge) — same class as run-51's sentry borrowing pistol_fire; needs its
+own voice in a later pass.

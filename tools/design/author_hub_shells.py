@@ -225,7 +225,10 @@ def shell(name: str, seed_off: int = 0):
     verts = [(radius(th) * math.cos(th), radius(th) * math.sin(th))
              for th in pts]
     sc = math.sqrt(target_area / abs(shoelace(verts)))
-    verts = [(x * sc, y * sc) for x, y in verts]
+    # quantize HERE, to the precision the literal is emitted at: every
+    # check below must measure the vertices that actually ship. (A 22.04u
+    # facet passed the minimum and shipped as 21.94.)
+    verts = [(round(x * sc, 1), round(y * sc, 1)) for x, y in verts]
 
     # the engine's winding convention, taken from the rectangle it replaces
     canon = shoelace([(0, 0), (0, h), (w, h), (w, 0)])

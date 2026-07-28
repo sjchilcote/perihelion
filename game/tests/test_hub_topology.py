@@ -18,7 +18,7 @@ import math
 
 import pytest
 
-from perihelion.hub import BREACH_W, _ROOMS
+from perihelion.hub import BREACH_W, CHAMBER_SHELLS
 from perihelion.levels import LevelBuilder
 from perihelion.sim import GameSession
 from perihelion.topology import TopologyError
@@ -140,12 +140,22 @@ def test_transept_loop_and_trunk():
     assert s.sim.hop_distance(c["A2"], c["N4"]) == 7
 
 
+def _shell_area(verts) -> float:
+    n = len(verts)
+    return abs(sum(verts[i][0] * verts[(i + 1) % n][1]
+                   - verts[(i + 1) % n][0] * verts[i][1]
+                   for i in range(n)) / 2.0)
+
+
 def test_half_the_floor_area_sits_in_the_first_three_bands():
-    shallow = sum(w * h for name, (w, h) in _ROOMS.items()
-                  if name[0] in ("A", "G", "T") and name != "AN1"
-                  and name != "AN2")
-    total = sum(w * h for w, h in _ROOMS.values())
-    frac = shallow / total
+    """Measured on the AUTHORED SHELLS, which are what ships — the
+    rectangles they replaced are gone, and the ratified depth-band
+    distribution had to survive the reshape."""
+    areas = {name: _shell_area(verts)
+             for name, (verts, _d, _b) in CHAMBER_SHELLS.items()}
+    shallow = sum(a for name, a in areas.items()
+                  if name[0] in ("A", "G", "T") and name not in ("AN1", "AN2"))
+    frac = shallow / sum(areas.values())
     assert 0.45 <= frac <= 0.55, f"shallow-band floor fraction {frac:.3f}"
 
 

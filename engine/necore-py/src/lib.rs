@@ -932,8 +932,9 @@ impl Raster {
     /// Mark a registered clip's instance as an OTHERWORLD chamber — its
     /// union selects the inverted cold field instead of the lightmap in
     /// the final compose (applied after the entity fold + overlays).
-    fn mark_otherworld(&mut self, clip_idx: u32) -> PyResult<()> {
-        self.r.mark_otherworld(clip_idx).map_err(raster_err)
+    #[pyo3(signature = (clip_idx, mix = 1.0))]
+    fn mark_otherworld(&mut self, clip_idx: u32, mix: f32) -> PyResult<()> {
+        self.r.mark_otherworld(clip_idx, mix).map_err(raster_err)
     }
 
     /// Register an instance's convex screen-space clip polygon — either a

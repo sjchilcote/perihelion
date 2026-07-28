@@ -1003,6 +1003,38 @@ def gen_mark_hit() -> np.ndarray:
     return sy.fade_out(sy.soft_clip(out, 1.6), 0.06)
 
 
+def gen_marker_launch() -> np.ndarray:
+    """The caller LOOSES the tag dart (gate 54: the launch played
+    shrieker_scream -- one sound, two meanings -- so the one dodge cue
+    the mark machine gives the player was indistinguishable from the
+    alarm). A wet pneumatic THWIP and the dart's whistle leaving: a
+    trajectory, not a throat -- no formants, no vibrato, nothing a
+    creature's voice could be mistaken for."""
+    seed = _seed("markerlaunch")
+    dur = 0.34
+    n = sy.samples(dur)
+    # pressure burst: dense low-mid pop, all attack, over in 60ms
+    burst = sy.brown_noise(0.06, seed=seed)
+    burst = sy.bandpass(burst, 380.0, q=0.9)
+    burst = (burst * sy.env_exp_decay(0.06, tau=0.014)).astype(np.float32)
+    # the wet release under it: a short gurgle as the duct lets go
+    gurgle = sy.white_noise(0.12, seed=seed + 1)
+    gurgle = sy.lowpass(gurgle, 700.0)
+    wob = 1.0 + 0.5 * sy.sine(38.0, 0.12).astype(np.float64)
+    gurgle = (gurgle.astype(np.float64) * wob
+              * sy.env_exp_decay(0.12, tau=0.045)
+              ).astype(np.float32) * 0.5
+    # the dart leaving: one fast doppler arc, up then falling away
+    whist_f = np.interp(np.linspace(0.0, 1.0, n),
+                        [0.0, 0.10, 1.0], [1450.0, 2350.0, 900.0])
+    whist = sy.sine(whist_f, dur)
+    whist = (whist * sy.env_adsr(dur, 0.015, 0.06, 0.5, 0.24)
+             * 0.42).astype(np.float32)
+    out = sy.mix_layers([sy.pad_to(burst, n), sy.pad_to(gurgle, n), whist],
+                        [1.0, 0.9, 1.0])
+    return sy.fade_out(sy.soft_clip(out, 1.5), 0.04)
+
+
 def gen_shrieker_scream() -> np.ndarray:
     seed = _seed("shrieker")
     dur = 0.88
@@ -2119,6 +2151,7 @@ _ENTRIES = [
     ("spitter_shoot", "organic wet spit lob projectile launch", 0.15, 0.30, "enemy", gen_spitter_shoot, ("peak", PEAK_ENEMY)),
     ("gland_fire", "a grafted Adversary gland discharging: wet organic burst with a sour, faintly wrong detuned tonal component -- distinct from the enemy spitter's clean gurgle-plop, this is the player's own flesh doing something it shouldn't", 0.30, 0.55, "enemy", gen_gland_fire, ("peak", PEAK_ENEMY)),
     ("mark_hit", "a wet sticky impact on the player's own body followed by a rising whine as the tag goes live -- close and personal, not a distant creature noise", 0.35, 0.70, "enemy", gen_mark_hit, ("peak", PEAK_PLAYER)),
+    ("marker_launch", "a wet pneumatic thwip and a fast falling whistle as the caller looses the tag dart -- a projectile leaving, not a voice; the player's dodge cue", 0.20, 0.60, "enemy", gen_marker_launch, ("peak", PEAK_ENEMY)),
     ("shrieker_scream", "piercing distorted shriek, the scariest sound in the game", 0.55, 1.0, "enemy", gen_shrieker_scream, ("peak", PEAK_ENEMY + 0.5)),
     ("player_hurt", "sharp grunt-like thump plus a high sting", 0.10, 0.20, "player", gen_player_hurt, ("peak", PEAK_PLAYER)),
     ("player_die", "long collapse with a fading ring", 1.0, 1.5, "player", gen_player_die, ("peak", PEAK_PLAYER)),

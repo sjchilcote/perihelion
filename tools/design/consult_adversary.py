@@ -169,15 +169,42 @@ def load_api_key() -> str | None:
 
 
 def banned_terms() -> list[str]:
-    """The research lexicon's banned list -- the terms that must not have
-    survived translation. Read from the internal lexicon (gitignored)."""
+    """The research lexicon's banned list -- the source-domain vocabulary
+    that must not have survived translation.
+
+    Read ONLY from the lexicon's own '## 3. THE BANNED LIST' section,
+    which is the authoritative grep list. The first draft scraped the
+    left column of the MAPPING TABLE instead, whose cells are ordinary
+    English DESCRIPTIONS of each concept ('memory of a repeat intruder')
+    paired with the approved game term -- so a clean packet using the
+    approved language tripped its own gate. An instrument that fires on
+    correct output is worse than no instrument: it teaches you to
+    override it."""
     if not LEXICON.exists():
         return []
-    terms = []
-    for line in LEXICON.read_text().splitlines():
-        m = re.match(r"\s*[-*|]\s*`?([A-Za-z][A-Za-z0-9 '\-]{2,40})`?\s*[|:]", line)
-        if m:
-            terms.append(m.group(1).strip().lower())
+    text = LEXICON.read_text()
+    m = re.search(r"^##\s*\d+\.\s*THE BANNED LIST.*?$(.*?)^##\s",
+                  text, re.M | re.S)
+    if m is None:
+        raise SystemExit(
+            f"{LEXICON} has no 'THE BANNED LIST' section -- the check "
+            "cannot be performed, and silently passing is not an option.")
+    terms: list[str] = []
+    # the categories wrap across lines, so read BLOCKS ('**Places:** ...'
+    # up to the next bold label), never lines. Only labels ending in a
+    # colon are term lists; '**On citations.**' introduces prose.
+    for label, body in re.findall(r"\*\*([^*]+?)\*\*(.*?)(?=\*\*|\Z)",
+                                  m.group(1), re.S):
+        if not label.rstrip().endswith(":"):
+            continue
+        for raw in body.replace("\n", " ").replace(".", ",").split(","):
+            t = " ".join(raw.split()).strip("`*").lower()
+            if len(t) >= 4 and re.fullmatch(r"[a-z0-9 '\-]+", t):
+                terms.append(t)
+    if len(terms) < 120:
+        raise SystemExit(
+            f"only parsed {len(terms)} banned terms from {LEXICON} -- the "
+            "list format changed and the check would be vacuous.")
     return terms
 
 

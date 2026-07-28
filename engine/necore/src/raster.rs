@@ -1012,7 +1012,7 @@ pub struct Raster {
     /// Clip indices whose instances are OTHERWORLD chambers this frame
     /// (`mark_otherworld`); their union selects the inverted cold field
     /// instead of the lightmap in the final compose. Reset by `begin`.
-    ow_clips: Vec<u32>,
+    ow_clips: Vec<(u32, u8)>,
     /// Lazily-baked inverted cold-distance field (row-major RGB8): the
     /// otherworld's illumination — dark pools NEAR the screen center,
     /// faint luminescence at distance. Exact port of render.py's old
@@ -1538,11 +1538,17 @@ impl Raster {
     /// union of marked clips selects the inverted cold field instead of
     /// the lightmap in the final compose (applied AFTER the entity fold
     /// and overlays, exactly where the old Python composite ran).
-    pub fn mark_otherworld(&mut self, clip_idx: u32) -> Result<(), RasterError> {
+    /// `mix` is how far this clip composes under the inverted cold field:
+    /// 0 leaves it on the ordinary lightmap, 1 is full otherworld (and is
+    /// bit-identical to the old binary mark). The corruption gradient
+    /// passes the crossfade so a chamber at the kind boundary is mostly
+    /// ordinary and the deepest cells are nearly pure inverse.
+    pub fn mark_otherworld(&mut self, clip_idx: u32, mix: f32) -> Result<(), RasterError> {
         if clip_idx as usize >= self.clips.len() {
             return err(format!("mark_otherworld: bad clip index {clip_idx}"));
         }
-        self.ow_clips.push(clip_idx);
+        let m = (mix.clamp(0.0, 1.0) * 255.0 + 0.5) as u8;
+        self.ow_clips.push((clip_idx, m));
         Ok(())
     }
 
@@ -2094,32 +2100,38 @@ impl Raster {
                 w: self.w,
                 h: self.h,
             };
-            let polys: Vec<Vec<Vec2>> = self
+            // the mask carries the MIX per pixel, not a flag: each clip
+            // stamps its own crossfade weight, later clips overwriting
+            // earlier ones in instance draw order
+            let polys: Vec<(Vec<Vec2>, u8)> = self
                 .ow_clips
                 .iter()
-                .filter_map(|&ci| self.clips.get(ci as usize))
-                .filter(|c| c.pts.len() >= 3)
-                .map(|c| c.pts.clone())
+                .filter_map(|&(ci, m)| self.clips.get(ci as usize).map(|c| (c, m)))
+                .filter(|(c, _)| c.pts.len() >= 3)
+                .map(|(c, m)| (c.pts.clone(), m))
                 .collect();
-            let mut c = Canvas {
-                buf: &mut self.light_mask,
-                bpp: 1,
-                w: self.w,
-                clip,
-                px: PxWrite::Mask(255),
-            };
-            for pts in &polys {
+            for (pts, m) in &polys {
+                let mut c = Canvas {
+                    buf: &mut self.light_mask,
+                    bpp: 1,
+                    w: self.w,
+                    clip,
+                    px: PxWrite::Mask(*m),
+                };
                 let (xs, ys) = round_pts(pts);
                 pg_poly_fill(&mut c, &xs, &ys);
             }
             for (i, px) in self.world.chunks_exact_mut(4).enumerate() {
-                let field = if self.light_mask[i] != 0 {
-                    &self.inv_field[i * 3..i * 3 + 3]
-                } else {
-                    &self.lightmap[i * 3..i * 3 + 3]
-                };
+                let m = self.light_mask[i] as u32;
                 for ch in 0..3 {
-                    px[ch] = ((px[ch] as u32 * field[ch] as u32 + 255) >> 8) as u8;
+                    // lerp lightmap -> inverted field by the mix, then the
+                    // same BLEND_RGB_MULT parity multiply. At m=255 this
+                    // is exactly the old inv_field path; at m=0, exactly
+                    // the old lightmap path.
+                    let lm = self.lightmap[i * 3 + ch] as u32;
+                    let iv = self.inv_field[i * 3 + ch] as u32;
+                    let field = (lm * (255 - m) + iv * m + 127) / 255;
+                    px[ch] = ((px[ch] as u32 * field + 255) >> 8) as u8;
                 }
             }
         }

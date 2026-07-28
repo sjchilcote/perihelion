@@ -249,27 +249,11 @@ def _corner_session():
     return GameSession(b.build(), seed=3)
 
 
-def test_a_scream_woken_shrieker_does_not_scream_back():
-    """The alarm carries first-hand knowledge; it does not self-amplify.
-    Two hunkered shriekers re-latched each other into hunt forever
-    through mutual rescreams (run 49/51, N2)."""
-    s = _two_rooms_session()
-    a = s.spawn_enemy(0, (60.0, 80.0), "shrieker")
-    bb = s.spawn_enemy(0, (140.0, 80.0), "shrieker")
-    ea, eb = s.enemies[a], s.enemies[bb]
-    s._set_enemy_state(a, ea, "hunt")
-    ea["scream_cd"] = 0
-    eb["scream_cd"] = 0
-    s._shrieker_ai(a, ea, 0, 1, 60.0, 80.0, 100.0)
-    assert eb["state"] == "hunt" and eb.get("_scream_woken"), \
-        "A's scream must wake B with the relayed-alarm mark"
-    fx_mark = len(s.fx)
-    s._shrieker_ai(bb, eb, 0, 1, 140.0, 80.0, 100.0)
-    screams = [f for f in s.fx[fx_mark:] if f[0] == "scream"]
-    assert not screams, "a scream-woken shrieker screamed back (relay loop)"
-    # first-hand stimulus re-arms it: any wake path through 'waking'
-    s._set_enemy_state(bb, eb, "waking")
-    assert "_scream_woken" not in eb
+# The mutual-rescream loop is now UNREPRESENTABLE rather than flagged:
+# U10's shrieker FSM rouses everything within two hops EXCEPT other
+# shriekers, which run their own machine, so a scream can no longer wake
+# a caller that screams back. The property is pinned where the machine
+# lives, in test_shrieker_mark.py::test_rouse_leaves_other_shriekers_alone.
 
 
 def test_one_door_hunt_stands_down_instead_of_grinding():

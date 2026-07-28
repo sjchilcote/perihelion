@@ -1,5 +1,5 @@
 {
-  "total_cost": 43.741534799999954,
+  "total_cost": 44.816890799999946,
   "calls": [
     {
       "tool": "audio_judge",
@@ -25016,6 +25016,550 @@
       "model": "google/gemini-3.1-pro-preview",
       "prompt_tokens": 876,
       "completion_tokens": 509
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.015288,
+      "ts": 1785271729.7486136,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 466,
+      "completion_tokens": 1611
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.017025,
+      "ts": 1785271740.8595493,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 466,
+      "completion_tokens": 1804
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.0175275,
+      "ts": 1785271755.298217,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 450,
+      "completion_tokens": 1864
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.0187965,
+      "ts": 1785271771.7438283,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 450,
+      "completion_tokens": 2005
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.0142095,
+      "ts": 1785271783.847256,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 457,
+      "completion_tokens": 1494
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.0189525,
+      "ts": 1785271802.738774,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 457,
+      "completion_tokens": 2021
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.0145665,
+      "ts": 1785271811.5596602,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 412,
+      "completion_tokens": 1547
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.0145215,
+      "ts": 1785271823.5208688,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 412,
+      "completion_tokens": 1542
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.0174705,
+      "ts": 1785271837.2830205,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 488,
+      "completion_tokens": 1847
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.0173085,
+      "ts": 1785271849.360308,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 488,
+      "completion_tokens": 1829
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.019881,
+      "ts": 1785271862.9792948,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 452,
+      "completion_tokens": 2120
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.015363,
+      "ts": 1785271873.8992739,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 452,
+      "completion_tokens": 1618
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.013545,
+      "ts": 1785271887.0477784,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 421,
+      "completion_tokens": 1431
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.013905,
+      "ts": 1785271900.6725984,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 421,
+      "completion_tokens": 1471
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.017664,
+      "ts": 1785271912.6378572,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 448,
+      "completion_tokens": 1881
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.016107,
+      "ts": 1785271923.3976624,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 448,
+      "completion_tokens": 1708
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.014016,
+      "ts": 1785271934.8045504,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 418,
+      "completion_tokens": 1485
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.016662,
+      "ts": 1785271949.8403022,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 418,
+      "completion_tokens": 1779
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.014979,
+      "ts": 1785271962.251709,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 459,
+      "completion_tokens": 1579
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.017508,
+      "ts": 1785271975.6149497,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 459,
+      "completion_tokens": 1860
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.0152475,
+      "ts": 1785271985.39162,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 451,
+      "completion_tokens": 1611
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.0183615,
+      "ts": 1785271998.6234183,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 451,
+      "completion_tokens": 1957
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.015285,
+      "ts": 1785272009.3391793,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 426,
+      "completion_tokens": 1621
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.014412,
+      "ts": 1785272018.4621623,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 426,
+      "completion_tokens": 1524
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.0149445,
+      "ts": 1785272030.098103,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 430,
+      "completion_tokens": 1581
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.0153315,
+      "ts": 1785272042.5964515,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 430,
+      "completion_tokens": 1624
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.014082,
+      "ts": 1785272053.345823,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 417,
+      "completion_tokens": 1487
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.015873,
+      "ts": 1785272064.2918603,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 417,
+      "completion_tokens": 1686
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.013962,
+      "ts": 1785272072.7972422,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 412,
+      "completion_tokens": 1476
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.014934,
+      "ts": 1785272081.6062002,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 412,
+      "completion_tokens": 1584
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.015879,
+      "ts": 1785272093.87387,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 464,
+      "completion_tokens": 1676
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.016482,
+      "ts": 1785272106.599587,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 464,
+      "completion_tokens": 1743
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.012759,
+      "ts": 1785272115.8664203,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 385,
+      "completion_tokens": 1351
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.017232,
+      "ts": 1785272132.1657503,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 385,
+      "completion_tokens": 1848
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.017139,
+      "ts": 1785272143.7813947,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 417,
+      "completion_tokens": 1827
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.015825,
+      "ts": 1785272154.6363242,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 417,
+      "completion_tokens": 1681
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.0159945,
+      "ts": 1785272166.9331632,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 393,
+      "completion_tokens": 1708
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.0131955,
+      "ts": 1785272176.561484,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 393,
+      "completion_tokens": 1397
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.0171855,
+      "ts": 1785272187.9202425,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 451,
+      "completion_tokens": 1821
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.0230265,
+      "ts": 1785272203.28345,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 451,
+      "completion_tokens": 2470
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.0144075,
+      "ts": 1785272215.3728604,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 431,
+      "completion_tokens": 1519
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.0145695,
+      "ts": 1785272224.6522338,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 431,
+      "completion_tokens": 1537
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.014499,
+      "ts": 1785272235.6348963,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 428,
+      "completion_tokens": 1530
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.014553,
+      "ts": 1785272246.9149976,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 428,
+      "completion_tokens": 1536
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.0147615,
+      "ts": 1785272258.291334,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 475,
+      "completion_tokens": 1551
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.0150945,
+      "ts": 1785272270.878834,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 475,
+      "completion_tokens": 1588
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.0137085,
+      "ts": 1785272279.769539,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 477,
+      "completion_tokens": 1430
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.0159135,
+      "ts": 1785272288.5639877,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 477,
+      "completion_tokens": 1675
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.016827,
+      "ts": 1785272300.184657,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 459,
+      "completion_tokens": 1783
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.016899,
+      "ts": 1785272311.2891495,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 459,
+      "completion_tokens": 1791
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.015837,
+      "ts": 1785272329.167964,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 400,
+      "completion_tokens": 1689
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.017565,
+      "ts": 1785272340.9254534,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 400,
+      "completion_tokens": 1881
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.0153795,
+      "ts": 1785272351.045987,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 420,
+      "completion_tokens": 1631
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.0162795,
+      "ts": 1785272363.6456218,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 420,
+      "completion_tokens": 1731
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.016119,
+      "ts": 1785272376.386197,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 413,
+      "completion_tokens": 1715
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.015624,
+      "ts": 1785272387.9316132,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 413,
+      "completion_tokens": 1660
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.0130575,
+      "ts": 1785272398.6873734,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 399,
+      "completion_tokens": 1381
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.0138945,
+      "ts": 1785272408.5120544,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 399,
+      "completion_tokens": 1474
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.0142815,
+      "ts": 1785272417.9941006,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 429,
+      "completion_tokens": 1506
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.0148485,
+      "ts": 1785272428.119162,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 429,
+      "completion_tokens": 1569
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.015276,
+      "ts": 1785272440.5161128,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 432,
+      "completion_tokens": 1615
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.017247,
+      "ts": 1785272451.3917654,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 432,
+      "completion_tokens": 1834
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.013863,
+      "ts": 1785272460.3999786,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 439,
+      "completion_tokens": 1456
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.016545,
+      "ts": 1785272471.9709215,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 439,
+      "completion_tokens": 1754
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.0212025,
+      "ts": 1785272484.7885897,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 496,
+      "completion_tokens": 2259
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.0177465,
+      "ts": 1785272497.5279224,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 496,
+      "completion_tokens": 1875
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.014013,
+      "ts": 1785272511.5137532,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 425,
+      "completion_tokens": 1483
+    },
+    {
+      "tool": "audio_judge",
+      "cost": 0.012897,
+      "ts": 1785272519.8019135,
+      "model": "google/gemini-3.5-flash",
+      "prompt_tokens": 425,
+      "completion_tokens": 1359
     }
   ]
 }
