@@ -211,3 +211,33 @@ Landed as five per-unit commits (engine platform module; audio/music
 port; app/ui window loop; tests/tools sweep; dependency removal).
 807 tests green. pygame-ce is out of pyproject; the runtime is
 necore + numpy + soundfile.
+
+## Run 52 (7/28): the carried watch items close
+
+Run 51's ledger, worked through: the SFX pool now culls inaudible sends
+before they claim a voice (17.8k silent sentry sends per session were
+each able to evict something audible), holds 24 voices instead of
+pygame's 12, and steals the QUIETEST voice for a louder newcomer rather
+than dropping the newcomer — measured unmuted, enemy deaths voiced 28%
+-> 54%. The sentry got its own generated voice (it had been firing the
+player's pistol). Telemetry gained bulk enemy-position snapshots, x/y on
+every AgentTransition, a first-class player_death record, and the
+missing PickupTaken branches; ground_truth path-integrates movement
+instead of the bounding-box diagonal that under-read a patrolling warden
+9.7x. Two behaviour leaks closed: a scream-woken shrieker no longer
+screams back, and a hunt that has pushed a one-door chamber's only
+doorway for fifteen seconds with nothing in sight stands down on the
+record. And the chassis design-text drift: the starting pod always
+prints (DESIGN_7_25's infinite backup chassis), while protected_revival
+finally buys the grace window the mindmap promised.
+
+PASS p=0.96, zero blockers. The judge confirmed every targeted item
+closed or materially improved, found the run-49/51 shrieker signature
+absent from all four seeds, and filmed every beat of seven deaths.
+Landed as three commits.
+
+Operational note: waiting on the gate is now `tools/playtest/gate_wait.sh`.
+Run 51's verdict sat unread for twenty minutes because the ad-hoc watcher
+grepped for `gate.sh` and matched its own command line — it waited on
+itself. gate.sh writes gate.pid and gate.exit; the waiter polls those and
+distinguishes PASS, FAIL, killed-mid-run, and timeout.
