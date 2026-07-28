@@ -287,6 +287,21 @@ def _boil(pts, tick, eid, amp):
     return out
 
 
+# Minimum on-screen body radius per kind (screen px). The sentry law
+# ("has to read at the shipped 0.45 zoom, not shrink to three dark
+# pixels") applied to every combatant, TIERED so threat rank survives
+# any camera: a warden must never compress to the same speck as a
+# mite — the filmed gate's 'every unit renders as an identical small
+# yellow triangle' blocker. At play zoom (1.35) real sizes exceed all
+# of these and nothing changes.
+ENEMY_MIN_PX = {
+    "mite": 3.0,
+    "husk": 6.0, "spitter": 6.0, "shrieker": 6.0, "flicker": 6.0,
+    "vagrant": 7.0, "lacuna": 7.0,
+    "brute": 8.0,
+    "warden": 10.0,
+}
+
 ENEMY_COLOR = {
     "husk": (126, 142, 116),
     "mite": (208, 220, 198),
@@ -1544,6 +1559,7 @@ class Renderer:
         self._sparks: list[dict] = []
         self._bolts: list[dict] = []
         self._screams: list[dict] = []
+        self._floaters: list[dict] = []   # pickup text that rises + fades
         self._hitflash: dict[int, int] = {}
         self._hurt_ticks = 0
         self._death_fade = 0
@@ -1557,6 +1573,7 @@ class Renderer:
         # straight onto the entity layer in _draw_effects, so it survives the
         # darkness multiply unattenuated, same as every entity sprite).
         self._deferred_bolt_glows: list = []
+        self._deferred_floaters: list = []
 
     # ------------------------------------------------------------------
     # one-time buffer baking (numpy sprites, row=y col=x)
@@ -1628,6 +1645,11 @@ class Renderer:
             sc["age"] += 1
         self._screams = [sc for sc in self._screams if sc["age"] < sc["maxage"]][-20:]
 
+        for fl in self._floaters:
+            fl["age"] += 1
+        self._floaters = [fl for fl in self._floaters
+                          if fl["age"] < fl["maxage"]][-12:]
+
         for eid in list(self._hitflash):
             self._hitflash[eid] -= 1
             if self._hitflash[eid] <= 0:
@@ -1661,6 +1683,24 @@ class Renderer:
             elif tag == "alerted":
                 _, polygon, x, y = fx
                 self._screams.append(dict(polygon=polygon, x=x, y=y, age=0, maxage=10))
+            elif tag == "killpop":
+                # a death is punctuation: a fast bright ring at the
+                # corpse so 4px kills still land visually (run 38
+                # ledger: 7 trace-verified hits, zero visible juice)
+                _, polygon, x, y = fx
+                self._screams.append(dict(polygon=polygon, x=x, y=y,
+                                          age=0, maxage=9,
+                                          col=(255, 240, 220)))
+            elif tag == "attacker_mark":
+                # the shared incoming-hit language: whatever just hurt
+                # the player wears a red pulse for a quarter second —
+                # attribution that survives ambient washes and clutter
+                # (gate run 23: confirmed P1, flicker invisible in
+                # breach-lit magenta while landing 4x16 dmg)
+                _, polygon, x, y = fx
+                self._screams.append(dict(polygon=polygon, x=x, y=y,
+                                          age=0, maxage=16,
+                                          col=(255, 60, 50)))
             elif tag == "lightning":
                 _, polygon, x, y, radius = fx
                 segs = []
@@ -1675,6 +1715,18 @@ class Renderer:
             elif tag == "scream":
                 _, polygon, x, y = fx
                 self._screams.append(dict(polygon=polygon, x=x, y=y, age=0, maxage=16))
+            elif tag == "pickup_text":
+                # resource changes must be legible ON the world, not
+                # only as a HUD delta (first filmed playtest: hp/ammo
+                # jumped 'with no visible cause on screen')
+                _, polygon, (x, y), txt = fx
+                # stagger: simultaneous toasts stack upward instead of
+                # overprinting at one spot (gate run 31)
+                live_here = sum(1 for fl in self._floaters
+                                if fl["polygon"] == polygon)
+                self._floaters.append(dict(
+                    polygon=polygon, x=x, y=y - 13.0 * live_here,
+                    text=txt, age=0, maxage=55))
             elif tag == "hitflash":
                 _, eid = fx
                 self._hitflash[eid] = 3
@@ -1682,11 +1734,20 @@ class Renderer:
                 self._hurt_ticks = 2
             elif tag == "playerdie":
                 self._dying = True
+            elif tag == "playerreprint":
+                # the fade belongs to ONE death: without this reset the
+                # latch survived the reprint, so every death after the
+                # first cut instantly to a full-black linger (run 42b:
+                # s11's second death filmed as 85 identical black
+                # frames while s7's first filmed every beat — the
+                # 'nondeterminism' was death ordinal)
+                self._dying = False
+                self._death_fade = 0
             # "sound" / "objective" / "terminal" are consumed by
             # audio.py / app.py, not the renderer.
 
         if self._dying:
-            self._death_fade = min(40, self._death_fade + 1)
+            self._death_fade = min(150, self._death_fade + 1)
 
     # ------------------------------------------------------------------
     # per-frame draw
@@ -1718,6 +1779,7 @@ class Renderer:
         self._deferred_bolts = []
         self._deferred_screen_glows = []
         self._deferred_bolt_glows = []
+        self._deferred_floaters = []
         instances = session.visible(self.max_depth, self.max_instances)
         size = _size_of(surf)
         ow_polys = self._draw_world_rust(size, instances)
@@ -1922,6 +1984,15 @@ class Renderer:
             self._draw_doors(world, polygon, xform, clip_screen)
             self._draw_entities(ent, ents, None)
             self._draw_effects(ent, polygon, xform, clip_screen)
+            # the player's kite outline re-strokes ABOVE the effects
+            # layer: point-blank muzzle/spark stacks covered the ship
+            # for 7 straight frames (run 37 ledger, s7 f705-712)
+            for peid, psx, psy, pdx, pdy, psrad, pfin in ents:
+                if peid == self.session.pid:
+                    pang = math.atan2(pdy, pdx)
+                    ppts = _xform_pts(PLAYER_SHAPE, psx, psy,
+                                      max(psrad, 7.0), pang)
+                    ent.polygon((255, 255, 255), _pts(ppts), 1)
         # assemble the final stream: dynamic slices + patched blob copies
         dyn_c = np.array(cmds, dtype=np.uint32)
         dyn_f = np.array(coords, dtype=np.float32)
@@ -2787,15 +2858,10 @@ class Renderer:
                 canvas.rect((44, 20, 18), Rect(ix - 10, iy - 12, 20, 2))
                 canvas.rect((235, 110, 80),
                             Rect(ix - 10, iy - 12, int(20 * hurt), 2))
-        # BREACHES the hub reached through (ADVERSARY_DESIGN): reinforcements
-        # pour out of these, well behind the front where a caller opened them
-        for br in getattr(session, "breaches", ()):
-            if br["polygon"] != polygon:
-                continue
-            bsx, bsy = necore.mat_apply(xform, *br["pos"])
-            if not _point_in_poly(bsx, bsy, clip_screen):
-                continue
-            self._draw_breach(canvas, bsx, bsy, session.tick_count)
+        # BREACHES: deliberately NO floor marker — the carved hole in
+        # the wall is a real portal the renderer already draws, and the
+        # violet breach-light already washes the chamber. A ring on the
+        # floor read as 'a thing on the floor' (director, 2026-07-26).
 
     def _nearest_wall_point(self, polygon: int, pos):
         """Nearest point on a polygon's wall to `pos` (polygon-local), for
@@ -2972,7 +3038,7 @@ class Renderer:
                 # 2026-07-23: the HUD no longer says "carrying a pod"). Drawn
                 # first so the chassis sits on top of its load.
                 self._draw_carried(canvas, sx, sy, ang, max(srad, 2.0))
-                pts = _xform_pts(PLAYER_SHAPE, sx, sy, max(srad, 2.0), ang)
+                pts = _xform_pts(PLAYER_SHAPE, sx, sy, max(srad, 7.0), ang)
                 if clip_screen is not None and not fully_inside:
                     pts = necore.clip_polygon(pts, clip_screen)
                     if len(pts) < 3:
@@ -3253,33 +3319,6 @@ class Renderer:
         # renders like any other; the breach opening is the whole tell.
         return
 
-    def _draw_breach(self, canvas, sx, sy, tick):
-        """A breach the hub reached through: a dark tear (you cannot shoot a
-        hole -- it is absence of material) rimmed in violent violet energy
-        that reaches with tendrils and pulses as reinforcements come through.
-        Reads as alien and dangerous, never like a player structure."""
-        ix, iy = _pt((sx, sy))
-        pulse = 0.5 + 0.5 * math.sin(tick * 0.13)
-        # bigger than a floor stain, and a dark-VIOLET well (not near-black) so
-        # it never reads as blood/grime -- the whole point is "obviously a
-        # tear". Sized against the 96u seam it is cut from (the first live
-        # frame review read the old 16px ring as 'a dark knot/smudge' at
-        # farm zoom), with a doubled rim and an outer glow ring.
-        r = int(26 + 6 * pulse)
-        canvas.circle((36, 10, 52), (ix, iy), r + 6)          # outer bruise
-        canvas.circle((24, 7, 34), (ix, iy), r)               # the violet void
-        canvas.circle((228, 110, 255), (ix, iy), r, 1)        # bright hot rim
-        canvas.circle((228, 110, 255), (ix, iy), r - 1, 1)     # doubled
-        canvas.circle((150, 60, 200), (ix, iy), r + 6, 1)     # halo ring
-        canvas.circle((170, 62, 205), (ix, iy), max(2, r - 1), 1)   # rim depth
-        canvas.circle((130, 45, 175), (ix, iy), max(2, int(r * 0.62)), 1)
-        canvas.circle((150, 55, 190), (ix, iy), max(2, int(r * 0.32)), 1)  # inner well
-        for k in range(7):                                     # reaching tendrils
-            a = k * (2.0 * math.pi / 7.0) + tick * 0.02
-            r2 = r + 5 + int(6 * pulse)
-            canvas.line((185, 70, 215),
-                        (ix + int(math.cos(a) * r), iy + int(math.sin(a) * r)),
-                        (ix + int(math.cos(a) * r2), iy + int(math.sin(a) * r2)), 1)
 
     def _draw_core_part(self, canvas, eid, kind, sx, sy, srad, flashed):
         """The CORE's organ parts (DESIGN_7_25 §1b): one violet family —
@@ -3363,6 +3402,7 @@ class Renderer:
                              iy + int(math.sin(a) * r * 0.8)), 1)
 
     def _draw_enemy(self, canvas, eid, kind, sx, sy, ang, srad, clip_screen, fully_inside):
+        srad = max(srad, ENEMY_MIN_PX.get(kind, 5.0))
         flashed = self._hitflash.get(eid, 0) > 0
         fill = ENEMY_COLOR.get(kind, (150, 150, 150))
         rim = ENEMY_RIM.get(kind) or _brighten(fill, 70)
@@ -3399,6 +3439,24 @@ class Renderer:
         if kind.startswith("core_"):
             self._draw_core_part(canvas, eid, kind, sx, sy, srad, flashed)
             return
+        gripping = (kind == "warden" and self.session.captures.held_by(
+            self.session.pid) == eid)
+        if gripping:
+            # the swallow must read as A WARDEN eating you: the dark
+            # 9-gon silhouette survives every overlay (run 37 ledger:
+            # whiten + white rings + white hit-flash dissolved it into
+            # 'HP drains in red haze'). No whiten, no full-white flash
+            # during the grip — hits pulse the OUTER ring instead.
+            fill = ENEMY_COLOR["warden"]
+            rim = ENEMY_RIM["warden"]
+            pulse = 2 + int(2 * (0.5 + 0.5 * math.sin(
+                self.session.tick_count * 0.35)))
+            hitk = (255, 255, 255) if flashed else (235, 235, 245)
+            flashed = False
+            canvas.circle(hitk, _pt((sx, sy)),
+                          int(srad) + pulse + 3, 1)
+            canvas.circle((200, 200, 215), _pt((sx, sy)),
+                          int(srad) + pulse + 6, 1)
         if kind == "mite":
             if clip_screen is not None and not fully_inside \
                     and not _point_in_poly(sx, sy, clip_screen):
@@ -3462,7 +3520,13 @@ class Renderer:
         if clip_screen is not None and not _point_in_poly(sx, sy, clip_screen):
             return
         if kind == "spit":
-            canvas.circle((140, 205, 60), _pt((sx, sy)), 2)
+            # a glob STREAKS: the tail multiplies its on-frame presence
+            # so ranged pressure is visible in flight, not only on the
+            # hit (three-seed gate: 'invisible spitter hits' confirmed)
+            tx_, ty_ = sx - dirx * 14, sy - diry * 14
+            canvas.line((90, 140, 40), _pt((tx_, ty_)), _pt((sx, sy)), 2)
+            canvas.circle((140, 205, 60), _pt((sx, sy)), 3)
+            canvas.circle((220, 255, 140), _pt((sx, sy)), 1)
         elif kind == "dart":
             color = (120, 240, 255)
             base_ang = math.atan2(diry, dirx) if (dirx or diry) else 0.0
@@ -3622,8 +3686,14 @@ class Renderer:
 
     def _draw_effects(self, canvas, polygon, xform, clip_screen):
         if not (self._gibs or self._sparks
-                or self._bolts or self._screams):
-            return  # nothing pooled: skip the per-instance scale hypot
+                or self._bolts or self._screams or self._floaters):
+            # nothing pooled: skip the per-instance scale hypot.
+            # _floaters MUST be in this guard: without it, pickup text
+            # rendered only while some other pool happened to be non-
+            # empty — quiet out-of-combat pickups, the exact case the
+            # legibility law targets, showed nothing (run 44 confirmed
+            # blocker, causation proven by guard bypass)
+            return
         scale = _xform_scale(xform)
 
         for g in self._gibs:
@@ -3672,9 +3742,26 @@ class Renderer:
             if not _point_in_poly(sx, sy, clip_screen):
                 continue
             t = sc["age"] / sc["maxage"]
+            col = sc.get("col", SCREAM_COLOR)
             for ring_off in (0, 6):
                 rad = int((6 + ring_off) + t * 20)
-                canvas.circle(SCREAM_COLOR, _pt((sx, sy)), rad, 1)
+                canvas.circle(col, _pt((sx, sy)), rad, 1)
+
+        for fl in self._floaters:
+            if fl["polygon"] != polygon:
+                continue
+            sx, sy = necore.mat_apply(xform, fl["x"], fl["y"])
+            if not _point_in_poly(sx, sy, clip_screen):
+                continue
+            t = fl["age"] / fl["maxage"]
+            # rises and fades; drawn OVER the lightmap pass via the
+            # deferred queue so pickups read even in a dim room. Full
+            # brightness holds through the first half of the rise —
+            # an immediate fade left 0/4 seeds with legible pickups
+            # on film (run 43, 18-27 pickups per session)
+            self._deferred_floaters.append(
+                (fl["text"], int(sx), int(sy - 10 - t * 22),
+                 1.0 if t < 0.5 else max(0.25, 1.0 - (t - 0.5) * 1.5)))
 
     # -- (8) post -------------------------------------------------------
 
@@ -3694,21 +3781,59 @@ class Renderer:
     def _draw_post(self, fb):
         session = self.session
         w, h, _ = fb.shape
+        # breach opens are announced by the tear's own REAL light
+        # surging (sim drives the attached LightSpec) — no full-frame
+        # overlay: a flash with no source is noise, not information
+        # (director, 2026-07-27)
+        # pickup floaters: post-lightmap so the text reads in dim rooms
+        placed_ = []
+        for txt, sx, sy, alpha in sorted(self._deferred_floaters,
+                                         key=lambda f_: f_[2]):
+            # de-overlap on SCREEN: the 13u world-space stagger is ~6px
+            # at 0.45 zoom, under the glyph height, so simultaneous
+            # pickups overprinted at one spot (run 44 rider). Topmost
+            # first; each collider is pushed above the one before it.
+            for ox_, oy_ in placed_:
+                if abs(sx - ox_) < 64 and abs(sy - oy_) < 18:
+                    sy = oy_ - 18
+            placed_.append((sx, sy))
+            col = (int(200 * alpha + 55), int(230 * alpha + 25),
+                   int(190 * alpha + 30))
+            if 0 <= sx < w and 0 <= sy < h:
+                # shadowed 16px: bare 12px pale-on-bright was pixel-
+                # confirmed illegible at the shipped 0.45 zoom in every
+                # run-43 seed — the shadow buys contrast on any wash
+                x0 = max(2, sx - 4 * len(txt))
+                y0 = max(2, sy)
+                text.blit_text(fb, txt, x0 + 1, y0 + 1, (0, 0, 0), 16)
+                text.blit_text(fb, txt, x0, y0, col, 16)
         vig = None
         if (session.hp < 35 and not session.dead) or self._hurt_ticks > 0:
             vig = self._vig_alpha_for(w, h).astype(np.uint16)
         if session.hp < 35 and not session.dead:
             pulse = 0.55 + 0.45 * math.sin(session.tick_count * 0.25)
-            a = max(0, min(255, int(150 * pulse)))
+            # capped: at full saturation the vignette washed out the
+            # warden/flicker shapes at exactly the chained-engulf moment
+            # readability matters most (three-seed gate, confirmed P1).
+            # The edge-falloff field keeps the center clear; the CAP
+            # keeps the edges from swallowing the fight.
+            a = max(0, min(255, int(95 * pulse)))
             _alpha_over(fb, (160, 8, 8), (vig * a) // 255)
         if self._hurt_ticks > 0:
             # pain reads at the screen edges (red vignette) + a faint cast;
             # the center of the world must stay readable through the flash
             k = self._hurt_ticks / 2.0
-            _alpha_over(fb, (160, 8, 8), (vig * int(230 * k)) // 255)
-            _alpha_over(fb, (190, 26, 26), int(36 * k))
+            _alpha_over(fb, (160, 8, 8), (vig * int(150 * k)) // 255)
+            _alpha_over(fb, (190, 26, 26), int(24 * k))
         if session.dead and self._death_fade > 0:
-            a = min(255, int(255 * self._death_fade / 40))
+            # the kill reads before the dark: a red surge that decays
+            # while the black rises over 2.5s — no more hard cut to a
+            # black frame between two judge/blink samples
+            df = self._death_fade
+            red = int(170 * max(0.0, 1.0 - df / 60.0))
+            if red > 2:
+                _alpha_over(fb, (200, 16, 16), red)
+            a = min(255, int(255 * df / 150))
             _alpha_over(fb, (0, 0, 0), a)
 
     # -- debug ------------------------------------------------------------
