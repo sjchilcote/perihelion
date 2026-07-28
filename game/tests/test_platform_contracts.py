@@ -68,14 +68,32 @@ def _beep(m, sid, frames=44100):
     m.load_sound(sid, data)
 
 
-def test_sfx_pool_is_capped_at_twelve_voices():
+def test_sfx_pool_is_capped_at_twenty_four_voices():
     m = _mixer_or_skip()
     _beep(m, 1)
-    for _ in range(40):
+    for _ in range(60):
         m.sfx_play(1, 0.1, 0.1)
-    assert m.sfx_active() <= 12, (
+    assert m.sfx_active() <= 24, (
         f"{m.sfx_active()} concurrent SFX voices — the unbounded pool "
         "clipped 124-445 bursts per session (gate run 50)")
+    m.stop_all()
+
+
+def test_full_pool_steals_quietest_for_a_louder_sound():
+    """Run 51: pygame's drop-newest lost ~88/153 death sounds on a busy
+    seed. A full pool must evict the QUIETEST voice for a louder
+    newcomer, and refuse a quieter one — and the stats must say so."""
+    m = _mixer_or_skip()
+    _beep(m, 4)
+    p0, s0, d0 = m.sfx_stats()
+    for _ in range(24):
+        assert m.sfx_play(4, 0.05, 0.05)
+    assert m.sfx_play(4, 0.9, 0.9), "loud newcomer was dropped, not stolen in"
+    assert not m.sfx_play(4, 0.001, 0.001), "whisper displaced a voice"
+    played, stolen, dropped = m.sfx_stats()
+    assert (played - p0, stolen - s0, dropped - d0) == (25, 1, 1), (
+        f"stats {(played - p0, stolen - s0, dropped - d0)} != (25, 1, 1)")
+    assert m.sfx_active() == 24
     m.stop_all()
 
 

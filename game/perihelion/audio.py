@@ -31,6 +31,11 @@ SFX_DIR = Path(__file__).resolve().parents[1] / "assets" / "sfx"
 # the level design's audio-before-visibility horror pacing (ENGINE_DESIGN
 # §3.4 / research_design.md #15).
 HOP_ATTENUATION = 0.55
+# below this effective gain a send cannot be heard over anything else in
+# the mix (~-44dB, under one 8-bit LSB) — it is culled BEFORE it takes a
+# pool voice. Run 51: distant sentry fire alone was 17.8k such sends per
+# session, each one able to evict an audible sound from the 12-voice pool.
+INAUDIBLE = 0.006
 
 # engine channel ids: 0..63 belong to the music system (lanes, risers,
 # tails — music.py's numbering used pygame channel indices and keeps
@@ -82,6 +87,7 @@ class Audio:
         # muted or the mixer failed, so headless captures still log audio
         self.tap = None
 
+        self.culled_silent = 0   # sends dropped below INAUDIBLE (run 51)
         self._missing_logged: set[str] = set()
         self._ambience_name: str | None = None
         self._ambience_on = False
@@ -132,17 +138,24 @@ class Audio:
         self.bank.by_name[name] = sid
         return sid
 
-    def play(self, name: str, vol: float = 1.0, pan: float = 0.5) -> None:
+    def play(self, name: str, vol: float = 1.0, pan: float = 0.5) -> bool:
+        """Returns True iff the sound was granted a mixer voice."""
         if self.tap is not None:
             self.tap("sfx", name, vol, pan)
         if self.muted or not self._ready:
-            return
+            return False
+        v = max(0.0, min(1.0, vol)) * self.sfx_vol * self.master_vol
+        if v < INAUDIBLE:
+            # run 51: 17.8k effectively-silent sends per session (distant
+            # sentry fire after hop attenuation) were each eating a pool
+            # voice a player could actually have heard something on
+            self.culled_silent += 1
+            return False
         sid = self._load(name)
         if sid is None:
-            return
-        v = max(0.0, min(1.0, vol)) * self.sfx_vol * self.master_vol
+            return False
         pan = max(0.0, min(1.0, pan))
-        self.mixer.sfx_play(sid, (1.0 - pan) * v, pan * v)
+        return bool(self.mixer.sfx_play(sid, (1.0 - pan) * v, pan * v))
 
     # ------------------------------------------------------------------
 

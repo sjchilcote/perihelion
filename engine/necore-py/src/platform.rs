@@ -53,6 +53,10 @@ struct MixState {
     channels: HashMap<u32, Chan>,
     sfx: Vec<Voice>,
     master: f32,
+    // lifetime pool telemetry (sfx_stats)
+    sfx_played: u64,
+    sfx_stolen: u64,
+    sfx_dropped: u64,
 }
 
 fn mix_into(state: &mut MixState, out: &mut [f32]) {
@@ -207,28 +211,58 @@ impl AudioMixer {
     }
 
     /// Fire-and-forget SFX voice (pygame `Sound.play()` + channel pan).
-    /// Capped at 12 concurrent voices — the old mixer's SFX pool size;
-    /// a full pool drops the new sound exactly like `Sound.play()`
-    /// returning None did. Unbounded voices measured 2.3-3.7x full-scale
-    /// peaks and hundreds of clip bursts per session (gate run 50).
-    fn sfx_play(&self, id: u32, lvol: f32, rvol: f32) {
+    /// Capped at 24 concurrent voices. The cap exists because unbounded
+    /// voices measured 2.3-3.7x full-scale peaks and hundreds of clip
+    /// bursts per session (gate run 50); 24 (vs pygame's 12) because a
+    /// busy fight sends ~27 audible sounds/s and at 12 even perfect
+    /// arbitration voiced only 28% of enemy deaths (run-51 watch item,
+    /// measured unmuted). Unlike pygame (which dropped the NEW sound),
+    /// a full pool steals the quietest voice when the newcomer is
+    /// louder — the audible mix keeps the loud event, not the early
+    /// one. Returns true if the sound got a voice.
+    fn sfx_play(&self, id: u32, lvol: f32, rvol: f32) -> bool {
         let mut s = self.state.lock().unwrap();
-        if s.sfx.len() >= 12 {
-            return;
+        let Some(snd) = s.sounds.get(&id).cloned() else {
+            return false;
+        };
+        if s.sfx.len() >= 24 {
+            let newcomer = lvol + rvol;
+            let (qi, qv) = s
+                .sfx
+                .iter()
+                .enumerate()
+                .map(|(i, v)| (i, v.lvol + v.rvol))
+                .min_by(|a, b| a.1.total_cmp(&b.1))
+                .unwrap();
+            if newcomer <= qv {
+                s.sfx_dropped += 1;
+                return false;
+            }
+            s.sfx.remove(qi);
+            s.sfx_stolen += 1;
         }
-        if let Some(snd) = s.sounds.get(&id).cloned() {
-            s.sfx.push(Voice {
-                sound: snd,
-                pos: 0,
-                lvol,
-                rvol,
-            });
-        }
+        s.sfx.push(Voice {
+            sound: snd,
+            pos: 0,
+            lvol,
+            rvol,
+        });
+        s.sfx_played += 1;
+        true
     }
 
     /// Live SFX voice count (test introspection for the pool cap).
     fn sfx_active(&self) -> usize {
         self.state.lock().unwrap().sfx.len()
+    }
+
+    /// Lifetime (played, stolen, dropped) counters for the SFX pool —
+    /// the instrument run 51 asked for: the film's event tap fires
+    /// before arbitration, so only these counters can say what a
+    /// player actually heard.
+    fn sfx_stats(&self) -> (u64, u64, u64) {
+        let s = self.state.lock().unwrap();
+        (s.sfx_played, s.sfx_stolen, s.sfx_dropped)
     }
 
     #[pyo3(signature = (ch, id, loops = 0))]
