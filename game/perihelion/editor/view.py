@@ -1,10 +1,12 @@
-"""Pygame drafting-canvas view + input handling for the level editor.
+"""Drafting-canvas view + input handling for the level editor.
 
 All actual level-editing logic lives in `model.EditorModel` (no pygame
-there); this module is purely: camera transform, drawing, and translating
-mouse/keyboard gestures into model calls. Kept separate on purpose so
+there); this module is purely: camera transform, drawing (fb2d onto a
+numpy framebuffer), and translating mouse/keyboard gestures (uievent
+events) into model calls. Kept separate on purpose so
 `game/tests/test_editor.py` can exercise the model headlessly with zero
-pygame surface area.
+window-system surface area. Only `run()`'s window/event pump still
+touches pygame, lazily, until app.py's loop dies.
 """
 
 from __future__ import annotations
@@ -12,13 +14,11 @@ from __future__ import annotations
 import math
 import os
 import subprocess
-import sys
 import tempfile
 from pathlib import Path
 
-import pygame
-
-from ..menus import get_font
+from .. import fb2d, text, uievent
+from ..menus import font_px
 from ..render import ENEMY_COLOR, KEY_COLORS
 from . import model as M
 
@@ -93,6 +93,15 @@ def _quad_bezier_pts(p0, p1, p2, n=10):
     return pts
 
 
+def _text(fb, s: str, x: float, y: float, color, size: int = 13) -> None:
+    text.blit_text(fb, s, int(x), int(y), color, font_px(size))
+
+
+def _text_centered(fb, s: str, cx: float, cy: float, color, size: int = 13) -> None:
+    tw, th = text.measure(s, font_px(size))
+    text.blit_text(fb, s, int(cx - tw / 2), int(cy - th / 2), color, font_px(size))
+
+
 class TextPrompt:
     """Single-line text entry overlay (terminal text)."""
 
@@ -102,13 +111,13 @@ class TextPrompt:
         self.on_submit = on_submit
 
     def handle_key(self, event) -> bool:
-        if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+        if event.key in (uievent.K_RETURN, uievent.K_KP_ENTER):
             self.on_submit(self.text)
             return True
-        if event.key == pygame.K_ESCAPE:
+        if event.key == uievent.K_ESCAPE:
             self.on_submit(None)
             return True
-        if event.key == pygame.K_BACKSPACE:
+        if event.key == uievent.K_BACKSPACE:
             self.text = self.text[:-1]
             return True
         if event.unicode and event.unicode.isprintable():
@@ -116,15 +125,14 @@ class TextPrompt:
             return True
         return True  # swallow everything else while active
 
-    def draw(self, surf: "pygame.Surface") -> None:
-        w, h = surf.get_size()
-        box = pygame.Rect(w // 2 - 320, h // 2 - 40, 640, 80)
-        pygame.draw.rect(surf, (20, 22, 26), box)
-        pygame.draw.rect(surf, (120, 160, 200), box, 1)
-        f = get_font(14)
-        surf.blit(f.render(self.label, True, (180, 200, 220)), (box.x + 10, box.y + 8))
-        surf.blit(f.render(self.text + "_", True, (255, 255, 255)), (box.x + 10, box.y + 34))
-        surf.blit(f.render("Enter=ok  Esc=cancel", True, (120, 130, 140)), (box.x + 10, box.y + 58))
+    def draw_fb(self, fb) -> None:
+        w, h = fb.shape[:2]
+        box = fb2d.Rect(w // 2 - 320, h // 2 - 40, 640, 80)
+        fb2d.rect(fb, (20, 22, 26), box)
+        fb2d.rect(fb, (120, 160, 200), box, 1)
+        _text(fb, self.label, box.x + 10, box.y + 8, (180, 200, 220), 14)
+        _text(fb, self.text + "_", box.x + 10, box.y + 34, (255, 255, 255), 14)
+        _text(fb, "Enter=ok  Esc=cancel", box.x + 10, box.y + 58, (120, 130, 140), 14)
 
 
 class KeyPrompt:
@@ -135,32 +143,30 @@ class KeyPrompt:
 
     def handle_key(self, event) -> bool:
         for i, k in enumerate(M.KEY_PRESETS):
-            if event.key == pygame.K_1 + i:
+            if event.key == uievent.K_1 + i:
                 self.on_submit(k)
                 return True
-        if event.key == pygame.K_ESCAPE:
+        if event.key == uievent.K_ESCAPE:
             self.on_submit(None)
             return True
         return True
 
-    def draw(self, surf: "pygame.Surface") -> None:
-        w, h = surf.get_size()
-        box = pygame.Rect(w // 2 - 160, h // 2 - 50, 320, 100)
-        pygame.draw.rect(surf, (20, 22, 26), box)
-        pygame.draw.rect(surf, (200, 160, 60), box, 1)
-        f = get_font(14)
-        surf.blit(f.render("door key (1-4, Esc=cancel):", True, (220, 200, 160)), (box.x + 10, box.y + 8))
+    def draw_fb(self, fb) -> None:
+        w, h = fb.shape[:2]
+        box = fb2d.Rect(w // 2 - 160, h // 2 - 50, 320, 100)
+        fb2d.rect(fb, (20, 22, 26), box)
+        fb2d.rect(fb, (200, 160, 60), box, 1)
+        _text(fb, "door key (1-4, Esc=cancel):", box.x + 10, box.y + 8,
+              (220, 200, 160), 14)
         for i, k in enumerate(M.KEY_PRESETS):
             color = KEY_COLORS.get(k, (200, 200, 200))
-            surf.blit(f.render(f"{i + 1}: {k}", True, color), (box.x + 10, box.y + 32 + i * 16))
+            _text(fb, f"{i + 1}: {k}", box.x + 10, box.y + 32 + i * 16, color, 14)
 
 
 class EditorApp:
     def __init__(self, level_path: str | None = None):
-        pygame.init()
-        pygame.display.set_caption("PERIHELION -- Level Editor")
-        self.screen = pygame.display.set_mode((WINDOW_W, WINDOW_H), pygame.RESIZABLE)
-        self.clock = pygame.time.Clock()
+        self.size = (WINDOW_W, WINDOW_H)
+        self.screen = None  # created lazily by run(); draw_fb needs no window
 
         self.model = M.EditorModel()
         self.status_msg = ""
@@ -192,6 +198,12 @@ class EditorApp:
 
         self.play_proc: subprocess.Popen | None = None
 
+        # input state mirrored from the event stream (the handlers and
+        # draw code never query the window system directly)
+        self.mouse_pos = (0, 0)
+        self._held: set[int] = set()
+        self._resized = False
+
         self.running = True
 
     # ------------------------------------------------------------------
@@ -214,12 +226,12 @@ class EditorApp:
         self.zoom = max(0.05, min(3.0, min(WINDOW_W / w, (WINDOW_H - STATUS_H) / h) * 0.85))
 
     def world_to_screen(self, x: float, y: float) -> tuple[float, float]:
-        sw, sh = self.screen.get_size()
+        sw, sh = self.size
         return (sw / 2.0 + (x - self.cam_x) * self.zoom,
                 (sh - STATUS_H) / 2.0 + (y - self.cam_y) * self.zoom)
 
     def screen_to_world(self, sx: float, sy: float) -> tuple[float, float]:
-        sw, sh = self.screen.get_size()
+        sw, sh = self.size
         return (self.cam_x + (sx - sw / 2.0) / self.zoom,
                 self.cam_y + (sy - (sh - STATUS_H) / 2.0) / self.zoom)
 
@@ -237,26 +249,39 @@ class EditorApp:
     # ------------------------------------------------------------------
 
     def run(self) -> None:
+        # TRANSITION SHIM: dies with app.py's pygame loop. The window +
+        # event pump are the ONLY pygame left in the editor; every
+        # handler/draw below is already framebuffer/uievent-native.
+        import pygame
+        pygame.init()
+        pygame.display.set_caption("PERIHELION -- Level Editor")
+        self.screen = pygame.display.set_mode(self.size, pygame.RESIZABLE)
+        clock = pygame.time.Clock()
         while self.running:
             for event in pygame.event.get():
-                self._handle_event(event)
+                self._handle_event(uievent.from_pygame(event))
+                if self._resized:
+                    self._resized = False
+                    self.screen = pygame.display.set_mode(self.size, pygame.RESIZABLE)
             self._pan_keys()
-            self._draw()
-            self.clock.tick(60)
+            fb = pygame.surfarray.pixels3d(self.screen)
+            self.draw_fb(fb)
+            del fb
+            pygame.display.flip()
+            clock.tick(60)
         if self.play_proc is not None and self.play_proc.poll() is None:
             self.play_proc.terminate()
         pygame.quit()
 
     def _pan_keys(self) -> None:
-        keys = pygame.key.get_pressed()
         speed = 14.0 / self.zoom
-        if keys[pygame.K_LEFT]:
+        if uievent.K_LEFT in self._held:
             self.cam_x -= speed
-        if keys[pygame.K_RIGHT]:
+        if uievent.K_RIGHT in self._held:
             self.cam_x += speed
-        if keys[pygame.K_UP]:
+        if uievent.K_UP in self._held:
             self.cam_y -= speed
-        if keys[pygame.K_DOWN]:
+        if uievent.K_DOWN in self._held:
             self.cam_y += speed
 
     # ------------------------------------------------------------------
@@ -264,29 +289,38 @@ class EditorApp:
     # ------------------------------------------------------------------
 
     def _handle_event(self, event) -> None:
-        if event.type == pygame.QUIT:
+        event = uievent.from_pygame(event)
+        if event.type == uievent.KEYDOWN and event.key is not None:
+            self._held.add(event.key)
+        elif event.type == uievent.KEYUP and event.key is not None:
+            self._held.discard(event.key)
+        if event.type == uievent.MOUSEMOTION and event.pos is not None:
+            self.mouse_pos = event.pos
+
+        if event.type == uievent.QUIT:
             self.running = False
             return
-        if event.type == pygame.VIDEORESIZE:
-            self.screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
+        if event.type == uievent.VIDEORESIZE:
+            self.size = (event.w, event.h)
+            self._resized = True  # run() recreates the window
             return
 
         if self.overlay is not None:
             # TextPrompt/KeyPrompt on_submit callbacks clear self.overlay
             # themselves once the user commits or cancels.
-            if event.type == pygame.KEYDOWN:
+            if event.type == uievent.KEYDOWN:
                 self.overlay.handle_key(event)
             return
 
-        if event.type == pygame.KEYDOWN:
+        if event.type == uievent.KEYDOWN:
             self._handle_keydown(event)
-        elif event.type == pygame.MOUSEBUTTONDOWN:
+        elif event.type == uievent.MOUSEBUTTONDOWN:
             self._handle_mousedown(event)
-        elif event.type == pygame.MOUSEBUTTONUP:
+        elif event.type == uievent.MOUSEBUTTONUP:
             self._handle_mouseup(event)
-        elif event.type == pygame.MOUSEMOTION:
+        elif event.type == uievent.MOUSEMOTION:
             self._handle_motion(event)
-        elif event.type == pygame.MOUSEWHEEL:
+        elif event.type == uievent.MOUSEWHEEL:
             self._handle_wheel(event)
 
     def _set_status(self, msg: str, is_error: bool = False) -> None:
@@ -294,67 +328,66 @@ class EditorApp:
         self.status_is_error = is_error
 
     def _handle_keydown(self, event) -> None:
-        mods = pygame.key.get_mods()
-        ctrl = mods & (pygame.KMOD_CTRL | pygame.KMOD_META)
+        ctrl = event.mod & (uievent.KMOD_CTRL | uievent.KMOD_META)
 
-        if event.key == pygame.K_ESCAPE:
+        if event.key == uievent.K_ESCAPE:
             self.mode = "select"
             self.poly_pts = []
             self.connect_first = None
             return
 
-        if ctrl and event.key == pygame.K_s:
+        if ctrl and event.key == uievent.K_s:
             errs = self.model.save()
             if errs:
                 self._set_status("save refused: " + "; ".join(errs), True)
             else:
                 self._set_status(f"saved {self.model.path}")
             return
-        if ctrl and event.key == pygame.K_o:
+        if ctrl and event.key == uievent.K_o:
             self._set_status("load via CLI arg only: uv run python -m perihelion.editor <file.json>")
             return
-        if ctrl and event.key == pygame.K_n:
+        if ctrl and event.key == uievent.K_n:
             self.model.new()
             self._fit_camera()
             self._set_status("new level")
             return
-        if ctrl and event.key == pygame.K_z:
+        if ctrl and event.key == uievent.K_z:
             self._set_status("undo" if self.model.undo() else "nothing to undo")
             return
-        if ctrl and event.key == pygame.K_y:
+        if ctrl and event.key == uievent.K_y:
             self._set_status("redo" if self.model.redo() else "nothing to redo")
             return
 
-        if event.key == pygame.K_g:
+        if event.key == uievent.K_g:
             self.show_grid = not self.show_grid
-        elif event.key == pygame.K_s:
+        elif event.key == uievent.K_s:
             self.snap = not self.snap
-        elif event.key == pygame.K_i:
+        elif event.key == uievent.K_i:
             self.show_indices = not self.show_indices
-        elif event.key == pygame.K_r:
+        elif event.key == uievent.K_r:
             self.mode = "rect"
-        elif event.key == pygame.K_p:
+        elif event.key == uievent.K_p:
             self.mode = "poly"
             self.poly_pts = []
-        elif event.key == pygame.K_e:
+        elif event.key == uievent.K_e:
             self.mode = "entity"
-        elif event.key == pygame.K_c:
+        elif event.key == uievent.K_c:
             self.mode = "connect"
             self.connect_first = None
-        elif event.key == pygame.K_m:
+        elif event.key == uievent.K_m:
             self.mode = "move"
-        elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER) and self.mode == "poly":
+        elif event.key in (uievent.K_RETURN, uievent.K_KP_ENTER) and self.mode == "poly":
             self._commit_poly()
-        elif event.key in (pygame.K_DELETE, pygame.K_BACKSPACE):
+        elif event.key in (uievent.K_DELETE, uievent.K_BACKSPACE):
             self.model.delete_selected()
-        elif event.key == pygame.K_x and self.model.selection and self.model.selection[0] == "connect":
+        elif event.key == uievent.K_x and self.model.selection and self.model.selection[0] == "connect":
             self.model.delete_connection(self.model.selection[1], self.model.selection[2])
             self.model.selection = None
-        elif event.key == pygame.K_LEFTBRACKET:
+        elif event.key == uievent.K_LEFTBRACKET:
             self.entity_idx = (self.entity_idx - 1) % len(M.ENTITY_PALETTE)
-        elif event.key == pygame.K_RIGHTBRACKET:
+        elif event.key == uievent.K_RIGHTBRACKET:
             self.entity_idx = (self.entity_idx + 1) % len(M.ENTITY_PALETTE)
-        elif event.key == pygame.K_F5:
+        elif event.key == uievent.K_F5:
             self._test_play()
 
     def _commit_poly(self) -> None:
@@ -369,7 +402,7 @@ class EditorApp:
             step = -1 if event.y > 0 else 1
             self.entity_idx = (self.entity_idx + step) % len(M.ENTITY_PALETTE)
             return
-        mx, my = pygame.mouse.get_pos()
+        mx, my = self.mouse_pos
         before = self.screen_to_world(mx, my)
         factor = 1.1 ** event.y
         self.zoom = max(0.02, min(20.0, self.zoom * factor))
@@ -419,7 +452,7 @@ class EditorApp:
             else:
                 ra, ea = self.connect_first
                 rb, eb = edge
-                shift = pygame.key.get_mods() & pygame.KMOD_SHIFT
+                shift = self._held & {uievent.K_LSHIFT, uievent.K_RSHIFT}
                 if shift:
                     def submit(key):
                         if key is not None:
@@ -590,26 +623,24 @@ class EditorApp:
     # drawing
     # ------------------------------------------------------------------
 
-    def _draw(self) -> None:
-        surf = self.screen
-        surf.fill(BG)
-        self._draw_grid(surf)
-        self._draw_lore_highlights(surf)
-        self._draw_connections(surf)
-        self._draw_polygons(surf)
-        self._draw_entities(surf)
-        self._draw_player_exit(surf)
-        self._draw_in_progress(surf)
-        self._draw_palette_hud(surf)
+    def draw_fb(self, fb) -> None:
+        fb2d.fill(fb, BG)
+        self._draw_grid(fb)
+        self._draw_lore_highlights(fb)
+        self._draw_connections(fb)
+        self._draw_polygons(fb)
+        self._draw_entities(fb)
+        self._draw_player_exit(fb)
+        self._draw_in_progress(fb)
+        self._draw_palette_hud(fb)
         if self.overlay is not None:
-            self.overlay.draw(surf)
-        self._draw_status_bar(surf)
-        pygame.display.flip()
+            self.overlay.draw_fb(fb)
+        self._draw_status_bar(fb)
 
-    def _draw_grid(self, surf) -> None:
+    def _draw_grid(self, fb) -> None:
         if not self.show_grid:
             return
-        sw, sh = surf.get_size()
+        sw, sh = fb.shape[:2]
         g = self.grid_size
         step = g * self.zoom
         if step < 4:
@@ -621,14 +652,14 @@ class EditorApp:
         while gx <= x1:
             sx, _ = self.world_to_screen(gx, 0)
             color = GRID_AXIS if abs(gx) < 1e-6 else GRID_COLOR
-            pygame.draw.line(surf, color, (sx, 0), (sx, sh - STATUS_H))
+            fb2d.vline(fb, color, int(sx), 0, sh - STATUS_H)
             gx += g
         start_gy = math.floor(y0 / g) * g
         gy = start_gy
         while gy <= y1:
             _, sy = self.world_to_screen(0, gy)
             color = GRID_AXIS if abs(gy) < 1e-6 else GRID_COLOR
-            pygame.draw.line(surf, color, (0, sy), (sw, sy))
+            fb2d.hline(fb, color, 0, sw, int(sy))
             gy += g
 
     def _polygon_lore_flags(self):
@@ -643,7 +674,7 @@ class EditorApp:
                 flagged.add(int(m.group(1)))
         return flagged
 
-    def _draw_lore_highlights(self, surf) -> None:
+    def _draw_lore_highlights(self, fb) -> None:
         flagged = self._polygon_lore_flags()
         polygons = self.model.data.get("polygons", [])
         for ri in flagged:
@@ -653,11 +684,11 @@ class EditorApp:
             if len(verts) < 3:
                 continue
             pts = [self.world_to_screen(*v) for v in verts]
-            glow = pygame.Surface(surf.get_size(), pygame.SRCALPHA)
-            pygame.draw.polygon(glow, (*LORE_POLYGON_TINT, 70), pts)
-            surf.blit(glow, (0, 0))
+            glow = fb2d.overlay(*fb.shape[:2])
+            fb2d.polygon(glow, (*LORE_POLYGON_TINT, 70), pts)
+            fb2d.blit(fb, glow)
 
-    def _draw_polygons(self, surf) -> None:
+    def _draw_polygons(self, fb) -> None:
         polygons = self.model.data.get("polygons", [])
         sel = self.model.selection
         sel_ri = sel[1] if sel and sel[0] in ("polygon", "vertex") else None
@@ -675,8 +706,8 @@ class EditorApp:
                 live_verts[self.drag["vi"]] = list(self.drag["live"])
             pts = [self.world_to_screen(*v) for v in live_verts]
             fill = POLYGON_FILL_SEL if ri == sel_ri else POLYGON_FILL
-            pygame.draw.polygon(surf, fill, pts)
-            pygame.draw.polygon(surf, POLYGON_EDGE, pts, 2 if ri == sel_ri else 1)
+            fb2d.polygon(fb, fill, pts)
+            fb2d.polygon(fb, POLYGON_EDGE, pts, 2 if ri == sel_ri else 1)
 
             flags = M.convex_flags(live_verts)
             n = len(live_verts)
@@ -689,24 +720,20 @@ class EditorApp:
                 else:
                     color = VERTEX_COLOR
                 r = 4 if color is VERTEX_SEL else 3
-                pygame.draw.circle(surf, color, (sx, sy), r)
+                fb2d.circle(fb, color, (sx, sy), r)
 
             if self.show_indices:
-                f = get_font(11)
                 for ei in range(n):
                     a, b = live_verts[ei], live_verts[(ei + 1) % n]
                     mx = _lerp(a[0], b[0], 0.5)
                     my = _lerp(a[1], b[1], 0.5)
                     sx, sy = self.world_to_screen(mx, my)
-                    img = f.render(str(ei), True, (120, 150, 140))
-                    surf.blit(img, (sx - img.get_width() / 2, sy - img.get_height() / 2))
+                    _text_centered(fb, str(ei), sx, sy, (120, 150, 140), 11)
 
             cx = sum(v[0] for v in live_verts) / n
             cy = sum(v[1] for v in live_verts) / n
             sx, sy = self.world_to_screen(cx, cy)
-            f = get_font(13)
-            img = f.render(f"#{ri}", True, POLYGON_ID_COLOR)
-            surf.blit(img, (sx - img.get_width() / 2, sy - img.get_height() / 2))
+            _text_centered(fb, f"#{ri}", sx, sy, POLYGON_ID_COLOR, 13)
 
     def _conn_endpoints(self, ri, ei, rj, ej):
         try:
@@ -716,14 +743,13 @@ class EditorApp:
             return None
         return p1, p2
 
-    def _draw_connections(self, surf) -> None:
+    def _draw_connections(self, fb) -> None:
         sel = self.model.selection
         groups = [
             ("connect", self.model.data.get("connects", []), CONNECT_NORMAL, None),
             ("connect_x", self.model.data.get("connects_x", []), CONNECT_X, None),
             ("door", self.model.data.get("doors", []), CONNECT_DOOR, None),
         ]
-        f = get_font(11)
         for kind, entries, base_color, _ in groups:
             for idx, e in enumerate(entries):
                 if kind == "door":
@@ -741,7 +767,7 @@ class EditorApp:
                 draw_color = CONNECT_SEL if selected else color
                 s1 = self.world_to_screen(*p1)
                 if is_self:
-                    pygame.draw.circle(surf, draw_color, s1, 10, 2)
+                    fb2d.circle(fb, draw_color, s1, 10, 2)
                 else:
                     s2 = self.world_to_screen(*p2)
                     dx, dy = p2[0] - p1[0], p2[1] - p1[1]
@@ -751,7 +777,7 @@ class EditorApp:
                     mx, my = _lerp(p1[0], p2[0], 0.5) + nx * bulge, _lerp(p1[1], p2[1], 0.5) + ny * bulge
                     sc = self.world_to_screen(mx, my)
                     curve = _quad_bezier_pts(s1, sc, s2, 14)
-                    pygame.draw.lines(surf, draw_color, False, curve, 2 if selected else 1)
+                    fb2d.lines(fb, draw_color, False, curve, 2 if selected else 1)
 
                     try:
                         la = self.model.edge_length(ra, ea)
@@ -759,20 +785,18 @@ class EditorApp:
                         if max(la, lb) > 1e-6 and abs(la - lb) / max(la, lb) > 0.02:
                             wx, wy = _lerp(p1[0], p2[0], 0.5), _lerp(p1[1], p2[1], 0.5)
                             wsx, wsy = self.world_to_screen(wx, wy)
-                            pygame.draw.polygon(surf, WARN_COLOR, [
+                            fb2d.polygon(fb, WARN_COLOR, [
                                 (wsx, wsy - 6), (wsx - 6, wsy + 5), (wsx + 6, wsy + 5)])
                     except (IndexError, TypeError):
                         pass
 
                 if key:
                     wsx, wsy = self.world_to_screen(*p1) if is_self else sc
-                    img = f.render(key, True, CONNECT_DOOR)
-                    surf.blit(img, (wsx + 6, wsy - 6))
+                    _text(fb, key, wsx + 6, wsy - 6, CONNECT_DOOR, 11)
 
-    def _draw_entities(self, surf) -> None:
+    def _draw_entities(self, fb) -> None:
         polygons = self.model.data.get("polygons", [])
         sel = self.model.selection
-        f = get_font(11)
         for ri, polygon in enumerate(polygons):
             offset = (0.0, 0.0)
             if self.drag and self.drag.get("kind") == "polygon" and self.drag["ri"] == ri:
@@ -789,11 +813,10 @@ class EditorApp:
                 sx, sy = self.world_to_screen(*pos)
                 selected = sel and sel[0] == "entity" and sel[1] == ri and sel[2] == ei
                 r = 7 if selected else 5
-                pygame.draw.circle(surf, color, (sx, sy), r)
+                fb2d.circle(fb, color, (sx, sy), r)
                 if selected:
-                    pygame.draw.circle(surf, VERTEX_SEL, (sx, sy), r + 2, 1)
-                img = f.render(GLYPH.get(t, "?"), True, (10, 10, 12))
-                surf.blit(img, (sx - img.get_width() / 2, sy - img.get_height() / 2))
+                    fb2d.circle(fb, VERTEX_SEL, (sx, sy), r + 2, 1)
+                _text_centered(fb, GLYPH.get(t, "?"), sx, sy, (10, 10, 12), 11)
 
         for ti, t in enumerate(self.model.data.get("lore", {}).get("terminals", [])):
             if self.drag and self.drag.get("kind") == "terminal" and self.drag["ti"] == ti:
@@ -803,75 +826,69 @@ class EditorApp:
             sx, sy = self.world_to_screen(*pos)
             selected = sel and sel[0] == "terminal" and sel[1] == ti
             r = 8 if selected else 6
-            pygame.draw.rect(surf, TERMINAL_COLOR, (sx - r, sy - r, r * 2, r * 2),
-                              0 if selected else 1)
-            img = f.render("T", True, (10, 10, 12) if selected else TERMINAL_COLOR)
-            surf.blit(img, (sx - img.get_width() / 2, sy - img.get_height() / 2))
+            fb2d.rect(fb, TERMINAL_COLOR, (sx - r, sy - r, r * 2, r * 2),
+                      0 if selected else 1)
+            _text_centered(fb, "T", sx, sy,
+                           (10, 10, 12) if selected else TERMINAL_COLOR, 11)
 
-    def _draw_player_exit(self, surf) -> None:
+    def _draw_player_exit(self, fb) -> None:
         sel = self.model.selection
-        f = get_font(11)
         player = self.model.data.get("player")
         if player:
             sx, sy = self.world_to_screen(*player["pos"])
             selected = sel and sel[0] == "player"
-            pygame.draw.circle(surf, PLAYER_COLOR, (sx, sy), 8 if selected else 6, 0 if selected else 2)
-            img = f.render("P", True, (10, 10, 12) if selected else PLAYER_COLOR)
-            surf.blit(img, (sx - img.get_width() / 2, sy - img.get_height() / 2))
+            fb2d.circle(fb, PLAYER_COLOR, (sx, sy), 8 if selected else 6, 0 if selected else 2)
+            _text_centered(fb, "P", sx, sy,
+                           (10, 10, 12) if selected else PLAYER_COLOR, 11)
         exit_ = self.model.data.get("exit")
         if exit_:
             sx, sy = self.world_to_screen(*exit_["pos"])
             selected = sel and sel[0] == "exit"
             pts = [(sx, sy - 9), (sx - 8, sy + 6), (sx + 8, sy + 6)]
-            pygame.draw.polygon(surf, EXIT_COLOR, pts, 0 if selected else 2)
+            fb2d.polygon(fb, EXIT_COLOR, pts, 0 if selected else 2)
             label = "EXIT"
             if exit_.get("key"):
                 label += f"+{exit_['key']}"
             if exit_.get("gate_kind"):
                 label += f"/{exit_['gate_kind']}"
-            img = f.render(label, True, EXIT_COLOR)
-            surf.blit(img, (sx + 10, sy - 6))
+            _text(fb, label, sx + 10, sy - 6, EXIT_COLOR, 11)
 
-    def _draw_in_progress(self, surf) -> None:
+    def _draw_in_progress(self, fb) -> None:
         if self.drag and self.drag.get("kind") == "rect_draw":
             d = self.drag
             p0 = self.world_to_screen(d["x0"], d["y0"])
             p1 = self.world_to_screen(d["x1"], d["y1"])
-            rect = pygame.Rect(min(p0[0], p1[0]), min(p0[1], p1[1]),
-                                abs(p1[0] - p0[0]), abs(p1[1] - p0[1]))
-            pygame.draw.rect(surf, PREVIEW_COLOR, rect, 1)
+            rect = (min(p0[0], p1[0]), min(p0[1], p1[1]),
+                    abs(p1[0] - p0[0]), abs(p1[1] - p0[1]))
+            fb2d.rect(fb, PREVIEW_COLOR, rect, 1)
         if self.mode == "poly" and self.poly_pts:
             pts = [self.world_to_screen(*p) for p in self.poly_pts]
             if len(pts) > 1:
-                pygame.draw.lines(surf, PREVIEW_COLOR, False, pts, 1)
+                fb2d.lines(fb, PREVIEW_COLOR, False, pts, 1)
             for p in pts:
-                pygame.draw.circle(surf, PREVIEW_COLOR, p, 3)
-            mx, my = pygame.mouse.get_pos()
-            pygame.draw.line(surf, (120, 120, 120), pts[-1], (mx, my), 1)
+                fb2d.circle(fb, PREVIEW_COLOR, p, 3)
+            mx, my = self.mouse_pos
+            fb2d.line(fb, (120, 120, 120), pts[-1], (mx, my), 1)
         if self.mode == "connect" and self.connect_first is not None:
             ri, ei = self.connect_first
             try:
                 mid = self.model.edge_midpoint(ri, ei)
                 sx, sy = self.world_to_screen(*mid)
-                pygame.draw.circle(surf, PREVIEW_COLOR, (sx, sy), 8, 2)
+                fb2d.circle(fb, PREVIEW_COLOR, (sx, sy), 8, 2)
             except (IndexError, TypeError):
                 pass
 
-    def _draw_palette_hud(self, surf) -> None:
-        f = get_font(13)
+    def _draw_palette_hud(self, fb) -> None:
         t = M.ENTITY_PALETTE[self.entity_idx]
         lines = [f"mode: {self.mode.upper()}"]
         if self.mode == "entity":
             lines.append(f"palette: {t}  ([ ] or wheel to cycle)")
         for i, line in enumerate(lines):
-            img = f.render(line, True, (200, 210, 220))
-            surf.blit(img, (8, 8 + i * 16))
+            _text(fb, line, 8, 8 + i * 16, (200, 210, 220), 13)
 
-    def _draw_status_bar(self, surf) -> None:
-        sw, sh = surf.get_size()
-        bar = pygame.Rect(0, sh - STATUS_H, sw, STATUS_H)
-        pygame.draw.rect(surf, STATUS_BG, bar)
-        f = get_font(13)
+    def _draw_status_bar(self, fb) -> None:
+        sw, sh = fb.shape[:2]
+        fb2d.rect(fb, STATUS_BG, (0, sh - STATUS_H, sw, STATUS_H))
 
         errs = self.model.validate()
         ok = len(errs) == 0
@@ -881,15 +898,15 @@ class EditorApp:
         sel_txt = "none" if sel is None else "/".join(str(s) for s in sel)
 
         left = f"{name}{dot}  sel:{sel_txt}  snap:{'on' if self.snap else 'off'} grid:{'on' if self.show_grid else 'off'}  zoom:{self.zoom:.2f}"
-        img = f.render(left, True, STATUS_TEXT)
-        surf.blit(img, (6, sh - STATUS_H + 4))
+        _text(fb, left, 6, sh - STATUS_H + 4, STATUS_TEXT, 13)
 
         status_color = STATUS_ERR if (self.status_is_error or not ok) else STATUS_OK
         msg = self.status_msg
         if not ok:
             msg = f"INVALID ({len(errs)}): {errs[0]}"
-        img2 = f.render(msg, True, status_color)
-        surf.blit(img2, (max(6, sw // 2 - img2.get_width() // 2), sh - STATUS_H + 4))
+        mw, _ = text.measure(msg, font_px(13)) if msg else (0, 0)
+        _text(fb, msg, max(6, sw // 2 - mw // 2), sh - STATUS_H + 4,
+              status_color, 13)
 
 
 def run(level_path: str | None = None) -> None:

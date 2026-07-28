@@ -99,7 +99,8 @@ def test_hero_panel_prefers_art_else_vector_glyph(surf, tmp_path, monkeypatch):
     pygame.image.save(art, str(tmp_path / "chassis.png"))
     sc._hero_cache.clear()
     got = sc._hero_art("chassis")
-    assert got is not None and got.get_size() == (32, 32)
+    # hero art is a (w, h, 4) RGBA numpy array in fb axis order now
+    assert got is not None and got.shape[:2] == (32, 32)
     sc.draw(app, surf)
 
 

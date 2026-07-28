@@ -18,7 +18,8 @@ upgrade, and think. Two tab-switched pages:
 
 This scene is the flagship of the native-resolution mandate: everything
 here is drawn at INTERNAL_W x INTERNAL_H with pure vector/procedural
-pygame drawing. No image assets are required for any of it.
+drawing (fb2d onto the numpy framebuffer -- no pygame). No image assets
+are required for any of it.
 """
 
 from __future__ import annotations
@@ -28,10 +29,11 @@ import zlib
 from pathlib import Path
 from random import Random
 
-import pygame
+import numpy as np
 
-from . import mindmap
-from .menus import Scene, get_font, _wrap
+from . import fb2d, mindmap, text, uievent
+from .fb2d import Rect
+from .menus import Scene, font_px, _wrap
 from .render import ui
 from .sim import DT, SHOP
 
@@ -76,40 +78,53 @@ REGION_COLOR = {
 
 HERO_DIR = Path(__file__).resolve().parent / "assets" / "hero"
 
+
+def _size(surf) -> tuple[int, int]:
+    """(w, h) of a numpy framebuffer or anything get_size()-shaped (the
+    layout tests still probe _to_screen with pygame Surfaces)."""
+    if hasattr(surf, "shape"):
+        return int(surf.shape[0]), int(surf.shape[1])
+    return surf.get_size()
+
+
 # ---------------------------------------------------------------------------
 # the mind map's typeface (director-directed): Fixedsys Excelsior is the
 # terminal/HUD voice and scales badly; the MIND page -- the Commando's
 # inner space -- speaks a minimalistic sans-serif instead (IBM Plex Sans,
 # OFL, bundled in assets/fonts/ with its license). Canonical label
 # geometry lives in mindmap.py (measured advance table); this is just the
-# rendering side, scaled by the actual surface width against
-# mindmap.CANVAS_W so labels stay crisp at ANY internal resolution
-# (rendered at the exact target pt, never smoothscaled bitmap mush).
+# rendering side (PIL rasterized, numpy composited -- same path as
+# text.py), scaled by the actual surface width against mindmap.CANVAS_W
+# so labels stay crisp at ANY internal resolution (rendered at the exact
+# target pt, never smoothscaled bitmap mush).
 # ---------------------------------------------------------------------------
 
 _MIND_FONT_DIR = Path(__file__).resolve().parent / "assets" / "fonts"
 _MIND_FONT_FILES = {"regular": "IBMPlexSans-Regular.ttf",
                     "medium": "IBMPlexSans-Medium.ttf",
                     "semibold": "IBMPlexSans-SemiBold.ttf"}
-_MIND_FONT_CACHE: dict[tuple[str, int], "pygame.font.Font"] = {}
+_MIND_FONT_CACHE: dict[tuple[str, int], object] = {}
 
 
-def mind_font(pt: float, face: str = "regular") -> "pygame.font.Font":
+def mind_font(pt: float, face: str = "regular"):
+    from PIL import ImageFont
     pt_i = max(5, int(round(pt)))
     key = (face, pt_i)
     f = _MIND_FONT_CACHE.get(key)
     if f is None:
-        if not pygame.font.get_init():
-            pygame.font.init()
+        # bundled font, loaded loudly: a missing file raises rather than
+        # silently substituting some system face
         path = _MIND_FONT_DIR / _MIND_FONT_FILES[face]
-        if path.exists():
-            f = pygame.font.Font(str(path), pt_i)
-        else:  # guaranteed-present fallback chain, never a silent default
-            fb = (pygame.font.match_font("ibmplexsans")
-                  or pygame.font.match_font("dejavusans"))
-            f = pygame.font.Font(fb, pt_i) if fb else pygame.font.Font(None, pt_i)
+        f = ImageFont.truetype(str(path), pt_i)
         _MIND_FONT_CACHE[key] = f
     return f
+
+
+def mind_text_size(s: str, pt: float, face: str = "regular") -> tuple[int, int]:
+    f = mind_font(pt, face)
+    ascent, descent = f.getmetrics()
+    bbox = f.getbbox(s)
+    return max(1, bbox[2]), max(1, ascent + descent)
 
 
 def label_pt(font_px: float, k: float) -> int:
@@ -122,21 +137,66 @@ def label_pt(font_px: float, k: float) -> int:
                                  * (font_px / mindmap.LABEL_H_PX) * k)))
 
 
-_LABEL_IMG_CACHE: dict[tuple, "pygame.Surface"] = {}
+class _LabelImg:
+    """An antialiased text render: coverage bitmap + color, blitted by
+    `_blit_label`. Exposes get_width/get_height like the pygame Surface
+    it replaces (the layout tests measure these)."""
+
+    __slots__ = ("a", "color")
+
+    def __init__(self, a: np.ndarray, color: tuple):
+        self.a = a                       # (h, w) uint8 coverage
+        self.color = tuple(int(c) for c in color[:3])
+
+    def get_width(self) -> int:
+        return self.a.shape[1]
+
+    def get_height(self) -> int:
+        return self.a.shape[0]
+
+
+_LABEL_IMG_CACHE: dict[tuple, _LabelImg] = {}
 
 
 def _label_img(text: str, pt: float, color: tuple,
-               face: str = "regular") -> "pygame.Surface":
+               face: str = "regular") -> _LabelImg:
     """Cached antialiased text render (the mind map re-draws every label
     every frame; the text/size/color set is tiny and stable)."""
     key = (text, max(5, int(round(pt))), color, face)
     img = _LABEL_IMG_CACHE.get(key)
     if img is None:
-        img = mind_font(pt, face).render(text, True, color)
+        from PIL import Image, ImageDraw
+        f = mind_font(pt, face)
+        w, h = mind_text_size(text, pt, face)
+        canvas = Image.new("L", (w, h), 0)
+        ImageDraw.Draw(canvas).text((0, 0), text, fill=255, font=f)
+        img = _LabelImg(np.asarray(canvas, dtype=np.uint8), color)
         if len(_LABEL_IMG_CACHE) > 4096:  # safety valve, never in practice
             _LABEL_IMG_CACHE.clear()
         _LABEL_IMG_CACHE[key] = img
     return img
+
+
+def _blit_label(fb: np.ndarray, img: _LabelImg, x: int, y: int,
+                alpha: int = 255) -> None:
+    """Alpha-composite a `_LabelImg` onto a (W, H, 3) fb, optionally
+    faded by `alpha` (the set_alpha stand-in)."""
+    a = img.a
+    h, w = a.shape
+    W, H = fb.shape[:2]
+    x, y = int(x), int(y)
+    x0, y0 = max(0, x), max(0, y)
+    x1, y1 = min(W, x + w), min(H, y + h)
+    if x1 <= x0 or y1 <= y0:
+        return
+    sub = a[y0 - y:y1 - y, x0 - x:x1 - x].T.astype(np.uint16)
+    if alpha < 255:
+        sub = (sub * max(0, int(alpha)) + 127) // 255
+    region = fb[x0:x1, y0:y1].astype(np.uint16)
+    al = sub[..., None]
+    col = np.asarray(img.color, dtype=np.uint16)[None, None, :]
+    fb[x0:x1, y0:y1] = ((col * al + region * (255 - al) + 127) // 255).astype(np.uint8)
+
 
 # one line of register per fabricator item, for the hero panel
 ITEM_DESC = {
@@ -181,6 +241,10 @@ _LABEL_FADE_IN = 0.35  # seconds: subset-settle labels fade in after rest
 
 _traj_cache: list[dict[str, tuple[float, float]]] | None = None
 
+# detail-panel brief text wrapped once per (node, scale, width) -- the
+# measuring (PIL getbbox per candidate line) is the per-frame cost
+_BRIEF_WRAP_CACHE: dict[tuple, list[str]] = {}
+
 
 def _settle_trajectory() -> list[dict[str, tuple[float, float]]]:
     global _traj_cache
@@ -204,7 +268,7 @@ class PodScene(Scene):
         # fabricator
         self.fab_sel = 0
         self.flash = 0.0  # >0 bought, <0 refused
-        self._hero_cache: dict[str, "pygame.Surface | None"] = {}
+        self._hero_cache: dict[str, "np.ndarray | None"] = {}
         # mind
         self.layout = mindmap.layout()
         # NO baked global label layout (director's round-2 clarification:
@@ -214,7 +278,11 @@ class PodScene(Scene):
         self._frame_labels: dict[str, dict] = {}
         self.sel: str | None = None
         self.reveal: dict | None = None
-        self._overlay: "pygame.Surface | None" = None
+        self._overlay: "np.ndarray | None" = None
+        # (key, rgba) of the last composed band underlay: bands depend
+        # only on camera/zoom/selection, all constant at rest, so the
+        # ellipse rasterization only reruns while the camera moves
+        self._bands_cache: tuple | None = None
         self._ducked = False
         self._settle: dict | None = None
         # live physics (director-directed hybridization: nodes stay
@@ -372,7 +440,7 @@ class PodScene(Scene):
     def _cam_pos(self) -> tuple[float, float]:
         """The camera's current position (unit space) via
         `mindmap.camera_glide` (pure function, tested independent of
-        pygame -- see test_mindmap_layout.py): selection glides the
+        the renderer -- see test_mindmap_layout.py): selection glides the
         camera to the selected node's ring."""
         c = self._cam
         return mindmap.camera_glide(self.t, c["t0"], c["dur"], c["from"], c["to"])
@@ -398,7 +466,7 @@ class PodScene(Scene):
         return z
 
     def _to_screen(self, surf, x: float, y: float) -> tuple[int, int]:
-        w, h = surf.get_size()
+        w, h = _size(surf)
         # single source of truth with mindmap.py's canonical canvas (the
         # local-label PBT proves geometry against these same fractions).
         # LOCAL camera: the unit->screen scale carries _zoom(), and the
@@ -428,16 +496,17 @@ class PodScene(Scene):
     # ------------------------------------------------------------------
 
     def handle_event(self, app, event) -> None:
-        if event.type != pygame.KEYDOWN:
+        event = uievent.from_pygame(event)
+        if event.type != uievent.KEYDOWN:
             return
         if self.reveal is not None:
             # the reveal holds the floor; skippable after the first beat
             if self.reveal["t"] >= REVEAL_IGNITE:
                 self._finish_reveal(app)
             return
-        if event.key in (pygame.K_ESCAPE, pygame.K_e):
+        if event.key in (uievent.K_ESCAPE, uievent.K_e):
             app.pop()
-        elif event.key in (pygame.K_TAB, pygame.K_m):
+        elif event.key in (uievent.K_TAB, uievent.K_m):
             self.page = "mind" if self.page == "fabricator" else "fabricator"
             if self.page == "mind":
                 self._ensure_selection()
@@ -451,25 +520,25 @@ class PodScene(Scene):
             self._mind_event(app, event)
 
     def _fab_event(self, app, event) -> None:
-        if event.key in (pygame.K_UP, pygame.K_w):
+        if event.key in (uievent.K_UP, uievent.K_w):
             self.fab_sel = (self.fab_sel - 1) % len(self.FAB_ORDER)
-        elif event.key in (pygame.K_DOWN, pygame.K_s):
+        elif event.key in (uievent.K_DOWN, uievent.K_s):
             self.fab_sel = (self.fab_sel + 1) % len(self.FAB_ORDER)
-        elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+        elif event.key in (uievent.K_RETURN, uievent.K_SPACE):
             ok = self.session.buy(self.FAB_ORDER[self.fab_sel])
             self.flash = 0.35 if ok else -0.35
             if ok:
                 app.audio.play("fabricate_buy", 0.9)
 
-    _DIRS = {pygame.K_LEFT: (-1, 0), pygame.K_a: (-1, 0),
-             pygame.K_RIGHT: (1, 0), pygame.K_d: (1, 0),
-             pygame.K_UP: (0, -1), pygame.K_w: (0, -1),
-             pygame.K_DOWN: (0, 1), pygame.K_s: (0, 1)}
+    _DIRS = {uievent.K_LEFT: (-1, 0), uievent.K_a: (-1, 0),
+             uievent.K_RIGHT: (1, 0), uievent.K_d: (1, 0),
+             uievent.K_UP: (0, -1), uievent.K_w: (0, -1),
+             uievent.K_DOWN: (0, 1), uievent.K_s: (0, 1)}
 
     def _mind_event(self, app, event) -> None:
         if event.key in self._DIRS:
             self._nav(*self._DIRS[event.key])
-        elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+        elif event.key in (uievent.K_RETURN, uievent.K_SPACE):
             if self.sel is not None:
                 ok = self.session.set_focus(self.sel)
                 self.flash = 0.35 if ok else -0.35
@@ -614,35 +683,36 @@ class PodScene(Scene):
     # drawing
     # ------------------------------------------------------------------
 
-    def _ensure_overlay(self, size) -> "pygame.Surface":
-        if self._overlay is None or self._overlay.get_size() != size:
-            self._overlay = pygame.Surface(size, pygame.SRCALPHA)
-        self._overlay.fill((0, 0, 0, 0))
+    def _ensure_overlay(self, size) -> np.ndarray:
+        w, h = size
+        if self._overlay is None or self._overlay.shape[:2] != (w, h):
+            self._overlay = fb2d.overlay(w, h)
+        self._overlay[...] = 0
         return self._overlay
 
-    def draw(self, app, surf) -> None:
+    def draw_fb(self, app, fb) -> None:
         # ENCARTA suppresses the pod ribs: screen-fixed arcs behind a map
         # whose own camera-space depth bands are also arcs read as a stuck
         # second ring system (director, 2026-07-11). The ribs are pod-
         # interior ambiance and stay on the fabricator page.
-        self._draw_pod_bg(surf, ribs=self.page == "fabricator")
+        self._draw_pod_bg(fb, ribs=self.page == "fabricator")
         if self.page == "fabricator":
-            self._draw_fabricator(surf)
+            self._draw_fabricator(fb)
         else:
-            self._draw_mind(surf)
-        self._draw_chrome(surf)
+            self._draw_mind(fb)
+        self._draw_chrome(fb)
 
-    def _draw_pod_bg(self, surf, ribs: bool = True) -> None:
+    def _draw_pod_bg(self, fb, ribs: bool = True) -> None:
         """The inside of the seed: a dark vertical gradient ribbed with
         golden-angle arcs (the pod grew; it was not machined) and a faint
         red-organic pulse low in the shell -- the Commando's own lane."""
-        w, h = surf.get_size()
+        w, h = fb.shape[:2]
         for y in range(0, h, 2):
             k = y / h
             c = (int(BG_TOP[0] + (BG_BOT[0] - BG_TOP[0]) * k),
                  int(BG_TOP[1] + (BG_BOT[1] - BG_TOP[1]) * k),
                  int(BG_TOP[2] + (BG_BOT[2] - BG_TOP[2]) * k))
-            pygame.draw.rect(surf, c, (0, y, w, 2))
+            fb2d.fill(fb, c, (0, y, w, 2))
         if not ribs:
             return
         # pod ribs: concentric arcs from below-screen, golden-ratio gaps
@@ -652,35 +722,37 @@ class PodScene(Scene):
         for i in range(7):
             col = (18 + i, 20 + i, 20) if i else (
                 int(20 + 14 * pulse), 14, 13)  # innermost rib breathes red
-            rect = pygame.Rect(int(cx - r), int(cy - r), int(2 * r), int(2 * r))
-            pygame.draw.arc(surf, col, rect, math.radians(50),
-                            math.radians(130), max(1, ui(2)))
+            rect = (int(cx - r), int(cy - r), int(2 * r), int(2 * r))
+            fb2d.arc(fb, col, rect, math.radians(50),
+                     math.radians(130), max(1, ui(2)))
             r *= 1.13 + 0.05 * i  # never-uniform spacing (handcraft law)
 
-    def _draw_chrome(self, surf) -> None:
-        w, h = surf.get_size()
+    def _draw_chrome(self, fb) -> None:
+        w, h = fb.shape[:2]
         s = self.session
-        f = get_font(12)
+        fs = font_px(12)
         # tabs
         tabs = [("FABRICATOR", "fabricator"), (MIND_TAB_LABEL, "mind")]
         x = ui(24)
+        tfs = font_px(16)
         for label, key in tabs:
             active = self.page == key
-            img = get_font(16).render(label, True,
-                                      BONE if active else BONE_DIM)
-            surf.blit(img, (x, ui(10)))
+            tw, _ = text.measure(label, tfs)
+            text.blit_text(fb, label, x, ui(10),
+                           BONE if active else BONE_DIM, tfs)
             if active:
-                pygame.draw.line(surf, VERDIGRIS, (x, ui(30)),
-                                 (x + img.get_width(), ui(30)), max(1, ui(1)))
-            x += img.get_width() + ui(26)
+                fb2d.hline(fb, VERDIGRIS, x, x + tw, ui(30), max(1, ui(1)))
+            x += tw + ui(26)
         # the unit's nameplate, centered in the free chrome between the
         # tabs and the wallet: the hardware class knows its own name
-        plate = get_font(10).render(POD_UNIT_NAME + " UNIT", True, (86, 99, 92))
-        surf.blit(plate, (w // 2 - plate.get_width() // 2, ui(14)))
+        pfs = font_px(10)
+        plate = POD_UNIT_NAME + " UNIT"
+        pw, _ = text.measure(plate, pfs)
+        text.blit_text(fb, plate, w // 2 - pw // 2, ui(14), (86, 99, 92), pfs)
         # wallet, right-aligned
         head = f"{s.components}c   {s.chassis} CHASSIS   {s.station_kits} KITS"
-        img = f.render(head, True, (170, 200, 185))
-        surf.blit(img, (w - img.get_width() - ui(24), ui(12)))
+        hw, _ = text.measure(head, fs)
+        text.blit_text(fb, head, w - hw - ui(24), ui(12), (170, 200, 185), fs)
         # footer hints
         if self.reveal is not None:
             hint = "" if self.reveal["t"] < REVEAL_IGNITE else "any key: skip"
@@ -690,17 +762,18 @@ class PodScene(Scene):
         else:
             hint = "arrows: walk   ENTER: think   TAB: fabricator   ESC: seal the pod"
         if hint:
-            img = get_font(10).render(hint, True, (110, 120, 115))
-            surf.blit(img, (w // 2 - img.get_width() // 2, h - ui(14)))
+            iw, _ = text.measure(hint, pfs)
+            text.blit_text(fb, hint, w // 2 - iw // 2, h - ui(14),
+                           (110, 120, 115), pfs)
 
     # ------------------------------------------------------------------
     # FABRICATOR page
     # ------------------------------------------------------------------
 
-    def _draw_fabricator(self, surf) -> None:
-        w, h = surf.get_size()
+    def _draw_fabricator(self, fb) -> None:
+        w, h = fb.shape[:2]
         s = self.session
-        f = get_font(12)
+        fs = font_px(12)
         y = ui(58)
         for i, item in enumerate(self.FAB_ORDER):
             price = s.shop_price(item)
@@ -712,67 +785,70 @@ class PodScene(Scene):
                     col = (140, 255, 160)
                 elif self.flash < 0:
                     col = (255, 120, 110)
-                pygame.draw.polygon(surf, VERDIGRIS, [
+                fb2d.polygon(fb, VERDIGRIS, [
                     (ui(16), y + ui(2)), (ui(22), y + ui(6)), (ui(16), y + ui(10))])
             else:
                 col = (150, 180, 160) if s.components >= price else (100, 115, 105)
-            surf.blit(f.render(label, True, col), (ui(28), y))
+            text.blit_text(fb, label, ui(28), y, col, fs)
             y += ui(20)
-        self._draw_hero_panel(surf, self.FAB_ORDER[self.fab_sel])
+        self._draw_hero_panel(fb, self.FAB_ORDER[self.fab_sel])
 
-    def _hero_art(self, item: str) -> "pygame.Surface | None":
+    def _hero_art(self, item: str) -> "np.ndarray | None":
+        """Hero art as a (w, h, 4) RGBA array in fb axis order, or None."""
         if item in self._hero_cache:
             return self._hero_cache[item]
-        img = None
+        arr = None
         p = HERO_DIR / f"{item}.png"
         if p.exists():
             try:
-                img = pygame.image.load(str(p))
-                try:
-                    img = img.convert_alpha()
-                except pygame.error:
-                    pass  # headless: raw surface still blits
-            except (pygame.error, OSError):
-                img = None
-        self._hero_cache[item] = img
-        return img
+                from PIL import Image
+                with Image.open(str(p)) as img:
+                    arr = np.asarray(img.convert("RGBA"),
+                                     dtype=np.uint8).transpose(1, 0, 2)
+            except OSError:
+                arr = None
+        self._hero_cache[item] = arr
+        return arr
 
-    def _draw_hero_panel(self, surf, item: str) -> None:
-        w, h = surf.get_size()
-        rect = pygame.Rect(int(w * 0.47), ui(46), int(w * 0.49), h - ui(46) - ui(96))
-        pygame.draw.rect(surf, (10, 13, 13), rect)
-        pygame.draw.rect(surf, MIRIAD_DIM, rect, max(1, ui(1)))
+    def _draw_hero_panel(self, fb, item: str) -> None:
+        w, h = fb.shape[:2]
+        rect = Rect(int(w * 0.47), ui(46), int(w * 0.49), h - ui(46) - ui(96))
+        fb2d.rect(fb, (10, 13, 13), rect)
+        fb2d.rect(fb, MIRIAD_DIM, rect, max(1, ui(1)))
         # corner brackets: the fabricator frames its subject
         b = ui(8)
         for cx, cy, sx, sy in ((rect.left, rect.top, 1, 1),
                                (rect.right, rect.top, -1, 1),
                                (rect.left, rect.bottom, 1, -1),
                                (rect.right, rect.bottom, -1, -1)):
-            pygame.draw.line(surf, MIRIAD, (cx, cy), (cx + sx * b, cy), max(1, ui(1)))
-            pygame.draw.line(surf, MIRIAD, (cx, cy), (cx, cy + sy * b), max(1, ui(1)))
+            fb2d.line(fb, MIRIAD, (cx, cy), (cx + sx * b, cy), max(1, ui(1)))
+            fb2d.line(fb, MIRIAD, (cx, cy), (cx, cy + sy * b), max(1, ui(1)))
         inner = rect.inflate(-ui(16), -ui(16))
         art = self._hero_art(item)
         if art is not None:
-            aw, ah = art.get_size()
+            aw, ah = art.shape[:2]
             k = min(inner.w / aw, inner.h / ah)
-            img = pygame.transform.smoothscale(art, (max(1, int(aw * k)),
-                                                     max(1, int(ah * k))))
-            surf.blit(img, (inner.centerx - img.get_width() // 2,
-                            inner.centery - img.get_height() // 2))
+            tw, th = max(1, int(aw * k)), max(1, int(ah * k))
+            if (tw, th) != (aw, ah):
+                from PIL import Image
+                img = Image.fromarray(art.transpose(1, 0, 2))
+                art = np.asarray(img.resize((tw, th), Image.BILINEAR),
+                                 dtype=np.uint8).transpose(1, 0, 2)
+            fb2d.blit(fb, art, inner.centerx - tw // 2, inner.centery - th // 2)
         else:
-            self._draw_item_glyph(surf, inner, item)
+            self._draw_item_glyph(fb, inner, item)
         # nameplate + description under the panel
-        f = get_font(12)
-        name = f.render(SHOP[item]["label"], True, BONE)
-        surf.blit(name, (rect.left, rect.bottom + ui(8)))
-        df = get_font(10)
+        fs = font_px(12)
+        text.blit_text(fb, SHOP[item]["label"], rect.left, rect.bottom + ui(8),
+                       BONE, fs)
+        dfs = font_px(10)
         yd = rect.bottom + ui(26)
-        cols = max(18, rect.w // df.size("M")[0])
+        cols = max(18, rect.w // text.measure("M", dfs)[0])
         for line in _wrap(ITEM_DESC.get(item, ""), cols)[:3]:
-            surf.blit(df.render(line, True, BONE_DIM), (rect.left, yd))
+            text.blit_text(fb, line, rect.left, yd, BONE_DIM, dfs)
             yd += ui(12)
 
-    def _draw_item_glyph(self, surf, r: pygame.Rect, item: str) -> None:
+    def _draw_item_glyph(self, fb, r: Rect, item: str) -> None:
         """The vector fallback IS the live path (no hero art exists yet):
         an enlarged schematic rendering in the MIRIAD register --
         alignment guides, dimension ticks, amber accents. Never a box."""
@@ -781,25 +857,25 @@ class PodScene(Scene):
         cx, cy = r.centerx, r.centery
         u = min(r.w, r.h) / 100.0  # glyph unit
         # drafting guides through the subject
-        pygame.draw.line(surf, (26, 32, 34), (r.left, cy), (r.right, cy), 1)
-        pygame.draw.line(surf, (26, 32, 34), (cx, r.top), (cx, r.bottom), 1)
+        fb2d.hline(fb, (26, 32, 34), r.left, r.right, cy, 1)
+        fb2d.vline(fb, (26, 32, 34), cx, r.top, r.bottom, 1)
         # a slow survey arc sweeps the subject (alive, not static)
         a0 = (t * 0.6) % (2 * math.pi)
         rad = int(44 * u)
-        rect = pygame.Rect(cx - rad, cy - rad, 2 * rad, 2 * rad)
-        pygame.draw.arc(surf, (40, 52, 55), rect, a0, a0 + 0.9, 1)
+        rect = (cx - rad, cy - rad, 2 * rad, 2 * rad)
+        fb2d.arc(fb, (40, 52, 55), rect, a0, a0 + 0.9, 1)
 
         def L(x1, y1, x2, y2, col=MIRIAD, width=lw):
-            pygame.draw.line(surf, col, (cx + x1 * u, cy + y1 * u),
-                             (cx + x2 * u, cy + y2 * u), width)
+            fb2d.line(fb, col, (cx + x1 * u, cy + y1 * u),
+                      (cx + x2 * u, cy + y2 * u), width)
 
         def C(x, y, rr, col=MIRIAD, width=lw):
-            pygame.draw.circle(surf, col, (int(cx + x * u), int(cy + y * u)),
-                               max(1, int(rr * u)), width)
+            fb2d.circle(fb, col, (int(cx + x * u), int(cy + y * u)),
+                        max(1, int(rr * u)), width)
 
         def P(pts, col=MIRIAD, width=lw):
-            pygame.draw.polygon(surf, col, [(cx + x * u, cy + y * u)
-                                            for x, y in pts], width)
+            fb2d.polygon(fb, col, [(cx + x * u, cy + y * u)
+                                   for x, y in pts], width)
 
         if item == "chassis":
             # the spare frame, hung in the rack: head, torso shell, limbs
@@ -821,8 +897,8 @@ class PodScene(Scene):
                 ang += 0.5
                 rr += 1.1
             if len(pts) > 1:
-                pygame.draw.lines(surf, SEED_RED, False,
-                                  [(cx + x * u, cy + y * u) for x, y in pts], lw)
+                fb2d.lines(fb, SEED_RED, False,
+                           [(cx + x * u, cy + y * u) for x, y in pts], lw)
             L(0, 32, 0, 40, MIRIAD_DIM, 1)  # the planting spike
         elif item == "hp_up":
             # hull plating: overlapped plates, riveted
@@ -840,10 +916,10 @@ class PodScene(Scene):
             C(0, -14, 4, AMBER)
             rr = 10.0
             for i in range(4):
-                rect2 = pygame.Rect(int(cx - rr * u), int(cy - 14 * u - rr * u),
-                                    int(2 * rr * u), int(2 * rr * u))
-                pygame.draw.arc(surf, VERDIGRIS, rect2,
-                                math.radians(35), math.radians(145), lw)
+                rect2 = (int(cx - rr * u), int(cy - 14 * u - rr * u),
+                         int(2 * rr * u), int(2 * rr * u))
+                fb2d.arc(fb, VERDIGRIS, rect2,
+                         math.radians(35), math.radians(145), lw)
                 rr *= 1.618
         elif item.startswith("ammo_"):
             kind = item[5:]
@@ -866,8 +942,8 @@ class PodScene(Scene):
         for i in range(9):
             x = r.left + r.w * (i + 0.5) / 9
             hgt = ui(4) if i % 2 else ui(6)
-            pygame.draw.line(surf, MIRIAD_DIM, (x, r.bottom - ui(3)),
-                             (x, r.bottom - ui(3) - hgt), 1)
+            fb2d.vline(fb, MIRIAD_DIM, int(x), int(r.bottom - ui(3) - hgt),
+                       int(r.bottom - ui(3)), 1)
 
     # ------------------------------------------------------------------
     # MIND page
@@ -877,18 +953,32 @@ class PodScene(Scene):
         """Canvas -> surface scale for the MIND page's own typography and
         margins (mindmap.py's canonical 640x360 canvas is the reference;
         the aspect ratio is fixed, so one factor serves both axes)."""
-        return surf.get_width() / mindmap.CANVAS_W
+        return _size(surf)[0] / mindmap.CANVAS_W
 
-    def _map_clip(self, surf) -> "pygame.Rect":
-        """The strip the map may draw into: below the tab header, above
-        the detail panel/footer -- the same margins label_layout reserves
-        (mindmap.HEADER_MARGIN_PX / FOOTER_MARGIN_PX), so even mid-glide
-        or mid-reveal nothing ever bleeds onto chrome."""
-        w, h = surf.get_size()
+    def _map_clip(self, surf) -> tuple[int, int]:
+        """The (top, bottom) strip the map may draw into: below the tab
+        header, above the detail panel/footer -- the same margins
+        label_layout reserves (mindmap.HEADER_MARGIN_PX /
+        FOOTER_MARGIN_PX), so even mid-glide or mid-reveal nothing ever
+        bleeds onto chrome."""
+        w, h = _size(surf)
         ky = h / mindmap.CANVAS_H
         top = int(round(mindmap.HEADER_MARGIN_PX * ky))
         bot = h - int(round(mindmap.FOOTER_MARGIN_PX * ky))
-        return pygame.Rect(0, top, w, max(1, bot - top))
+        return top, max(top + 1, bot)
+
+    def _bands_underlay(self, surf) -> np.ndarray:
+        """A fresh copy of the band underlay, recomposed only when the
+        camera/zoom/selection actually changed (they are exact-float
+        constant at rest; only a glide or the reveal moves them)."""
+        w, h = _size(surf)
+        key = (w, h, self._cam_pos(), self._zoom(),
+               mindmap.depths().get(self.sel, -1))
+        if self._bands_cache is None or self._bands_cache[0] != key:
+            under = fb2d.overlay(w, h)
+            self._draw_bands(under, surf)
+            self._bands_cache = (key, under)
+        return self._bands_cache[1].copy()
 
     def _draw_bands(self, under, surf) -> None:
         """The depth-annulus bands themselves (director: nodes live IN
@@ -918,27 +1008,27 @@ class PodScene(Scene):
             rxi, ryi = radii(lo)
             if rxo <= 1 or ryo <= 1:
                 continue
-            pygame.draw.ellipse(under, (104, 138, 118, alpha),
-                                (ccx - rxo, ccy - ryo, 2 * rxo, 2 * ryo))
+            fb2d.ellipse(under, (104, 138, 118, alpha),
+                         (ccx - rxo, ccy - ryo, 2 * rxo, 2 * ryo))
             if lo > 0 and rxi > 1 and ryi > 1:
-                # punch the interior back to transparent (pygame.draw
-                # writes raw RGBA on SRCALPHA surfaces -- no blending)
-                pygame.draw.ellipse(under, (0, 0, 0, 0),
-                                    (ccx - rxi, ccy - ryi, 2 * rxi, 2 * ryi))
+                # punch the interior back to transparent (overlay
+                # primitives write raw RGBA -- no blending)
+                fb2d.ellipse(under, (0, 0, 0, 0),
+                             (ccx - rxi, ccy - ryi, 2 * rxi, 2 * ryi))
         for rr in mindmap.ring_boundary_radii(maxd):
             rx, ry = radii(rr)
             if rx > 1 and ry > 1:
-                pygame.draw.ellipse(under, (86, 108, 96, 34),
-                                    (ccx - rx, ccy - ry, 2 * rx, 2 * ry),
-                                    max(1, ui(1)))
+                fb2d.ellipse(under, (86, 108, 96, 34),
+                             (ccx - rx, ccy - ry, 2 * rx, 2 * ry),
+                             max(1, ui(1)))
 
-    def _draw_region_headers(self, surf, vis: set[str]) -> None:
+    def _draw_region_headers(self, fb, vis: set[str]) -> None:
         """Sector names, letterspaced Plex Medium in the region's own hue,
         dimmed -- placed by mindmap.region_header_layout() (the SAME rects
         label_layout reserves, so node labels never sit on them) and moved
         rigidly with the map by _to_screen (no screen clamping: if the
         camera glides a header off-strip, the clip simply crops it)."""
-        k = self._mind_scale(surf)
+        k = self._mind_scale(fb)
         tbl = mindmap.nodes()
         scale = mindmap.HEADER_CELL_PX / mindmap.LABEL_H_PX
         pt = mindmap.LABEL_FONT_PT * scale * k
@@ -946,7 +1036,7 @@ class PodScene(Scene):
             if not any(tbl[nid]["region"] == region for nid in vis):
                 continue
             ux, uy = info["center_unit"]
-            cxp, cyp = self._to_screen(surf, ux, uy)
+            cxp, cyp = self._to_screen(fb, ux, uy)
             # local camera: headers obey the same LOD fade as labels, so a
             # half-clipped sector name never lingers at a screen edge as
             # stray letters -- territory names surface as the camera
@@ -963,45 +1053,49 @@ class PodScene(Scene):
             # reserved box (whose width carries a 6px ink-overhang pad)
             for ch in info["label"]:
                 img = _label_img(ch, pt, col, "medium")
-                surf.blit(img, (int(x), int(cyp - img.get_height() / 2)))
+                _blit_label(fb, img, int(x), int(cyp - img.get_height() / 2))
                 x += (mindmap.text_width_px(ch, "medium") * scale
                       + mindmap.HEADER_TRACK_PX) * k
 
-    def _draw_mind(self, surf) -> None:
-        w, h = surf.get_size()
+    def _draw_mind(self, fb) -> None:
+        w, h = fb.shape[:2]
         s = self.session
         vis = self._visible()
         over = self._ensure_overlay((w, h))
         r = self.reveal
 
-        prev_clip = surf.get_clip()
-        surf.set_clip(self._map_clip(surf))
+        # clip stand-in: the map draws onto a scratch copy of the frame;
+        # only the map strip (below chrome, above the detail panel) is
+        # copied back, so nothing ever bleeds onto chrome
+        top, bot = self._map_clip(fb)
+        scratch = fb.copy()
 
-        # bands + edges live on one SRCALPHA underlay so both can whisper
+        # bands + edges live on one RGBA underlay so both can whisper
         # (true alpha) instead of shouting solid lines across the map
-        under = pygame.Surface((w, h), pygame.SRCALPHA)
         if r is None:
-            self._draw_bands(under, surf)
+            under = self._bands_underlay(scratch)
+        else:
+            under = fb2d.overlay(w, h)
 
         sel_edges: list[tuple[str, str]] = []
         for a, b in self._edges(vis):
             if r is None and self.sel in (a, b):
                 sel_edges.append((a, b))
                 continue  # drawn after, brighter, over the rest
-            ax, ay = self._to_screen(surf, *self._node_pos(a))
-            bx, by = self._to_screen(surf, *self._node_pos(b))
+            ax, ay = self._to_screen(scratch, *self._node_pos(a))
+            bx, by = self._to_screen(scratch, *self._node_pos(b))
             both = a in s.mind and b in s.mind
             col = (112, 138, 122, 128) if both else (98, 110, 105, 76)
-            pygame.draw.line(under, col, (ax, ay), (bx, by), max(1, ui(1)))
+            fb2d.line(under, col, (ax, ay), (bx, by), max(1, ui(1)))
         for a, b in sel_edges:
             # the selected node's own connections carry the emphasis
-            ax, ay = self._to_screen(surf, *self._node_pos(a))
-            bx, by = self._to_screen(surf, *self._node_pos(b))
-            pygame.draw.line(under, (*VERDIGRIS, 185), (ax, ay), (bx, by),
-                             max(1, ui(1)))
-        surf.blit(under, (0, 0))
+            ax, ay = self._to_screen(scratch, *self._node_pos(a))
+            bx, by = self._to_screen(scratch, *self._node_pos(b))
+            fb2d.line(under, (*VERDIGRIS, 185), (ax, ay), (bx, by),
+                      max(1, ui(1)))
+        fb2d.blit(scratch, under)
 
-        self._draw_region_headers(surf, vis)
+        self._draw_region_headers(scratch, vis)
 
         # per-frame LOCAL label placement: labels live only near the
         # camera (LOD -- distant nodes are unlabeled points), sit adjacent
@@ -1016,54 +1110,54 @@ class PodScene(Scene):
 
         # nodes
         for nid in sorted(vis):
-            self._draw_node(surf, nid)
+            self._draw_node(scratch, nid)
 
         # the reveal draws above a dimmed graph
         if r is not None:
             dim = 150
             if r["t"] > REVEAL_UNFURL:
                 dim = int(150 * max(0.0, (REVEAL_DUR - r["t"]) / (REVEAL_DUR - REVEAL_UNFURL)))
-            over.fill((0, 0, 0, dim))
-            self._draw_reveal(surf, over)
-        surf.blit(over, (0, 0))
-        surf.set_clip(prev_clip)
+            fb2d.fill(over, (0, 0, 0, dim))
+            self._draw_reveal(scratch, over)
+        fb2d.blit(scratch, over)
+        fb[:, top:bot] = scratch[:, top:bot]
 
         if r is None:
-            self._draw_detail(surf)
+            self._draw_detail(fb)
 
-    def _draw_node(self, surf, nid: str) -> None:
+    def _draw_node(self, fb, nid: str) -> None:
         s = self.session
         n = mindmap.nodes()[nid]
         nx, ny = self._node_pos(nid)
-        x, y = self._to_screen(surf, nx, ny)
+        x, y = self._to_screen(fb, nx, ny)
         rad = ui(6) + (ui(2) if not n["prereqs"] else 0)
         rcol = REGION_COLOR[n["region"]]
         owned = nid in s.mind
         queued = nid in s.think_done
         focus = nid == s.think_focus
         if owned:
-            pygame.draw.circle(surf, BONE, (x, y), rad)
-            pygame.draw.circle(surf, rcol, (x, y), rad, max(1, ui(1)))
+            fb2d.circle(fb, BONE, (x, y), rad)
+            fb2d.circle(fb, rcol, (x, y), rad, max(1, ui(1)))
         elif queued:
             pulse = 0.5 + 0.5 * math.sin(self.t * 4.0)
-            pygame.draw.circle(surf, (int(120 + 90 * pulse),) * 3, (x, y), rad)
-            pygame.draw.circle(surf, GOLD, (x, y), rad + ui(2), max(1, ui(1)))
+            fb2d.circle(fb, (int(120 + 90 * pulse),) * 3, (x, y), rad)
+            fb2d.circle(fb, GOLD, (x, y), rad + ui(2), max(1, ui(1)))
         else:  # frontier
-            pygame.draw.circle(surf, (22, 26, 26), (x, y), rad)
-            pygame.draw.circle(surf, tuple(c // 2 for c in rcol), (x, y),
-                               rad, max(1, ui(1)))
+            fb2d.circle(fb, (22, 26, 26), (x, y), rad)
+            fb2d.circle(fb, tuple(c // 2 for c in rcol), (x, y),
+                        rad, max(1, ui(1)))
         if focus:
             # the thinking arc: progress eats its way around the node
             frac = min(1.0, s.think_progress.get(nid, 0)
                        / max(1, mindmap.think_ticks(nid)))
             rr = rad + ui(4)
-            rect = pygame.Rect(x - rr, y - rr, 2 * rr, 2 * rr)
-            pygame.draw.arc(surf, VERDIGRIS, rect, math.pi / 2,
-                            math.pi / 2 + frac * 2 * math.pi, max(1, ui(2)))
+            rect = (x - rr, y - rr, 2 * rr, 2 * rr)
+            fb2d.arc(fb, VERDIGRIS, rect, math.pi / 2,
+                     math.pi / 2 + frac * 2 * math.pi, max(1, ui(2)))
         if nid == self.sel and self.reveal is None:
             # selection ring: three rotating arc shards
             rr = rad + ui(6)
-            rect = pygame.Rect(x - rr, y - rr, 2 * rr, 2 * rr)
+            rect = (x - rr, y - rr, 2 * rr, 2 * rr)
             a0 = self.t * 1.4
             col = (240, 245, 240)
             if self.flash > 0:
@@ -1072,7 +1166,7 @@ class PodScene(Scene):
                 col = (255, 120, 110)
             for k in range(3):
                 a = a0 + k * 2 * math.pi / 3
-                pygame.draw.arc(surf, col, rect, a, a + 1.1, max(1, ui(1)))
+                fb2d.arc(fb, col, rect, a, a + 1.1, max(1, ui(1)))
         # labels are placed per-frame around the LOCAL camera
         # (mindmap.local_label_layout -- PBT-proven non-occluding and
         # node-adjacent within the legibility radius; distant nodes are
@@ -1098,7 +1192,7 @@ class PodScene(Scene):
             alpha = int(alpha * min(1.0, (self.t - fade[1]) / _LABEL_FADE_IN))
             if alpha <= 0:
                 return
-        k = self._mind_scale(surf)
+        k = self._mind_scale(fb)
         info = self._frame_labels.get(nid)
         if info is None:
             return  # beyond the legibility radius, or dropped: a dot
@@ -1111,36 +1205,34 @@ class PodScene(Scene):
         # move rigidly with its node
         lx = x + int(round(info["off"][0] * k))
         ly = y + int(round(info["off"][1] * k))
-        font_px = 16
+        font_cell = 16
         col = BONE if nid == self.sel else (GOLD if queued else (
             132, 140, 136) if not owned else tuple(min(255, c + 40) for c in rcol))
         # rendered at the exact target size (Plex Sans stays crisp at any
         # pt; never bitmap-smoothscale mush), scaled with the surface so
         # labels hold their screen fraction at any internal resolution
-        img = _label_img(n["label"], label_pt(font_px, k), col)
-        if alpha < 255:
-            img = img.copy()
-            img.set_alpha(alpha)
-        surf.blit(img, (lx - img.get_width() // 2, ly - img.get_height() // 2))
+        img = _label_img(n["label"], label_pt(font_cell, k), col)
+        _blit_label(fb, img, lx - img.get_width() // 2,
+                    ly - img.get_height() // 2, alpha)
 
-    def _draw_detail(self, surf) -> None:
-        w, h = surf.get_size()
+    def _draw_detail(self, fb) -> None:
+        w, h = fb.shape[:2]
         s = self.session
         if self.sel is None:
             return
         n = mindmap.nodes()[self.sel]
-        k = self._mind_scale(surf)
+        k = self._mind_scale(fb)
         band_h = ui(58)
         y0 = h - band_h - ui(18)
-        pygame.draw.rect(surf, (10, 11, 14), (0, y0, w, band_h))
-        pygame.draw.line(surf, (40, 46, 44), (0, y0), (w, y0), 1)
+        fb2d.fill(fb, (10, 11, 14), (0, y0, w, band_h))
+        fb2d.hline(fb, (40, 46, 44), 0, w, y0, 1)
         rcol = REGION_COLOR[n["region"]]
         # the detail panel speaks the map's own voice (Plex), not the
         # terminal's: it is part of the mind page, not the HUD
         title = _label_img(n["label"].upper(), 11.5 * k, BONE, "semibold")
-        surf.blit(title, (ui(16), y0 + ui(5)))
+        _blit_label(fb, title, ui(16), y0 + ui(5))
         tag = _label_img(mindmap.REGION_LABELS[n["region"]], 9 * k, rcol, "medium")
-        surf.blit(tag, (ui(16), y0 + ui(23)))
+        _blit_label(fb, tag, ui(16), y0 + ui(23))
         # status: what thinking here costs / has cost
         nid = self.sel
         if nid in s.mind:
@@ -1157,35 +1249,38 @@ class PodScene(Scene):
                 status = f"PARKED AT {100 * have // need}% of {secs}s"
             else:
                 status = f"THINK TIME: {secs}s IN THE FIELD"
-        surf.blit(_label_img(status, 9 * k, VERDIGRIS, "medium"),
-                  (ui(16), y0 + ui(38)))
+        _blit_label(fb, _label_img(status, 9 * k, VERDIGRIS, "medium"),
+                    ui(16), y0 + ui(38))
         bx = max(ui(268), ui(20) + title.get_width())
-        bf = mind_font(10 * k)
         max_w = w - bx - ui(16)
-        words = n.get("brief", "").split()
-        lines: list[str] = []
-        cur = ""
-        for word in words:
-            cand = (cur + " " + word).strip()
-            if cur and bf.size(cand)[0] > max_w:
+        key = (nid, k, max_w)
+        lines = _BRIEF_WRAP_CACHE.get(key)
+        if lines is None:
+            words = n.get("brief", "").split()
+            lines = []
+            cur = ""
+            for word in words:
+                cand = (cur + " " + word).strip()
+                if cur and mind_text_size(cand, 10 * k)[0] > max_w:
+                    lines.append(cur)
+                    cur = word
+                else:
+                    cur = cand
+            if cur:
                 lines.append(cur)
-                cur = word
-            else:
-                cur = cand
-        if cur:
-            lines.append(cur)
+            _BRIEF_WRAP_CACHE[key] = lines
         for i, line in enumerate(lines[:3]):
-            surf.blit(_label_img(line, 10 * k, (150, 148, 140)),
-                      (bx, y0 + ui(6) + i * ui(15)))
+            _blit_label(fb, _label_img(line, 10 * k, (150, 148, 140)),
+                        bx, y0 + ui(6) + i * ui(15))
 
     # ------------------------------------------------------------------
     # the three reveal grammars
     # ------------------------------------------------------------------
 
-    def _draw_reveal(self, surf, over) -> None:
+    def _draw_reveal(self, fb, over) -> None:
         r = self.reveal
         t = r["t"]
-        x, y = self._to_screen(surf, *self.layout[r["node"]])
+        x, y = self._to_screen(fb, *self.layout[r["node"]])
         # ignition flare, shared by all three grammars: a soft bloom of
         # concentric light, then a bright expanding ring
         if t > REVEAL_GLIDE:
@@ -1195,27 +1290,27 @@ class PodScene(Scene):
             base = GOLD if r["kind"] != "snap" else MIRIAD
             if fade > 0.0:
                 for gr, ga in ((ui(30), 34), (ui(18), 62), (ui(10), 110)):
-                    pygame.draw.circle(over, (*base, int(ga * fade)), (x, y), gr)
+                    fb2d.circle(over, (*base, int(ga * fade)), (x, y), gr)
                 fr = ui(8) + int(ui(34) * k)
                 alpha = int(210 * (1.0 - 0.7 * k) * fade)
-                pygame.draw.circle(over, (*base, alpha), (x, y), fr,
-                                   max(1, ui(2)))
+                fb2d.circle(over, (*base, alpha), (x, y), fr,
+                            max(1, ui(2)))
         if r["kind"] == "bloom":
-            self._reveal_bloom(surf, over, x, y, t, sour_at=None)
+            self._reveal_bloom(fb, over, x, y, t, sour_at=None)
         elif r["kind"] == "corrupt":
-            self._reveal_bloom(surf, over, x, y, t, sour_at=REVEAL_SOUR)
+            self._reveal_bloom(fb, over, x, y, t, sour_at=REVEAL_SOUR)
         else:
-            self._reveal_snap(surf, over, x, y, t)
-        self._reveal_neighbors(surf, over, t)
+            self._reveal_snap(fb, over, x, y, t)
+        self._reveal_neighbors(fb, over, t)
         # the node itself, reborn bone-bright at the center
         if t > REVEAL_IGNITE:
             col = BONE if not (r["kind"] == "corrupt" and t > REVEAL_SOUR) else SOUR
-            pygame.draw.circle(over, (*col, 255), (x, y), ui(7))
-            pygame.draw.circle(over, (*REGION_COLOR[
+            fb2d.circle(over, (*col, 255), (x, y), ui(7))
+            fb2d.circle(over, (*REGION_COLOR[
                 mindmap.nodes()[r["node"]]["region"]], 255), (x, y), ui(7),
                 max(1, ui(1)))
 
-    def _reveal_bloom(self, surf, over, x, y, t, sour_at) -> None:
+    def _reveal_bloom(self, fb, over, x, y, t, sour_at) -> None:
         """PHYLLOTACTIC BLOOM: petals unfurl at the golden angle, radius
         by sqrt(k) -- the sunflower law in machined light (Testator lane).
         With `sour_at`, the same bloom is betrayed mid-unfurl: color
@@ -1250,9 +1345,9 @@ class PodScene(Scene):
                        (x + ca * mid + sa * pw, y + sa * mid - ca * pw)]
                 ipts = [(int(a), int(b)) for a, b in pts]
                 alpha = int(120 * min(1.0, grow * 1.4))
-                pygame.draw.polygon(over, (*col, alpha), ipts)
-                pygame.draw.polygon(over, (*col, min(255, alpha + 110)),
-                                    ipts, max(1, ui(1)))
+                fb2d.polygon(over, (*col, alpha), ipts)
+                fb2d.polygon(over, (*col, min(255, alpha + 110)),
+                             ipts, max(1, ui(1)))
             else:
                 # the same petal, drained and gone to knives
                 rng = _node_rng(r["node"], f"petal{k}")
@@ -1264,25 +1359,23 @@ class PodScene(Scene):
                        (x + ca * mid * 1.05 + sa * pw * 0.35,
                         y + sa * mid * 1.05 - ca * pw * 0.35)]
                 ipts = [(int(a), int(b)) for a, b in pts]
-                pygame.draw.polygon(over, (*SOUR, 70), ipts)
-                pygame.draw.polygon(over, (*SOUR, 235), ipts, max(1, ui(1)))
+                fb2d.polygon(over, (*SOUR, 70), ipts)
+                fb2d.polygon(over, (*SOUR, 235), ipts, max(1, ui(1)))
 
-    def _reveal_snap(self, surf, over, x, y, t) -> None:
+    def _reveal_snap(self, fb, over, x, y, t) -> None:
         """MIRIAD SCHEMATIC SNAP: alignment guides flash, then the node
         assembles from clean vector segments with a drafting-table
         register -- the lane of the works of Man."""
-        w, h = surf.get_size()
+        w, h = fb.shape[:2]
         # alignment guides sweep in during the glide and fade
         if t < REVEAL_IGNITE + 0.9:
             a = int(140 * max(0.0, 1.0 - abs(t - REVEAL_GLIDE) / 1.1))
             if a > 0:
-                pygame.draw.line(over, (*MIRIAD, a), (0, y), (w, y), 1)
-                pygame.draw.line(over, (*MIRIAD, a), (x, 0), (x, h), 1)
+                fb2d.hline(over, (*MIRIAD, a), 0, w, y, 1)
+                fb2d.vline(over, (*MIRIAD, a), x, 0, h, 1)
                 for off in (-ui(30), ui(30)):
-                    pygame.draw.line(over, (*MIRIAD, a // 2),
-                                     (0, y + off), (w, y + off), 1)
-                    pygame.draw.line(over, (*MIRIAD, a // 2),
-                                     (x + off, 0), (x + off, h), 1)
+                    fb2d.hline(over, (*MIRIAD, a // 2), 0, w, y + off, 1)
+                    fb2d.vline(over, (*MIRIAD, a // 2), x + off, 0, h, 1)
         if t <= REVEAL_IGNITE - 0.2:
             return
         bright = (200, 214, 226)
@@ -1299,19 +1392,19 @@ class PodScene(Scene):
             a0 = -math.pi / 2 + k * 2 * math.pi / segs
             span = (2 * math.pi / segs) * 0.72 * u
             for rad, wd in ((rr * overshoot, ui(2)), (rr * 0.62 * overshoot, ui(1))):
-                rect = pygame.Rect(int(x - rad), int(y - rad),
-                                   int(2 * rad), int(2 * rad))
-                pygame.draw.arc(over, (*bright, 240), rect, a0, a0 + span,
-                                max(1, wd))
+                rect = (int(x - rad), int(y - rad),
+                        int(2 * rad), int(2 * rad))
+                fb2d.arc(over, (*bright, 240), rect, a0, a0 + span,
+                         max(1, wd))
         # corner brackets: the drafting frame closes on the subject
         if t > t0 + 0.3:
             b, d = ui(6), ui(34)
             for sx_, sy_ in ((-1, -1), (1, -1), (-1, 1), (1, 1)):
-                pygame.draw.lines(over, (*MIRIAD, 220), False,
-                                  [(x + sx_ * d, y + sy_ * (d - b)),
-                                   (x + sx_ * d, y + sy_ * d),
-                                   (x + sx_ * (d - b), y + sy_ * d)],
-                                  max(1, ui(1)))
+                fb2d.lines(over, (*MIRIAD, 220), False,
+                           [(x + sx_ * d, y + sy_ * (d - b)),
+                            (x + sx_ * d, y + sy_ * d),
+                            (x + sx_ * (d - b), y + sy_ * d)],
+                           max(1, ui(1)))
         # index ticks + amber datum once assembly completes
         if t > t1:
             for k in range(segs):
@@ -1320,10 +1413,10 @@ class PodScene(Scene):
                 y1 = y + math.sin(a) * (rr + ui(3))
                 x2 = x + math.cos(a) * (rr + ui(8))
                 y2 = y + math.sin(a) * (rr + ui(8))
-                pygame.draw.line(over, (*AMBER, 230), (x1, y1), (x2, y2),
-                                 max(1, ui(1)))
+                fb2d.line(over, (*AMBER, 230), (x1, y1), (x2, y2),
+                          max(1, ui(1)))
 
-    def _reveal_neighbors(self, surf, over, t) -> None:
+    def _reveal_neighbors(self, fb, over, t) -> None:
         """New neighbors fade in only after the reveal's main body: edges
         first (tendrils for the bloom, straight drafting lines for the
         snap, cracks for the corrupted reveal), then the nodes themselves."""
@@ -1331,12 +1424,12 @@ class PodScene(Scene):
         if t < REVEAL_UNFURL - 0.3 or not r["new"]:
             return
         u = min(1.0, (t - (REVEAL_UNFURL - 0.3)) / 1.2)
-        x, y = self._to_screen(surf, *self.layout[r["node"]])
+        x, y = self._to_screen(fb, *self.layout[r["node"]])
         tbl = mindmap.nodes()
         for nid in sorted(r["new"]):
             if nid not in self.layout:
                 continue
-            nx, ny = self._to_screen(surf, *self.layout[nid])
+            nx, ny = self._to_screen(fb, *self.layout[nid])
             grow = min(1.0, u * 1.6)
             ex, ey = x + (nx - x) * grow, y + (ny - y) * grow
             if r["kind"] == "bloom":
@@ -1353,11 +1446,11 @@ class PodScene(Scene):
                     ay_ = (1 - q) ** 2 * y + 2 * (1 - q) * q * by_ + q * q * ey
                     pts.append((ax_, ay_))
                 pts.append((ex, ey))
-                pygame.draw.lines(over, (*VERDIGRIS, 235), False,
-                                  [(int(a), int(b)) for a, b in pts], max(1, ui(2)))
+                fb2d.lines(over, (*VERDIGRIS, 235), False,
+                           [(int(a), int(b)) for a, b in pts], max(1, ui(2)))
             elif r["kind"] == "snap":
-                pygame.draw.line(over, (*MIRIAD, 220), (x, y), (ex, ey),
-                                 max(1, ui(1)))
+                fb2d.line(over, (*MIRIAD, 220), (x, y), (ex, ey),
+                          max(1, ui(1)))
             else:
                 # a crack: a deterministic jagged walk toward the neighbor
                 rng = _node_rng(r["node"], nid)
@@ -1372,10 +1465,10 @@ class PodScene(Scene):
                                 y + dy * q + dx / d * off))
                 pts.append((ex, ey))
                 ipts = [(int(a), int(b)) for a, b in pts]
-                pygame.draw.lines(over, (150, 122, 150, 240), False, ipts,
-                                  max(1, ui(2)))
-                pygame.draw.lines(over, (*CRACK, 160), False,
-                                  [(a, b + ui(1)) for a, b in ipts], 1)
+                fb2d.lines(over, (150, 122, 150, 240), False, ipts,
+                           max(1, ui(2)))
+                fb2d.lines(over, (*CRACK, 160), False,
+                           [(a, b + ui(1)) for a, b in ipts], 1)
             # the neighbor arrives: a fading-in disc only -- its NAME is
             # drawn exactly once, by the ordinary per-node label pass in
             # _draw_node (which fades it in over the same window once
@@ -1388,6 +1481,6 @@ class PodScene(Scene):
             if u > 0.5:
                 a = int(255 * (u - 0.5) * 2)
                 rcol = REGION_COLOR[tbl[nid]["region"]]
-                pygame.draw.circle(over, (22, 26, 26, a), (nx, ny), ui(6))
-                pygame.draw.circle(over, (*[c // 2 for c in rcol], a),
-                                   (nx, ny), ui(6), max(1, ui(1)))
+                fb2d.circle(over, (22, 26, 26, a), (nx, ny), ui(6))
+                fb2d.circle(over, (*[c // 2 for c in rcol], a),
+                            (nx, ny), ui(6), max(1, ui(1)))

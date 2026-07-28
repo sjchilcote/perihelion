@@ -7,7 +7,7 @@ glance. One line types at a time; SPACE or a mouse click completes the
 current line or advances to the next; ESC skips the whole scene; a
 completed line auto-advances after IDLE_ADVANCE_S of no input. Imports
 from menus only -- no dependency on render.py (draw sizes come from the
-target surface).
+target framebuffer).
 
 CHOICE TURNS (the trust/antagonize mechanic). A conversation's turn list may
 contain, alongside ordinary (speaker, text) turns, a CHOICE turn:
@@ -33,9 +33,8 @@ from __future__ import annotations
 
 from typing import Callable, Optional
 
-import pygame
-
-from .menus import DIM_GREEN, PHOSPHOR_GREEN, Scene, _wrap, get_font, ui
+from . import fb2d, text, uievent
+from .menus import DIM_GREEN, PHOSPHOR_GREEN, Scene, _wrap, font_px, ui
 
 COMMANDO_BONE = (231, 214, 178)
 CHOICE_AMBER = (255, 200, 90)
@@ -66,9 +65,9 @@ STANCE_COLOR = {
 }
 
 _CHOICE_KEYS = {
-    0: (pygame.K_1, pygame.K_KP1),
-    1: (pygame.K_2, pygame.K_KP2),
-    2: (pygame.K_3, pygame.K_KP3),
+    0: (uievent.K_1, uievent.K_KP1),
+    1: (uievent.K_2, uievent.K_KP2),
+    2: (uievent.K_3, uievent.K_KP3),
 }
 
 
@@ -209,23 +208,24 @@ class ConversationScene(Scene):
     # ------------------------------------------------------------------
 
     def handle_event(self, app, event) -> None:
+        event = uievent.from_pygame(event)
         if self.finished:
             return
-        if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+        if event.type == uievent.KEYDOWN and event.key == uievent.K_ESCAPE:
             self._finish(app)
             return
         if self._in_choice():
-            if event.type == pygame.KEYDOWN:
+            if event.type == uievent.KEYDOWN:
                 for option_index, keys in _CHOICE_KEYS.items():
                     if event.key in keys:
                         self.choose(app, option_index)
                         return
             return
         advance = False
-        if event.type == pygame.KEYDOWN:
-            if event.key in (pygame.K_SPACE, pygame.K_RETURN):
+        if event.type == uievent.KEYDOWN:
+            if event.key in (uievent.K_SPACE, uievent.K_RETURN):
                 advance = True
-        elif event.type == pygame.MOUSEBUTTONDOWN:
+        elif event.type == uievent.MOUSEBUTTONDOWN:
             advance = True
         if advance:
             if self._current_complete():
@@ -279,24 +279,23 @@ class ConversationScene(Scene):
                 rows.append((row if j == 0 else "   " + row, color))
         return rows
 
-    def draw(self, app, surf) -> None:
-        w, h = surf.get_size()
-        surf.fill((0, 10, 4))
-        pygame.draw.rect(surf, DIM_GREEN,
-                         (ui(8), ui(8), w - ui(16), h - ui(16)), max(1, ui(1)))
-        f = get_font(12)
-        surf.blit(f.render(HEADER, True, DIM_GREEN), (ui(16), ui(12)))
-        pygame.draw.line(surf, DIM_GREEN, (ui(16), HEADER_H),
-                         (w - ui(16), HEADER_H), max(1, ui(1)))
+    def draw_fb(self, app, fb) -> None:
+        w, h = fb.shape[:2]
+        fb2d.fill(fb, (0, 10, 4))
+        fb2d.rect(fb, DIM_GREEN,
+                  (ui(8), ui(8), w - ui(16), h - ui(16)), max(1, ui(1)))
+        fs = font_px(12)
+        text.blit_text(fb, HEADER, ui(16), ui(12), DIM_GREEN, fs)
+        fb2d.hline(fb, DIM_GREEN, ui(16), w - ui(16), HEADER_H, max(1, ui(1)))
 
         rows = self._rows()
         if self._in_choice():
             rows = rows + self._choice_rows()
         max_rows = max(1, (h - HEADER_H - FOOTER_H - ui(8)) // LINE_STEP)
         y = HEADER_H + ui(6)
-        for text, color in rows[-max_rows:]:
-            if text:
-                surf.blit(f.render(text, True, color), (MARGIN, y))
+        for row, color in rows[-max_rows:]:
+            if row:
+                text.blit_text(fb, row, MARGIN, y, color, fs)
             y += LINE_STEP
 
         if self._in_choice():
@@ -304,5 +303,6 @@ class ConversationScene(Scene):
             hint = f"{keys}: choose    ESC: skip"
         else:
             hint = "SPACE: next    ESC: skip"
-        img = get_font(9).render(hint, True, DIM_GREEN)
-        surf.blit(img, (w - img.get_width() - ui(20), h - ui(28)))
+        hs = font_px(9)
+        hw, _ = text.measure(hint, hs)
+        text.blit_text(fb, hint, w - hw - ui(20), h - ui(28), DIM_GREEN, hs)

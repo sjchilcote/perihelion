@@ -40,36 +40,33 @@ class Result:
 
 
 def _start_capture(renderer_cls, session: GameSession, capture_dir: str | Path | None):
-    """Best-effort renderer/surface setup for frame capture. Returns
-    `(renderer, surface)`, or `(None, None)` on any failure — e.g.
-    `perihelion.render` not being importable, pygame erroring under
-    SDL_VIDEODRIVER=dummy, or a caller-supplied `renderer_cls` not matching
-    `Renderer`'s `(session)` / `consume_fx(fx)` / `draw(surf)` contract.
-    Never raises."""
+    """Best-effort renderer setup for frame capture. Returns
+    `(renderer, size)`, or `(None, None)` on any failure — e.g.
+    `perihelion.render` not being importable, or a caller-supplied
+    `renderer_cls` not matching `Renderer`'s `(session)` / `consume_fx(fx)`
+    / `draw(size)` contract. Never raises. `size` is the plain (w, h)
+    draw target `Renderer.draw` sizes its numpy frame from (no pygame)."""
     try:
-        os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
-        os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
-        import pygame
-
-        pygame.init()
         if renderer_cls is None:
             from perihelion.render import Renderer as renderer_cls
         from perihelion.render import INTERNAL_H, INTERNAL_W
 
         renderer = renderer_cls(session)
-        surf = pygame.Surface((INTERNAL_W, INTERNAL_H))
+        size = (INTERNAL_W, INTERNAL_H)
         if capture_dir is not None:
             Path(capture_dir).mkdir(parents=True, exist_ok=True)
-        return renderer, surf
+        return renderer, size
     except Exception:
         return None, None
 
 
-def _save_frame(surf, capture_dir: str | Path, frame_idx: int) -> bool:
+def _save_frame(frame, capture_dir: str | Path, frame_idx: int) -> bool:
+    """PNG-save a (W, H, 3) surfarray-order numpy frame via PIL."""
     try:
-        import pygame
+        from PIL import Image
 
-        pygame.image.save(surf, str(Path(capture_dir) / f"frame_{frame_idx:06d}.png"))
+        Image.fromarray(frame.transpose(1, 0, 2)).save(
+            str(Path(capture_dir) / f"frame_{frame_idx:06d}.png"))
         return True
     except Exception:
         return False
@@ -82,11 +79,11 @@ def run_bot(level: Level, bot: Bot, seed: int, max_ticks: int = DEFAULT_MAX_TICK
     completion), returning a `Result`.
 
     `renderer`, if given, is a `perihelion.render.Renderer`-shaped class
-    (constructor `(session)`, `consume_fx(fx_list)`, `draw(surf)`) used
-    instead of the default lazily-imported `perihelion.render.Renderer`
-    when `capture_every > 0`. Frame capture is always best-effort: any
-    import/construction/draw failure sets `Result.capture_skipped = True`
-    and the run continues untouched.
+    (constructor `(session)`, `consume_fx(fx_list)`, `draw(size)` returning
+    a (W, H, 3) numpy frame) used instead of the default lazily-imported
+    `perihelion.render.Renderer` when `capture_every > 0`. Frame capture is
+    always best-effort: any import/construction/draw failure sets
+    `Result.capture_skipped = True` and the run continues untouched.
 
     `trace_path`, if given, drains the session's TraceBus to that JSONL
     file each tick — through the SAME writer the app uses for human
@@ -110,9 +107,9 @@ def run_bot(level: Level, bot: Bot, seed: int, max_ticks: int = DEFAULT_MAX_TICK
     prev_dmg_taken = 0.0
 
     capture_skipped = False
-    capture_renderer = capture_surf = None
+    capture_renderer = capture_size = None
     if capture_every > 0:
-        capture_renderer, capture_surf = _start_capture(renderer, session, capture_dir)
+        capture_renderer, capture_size = _start_capture(renderer, session, capture_dir)
         if capture_renderer is None:
             capture_skipped = True
     frame_idx = 0
@@ -137,10 +134,8 @@ def run_bot(level: Level, bot: Bot, seed: int, max_ticks: int = DEFAULT_MAX_TICK
                 # only draw()+save is throttled to capture_every.
                 capture_renderer.consume_fx(session.fx)
                 if capture_dir is not None and session.tick_count % capture_every == 0:
-                    import pygame
-                    frame = capture_renderer.draw(capture_surf)
-                    pygame.surfarray.blit_array(capture_surf, frame)
-                    if not _save_frame(capture_surf, capture_dir, frame_idx):
+                    frame = capture_renderer.draw(capture_size)
+                    if not _save_frame(frame, capture_dir, frame_idx):
                         capture_skipped = True
                     frame_idx += 1
             except Exception:
