@@ -89,6 +89,115 @@ struct Sim {
     router: Router,
 }
 
+/// The geometric core shared by `Sim.sightline` and `Sim.sentry_acquire`:
+/// compose portal transforms along the next_edge chain, then raycast-
+/// confirm. Returns (wx, wy, portal_depth, dist) in the observer's frame.
+fn sightline_core(
+    router: &mut Router,
+    sim: &CoreSim,
+    observer: u64,
+    target: u64,
+    group: u8,
+    max_hops: usize,
+) -> Option<(f64, f64, usize, f64)> {
+    let obs = sim.entities.get(&observer)?;
+    let tgt = sim.entities.get(&target)?;
+    let (r0, ox, oy) = (obs.polygon, obs.pos.x, obs.pos.y);
+    let (rt, tx0, ty0) = (tgt.polygon, tgt.pos.x, tgt.pos.y);
+    let (wx, wy, depth) = if r0 == rt {
+        (tx0, ty0, 0usize)
+    } else {
+        let hd = match router.hop_distance(&sim.world, r0, rt) {
+            Some(hd) if (1..=max_hops as u32).contains(&hd) => hd as usize,
+            _ => return None,
+        };
+        let mut pxf: Option<Mat3> = None;
+        let mut r_ = r0;
+        for _ in 0..max_hops {
+            if r_ == rt {
+                break;
+            }
+            let pedge = router.next_edge(&sim.world, r_, rt)?;
+            let polygon = sim.world.polygons.get(r_)?;
+            let Some(Some(portal)) = polygon.portals.get(pedge) else {
+                return None;
+            };
+            pxf = Some(match pxf {
+                None => portal.xform,
+                Some(m) => m.mul(portal.xform),
+            });
+            r_ = portal.target_polygon;
+        }
+        if r_ != rt {
+            return None;
+        }
+        let p = pxf?.apply(v(tx0, ty0));
+        (p.x, p.y, hd)
+    };
+    let (ddx, ddy) = (wx - ox, wy - oy);
+    let mut dl = ddx.hypot(ddy);
+    if dl == 0.0 {
+        dl = 1e-6;
+    }
+    if depth > 0 {
+        let hit = core_raycast(
+            sim,
+            r0,
+            v(ox, oy),
+            v(ddx / dl, ddy / dl),
+            3,
+            dl + 40.0,
+            1u16 << group,
+            Some(observer),
+        );
+        match hit {
+            RayHit::Entity { id, .. } if id == target => {}
+            _ => return None,
+        }
+    }
+    Some((wx, wy, depth, dl))
+}
+
+/// Liang-Barsky segment-vs-AABB — the exact port of sim.py's
+/// `_segment_crosses_rect` (the sentry terrain-occlusion test).
+fn segment_crosses_rect(
+    x1: f64, y1: f64, x2: f64, y2: f64,
+    lo_x: f64, lo_y: f64, hi_x: f64, hi_y: f64,
+) -> bool {
+    let (dx, dy) = (x2 - x1, y2 - y1);
+    let (mut t0, mut t1) = (0.0f64, 1.0f64);
+    for (p, q) in [
+        (-dx, x1 - lo_x),
+        (dx, hi_x - x1),
+        (-dy, y1 - lo_y),
+        (dy, hi_y - y1),
+    ] {
+        if p.abs() < 1e-12 {
+            if q < 0.0 {
+                return false;
+            }
+            continue;
+        }
+        let r = q / p;
+        if p < 0.0 {
+            if r > t1 {
+                return false;
+            }
+            if r > t0 {
+                t0 = r;
+            }
+        } else {
+            if r < t0 {
+                return false;
+            }
+            if r < t1 {
+                t1 = r;
+            }
+        }
+    }
+    t0 < t1
+}
+
 #[pymethods]
 impl Sim {
     #[new]
@@ -539,6 +648,80 @@ impl Sim {
         Ok(rayhit_to_obj(py, hit))
     }
 
+    /// The geometric core of targeted sight (senses.sight_of), in one
+    /// engine call: compose portal transforms along the next_edge chain
+    /// from the observer's chamber to the target's, then raycast-confirm
+    /// the line actually reaches the target (no wallhacks at any depth).
+    /// Returns (wx, wy, portal_depth, dist) in the OBSERVER's local frame,
+    /// or None. Same-chamber sight is unconditional (convex chambers).
+    /// `group` is the target's collision group (mask = 1 << group);
+    /// `max_hops` is the compose-walk cost ceiling, never a targeting law.
+    fn sightline(
+        &mut self,
+        observer: u64,
+        target: u64,
+        group: u8,
+        max_hops: usize,
+    ) -> PyResult<Option<(f64, f64, usize, f64)>> {
+        if !self.sim.entities.contains_key(&observer) {
+            return Err(no_ent(observer));
+        }
+        if !self.sim.entities.contains_key(&target) {
+            return Err(no_ent(target));
+        }
+        Ok(sightline_core(
+            &mut self.router, &self.sim, observer, target, group, max_hops,
+        ))
+    }
+
+    /// Sentry target acquisition, whole scan in one call: among
+    /// `candidates` (in the caller's iteration order — ties keep the
+    /// earlier candidate, matching the Python loop's strict `<`), the
+    /// nearest sighted one within `max_range`, where same-chamber
+    /// sightlines must additionally clear this polygon's walk-mask
+    /// terrain rects (`_sentry_los_clear`'s Liang-Barsky test). Returns
+    /// (candidate_id, x, y) in the OBSERVER's local frame, or None.
+    fn sentry_acquire(
+        &mut self,
+        observer: u64,
+        candidates: Vec<u64>,
+        group: u8,
+        max_hops: usize,
+        max_range: f64,
+    ) -> PyResult<Option<(u64, f64, f64)>> {
+        let obs = self.sim.entities.get(&observer).ok_or_else(|| no_ent(observer))?;
+        let (r0, ox, oy) = (obs.polygon, obs.pos.x, obs.pos.y);
+        let mut best: Option<(u64, f64, f64)> = None;
+        let mut best_d2 = max_range * max_range;
+        for target in candidates {
+            let Some(tgt) = self.sim.entities.get(&target) else {
+                continue;
+            };
+            let _ = tgt;
+            let Some((wx, wy, depth, _dl)) =
+                sightline_core(&mut self.router, &self.sim, observer, target, group, max_hops)
+            else {
+                continue;
+            };
+            let d2 = (wx - ox) * (wx - ox) + (wy - oy) * (wy - oy);
+            if d2 > best_d2 {
+                continue;
+            }
+            if depth == 0 {
+                let terrain = &get_polygon(&self.sim.world, r0)?.terrain;
+                let blocked = terrain.iter().any(|rect| {
+                    segment_crosses_rect(ox, oy, wx, wy, rect.lo.x, rect.lo.y, rect.hi.x, rect.hi.y)
+                });
+                if blocked {
+                    continue;
+                }
+            }
+            best = Some((target, wx, wy));
+            best_d2 = d2;
+        }
+        Ok(best)
+    }
+
     fn next_edge(&mut self, from_polygon: usize, to_polygon: usize) -> PyResult<i64> {
         if from_polygon >= self.sim.world.polygons.len() {
             return Err(no_polygon(from_polygon));
@@ -664,6 +847,91 @@ impl Raster {
     fn set_lightmap(&mut self, py: Python<'_>, data: PyBuffer<u8>) -> PyResult<()> {
         let bytes = data.to_vec(py)?;
         self.r.set_lightmap(&bytes).map_err(raster_err)
+    }
+
+    /// Accumulate one world light into the engine lightmap: rasterize the
+    /// union of its (pre-filtered, pre-cone-clipped) gate wedges minus its
+    /// shadow polys with the pygame-parity fill, multiply by the radial
+    /// falloff gradient and the pre-multiplied tint, and saturating-add.
+    /// `polys`/`shadows` are flat [x0, y0, ...] f64 sequences; the lens
+    /// arrays give each polygon's vertex count.
+    #[allow(clippy::too_many_arguments)]
+    fn add_light(
+        &mut self,
+        cx: f64,
+        cy: f64,
+        radius: f64,
+        tint_r: u32,
+        tint_g: u32,
+        tint_b: u32,
+        polys: Vec<f64>,
+        poly_lens: Vec<u32>,
+        shadows: Vec<f64>,
+        shadow_lens: Vec<u32>,
+    ) -> PyResult<()> {
+        self.r
+            .add_light(
+                cx, cy, radius, tint_r, tint_g, tint_b, &polys, &poly_lens, &shadows,
+                &shadow_lens,
+            )
+            .map_err(raster_err)
+    }
+
+    /// Saturating-add an RGB8 region (row-major, `rh` rows of `rw*3`
+    /// bytes) into the lightmap at (x0, y0) — the dynamic glow sprites.
+    fn lightmap_add_region(
+        &mut self,
+        py: Python<'_>,
+        x0: usize,
+        y0: usize,
+        rw: usize,
+        rh: usize,
+        data: PyBuffer<u8>,
+    ) -> PyResult<()> {
+        let bytes = data.to_vec(py)?;
+        self.r
+            .lightmap_add_region(x0, y0, rw, rh, &bytes)
+            .map_err(raster_err)
+    }
+
+    /// The engine lightmap, row-major RGB8 — read-only accessor for
+    /// parity tests and instrumentation.
+    fn lightmap_bytes<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        PyBytes::new(py, self.r.lightmap_bytes())
+    }
+
+    /// Full-frame post passes (low-hp/hurt/death overlays) on a composited
+    /// RGBA bytearray, in submission order; `field` passes scale alpha by
+    /// the baked vignette falloff. Mutates `frame` in place.
+    fn apply_post(
+        &mut self,
+        frame: &Bound<'_, pyo3::types::PyByteArray>,
+        passes: Vec<(u8, u8, u8, u32, bool)>,
+    ) -> PyResult<()> {
+        // SAFETY: the slice lives only for this call; no Python code runs
+        // while we hold it, so the bytearray cannot be resized under us.
+        let buf = unsafe { frame.as_bytes_mut() };
+        self.r.apply_post(buf, &passes).map_err(raster_err)
+    }
+
+    /// Register a local-space decal shape template (flat [x0, y0, ...]).
+    fn set_decal_shape(&mut self, id: u32, pts: Vec<f64>) -> PyResult<()> {
+        self.r.set_decal_shape(id, &pts).map_err(raster_err)
+    }
+
+    /// Upload (or replace) one polygon's RETAINED decal records (12 f64s
+    /// each: [style, x, y, size, angle, squash, eff_mul, r, g, b,
+    /// shape_id, rot]); OP_DECALS replays them each frame with that
+    /// frame's xform/clip. Uploaded only when the list changes.
+    fn set_decals(&mut self, list_id: u32, records: Vec<f64>) -> PyResult<()> {
+        self.r.set_decals(list_id, &records).map_err(raster_err)
+    }
+
+    /// Mark a registered clip's instance as an OTHERWORLD chamber — its
+    /// union selects the inverted cold field instead of the lightmap in
+    /// the final compose (applied after the entity fold + overlays).
+    fn mark_otherworld(&mut self, clip_idx: u32) -> PyResult<()> {
+        self.r.mark_otherworld(clip_idx).map_err(raster_err)
     }
 
     /// Register an instance's convex screen-space clip polygon — either a
@@ -845,10 +1113,78 @@ fn clip_polyline(pts: Vec<(f64, f64)>, clip: Vec<(f64, f64)>) -> Vec<Vec<(f64, f
         .collect()
 }
 
+/// Engine-side nine-field signal substrate (see necore/src/signals.rs —
+/// the one implementation; game/perihelion/signals.py is the typed
+/// facade). Kinds cross the boundary as their declaration-order index.
+#[pyclass]
+struct SignalField {
+    f: necore_core::CoreSignalField,
+}
+
+fn sig_err(e: String) -> PyErr {
+    PyValueError::new_err(e)
+}
+
+#[pymethods]
+impl SignalField {
+    #[new]
+    #[pyo3(signature = (tick = 0))]
+    fn new(tick: i64) -> Self {
+        SignalField {
+            f: necore_core::CoreSignalField::new(tick),
+        }
+    }
+
+    fn set_adjacency(&mut self, adj: Vec<Vec<usize>>) {
+        self.f.set_adjacency(adj);
+    }
+
+    fn emit(&mut self, kind: usize, polygon: i64, amount: f64, tick: i64) -> PyResult<()> {
+        self.f.emit(kind, polygon, amount, tick).map_err(sig_err)
+    }
+
+    fn emit_many(&mut self, kind: usize, polygons: Vec<i64>, amount: f64, tick: i64) -> PyResult<()> {
+        self.f.emit_many(kind, &polygons, amount, tick).map_err(sig_err)
+    }
+
+    fn emit_at_least(&mut self, kind: usize, polygon: i64, level: f64, tick: i64) -> PyResult<()> {
+        self.f.emit_at_least(kind, polygon, level, tick).map_err(sig_err)
+    }
+
+    fn sample(&self, kind: usize, polygon: i64, tick: i64) -> PyResult<f64> {
+        self.f.sample(kind, polygon, tick).map_err(sig_err)
+    }
+
+    fn sample_all(&self, polygon: i64, tick: i64) -> PyResult<[f64; 9]> {
+        self.f.sample_all(polygon, tick).map_err(sig_err)
+    }
+
+    fn totals(&self, tick: i64) -> PyResult<[f64; 9]> {
+        self.f.totals(tick).map_err(sig_err)
+    }
+
+    fn step_to(&mut self, tick: i64) -> PyResult<()> {
+        self.f.step_to(tick).map_err(sig_err)
+    }
+
+    fn deposit_doorway_trail(&mut self, polygon: usize, edge: usize, amount: f64, tick: i64) {
+        self.f.deposit_doorway_trail(polygon, edge, amount, tick);
+    }
+
+    fn doorway_trail(&self, polygon: usize, edge: usize, tick: i64) -> f64 {
+        self.f.doorway_trail(polygon, edge, tick)
+    }
+
+    fn drain(&mut self, polygon_weights: Vec<(i64, f64)>, capacity: f64, tick: i64) -> PyResult<f64> {
+        self.f.drain(&polygon_weights, capacity, tick).map_err(sig_err)
+    }
+}
+
 #[pymodule]
 fn necore(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Sim>()?;
     m.add_class::<Raster>()?;
+    m.add_class::<SignalField>()?;
     m.add_function(wrap_pyfunction!(mat_mul, m)?)?;
     m.add_function(wrap_pyfunction!(mat_inv, m)?)?;
     m.add_function(wrap_pyfunction!(mat_apply, m)?)?;

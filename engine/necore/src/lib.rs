@@ -9,6 +9,7 @@
 
 pub mod geom;
 pub mod math;
+pub mod signals;
 pub mod physics;
 pub mod query;
 pub mod raster;
@@ -20,5 +21,6 @@ pub use math::{v, Mat3, Vec2};
 pub use physics::{Entity, Event, Sim};
 pub use query::{raycast, polygons_within, terrain_avoid_dir, terrain_light_segments, RayHit, Router};
 pub use raster::{Raster, RasterError};
+pub use signals::SignalField as CoreSignalField;
 pub use visibility::{visible_set, Frustum, PolygonInstance};
 pub use world::{Portal, Polygon, PolygonId, World, WorldError};

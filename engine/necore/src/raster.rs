@@ -72,6 +72,9 @@ pub const OP_CLIP_FILL: u32 = 8;
 /// to map screen pixels back to polygon-local texture space; see
 /// `TEX_DENSITY` and `sample_tex`.
 pub const OP_TEX_FILL: u32 = 9;
+/// Replay a polygon's RETAINED decal list (set_decals) under this frame's
+/// xform/clip. Header rgba slot carries the list id; consumes no floats.
+pub const OP_DECALS: u32 = 10;
 
 /// Texture space density: px per world unit. Fixed by
 /// ARTSTYLE_DIRECTION.md's measured projection (matches the ~3px/world-unit
@@ -984,6 +987,37 @@ pub struct Raster {
     /// Registered polygon textures (`set_texture`), keyed by caller-chosen id.
     /// Persists across `begin()` — uploaded once, reused every frame.
     textures: std::collections::HashMap<u32, Texture>,
+    /// Scratch 1-bpp coverage for `add_light` (per-light wedge-union mask);
+    /// only the light's working rect is cleared/filled each call.
+    light_mask: Vec<u8>,
+    /// Retained decal state (`set_decal_shape` / `set_decals`): local-space
+    /// shape templates and per-polygon decal record lists, persisting
+    /// across `begin()` — uploaded only when a polygon's decal list
+    /// changes, replayed each frame by OP_DECALS with that frame's
+    /// xform/clip. Records are 12 f64s:
+    /// [style, x, y, size, angle, squash, eff_mul, r, g, b, shape_id, rot]
+    /// style 0 = polygon fill, 1 = thin circle outline, 2 = 1px line.
+    decal_shapes: std::collections::HashMap<u32, Vec<Vec2>>,
+    decal_lists: std::collections::HashMap<u32, Vec<f64>>,
+    /// Lazily-baked low-hp/hurt vignette edge-falloff alpha field
+    /// (row-major u8) — exact port of render.py's `_bake_vignette`
+    /// (f64 normalized elliptical distance, a2 = clip((d-0.20)/0.85),
+    /// trunc(a2*190)).
+    vig_field: Vec<u8>,
+    /// Radial-falloff gradient tables per radius key (2k x 2k u8, the
+    /// same cached sprite render.py's `_light_gradient` kept): recomputing
+    /// hypot per pixel per light made pulse-volley frames (several
+    /// 300-700px light rects at once) the measured p99 tail.
+    grad_cache: std::collections::HashMap<i32, Vec<u8>>,
+    /// Clip indices whose instances are OTHERWORLD chambers this frame
+    /// (`mark_otherworld`); their union selects the inverted cold field
+    /// instead of the lightmap in the final compose. Reset by `begin`.
+    ow_clips: Vec<u32>,
+    /// Lazily-baked inverted cold-distance field (row-major RGB8): the
+    /// otherworld's illumination — dark pools NEAR the screen center,
+    /// faint luminescence at distance. Exact port of render.py's old
+    /// `_inv_darkness` bake (f32 smoothstep, truncating u8 quantize).
+    inv_field: Vec<u8>,
 }
 
 impl Raster {
@@ -1006,7 +1040,222 @@ impl Raster {
             xforms: Vec::new(),
             overlay: Vec::new(),
             textures: std::collections::HashMap::new(),
+            light_mask: vec![0; npx],
+            ow_clips: Vec::new(),
+            inv_field: Vec::new(),
+            decal_shapes: std::collections::HashMap::new(),
+            decal_lists: std::collections::HashMap::new(),
+            grad_cache: std::collections::HashMap::new(),
+            vig_field: Vec::new(),
         }
+    }
+
+    /// Full-frame post passes on a composited RGBA frame, in submission
+    /// order: source-over `rgb` at `alpha` (SDL rounding, `(s*a + d*(255-a)
+    /// + 127)/255`), where `field` passes scale alpha per pixel by the
+    /// baked vignette edge-falloff ((vig*a)/255) — the low-hp/hurt/death
+    /// overlays that were 3-6 ms of full-frame numpy on exactly the
+    /// heavy-fight frames where p99 lives.
+    pub fn apply_post(
+        &mut self,
+        frame: &mut [u8],
+        passes: &[(u8, u8, u8, u32, bool)],
+    ) -> Result<(), RasterError> {
+        let npx = (self.w * self.h) as usize;
+        if frame.len() != npx * 4 {
+            return err("apply_post: frame is not w*h*4 RGBA bytes");
+        }
+        if passes.is_empty() {
+            return Ok(());
+        }
+        if passes.iter().any(|p| p.4) && self.vig_field.len() != npx {
+            let (w, h) = (self.w as usize, self.h as usize);
+            let (cx, cy) = (w as f64 / 2.0, h as f64 / 2.0);
+            let mut vf = vec![0u8; npx];
+            for y in 0..h {
+                let ny = (y as f64 - cy) / (h as f64 / 2.0);
+                for x in 0..w {
+                    let nx = (x as f64 - cx) / (w as f64 / 2.0);
+                    let dist = (nx * nx + ny * ny).sqrt();
+                    let a2 = ((dist - 0.20) / 0.85).clamp(0.0, 1.0);
+                    vf[y * w + x] = (a2 * 190.0) as u8;
+                }
+            }
+            self.vig_field = vf;
+        }
+        for &(r, g, b, a, field) in passes {
+            let src = [r as u32, g as u32, b as u32];
+            if field {
+                for (i, px) in frame.chunks_exact_mut(4).enumerate() {
+                    let ap = (self.vig_field[i] as u32 * a) / 255;
+                    if ap == 0 {
+                        continue;
+                    }
+                    for c in 0..3 {
+                        let d = px[c] as u32;
+                        px[c] = ((src[c] * ap + d * (255 - ap) + 127) / 255) as u8;
+                    }
+                }
+            } else {
+                let ap = a.min(255);
+                if ap == 0 {
+                    continue;
+                }
+                for px in frame.chunks_exact_mut(4) {
+                    for c in 0..3 {
+                        let d = px[c] as u32;
+                        px[c] = ((src[c] * ap + d * (255 - ap) + 127) / 255) as u8;
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// The (2k x 2k) gradient table for radius key `key`, cached — cell
+    /// (tx, ty) holds `trunc(clamp(1 - hypot(tx-k+0.5, ty-k+0.5)/k)^2 *
+    /// 255)` in f32, byte-identical to the per-pixel math it replaces.
+    fn grad_table(&mut self, key: i32) -> &Vec<u8> {
+        if self.grad_cache.len() > 32 {
+            self.grad_cache.clear();
+        }
+        self.grad_cache.entry(key).or_insert_with(|| {
+            let d = (key * 2) as usize;
+            let kf = key as f32;
+            let mut t = vec![0u8; d * d];
+            for ty in 0..d {
+                let dyf = ty as f32 - kf + 0.5;
+                for tx in 0..d {
+                    let dxf = tx as f32 - kf + 0.5;
+                    // sqrt(x*x + y*y), NOT f32::hypot: numpy's
+                    // vectorized path computes the plain form, and
+                    // libm's careful hypot differs in the last ulp
+                    // (one boundary pixel per light, measured)
+                    let a = (1.0f32 - (dxf * dxf + dyf * dyf).sqrt() / kf).clamp(0.0, 1.0);
+                    t[ty * d + tx] = ((a * a) * 255.0f32) as u8;
+                }
+            }
+            t
+        })
+    }
+
+    /// Register a local-space decal shape template (flat x,y pairs).
+    pub fn set_decal_shape(&mut self, id: u32, pts: &[f64]) -> Result<(), RasterError> {
+        if pts.len() % 2 != 0 || pts.is_empty() {
+            return err("set_decal_shape: flat point list must have even, nonzero length");
+        }
+        self.decal_shapes.insert(
+            id,
+            pts.chunks_exact(2).map(|p| Vec2 { x: p[0], y: p[1] }).collect(),
+        );
+        Ok(())
+    }
+
+    /// Upload (or replace) one polygon's retained decal records.
+    pub fn set_decals(&mut self, list_id: u32, records: &[f64]) -> Result<(), RasterError> {
+        if records.len() % 12 != 0 {
+            return err("set_decals: records must be 12 f64s each");
+        }
+        self.decal_lists.insert(list_id, records.to_vec());
+        Ok(())
+    }
+
+    /// OP_DECALS: replay one polygon's retained decal records under this
+    /// frame's xform, gating each decal on its CENTER point against the
+    /// clip polygon and drawing ungated — port of render.py's old
+    /// `_draw_decals`/`_draw_decal` math to the digit (max(1px) size
+    /// clamp on the SCREEN size, screen angle via atan2 of the
+    /// transformed direction, py_round vertex rounding).
+    fn exec_decals(&mut self, clip_idx: u32, xform_idx: u32, list_id: u32) -> Result<(), RasterError> {
+        let Raster {
+            world,
+            w,
+            h,
+            clips,
+            xforms,
+            decal_shapes,
+            decal_lists,
+            ..
+        } = self;
+        let Some(recs) = decal_lists.get(&list_id) else {
+            return Ok(());
+        };
+        let clip = clips
+            .get(clip_idx as usize)
+            .ok_or_else(|| RasterError(format!("decals: bad clip index {clip_idx}")))?;
+        let xf = xforms
+            .get(xform_idx as usize)
+            .ok_or_else(|| RasterError(format!("decals: bad xform index {xform_idx}")))?
+            .m;
+        let sd = xf.apply_dir(Vec2 { x: 1.0, y: 0.0 });
+        let scale = sd.x.hypot(sd.y);
+        for rec in recs.chunks_exact(12) {
+            let c = xf.apply(Vec2 { x: rec[1], y: rec[2] });
+            if !point_in_poly(c.x, c.y, &clip.pts) {
+                continue;
+            }
+            let mut s = rec[3] * scale;
+            if s < 1.0 {
+                s = 1.0;
+            }
+            let px = PxWrite::Set([rec[7] as u8, rec[8] as u8, rec[9] as u8, 255]);
+            let (mut ca, mut sa) = (1.0f64, 0.0f64);
+            if rec[11] != 0.0 {
+                let d = xf.apply_dir(Vec2 {
+                    x: rec[4].cos(),
+                    y: rec[4].sin(),
+                });
+                if d.x != 0.0 || d.y != 0.0 {
+                    let sang = d.y.atan2(d.x);
+                    ca = sang.cos();
+                    sa = sang.sin();
+                }
+            }
+            let style = rec[0] as u32;
+            match style {
+                0 | 2 => {
+                    let Some(shape) = decal_shapes.get(&(rec[10] as u32)) else {
+                        continue;
+                    };
+                    let eff = s * rec[6];
+                    let squash = rec[5];
+                    // pre-round exactly like render.py's `_pts`/`_pt`
+                    // (int(round(...)) = py_round); run_job's own
+                    // round_pts is then the identity
+                    let pts: Vec<Vec2> = shape
+                        .iter()
+                        .map(|p| {
+                            let ly2 = p.y * squash;
+                            Vec2 {
+                                x: py_round(c.x + (p.x * ca - ly2 * sa) * eff) as f64,
+                                y: py_round(c.y + (p.x * sa + ly2 * ca) * eff) as f64,
+                            }
+                        })
+                        .collect();
+                    if style == 0 {
+                        run_job(world, *w, *h, px, &Job::PolyFill(pts));
+                    } else {
+                        run_job(world, *w, *h, px, &Job::Polyline(pts, 1));
+                    }
+                }
+                1 => {
+                    let r_ = (s as i32).max(2); // int(s) truncation, floor >= 2
+                    run_job(
+                        world,
+                        *w,
+                        *h,
+                        px,
+                        &Job::CircleThin {
+                            cx: py_round(c.x) as f64,
+                            cy: py_round(c.y) as f64,
+                            r: r_,
+                        },
+                    );
+                }
+                _ => return err(format!("decals: unknown style {style}")),
+            }
+        }
+        Ok(())
     }
 
     /// Upload (or replace) a texture: RGB8, row-major, `data.len() ==
@@ -1047,6 +1296,7 @@ impl Raster {
         self.clips.clear();
         self.xforms.clear();
         self.overlay.clear();
+        self.ow_clips.clear();
         self.composed = false;
     }
 
@@ -1069,6 +1319,262 @@ impl Raster {
         }
         self.lightmap.copy_from_slice(rgb);
         Ok(())
+    }
+
+    /// Engine-side port of render.py's `_blit_light` inner loop (the numpy
+    /// accumulation was 4+ ms/frame at 15 lights): rasterize the union of
+    /// one light's gate wedges (minus its terrain-shadow polys) with the
+    /// SAME pygame-parity polygon fill the mask raster used, then add
+    /// `(tint * gradient + 255) >> 8` into the lightmap under that
+    /// coverage. Gradient kernel identical to `_light_gradient`:
+    /// `a = clamp(1 - hypot(dx+0.5, dy+0.5)/key); trunc(a*a*255)` in f32,
+    /// `key = max(2, py_round(radius))`. The caller (render.py) has already
+    /// applied the sliver filter and cone clip, and pre-multiplied
+    /// intensity * LIGHT_STRENGTH into the tint — this is pure rasterize
+    /// + accumulate. `polys`/`shadows` are flat x,y pairs; `*_lens` give
+    /// each polygon's point count.
+    pub fn add_light(
+        &mut self,
+        cx: f64,
+        cy: f64,
+        radius: f64,
+        tint_r: u32,
+        tint_g: u32,
+        tint_b: u32,
+        polys: &[f64],
+        poly_lens: &[u32],
+        shadows: &[f64],
+        shadow_lens: &[u32],
+    ) -> Result<(), RasterError> {
+        if poly_lens.is_empty() {
+            return Ok(());
+        }
+        let need: usize = poly_lens.iter().map(|&n| n as usize * 2).sum();
+        let sneed: usize = shadow_lens.iter().map(|&n| n as usize * 2).sum();
+        if polys.len() != need || shadows.len() != sneed {
+            return err("add_light: flat point data does not match lens");
+        }
+        // working rect: union bbox x light-disc bbox x screen — the same
+        // floor/ceil/round arithmetic as _blit_light, including py_round's
+        // round-half-even (int(round(x)) in Python).
+        let (mut minx, mut miny) = (f64::INFINITY, f64::INFINITY);
+        let (mut maxx, mut maxy) = (f64::NEG_INFINITY, f64::NEG_INFINITY);
+        for pair in polys.chunks_exact(2) {
+            minx = minx.min(pair[0]);
+            maxx = maxx.max(pair[0]);
+            miny = miny.min(pair[1]);
+            maxy = maxy.max(pair[1]);
+        }
+        let key = py_round(radius).max(2);
+        let ir = key;
+        let icx = py_round(cx);
+        let icy = py_round(cy);
+        let x0 = 0.max(minx.floor() as i32).max(icx - ir);
+        let y0 = 0.max(miny.floor() as i32).max(icy - ir);
+        let x1 = self.w.min(maxx.ceil() as i32 + 1).min(icx + ir);
+        let y1 = self.h.min(maxy.ceil() as i32 + 1).min(icy + ir);
+        if x1 - x0 <= 0 || y1 - y0 <= 0 {
+            return Ok(());
+        }
+        // coverage: whites fill 255, shadows punch 0, confined to the rect
+        // (the Python path filled the whole frame and sliced the rect —
+        // identical content inside it).
+        let w = self.w;
+        for y in y0..y1 {
+            let row = (y * w) as usize;
+            self.light_mask[row + x0 as usize..row + x1 as usize].fill(0);
+        }
+        {
+            let clip = IRect {
+                x: x0,
+                y: y0,
+                w: x1 - x0,
+                h: y1 - y0,
+            };
+            let mut c = Canvas {
+                buf: &mut self.light_mask,
+                bpp: 1,
+                w,
+                clip,
+                px: PxWrite::Mask(255),
+            };
+            // vertices reach the fill through an f32 QUANTIZATION step:
+            // the Python path shipped them over the display list's f32
+            // wire before rounding, and a coordinate like 269.4999...9
+            // becomes exactly 269.5 in f32 (ties-even -> 270) — skipping
+            // the quantization shifted whole coverage columns by a pixel
+            // (frame-parity bisect, 2026-07-28)
+            let mut at = 0usize;
+            for &n in poly_lens {
+                let n = n as usize;
+                let pts: Vec<Vec2> = polys[at..at + n * 2]
+                    .chunks_exact(2)
+                    .map(|p| Vec2 {
+                        x: p[0] as f32 as f64,
+                        y: p[1] as f32 as f64,
+                    })
+                    .collect();
+                at += n * 2;
+                let (xs, ys) = round_pts(&pts);
+                pg_poly_fill(&mut c, &xs, &ys);
+            }
+            c.px = PxWrite::Mask(0);
+            let mut at = 0usize;
+            for &n in shadow_lens {
+                let n = n as usize;
+                let pts: Vec<Vec2> = shadows[at..at + n * 2]
+                    .chunks_exact(2)
+                    .map(|p| Vec2 {
+                        x: p[0] as f32 as f64,
+                        y: p[1] as f32 as f64,
+                    })
+                    .collect();
+                at += n * 2;
+                let (xs, ys) = round_pts(&pts);
+                pg_poly_fill(&mut c, &xs, &ys);
+            }
+        }
+        // accumulate: for covered pixels, ((255*t+255)>>8) == t, so the
+        // per-pixel value is exactly ((t * grad) + 255) >> 8, saturating
+        // into the lightmap (order-independent: saturating adds commute).
+        // SERIAL on purpose: a rayon fan-out was measured (2026-07-28)
+        // costing +0.6ms p50 / +4ms p99 — fork-join wake latency on
+        // 50-200µs light rects poisons the tail far more than one core
+        // costs.
+        self.grad_table(key); // populate, then re-borrow fields disjointly
+        let Raster {
+            lightmap,
+            light_mask,
+            grad_cache,
+            ..
+        } = self;
+        let table = &grad_cache[&key];
+        let d = (key * 2) as usize;
+        let mut lut_r = [0u8; 256];
+        let mut lut_g = [0u8; 256];
+        let mut lut_b = [0u8; 256];
+        for g in 0..256u32 {
+            lut_r[g as usize] = ((tint_r * g + 255) >> 8) as u8;
+            lut_g[g as usize] = ((tint_g * g + 255) >> 8) as u8;
+            lut_b[g as usize] = ((tint_b * g + 255) >> 8) as u8;
+        }
+        for y in y0..y1 {
+            let row = (y * w) as usize;
+            let ty = (y - (icy - ir)) as usize;
+            let trow = &table[ty * d..(ty + 1) * d];
+            let tx0 = (x0 - (icx - ir)) as usize;
+            let mrow = &light_mask[row + x0 as usize..row + x1 as usize];
+            let lrow = &mut lightmap[(row + x0 as usize) * 3..(row + x1 as usize) * 3];
+            // Coverage is exactly 0/255, so `table & mask` IS the gated
+            // gradient, and the per-channel LUT holds ((t*g)+255)>>8 for
+            // every g — the covered-pixel body is three LUT loads and
+            // three saturating adds, branch-free. Empty 8-byte mask
+            // chunks (thin wedges) still skip wholesale.
+            let n = mrow.len();
+            let mut i = 0usize;
+            while i < n {
+                if i + 8 <= n {
+                    let chunk = u64::from_ne_bytes(mrow[i..i + 8].try_into().unwrap());
+                    if chunk == 0 {
+                        i += 8;
+                        continue;
+                    }
+                    for j in i..i + 8 {
+                        let g = (trow[tx0 + j] & mrow[j]) as usize;
+                        let idx = j * 3;
+                        lrow[idx] = lrow[idx].saturating_add(lut_r[g]);
+                        lrow[idx + 1] = lrow[idx + 1].saturating_add(lut_g[g]);
+                        lrow[idx + 2] = lrow[idx + 2].saturating_add(lut_b[g]);
+                    }
+                    i += 8;
+                    continue;
+                }
+                let g = (trow[tx0 + i] & mrow[i]) as usize;
+                let idx = i * 3;
+                lrow[idx] = lrow[idx].saturating_add(lut_r[g]);
+                lrow[idx + 1] = lrow[idx + 1].saturating_add(lut_g[g]);
+                lrow[idx + 2] = lrow[idx + 2].saturating_add(lut_b[g]);
+                i += 1;
+            }
+        }
+        Ok(())
+    }
+
+    /// Saturating-add an RGB8 region into the lightmap (row-major, `rh`
+    /// rows of `rw*3` bytes at (x0, y0)) — the dynamic glow sprites
+    /// (muzzle/bolt/screen) that render.py still composes in numpy.
+    pub fn lightmap_add_region(
+        &mut self,
+        x0: usize,
+        y0: usize,
+        rw: usize,
+        rh: usize,
+        rgb: &[u8],
+    ) -> Result<(), RasterError> {
+        if rgb.len() != rw * rh * 3 {
+            return err("lightmap_add_region: data size mismatch");
+        }
+        if x0 + rw > self.w as usize || y0 + rh > self.h as usize {
+            return err("lightmap_add_region: region out of bounds");
+        }
+        for ry in 0..rh {
+            let src = &rgb[ry * rw * 3..(ry + 1) * rw * 3];
+            let doff = ((y0 + ry) * self.w as usize + x0) * 3;
+            let dst = &mut self.lightmap[doff..doff + rw * 3];
+            for (d, &s) in dst.iter_mut().zip(src) {
+                let v = *d as u16 + s as u16;
+                *d = if v <= 255 { v as u8 } else { 255 };
+            }
+        }
+        Ok(())
+    }
+
+    /// The current lightmap, row-major RGB8 (parity tests read it back).
+    pub fn lightmap_bytes(&self) -> &[u8] {
+        &self.lightmap
+    }
+
+    /// Mark a registered clip's instance as an OTHERWORLD chamber: the
+    /// union of marked clips selects the inverted cold field instead of
+    /// the lightmap in the final compose (applied AFTER the entity fold
+    /// and overlays, exactly where the old Python composite ran).
+    pub fn mark_otherworld(&mut self, clip_idx: u32) -> Result<(), RasterError> {
+        if clip_idx as usize >= self.clips.len() {
+            return err(format!("mark_otherworld: bad clip index {clip_idx}"));
+        }
+        self.ow_clips.push(clip_idx);
+        Ok(())
+    }
+
+    /// Bake the inverted cold-distance field for the current size: a
+    /// centered f32 smoothstep of normalized distance, channel scales
+    /// (0.62, 0.38, 0.50), truncating u8 quantize — bit-exact with the
+    /// old numpy bake.
+    fn bake_inv_field(&mut self) {
+        let npx = (self.w * self.h) as usize;
+        if self.inv_field.len() == npx * 3 {
+            return;
+        }
+        let (w, h) = (self.w, self.h);
+        // numpy divided the f32 distance by a PYTHON-f64 scalar (weakly
+        // promoted): compute the scalar in f64 first, then round once
+        let denom = (0.72f64 * w.max(h) as f64) as f32;
+        let (cx, cy) = (w as f32 / 2.0, h as f32 / 2.0);
+        let mut out = vec![0u8; npx * 3];
+        for y in 0..h {
+            let dy = y as f32 - cy;
+            for x in 0..w {
+                let dx = x as f32 - cx;
+                let d = ((dx * dx + dy * dy).sqrt() / denom).clamp(0.0, 1.0);
+                let k = d * d * (3.0 - 2.0 * d);
+                let ik = 1.0 - k;
+                let i = ((y * w + x) * 3) as usize;
+                out[i] = (255.0f32 * (1.0 - 0.62 * ik)) as u8;
+                out[i + 1] = (255.0f32 * (1.0 - 0.38 * ik)) as u8;
+                out[i + 2] = (255.0f32 * (1.0 - 0.50 * ik)) as u8;
+            }
+        }
+        self.inv_field = out;
     }
 
     /// Register an instance's convex screen-space clip polygon (flat
@@ -1184,6 +1690,12 @@ impl Raster {
                 Some((xi, ci)) => (ci, xi),
                 None => (hdr[2], hdr[3]),
             };
+            if op == OP_DECALS {
+                // retained-list replay: its own execution path (per-record
+                // colors and center-gating don't fit the one-rgba job flow)
+                self.exec_decals(clip_idx, xform_idx, rgba)?;
+                continue;
+            }
             let nfloats = match op {
                 OP_POLY_FILL | OP_POLY_OUTLINE | OP_POLYLINE => 2 * n,
                 OP_CIRCLE_FILL | OP_CIRCLE_OUTLINE | OP_GLOW => 3,
@@ -1527,8 +2039,10 @@ impl Raster {
         // (3) lightmap multiply on the WORLD plane ONLY: (c*m + 255) >> 8,
         // BLEND_RGB_MULT parity. Runs BEFORE the entity fold so entities
         // are never darkened by it -- zero ambient for world geometry,
-        // entities stay the always-visible sensor-trace layer.
-        if self.darkness_on {
+        // entities stay the always-visible sensor-trace layer. OTHERWORLD
+        // frames skip this: their multiply is step (6), after the fold —
+        // the ratified ow look dims entities by the field too.
+        if self.darkness_on && self.ow_clips.is_empty() {
             for (px, m) in self
                 .world
                 .chunks_exact_mut(4)
@@ -1562,6 +2076,52 @@ impl Raster {
                 _ => PxWrite::Set(oj.rgba),
             };
             run_job(&mut self.world, self.w, self.h, px, &oj.job);
+        }
+
+        // (6) OTHERWORLD frames: the illumination multiply runs LAST, on
+        // the fully composited frame (fold + overlays included) — the old
+        // Python composite multiplied the returned framebuffer, so
+        // entities and overlays inside otherworld coverage are dimmed by
+        // the field exactly as before. field = inverted cold field where
+        // the marked-clip union covers, this frame's lightmap elsewhere;
+        // multiply is BLEND_RGB_MULT parity ((c*m + 255) >> 8).
+        if self.darkness_on && !self.ow_clips.is_empty() {
+            self.bake_inv_field();
+            self.light_mask.fill(0);
+            let clip = IRect {
+                x: 0,
+                y: 0,
+                w: self.w,
+                h: self.h,
+            };
+            let polys: Vec<Vec<Vec2>> = self
+                .ow_clips
+                .iter()
+                .filter_map(|&ci| self.clips.get(ci as usize))
+                .filter(|c| c.pts.len() >= 3)
+                .map(|c| c.pts.clone())
+                .collect();
+            let mut c = Canvas {
+                buf: &mut self.light_mask,
+                bpp: 1,
+                w: self.w,
+                clip,
+                px: PxWrite::Mask(255),
+            };
+            for pts in &polys {
+                let (xs, ys) = round_pts(pts);
+                pg_poly_fill(&mut c, &xs, &ys);
+            }
+            for (i, px) in self.world.chunks_exact_mut(4).enumerate() {
+                let field = if self.light_mask[i] != 0 {
+                    &self.inv_field[i * 3..i * 3 + 3]
+                } else {
+                    &self.lightmap[i * 3..i * 3 + 3]
+                };
+                for ch in 0..3 {
+                    px[ch] = ((px[ch] as u32 * field[ch] as u32 + 255) >> 8) as u8;
+                }
+            }
         }
     }
 }
