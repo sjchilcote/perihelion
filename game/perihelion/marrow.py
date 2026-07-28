@@ -25,6 +25,10 @@ CORE_KILL_DEBT = -32.0     # ~90s at the 0.35/s home-resupply rate
 DISPATCH_COST = {"mite": 1, "husk": 2, "spitter": 2, "shrieker": 3,
                  "flicker": 3, "brute": 4, "warden": 8}
 DISPATCH_INTERVAL_TICKS = 132          # ~2.2 s of sustained pour
+SHELF_BURST_TICKS = 36                 # the shelf SURGES: pre-produced
+#   bodies pour at ~0.6 s so the opening beat reads as a pour on
+#   screen, not a trickle (ratified pour shape: formation tell ->
+#   BURST from the shelf -> sustained 2.2 s production)
 FORMATION_TICKS = 180                  # the 3 s formation tell
 IDLE_CLOSE_TICKS = 45 * 60             # nothing crossed for 45 s
 EXHAUST_GRACE_TICKS = 10 * 60          # reserve gone: 10 s invasion grace
@@ -144,6 +148,15 @@ class Breach:
             self.closing_reason = reason
             self.close_at_tick = tick + grace
 
+    def cancel_close(self, reason: str) -> None:
+        """The latch was a bug: an 'exhausted' close kept its deadline
+        after the reserve recovered, so seals fired on a healthy
+        economy (run 39 ledger: seals at reserve 3.19 and 4.08). The
+        marrow — the only thing that may read the reserve — cancels."""
+        if self.closing_reason == reason:
+            self.closing_reason = None
+            self.close_at_tick = 0
+
     def should_seal(self, tick: int) -> str | None:
         if tick - max(self.last_cross_tick, self.opened_tick) \
                 >= IDLE_CLOSE_TICKS:
@@ -220,6 +233,9 @@ class MarrowController:
         if self.depot.reserve < EXHAUSTED_FLOOR:
             for b in live_breaches:
                 b.request_close("exhausted", tick, EXHAUST_GRACE_TICKS)
+        else:
+            for b in live_breaches:
+                b.cancel_close("exhausted")
         if live_breaches and tick >= self._next_dispatch \
                 and self.depot.reserve > 0.0:
             kind = self._pending_kind or (
@@ -245,9 +261,12 @@ class MarrowController:
                     self._pending_kind = None
                     # collar damage stretches the cadence IMMEDIATELY —
                     # the dispatch machinery visibly missing beats is the
-                    # third-ranked tell
+                    # third-ranked tell. Shelf bodies BURST (they exist
+                    # already); production holds the sustained beat.
+                    base = (SHELF_BURST_TICKS if cost == 0.0
+                            else DISPATCH_INTERVAL_TICKS)
                     self._next_dispatch = tick + int(
-                        DISPATCH_INTERVAL_TICKS * max(1.0, dispatch_factor))
+                        base * max(1.0, dispatch_factor))
                     out.append(MarrowCommand(kind="dispatch",
                                              breach_id=bid, unit_kind=kind))
         for b in live_breaches:
