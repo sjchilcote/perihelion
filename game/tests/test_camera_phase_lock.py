@@ -425,7 +425,10 @@ def test_world_aligned_frames_across_crossing():
     from perihelion.render import Renderer
     pygame.init()
     level = build_rotated_world()
-    session = GameSession(level, seed=7, screen=(INTERNAL_W, INTERNAL_H))
+    # zoom pinned: this vector's lit-pixel instrument guard was
+    # authored at 1.35; the phase-lock property itself is zoom-free
+    session = GameSession(level, seed=7, screen=(INTERNAL_W, INTERNAL_H),
+                          zoom=1.35)
 
     m9_log = []
     orig_rebase = session._cam_rebase

@@ -26,9 +26,8 @@ def main() -> int:
     ap.add_argument("--ticks", type=int, default=12000)
     ap.add_argument("--every", type=int, default=5)
     ap.add_argument("--zoom", type=float, default=0.45,
-                    help="0.45 = farm-exact; 1.35 = play zoom (feel/visual "
-                         "captures only — visibility-driven bot behavior "
-                         "diverges from the farm at play zoom)")
+                    help="0.45 = THE zoom (director 2026-07-28: play, "
+                         "capture, and farm all share it)")
     a = ap.parse_args()
 
     import os

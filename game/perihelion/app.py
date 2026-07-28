@@ -170,7 +170,11 @@ def build_debug_level() -> Level:
     return b.build()
 
 
-ZOOM_BASE = [1.35]     # --zoom overrides (dev/capture)
+# 0.45 is THE zoom (director 2026-07-28: "that is the zoom level I
+# want" — at 1.35 "you simply can't see the enemies that have aggro").
+# There is no separate play/film zoom; captures and play share this.
+# Planned: player mousewheel zoom adjustment. --zoom still overrides.
+ZOOM_BASE = [0.45]
 
 
 class GameScene(menus.Scene):
@@ -179,9 +183,9 @@ class GameScene(menus.Scene):
         self.level = level
         self.level_path = level_path
         self.seed = seed
-        # GameSession's default zoom (1.35, sim.py) is authored for the
-        # 640x360 default internal resolution; scale it by the resolution
-        # ratio so PERIHELION_INTERNAL_RES changes pixel density, not the
+        # ZOOM_BASE is authored for the 640x360 default internal
+        # resolution; scale it by the resolution ratio so
+        # PERIHELION_INTERNAL_RES changes pixel density, not the
         # world-space field of view.
         self.session = GameSession(level, seed=seed, player_state=player_state,
                                    difficulty=difficulty,

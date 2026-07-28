@@ -103,7 +103,7 @@ def record(session_factory: Callable[[], GameSession],
 
 
 def play(replay: Replay, screen: tuple[int, int] = (480, 270),
-          zoom: float = 1.35) -> tuple[GameSession, dict]:
+          zoom: float = 0.45) -> tuple[GameSession, dict]:
     """Rebuild a session from `replay` and re-run every recorded frame."""
     level = replay.level()
     session = GameSession(level, seed=replay.seed, screen=screen, zoom=zoom)

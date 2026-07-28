@@ -581,8 +581,11 @@ def test_darkness_enabled_multipolygon_is_root_frame_invariant(
 
     def _render(px):
         level, rA, rB = _hetero_level(px, "root_inv_hetero")
+        # zoom pinned: the screen-grid sample points were authored at
+        # 1.35 framing; the invariance property itself is zoom-free
         session = _douse_player_lamp(
-            GameSession(level, seed=7, screen=(INTERNAL_W, INTERNAL_H)))
+            GameSession(level, seed=7, screen=(INTERNAL_W, INTERNAL_H),
+                        zoom=1.35))
         # Station/breach fixtures are decorative line art (the pod's dig-in
         # roots, supply conduits, breach rims) drawn with canvas.line/set_at
         # at pixel-rounded coords -- legitimately camera-pose sensitive, the

@@ -543,7 +543,10 @@ def test_human_bot_sweeps_aim_at_the_threshold():
     x-coordinate should cover a meaningful screen span."""
     level = build_corridor_level()
     bot = HumanBot(23)
-    session = GameSession(level, seed=23)
+    # zoom pinned: the 30px sweep-span threshold is a screen-space
+    # number authored at 1.35 (the same world sweep is ~1/3 the px
+    # span at 0.45); the sweep behavior itself is zoom-free
+    session = GameSession(level, seed=23, zoom=1.35)
     aims_during_pause = []
     start_polygon = session.player_polygon()
     for _ in range(60 * 60):
