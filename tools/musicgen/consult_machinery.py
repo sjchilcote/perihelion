@@ -897,7 +897,7 @@ def stream_consult(
 
 
 def stream_consult_responses(
-    prompt: str,
+    prompt: str | list,
     api_key: str,
     model: str,
     effort: str,
@@ -933,6 +933,11 @@ def stream_consult_responses(
     answer_path = out_dir / "answer.md"
     meta_path = out_dir / "meta.json"
 
+    # `prompt` may be a plain string or a full Responses-API input list
+    # (role/content items, e.g. input_text + input_image parts) — the
+    # payload carries it verbatim either way. Sizing meta uses the text
+    # form in both cases.
+    prompt_text = prompt if isinstance(prompt, str) else json.dumps(prompt)
     payload = {
         "model": model,
         "input": prompt,
@@ -956,8 +961,8 @@ def stream_consult_responses(
         "effort": effort,
         "max_output_tokens": max_tokens,
         "provider_prefs": provider_prefs,
-        "prompt_chars": len(prompt),
-        "prompt_tokenish": tokenish_size(prompt),
+        "prompt_chars": len(prompt_text),
+        "prompt_tokenish": tokenish_size(prompt_text),
         "started_at": datetime.now(timezone.utc).isoformat(),
         "ended_at": None,
         "exit_status": None,

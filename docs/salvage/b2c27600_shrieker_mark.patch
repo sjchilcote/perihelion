@@ -1,0 +1,954 @@
+commit b2c27600513bdd7728ec42cbc61de65c5c52af51
+Author: Stephen Chilcote <toastengineer@gmail.com>
+Date:   Sat Jul 25 01:04:44 2026 -0500
+
+    adversary: weakest-present caller, shrieker mark state-machine, warden engulf
+    
+    Anti-sprint defense pass (director 2026-07-25), all via existing systems:
+    
+    - Weakest defender present in a chamber (no portal open, no ally calling)
+      peels off to call reinforcements (_weakest_should_call).
+    - Shrieker rebuilt as a self-contained state machine: SENTINEL -> WARNING
+      (shriek + emit distress, run home, rouse the group) -> APPROACHING_TO_MARK
+      (climb distress) -> MARKING (3x dash off the firing line, lock, fire a real
+      MARKER projectile that leads its target) -> RALLYING (spread the alarm) ->
+      stand down to SENTINEL patrol. Old alert-carrying behaviours preserved.
+    - The MARK (glob) is a Brand object: on marker contact it renews; while held it
+      lays the existing follow-me army-ant trail on each crossed doorway and makes
+      scent pour, decaying on its own. Rendered as a glob stuck to the player with a
+      trail emitting from it.
+    - Warden ENGULF (EngulfGrip): charge (flash) -> lunge at 2.5x -> a head-on hit
+      drags the player into its core for 75/s until the warden is killed.
+    - Adversary reclaims undefended planted pods (STATION_HP).
+    - Legible caller/mark/engulf/pod-torn render cues.
+    
+    621 tests pass. Reckless bot still clears (tuning of coverage/callers ongoing).
+    
+    Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+
+diff --git a/game/perihelion/render.py b/game/perihelion/render.py
+index d68fcf0..865592e 100644
+--- a/game/perihelion/render.py
++++ b/game/perihelion/render.py
+@@ -1675,6 +1675,34 @@ class Renderer:
+             elif tag == "scream":
+                 _, polygon, x, y = fx
+                 self._screams.append(dict(polygon=polygon, x=x, y=y, age=0, maxage=16))
++            elif tag == "calling":
++                # a unit summoning reinforcements -- a legible, targetable tell
++                # (kill it to stop the breach). Distinct amber pulse.
++                _, polygon, x, y, frac = fx
++                self._screams.append(dict(polygon=polygon, x=x, y=y, age=0,
++                                          maxage=12, color=(255, 180, 60)))
++            elif tag == "marked":
++                _, polygon, x, y = fx
++                self._screams.append(dict(polygon=polygon, x=x, y=y, age=0,
++                                          maxage=14, color=(255, 90, 220)))
++                self._hurt_ticks = 2
++            elif tag == "marker_fire":
++                _, polygon, x, y, nx, ny = fx
++                self._sparks.append(dict(polygon=polygon, x=x, y=y,
++                                         nx=nx, ny=ny, life=4))
++            elif tag == "engulf_charge":
++                _, polygon, x, y, frac = fx
++                self._screams.append(dict(polygon=polygon, x=x, y=y, age=0,
++                                          maxage=6, color=(255, 150, 40)))
++            elif tag == "engulfed":
++                _, polygon, x, y = fx
++                self._hurt_ticks = 2
++                self._screams.append(dict(polygon=polygon, x=x, y=y, age=0,
++                                          maxage=8, color=(255, 60, 40)))
++            elif tag == "pod_torn":
++                _, polygon, x, y = fx
++                self._screams.append(dict(polygon=polygon, x=x, y=y, age=0,
++                                          maxage=18, color=(210, 90, 60)))
+             elif tag == "hitflash":
+                 _, eid = fx
+                 self._hitflash[eid] = 3
+@@ -3005,6 +3033,10 @@ class Renderer:
+                     frac = rt / 90.0
+                     canvas.circle((160, 240, 200), _pt((sx, sy)),
+                                   max(3, int(9 + 26 * frac)), 1)
++                brand = getattr(self.session, "brand", None)
++                if brand is not None and brand.active:
++                    self._draw_brand(canvas, sx, sy, max(srad, 2.0),
++                                     brand.strength)
+             elif role == "enemy":
+                 self._draw_enemy(canvas, eid, kind, sx, sy, ang, srad, clip_screen, fully_inside)
+                 self._draw_scan_pips(canvas, eid, sx, sy, srad, clip_screen)
+@@ -3392,10 +3424,44 @@ class Renderer:
+         if kind == "husk" and not flashed:
+             canvas.circle((66, 78, 62), _pt((sx, sy)), max(1, int(srad * 0.22)))
+ 
++    def _draw_brand(self, canvas, sx, sy, srad, strength):
++        """The MARK: a glob stuck to the player's body, with a trail emitting
++        from the glob down his travel."""
++        s = self.session
++        tick = s.tick_count
++        try:
++            _, _, _, vx, vy, _, _ = s.sim.get(s.pid)
++        except Exception:
++            vx = vy = 0.0
++        vmag = math.hypot(vx, vy)
++        # the glob rides on the body, offset toward his back (opposite travel)
++        ox, oy = (-vx / vmag, -vy / vmag) if vmag > 6.0 else (0.0, -1.0)
++        gx, gy = sx + ox * srad * 0.6, sy + oy * srad * 0.6
++        # the trail emits FROM the glob, dribbling down his travel
++        if vmag > 6.0:
++            ux, uy = vx / vmag, vy / vmag
++            for i in range(1, 7):
++                fx, fy = gx - ux * i * 4.0, gy - uy * i * 4.0
++                canvas.circle((235, 70, 185), _pt((fx, fy)),
++                              max(1, 3 - i // 3))
++        # the glob itself: a wobbling magenta blob
++        wob = 1.0 + 0.15 * math.sin(tick * 0.4)
++        gr = max(2, int(srad * 0.7 * wob))
++        canvas.circle((255, 80, 210), _pt((gx, gy)), gr)
++        canvas.circle((255, 170, 235), _pt((gx, gy)), max(1, gr - 2))
++
+     def _draw_bullet(self, canvas, kind, sx, sy, dirx, diry, clip_screen):
+         if clip_screen is not None and not _point_in_poly(sx, sy, clip_screen):
+             return
+-        if kind == "spit":
++        if kind == "marker":
++            # a shrieker's tag round: a vivid magenta mote with a streak so its
++            # flight is unmistakable
++            color = (255, 90, 220)
++            tx, ty = sx - dirx * 11, sy - diry * 11
++            canvas.line(color, _pt((sx, sy)), _pt((tx, ty)), 2)
++            canvas.circle(color, _pt((sx, sy)), 3)
++            canvas.circle((255, 215, 245), _pt((sx, sy)), 1)
++        elif kind == "spit":
+             canvas.circle((140, 205, 60), _pt((sx, sy)), 2)
+         elif kind == "scrap":
+             # a tumbling salvage shard
+@@ -3622,9 +3688,10 @@ class Renderer:
+             if not _point_in_poly(sx, sy, clip_screen):
+                 continue
+             t = sc["age"] / sc["maxage"]
++            col = sc.get("color", SCREAM_COLOR)
+             for ring_off in (0, 6):
+                 rad = int((6 + ring_off) + t * 20)
+-                canvas.circle(SCREAM_COLOR, _pt((sx, sy)), rad, 1)
++                canvas.circle(col, _pt((sx, sy)), rad, 1)
+ 
+     # -- (8) post -------------------------------------------------------
+ 
+diff --git a/game/perihelion/sim.py b/game/perihelion/sim.py
+index af9c8a5..cd3ea28 100644
+--- a/game/perihelion/sim.py
++++ b/game/perihelion/sim.py
+@@ -315,6 +315,42 @@ INFLAMMATION_SIEGE_MIN_POP = 20
+ # peak firefight (which the flank breach at the higher THRESH already answers).
+ INFLAMMATION_SIEGE_HEAT = 3.0
+ 
++# --- THE MARK / shrieker (director 2026-07-25) --------------------------------
++# The shrieker runs a self-contained hunt: WARNING (raise the group) ->
++# APPROACHING_TO_MARK (close the distance) -> MARKING (a 3x-speed dash to slip
++# off the intruder's firing line and fire a MARKER projectile) -> RALLYING
++# (spread the alarm), then stands down to SENTINEL. The marker is a real
++# projectile; on contact it sticks a glob to the intruder -- the MARK.
++#
++# While the MARK holds, it drives the EXISTING systems: it lays the army-ant
++# follow-me TRAIL where he crosses portals (counting as many hunter crossings,
++# so the swarm's chemotaxis traces his exact route) and it makes his SCENT pour.
++# The mark decays on its own; only a fresh marker renews it.
++BRAND_DURATION = 14 * TICK_RATE   # the mark fully fades in ~14s if not renewed
++BRAND_SCENT_GAIN = 8.0            # a marked intruder's scent pours (×(1+this))
++BRAND_TRAIL_DEPOSIT = 8.0         # follow-me trail laid on each crossed doorway
++                                  # while marked (= the edge's saturation cap,
++                                  # i.e. a whole worn lane in one crossing)
++MARK_SPEED_MULT = 3.0             # MARKING dash: this much faster than cruise
++MARK_FIRE_RANGE = 210.0           # fires the marker from within this range
++MARK_AIM_TICKS = 18              # holds to aim ~300ms once off his firing line
++MARKER_SPEED = 620.0             # the marker projectile's speed
++MARKER_TTL = 150                 # ...and how long it flies before fizzling
++RALLY_TICKS = 12 * TICK_RATE     # how long a shrieker spreads the alarm after
++# WARDEN ENGULF (director 2026-07-25): "that'll teach 'em to keep their
++# distance." A warden in range stops, flashes twice over ~200ms, then LUNGES at
++# 2.5x its cruise speed. The lunge state lasts until friction drops its speed
++# back below cruise. If it makes solid contact during the lunge -- a real head-on
++# hit, not a graze (velocity aligned with the bearing to the player) -- the
++# player is dragged into its core and takes rapid damage until he shoots it off.
++WARDEN_ENGULF_RANGE = 155.0    # start the charge when the player is this close
++WARDEN_ENGULF_CHARGE = 12      # ~200ms wind-up (flashes twice), fully exposed
++WARDEN_CRUISE_RATE = 130.0     # its ordinary move speed (px/s); lunge ends below
++WARDEN_ENGULF_LUNGE_MULT = 2.5 # lunge speed = cruise * this
++WARDEN_ENGULF_DOT = 0.5        # min alignment(velocity, bearing) to catch
++WARDEN_ENGULF_DPS = 75.0       # damage/second while the player is engulfed
++WARDEN_ENGULF_COOLDOWN = 5 * TICK_RATE   # the only escape is to KILL the warden
++
+ # The fabricator's price sheet. Components are salvaged mass — every enemy
+ # yields its score in components (the same number the metrics already used,
+ # so salvage income equals fight difficulty by construction).
+@@ -396,6 +432,41 @@ class InputFrame:
+                           bool(row[4]), bool(row[5]), bool(row[6]), row[7])
+ 
+ 
++class Brand:
++    """The intruder's MARK. A shrieker's marker projectile calls renew() on
++    contact; decay() lowers strength each tick, so an unrenewed mark fades.
++    While strength > 0, _alarm_tick amplifies the intruder's scent, bleeds it
++    into neighbouring chambers, and enables the FORERUN heading bloom. Rendered
++    as a mote stuck to the player with a trail."""
++    __slots__ = ("strength", "source_eid")
++
++    def __init__(self) -> None:
++        self.strength = 0.0        # 0..1
++        self.source_eid = -1
++
++    @property
++    def active(self) -> bool:
++        return self.strength > 0.0
++
++    def renew(self, eid: int) -> None:
++        self.strength = 1.0
++        self.source_eid = eid
++
++    def decay(self, per_tick: float) -> None:
++        if self.strength > 0.0:
++            self.strength = max(0.0, self.strength - per_tick)
++
++
++class EngulfGrip:
++    """A warden has the intruder in its core and is burning him down. The grip
++    names the warden that holds him (by eid); the only escape is to kill it --
++    its death, or the intruder's, releases the grip."""
++    __slots__ = ("warden_eid",)
++
++    def __init__(self, warden_eid: int) -> None:
++        self.warden_eid = warden_eid
++
++
+ class GameSession:
+     def __init__(self, level: Level, seed: int = 0,
+                  screen: tuple[int, int] = (480, 270), zoom: float = 1.0,
+@@ -571,6 +642,8 @@ class GameSession:
+         # any hit severs (an escape you must earn a quiet moment for)
+         self.recalls = int(st.get("recalls", 0))
+         self.recall_t = 0
++        self.brand = Brand()             # the intruder's MARK (shrieker marker)
++        self.engulf: EngulfGrip | None = None   # a warden holding the player
+         self.stations: list[dict] = []  # {polygon, pos}: planted + chunk seeds
+         # the seed you just printed from is a station by definition (the
+         # streamer's chunk-entry add_station dedupes against this one)
+@@ -1002,24 +1075,7 @@ class GameSession:
+         self._enemy_ai(ppolygon)
+         self._breach_tick()     # reinforcements emerge from called-in breaches
+         if self.field is not None:
+-            # passive SCENT: the intruder's presence deposits a decaying
+-            # trail the swarm can climb even in silence (chemotactic
+-            # breadcrumb) — the danger-model core (react to what you do,
+-            # not what you are, but you are always at least HERE).
+-            # Under `signature`, emission scales with ACTIVITY: firing
+-            # recently reads LOUD, going still reads quiet — stealth is
+-            # literally lowering your own signal (counterplay §4).
+-            loud = (self.tick_count
+-                    - getattr(self, "last_fire_tick", -999)) < 45
+-            scent = 0.55 if loud else 0.12
+-            # A CARRIED STRUCTURE IS A BEACON (director 2026-07-20: the
+-            # supply trip "grants the enemy time to form a quorum and
+-            # ambush"). A pod on your back is a running machine — it
+-            # hums, and the swarm climbs that. Emission only: nothing
+-            # about the enemies changes, they simply have more to find.
+-            scent *= 1.0 + 0.85 * sum(self.CARRY_WEIGHT.get(k, 0.0)
+-                                      for k in self.carried)
+-            self.field.emit("scent", ppolygon, scent)
++            self._alarm_tick(ppolygon)
+             self.field.step()
+             self._inflammation_breach_tick(ppolygon)
+ 
+@@ -1027,6 +1083,7 @@ class GameSession:
+         self._apply_friction(self.pid, PLAYER_FRICTION)
+         for eid, e in self.enemies.items():
+             self._apply_friction(eid, ENEMIES[e["kind"]]["fric"])
++        self._engulf_tick()     # a held player is dragged in (overrides vel)
+ 
+         events = s.step(DT)
+         self._consume_events(events)
+@@ -1984,6 +2041,112 @@ class GameSession:
+ 
+     # ------------------------------------------------------------------
+ 
++    def _alarm_tick(self, ppolygon: int) -> None:
++        """Deposit the intruder's passive SCENT, amplified while he wears a
++        MARK. The mark's follow-me TRAIL is laid where he actually crosses
++        portals (see the transfer handler in _consume_events); here it only
++        drives the scent output the existing swarm already climbs."""
++        tc = self.tick_count
++        # the mark decays on its own; only a fresh shrieker marker renews it
++        self.brand.decay(1.0 / BRAND_DURATION)
++        brand = self.brand.strength
++        loud = (tc - getattr(self, "last_fire_tick", -999)) < 45
++        # passive SCENT: presence deposits a decaying breadcrumb the swarm
++        # climbs even in silence; louder while firing; a carried structure hums;
++        # a MARK makes it pour (the glob).
++        scent = 0.55 if loud else 0.12
++        scent *= 1.0 + 0.85 * sum(self.CARRY_WEIGHT.get(k, 0.0)
++                                  for k in self.carried)
++        scent *= 1.0 + BRAND_SCENT_GAIN * brand
++        self.field.emit("scent", ppolygon, scent)
++
++    def _engulf_tick(self) -> None:
++        """Resolve an in-progress WARDEN ENGULF: while a warden holds the
++        player, drag him into its core and burn him at WARDEN_ENGULF_DPS. The
++        only escape is to KILL the warden (or die trying)."""
++        grip = self.engulf
++        if grip is None:
++            return
++        eid = grip.warden_eid
++        e = self.enemies.get(eid)
++        if e is None or self.dead or e.get("engulf") != "hold":
++            self._release_engulf()
++            return
++        s = self.sim
++        _, wx, wy, *_ = s.get(eid)
++        px, py = self.player_pos()
++        # dragged to the core
++        dx, dy = wx - px, wy - py
++        dist = math.hypot(dx, dy) or 1e-6
++        s.set_vel(self.pid, dx / dist * 260.0, dy / dist * 260.0)
++        # rapid burn (bypasses the ordinary hurt cooldown -- this is the point)
++        dmg = WARDEN_ENGULF_DPS * DT * self._dmg_mul * self._armor_mul \
++            * self.player_resist
++        self.hp -= dmg
++        self.metrics["dmg_taken"] += dmg
++        if self.tick_count % 5 == 0:
++            self._snd("player_hurt", s.get_polygon(self.pid), (px, py))
++        self.fx.append(("engulfed", s.get_polygon(self.pid), px, py))
++        if self.hp <= 0:
++            self.dead = True
++            self.metrics["deaths"] += 1
++            self._release_engulf()
++
++    def _release_engulf(self) -> None:
++        grip = self.engulf
++        self.engulf = None
++        if grip is None:
++            return
++        e = self.enemies.get(grip.warden_eid)
++        if e is not None:
++            e["engulf"] = None
++            e["engulf_cd"] = WARDEN_ENGULF_COOLDOWN
++
++    def _warden_engulf_step(self, eid, e, polygon, ppolygon, ex, ey) -> None:
++        """A charging/lunging warden. CHARGE: rooted, flashing, fully exposed.
++        LUNGE: hurled at the player at 2.5x cruise; the state ends when friction
++        drops it back below cruise (missed) or it lands a head-on hit (caught)."""
++        s = self.sim
++        d = ENEMIES["warden"]
++        if e["engulf"] == "charge":
++            s.set_vel(eid, 0.0, 0.0)
++            e["engulf_t"] = e.get("engulf_t", WARDEN_ENGULF_CHARGE) - 1
++            frac = 1.0 - max(0, e["engulf_t"]) / float(WARDEN_ENGULF_CHARGE)
++            if self.tick_count % 3 == 0:      # flashes twice over the wind-up
++                self.fx.append(("engulf_charge", polygon, ex, ey, frac))
++            if e["engulf_t"] <= 0:
++                if polygon != ppolygon:       # lost the player -> abort
++                    e["engulf"] = None
++                    e["engulf_cd"] = WARDEN_ENGULF_COOLDOWN
++                    return
++                tx, ty = self.player_pos()
++                dx, dy = tx - ex, ty - ey
++                dl = math.hypot(dx, dy) or 1e-6
++                spd = WARDEN_CRUISE_RATE * WARDEN_ENGULF_LUNGE_MULT
++                s.set_dir(eid, dx / dl, dy / dl)
++                s.set_vel(eid, dx / dl * spd, dy / dl * spd)
++                self._snd("shrieker_scream", polygon, (ex, ey), 0.85)
++                e["engulf"] = "lunge"
++            return
++        # lunge
++        _, _, _, vx, vy, _, _ = s.get(eid)
++        spd = math.hypot(vx, vy)
++        if spd < WARDEN_CRUISE_RATE:          # spent -> missed
++            e["engulf"] = None
++            e["engulf_cd"] = WARDEN_ENGULF_COOLDOWN
++            return
++        if polygon == ppolygon and self.engulf is None and not self.dead:
++            tx, ty = self.player_pos()
++            dx, dy = tx - ex, ty - ey
++            dl = math.hypot(dx, dy) or 1e-6
++            if dl < d["radius"] + PLAYER_RADIUS + 8.0:
++                dot = (vx * dx + vy * dy) / ((spd or 1e-6) * dl)
++                if dot >= WARDEN_ENGULF_DOT:  # head-on, not a graze -> caught
++                    e["engulf"] = "hold"
++                    self.engulf = EngulfGrip(eid)
++                    self._snd("player_hurt", polygon, self.player_pos(), 1.0)
++                    self.fx.append(("engulfed", ppolygon, *self.player_pos()))
++
+     def _enemy_ai(self, ppolygon: int):
+         s = self.sim
+         active = set(s.polygons_within(ppolygon, ACTIVE_HOPS))
+@@ -1997,12 +2160,20 @@ class GameSession:
+                 continue            # the core just sits; the guardians defend it
+             d = ENEMIES[kind]
+             _, ex, ey, evx, evy, edx, edy = s.get(eid)
+-            for k in ("touch_cd", "spit_cd", "scream_cd", "wander_cd"):
++            for k in ("touch_cd", "spit_cd", "scream_cd", "wander_cd",
++                      "engulf_cd"):
+                 if e.get(k, 0) > 0:
+                     e[k] -= 1
+             if e.get("buff", 0) > 0:
+                 e["buff"] -= 1
+ 
++            # WARDEN ENGULF (director 2026-07-25): once charging, lunging, or
++            # holding the player, a warden is off the normal state machine until
++            # the attack resolves (it dies, or lets go).
++            if e.get("engulf") in ("charge", "lunge", "hold"):
++                self._warden_engulf_step(eid, e, polygon, ppolygon, ex, ey)
++                continue
++
+             if kind == "flicker":
+                 # Deliberately bypasses the standard idle/waking/hunt
+                 # state machine entirely -- a flicker's resting behavior
+@@ -2013,6 +2184,12 @@ class GameSession:
+                 self._flicker_ai(eid, e, polygon, ppolygon, ex, ey, evx, evy)
+                 continue
+ 
++            if kind == "shrieker":
++                # self-contained SENTINEL->WARNING->APPROACH->MARKING->RALLY
++                # machine (see _shrieker_ai); off the generic idle/hunt path.
++                self._shrieker_ai(eid, e, polygon, ppolygon, ex, ey, evx, evy)
++                continue
++
+             # a non-flicker unit mid-transmit (ADVERSARY_DESIGN): a straggler
+             # left on quiet ground behind the front, calling in a breach --
+             # stationary and exposed, off the normal state machine until done
+@@ -2020,6 +2197,21 @@ class GameSession:
+                 self._caller_transmit(eid, e, polygon, ppolygon, ex, ey)
+                 continue
+ 
++            # WEAKEST-VOLUNTEERS CALL (director 2026-07-25): with no portal
++            # open and nobody in this chamber already calling, the WEAKEST
++            # defender present drops everything and calls the marrow in -- the
++            # stronger ones stay and fight. So a sprint-through leaves a trail of
++            # stragglers, each opening a portal behind the runner as he blows
++            # past. Kill the weakest on sight (or don't linger) to deny it.
++            if self._weakest_should_call(eid, e, kind, polygon):
++                e["state"] = "call"
++                e["call_t"] = CALL_TRANSMIT_TICKS
++                e["trace_intensity"] = 1.0
++                s.set_vel(eid, 0.0, 0.0)
++                self._snd("shrieker_scream", polygon, (ex, ey), 0.7)
++                self.fx.append(("calling", polygon, ex, ey, 0.0))
++                continue
++
+             # footfalls: the dread channel again — mass on deck plating,
+             # audible through walls before anything is visible. Deltas are
+             # only meaningful within one polygon's local frame, so a transfer
+@@ -2095,29 +2287,6 @@ class GameSession:
+                                                     ex, ey):
+                             self._roam(eid, e, d, polygon, ex, ey, evx, evy)
+                         continue
+-                    # SHRIEKERS PATROL (director 2026-07-24): an idle shrieker
+-                    # walks the folds room to room instead of loitering, so it
+-                    # sweeps for the intruder and raises the alarm on contact.
+-                    if kind == "shrieker":
+-                        prt = s.polygon_portals(polygon)
+-                        pe = e.get("patrol_edge")
+-                        if e["wander_cd"] <= 0 or pe is None \
+-                                or pe >= len(prt) or prt[pe] is None:
+-                            opts = [i for i, pt in enumerate(prt)
+-                                    if pt is not None]
+-                            if opts:
+-                                e["wander_cd"] = self.rng.randrange(150, 360)
+-                                e["patrol_edge"] = pe = self.rng.choice(opts)
+-                            else:
+-                                pe = None
+-                        if pe is not None:
+-                            mxp, myp = s.edge_midpoint(polygon, pe)
+-                            dxp, dyp = mxp - ex, myp - ey
+-                            dlp = math.hypot(dxp, dyp) or 1.0
+-                            s.set_vel(eid,
+-                                      evx + dxp / dlp * d["accel"] * 0.4 * DT,
+-                                      evy + dyp / dlp * d["accel"] * 0.4 * DT)
+-                        continue
+                     # aimless drift
+                     if e["wander_cd"] <= 0:
+                         e["wander_cd"] = self.rng.randrange(90, 240)
+@@ -2171,9 +2340,6 @@ class GameSession:
+                             continue
+                     else:
+                         e["cooloff"] = 0
+-            if kind == "shrieker":
+-                self._shrieker_ai(eid, e, polygon, ppolygon, ex, ey, accel)
+-                continue
+             # --- engagement target: the player's position in THIS polygon's
+             # local frame. Polygons are individual polygons, so co-polygon is
+             # just the identity case; further out, the portal transforms
+@@ -2286,6 +2452,17 @@ class GameSession:
+                         self._spit(eid, polygon, ex, ey, nx, ny, d)
+                     if kind != "warden":
+                         continue
++                # WARDEN ENGULF (director 2026-07-25): in range and off
++                # cooldown, it commits to the charge->lunge instead of a plain
++                # advance -- punishing a player who let it get close.
++                if kind == "warden" and polygon == ppolygon \
++                        and dist < WARDEN_ENGULF_RANGE \
++                        and e.get("engulf_cd", 0) <= 0 \
++                        and self.engulf is None:
++                    e["engulf"] = "charge"
++                    e["engulf_t"] = WARDEN_ENGULF_CHARGE
++                    s.set_vel(eid, 0.0, 0.0)
++                    continue
+                 s.set_vel(eid, evx + sx * accel * DT, evy + sy * accel * DT)
+             else:
+                 if e.get("tether"):
+@@ -2456,6 +2633,14 @@ class GameSession:
+     # itself: an emplacement kills a vagrant in ~24 ticks, so at 2.2 the
+     # Adversary trades a body for the gun rather than losing to it.
+     ADVERSARY_TEAR = 2.2
++    # RECLAIM THE GROUND (director 2026-07-25, report #8): a planted revival
++    # pod left undefended is torn out too -- so a reckless runner cannot bank
++    # progress on a chain of invulnerable forward anchors and grind through on
++    # respawns. Defend your firebase or lose it. The spawn pod (infinite) is the
++    # cloister and cannot be reclaimed. Tougher than a gun (it's the firebase's
++    # heart) so a body or two can't pop it instantly -- but abandon it under a
++    # full-reserve swarm and it comes apart.
++    STATION_HP = 420.0
+ 
+     def _adversary_assault(self, eid, e, d, polygon, ex, ey) -> None:
+         """The Adversary does not path around your defences. An emplacement
+@@ -2479,6 +2664,24 @@ class GameSession:
+                 self._snd("enemy_die_brute", polygon, (tx, ty), 0.7)
+                 self._objective("SENTRY TORN DOWN - THE ADVERSARY TAKES "
+                                 "YOUR GUNS APART")
++            return
++        # RECLAIM THE GROUND: an undefended planted pod comes apart too, so a
++        # forward respawn anchor is not permanent unless you hold it.
++        for st in self.stations:
++            if st.get("hp") is None or st["polygon"] != polygon:
++                continue
++            sx_, sy_ = st["pos"]
++            if math.hypot(sx_ - ex, sy_ - ey) > d["radius"] + 22.0:
++                continue
++            st["hp"] -= self.ADVERSARY_TEAR
++            if st["hp"] <= 0.0:
++                if st.get("light") is not None:
++                    st["light"].intensity = 0.0
++                self.stations.remove(st)
++                self._snd("enemy_die_brute", polygon, (sx_, sy_), 0.8)
++                self.fx.append(("pod_torn", polygon, sx_, sy_))
++                self._objective("A REVIVAL POD IS TORN OUT - THE ADVERSARY "
++                                "RECLAIMS THE GROUND")
+             break
+ 
+     def _structure_hunt(self, eid, e, d, polygon, ex, ey) -> bool:
+@@ -2497,6 +2700,9 @@ class GameSession:
+                 targets.append((s.get_polygon(tid), s.get(tid)[1:3]))
+         for b in self.boosters:
+             targets.append((b["polygon"], b["pos"]))
++        for st in self.stations:                 # planted revival pods too
++            if st.get("hp") is not None:
++                targets.append((st["polygon"], st["pos"]))
+         if not targets:
+             return False
+         best, best_h = None, 99
+@@ -2574,83 +2780,254 @@ class GameSession:
+         self.bullets[bid] = dict(kind="spit", dmg=d["spit_dmg"], ttl=180)
+         self._snd("spitter_shoot", polygon, (ex, ey), 0.9)
+ 
+-    def _shrieker_ai(self, eid, e, polygon, ppolygon, ex, ey, accel):
+-        """Cordyceps sentinel (director, COMBAT_REDESIGN §8): a living
+-        thing whose combat function is CARRYING THE ALERT. Sentinels
+-        have a pre-set home polygon (their squad's chamber, spec prop
+-        `home`): on contact they run home screaming; on arrival —
+-        squad there or not — they wander ~45s spreading the alarm,
+-        then assume the tip is stale, hunker down, and wait for the
+-        player again. A shrieker with no home (or nothing left to
+-        tell) reverts to survival instinct and simply sits still —
+-        the liked behavior, designed-in."""
++    # -- shrieker helpers ------------------------------------------------
++
++    def _player_sighting(self, eid, polygon, ex, ey, max_hops: int = 3):
++        """The player's position in THIS polygon's local frame if a clear
++        sightline reaches him -- co-polygon, or through up to `max_hops` of
++        composed portals with an unobstructed ray -- else None."""
++        s = self.sim
++        ppolygon = self.player_polygon()
++        px, py = self.player_pos()
++        if polygon == ppolygon:
++            return px, py
++        hd = s.hop_distance(polygon, ppolygon)
++        if not (1 <= hd <= max_hops):
++            return None
++        pxf = None
++        r_ = polygon
++        for _hop in range(max_hops):
++            if r_ == ppolygon:
++                break
++            pedge = s.next_edge(r_, ppolygon)
++            if pedge < 0:
++                return None
++            step_xf = s.portal_xform(r_, pedge)
++            if step_xf is None:
++                return None
++            pxf = step_xf if pxf is None else necore.mat_mul(pxf, step_xf)
++            portal = s.polygon_portals(r_)[pedge]
++            r_ = portal[0]
++        if r_ != ppolygon or pxf is None:
++            return None
++        wx, wy = necore.mat_apply(pxf, px, py)
++        wdx, wdy = wx - ex, wy - ey
++        wdl = math.hypot(wdx, wdy) or 1e-6
++        hit = s.raycast(polygon, ex, ey, wdx / wdl, wdy / wdl, 3,
++                        wdl + 40.0, 1 << GROUP_PLAYER, eid)
++        if hit[0] == "ent" and hit[1] == self.pid:
++            return wx, wy
++        return None
++
++    def _steer_to_edge(self, eid, polygon, ex, ey, radius, edge,
++                       accel_amt) -> None:
++        """Steer an enemy toward a portal edge's midpoint (terrain-avoiding)."""
++        s = self.sim
++        mx_, my_ = s.edge_midpoint(polygon, edge)
++        ddx, ddy = mx_ - ex, my_ - ey
++        dl = math.hypot(ddx, ddy) or 1e-6
++        nx, ny = ddx / dl, ddy / dl
++        s.set_dir(eid, nx, ny)
++        _, _, _, vx, vy, _, _ = s.get(eid)
++        sx, sy = s.terrain_avoid_dir(polygon, ex, ey, radius, nx, ny,
++                                     max(40.0, min(dl, 120.0)))
++        s.set_vel(eid, vx + sx * accel_amt * DT, vy + sy * accel_amt * DT)
++
++    def _climb_field_edge(self, polygon, species, ppolygon) -> int:
++        """The portal edge into the neighbour with the most of `species`
++        (summed); falls back to the oracle next-edge toward the player so a
++        searcher on cold ground is never inert."""
++        s = self.sim
++        fd = self.field.f
++        best_v, best = 0.0, -1
++        for pe, portal in enumerate(s.polygon_portals(polygon)):
++            if portal is None:
++                continue
++            tp = portal[0]
++            v = sum(fd[sp][tp] for sp in species)
++            if v > best_v:
++                best_v, best = v, pe
++        return best if best >= 0 else s.next_edge(polygon, ppolygon)
++
++    def _shrieker_patrol(self, eid, e, d, polygon, ex, ey,
++                         accel_mult: float = 0.4) -> None:
++        """Walk the folds room to room, re-picking a random portal when the
++        wander timer lapses -- used for SENTINEL sweep and RALLYING spread."""
++        s = self.sim
++        prt = s.polygon_portals(polygon)
++        pe = e.get("patrol_edge")
++        if e.get("wander_cd", 0) <= 0 or pe is None \
++                or pe >= len(prt) or prt[pe] is None:
++            opts = [i for i, pt in enumerate(prt) if pt is not None]
++            if not opts:
++                return
++            e["wander_cd"] = self.rng.randrange(150, 360)
++            e["patrol_edge"] = pe = self.rng.choice(opts)
++        self._steer_to_edge(eid, polygon, ex, ey, d["radius"], pe,
++                            d["accel"] * accel_mult)
++
++    def _fire_marker(self, eid, polygon, ex, ey, tx, ty) -> None:
++        """Loose a MARKER projectile at the player; on contact it brands him
++        (see the bullet/player collision in _consume_events). It LEADS his
++        motion so the earned shot lands rather than trailing him."""
++        s = self.sim
++        rad = ENEMIES["shrieker"]["radius"]
++        # lead the target by the projectile's flight time (co-polygon frame)
++        _, _, _, pvx, pvy, _, _ = s.get(self.pid)
++        flight = (math.hypot(tx - ex, ty - ey) or 1e-6) / MARKER_SPEED
++        tx, ty = tx + pvx * flight, ty + pvy * flight
++        ddx, ddy = tx - ex, ty - ey
++        dl = math.hypot(ddx, ddy) or 1e-6
++        nx, ny = ddx / dl, ddy / dl
++        bid = s.spawn(polygon, ex + nx * (rad + 4), ey + ny * (rad + 4),
++                      2.0, 0.008, GROUP_EBULLET)
++        s.set_props(bid, rest_wall=0.0, max_substep=3.0)
++        s.set_vel(bid, nx * MARKER_SPEED, ny * MARKER_SPEED)
++        self.bullets[bid] = dict(kind="marker", dmg=0.0, ttl=MARKER_TTL,
++                                 src=eid, born=self.tick_count)
++        self._snd("shrieker_scream", polygon, (ex, ey), 1.0)
++        self.fx.append(("marker_fire", polygon, ex, ey, nx, ny))
++
++    def _shrieker_rouse(self, eid, polygon) -> None:
++        """A scream throws every nearby defender (<= 2 hops) straight into the
++        hunt with a short buff -- the original alert-carrying behaviour, kept.
++        Shriekers are left alone (they run their own machine)."""
++        s = self.sim
++        for oid, oe in self.enemies.items():
++            if oid == eid or oe["kind"] in ("shrieker", "hub_core"):
++                continue
++            if oe.get("engulf"):
++                continue
++            if 0 <= s.hop_distance(s.get_polygon(oid), polygon) <= 2:
++                oe["state"] = "hunt"
++                oe["buff"] = 60 * 5
++
++    #: how far behind the player a shrieker tries to sit before firing
++    MARK_STANDOFF = 95.0
++    #: it locks the shot once it is outside the player's forward firing cone --
++    #: dot(dir-to-shrieker, aim) below this (0.5 ~= a 120°-wide front arc)
++    MARK_FRONT_CONE = 0.5
++
++    def _shrieker_ai(self, eid, e, polygon, ppolygon, ex, ey, evx, evy):
++        """Self-contained shrieker hunt (director 2026-07-25). SENTINEL sweeps
++        the folds; on sighting the intruder it WARNs (shriek + emit distress,
++        run home to raise the squad), then APPROACHing_to_mark it stops emitting
++        and climbs distress to the intruder; on LOS it enters MARKING -- a
++        3x-speed dash to get behind him and hold ~300ms, then fires a MARKER
++        projectile; once fired it RALLYs (random portals, shrieking idle
++        stragglers awake) before standing back down to SENTINEL."""
+         s = self.sim
+         d = ENEMIES["shrieker"]
++        accel = d["accel"]
+         phase = e.get("phase", "sentinel")
+ 
+-        if e["scream_cd"] <= 0 and phase in ("running", "wander"):
+-            e["scream_cd"] = d["scream_cd"]
+-            self._snd("shrieker_scream", polygon, (ex, ey), 1.0)
+-            self.fx.append(("scream", polygon, ex, ey))
+-            for oid, oe in self.enemies.items():
+-                if oid == eid:
+-                    continue
+-                hd = s.hop_distance(s.get_polygon(oid), polygon)
+-                if 0 <= hd <= 2:
+-                    oe["state"] = "hunt"
+-                    oe["buff"] = 60 * 5
+-
+-        home = e.get("home")
+-        if phase in ("sentinel", "hunker"):
+-            # contact reached this branch (state==hunt): the tip is
+-            # fresh. With a home to carry it to, GO; without one,
+-            # survival instinct — sit still.
+-            if home is not None and home != polygon:
+-                e["phase"] = "running"
+-            elif home is not None:
+-                e["phase"] = "wander"
+-                e["wander_t"] = 60 * 45
+-            else:
+-                return                          # Cordyceps stillness
++        if phase == "sentinel":
++            if polygon == ppolygon or \
++                    self._player_sighting(eid, polygon, ex, ey) is not None:
++                if e.get("home") is None:
++                    e["home"] = polygon
++                e["phase"] = "warning"
++                return
++            self._shrieker_patrol(eid, e, d, polygon, ex, ey)
+             return
+ 
+-        _, _, _, evx, evy, _, _ = s.get(eid)
+-        if phase == "running":
++        if phase == "warning":
++            # shriek + emit distress while running home to raise the squad; the
++            # scream wakes nearby defenders straight to the hunt (the original
++            # alert-carrying behaviour, kept)
++            self.field.emit("distress", polygon, 0.5)
++            if e["scream_cd"] <= 0:
++                e["scream_cd"] = d["scream_cd"]
++                self._snd("shrieker_scream", polygon, (ex, ey), 1.0)
++                self.fx.append(("scream", polygon, ex, ey))
++                self._shrieker_rouse(eid, polygon)
++            home = e.get("home", polygon)
+             if polygon == home:
+-                e["phase"] = "wander"
+-                e["wander_t"] = 60 * 45
++                e["phase"] = "approach"         # home reached -> stop emitting
+                 return
+             edge = s.next_edge(polygon, home)
+             if edge < 0:
+-                e["phase"] = "hunker"           # no path: give up, sit
++                e["phase"] = "approach"         # no path home -> go mark anyway
+                 return
+-            gx, gy = s.edge_midpoint(polygon, edge)
++            self._steer_to_edge(eid, polygon, ex, ey, d["radius"], edge, accel)
++            return
++
++        if phase == "approach":
++            # climb distress to the intruder; LOS flips to MARKING
++            if self._player_sighting(eid, polygon, ex, ey) is not None:
++                e["phase"] = "marking"
++                e["mark_aim"] = 0
++                e["mark_lost"] = 0
++                return
++            edge = self._climb_field_edge(polygon, ("distress", "noise",
++                                                    "scent"), ppolygon)
++            if edge >= 0:
++                self._steer_to_edge(eid, polygon, ex, ey, d["radius"], edge,
++                                    accel)
++            return
++
++        if phase == "marking":
++            sight = self._player_sighting(eid, polygon, ex, ey)
++            if sight is None or polygon != ppolygon:
++                # no LOS / not in his chamber yet -> dash to close the distance
++                # (the marker shot + the behind-approach share the local frame)
++                e["mark_lock"] = 0
++                e["mark_lost"] = e.get("mark_lost", 0) + 1
++                if e["mark_lost"] > 120:
++                    e["phase"] = "approach"
++                    e["mark_lost"] = 0
++                    return
++                edge = s.next_edge(polygon, ppolygon)
++                if edge >= 0:
++                    self._steer_to_edge(eid, polygon, ex, ey, d["radius"],
++                                        edge, accel * MARK_SPEED_MULT)
++                return
++            e["mark_lost"] = 0
++            tx, ty = sight
++            dist = math.hypot(tx - ex, ty - ey) or 1e-6
++            # LOCKED: once it has slipped behind him it COMMITS to the shot --
++            # holds, aims ~300ms, fires. It no longer cares if he spins to face
++            # it (he can still gun it down during the tell -- that's the counter).
++            if e.get("mark_lock", 0) > 0:
++                s.set_dir(eid, (tx - ex) / dist, (ty - ey) / dist)
++                s.set_vel(eid, evx * 0.25, evy * 0.25)
++                e["mark_lock"] += 1
++                if e["mark_lock"] > MARK_AIM_TICKS:
++                    self._fire_marker(eid, polygon, ex, ey, tx, ty)
++                    e["phase"] = "rally"
++                    e["rally_t"] = RALLY_TICKS
++                    e["mark_lock"] = 0
++                return
++            # slip off his firing line at dash speed; lock once it is outside
++            # his forward cone (to the side or behind), in range
++            _, _, _, _, _, pfx, pfy = s.get(self.pid)   # player facing
++            fmag = math.hypot(pfx, pfy) or 1e-6
++            fx, fy = pfx / fmag, pfy / fmag
++            frontness = ((ex - tx) * fx + (ey - ty) * fy) / dist   # 1 = dead ahead
++            if dist < MARK_FIRE_RANGE and frontness < self.MARK_FRONT_CONE:
++                e["mark_lock"] = 1                            # commit
++                return
++            gx, gy = tx - fx * self.MARK_STANDOFF, ty - fy * self.MARK_STANDOFF
+             ddx, ddy = gx - ex, gy - ey
+-            dist = math.hypot(ddx, ddy) or 1e-6
+-            nx, ny = ddx / dist, ddy / dist
+-            s.set_dir(eid, nx, ny)
+-            sx, sy = s.terrain_avoid_dir(polygon, ex, ey, d["radius"],
+-                                         nx, ny,
+-                                         max(40.0, min(dist, 120.0)))
+-            s.set_vel(eid, evx + sx * accel * DT, evy + sy * accel * DT)
++            dl = math.hypot(ddx, ddy) or 1e-6
++            nx, ny = ddx / dl, ddy / dl
++            sx, sy = s.terrain_avoid_dir(polygon, ex, ey, d["radius"], nx, ny,
++                                         80.0)
++            s.set_vel(eid, evx + sx * accel * MARK_SPEED_MULT * DT,
++                      evy + sy * accel * MARK_SPEED_MULT * DT)
+             return
+ 
+-        if phase == "wander":
+-            e["wander_t"] = e.get("wander_t", 60 * 45) - 1
+-            if e["wander_t"] <= 0:
+-                # the tip is stale; wait for the player again
+-                e["phase"] = "hunker"
+-                e["state"] = "idle"
++        if phase == "rally":
++            e["rally_t"] = e.get("rally_t", RALLY_TICKS) - 1
++            if e["rally_t"] <= 0:
++                e["phase"] = "sentinel"
+                 return
+-            if e.get("wander_cd", 0) <= 0:
+-                e["wander_cd"] = self.rng.randrange(45, 120)
+-                a2 = self.rng.uniform(0, 6.28)
+-                e["wander"] = (math.cos(a2), math.sin(a2))
+-            wx, wy = e.get("wander", (0.0, 0.0))
+-            sx, sy = s.terrain_avoid_dir(polygon, ex, ey, d["radius"],
+-                                         wx, wy, 60.0)
+-            s.set_vel(eid, evx + sx * accel * 0.5 * DT,
+-                      evy + sy * accel * 0.5 * DT)
++            if e["scream_cd"] <= 0:
++                e["scream_cd"] = d["scream_cd"]
++                self._snd("shrieker_scream", polygon, (ex, ey), 0.9)
++                self.fx.append(("scream", polygon, ex, ey))
++                self._shrieker_rouse(eid, polygon)   # spread the alarm
++            self._shrieker_patrol(eid, e, d, polygon, ex, ey, accel_mult=0.6)
+             return
+ 
+     # ------------------------------------------------------------------
+@@ -2832,6 +3209,37 @@ class GameSession:
+         hops = ENEMIES[kind].get("call_hops", CALL_CLEAR_HOPS)
+         return self.sim.hop_distance(polygon, ppolygon) >= hops
+ 
++    def _weakest_should_call(self, eid, e, kind: str, polygon: int) -> bool:
++        """True when this unit should peel off to call reinforcements: no portal
++        is open, the marrow can still field a breach, nobody in this chamber is
++        already calling, and -- among the defenders sharing this chamber -- it is
++        the WEAKEST class present (ties broken by id, so exactly one volunteers).
++        Not while the intruder stands on it (the transmit would only abort);
++        the straggler he leaves behind is the one that completes the call."""
++        if self.field is None or self._hub_core_dead or self.hub is None:
++            return False
++        if self.hub["reserve"] < MARROW_BREACH_MIN:
++            return False                    # dry -> calling would open nothing
++        if self.breaches:
++            return False                    # a portal is already pouring
++        if polygon == self.player_polygon():
++            return False
++        if self.tick_count - e.get("call_done", -10 ** 9) < CALL_COOLDOWN_TICKS:
++            return False
++        my_hp = ENEMIES[kind]["hp"]
++        for oid, oe in self.enemies.items():
++            if self.sim.get_polygon(oid) != polygon:
++                continue
++            if oe.get("state") == "call":
++                return False                # someone here already on it
++            ok = oe["kind"]
++            if ok == "hub_core":
++                continue
++            ohp = ENEMIES[ok]["hp"]
++            if ohp < my_hp or (ohp == my_hp and oid < eid):
++                return False                # a weaker (or tie-breaking) unit wins
++        return True
++
+     def _caller_transmit(self, eid, e, polygon: int, ppolygon: int, ex, ey):
+         """A caller mid-transmit: stationary, fully exposed, broadcasting a
+         fix. The intruder entering the polygon aborts it (the ground is no
+@@ -3115,6 +3523,13 @@ class GameSession:
+                     self._cam_rebase(m9)
+                     self.metrics["transfers"] += 1
+                     self.metrics["polygons_visited"].add(to_polygon)
++                    # THE MARK's follow-me trail: a marked intruder lays the
++                    # army-ant pheromone on the very doorway he crossed, as if a
++                    # whole lane of hunters had gone through -- the swarm's
++                    # existing trail-following then traces his exact route.
++                    if self.field is not None and self.brand.active:
++                        self.field.deposit_trail(from_polygon, edge,
++                                                 BRAND_TRAIL_DEPOSIT)
+             elif tag == "wall":
+                 _, ent, polygon, edge, px_, py_, nx, ny, speed = ev
+                 if ent == self.pid:
+@@ -3217,7 +3632,12 @@ class GameSession:
+                 return
+             if bx is not None and y == self.pid:
+                 polygon = self.sim.get_polygon(y)
+-                if bx["kind"] == "spit":
++                if bx["kind"] == "marker":
++                    # the marker connects -> the intruder is branded
++                    self.brand.renew(bx.get("src", -1))
++                    self._snd("shrieker_scream", polygon, (cx, cy), 0.7)
++                    self.fx.append(("marked", polygon, cx, cy))
++                elif bx["kind"] == "spit":
+                     self._damage_player(bx["dmg"], polygon)
+                 elif bx["kind"] == "dart":
+                     self._detonate_dart(x, polygon, cx, cy)
+@@ -3467,15 +3887,19 @@ class GameSession:
+         # planted_tick drives the visible root-growth (the pod digging into
+         # the deck to extract resources). The native spawn pod reads as
+         # already dug in -- a large negative age puts it at full roots.
+-        self.stations.append(dict(polygon=polygon, pos=(pos[0], pos[1]),
+-                                  stock=stock, infinite=infinite,
+-                                  planted_tick=(-10 ** 9 if infinite
+-                                                else self.tick_count)))
++        st = dict(polygon=polygon, pos=(pos[0], pos[1]),
++                  stock=stock, infinite=infinite,
++                  # a planted pod can be RECLAIMED (torn out) by the Adversary;
++                  # the infinite spawn pod (the cloister) never can
++                  hp=(None if infinite else self.STATION_HP), light=None,
++                  planted_tick=(-10 ** 9 if infinite else self.tick_count))
++        self.stations.append(st)
+         # only structures the PLAYER builds bring their own lamp: an
+         # authored level owns its own lighting, and a level with no
+         # authored lights must still read as pitch black
+         if lit:
+-            self._structure_light(polygon, pos, (150, 245, 190), 180.0, 0.8)
++            st["light"] = self._structure_light(
++                polygon, pos, (150, 245, 190), 180.0, 0.8)
+ 
+     def _structure_light(self, polygon: int, pos, color, radius: float,
+                          intensity: float = 0.75):
