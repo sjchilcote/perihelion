@@ -8,7 +8,7 @@ import os
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 
-import pygame
+import numpy as np
 import pytest
 
 from perihelion.conversations import COMMANDO, RATIO, conversation_for
@@ -31,8 +31,7 @@ class _StubApp:
 
 @pytest.fixture(scope="module")
 def surf():
-    pygame.init()
-    return pygame.Surface((480, 270))
+    return np.zeros((480, 270, 3), dtype=np.uint8)
 
 
 def test_every_gap_is_silent_until_the_directors_scripts():
@@ -56,7 +55,7 @@ def test_scene_plays_synthetic_lines_to_completion(surf):
     app = _StubApp()
     for _ in range(60 * 60):
         sc.update(app, 1 / 60)
-        sc.draw(app, surf)
+        sc.draw_fb(app, surf)
         if app.popped:
             break
         # idle-advance: scene must complete without input

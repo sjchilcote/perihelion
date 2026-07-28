@@ -80,10 +80,12 @@ HERO_DIR = Path(__file__).resolve().parent / "assets" / "hero"
 
 
 def _size(surf) -> tuple[int, int]:
-    """(w, h) of a numpy framebuffer or anything get_size()-shaped (the
-    layout tests still probe _to_screen with pygame Surfaces)."""
+    """(w, h) of a numpy framebuffer, a plain (w, h) tuple, or anything
+    get_size()-shaped — the same duck-typing render._size_of uses."""
     if hasattr(surf, "shape"):
         return int(surf.shape[0]), int(surf.shape[1])
+    if isinstance(surf, (tuple, list)):
+        return int(surf[0]), int(surf[1])
     return surf.get_size()
 
 

@@ -8,7 +8,9 @@ import os
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 
-import pygame
+import numpy as np
+
+from perihelion import uievent
 import pytest
 
 from perihelion import mindmap
@@ -20,9 +22,7 @@ from perihelion.sim import GameSession
 
 @pytest.fixture(scope="module")
 def surf():
-    pygame.init()
-    pygame.display.set_mode((INTERNAL_W, INTERNAL_H))
-    return pygame.Surface((INTERNAL_W, INTERNAL_H))
+    return np.zeros((INTERNAL_W, INTERNAL_H, 3), dtype=np.uint8)
 
 
 class _StubAudio:
@@ -70,17 +70,18 @@ def test_pod_opens_on_fabricator_and_heals(surf):
     sc.on_enter(app)
     assert sc.page == "fabricator"
     assert s.hp == s.max_hp  # entering the pod heals
-    sc.draw(app, surf)  # both pages draw without error
+    sc.draw_fb(app, surf)  # both pages draw without error
     sc.page = "mind"
     sc._ensure_selection()
-    sc.draw(app, surf)
+    sc.draw_fb(app, surf)
 
 
 def test_fabricator_buys_through_the_pod(surf):
     sc, s, app = _scene(components=20)
     sc.on_enter(app)
     sc.fab_sel = sc.FAB_ORDER.index("chassis")
-    ev = pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RETURN)
+    from perihelion import uievent
+    ev = uievent.Event(uievent.KEYDOWN, key=uievent.K_RETURN)
     sc.handle_event(app, ev)
     assert s.chassis == 1 and sc.flash > 0
 
@@ -91,17 +92,17 @@ def test_hero_panel_prefers_art_else_vector_glyph(surf, tmp_path, monkeypatch):
     sc.on_enter(app)
     # no art on disk: the fallback (vector glyph) is the live path
     assert sc._hero_art("chassis") is None
-    sc.draw(app, surf)
+    sc.draw_fb(app, surf)
     # with art on disk it is found and cached
     monkeypatch.setattr(podscene, "HERO_DIR", tmp_path)
-    art = pygame.Surface((32, 32))
-    art.fill((90, 60, 30))
-    pygame.image.save(art, str(tmp_path / "chassis.png"))
+    from PIL import Image
+    art = Image.new("RGB", (32, 32), (200, 60, 60))
+    art.save(str(tmp_path / "chassis.png"))
     sc._hero_cache.clear()
     got = sc._hero_art("chassis")
     # hero art is a (w, h, 4) RGBA numpy array in fb axis order now
     assert got is not None and got.shape[:2] == (32, 32)
-    sc.draw(app, surf)
+    sc.draw_fb(app, surf)
 
 
 def test_fog_of_war_shows_unlocked_plus_frontier_only():
@@ -121,7 +122,7 @@ def test_reveal_commits_unlock_at_start_and_admits_neighbors(surf):
     # new neighbors are held back until the reveal's neighbor fade-in
     assert "vocation-doctrine-of-restraint" not in sc._visible()
     _run(sc, app, 4.0)
-    sc.draw(app, surf)
+    sc.draw_fb(app, surf)
     assert "vocation-doctrine-of-restraint" in sc._visible()
     _run(sc, app, 1.5)
     assert sc.reveal is None  # the reveal concluded on its own
@@ -131,7 +132,7 @@ def test_reveal_commits_unlock_at_start_and_admits_neighbors(surf):
 def test_reveal_skippable_only_after_first_beat():
     sc, s, app = _scene(think_done=["vocation-just-war"])
     sc.on_enter(app)
-    ev = pygame.event.Event(pygame.KEYDOWN, key=pygame.K_SPACE)
+    ev = uievent.Event(uievent.KEYDOWN, key=uievent.K_SPACE)
     sc.handle_event(app, ev)
     assert sc.reveal is not None  # too early: the first beat must play
     _run(sc, app, 1.5)
@@ -146,10 +147,10 @@ def test_reveal_queue_chains():
     sc.on_enter(app)
     first = sc.reveal["node"]
     _run(sc, app, 1.5)
-    sc.handle_event(app, pygame.event.Event(pygame.KEYDOWN, key=pygame.K_SPACE))
+    sc.handle_event(app, uievent.Event(uievent.KEYDOWN, key=uievent.K_SPACE))
     assert sc.reveal is not None and sc.reveal["node"] != first  # the next reveal
     _run(sc, app, 1.5)
-    sc.handle_event(app, pygame.event.Event(pygame.KEYDOWN, key=pygame.K_SPACE))
+    sc.handle_event(app, uievent.Event(uievent.KEYDOWN, key=uievent.K_SPACE))
     assert sc.reveal is None
     assert {"vocation-just-war", "history-the-long-peace"} <= s.mind
 
@@ -174,21 +175,21 @@ def test_enter_sets_focus_and_nav_walks_edges():
     sc.page = "mind"
     sc._ensure_selection()
     sc.sel = "vocation-just-war"
-    sc.handle_event(app, pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RETURN))
+    sc.handle_event(app, uievent.Event(uievent.KEYDOWN, key=uievent.K_RETURN))
     assert s.think_focus == "vocation-just-war"
     # directional nav lands on some other visible node, deterministically
     before = sc.sel
-    sc.handle_event(app, pygame.event.Event(pygame.KEYDOWN, key=pygame.K_LEFT))
+    sc.handle_event(app, uievent.Event(uievent.KEYDOWN, key=uievent.K_LEFT))
     a = sc.sel
     sc.sel = before
-    sc.handle_event(app, pygame.event.Event(pygame.KEYDOWN, key=pygame.K_LEFT))
+    sc.handle_event(app, uievent.Event(uievent.KEYDOWN, key=uievent.K_LEFT))
     assert sc.sel == a and a in sc._visible()
 
 
 def test_escape_seals_the_pod():
     sc, s, app = _scene()
     sc.on_enter(app)
-    sc.handle_event(app, pygame.event.Event(pygame.KEYDOWN, key=pygame.K_ESCAPE))
+    sc.handle_event(app, uievent.Event(uievent.KEYDOWN, key=uievent.K_ESCAPE))
     assert app.popped == 1
 
 
@@ -334,7 +335,7 @@ def test_reveal_pulls_camera_continuously_from_selection():
     _run(sc, app, CAM_GLIDE_DUR + 0.3)  # camera arrives on `far`
     cam0 = sc._cam_pos()
     zoom0 = sc._zoom()
-    probe0 = sc._to_screen(pygame.Surface((640, 360)), tx, ty)
+    probe0 = sc._to_screen((640, 360), tx, ty)
     s.think_done.append(node)
     sc._start_reveal(app)
     from perihelion.podscene import REVEAL_GLIDE
@@ -342,9 +343,9 @@ def test_reveal_pulls_camera_continuously_from_selection():
     assert sc._cam["dur"] == REVEAL_GLIDE   # ...and GLIDES, never snaps
     assert sc._cam_pos() == cam0            # t == t0: not moved yet
     assert sc._zoom() == zoom0              # zoom ramps from the baseline
-    probe1 = sc._to_screen(pygame.Surface((640, 360)), tx, ty)
+    probe1 = sc._to_screen((640, 360), tx, ty)
     assert probe0 == probe1                 # the frame is bitwise continuous
     sc.update(app, 1 / 60)                  # one 60Hz tick into the glide
-    probe2 = sc._to_screen(pygame.Surface((640, 360)), tx, ty)
+    probe2 = sc._to_screen((640, 360), tx, ty)
     d = math.hypot(probe2[0] - probe1[0], probe2[1] - probe1[1])
     assert d < 25.0, d  # eased first step; the old snap here was 100s of px

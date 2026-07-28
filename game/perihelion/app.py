@@ -15,9 +15,11 @@ import sys
 import time
 from pathlib import Path
 
-import pygame
+import numpy as np
 
-from . import menus
+import necore
+
+from . import menus, text, uievent
 from .audio import Audio
 from .hud import HUD
 from .levels import Level, LevelBuilder, load_level
@@ -214,34 +216,33 @@ class GameScene(menus.Scene):
         app.audio.ambience(None)
 
     def _input_frame(self, app) -> InputFrame:
-        keys = pygame.key.get_pressed()
-        mx = (1 if keys[pygame.K_d] else 0) - (1 if keys[pygame.K_a] else 0)
-        my = (1 if keys[pygame.K_s] else 0) - (1 if keys[pygame.K_w] else 0)
-        ax, ay = app.window_to_internal(pygame.mouse.get_pos())
-        buttons = pygame.mouse.get_pressed(3)
+        keys = app.keys_held
+        mx = (1 if uievent.K_d in keys else 0) - (1 if uievent.K_a in keys else 0)
+        my = (1 if uievent.K_s in keys else 0) - (1 if uievent.K_w in keys else 0)
+        ax, ay = app.mouse_pos
         weapon = app.pending_weapon_select
         app.pending_weapon_select = 0
-        return InputFrame(mx=float(mx), my=float(my), ax=ax, ay=ay,
-                           fire=bool(buttons[0]), alt=bool(buttons[2]),
-                           interact=bool(keys[pygame.K_e]), weapon=weapon)
+        return InputFrame(mx=float(mx), my=float(my), ax=float(ax), ay=float(ay),
+                           fire=1 in app.mouse_buttons, alt=3 in app.mouse_buttons,
+                           interact=uievent.K_e in keys, weapon=weapon)
 
     def handle_event(self, app, event) -> None:
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_ESCAPE:
+        if event.type == uievent.KEYDOWN:
+            if event.key == uievent.K_ESCAPE:
                 app.push(menus.PauseScene())
-            elif event.key == pygame.K_F3:
+            elif event.key == uievent.K_F3:
                 app.debug = not app.debug
-            elif event.key == pygame.K_F12:
+            elif event.key == uievent.K_F12:
                 app.take_screenshot()
-            elif event.key == pygame.K_b:
+            elif event.key == uievent.K_b:
                 self.session.place_station()
-            elif event.key == pygame.K_t:
+            elif event.key == uievent.K_t:
                 self.session.use_recall()
-            elif pygame.K_1 <= event.key <= pygame.K_9:
-                app.pending_weapon_select = event.key - pygame.K_1 + 1
-            elif event.key == pygame.K_0:
+            elif uievent.K_1 <= event.key <= uievent.K_9:
+                app.pending_weapon_select = event.key - uievent.K_1 + 1
+            elif event.key == uievent.K_0:
                 app.pending_weapon_select = 10
-        elif event.type == pygame.MOUSEWHEEL:
+        elif event.type == uievent.MOUSEWHEEL:
             self._cycle_weapon(app, -1 if event.y > 0 else 1)
 
     def _cycle_weapon(self, app, step: int) -> None:
@@ -254,91 +255,114 @@ class GameScene(menus.Scene):
                 app.pending_weapon_select = idx + 1
                 return
 
-    def draw(self, app, surf) -> None:
-        # render.py returns a raw (W, H, 3) numpy framebuffer (no pygame);
-        # the HUD paints straight onto it, then we blit it to the display
-        # surface and let the pygame-side float texts / menu overlays draw
-        # on top.
-        frame = self.renderer.draw(surf, debug=app.debug)
+    @staticmethod
+    def _ui_text(fb, txt, cx, y, color, size, alpha, plate=False,
+                 center=True) -> None:
+        """One UI line onto the numpy frame: optional backing plate (busy
+        floors eat bare text), fade emulated by scaling the color (and the
+        plate) toward black — the pygame-per-surface alpha died with the
+        surfaces."""
+        a = max(0, min(255, alpha)) / 255.0
+        col = tuple(int(c * a) for c in color)
+        tw, th = text.measure(txt, size)
+        x = int(cx - tw / 2) if center else int(cx)
+        if plate:
+            pc = tuple(int(c * a) for c in (10, 10, 14))
+            x0, y0 = max(0, x - 2), max(0, int(y) - 1)
+            fb[x0:x + tw + 2, y0:int(y) + th + 1] = pc
+        text.blit_text(fb, txt, x, int(y), col, size)
+
+    def draw_fb(self, app, fb) -> None:
+        # render.py returns the raw (W, H, 3) numpy framebuffer; the HUD
+        # paints straight onto it, then the float texts / UI lines land
+        # on top — everything numpy, no surfaces anywhere.
+        frame = self.renderer.draw((INTERNAL_W, INTERNAL_H), debug=app.debug)
         is_top = not app.scenes or app.scenes[-1] is self
-        mouse_internal = app.window_to_internal(pygame.mouse.get_pos())
-        self.hud.draw(frame, self.session, mouse_internal)
-        pygame.surfarray.blit_array(surf, frame)
+        self.hud.draw(frame, self.session, app.mouse_pos)
+        np.copyto(fb, frame)
         if not is_top:
             # a menu overlay is on top: its own text owns the screen --
             # objectives/floats pause (undrawn, undecayed) until it closes,
             # instead of interleaving with the overlay's header lines
             return
+        W, H = INTERNAL_W, INTERNAL_H
         for ft in self.float_texts:
             sx, sy, label, ticks = ft
-            f = menus.get_font(10)
             color = (150, 225, 150) if "INTEGRITY" in label else \
                 (210, 185, 125) if label.startswith("+") else (220, 210, 170)
-            img = f.render(label, True, color)
-            img.set_alpha(255 if ticks > 24 else max(0, int(255 * ticks / 24)))
+            alpha = 255 if ticks > 24 else max(0, int(255 * ticks / 24))
             rise = (66 - ticks) * 0.35 * INTERNAL_RES_ZOOM_SCALE
-            surf.blit(img, (int(sx - img.get_width() / 2),
-                            int(sy - 14 * INTERNAL_RES_ZOOM_SCALE - rise)))
+            self._ui_text(fb, label, sx,
+                          sy - 14 * INTERNAL_RES_ZOOM_SCALE - rise,
+                          color, 10, alpha)
             ft[3] -= 1
         self.float_texts = [ft for ft in self.float_texts if ft[3] > 0]
         if self.loc_title:
             name, ticks = self.loc_title
-            f = menus.get_font(26)
             alpha = 255 if ticks > 60 else max(0, int(255 * ticks / 60))
-            img = f.render(name, True, (225, 218, 200))
-            img.set_alpha(alpha)
-            surf.blit(img, (surf.get_width() // 2 - img.get_width() // 2, ui(26)))
+            self._ui_text(fb, name, W // 2, ui(26), (225, 218, 200), 26, alpha)
             self.loc_title = (name, ticks - 1) if ticks > 1 else None
         if self.objective:
-            text, ticks = self.objective
-            f = menus.get_font(12)
+            txt, ticks = self.objective
             alpha = 255 if ticks > OBJECTIVE_FADE else \
                 max(0, int(255 * ticks / OBJECTIVE_FADE))
-            # backing plate (render-with-bg, same idiom as the key hints):
-            # busy floors eat bare text
-            img = f.render(text, True, (235, 205, 130), (10, 10, 14))
-            img.set_alpha(alpha)
-            surf.blit(img, (surf.get_width() // 2 - img.get_width() // 2, ui(62)))
-            self.objective = (text, ticks - 1) if ticks > 1 else None
+            self._ui_text(fb, txt, W // 2, ui(62), (235, 205, 130), 12,
+                          alpha, plate=True)
+            self.objective = (txt, ticks - 1) if ticks > 1 else None
         if self.logvoice:
-            text, ticks = self.logvoice
-            f = menus.get_font(10)
+            txt, ticks = self.logvoice
             alpha = 255 if ticks > 60 else max(0, int(255 * ticks / 60))
-            img = f.render(text, True, (150, 140, 120), (10, 10, 14))
-            img.set_alpha(alpha)
-            surf.blit(img, (surf.get_width() // 2 - img.get_width() // 2,
-                            surf.get_height() - ui(40)))
-            self.logvoice = (text, ticks - 1) if ticks > 1 else None
+            self._ui_text(fb, txt, W // 2, H - ui(40), (150, 140, 120), 10,
+                          alpha, plate=True)
+            self.logvoice = (txt, ticks - 1) if ticks > 1 else None
         if self.show_hints and self.session.tick_count < 60 * 14 \
                 and not self.session.dead:
-            f = menus.get_font(10)
             fade = 255 if self.session.tick_count < 60 * 11 else \
                 max(0, int(255 * (60 * 14 - self.session.tick_count) / (60 * 3)))
             for i, line in enumerate(("WASD move    mouse aim    LMB fire",
                                       "E terminals + seed stations    "
                                       "B plant seed kit    1-8 weapons    ESC pause")):
-                img = f.render(line, True, (200, 200, 190),
-                               (10, 10, 14))  # plate: busy floors eat bare text
-                img.set_alpha(fade)
-                surf.blit(img, (surf.get_width() // 2 - img.get_width() // 2,
-                                surf.get_height() - ui(66) + i * ui(14)))
+                self._ui_text(fb, line, W // 2, H - ui(66) + i * ui(14),
+                              (200, 200, 190), 10, fade, plate=True)
 
 
 class App:
     def __init__(self, args):
-        pygame.init()
         if args.scale:
             self.window_w = INTERNAL_W * max(1, int(args.scale))
             self.window_h = INTERNAL_H * max(1, int(args.scale))
         else:
             self.window_w, self.window_h = 1440, 810
-        self.screen = pygame.display.set_mode((self.window_w, self.window_h), pygame.RESIZABLE)
-        pygame.display.set_caption("PERIHELION")
-        self.dummy = pygame.display.get_driver() == "dummy"
+        # SDL_VIDEODRIVER=dummy is the whole toolchain's headless
+        # convention (captures, soaks, CI) — honored without SDL: no
+        # window, no present, everything else identical
+        self.dummy = os.environ.get("SDL_VIDEODRIVER") == "dummy"
+        self.window = None
+        if not self.dummy:
+            self.window = necore.Window(self.window_w, self.window_h,
+                                        "PERIHELION")
+            # create + service the OS window NOW: the first pump is what
+            # actually materializes it and answers compositor pings —
+            # deferring it past the multi-second level load left KDE
+            # flagging the window "Not Responding" during startup
+            self.window.pump()
 
         self.args = args
-        self.internal = pygame.Surface((INTERNAL_W, INTERNAL_H))
-        self.clock = pygame.time.Clock()
+        # the app frame: RGBA row-major bytes (what Window.present and
+        # the PNG recorder consume) + the (W, H, 3) transposed view every
+        # scene draws through
+        self._fb_raw = bytearray(INTERNAL_W * INTERNAL_H * 4)
+        self._fb_np = np.frombuffer(self._fb_raw, dtype=np.uint8) \
+            .reshape(INTERNAL_H, INTERNAL_W, 4)
+        self.internal = self._fb_np[:, :, :3].transpose(1, 0, 2)
+        # input state (pygame.key.get_pressed's replacement): key codes
+        # currently held, mouse position in INTERNAL pixels, buttons down
+        self.keys_held: set[int] = set()
+        self.mouse_pos: tuple[float, float] = (INTERNAL_W / 2.0,
+                                               INTERNAL_H / 2.0)
+        self.mouse_buttons: set[int] = set()
+        self._fps_ema = 60.0
+        self._frame_t0 = time.perf_counter()
         if getattr(args, "zoom", None):
             ZOOM_BASE[0] = float(args.zoom)
         self.audio = Audio(mute=args.mute)
@@ -393,11 +417,7 @@ class App:
 
         self.rng_seed = args.seed if args.seed is not None else 0
 
-        self._scale = 1
-        self._offset = (0, 0)
-        self._blit_offset = (0, 0)
-        self._scaled_surface = pygame.Surface((INTERNAL_W, INTERNAL_H))
-        self._recompute_layout()
+
 
         self.bot = None
         self.bot_tactician = None
@@ -490,15 +510,19 @@ class App:
                  vol=round(vol, 4), pan=round(pan, 4))) + "\n")
 
     def _rec_writer_loop(self) -> None:
-        """PNG encoding off the main thread: the game loop enqueues a
-        surface copy, this thread pays the encode/write cost."""
+        """PNG encoding off the main thread: the game loop enqueues the
+        frame's RGBA bytes; the engine's encoder (GIL-released rust)
+        pays the cost — a recording can no longer steal main-loop time."""
         q = self._rec["q"]
         while True:
             item = q.get()
             if item is None:
                 return
-            surf, path = item
-            pygame.image.save(surf, path)
+            rgba, path = item
+            arr = np.frombuffer(rgba, dtype=np.uint8) \
+                .reshape(INTERNAL_H, INTERNAL_W, 4)
+            necore.write_png(path, INTERNAL_W, INTERNAL_H,
+                             np.ascontiguousarray(arr[:, :, :3]).tobytes())
 
     def _record_frame(self, n_ticks: int = 1) -> None:
         """Advance the record clock by the sim ticks this drawn frame
@@ -516,7 +540,7 @@ class App:
     def _record_one_tick(self) -> None:
         rec = self._rec
         if rec["frames"] % rec["every"] == 0:
-            rec["q"].put((self.internal.copy(),
+            rec["q"].put((bytes(self._fb_raw),
                           str(rec["dir"] / f"frame_{rec['saved']:06d}.png")))
             # PERIHELION_VIS_DUMP: debug instrumentation for the flicker
             # investigation -- dump the visible instance set (polygon, depth,
@@ -567,27 +591,10 @@ class App:
 
     def _toggle_fullscreen(self) -> None:
         self._fullscreen = not getattr(self, "_fullscreen", False)
-        if self._fullscreen:
-            self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
-        else:
-            self.screen = pygame.display.set_mode(
-                (self.window_w, self.window_h), pygame.RESIZABLE)
-        self._recompute_layout()
-
-    def _recompute_layout(self) -> None:
-        ww, wh = self.screen.get_size()
-        scale = max(1, min(ww // INTERNAL_W, wh // INTERNAL_H))
-        self._scale = scale
-        ox = (ww - INTERNAL_W * scale) // 2
-        oy = (wh - INTERNAL_H * scale) // 2
-        self._offset = (ox, oy)
-        self._scaled_surface = pygame.Surface((INTERNAL_W * scale, INTERNAL_H * scale))
-
-    def window_to_internal(self, pos) -> tuple[float, float]:
-        ox, oy = self._offset
-        x = (pos[0] - ox) / self._scale
-        y = (pos[1] - oy) / self._scale
-        return max(0.0, min(INTERNAL_W, x)), max(0.0, min(INTERNAL_H, y))
+        if self.window is not None:
+            self.window.set_fullscreen(self._fullscreen)
+        # scale/letterbox and pointer mapping live in the engine's
+        # present path — nothing to recompute here
 
     # ------------------------------------------------------------------
     # scene stack
@@ -824,7 +831,9 @@ class App:
         try:
             out_dir.mkdir(parents=True, exist_ok=True)
             path = out_dir / f"screenshot_{int(time.time())}.png"
-            pygame.image.save(self.internal, str(path))
+            arr = self._fb_np[:, :, :3]
+            necore.write_png(str(path), INTERNAL_W, INTERNAL_H,
+                             np.ascontiguousarray(arr).tobytes())
             print(f"[screenshot] saved {path}", file=sys.stderr)
         except OSError as exc:
             print(f"[screenshot] failed: {exc}", file=sys.stderr)
@@ -859,12 +868,30 @@ class App:
                 last = now
                 accumulator += frame_dt
 
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
+            for raw in (self.window.pump() if self.window is not None
+                        else ()):
+                event = uievent.from_platform(raw)
+                if event is None:
+                    continue
+                # input STATE mirrors (pygame.key.get_pressed /
+                # mouse.get_pos replacements) — before dispatch, so the
+                # frame that handles the event also sees the state
+                if event.type == uievent.KEYDOWN:
+                    self.keys_held.add(event.key)
+                elif event.type == uievent.KEYUP:
+                    self.keys_held.discard(event.key)
+                elif event.type == uievent.MOUSEMOTION:
+                    self.mouse_pos = (float(event.x), float(event.y))
+                elif event.type == uievent.MOUSEBUTTONDOWN:
+                    self.mouse_buttons.add(event.button)
+                elif event.type == uievent.MOUSEBUTTONUP:
+                    self.mouse_buttons.discard(event.button)
+                if event.type == uievent.QUIT:
                     self.running = False
-                elif event.type == pygame.VIDEORESIZE:
-                    self._recompute_layout()
-                elif event.type == pygame.KEYDOWN and event.key == pygame.K_F11:
+                elif event.type == uievent.VIDEORESIZE:
+                    pass  # present() adapts per frame
+                elif event.type == uievent.KEYDOWN and \
+                        event.key == uievent.K_F11:
                     self._toggle_fullscreen()
                 elif self.scenes:
                     self.scenes[-1].handle_event(self, event)
@@ -877,18 +904,21 @@ class App:
                     dwell = 90
                     if self._autoplay_wait > dwell:
                         self._autoplay_wait = 0
-                        top.handle_event(self, pygame.event.Event(
-                            pygame.KEYDOWN, key=pygame.K_SPACE, unicode=" "))
+                        top.handle_event(self, uievent.Event(
+                            uievent.KEYDOWN, key=uievent.K_SPACE,
+                            unicode=" "))
                         if self.scenes and self.scenes[-1] is top and \
                                 not isinstance(top, GameScene):
                             if scene_kind == "ConversationScene":
                                 # waiting on a dialogue choice: pick option 1
                                 # rather than skipping the scene
-                                top.handle_event(self, pygame.event.Event(
-                                    pygame.KEYDOWN, key=pygame.K_1, unicode="1"))
+                                top.handle_event(self, uievent.Event(
+                                    uievent.KEYDOWN, key=uievent.K_1,
+                                    unicode="1"))
                             else:
-                                top.handle_event(self, pygame.event.Event(
-                                    pygame.KEYDOWN, key=pygame.K_ESCAPE))
+                                top.handle_event(self, uievent.Event(
+                                    uievent.KEYDOWN,
+                                    key=uievent.K_ESCAPE))
 
             ticks_this_frame = 0
             while accumulator >= DT and ticks_this_frame < 4:
@@ -904,7 +934,7 @@ class App:
             if self._rec is not None:
                 self._record_frame(1 if self._rec["lockstep"]
                                    else ticks_this_frame)
-            self.clock.tick(0 if self.dummy else 60)
+            self._pace()
         self._close_record()
         if self._trace_writer is not None:
             self._trace_writer.close()
@@ -1031,35 +1061,44 @@ class App:
 
     # ------------------------------------------------------------------
 
+    def _pace(self) -> None:
+        """60 fps frame pacing + the fps meter's EMA — pygame.time.Clock's
+        replacement. Headless (dummy) runs free, like clock.tick(0) did."""
+        now = time.perf_counter()
+        dt = now - self._frame_t0
+        if not self.dummy:
+            budget = 1.0 / 60.0
+            if dt < budget:
+                time.sleep(budget - dt)
+                now = time.perf_counter()
+                dt = now - self._frame_t0
+        self._frame_t0 = now
+        if dt > 0:
+            self._fps_ema += 0.1 * (1.0 / dt - self._fps_ema)
+
     def _draw_frame(self) -> None:
-        self.internal.fill((0, 0, 0))
+        self._fb_np[:] = 0
         if self.scenes:
-            self.scenes[-1].draw(self, self.internal)
+            self.scenes[-1].draw_fb(self, self.internal)
         if self.show_fps:
-            self._draw_fps_overlay()
-        self._blit_scaled()
-        pygame.display.flip()
-
-    def _draw_fps_overlay(self) -> None:
-        f = menus.get_font(11)
-        img = f.render(f"{self.clock.get_fps():.0f} fps", True, (255, 255, 0))
-        self.internal.blit(img, (ui(4), ui(4)))
-
-    def _blit_scaled(self) -> None:
-        pygame.transform.scale(self.internal, self._scaled_surface.get_size(), self._scaled_surface)
-        self.screen.fill((0, 0, 0))
-        ox, oy = self._offset
-        sx, sy = 0.0, 0.0
-        if self.scenes and isinstance(self.scenes[-1], GameScene) and self.game is not None:
-            sx, sy = self._shake_offset(self.game)
-        self._blit_offset = (ox + sx, oy + sy)
-        self.screen.blit(self._scaled_surface, self._blit_offset)
+            text.blit_text(self.internal, f"{self._fps_ema:.0f} fps",
+                           ui(4), ui(4), (255, 255, 0), 11)
+        if self.window is not None:
+            sdx = sdy = 0
+            game = self.game
+            if game is not None and self.settings.get("shake", True) \
+                    and game.shakes and self.scenes \
+                    and self.scenes[-1] is game:
+                fdx, fdy = self._shake_offset(game)
+                sdx, sdy = int(fdx), int(fdy)
+            self.window.present(bytes(self._fb_raw), INTERNAL_W, INTERNAL_H,
+                                sdx, sdy)
 
     def _shake_offset(self, game: GameScene) -> tuple[float, float]:
         dx = dy = 0.0
         for mag, _t in game.shakes:
             dx += random.uniform(-mag, mag)
             dy += random.uniform(-mag, mag)
-        dx = max(-9.0, min(9.0, dx)) * self._scale
-        dy = max(-9.0, min(9.0, dy)) * self._scale
+        dx = max(-9.0, min(9.0, dx))
+        dy = max(-9.0, min(9.0, dy))
         return dx, dy

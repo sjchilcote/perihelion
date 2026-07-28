@@ -249,29 +249,39 @@ class EditorApp:
     # ------------------------------------------------------------------
 
     def run(self) -> None:
-        # TRANSITION SHIM: dies with app.py's pygame loop. The window +
-        # event pump are the ONLY pygame left in the editor; every
-        # handler/draw below is already framebuffer/uievent-native.
-        import pygame
-        pygame.init()
-        pygame.display.set_caption("PERIHELION -- Level Editor")
-        self.screen = pygame.display.set_mode(self.size, pygame.RESIZABLE)
-        clock = pygame.time.Clock()
+        # The engine window (necore.Window): pump + framebuffer present.
+        # The editor draws at its own window size 1:1 (no internal-res
+        # scale), so the fb is rebuilt on resize.
+        import time as _time
+
+        import numpy as _np
+
+        import necore as _necore
+        window = _necore.Window(self.size[0], self.size[1],
+                                "PERIHELION -- Level Editor")
+        fb_raw = None
+        last = _time.perf_counter()
         while self.running:
-            for event in pygame.event.get():
-                self._handle_event(uievent.from_pygame(event))
-                if self._resized:
-                    self._resized = False
-                    self.screen = pygame.display.set_mode(self.size, pygame.RESIZABLE)
+            for raw in window.pump():
+                event = uievent.from_platform(raw)
+                if event is not None:
+                    self._handle_event(event)
             self._pan_keys()
-            fb = pygame.surfarray.pixels3d(self.screen)
+            w, h = self.size
+            if fb_raw is None or len(fb_raw) != w * h * 4:
+                fb_raw = bytearray(w * h * 4)
+            arr = _np.frombuffer(fb_raw, dtype=_np.uint8).reshape(h, w, 4)
+            fb = arr[:, :, :3].transpose(1, 0, 2)
+            fb[:] = 0
             self.draw_fb(fb)
-            del fb
-            pygame.display.flip()
-            clock.tick(60)
+            window.present(bytes(fb_raw), w, h)
+            now = _time.perf_counter()
+            dt = now - last
+            if dt < 1 / 60:
+                _time.sleep(1 / 60 - dt)
+            last = _time.perf_counter()
         if self.play_proc is not None and self.play_proc.poll() is None:
             self.play_proc.terminate()
-        pygame.quit()
 
     def _pan_keys(self) -> None:
         speed = 14.0 / self.zoom
@@ -289,7 +299,6 @@ class EditorApp:
     # ------------------------------------------------------------------
 
     def _handle_event(self, event) -> None:
-        event = uievent.from_pygame(event)
         if event.type == uievent.KEYDOWN and event.key is not None:
             self._held.add(event.key)
         elif event.type == uievent.KEYUP and event.key is not None:

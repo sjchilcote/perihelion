@@ -48,22 +48,7 @@ def font_px(size: int) -> int:
     return ui(_snap(size))
 
 
-def get_font(size: int):
-    # TRANSITION SHIM: dies with app.py's pygame loop (app.py still
-    # renders a few labels through pygame.font; every scene in this
-    # module uses text.py instead).
-    import pygame
-    size = font_px(size)
-    f = _FONT_CACHE.get(size)
-    if f is None:
-        if not pygame.font.get_init():
-            pygame.font.init()
-        try:
-            f = pygame.font.Font(str(_FONT_PATH), size)
-        except (FileNotFoundError, pygame.error):
-            f = pygame.font.Font(None, size)
-        _FONT_CACHE[size] = f
-    return f
+
 
 
 # Generated-art menu backgrounds (tools/artgen). Every scene that draws one
@@ -147,31 +132,12 @@ class Scene:
     def update(self, app, dt: float) -> None: ...
     def draw_fb(self, app, fb) -> None: ...
 
-    def draw(self, app, surf) -> None:
-        # TRANSITION SHIM: dies with app.py's pygame loop
-        import pygame
-        game = getattr(app, "game", None)
-        if self._draws_game_under and game is not None \
-                and not _fb_native(game):
-            game.draw(app, surf)  # today's GameScene: pygame surface path
-        fb = pygame.surfarray.pixels3d(surf)
-        self.draw_fb(app, fb)
-        del fb
-
     def _draw_game_under(self, app, fb) -> None:
-        """The fb-native game underlay (no-op under the transition shim,
-        which already drew a pygame-era GameScene onto the surface)."""
+        """Overlay scenes (pause/death/terminal) draw the live game
+        beneath their own text."""
         game = getattr(app, "game", None)
-        if game is not None and _fb_native(game):
+        if game is not None:
             game.draw_fb(app, fb)
-
-
-def _fb_native(game) -> bool:
-    """True when `game` actually overrides draw_fb (the inherited Scene
-    stub does not count -- app.py's current GameScene only has the pygame
-    `draw`)."""
-    fn = getattr(type(game), "draw_fb", None)
-    return fn is not None and fn is not Scene.draw_fb
 
 
 # ---------------------------------------------------------------------------

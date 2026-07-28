@@ -65,7 +65,10 @@ K_x = 120
 K_y = 121
 K_z = 122
 K_DELETE = 127
+K_F3 = 1073741884
 K_F5 = 1073741886
+K_F11 = 1073741892
+K_F12 = 1073741893
 K_LEFT = 1073741904
 K_RIGHT = 1073741903
 K_UP = 1073741906
@@ -119,3 +122,57 @@ def from_pygame(ev) -> Event:
         w=int(g("w", 0) or 0),
         h=int(g("h", 0) or 0),
     )
+
+
+# ---------------------------------------------------------------------------
+# platform (necore.Window) event mapping — the winit era's `from_pygame`
+# ---------------------------------------------------------------------------
+
+#: winit PhysicalKey debug names -> the pygame-valued key constants above.
+#: Letters/digits are generated; the rest are the keys the game binds.
+WINIT_KEYS = {}
+for _c in "abcdefghijklmnopqrstuvwxyz":
+    WINIT_KEYS[f"Key{_c.upper()}"] = ord(_c)
+for _d in "0123456789":
+    WINIT_KEYS[f"Digit{_d}"] = ord(_d)
+WINIT_KEYS.update({
+    "Escape": K_ESCAPE, "Space": K_SPACE, "Enter": K_RETURN,
+    "NumpadEnter": K_RETURN, "Backspace": K_BACKSPACE, "Tab": K_TAB,
+    "Delete": K_DELETE, "ArrowLeft": K_LEFT, "ArrowRight": K_RIGHT,
+    "ArrowUp": K_UP, "ArrowDown": K_DOWN, "ShiftLeft": K_LSHIFT,
+    "ShiftRight": K_RSHIFT, "BracketLeft": K_LEFTBRACKET,
+    "BracketRight": K_RIGHTBRACKET, "F3": K_F3, "F5": K_F5,
+    "F11": K_F11, "F12": K_F12,
+})
+
+
+def from_platform(ev) -> "Event | None":
+    """Map a necore.Window pump tuple (kind, a, b, c, name, text) to an
+    Event. Unbound keys map to key=-1 (matches no K_* constant) so
+    handlers fall through exactly like an unbound pygame key.
+
+    OS auto-repeat KEYDOWNs are DROPPED: pygame never delivered them
+    (key.set_repeat is off in games), and passing them through stacked
+    a pause menu per repeat and replanted seed kits while B was held
+    (gate run 50, confirmed live)."""
+    kind, a, b, c, name, text = ev
+    if kind == 0:
+        return Event(QUIT)
+    if kind == 1:
+        if a:                      # auto-repeat: not a fresh press
+            return None
+        return Event(KEYDOWN, key=WINIT_KEYS.get(name, -1),
+                     unicode=text, ch=text)
+    if kind == 2:
+        return Event(KEYUP, key=WINIT_KEYS.get(name, -1),
+                     unicode=text, ch=text)
+    if kind == 3:
+        return Event(MOUSEMOTION, pos=(a, b), x=a, y=b)
+    if kind in (4, 5):
+        return Event(MOUSEBUTTONDOWN if kind == 4 else MOUSEBUTTONUP,
+                     button=a, pos=(b, c), x=b, y=c)
+    if kind == 6:
+        return Event(MOUSEWHEEL, x=a, y=b)
+    if kind == 7:
+        return Event(VIDEORESIZE, w=a, h=b)
+    return None
