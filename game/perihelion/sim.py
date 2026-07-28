@@ -26,8 +26,9 @@ from .marrow import Breach, MarrowController
 from .core_organ import CORE_KINDS, PART_SPEC, CoreOrgan
 from .callmedium import CallMedium
 from . import scouts
-from .telemetry import (AgentTransition, BreachLifecycle, CorePartEvent, DamageApplied,
-                        DispatchDecision, ShelfReplaced, FieldSample, ImpulseApplied,
+from .telemetry import (AgentTransition, BreachLifecycle, CoordEvent, CorePartEvent,
+                        DamageApplied, DispatchDecision, EnemyDeath, ShelfReplaced,
+                        FieldSample, ImpulseApplied, PickupTaken,
                         InputRecord, PortalCrossing, ReserveSample,
                         TopologyChanged, TraceBus)
 from . import terrain
@@ -595,6 +596,7 @@ class GameSession:
         self.topology = TopologyManager(self,
                                         on_change=self.signals.on_topology_changed)
         self.hub = build_hub(self, self.topology)
+        self._hub_chamber_set = frozenset(self.hub.chambers.values())
         # the marrow's mind (blind, closed-loop) and the standing
         # guardian shelf — real, dispatchable bodies in the courts: when
         # they leave, the entrance genuinely weakens
@@ -602,6 +604,7 @@ class GameSession:
         self.core = CoreOrgan()
         self._embody_core()
         self.breaches: list[dict] = []
+        self._dying_lights: list[tuple] = []   # (LightSpec, seal_tick, radius0)
         self._breach_seq = 0
         self._free_seams = list(self.hub.breach_edges)
         self.hub_shelf: list[int] = []
@@ -934,6 +937,20 @@ class GameSession:
         s = self.sim
         ppolygon = self.player_polygon()
         s.set_active_within(ppolygon, ACTIVE_HOPS)
+        # breach routes stay live no matter where the player is: a
+        # dispatched unit frozen mid-transit by the active region was
+        # the mechanism behind 'late breaches deliver nothing' (run 39
+        # ledger: median hub-to-field transit ~700 ticks, one warden
+        # amber-frozen 109s)
+        hub_set = set(self.hub.chambers.values())
+        for br in self.breaches:
+            s.activate_also(br["obj"].hub_chamber, 3)
+            s.activate_also(br["polygon"], 1)
+        for eid_, e_ in self.enemies.items():
+            if e_.get("dispatched") is not None:
+                ch_ = s.get_polygon(eid_)
+                if ch_ in hub_set:
+                    s.activate_also(ch_, 1)
 
         if self.soft_polygons:
             rv = self.level.polygon_verts
@@ -1758,6 +1775,7 @@ class GameSession:
         if self._crit_p > 0.0 and self.rng.random() < self._crit_p:
             dmg *= self._crit_mul
         e["hp"] -= dmg
+        e["last_hit"] = self.tick_count   # provocation breaks door-holds
         if e["kind"] in ADVERSARY:
             e["scout_hit"] = self.tick_count   # a scout reads this as "made"
         # organs never hunt (enforced in _set_enemy_state, the one door):
@@ -1790,6 +1808,10 @@ class GameSession:
             self._kill_enemy(eid, polygon, (ex, ey), ndir)
 
     def _kill_enemy(self, eid: int, polygon: int, pos, ndir):
+        self.trace.emit(EnemyDeath(
+            tick=self.tick_count, entity_id=eid,
+            enemy_kind=self.enemies[eid]["kind"], polygon=polygon))
+        self.fx.append(("killpop", polygon, pos[0], pos[1]))
         self.captures.release_for_entity(eid)
         self.medium.release(eid)
         was_part = eid in self.core.parts
@@ -1865,12 +1887,18 @@ class GameSession:
         self._decal(polygon, "blood", px + self.rng.uniform(-5, 5),
                     py + self.rng.uniform(-5, 5), self.rng.uniform(3, 6))
         if self.hp <= 0:
-            self.dead = True
-            self.metrics["deaths"] += 1
-            self._snd("player_die", polygon, (px, py))
-            self.fx.append(("playerdie",))
-            self._decal(polygon, "corpse_player", px, py, PLAYER_RADIUS)
-            self._drop_corpse(polygon, (px, py))
+            self._player_death(polygon, px, py)
+
+    def _player_death(self, polygon: int, px: float, py: float) -> None:
+        """The one death: every path to zero HP lands here. (The engulf
+        branch used to set dead=True bare — no sound, no fx, no corpse;
+        run 41 filmed a silent engulf death.)"""
+        self.dead = True
+        self.metrics["deaths"] += 1
+        self._snd("player_die", polygon, (px, py))
+        self.fx.append(("playerdie",))
+        self._decal(polygon, "corpse_player", px, py, PLAYER_RADIUS)
+        self._drop_corpse(polygon, (px, py))
 
     def _drop_corpse(self, polygon: int, pos) -> None:
         """The wrecked frame stays where it fell, holding what it carried:
@@ -1898,7 +1926,13 @@ class GameSession:
 
     def _enemy_ai(self, ppolygon: int):
         s = self.sim
-        active = set(s.polygons_within(ppolygon, ACTIVE_HOPS))
+        # the ONE active set — the engine's, as built this tick by
+        # set_active_within + activate_also (breach routes, dispatched
+        # units). A player-centered BFS rebuilt here silently dropped
+        # every widened region: dispatched units kept physics and lost
+        # their minds (run 41: 28-39 of ~70 units/seed frozen
+        # mid-transit, every late breach sealing into a dead hub)
+        active = set(s.active_polygons())
         px, py = self.player_pos()
         for eid, e in list(self.enemies.items()):
             polygon = s.get_polygon(eid)
@@ -1907,12 +1941,71 @@ class GameSession:
             kind = e["kind"]
             d = ENEMIES[kind]
             _, ex, ey, evx, evy, edx, edy = s.get(eid)
+            lastp_ = e.get("_at_polygon")
+            if lastp_ is not None and lastp_ != polygon:
+                e["_came_from"] = lastp_
+                e["_came_from_t"] = self.tick_count
+            e["_at_polygon"] = polygon
             for k in ("touch_cd", "spit_cd", "scream_cd", "wander_cd",
                       "engulf_cd"):
                 if e.get(k, 0) > 0:
                     e[k] -= 1
             if e.get("buff", 0) > 0:
                 e["buff"] -= 1
+            if kind == "warden" \
+                    and self.tick_count - e.get("last_hit", -10**9) < 60 \
+                    and not e.get("engulf") \
+                    and e.get("engulf_t", 0) <= 0 \
+                    and e.get("sidestep_cd", 0) <= 0:
+                # pressured advance: a warden eating ranged fire
+                # SIDESTEPS across the lane — a mass-scaled impulse
+                # burst, because at turn 0.1 rad/s a heading weave
+                # cannot move the body (filmed gate, twice: 'passive
+                # damage sponge'). Lives ABOVE the state dispatch:
+                # gated inside the sighted branch, two s7 wardens
+                # sponged 19 hits with zero dodges (run 41). Axis =
+                # its own motion, or facing when parked; DIAGONAL,
+                # because pure lateral cancels against choke walls
+                vl_ = math.hypot(evx, evy)
+                if vl_ > 1.0:
+                    axx, axy = evx / vl_, evy / vl_
+                else:
+                    axx, axy = edx, edy
+                e["sidestep_cd"] = 30
+                wv = 1.0 if ((self.tick_count // 30) + eid) % 2 else -1.0
+                jmag = d["mass"] * 210.0
+                self._apply_impulse(eid,
+                                    (-axy * wv * 0.7 + axx * 0.7) * jmag,
+                                    (axx * wv * 0.7 + axy * 0.7) * jmag,
+                                    source="warden_sidestep")
+            if e.get("sidestep_cd", 0) > 0:
+                e["sidestep_cd"] -= 1
+            # hold/prowl stint closure: the stints latch where they run
+            # (both hold sites go through _hold_at_door; prowl in the
+            # field branch) and close HERE on the first tick they skip —
+            # one site, storm-free, and the ledger gets real durations
+            # (run 42b: danger_hold/prowl behavior was unjudgeable)
+            t_h = self.tick_count
+            if "_holding" in e and t_h - e.get("_hold_tick", 0) > 1:
+                # duration runs to the last tick the hold actually ran,
+                # NOT to now — an entity that deactivated mid-hold and
+                # woke hours later printed wall-clock ghosts (run 43:
+                # 'held 8082t' for a hold physically left after 57)
+                start = e.pop("_holding")
+                if e.pop("_hold_emitted", None):
+                    self.trace.emit(CoordEvent(
+                        tick=t_h, entity_id=eid, agent_kind=kind,
+                        event="hold_end",
+                        detail=f"held {e.get('_hold_tick', start) - start}t"
+                               f", last_hit "
+                               f"{min(t_h - e.get('last_hit', -10**9), 10**6)}t ago"))
+                e.pop("_hold_tick", None)
+            if e.get("_prowling") and t_h - e.get("_prowl_tick", 0) > 1:
+                self.trace.emit(CoordEvent(
+                    tick=t_h, entity_id=eid, agent_kind=kind,
+                    event="prowl_end",
+                    detail=f"prowled {t_h - e.pop('_prowling')}t"))
+                e.pop("_prowl_tick", None)
 
             if kind == "flicker":
                 # Deliberately bypasses the standard idle/waking/hunt
@@ -1954,6 +2047,15 @@ class GameSession:
                 if amb < e["dormant"] and "scout_hit" not in e:
                     continue      # asleep: no wander, no tasking
                 del e["dormant"]  # woken for good
+            if kind in ADVERSARY and not e.get("scout") \
+                    and "scout_hit" in e:
+                # a shot scout FLEES whether or not it ever took a
+                # task — the flee lived only inside the tasked machine,
+                # so untasked woken scouts stood under fire with no
+                # scout response at all (gate run 28: dormant pair,
+                # six logged hits, zero movement)
+                e["scout"] = "flee"
+                e["scout_t"] = scouts.FLEE_TICKS
             if kind in ADVERSARY and (e.get("scout")
                                       or self._maybe_task_scout(eid, e, polygon)):
                 self._scout_ai(eid, e, polygon, ex, ey, evx, evy)
@@ -2064,12 +2166,12 @@ class GameSession:
                     self.signals.emit(SignalKind.PATROL, polygon, 0.04,
                                       self.tick_count)
                 if e["wander_cd"] <= 0:
-                    e["wander_cd"] = self.rng.randrange(90, 240)
+                    e["wander_cd"] = self.rng.randrange(45, 150)
                     a = self.rng.uniform(0, 6.28)
                     e["wander"] = (math.cos(a), math.sin(a))
                 wx, wy = e.get("wander", (0.0, 0.0))
-                s.set_vel(eid, evx + wx * d["accel"] * 0.25 * DT,
-                          evy + wy * d["accel"] * 0.25 * DT)
+                s.set_vel(eid, evx + wx * d["accel"] * 0.35 * DT,
+                          evy + wy * d["accel"] * 0.35 * DT)
                 continue
 
             if e["state"] == "waking":
@@ -2085,6 +2187,80 @@ class GameSession:
                 self._snd(d["alert_snd"], polygon, (ex, ey), 0.35)
             accel = d["accel"] * (e.get("buff_mul", 1.25)
                                   if e.get("buff", 0) > 0 else 1.0)
+            if e.get("dispatched") is not None \
+                    and polygon not in self._hub_chamber_set:
+                # DELIVERED: the column's job ends at the world mouth.
+                # Keeping the tag alive did two bad things on film
+                # (run 43): the hub-march override re-ejected any body
+                # the world's own noise pulled back through the seam
+                # (period-2 doorway flicker, ~6 units/seed), and route
+                # interest held every breach open until all three apse
+                # seams starved — s11 consumed the pool in 85s, ran 6
+                # dry calls, and the spectacle never recurred. A
+                # delivered body is an ordinary soldier; a quiet breach
+                # may seal and return its seam.
+                e.pop("dispatched", None)
+            if e.get("dispatched") is not None \
+                    and polygon in self._hub_chamber_set:
+                # the marrow's own house: a dispatched column knows the
+                # way out of the hub. The ratified 10% knowledge rule
+                # governs the transmitted WORLD position — 'the rest
+                # follow the knowers' doorway trails out' (§1b) — but
+                # decayed trails left 11-17 bodies/seed parked in quiet
+                # junctions, mites treadmilling one portal pair, and
+                # every dispatched shrieker rallying its own column
+                # forever (run 42: 0/29 shriekers reached the world;
+                # 58-60% delivery). March to the breach's world mouth;
+                # the world side runs on fields, sight, and flocking.
+                br = next((b for b in self.breaches
+                           if b["obj"].breach_id == e["dispatched"]),
+                          None)
+                if br is None and self.breaches:
+                    # own breach sealed mid-transit: re-task to a live
+                    # gate instead of haunting the halls
+                    br = self.breaches[0]
+                    e["dispatched"] = br["obj"].breach_id
+                if br is None:
+                    # no live breach anywhere: the tag means nothing —
+                    # stand down into ordinary hub garrison behavior
+                    e.pop("dispatched", None)
+                else:
+                    edge = s.next_edge(polygon, br["polygon"])
+                    prt_ = s.polygon_portals(polygon)
+                    n_open_ = sum(1 for p_ in prt_ if p_ is not None)
+                    if edge >= 0 and n_open_ > 1 \
+                            and prt_[edge] is not None \
+                            and prt_[edge][0] == e.get("_came_from"):
+                        # march memory: graph churn (every breach open/
+                        # seal rewires the portal graph) flips equal-
+                        # cost next_edge answers, and committing to the
+                        # flip each tick walked one mite across the
+                        # apse-court door 947 times in a session
+                        # (run 44b). Never re-take the door you just
+                        # left unless it is the only door — take the
+                        # best forward alternative instead.
+                        alts_ = [(i_, p_) for i_, p_ in enumerate(prt_)
+                                 if p_ is not None and i_ != edge]
+                        alts_.sort(key=lambda ip: (
+                            s.hop_distance(ip[1][0], br["polygon"])
+                            if s.hop_distance(ip[1][0],
+                                              br["polygon"]) >= 0
+                            else 1 << 20))
+                        edge = alts_[0][0]
+                    if edge >= 0:
+                        gx_, gy_ = s.edge_midpoint(polygon, edge)
+                        mdx, mdy = gx_ - ex, gy_ - ey
+                        mdl = math.hypot(mdx, mdy) or 1e-6
+                        mnx, mny = mdx / mdl, mdy / mdl
+                        s.set_dir(eid, mnx, mny)
+                        msx, msy = s.terrain_avoid_dir(
+                            polygon, ex, ey, d["radius"], mnx, mny,
+                            max(40.0, min(mdl, 120.0)))
+                        msx, msy = self._steer_heading(eid, e, d,
+                                                       msx, msy)
+                        self._budget_move(eid, e, d, polygon, ex, ey,
+                                          evx, evy, msx, msy, accel)
+                        continue
             if kind == "shrieker" and not e.get("tether"):
                 self._shrieker_ai(eid, e, polygon, ppolygon, ex, ey, accel)
                 continue
@@ -2117,11 +2293,15 @@ class GameSession:
                 # exits the combat state — the response THINS, it doesn't
                 # chase ghosts forever
                 t_ = self.tick_count
+                # WORLD-signals only: Muster is the swarm's own calling
+                # and must never veto stand-down — holders emitting
+                # Muster at a door once locked THEMSELVES above the
+                # floor forever (filmed gate: '3 husks freeze at a
+                # choke for 2200+ ticks after the player left')
                 peak = max(
                     self.signals.sample(SignalKind.NOISE, polygon, t_),
                     self.signals.sample(SignalKind.TRAIL, polygon, t_),
-                    self.signals.sample(SignalKind.DISTRESS, polygon, t_),
-                    self.signals.sample(SignalKind.MUSTER, polygon, t_))
+                    self.signals.sample(SignalKind.DISTRESS, polygon, t_))
                 if peak < coord.STAND_DOWN_FLOOR:
                     e["quiet"] = e.get("quiet", 0) + 1
                 else:
@@ -2131,6 +2311,31 @@ class GameSession:
                     e["quiet"] = 0
                     e.pop("route", None)
                     continue
+            if tx is not None:
+                # PROGRESS WATCHDOG for sighted pursuit: a chase that
+                # closes no distance for ~8s is grinding a fold or a
+                # pinch, not chasing — drop the sighting for 5s so the
+                # field machinery (and its second-door flanking) takes
+                # over. The field path has had this since run 9; the
+                # sighted path was the remaining statue-maker (run 19:
+                # wardens poked at a choke for 32s without progress).
+                t_ = self.tick_count
+                if t_ < e.get("fold_stuck_until", 0):
+                    tx = None
+                else:
+                    dist_now = math.hypot(tx - ex, ty - ey)
+                    mark = e.get("chase_mark")
+                    if mark is None or dist_now < mark[1] - 24.0:
+                        e["chase_mark"] = (t_, dist_now)
+                    elif t_ - mark[0] > 480:
+                        e["fold_stuck_until"] = t_ + 300
+                        e.pop("chase_mark", None)
+                        self.trace.emit(CoordEvent(
+                            tick=t_, entity_id=eid, agent_kind=kind,
+                            event="pursuit_stuck",
+                            detail=f"no progress {t_ - mark[0]}t at "
+                                   f"dist {dist_now:.0f}"))
+                        tx = None
             if tx is not None and kind == "warden" \
                     and sighting.portal_depth == 0 \
                     and e.get("engulf_cd", 0) <= 0 \
@@ -2149,7 +2354,10 @@ class GameSession:
                 if pedge >= 0:
                     portal1 = s.polygon_portals(polygon)[pedge]
                     t_ = self.tick_count
-                    if portal1 is not None and coord.danger_hold(
+                    if portal1 is not None \
+                            and t_ - e.get("last_hit", -10**9) > 120 \
+                            and not self._hold_expired(eid, e) \
+                            and coord.danger_hold(
                             self.signals.sample(SignalKind.DANGER,
                                                 portal1[0], t_),
                             sum(1 for oid in s.polygon_entities(polygon)
@@ -2157,22 +2365,17 @@ class GameSession:
                                 and self.enemies[oid]["state"]
                                 in ("waking", "hunt")),
                             self.signals.sample(SignalKind.MUSTER,
-                                                polygon, t_)):
+                                                polygon, t_),
+                            cross_peers=1):
+                        # holding, but never IN the firing cone: being
+                        # shot lifts the hold above (a provoked agent
+                        # commits), and the wait happens flanking the
+                        # door frame, not centered on it
                         if (t_ + eid) % 5 == 0:
                             self.signals.emit(SignalKind.MUSTER, polygon,
                                               0.05, t_)
-                        mx_, my_ = s.edge_midpoint(polygon, pedge)
-                        ddx, ddy = mx_ - ex, my_ - ey
-                        dist = math.hypot(ddx, ddy) or 1e-6
-                        if dist > 90.0:
-                            nx, ny = ddx / dist, ddy / dist
-                            s.set_dir(eid, nx, ny)
-                            sx, sy = s.terrain_avoid_dir(
-                                polygon, ex, ey, d["radius"], nx, ny,
-                                max(40.0, min(dist, 120.0)))
-                            sx, sy = self._steer_heading(eid, e, d, sx, sy)
-                            self._budget_move(eid, e, d, polygon, ex, ey,
-                                              evx, evy, sx, sy, accel)
+                        self._hold_at_door(eid, e, d, polygon, pedge,
+                                           ex, ey, evx, evy, accel)
                         continue
             if tx is not None:
                 ddx, ddy = tx - ex, ty - ey
@@ -2198,7 +2401,18 @@ class GameSession:
                         and e.get("lunge_cd", 0) <= 0:
                     e["lunge_cd"] = 120 if kind == "husk" else 150
                     burst = 300.0 if kind == "husk" else 240.0
-                    s.set_vel(eid, evx + sx * burst, evy + sy * burst)
+                    # the lunge LEADS: aim at where the target will be
+                    # when the burst arrives, not where it was — dodged
+                    # by turning inside it (the ratified counterplay),
+                    # never by walking in a straight line. Measured: 8
+                    # melee hits across three 4-minute filmed sessions
+                    # with straight lunges; melee threat was fiction.
+                    pvx, pvy = self.sim.get(self.pid)[3:5]
+                    t_arr = dist / burst
+                    lx_, ly_ = tx + pvx * t_arr - ex, ty + pvy * t_arr - ey
+                    ll = math.hypot(lx_, ly_) or 1e-6
+                    lsx, lsy = lx_ / ll, ly_ / ll
+                    s.set_vel(eid, evx + lsx * burst, evy + lsy * burst)
                     self._snd(d["alert_snd"], polygon, (ex, ey), 0.55)
                 if e.get("lunge_cd", 0) > 0:
                     e["lunge_cd"] -= 1
@@ -2232,34 +2446,44 @@ class GameSession:
                 # (chemotaxis; the omniscient next_edge pursuit is gone)
                 edge = self._hunt_edge(eid, e, polygon)
                 if edge < 0:
+                    # a hunter with nothing to smell PROWLS — the aimless
+                    # drift of the idle wander at hunting urgency, never
+                    # a statue (stand-down handles giving up properly)
+                    if not e.get("_prowling"):
+                        e["_prowling"] = self.tick_count
+                        self.trace.emit(CoordEvent(
+                            tick=self.tick_count, entity_id=eid,
+                            agent_kind=kind, event="prowl_start",
+                            detail=f"polygon {polygon}"))
+                    e["_prowl_tick"] = self.tick_count
+                    if e["wander_cd"] <= 0:
+                        e["wander_cd"] = self.rng.randrange(60, 150)
+                        a = self.rng.uniform(0, 6.28)
+                        e["wander"] = (math.cos(a), math.sin(a))
+                    wx, wy = e.get("wander", (0.0, 0.0))
+                    s.set_vel(eid, evx + wx * d["accel"] * 0.4 * DT,
+                              evy + wy * d["accel"] * 0.4 * DT)
                     continue
                 portal = s.polygon_portals(polygon)[edge]
                 if portal is None:
                     e.pop("route", None)
                     continue
                 t_ = self.tick_count
-                if coord.danger_hold(
+                if t_ - e.get("last_hit", -10**9) > 120 \
+                        and not self._hold_expired(eid, e) \
+                        and coord.danger_hold(
                         self.signals.sample(SignalKind.DANGER, portal[0], t_),
                         sum(1 for oid in s.polygon_entities(polygon)
                             if oid != eid and oid in self.enemies
                             and self.enemies[oid]["state"] in ("waking", "hunt")),
                         self.signals.sample(SignalKind.MUSTER, polygon, t_)):
-                    # threshold-holding: that chamber keeps killing us —
-                    # stand at the doorway and call until a push gathers
+                    # threshold-holding — flanking the door frame, never
+                    # centered in its firing cone; being shot lifts the
+                    # hold (checked above): a provoked agent commits
                     if (t_ + eid) % 5 == 0:
                         self.signals.emit(SignalKind.MUSTER, polygon, 0.05, t_)
-                    mx_, my_ = s.edge_midpoint(polygon, edge)
-                    ddx, ddy = mx_ - ex, my_ - ey
-                    dist = math.hypot(ddx, ddy) or 1e-6
-                    if dist > 90.0:
-                        nx, ny = ddx / dist, ddy / dist
-                        s.set_dir(eid, nx, ny)
-                        sx, sy = s.terrain_avoid_dir(
-                            polygon, ex, ey, d["radius"], nx, ny,
-                            max(40.0, min(dist, 120.0)))
-                        sx, sy = self._steer_heading(eid, e, d, sx, sy)
-                        self._budget_move(eid, e, d, polygon, ex, ey,
-                                          evx, evy, sx, sy, accel)
+                    self._hold_at_door(eid, e, d, polygon, edge,
+                                       ex, ey, evx, evy, accel)
                     continue
                 mx_, my_ = s.edge_midpoint(polygon, edge)
                 ddx, ddy = mx_ - ex, my_ - ey
@@ -2349,6 +2573,36 @@ class GameSession:
             bid = br["obj"].breach_id
             if any(e.get("dispatched") == bid for e in self.enemies.values()):
                 br["obj"].note_interest(t_)
+        alive_dying = []
+        for lt, sealed_at, r0 in self._dying_lights:
+            age = t_ - sealed_at
+            if age >= 90:
+                if lt in self.lighting.lights:
+                    self.lighting.lights.remove(lt)
+                continue
+            k_ = 1.0 - age / 90.0
+            lt.intensity = 0.85 * k_
+            # the pool CONTRACTS as it dims: intensity alone moved film
+            # pixels ~2% across the first 60 ticks (the compositing
+            # saturates — run 43 photometry read the seal as flat), but
+            # a shrinking pool is spatially unmissable — the wound closes
+            lt.radius = max(12.0, r0 * k_)
+            alive_dying.append((lt, sealed_at, r0))
+        self._dying_lights = alive_dying
+        for br in self.breaches:
+            since = t_ - br["obj"].opened_tick
+            if since <= 140:
+                k = 1.0 - since / 140.0
+                br["light"].intensity = 0.85 + 2.4 * k * k
+                br["light"].radius = 300.0 + 150.0 * k
+            else:
+                # the standing glow reaches the WHOLE live chamber:
+                # at 190u a player across a big room saw nothing and
+                # the loop's centerpiece read as absent (run 38
+                # ledger, adjudicated by the walk-to-tear stills —
+                # the light worked, the pool was just short)
+                br["light"].intensity = 0.85
+                br["light"].radius = 300.0
         self.hub_shelf = [sid for sid in self.hub_shelf
                           if sid in self.enemies]
         census = [self.enemies[sid]["kind"] for sid in self.hub_shelf]
@@ -2366,6 +2620,14 @@ class GameSession:
             elif cmd.kind == "seal":
                 self._seal_breach(cmd.breach_id, cmd.reason)
         if t_ % 60 == 0:
+            for weid, we in self.enemies.items():
+                if we["kind"] == "warden":
+                    _, wx2, wy2, *_ = self.sim.get(weid)
+                    self.trace.sample(t_, dict(
+                        warden=weid,
+                        polygon=self.sim.get_polygon(weid),
+                        pos=[round(wx2, 1), round(wy2, 1)]))
+        if t_ % 60 == 0:
             self.trace.emit(ReserveSample(
                 tick=t_, reserve=round(self.marrow.depot.reserve, 3),
                 live_breaches=len(self.breaches),
@@ -2378,13 +2640,36 @@ class GameSession:
         t_ = self.tick_count
         self._breach_seq += 1
         bid = self._breach_seq
+        if imprint.chamber in self.hub.chambers.values():
+            # a scout that fled INTO the hub and called from inside
+            # produced a hub-to-hub tear (filmed gate run 4: breaches
+            # 'hub 166' with no world side). The marrow does not
+            # reinforce its own house — the call is spent dry.
+            self.trace.emit(BreachLifecycle(
+                tick=t_, breach_id=bid, event="dry_no_site",
+                world_chamber=imprint.chamber, detail="call from inside the hub"))
+            return
         if not self._free_seams:
             self.trace.emit(BreachLifecycle(
                 tick=t_, breach_id=bid, event="dry_no_site",
                 world_chamber=imprint.chamber, detail="no free apse seam"))
             return
+        carve_fallback = False
         world_h = self.topology.carve(imprint.chamber, imprint.position,
                                       96.0)
+        if world_h is None:
+            # 'the marrow opens the viable site NEAREST the transmitted
+            # position' (ratified §1b): when the named chamber's walls
+            # are all consumed, it reaches for the nearest neighboring
+            # wall instead of dropping the call — the geometry-migration
+            # dry class the acceptance farm measured in chambers 12/9/8
+            for portal in self.sim.polygon_portals(imprint.chamber):
+                if portal is None:
+                    continue
+                world_h = self.topology.carve(portal[0], (0.0, 0.0), 96.0)
+                if world_h is not None:
+                    carve_fallback = True
+                    break
         if world_h is None:
             self.trace.emit(BreachLifecycle(
                 tick=t_, breach_id=bid, event="dry_no_site",
@@ -2415,15 +2700,37 @@ class GameSession:
         self.lighting.lights.append(blight)
         self.breaches.append(dict(polygon=rp, pos=(mx_, my_), obj=obj,
                                   world_h=world_h, seam=seam,
-                                  apse_idx=seam_apse_idx, light=blight))
+                                  apse_idx=seam_apse_idx, light=blight,
+                                  imprint_chamber=imprint.chamber))
         self.marrow.on_breach_opened(bid, t_)
+        # paint the exit: the blindness law covers the WORLD, not the
+        # marrow's own house — a directed trail from the courts through
+        # the apse to the seam guides blind dispatches out (run 39:
+        # median transit ~700 ticks, p90 in the thousands, because
+        # blind units waited for world-side fields to seep in)
+        apse = self.hub.receiving_apses[seam_apse_idx]
+        court = self.hub.guardian_courts[seam_apse_idx]
+        for from_ch, to_ch in ((court, apse), (apse, hub_r)):
+            edge_ = self.sim.next_edge(from_ch, to_ch)
+            if edge_ >= 0:
+                for _ in range(4):
+                    self.signals.deposit_doorway_trail(
+                        from_ch, edge_, 1.0, t_)
+        # a wall tearing into another universe is the loudest thing the
+        # station ever does: the wrongness stinger carries across hops,
+        # the frame shakes, and the tear dumps real Noise — every idle
+        # body nearby turns toward it, which is how the mechanic reads
+        # even when the tear itself is off-screen (first filmed
+        # playtest: 'reinforcements just appear already-hunting')
+        self._snd("stinger_wrongness", rp, (mx_, my_), 1.6)
         self._snd("door_unlock", rp, (mx_, my_), 1.0)
-        self._decal(rp, "scorch", mx_, my_, 14.0)
-        self._shake(3.0)
-        self.pulse_light(rp, (mx_, my_), 220.0, 0.9)
+        self._shake(7.0)
+        self.pulse_light(rp, (mx_, my_), 340.0, 1.0)
+        self.signals.emit_at_least(SignalKind.NOISE, rp, 0.9, t_)
         self.trace.emit(BreachLifecycle(
             tick=t_, breach_id=bid, event="opened", world_chamber=rp,
-            detail=f"hub {hub_r}"))
+            detail=f"hub {hub_r} pos=({mx_:.0f},{my_:.0f})"
+                   + (" via neighbor carve" if carve_fallback else "")))
 
     def _dispatch_unit(self, breach_id: int, kind: str) -> None:
         """The shelf first — real standing guardians physically leave
@@ -2461,7 +2768,13 @@ class GameSession:
         knows = br.setdefault("sent", 0) % 10 == 0
         br["sent"] += 1
         if knows:
-            e["dispatch_target"] = br["polygon"]
+            # the TRANSMITTED position — the caller's chamber, which
+            # with the neighbor-carve fallback can differ from the
+            # breach mouth. Aiming knowers at br['polygon'] made the
+            # ratified knowledge rule a measured no-op (20% vs 18%
+            # player-arrival, dead-air analysis 2026-07-26).
+            e["dispatch_target"] = br.get("imprint_chamber",
+                                          br["polygon"])
         e.pop("tether", None)          # relieved of post: go
         self._set_enemy_state(eid, e, "hunt")
         self.trace.emit(DispatchDecision(
@@ -2496,10 +2809,23 @@ class GameSession:
         self.topology.disconnect(br["obj"].link)
         self._free_seams.append(br["seam"])
         if br.get("light") in self.lighting.lights:
-            self.lighting.lights.remove(br["light"])
+            # the wound closing is VISIBLE: the tear light dies over
+            # 1.5s instead of popping off between two frames (run 39:
+            # photometry flat across the seal in two seeds)
+            self._dying_lights.append((br["light"], t_,
+                                       br["light"].radius))
         self.breaches.remove(br)
         self.marrow.on_breach_sealed(breach_id)
-        self._snd("door_unlock", br["polygon"], br["pos"], 0.6)
+        # the wound closing is an EVENT, not an absence: the sour snap,
+        # a frame shudder, a last violet flare where the tear was, and
+        # the scar stays (filmed gate: 'all 3 seals land with zero
+        # visual distinctness — bare empty corridor shots')
+        if getattr(self, "_last_seal_snd_tick", -1) != t_:
+            self._last_seal_snd_tick = t_
+            self._snd("reveal_sour", br["polygon"], br["pos"], 1.2)
+            self._snd("door_unlock", br["polygon"], br["pos"], 0.8)
+            self._shake(4.0)
+        self.pulse_light(br["polygon"], br["pos"], 260.0, 0.8)
         self.trace.emit(BreachLifecycle(
             tick=t_, breach_id=breach_id, event="sealed",
             world_chamber=br["polygon"], detail=reason))
@@ -2518,15 +2844,17 @@ class GameSession:
         ppolygon = self.player_polygon()
         if self.tick_count % 5 == 0:
             self._snd("player_hurt", ppolygon, (px, py))
+            _, cx_, cy_, *_ = self.sim.get(captor)
+            self.fx.append(("attacker_mark",
+                            self.sim.get_polygon(captor), cx_, cy_))
             self.trace.emit(DamageApplied(
                 tick=self.tick_count, target_id=self.pid,
                 target_kind="player", amount=round(dmg * 5, 3),
                 source="engulfed"))
         self.fx.append(("playerhurt", dmg))
         if self.hp <= 0:
-            self.dead = True
-            self.metrics["deaths"] += 1
             self.captures.release_for_entity(captive)
+            self._player_death(ppolygon, px, py)
 
     def _warden_engulf_step(self, eid, e, polygon, ex, ey) -> None:
         """CHARGE: rooted, the body itself flashing brighter twice over
@@ -2646,23 +2974,45 @@ class GameSession:
         vulnerability."""
         s = self.sim
         t_ = self.tick_count
+        if polygon in self.hub.chambers.values():
+            # it crossed into the marrow's own house: reabsorbed. Not a
+            # death — a departure; the census decrement is permanent
+            # either way, and the call channel frees immediately.
+            self.captures.release_for_entity(eid)
+            self.medium.release(eid)
+            self.adversary_census[e["kind"]] -= 1
+            self.trace.emit(AgentTransition(
+                tick=t_, entity_id=eid, agent_kind=e["kind"],
+                from_state=e["state"], to_state="reabsorbed"))
+            self.enemies.pop(eid, None)
+            s.remove(eid)
+            return
         st = e.get("scout")
-        # tasked scouts run their own machine: whatever combat-wake state
-        # the standard machine left behind is just cleared. Only DAMAGE
-        # interrupts — that is the "catch the transmitting agent" rule.
-        if e["state"] != "idle":
-            self._set_enemy_state(eid, e, "idle")
+        # DAMAGE interrupts first — the "catch the transmitting agent"
+        # rule — and a shot scout READS engaged for its whole flee: the
+        # projected e["state"] stays "hunt" so music, marks and the
+        # trace all agree it is in the fight. (The old order stomped
+        # the standard machine to idle every tick, so each bullet
+        # produced a one-tick idle->hunt->idle flap — the state thrash
+        # the first filmed playtest gate flagged.)
         if e.pop("scout_hit", None) is not None:
             self.medium.release(eid)
             e["trace_intensity"] = 1.0
             e["scout"] = "flee"
             e["scout_t"] = scouts.FLEE_TICKS
             st = "flee"
+        if st == "flee" or t_ - e.get("last_hit", -10**9) <= 120:
+            self._set_enemy_state(eid, e, "hunt")
+        elif e["state"] != "idle":
+            # calm scout work (seek/observe/brace/transmit): whatever
+            # combat-wake state the standard machine left is cleared
+            self._set_enemy_state(eid, e, "idle")
         nbh = self.signals.neighborhood(polygon, t_)
         if st == "flee":
             e["scout_t"] = e.get("scout_t", 0) - 1
             if e["scout_t"] <= 0:
                 e["scout"] = "seek"
+                self._set_enemy_state(eid, e, "idle")
                 return
             tgt = scouts.safe_target(nbh)
             if tgt is not None:
@@ -2760,10 +3110,22 @@ class GameSession:
         t_ = self.tick_count
         route = e.get("route")
         if route is not None and route[0] == polygon and t_ - route[2] < 45:
-            return route[1]
+            # ...unless the cache points straight back at the chamber
+            # just left: two chambers whose memos point at each other
+            # lock a 3-4-tick bounce that the anti-backtrack scoring
+            # below never gets to see (run 44c: brute 1030, 334
+            # crossings of one world pair, unengaged) — rescore
+            prt0 = self.sim.polygon_portals(polygon)
+            p0 = prt0[route[1]] if 0 <= route[1] < len(prt0) else None
+            if not (p0 is not None and p0[0] == e.get("_came_from")
+                    and t_ - e.get("_came_from_t", -10**9) < 60):
+                return route[1]
         best = (-1, 0.0)
         second = (-1, 0.0)
-        for edge, portal in enumerate(self.sim.polygon_portals(polygon)):
+        portals_ = self.sim.polygon_portals(polygon)
+        n_open = sum(1 for p_ in portals_ if p_ is not None)
+        came_from = e.get("_came_from")
+        for edge, portal in enumerate(portals_):
             if portal is None:
                 continue
             nb = portal[0]
@@ -2772,6 +3134,22 @@ class GameSession:
                    + 0.6 * self.signals.sample(SignalKind.DISTRESS, nb, t_)
                    + 0.4 * self.signals.sample(SignalKind.MUSTER, nb, t_)
                    + 0.15 * self.signals.doorway_trail(polygon, edge, t_))
+            if n_open > 1 and nb == came_from:
+                # anti-backtrack: one step of memory. Every route pick
+                # deposits doorway trail, so after a single crossing
+                # the same door is the loudest edge from the OTHER
+                # side — walkers locked into 11-tick door dances, 200-
+                # 330 crossings of one portal pair per session (run 44:
+                # mites at hub door 169-173, husks at world 13-17). A
+                # dead-end room keeps its only exit at full strength.
+                # HARD block for the first second: ×0.25 lost to the
+                # muster-saturated hub courts, where both sides of a
+                # door out-shout every alternative 4x (run 44c: husks
+                # still dancing at 18-tick gaps)
+                if t_ - e.get("_came_from_t", -10**9) < 60:
+                    att = 0.0
+                else:
+                    att *= 0.25
             if att > best[1]:
                 second = best
                 best = (edge, att)
@@ -2789,12 +3167,104 @@ class GameSession:
                         return edge
             e.pop("route", None)
             return -1
-        edge = coord.choose_route(best[0],
-                                  second[0] if second[1] >= 0.02 else -1,
-                                  bool(e.get("raid")))
+        second_ok = second[0] if second[1] >= 0.02 else -1
+        edge = coord.choose_route(best[0], second_ok, bool(e.get("raid")))
+        stuck = e.get("route_stuck")
+        if stuck is not None and stuck[0] == polygon \
+                and stuck[1] == edge and t_ - stuck[2] > 600 \
+                and second_ok >= 0 and second_ok != edge:
+            # progress watchdog: ten seconds pushing the same doorway
+            # from the same chamber without ever crossing it is a fold
+            # standoff, not a chase — flank via the second door
+            # (filmed gate run 8: two hunters ground at a pinch for 38s)
+            self.trace.emit(CoordEvent(
+                tick=t_, entity_id=eid, agent_kind=e["kind"],
+                event="flank_switch",
+                detail=f"polygon {polygon} door {stuck[1]} -> {second_ok} "
+                       f"after {t_ - stuck[2]}t"))
+            edge = second_ok
+            e["route_stuck"] = (polygon, edge, t_)
+        elif stuck is None or stuck[0] != polygon or stuck[1] != edge:
+            e["route_stuck"] = (polygon, edge, t_)
         e["route"] = (polygon, edge, t_)
         self.signals.deposit_doorway_trail(polygon, edge, 0.5, t_)
         return edge
+
+    def _hold_expired(self, eid: int, e: dict) -> bool:
+        """Patience: a hold that has gathered no push within ~15s stops
+        binding for the next ten — the swarm is thin, and the choice is
+        commit or reroute, never a permanent standoff (filmed gate runs
+        1-7: every static chokepoint face-off was a hold that nothing
+        would ever release)."""
+        t_ = self.tick_count
+        since = e.get("hold_since")
+        if since is None:
+            e["hold_since"] = t_
+            return False
+        if t_ - since > 900:
+            if t_ - since > 900 + 600:
+                e.pop("hold_since", None)   # window over: re-holdable
+            return True
+        return False
+
+    def _hold_at_door(self, eid, e, d, polygon, edge, ex, ey,
+                      evx, evy, accel) -> None:
+        """Threshold-holding done like something that wants to live:
+        gather BESIDE the door frame (out of the through-door firing
+        cone), face the door, keep a restless shuffle. Sides and depths
+        alternate per-agent so a gathering push visually stacks up
+        along the wall instead of forming a firing-squad line."""
+        t_ = self.tick_count
+        if "_holding" not in e:
+            e["_holding"] = t_
+        elif not e.get("_hold_emitted") and e.get("_hold_tick") == t_ - 1:
+            # second consecutive held tick: a real stint, not flutter —
+            # run 43 flagged same-tick engage/end pairs as ledger noise
+            e["_hold_emitted"] = True
+            self.trace.emit(CoordEvent(
+                tick=t_, entity_id=eid, agent_kind=e["kind"],
+                event="hold_engage",
+                detail=f"polygon {polygon} door {edge}"))
+        e["_hold_tick"] = t_
+        s = self.sim
+        mx_, my_ = s.edge_midpoint(polygon, edge)
+        verts = s.polygon_verts(polygon)
+        ax_, ay_ = verts[edge]
+        bx_, by_ = verts[(edge + 1) % len(verts)]
+        el = math.hypot(bx_ - ax_, by_ - ay_) or 1e-6
+        tx_, ty_ = (bx_ - ax_) / el, (by_ - ay_) / el   # along the wall
+        side = 1.0 if eid % 2 else -1.0
+        lateral = 70.0 + 26.0 * ((eid // 2) % 3)
+        # a body-width off the wall toward the interior: flush against
+        # an open portal edge, wall-sliding can push the waiter THROUGH
+        # the doorway it is refusing to enter (local frames are
+        # centroid-centered, so (0,0) is the interior)
+        il = math.hypot(mx_, my_) or 1e-6
+        inx, iny = -mx_ / il, -my_ / il
+        px_ = mx_ + tx_ * side * lateral + inx * 40.0
+        py_ = my_ + ty_ * side * lateral + iny * 40.0
+        ddx, ddy = px_ - ex, py_ - ey
+        dist = math.hypot(ddx, ddy)
+        # always FACE the doorway — the wait reads as intent
+        fdx, fdy = mx_ - ex, my_ - ey
+        fl = math.hypot(fdx, fdy) or 1e-6
+        s.set_dir(eid, fdx / fl, fdy / fl)
+        if dist > 26.0:
+            nx, ny = ddx / dist, ddy / dist
+            sx, sy = s.terrain_avoid_dir(polygon, ex, ey, d["radius"],
+                                         nx, ny, max(40.0, min(dist, 120.0)))
+            sx, sy = self._steer_heading(eid, e, d, sx, sy)
+            self._budget_move(eid, e, d, polygon, ex, ey,
+                              evx, evy, sx, sy, accel)
+        else:
+            # parked at the frame: restless micro-shuffle, never a statue
+            if e.get("wander_cd", 0) <= 0:
+                e["wander_cd"] = self.rng.randrange(45, 100)
+                a = self.rng.uniform(0, 6.28)
+                e["wander"] = (math.cos(a), math.sin(a))
+            wx, wy = e.get("wander", (0.0, 0.0))
+            s.set_vel(eid, evx + wx * d["accel"] * 0.18 * DT,
+                      evy + wy * d["accel"] * 0.18 * DT)
 
     def _steer_heading(self, eid: int, e: dict, d: dict,
                        wx: float, wy: float) -> tuple[float, float]:
@@ -3068,6 +3538,13 @@ class GameSession:
                     ent_kind = "player"
                 elif ent in self.enemies:
                     ent_kind = self.enemies[ent]["kind"]
+                    # a body that actually crossed is not holding a
+                    # door: its patience and progress clocks reset with
+                    # the ground
+                    self.enemies[ent].pop("hold_since", None)
+                    self.enemies[ent].pop("route_stuck", None)
+                    self.enemies[ent].pop("chase_mark", None)
+                    self.enemies[ent].pop("fold_stuck_until", None)
                 elif ent in self.bullets:
                     ent_kind = "bullet:" + self.bullets[ent]["kind"]
                 else:
@@ -3237,10 +3714,52 @@ class GameSession:
                 d = ENEMIES[e["kind"]]
                 if d["touch_dmg"] > 0:
                     e["touch_cd"] = d["touch_cd"]
+                    _, ax_, ay_, *_ = self.sim.get(eid)
+                    self.fx.append(("attacker_mark",
+                                    self.sim.get_polygon(eid), ax_, ay_))
+                    held = self.captures.held_by(self.pid) is not None
+                    if held:
+                        # inside a warden's grip the body is CASED — other
+                        # biters get half purchase. Keeps the ratified
+                        # grip lethal while the stacked pile-on stays
+                        # readable (gate run 10 P0: 82->30 in 1.3s)
+                        self.fx.append(("hitflash", eid))
+                        self._damage_player(
+                            d["touch_dmg"] * 0.5,
+                            self.sim.get_polygon(self.pid),
+                            source="contact:" + e["kind"])
+                        return
+                    # the ATTACKER flashes too: 'why did I take damage'
+                    # must have an answer on screen (filmed gate run 5)
+                    self.fx.append(("hitflash", eid))
                     self._damage_player(
                         d["touch_dmg"],
                         self.sim.get_polygon(self.pid),
                         source="contact:" + e["kind"])
+                    # knockback is universal (combat canon) and the
+                    # player is a body: a bite SHOVES you. Physics is
+                    # the anti-stunlock — no i-frames, the chain breaks
+                    # because you are no longer in reach (gate runs
+                    # 24-26: confirmed 5-hit contact chain, 77->13)
+                    px_, py_ = self.player_pos()
+                    _, ax2, ay2, *_ = self.sim.get(eid)
+                    kx, ky = px_ - ax2, py_ - ay2
+                    kl = math.hypot(kx, ky) or 1e-6
+                    self._apply_impulse(
+                        self.pid, kx / kl * 110.0, ky / kl * 110.0,
+                        source="contact_knock")
+                    # ...and the bite REBOUNDS off the body it struck:
+                    # the player's shove alone never separated a fast
+                    # ambusher (run 43: two deaths to fixed 42-44-tick
+                    # bite metronomes, knock firing every time, bodies
+                    # never parting on film). One fixed impulse, mass
+                    # does the tiering — a flicker rebounds ~3 radii
+                    # and must close again honestly, a warden barely
+                    # registers the same shove.
+                    self._apply_impulse(
+                        eid, -kx / kl * 400.0, -ky / kl * 400.0,
+                        source="bite_recoil")
+
 
     # ------------------------------------------------------------------
 
@@ -3324,16 +3843,21 @@ class GameSession:
                 t = kind[5:]
                 amt = int(PICKUPS[kind]["amount"] * self._ammo_mul)
                 self.ammo[t] = self.ammo.get(t, 0) + amt
+                self.trace.emit(PickupTaken(
+                    tick=self.tick_count, item=kind, amount=amt))
                 self._snd("pickup_ammo", ppolygon, (x, y))
                 self.fx.append(("pickup_text", ppolygon, (x, y),
-                                f"+{amt} {t.upper()}"))
+                                f"+{amt}"))
             elif kind == "medkit":
                 if self.hp > 70:
                     continue  # leave it for later — scarcity respects foresight
                 self.hp = min(self.max_hp, self.hp + PICKUPS[kind]["amount"])
+                self.trace.emit(PickupTaken(
+                    tick=self.tick_count, item=kind,
+                    amount=PICKUPS[kind]["amount"]))
                 self._snd("pickup_medkit", ppolygon, (x, y))
                 self.fx.append(("pickup_text", ppolygon, (x, y),
-                                f"+{PICKUPS[kind]['amount']} INTEGRITY"))
+                                f"+{PICKUPS[kind]['amount']}"))
             elif kind.startswith("weapon_"):
                 w = kind[7:]
                 if w not in self.weapons:
@@ -3367,7 +3891,7 @@ class GameSession:
                 self.components += n
                 self._snd("pickup_ammo", ppolygon, (x, y))
                 self.fx.append(("pickup_text", ppolygon, (x, y),
-                                f"+{n} COMPONENTS"))
+                                f"+{n}c"))
             elif kind == "corpse_frame":
                 c = p.get("contents", {})
                 self.components += c.get("components", 0)
@@ -3375,11 +3899,11 @@ class GameSession:
                 self._snd("corpse_recover", ppolygon, (x, y))
                 got = []
                 if c.get("components"):
-                    got.append(f"+{c['components']} COMPONENTS")
+                    got.append(f"+{c['components']}c")
                 if c.get("station_kits"):
-                    got.append(f"+{c['station_kits']} SEED KIT")
+                    got.append(f"+{c['station_kits']}k")
                 self.fx.append(("pickup_text", ppolygon, (x, y),
-                                "FRAME RECOVERED  " + "  ".join(got)))
+                                "FRAME " + " ".join(got)))
                 self.fx.append(("logvoice", p.get("line", 0)))
             elif kind.startswith("key_"):
                 key = kind[4:]
@@ -3598,6 +4122,9 @@ class GameSession:
         if self.dead or self.hp >= self.max_hp:
             return False
         self.hp = self.max_hp
+        self.trace.emit(PickupTaken(
+            tick=self.tick_count, item="pod_heal",
+            amount=float(self.max_hp)))
         mark = len(self.fx)
         self._snd("pickup_medkit", self.player_polygon(), self.player_pos(), 0.8)
         self._objective("FRAME INTEGRITY RESTORED")
@@ -3685,6 +4212,9 @@ class GameSession:
         self.hp = self.max_hp
         self.dead = False
         self.freeze = 0
+        self.trace.emit(BreachLifecycle(
+            tick=self.tick_count, breach_id=-1, event="player_respawn",
+            world_chamber=polygon, detail="chassis print at seed station"))
         self.tau_charge = 0
         self.hole_mark = None
         self._set_cam(necore.mat_mul(
@@ -3695,6 +4225,7 @@ class GameSession:
         mark = len(self.fx)
         self._objective(f"REPRINTED - {self.chassis} CHASSIS RACKED")
         self._snd("reprint", polygon, (px, py))
+        self.fx.append(("playerreprint",))
         self._park_oob(mark)
         return True
 

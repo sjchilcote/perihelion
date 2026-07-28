@@ -31,7 +31,12 @@ EXCITE_NORM = 0.60         # (Noise + Distress) / this, clamped to [0,1]
 STAND_DOWN_TICKS = 300     # ~5s of faint signal and no sighting
 STAND_DOWN_FLOOR = 0.05    # "faint": every local field below this
 
-DANGER_HOLD_LINE = 0.35    # a chamber this deadly is not entered alone
+# One kill emits 0.40 Danger with a 180s half-life: at 0.35 the line,
+# every room in a fighting player's WAKE gated pursuit for minutes and
+# the chase died at every door (filmed gate runs 1-6: 'no pressure
+# ever lands'). The hold is for chambers that KEEP killing — repeat
+# kills stack past 0.7 fast; one skirmish three minutes ago does not.
+DANGER_HOLD_LINE = 0.70
 DANGER_CROSS_PEERS = 2     # visible committed peers that make a push
 DANGER_CROSS_MUSTER = 0.60 # or enough Muster gathered at the door
 
@@ -122,13 +127,19 @@ def wants_stand_down(has_sighting: bool, local_peak: float,
 
 
 def danger_hold(danger_next: float, committed_visible: int,
-                muster_here: float) -> bool:
-    """The collective's threshold-holding rule: a lone agent does not
-    walk into a chamber that has kept killing its kind — it stands at
-    the doorway and calls (Muster) until a push has gathered."""
+                muster_here: float,
+                cross_peers: int = DANGER_CROSS_PEERS) -> bool:
+    """The collective's threshold-holding rule: a LONE agent does not
+    walk into a chamber that has kept killing its kind — it waits at
+    the doorway and calls (Muster) until a push has gathered. The rule
+    is about loneliness, not cowardice: a SIGHTED chase passes
+    cross_peers=1 (two who can see the killer go in together — Danger
+    holds a 180s memory, and requiring a trio everywhere the player
+    has fought turned every pair into a perpetual shadow, the filmed
+    'trailing at fixed distance' blocker)."""
     if danger_next <= DANGER_HOLD_LINE:
         return False
-    if committed_visible >= DANGER_CROSS_PEERS:
+    if committed_visible >= cross_peers:
         return False
     return muster_here < DANGER_CROSS_MUSTER
 
