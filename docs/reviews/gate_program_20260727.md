@@ -122,3 +122,25 @@ spectacle. Its blockers all verified at mechanism level:
 Run 44 bank (pre-judge verification): delivery 98% all seeds,
 shriekers 36/38, transit 167-187t, all dances dead, deaths present,
 ledger clean, prowl organic. Judge in flight.
+
+## Run 45: PASS (p=0.97) — the program closes
+
+First bank where every preregistered disconfirming outcome for the
+changed subsystems either failed to occur or died under adversarial
+verification with primary evidence (deterministic re-runs, pixel
+tracking, photometry, code reads): delivery 300/301 at 172t median,
+both second deaths film every beat, second-generation breach opens
+tick-exact on film in all seeds, audio spatialization live (r=0.788),
+sfx causality 1287/1287, zero door dances (the thrash alarm itself
+was refuted as seam-straddle telemetry wobble, 0.03-0.09 px on
+screen). One preregistered negative fired — three wardens stationary
+45-76s in hunt, off-camera — and was probed sub-threshold (all-enemy
+re-run: zero stationary hunt enemies co-present with the player
+anywhere; 99% delivery; pressure intact). Watch items handed to the
+task ledger: march-grind statue / delivered-tag activation hole,
+flicker cadence at the cooldown floor, engulf cold-grip margin,
+reserve dead-tail pacing (director's design bucket).
+
+The accumulated diff landed as nine per-unit commits (engine active
+set, telemetry, sim program, render, marrow, audio, bot, levels,
+tests) through the open hook. 745 tests green.
