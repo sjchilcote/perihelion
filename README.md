@@ -31,6 +31,23 @@ uv run python -m perihelion            # campaign (The Vigil is on the title men
 uv run python -m perihelion --level levels/l06.json   # single level
 ```
 
+### Assets are generated, not tracked
+
+The repository holds code and text only — no images, audio, video, or fonts
+(2026-07-28: they had bloated `.git` to 128 GB and were making every commit
+spawn a repack). A fresh clone therefore has no textures, no sound bank, and
+no music. Rebuild them:
+
+```bash
+uv run python tools/soundgen/bank.py       # the SFX bank (pure synthesis)
+uv run python tools/musicgen/generate_bank.py   # the music banks
+uv run python tools/artgen/full_run.py     # polygon textures (needs an API key)
+```
+
+The game runs without them — silent and untextured — so a missing bank is
+never a crash. `out/` and `media/` are working directories: capture banks,
+films, and consult transcripts live there and are never committed.
+
 Controls: WASD move, mouse aim, LMB fire, E interact/read, 1-8 or wheel to
 switch weapons, ESC pause. RMB fires the lightning implant (when found) —
 or, with the tau cannon in hand, holds a charge: release to discharge,
