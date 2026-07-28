@@ -145,24 +145,23 @@ def test_only_every_tenth_dispatched_body_knows_the_site():
     imp.try_lease(9999, s.tick_count)
     imp.complete(9999, s.player_polygon(), (0.0, 0.0), s.tick_count,
                  "lacuna")
-    knowers, blind = [], []
+    # count the TRACE, not the live population: a delivered body sheds
+    # its transit tag at the world mouth (run 43: keeping it starved
+    # the seam pool), so a snapshot of tagged bodies undercounts — and
+    # was survivorship-biased anyway
+    recs = []
     for _ in range(90 * 60):
         s.tick(InputFrame())
         s.hp = 100.0                # the observer must outlive the pour
-        n = sum(1 for e in s.enemies.values() if e.get("dispatched"))
-        if n >= 20:
+        recs.extend(s.trace.drain())
+        if sum(1 for r in recs if r.kind == "dispatch_decision") >= 20:
             break
-    dispatched = [e for e in s.enemies.values() if e.get("dispatched")]
+    dispatched = [r for r in recs if r.kind == "dispatch_decision"]
     assert len(dispatched) >= 20, "pour never reached 20 bodies"
-    for e in dispatched:
-        (knowers if e.get("dispatch_target") is not None
-         else blind).append(e)
-    # note: knowers CONSUME the target on arrival (dispatch_target pops
-    # at the breach chamber), so count the trace instead
+    knowers = [r for r in dispatched if r.data["knows_position"]]
     assert len(knowers) <= 3, (
         f"{len(knowers)} of {len(dispatched)} know the site — "
         "the conga line is back")
-    assert len(blind) >= len(dispatched) - 3, "the rest must be blind"
 
 
 def test_first_body_of_a_pour_always_knows():
@@ -188,3 +187,32 @@ def test_first_body_of_a_pour_always_knows():
     assert recs[0].data["knows_position"] is True
     assert all(r.data["knows_position"] is False
                for r in recs[1:10]), "bodies 2..10 must be blind"
+
+
+def test_the_shelf_bursts_and_production_sustains():
+    """Ratified pour shape: burst from the shelf (~0.6s/unit), then the
+    sustained 2.2s production beat — the opening pour must READ as a
+    pour (fifteen filmed gate runs: 'a trickle never lands')."""
+    from perihelion.marrow import (DISPATCH_INTERVAL_TICKS,
+                                   SHELF_BURST_TICKS, FORMATION_TICKS)
+    m = MarrowController()
+    m.depot.reserve = 100.0
+    br = _live_breach()
+    m.on_breach_opened(1, 0)
+    times = []
+    census = list(GUARDIAN_SHELF)
+    for t in range(1, 40 * 60):
+        br.note_crossing(t)
+        br.note_interest(t)
+        for c in m.step(t, None, [br], shelf_census=census):
+            if c.kind == "dispatch":
+                times.append(t)
+                if census:
+                    census.pop(0)
+    assert len(times) >= 14, "shelf plus production must both flow"
+    shelf_gaps = [b - a for a, b in zip(times[:10], times[1:10])]
+    prod_gaps = [b - a for a, b in zip(times[10:], times[11:])]
+    assert all(g <= SHELF_BURST_TICKS + 2 for g in shelf_gaps), (
+        f"the shelf must SURGE: {shelf_gaps}")
+    assert all(g >= DISPATCH_INTERVAL_TICKS for g in prod_gaps), (
+        f"production holds the sustained beat: {prod_gaps}")

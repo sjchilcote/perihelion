@@ -2,9 +2,10 @@
 
 Ratified §1b: 'authored into the world at initialization and never
 produced by the CORE. Some begin dormant in quiet chambers with high
-thresholds.' The shipped gauntlet4 carries 2 vagrants + 5 lacunas (2
-dormant, deep); the marrow's production cycle contains no Adversary
-kind, so the census only ever shrinks.
+thresholds.' The shipped gauntlet4 carries 2 vagrants + 7 lacunas (5
+active + 2 dormant, deep) — the count the U15 geometry migration made
+room for, every home measured seam-viable; the marrow's production
+cycle contains no Adversary kind, so the census only ever shrinks.
 """
 from __future__ import annotations
 
@@ -23,11 +24,26 @@ def test_gauntlet4_authors_the_scout_census():
     c = Counter(e["kind"] for e in s.enemies.values()
                 if e["kind"] in ADVERSARY)
     assert c["vagrant"] == 2
-    assert c["lacuna"] == 5
-    assert s.adversary_census == {"vagrant": 2, "lacuna": 5}
+    assert c["lacuna"] == 7
+    assert s.adversary_census == {"vagrant": 2, "lacuna": 7}
     dormant = [e for e in s.enemies.values() if e.get("dormant")]
     assert len(dormant) == 2, "two deep reserve spotters sleep"
     assert all(e["kind"] == "lacuna" for e in dormant)
+
+
+def test_every_scout_home_can_hold_a_breach():
+    """U15 geometry migration: a call from home must be able to LAND.
+    Chambers 8, 9, 20 and the 14/16 connectors were authored with walls
+    consumed by doors — a 96u seam had nowhere to go and the farm read
+    it as dry_no_site."""
+    level = load_level("../levels/gauntlet4.json")
+    s = GameSession(level, seed=5)
+    homes = {s.sim.get(eid)[0] for eid, e in s.enemies.items()
+             if e["kind"] in ADVERSARY}
+    assert len(homes) == 9, "one scout per chamber"
+    for chamber in sorted(homes):
+        assert s.topology.carve(chamber, (0.0, 0.0), 96.0) is not None, (
+            f"chamber {chamber} holds a scout but no 96u seam")
 
 
 def test_the_core_never_produces_scouts():

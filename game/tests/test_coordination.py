@@ -80,10 +80,15 @@ def test_stand_down_rule_is_exact():
 
 
 def test_danger_hold_rule():
-    assert coord.danger_hold(0.6, 0, 0.0)
-    assert not coord.danger_hold(0.2, 0, 0.0)          # not deadly enough
-    assert not coord.danger_hold(0.6, 3, 0.0)          # push has gathered
-    assert not coord.danger_hold(0.6, 0, 0.9)          # muster says go
+    above = coord.DANGER_HOLD_LINE + 0.1
+    below = coord.DANGER_HOLD_LINE - 0.1
+    assert coord.danger_hold(above, 0, 0.0)
+    assert not coord.danger_hold(below, 0, 0.0)        # not deadly enough
+    assert not coord.danger_hold(above, 3, 0.0)        # push has gathered
+    assert not coord.danger_hold(above, 0, 0.9)        # muster says go
+    # the sighted-chase relaxation: a PAIR that can see the killer goes
+    assert not coord.danger_hold(above, 1, 0.0, cross_peers=1)
+    assert coord.danger_hold(above, 0, 0.0, cross_peers=1)
 
 
 # ---------------------------------------------------------------------------
@@ -163,7 +168,8 @@ def test_danger_hold_at_a_deadly_doorway():
     for t in range(1, 320):
         tk = s.tick_count + 1
         s.signals.emit(SignalKind.NOISE, rooms[0], 0.10, tk - 1)
-        s.signals.emit_at_least(SignalKind.DANGER, rooms[0], 0.60, tk - 1)
+        s.signals.emit_at_least(SignalKind.DANGER, rooms[0],
+                                    coord.DANGER_HOLD_LINE + 0.15, tk - 1)
         s.tick(InputFrame())
         if eid not in s.enemies:
             break
@@ -181,7 +187,8 @@ def test_danger_hold_at_a_deadly_doorway():
     for t in range(1, 600):
         tk = s.tick_count + 1
         s.signals.emit(SignalKind.NOISE, rooms[0], 0.10, tk - 1)
-        s.signals.emit_at_least(SignalKind.DANGER, rooms[0], 0.60, tk - 1)
+        s.signals.emit_at_least(SignalKind.DANGER, rooms[0],
+                                    coord.DANGER_HOLD_LINE + 0.15, tk - 1)
         s.tick(InputFrame())
         if eid not in s.enemies:
             break

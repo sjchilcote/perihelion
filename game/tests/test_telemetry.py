@@ -97,8 +97,13 @@ def test_120_tick_vector_exact_counts(tmp_path):
         by_kind.setdefault(r.kind, []).append(r)
 
     assert len(by_kind["input"]) == 120
-    sample_ticks = [r.tick for r in by_kind["sample"]]
-    assert sample_ticks == [15, 30, 45, 60, 75, 90, 105, 120]
+    hud_ticks = [r.tick for r in by_kind["sample"]
+                 if "warden" not in r.data]
+    assert hud_ticks == [15, 30, 45, 60, 75, 90, 105, 120]
+    # the warden track (verifiability of 'stationary warden' claims)
+    # samples every 60 ticks per live warden
+    wtrack = [r.tick for r in by_kind["sample"] if "warden" in r.data]
+    assert all(t % 60 == 0 for t in wtrack)
 
     dmg = by_kind["damage_applied"]
     assert len(dmg) == 1, f"expected exactly one damage event, got {dmg}"
