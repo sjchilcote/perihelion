@@ -164,3 +164,18 @@ aggro only; body events on the body); hops are never a targeting law
 battlespace might cover TENS of polygons"); 0.45 IS the zoom (no
 play-vs-film distinction; mousewheel zoom planned). Landed as
 43f7bfd7 + 74c094fd, 748 tests green.
+
+## Runs 48-49 (7/28): the engine program lands
+
+The perf program (engine owns pixels: lightmap/ow-compose/post/decals/
+sightline/sentry/SignalField into necore; 13ms -> 2.6ms p50 / 4.8ms p99)
+went to the gate with the UI de-pygame conversion. Run 48 FAIL p=0.57:
+the renderer rewrite came back clean on every seed, but the judge
+priced the old march-grind watch item at full depth — units frozen
+6120-8220 ticks in active states, second acts flatlining. Fixes: awake
+units always keep their chamber active (lurk excepted — it is rest),
+march stall-breaker (5s sidestep, 15s shed-the-tag on the record),
+shrieker stand-down after 45s with the squad. Run 49 PASS p=0.96, zero
+blockers. Seed 4's quiet tail held up as the suppression design (all
+scouts dead, marrow blind, zero calls) rather than a defect. Landed as
+618b89f6e6..bd8e440e57, 768 tests green.
