@@ -71,12 +71,16 @@ def test_senses_import_only_stdlib_and_engine():
     assert not extra, f"senses.py imports beyond stdlib+necore: {extra}"
 
 
-def test_signals_import_only_stdlib():
+def test_signals_import_only_stdlib_and_engine():
     """The substrate is the shared medium UNDER every system: it may know
     portal adjacency (via the world object it is handed) and nothing else
-    — no sim, no senses, no engine import even; it cannot read the fight."""
-    extra = _imports_of(PKG / "signals.py") - STDLIB_OK
-    assert not extra, f"signals.py imports beyond stdlib: {extra}"
+    — no sim, no senses; it cannot read the fight. Since the 2026-07-28
+    perf lift its MATH lives in the engine (necore.SignalField,
+    engine/necore/src/signals.rs), so the necore import is the
+    implementation home, not a fight dependency — the same boundary
+    senses.py holds above."""
+    extra = _imports_of(PKG / "signals.py") - STDLIB_OK - {"necore"}
+    assert not extra, f"signals.py imports beyond stdlib+necore: {extra}"
 
 
 def test_audio_is_not_a_trace_source():

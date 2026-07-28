@@ -4,7 +4,7 @@ farm (tools/musiccal) measured loot/rest polygons as the DEADLIEST zone class
 in the gauntlet -- 2.2x combat polygons -- because standard enemies have no
 de-aggro path and simply follow a hurt player to the medkits
 (FITTING_REPORT.md finding #1). Covers `GameSession.spawn_sentry` /
-`_sentry_tick` / `_sentry_los_clear` / `_segment_crosses_rect` (sim.py) and
+`_sentry_tick` (sim.py) + the engine's `sentry_acquire` LOS/terrain gate and
 their data-driven placement in levels/gauntlet_cal.json via
 tools/musiccal/build_gauntlet.py.
 
@@ -189,9 +189,10 @@ def _terrain_los_scenario(seed: int, block: bool):
 
 
 def test_sentry_blocked_by_terrain_between_it_and_target():
-    """Fail-first: before `_sentry_los_clear` existed (or if it were a
+    """Fail-first: before the terrain LOS gate existed (or if it were a
     no-op, as `necore.raycast` alone would be -- it has no notion of
-    walk-mask terrain at all, see the comment on `_segment_crosses_rect`),
+    walk-mask terrain; the gate is the Liang-Barsky test inside the
+    engine's `sentry_acquire`),
     this asserts != 'died' and would fail against that reverted state,
     since the earlier `_turret_tick` pattern this was modeled on has no
     range/LOS gate whatsoever."""
@@ -214,7 +215,7 @@ def test_sentry_prefers_farther_visible_target_over_nearer_occluded_one():
     """The walk-mask physics collision (terrain-solid by default for every
     group, see physics.rs) already stops a fired bullet from ever tunneling
     through terrain on its own -- so a single-candidate 'blocked' test
-    above passes even with `_sentry_los_clear` stubbed to always return
+    above passes even with the terrain gate stubbed to always return
     True (checked by hand while writing this). What that redundancy does
     NOT cover is TARGET SELECTION: without an explicit LOS check gating
     which candidate counts as 'nearest', a naive nearest-only sentry would

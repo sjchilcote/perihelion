@@ -246,7 +246,7 @@ PICKUPS: dict[str, dict] = {
 # finding #1). MIRIAD-lane defensive emplacement, clinical naming to match
 # the enemy roster's own register (husk/mite/spitter/...). Pistol-class
 # rate of fire and damage, finite range, requires LOS (same polygon + no
-# walk-mask terrain crossing the shot -- see `_sentry_los_clear`), and a
+# walk-mask terrain crossing the shot -- engine `sentry_acquire`), and a
 # short spin-up before its first shot on a freshly acquired target rather
 # than instant acquisition. No `hp` field: indestructible, matching the
 # only existing "friendly turret" precedent in this codebase (the
@@ -638,6 +638,10 @@ class GameSession:
                              (self.rng.uniform(-35.0, 35.0),
                               self.rng.uniform(-30.0, 30.0)), kind_)
         self.decals: dict[int, list] = {}  # polygon -> [(kind,x,y,size,angle)]
+        # monotonic per-polygon decal counter: the renderer's retained
+        # engine lists re-upload on version change — bare len() missed
+        # updates once a polygon sat at the 250 cap (append+trim = same len)
+        self.decal_versions: dict[int, int] = {}
         self._objective_fired: set[str] = set()  # once-gates for objective fx
         self.metrics = dict(ticks=0, shots=0, hits=0, kills=0, dmg_dealt=0.0,
                             dmg_taken=0.0, pickups=0, transfers=0, deaths=0,
@@ -773,6 +777,7 @@ class GameSession:
         lst.append((kind, x, y, size, angle))
         if len(lst) > 250:
             del lst[0: len(lst) - 250]
+        self.decal_versions[polygon] = self.decal_versions.get(polygon, 0) + 1
 
     # Spoken narrative lives ONLY where the player is safe and reading:
     # relay conversations (convscene) and wall terminals. Authored
@@ -919,16 +924,17 @@ class GameSession:
                                            self.player_polygon(), 0.80,
                                            self.tick_count)
         if self.tick_count % 15 == 0:
-            for _eid in self.enemies:
-                self.signals.emit(SignalKind.KIN,
-                                  self.sim.get_polygon(_eid), 0.011,
-                                  self.tick_count)
+            gp = self.sim.get_polygon
+            self.signals.emit_many(SignalKind.KIN,
+                                   [gp(_eid) for _eid in self.enemies],
+                                   0.011, self.tick_count)
         if self.tick_count % 60 == 0:
             _t = self.tick_count
             _pp = self.player_polygon() if self.sim.exists(self.pid) else -1
+            _tot = self.signals.totals(_t)
             self.trace.emit(FieldSample(
                 tick=_t,
-                totals={k.value: round(self.signals.total(k, _t), 4)
+                totals={k.value: round(_tot[k], 4)
                         for k in SignalKind},
                 player_polygon=_pp,
                 player_own={} if _pp < 0 else
@@ -950,15 +956,27 @@ class GameSession:
         # the mechanism behind 'late breaches deliver nothing' (run 39
         # ledger: median hub-to-field transit ~700 ticks, one warden
         # amber-frozen 109s)
-        hub_set = set(self.hub.chambers.values())
         for br in self.breaches:
             s.activate_also(br["obj"].hub_chamber, 3)
             s.activate_also(br["polygon"], 1)
+        # EVERY AWAKE UNIT keeps its chamber active — the run-48 gate
+        # blocker was the complement of run 41's: dispatched units were
+        # kept live only INSIDE the hub, so a woken unit anywhere else
+        # beyond ACTIVE_HOPS got no AI at all and froze permanently in
+        # whatever it was doing (8220-tick hunt statues, holds engaged
+        # and never re-evaluated, 12/73 dispatches undelivered). Idle
+        # units still sleep — waiting is their behavior; an ACTIVE state
+        # with no AI is not a state, it's a wax museum.
         for eid_, e_ in self.enemies.items():
-            if e_.get("dispatched") is not None:
-                ch_ = s.get_polygon(eid_)
-                if ch_ in hub_set:
-                    s.activate_also(ch_, 1)
+            # WOKEN states only: hunt/waking/call are event-driven and
+            # must never freeze mid-flight; lurk is the flicker's RESTING
+            # state (its idle) and rest sleeps like idle does — activating
+            # lurkers globally woke every ambusher's neighborhood and
+            # measurably changed session dynamics (danger-hold vector)
+            if e_.get("dispatched") is not None \
+                    or e_["state"] in ("hunt", "waking", "call") \
+                    or "_holding" in e_ or e_.get("engulf"):
+                s.activate_also(s.get_polygon(eid_), 1)
 
         if self.soft_polygons:
             rv = self.level.polygon_verts
@@ -1369,6 +1387,7 @@ class GameSession:
             tick=self.tick_count, op="connect", a_polygon=polygon,
             a_edge=mid_b, b_polygon=cor, b_edge=2, source="hole"))
         self.signals.on_topology_changed()
+        self.lighting.on_topology_changed()
         self.level.polygon_seeds.append(cor * 7919 + 13)
         self.holes -= 1
         self.hole_mark = None
@@ -1417,6 +1436,7 @@ class GameSession:
                 tick=self.tick_count, op="connect", a_polygon=a + offset,
                 a_edge=ea, b_polygon=b + offset, b_edge=eb, source="stream"))
             self.signals.on_topology_changed()
+            self.lighting.on_topology_changed()
         for a, ea, b, eb, m9 in level.connects_x:
             self.sim.connect_with_xform(a + offset, ea, b + offset, eb, m9)
         for d in level.doors:
@@ -1507,6 +1527,7 @@ class GameSession:
             a_edge=edge, b_polygon=c["corridor"], b_edge=2,
             source="cloister"))
         self.signals.on_topology_changed()
+        self.lighting.on_topology_changed()
         c["attached"] = idx
 
     def _rotate_cloister(self):
@@ -1566,49 +1587,11 @@ class GameSession:
     # directive asks for, not a new special case.
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def _segment_crosses_rect(x1, y1, x2, y2, lo_x, lo_y, hi_x, hi_y) -> bool:
-        """Liang-Barsky segment-vs-AABB clip test: True if the open segment
-        (x1,y1)-(x2,y2) actually crosses the closed rect's interior (a bare
-        touch/tangent at a single point does not count -- t0 < t1, not
-        <=). Used for sentry LOS against walk-mask terrain rects: the same
-        polygon-local `Sim.polygon_terrain` data the lighting system's own
-        shadow-casting already reads (see `lighting.terrain_shadow_polys`).
-        A polygon's own boundary is convex by construction, so terrain is the
-        only thing that can occlude two points already confirmed to share
-        a polygon -- `raycast` (used by the rail gun / portable hole) has no
-        notion of terrain at all, it only stops at polygon edges/entities."""
-        dx, dy = x2 - x1, y2 - y1
-        t0, t1 = 0.0, 1.0
-        for p, q in ((-dx, x1 - lo_x), (dx, hi_x - x1),
-                    (-dy, y1 - lo_y), (dy, hi_y - y1)):
-            if abs(p) < 1e-12:
-                if q < 0.0:
-                    return False  # parallel to this edge and outside it
-                continue
-            r = q / p
-            if p < 0.0:
-                if r > t1:
-                    return False
-                if r > t0:
-                    t0 = r
-            else:
-                if r < t0:
-                    return False
-                if r < t1:
-                    t1 = r
-        return t0 < t1
-
-    def _sentry_los_clear(self, polygon: int, x1, y1, x2, y2) -> bool:
-        for lo_x, lo_y, hi_x, hi_y in self.sim.polygon_terrain(polygon):
-            if self._segment_crosses_rect(x1, y1, x2, y2, lo_x, lo_y, hi_x, hi_y):
-                return False
-        return True
-
     def _sentry_tick(self):
         if not self.sentries:
             return
         s = self.sim
+        all_ids = list(self.enemies)   # one snapshot shared by every gun
         for tid, t in self.sentries.items():
             d = SENTRIES[t["kind"]]
             if t["cd"] > 0:
@@ -1626,33 +1609,22 @@ class GameSession:
             # terrain check stays for same-chamber shots; deeper shots
             # are raycast-confirmed by the senses (no wallhacks) and a
             # bolt that clips a far crate dies on it like any round.
-            best, best_d2 = None, d["range"] * d["range"]
             cached = t.get("target")
-            scan = [cached] if cached in self.enemies else []
-            if not scan:
-                # the find API's own cost ceiling, never a targeting law:
-                # a battlespace can cover tens of polygons (director
-                # 2026-07-28) — sight_of's raycast is the real limit
-                scan = [eid for eid in self.enemies
-                        if 0 <= s.hop_distance(
-                            polygon, s.get_polygon(eid)) <= VISION_HOPS]
-            for eid in scan:
-                hit = self.senses.sight_of(tid, eid)
-                if hit is None:
-                    continue
-                ex, ey = hit.position
-                dist2 = (ex - tx) ** 2 + (ey - ty) ** 2
-                if dist2 > best_d2:
-                    continue
-                if hit.portal_depth == 0 and \
-                        not self._sentry_los_clear(polygon, tx, ty, ex, ey):
-                    continue
-                best, best_d2 = (ex, ey), dist2
-                t["target"] = eid
-            if best is None:
+            scan = [cached] if cached in self.enemies else all_ids
+            # the whole scan is ONE engine call (Sim.sentry_acquire):
+            # nearest sighted candidate within range, same-chamber lines
+            # additionally cleared against this polygon's terrain rects —
+            # the exact selection the Python loop ran, minus ~270
+            # per-tick sightline round-trips
+            res = s.sentry_acquire(tid, scan, GROUP_ENEMY, VISION_HOPS,
+                                   d["range"])
+            if res is None:
                 t.pop("target", None)
                 t["spin"] = d["spin_up"]  # target lost: re-acquire from cold
                 continue
+            eid_, bx_, by_ = res
+            t["target"] = eid_
+            best = (bx_, by_)
             dx, dy = best[0] - tx, best[1] - ty
             dl = math.hypot(dx, dy) or 1e-6
             nx, ny = dx / dl, dy / dl
@@ -2279,6 +2251,43 @@ class GameSession:
                     # stand down into ordinary hub garrison behavior
                     e.pop("dispatched", None)
                 else:
+                    # MARCH STALL-BREAKER (run-48 gate blocker: the
+                    # march-grind statue — a marching body wedged on hub
+                    # geometry or a packed door held one bit-identical
+                    # coordinate for 6120 ticks). 5s without moving a
+                    # body-width: break the wedge with the same
+                    # mass-scaled diagonal sidestep the pressured warden
+                    # uses, and forget the door we "just left" so the
+                    # straight path is legal again. 15s: the tag has
+                    # failed — shed it and stand down to ordinary AI,
+                    # on the record.
+                    mp = e.get("_march_pos")
+                    if mp is not None and mp[0] == polygon and \
+                            (ex - mp[1]) ** 2 + (ey - mp[2]) ** 2 < 16.0:
+                        e["_march_still"] = e.get("_march_still", 0) + 1
+                    else:
+                        e["_march_still"] = 0
+                        e["_march_pos"] = (polygon, ex, ey)
+                    if e["_march_still"] > 0 and \
+                            e["_march_still"] % 300 == 0:
+                        wv_ = 1.0 if ((self.tick_count // 300) + eid) % 2 \
+                            else -1.0
+                        jm_ = d["mass"] * 210.0
+                        self._apply_impulse(
+                            eid, (-edy * wv_ * 0.7 + edx * 0.7) * jm_,
+                            (edx * wv_ * 0.7 + edy * 0.7) * jm_,
+                            source="march_unstick")
+                        e.pop("_came_from", None)
+                    if e["_march_still"] > 900:
+                        self.trace.emit(CoordEvent(
+                            tick=self.tick_count, entity_id=eid,
+                            agent_kind=kind, event="march_stall_shed",
+                            detail=f"stationary {e['_march_still']}t in "
+                                   f"{polygon}; tag dropped"))
+                        e.pop("dispatched", None)
+                        e.pop("_march_still", None)
+                        e.pop("_march_pos", None)
+                        continue
                     edge = s.next_edge(polygon, br["polygon"])
                     prt_ = s.polygon_portals(polygon)
                     n_open_ = sum(1 for p_ in prt_ if p_ is not None)
@@ -3407,7 +3416,19 @@ class GameSession:
             gx, gy = ex + (ex - px), ey + (ey - py)   # nowhere better:
             #                                           back off for now
         else:
-            return                                    # with friends: hold
+            # with friends: hold — but a tip goes STALE. The alarm
+            # carrier that reached its squad and stood there for 45s
+            # stands DOWN (the ratified pre-rewrite arc: run home, spread
+            # the alarm, then hunker) instead of statuing in hunt state
+            # forever (run-48 gate blocker: 5400-tick shrieker statues,
+            # honest ones once the activation fix stopped hiding them).
+            e["_rally_still"] = e.get("_rally_still", 0) + 1
+            if e["_rally_still"] > 45 * 60:
+                e.pop("_rally_still", None)
+                e.pop("rally_polygon", None)
+                self._set_enemy_state(eid, e, "idle")
+            return
+        e.pop("_rally_still", None)
         ddx, ddy = gx - ex, gy - ey
         dist = math.hypot(ddx, ddy) or 1e-6
         nx, ny = ddx / dist, ddy / dist
@@ -3430,7 +3451,8 @@ class GameSession:
         `_flicker_ai`'s call site in `_enemy_ai`), so a session with no
         lurkers -- every shipped campaign level today -- pays nothing."""
         if self._light_map_tick != self.tick_count:
-            self._light_map_cache = self.lighting.frame_lookup(self.sim)
+            self._light_map_cache = self.lighting.frame_lookup(
+                self.sim, self.soft_polygons)
             self._light_map_tick = self.tick_count
         return self._light_map_cache
 
@@ -3656,6 +3678,7 @@ class GameSession:
                                 b_polygon=d["b"], b_edge=d["eb"],
                                 source="door_shoot"))
                             self.signals.on_topology_changed()
+                            self.lighting.on_topology_changed()
                             self.door_edges.pop((d["a"], d["ea"]), None)
                             self.door_edges.pop((d["b"], d["eb"]), None)
                             self._snd("door_unlock", polygon, (px_, py_))
@@ -3988,6 +4011,7 @@ class GameSession:
                     a_edge=d["ea"], b_polygon=d["b"], b_edge=d["eb"],
                     source="door_unlock"))
                 self.signals.on_topology_changed()
+                self.lighting.on_topology_changed()
                 self.door_edges.pop((d["a"], d["ea"]), None)
                 self.door_edges.pop((d["b"], d["eb"]), None)
                 mx, my = self.sim.edge_midpoint(d["a"], d["ea"])
