@@ -153,6 +153,34 @@ impl Sim {
         self.terrain_blocks & (1 << (g as usize & 15)) != 0
     }
 
+    /// Additive activation: OR another region into the current active
+    /// set (breach-route chambers must simulate even when the player is
+    /// far — a dispatched unit frozen mid-transit reads as a dead AI).
+    pub fn activate_also(&mut self, center: PolygonId, hops: usize) {
+        if self.all_active {
+            return;
+        }
+        if self.active_polygons.len() != self.world.polygons.len() {
+            self.active_polygons = vec![false; self.world.polygons.len()];
+        }
+        let mut frontier = vec![center];
+        if center < self.active_polygons.len() {
+            self.active_polygons[center] = true;
+        }
+        for _ in 0..hops {
+            let mut next = Vec::new();
+            for r in frontier {
+                for p in self.world.polygons[r].portals.iter().flatten() {
+                    if !self.active_polygons[p.target_polygon] {
+                        self.active_polygons[p.target_polygon] = true;
+                        next.push(p.target_polygon);
+                    }
+                }
+            }
+            frontier = next;
+        }
+    }
+
     pub fn set_active_within(&mut self, center: PolygonId, hops: usize) {
         self.all_active = false;
         self.active_polygons = vec![false; self.world.polygons.len()];
@@ -258,6 +286,21 @@ impl Sim {
 
     fn polygon_active(&self, r: PolygonId) -> bool {
         self.all_active || self.active_polygons.get(r).copied().unwrap_or(false)
+    }
+
+    /// Every currently active polygon id — the canonical set built by
+    /// set_active_within plus every activate_also addition. Game-side
+    /// systems that gate on activity must consume this, never rebuild
+    /// their own region.
+    pub fn active_polygon_ids(&self) -> Vec<PolygonId> {
+        if self.all_active {
+            return (0..self.world.polygons.len()).collect();
+        }
+        self.active_polygons
+            .iter()
+            .enumerate()
+            .filter_map(|(i, &a)| if a { Some(i) } else { None })
+            .collect()
     }
 
     pub fn step(&mut self, dt: f64) -> Vec<Event> {

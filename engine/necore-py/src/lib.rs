@@ -379,9 +379,20 @@ impl Sim {
         self.sim.set_active_within(polygon, hops);
         Ok(())
     }
+    fn activate_also(&mut self, polygon: usize, hops: usize) -> PyResult<()> {
+        if polygon >= self.sim.world.polygons.len() {
+            return Err(no_polygon(polygon));
+        }
+        self.sim.activate_also(polygon, hops);
+        Ok(())
+    }
 
     fn set_all_active(&mut self) {
         self.sim.all_active = true;
+    }
+
+    fn active_polygons(&self) -> Vec<usize> {
+        self.sim.active_polygon_ids()
     }
 
     // --- Simulation ---------------------------------------------------
