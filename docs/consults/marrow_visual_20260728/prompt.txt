@@ -1,0 +1,1102 @@
+EXTERNAL CONSULT: PERIHELION — a VISUAL PASS on the marrow (the Adversary hub cathedral and the corruption gradient into it).
+Rendered frames from the shipped build are attached as images; captions identify each. The full ask is the final section.
+
+
+==============================================================================
+0. PRODUCT CONTEXT
+==============================================================================
+PERIHELION is a non-Euclidean, Teleglitch-like top-down survival shooter with a
+strict Catholic register. The map is not a grid: it is a set of convex polygons
+("chambers") joined by two-way portals in continuous space, so space folds --
+a chamber can be adjacent to a chamber that is nowhere near it in world
+coordinates, and everything (sight, sound, pathing, the coordination signals
+described below) travels the PORTAL GRAPH, never euclidean distance.
+
+The player is an outnumbered, undergunned Commando. Every enemy kind is faster,
+heavier, and turns worse than he does, so escape is never outrunning -- it is
+fighting backward while giving ground. The intended loop is: prepare the
+battlespace (plant pods that fabricate assembly kits, carry ONE kit at a time
+on your back at reduced speed, assemble sentries and repair stations in situ),
+bite off what you can chew, and fall back when you cannot -- with the fallback
+itself fought for, never free. Death does not reset the world: you revive at a
+seed pod with the world exactly as you left it, and what you lose is the walk
+back.
+
+The enemy has two lanes. The corrupted-Testator agents (mite, husk, spitter,
+brute, warden, shrieker, flicker) only fight. The ADVERSARY agents (classes
+"vagrant" and "lacuna", both still to be designed) are the scouts: only they
+can summon reinforcements, and their population is finite and non-renewing.
+
+
+==============================================================================
+1. THE DIRECTOR'S BRIEF (authoritative)
+==============================================================================
+The director explored the marrow on 2026-07-28 and ruled, verbatim:
+
+    "its _structure_ is pretty good; it feels like invading an alien hive,
+    but it doesn't _look_ like it. Remember polygons are just that -
+    individual polygons. This engine is not constrained to square rooms by
+    any means. It should transition to the otherworld room type as you get
+    deeper in."
+
+Facts on the ground backing that reading:
+  - hub.py builds all 24 hub chambers with b.rect(...) — every apse,
+    court, and transept is an axis-aligned rectangle.
+  - The hub chambers use mundane room kinds; gauntlet4's census is
+    storage/corridor/hall/chapel/etc. with ZERO 'otherworld' chambers.
+    The alienness currently comes ONLY from the light plan (violet/brass)
+    and the organ part bodies.
+  - The renderer has a fully working 'otherworld' room kind: self-luminous
+    cold floor (OW_FLOOR), an engine-composed inverse darkness field
+    (mark_otherworld / compose step 6), its own prop generator
+    (_props_otherworld, which takes a `descent` 0..1 parameter), used
+    today only by late campaign levels (l07-l10).
+  - LevelBuilder.polygon(verts) accepts arbitrary convex polygons
+    (y-down visual-CCW winding). connect() glues any two edges; the
+    scale-1 law (connect_equal: carve both sides the same width) is a
+    construction rule, not a shape constraint.
+
+
+==============================================================================
+2. THE BAYESCRAFT FRAMEWORK (verbatim — reason this way, especially about your own confidence)
+==============================================================================
+# Bayescraft
+
+Structure thinking as Bayesian updates. Do the math — in your head, in odds form. Don't gesture at it.
+
+## The default structure
+
+For any non-trivial decision or diagnosis:
+
+    H₁, H₂, H₃ = the live hypotheses (at least two)
+    prior odds ← base rates, Occam, reference class
+    for each observation E:
+        LR_i = P(E|H_i) / P(E|¬H_i)
+        update
+    act on the posterior, not the initial guess
+
+If you can't name a second hypothesis, you haven't started. If you can't name an observation that would move the odds, you aren't investigating. If posterior = prior, you learned nothing — say so.
+
+## Doing it
+
+**Odds form, in your head.** 1:1, 1:9, 9:1, 1:99. Log-odds when chaining: +10 dB = ×10, +20 = ×100, −10 = ×1/10. A 1% prior (−20 dB) needs +27 dB to reach ~83%.
+
+**Write the three numbers.** Prior, P(E|H), P(E|¬H). Skip the denominator and you will overweight the evidence. Evidence strength lives there.
+
+**Example.** Test fails. H = "last commit caused it." Prior 3:1 (touched this area; suite flakes). P(fail|H) ≈ 0.95, P(fail|¬H) ≈ 0.1. LR = 9.5. Posterior ≈ 28:1 (~97%). Revert.
+
+Swap: *unrelated* test fails. P(fail|H) ≈ 0.05, P(fail|¬H) ≈ 0.1. LR = 0.5. Posterior 1.5:1 (~60%). Keep looking.
+
+## Strong evidence is a small denominator
+
+`P(E|H)` caps at 1; `P(E|¬H)` goes to zero. Disconfirmation is unbounded; confirmation is not. **Evidence is strong when the observation would be rare under every alternative, not when it's likely under your favorite.** Prefer observations that discriminate: log on every path is zero bits; log on only H's path is high LR.
+
+## Conservation of expected evidence
+
+Expected posterior = prior. **If every possible outcome would confirm H, none does.** Before running a test, name the result that would *lower* your credence and by how much. No such result → not a test.
+
+Absence is evidence of absence *when you predicted presence*. No log at the expected call site → that path didn't execute. Exit 0 when you expected failure → your failure model is wrong.
+
+## Priors dominate
+
+10⁻⁶ prior needs ~60 dB to become likely. **Most debugging failures are prior failures** — privileging an exotic H (rare race, compiler bug) while base rates scream boring (typo, stale build, wrong config, cache, version).
+
+**Privileging the hypothesis.** The first H to mind is the first you thought of, not the most probable. If H was pointed at without evidence *already in hand* singling it out, the attention it gets is not evidence. "What if cosmic ray bit-flip?" — location cost unpaid. Enumerate ≥2 before committing.
+
+## Never 0 or 1
+
+One surprise zeros your score forever. Reserve mass for "I'm missing something."
+
+## Corrupted inputs
+
+The math is correct; human inputs are not.
+
+- **Motivated asymmetry.** Welcome H: "does E permit?" Unwelcome H: "does E compel?" Same evidence, different likelihoods. Your code gets charitable P(E|H); the library gets skeptical. Catch this by writing both numbers before committing to either.
+- **Motivated stopping / continuing.** Stopping when symptom disappears while P(bug remains | symptom gone) is still high. Or demanding expensive new evidence when cheap evidence already points somewhere you don't want to go.
+- **Fake explanation.** "Flaky," "race condition," "memory issue," "always DNS" — P(E|H) ≈ 1 for every E. Fits everything, forbids nothing, zero bits. What does this *specifically* predict? What would falsify it?
+- **Semantic stopsign.** Category used as cause. "Race condition" names a class, not a mechanism. "Flaky" = "no model yet."
+- **Pattern-match without model.** A fix that looks right from prior bugs is a cached answer, not a model. If you can't predict what breaks when the idiom is absent, you don't have the model.
+- **Mind projection.** "This obviously can't be null" is a fact about your model, not the runtime. Your surprise is your problem.
+- **Fully general counterargument.** A rebuttal that dismisses a claim and its opposite carries no information.
+- **Reversed stupidity.** Old code failing does not validate new code that merely compiles.
+- **The bottom line.** If the conclusion was written before the investigation, arguments above it don't move the correlation with reality. **Can you predict your conclusion before finishing?** If yes, you're performing.
+
+## Techniques
+
+- **Notice confusion.** Data straining against model → model is probably wrong. *Either my model is wrong or this observation is wrong.* "A little forced" is the signal. Do not explain it away.
+- **Taboo the word.** When a term is doing the work, ban it; restate as observable behavior. "Caching wrong" → "response X at T returns V when the store holds W."
+- **Third alternative.** "Library bug or my bug" misses env, config, version, build artifact, stale cache, data shape, ordering, clock, encoding, permissions. 30s on C before A or B.
+- **Hold off on fixes.** The solution generated in five seconds will be defended against later evidence.
+- **Reproduce first.** You cannot estimate P(E|H) for a bug you can't trigger. Intermittent = a controlling variable isn't in your model. Find it before theorizing.
+- **Line of retreat.** Before dismissing "library broken," "compiler wrong," "hardware faulty" — plan what you'd do if true. Sometimes it is.
+- **Update at the frame.** Grudging local patches preserving a broken design → you should have thrown the design out one patch ago.
+- **Litany of Tarski.** If the bug is X, I want to believe X. If not, I want to believe not. Attachment is not evidence.
+
+
+
+==============================================================================
+3. ART DIRECTION (ARTSTYLE_DIRECTION.md, verbatim)
+==============================================================================
+# ARTSTYLE DIRECTION (director's ruling, 2026-07-10)
+
+The problem was never the vector graphics. The problem is LARPing as an
+Atari game. Teleglitch was the GAMEPLAY reference, never the visual one;
+we do not have its constraints and must stop cosplaying them.
+
+## The fiction that licenses the style
+
+What the player sees is the COMMANDO'S INTERNAL REPRESENTATION of his
+sensor data. Entities stay vector: enemies are highly stylized target
+traces because that is precisely what they are (the alien enemies may
+not even resolve clearly in visible light). The environments, however,
+are mapped surfaces the sensors know in detail -- they carry the
+fidelity.
+
+## The two levers
+
+1. TEXTURES (lever one). Render at full window resolution with the same
+   vector entities; raise environment fidelity with bespoke generated
+   textures through the existing image pipeline (generation + in-context
+   Gemini verification -- the part of our capability that is genuinely
+   excellent). Existing procedural prims/decals are base truth: feed
+   them as priors ("render this texture at 4x the resolution"); simple
+   line-art props are fine as-is or waifu2x-upscaled.
+
+2. LIGHTING (lever two, biggest after textures). visible_set from any
+   apex IS a shadowcasting solve -- the engine almost has real lighting
+   already. Light sources (terminals, seeds, flashes, the breach) cast
+   through portals, including non-Euclidean ones. Phase two, after
+   textures land.
+
+## Measured projection (2026-07-10, this repo)
+
+- 1,815 polygons total (campaign + vigil). Median polygon at native res is
+  273x273 px; 462 polygons fit 256^2, 1,266 fit 512^2, 87 need 1024^2.
+- Bespoke texture for EVERY polygon: ~585 MB PNG / ~152 MB WebP download.
+- Generation cost ~$0.066/polygon => ~$120 total (+~30% art-direction
+  margin). Textures are cheap; scope is not the constraint.
+
+## Sequencing
+
+1. Native-resolution rendering path (prerequisite; also fixes every UI,
+   the mind map first among them -- the mind map becomes a real graph
+   at window res: nodes, prereq edges, regions as territory).
+2. PILOT: bespoke textures for a couple of selected sections from EACH
+   polygon style; judge in-context before committing the fleet.
+3. Finalize level design; then generate the full station.
+4. Lighting.
+
+Entities/HUD stay in the sensor-trace language throughout.
+
+## Full cost projection (measured 2026-07-10)
+
+Census: 1,815 polygons; buckets 462x256^2 / 1,266x512^2 / 87x1024^2 at
+native res (3 px/world-unit).
+
+Download (bespoke texture per polygon):
+  1x density: ~585 MB PNG / ~152 MB WebP  <- recommended start
+  2x density: ~1.9 GB PNG / ~475 MB WebP
+RAM: all-resident decoded ~1.8 GB -> textures stream per chunk
+  (~170 MB resident, ~350 MB peak with neighbor warm). Plumbing item.
+
+Generation (anchor: measured $0.044/call blended, this repo's pipeline):
+  Lean   (1 cand, spot verify)        ~$0.04/polygon  ~$75  total
+  Standard (2 cand + verify + rework) ~$0.10/polygon  ~$185 total
+  Empirical worst (3.8 calls/asset)   ~$0.17/polygon  ~$305 total
+Wall-clock at standard: ~8,000 calls, 1-2 h at 8-way parallel.
+
+Pilot: 2 sections x 13 polygon styles ~= 75 polygons ~= $8.
+Constraint ranking: art direction quality > native-res render path >>
+dollars or megabytes (both trivial at any tier).
+
+
+
+==============================================================================
+4. THE VISUAL CONSTITUTION (TESTATOR_DESIGN_LANGUAGE.md, verbatim — the four authorship lanes; the walls-breathe and handcraft laws bind this pass)
+==============================================================================
+# TESTATOR DESIGN LANGUAGE (director-ratified, 2026-07-10)
+
+Director's formulation, verbatim law: MIRIAD = machine efficiency, vector
+art, industrial signage. Invaders = total chaos, NOTHING EVER STATIC — the
+walls breathe. Testator = machines weaving homage to the living things they
+could not save into every artifact. "They gave up, while the works of Man
+refuse to" — the Testators accepted extinction and spent it on an elegy;
+the human lineage (MIRIAD, the outpost, the Commando) is defined by
+refusal. The station is the TESTAMENT — built to save *someone*, and
+corrupted (§4.3: the Adversary hijacked the gift).
+
+Director's framing: the Testators are neither human-derived machine (that's
+MIRIAD's lane) nor truly extradimensional (that's the invaders' lane). They
+are a third thing: machine successors of organic creators they revered, who
+fought geometry-dissolving invaders for ages, lost slowly, and spent their
+extinction writing a will to strangers. The design language has to say all
+of that without a word of text.
+
+## The four authorship lanes (visual constitution)
+
+| lane | who | geometry | repetition | wear |
+|---|---|---|---|---|
+| MIRIAD | human-derived utility | right angles, grids | modular, identical parts | use-wear: scuffs, grime, patched repairs — REFUSAL. Everything visibly kept alive past its design life: jury-rigs, mismatched replacement parts, hand-painted supplements to printed signage. The works of Man refuse to die, and the wear language says so. |
+| TESTATOR | machine heirs of the organic | curves, radial, folded self-similarity | NEVER repeats, always exact | time-wear: worn smooth, re-cut, curated decay |
+| SEED | the Commando's growth | organic tendril | branching | fresh, wet, spreading (exists: GROWTH_FILL/TENDRIL) |
+| ADVERSARY | the unfolders | inconsistency itself | anti-pattern | not wear — dissolution. NOTHING EVER STATIC: invader-touched surfaces must move — the walls breathe. |
+
+MECHANICAL CONSEQUENCE (new requirement from the breathing-walls law):
+static textures are sufficient for MIRIAD and Testator lanes but NOT for
+Adversary-touched spaces (otherworld, late corruption). Those need a
+time-varying surface treatment — candidates: per-frame low-amplitude UV
+warp on OP_TEX_FILL's inverse transform (cheap, in-raster), slow palette /
+darkness-field drift (partly exists via the otherworld inverse-field
+compositing), or a two-frame texture crossfade. Phase with lighting, not
+with the pilot; the pilot's static otherworld textures are placeholders
+for judging fidelity only.
+
+## Core principles
+
+1. ONE-OFF PRECISION, BECAUSE EVERYTHING IS HANDCRAFT (director's law:
+   the Testators have no industrial society — perhaps their makers did
+   not either. Everything is a handcraft, INCLUDING THEMSELVES). No
+   assembly lines ever existed in their lineage: each Testator was a
+   made, individual thing, and each thing they made was made once, by a
+   maker, with a maker's idiom. Humans standardize because manufacture
+   is expensive; MIRIAD inherits that (every bracket identical). The
+   Testator signature is the opposite: perfect execution, zero repetition,
+   and a faint individual "hand" — two artifacts doing the same job solve
+   it differently, the way two master smiths would. Consequence for the
+   station's autonomous defenses (enemy class 2), elevated to canon by
+   the director: the corrupted turrets and defenders ARE TESTATORS — the
+   lowest caste, sub-sentient machines of the same handcrafted lineage.
+   This answers the mystery table's "where did they go": they've been
+   here all along; the scavenged equipment and the enemies you fight are
+   Testators. Each unit is a handcrafted individual, not a production
+   run — one-of-a-kind within its role, a person-shaped absence when
+   destroyed. Visual rule: class-2 enemies and scavenged Testator
+   equipment carry the full Testator language (one-off precision,
+   phyllotactic ornament, bone/verdigris palette) UNDER their corruption
+   — corruption is a defacement of the elegy, never a replacement of it;
+   they must not read as invader chaos or MIRIAD product. The weapons
+   the player scavenges are the same caste: wielding one is wielding a
+   member of the tomb's people — material for the docents and the faith
+   axis.
+   Two Testator rings are never the same two radii; the spacing is never
+   uniform; and nothing about it reads as damage or noise — it reads as
+   a decision made freshly every time. (The invaders, by contrast, have no
+   consistency AT ALL; the Testator language is individually-consistent,
+   globally-unrepeating. That's the exact middle of the director's "neither
+   human nor extradimensional.")
+
+2. PHYLLOTAXIS AS MEMORIAL. They revered their organic creators. Their
+   ornament quotes biology's mathematics — golden-angle (137.5°) radial
+   placement, Fibonacci-gapped ring spacing, spiral growth laws — executed
+   in dead-perfect machined alloy. Nature's non-repeating patterns, drawn
+   by something that no longer had a body. This is the single most
+   implementable rule: wherever MIRIAD would space things evenly, the
+   Testators space by golden angle / golden-ratio gaps. Reads instantly as
+   deliberate-but-not-human, is one line of code, and IS the reverence.
+
+3. HOSPITALITY COMPUTED, NOT REMEMBERED. The station is a classpolygon with
+   good chairs, built by minds that inferred what embodied visitors need
+   rather than remembering it. So the furniture is right but subtly
+   over-solved: seats face sight lines a human architect wouldn't have
+   privileged, clearances are exactly sufficient everywhere (no habit-
+   driven slack), amenities appear precisely where a tired creature would
+   want one — uncanny thoughtfulness, never wrongness. Comfort designed
+   from first principles.
+
+4. THE DEPTH GRADIENT = ABANDONING EMBODIMENT. Canon: their final
+   generation left bodies behind, and the architecture tracks that drift.
+   Shallow Testator spaces (chapel): curves + furniture + floors — still
+   for creatures. The true core: the furniture thins out, ornament becomes
+   pure fold-notation, floors become nominal. Implement as a lerp on the
+   existing descent parameter: furniture density down, geometric
+   recursion up.
+
+5. FOLD-NOTATION AS TEXT. MIRIAD writes linear labels and barcodes. The
+   Testators write in nested self-similar geometry: a polygon containing a
+   smaller rotated copy of itself, arcs that reference other arcs — their
+   inscriptions are diagrams of spatial connection, and (pedagogy!) the
+   diagrams are lessons: the decoration near a non-Euclidean join quietly
+   diagrams the join. Attentive players can learn to read the polygon.
+
+6. TIME-WEAR, CURATED. 1.1 million years, but the station maintains
+   itself. Testator surfaces are not grimy (MIRIAD's lane) — they are worn
+   the way a cathedral threshold is worn: edges rounded by eons of
+   cleaning cycles, engravings re-cut so many times they've softened,
+   deliberate patina on everything non-critical (a tomb is kept AS a
+   tomb), flawless finish on everything mission-critical (the armory
+   gates). Wear is where the station CHOSE not to repair.
+
+## Palette
+
+MIRIAD owns cool structural grays + amber hazard. Adversary owns the
+inverted/cold sensor look (otherworld already has OW_FLOOR). Seed owns
+red-organic. Testator accent: aged noble alloy — deep bronze-verdigris
+range with a pale bone tone for the memorial/inscription elements
+(bone: the creators they revered). No pure saturated hues; everything
+reads as one material that has been one material for a megayear.
+
+## Mechanical rules for the prop pass (DECAL_DIEGESIS_AUDIT follow-up)
+
+- Replace uniform radial spacing with golden-angle spacing in all
+  Testator-attributed generators (true core reactor, chapel dais/rings).
+- Ring radii sequences: golden-ratio gaps, not linear.
+- Line weight: MIRIAD 1px uniform; Testator variable 1-3px, arcs > lines.
+- Chapel = hybrid per audit: Testator floor geometry (irregular ring,
+  off-grid dais, bone-tone inlay) under visibly improvised MIRIAD
+  furniture in plain PROP_COLOR (the outpost dragged pews into a polygon
+  that awed them).
+- Split _props_core: l07 staff-mind closet gets MIRIAD server language;
+  l10 reactor keeps the mandala but de-regularized per the above.
+- Texture prompts for Testator kinds inherit all of this verbatim.
+
+
+
+==============================================================================
+5. THE RATIFIED SPEC (DESIGN_7_25.md, verbatim)
+==============================================================================
+# IMPLEMENTATION CORRECTIONS (architectural — re-apply on the reverted base)
+
+- **Pygame-free renderer.** Delete pygame from the render path entirely — no `import pygame`, no `pygame.draw` in `render.py`. The reverted base restores the pygame renderer; this is re-apply item #1, preserved intact at commit `203da395` (cherry-pick it first).
+- **spotter ↔ hub decoupling.** A spotter must not know the hub exists or read its state. It calls on its own rhythm; the marrow independently decides whether anything comes — "if it calls and nothing is available, nothing comes." No spotter→hub coupling.
+- **Build a "find" support API — shared sense infrastructure for agents.** Agents are allowed to *see* things; chemotaxis was never meant to be their only sense. Perception ("what can I see from here?", "is there an active portal here?") goes through this shared infrastructure — senses, not tight coupling to other systems' internals.
+- **The marrow / hub is built at initialization and is never None; every world has one.**
+- **Use the existing systems; extend them if needed — do NOT build a parallel pathway** for behavior an existing system already covers.
+- **Don't tightly couple systems.** Systems collaborate through the shared substrate (the signal fields), not by reaching into each other's internals.
+- **Logging/instrumentation must not be coupled to the audio system**
+- **No feature flags, no "off by default."** Behaviors ship hardwired and always-on; this is an *unreleased game*, any "legacy" or "fallback" or "compatibility" or "lazy loading" are absurd overcomplications. Branches are the enemy, eliminate them if possible.
+- **One canonical version of any file.** Delete redundant/stale copies (git holds history) — duplicates are epistemic landmines. Canonical gauntlet = `gauntlet4.json`.
+- **Extra gamemodes run their own initialization** and stay out of the core `GameSession`; don't complicate the single-world build for them (e.g. the Vigil holdout mode — keep as a shelved idea).
+- **The game launches simply** — no tracking twenty flags to start it.
+
+---
+
+# (1) DIRECTOR-REQUESTED DESIGN & INTENT
+
+## Combat canon — the approved 07-19 base + post-FC directives
+
+The reverted base (`d85d3765`, 07-19) is what the director played to a **full clear** (recorded in `out/director_fc/`, seed 2200, ~5 tries; ~67% of play at zero aggro — verified-silence pacing, hp held 95+ by avoidance). Everything else is built **on top of** this combat canon from his post-FC debrief:
+
+- **The intended loop.** You are **outnumbered and undergunned**, so you **prepare the battlespace** — plant seeds (a seed gives a full heal), turrets, etc. — and when you bite off more than you can chew you **fall back**. Falling back must be **fought for**, not free.
+- **Enemy kinematics.** Every kind is **significantly faster than the un-upgraded Commando, heavier, with a worse turning circle.** Escape = **fight them backward**, not outrun them; kiting to turrets is a tool, not the universal optimum. Rebalance trivial-but-hard-hitting enemies via kinematics, **not damage inflation**.
+- **All weapons push** enemies back (universal knockback — the lightning cannon's push generalized). Knockback is applied as **force through the physics (mass-scaled impulse), never a direct velocity write.** Holding a single light enemy off you this way is intended — 1v1s are easy, just kill it; you can't shoot the whole horde at once. Fully-charged **Tau** detonates on impact with a small AoE + push.
+- **Warden = a normal high-tier enemy.** hp **168** (dies to 2 charged Tau or 4 rail shots — charged Tau max damage rises 64 → **84** so this arithmetic holds; rail stays 42), **no brood/adds, no enrage** — not "invulnerable."
+- **Death does NOT reset the world (System Shock rule).** With a backup chassis you revive at the seed and the world stays as you left it — you lose progress by **losing physical progress** (the walk back), not by a reset.
+- **Portable Hole belongs in the loop** — connect a distant boss chamber straight back to the saferoom turret (an immersive-sim moment); in the full loadout. Its aperture passes only small bodies, so the **hub guardian roster must include hole-capable pursuers (mite, shrieker)** and shelling through a hole mouth draws pursuit through it — a hole is a lifeline, never a consequence-free firing slit.
+- **Lighting:** muzzle flash through the real lighting system; directional lights; the player flashlight reaches most of the screen, add directional lights to the lighting system.
+- **Gland & scrap driver** were "entirely worthless" — remove.
+
+## 1. Reinforcements — the marrow hub, callers, breaches (the heart)
+
+### The breach
+- A breach is a **hole — an absence of material.** It cannot be "killed." Do not model the breach mouth as a destructible entity.
+- A breach is a **real two-way portal** cut into the wall of an ordinary existing chamber, linking to the off-map hub chamber. Reinforcement agents surge out and climb toward the intruder.
+- **Multiple simultaneous breaches** are allowed and split enemies evenly.
+- A breach **closes on its own if uncrossed for ~45 seconds.** A crossing is **anything crossing the line** — any entity or projectile, either direction. Pinning a breach open this way is bounded by the reinforcement economy, not the timer: the breach also closes **when the marrow's reserve runs out**, and **when it is no longer useful to the agents the hub spawns.**
+- Enemies must **physically enter the level** through the breach — no log-jamming in the opening. DO NOT add any special casing around entry; simply ensure the breach is wide enough and does not end up with a scaling factor on its connection to the target room, enemies will simply walk through it on their normal AI.
+- **How the scaling factor is actually avoided (verified against the engine 07-25).** `connect()` *derives* a uniform scale `s = la/lb` from the two glued edge lengths — scale is not an optional field to leave unset, it is computed from any mismatch. Measured: two 96-unit edges give `s = 1.000000` exactly; 96 against 52 gives `s = 1.846`, which resizes bodies as they cross. **The guard is therefore a construction rule, not a discipline:** carve both sides with `carve_door(..., width=W)` at the *same* W (it cuts a sub-edge of exactly W), then assert the resulting transform's scale is 1 within tolerance at breach construction. This is the bug that made a previous build's reinforcements unable to fit through the gate.
+- Being a two-way door, an intruder who noticed a breach can **cross it back toward the source** before it seals. 
+
+### Respawn Considerations
+If the player enters it, unless the player finds a trick to keep it open (shooting through the portal counts as a crossing) it will seal behind him; this is okay, the player is expected to either plan ahead and bring a way back for an intentional expedition, and a player that entered out of curiousity can simply self-destruct (change the "restart level" command in the ESC menu to Self-Destruct - Revive at Pod) - an emergent built-in tutorial that "you need to bring a way back."
+
+### The spotter
+- A breach is **called in by an agent.** The hub can attach itself recieverless, but it needs to know _where_, so the location must either be given by an Adversary-lane spotter, or by causing so much disturbance that his location is obvious. 
+- Only **Adversary-lane agents** (vagrant, lacuna) can call. Corrupted-Testator agents (mite, husk, spitter, brute, warden, shrieker, flicker, reanimated bodies) **cannot call** — they only fight.
+- **Every Adversary-class enemy** has call-for-reinforcements behavior — not one special unit.
+- The spotter **communicates/transmits a position** to the hub; it does **not build the portal itself.** The hub reaches through and opens the breach at the transmitted spot. *(The spotter is architecturally decoupled from the hub — see IMPLEMENTATION CORRECTIONS.)*
+- **Selection rule (one unit, weakest-in-room):** if there is no active portal and no ally in the room already tasked with calling, then: *if I am not the weakest class of Adversary in the room, keep fighting; else make summoning reinforcements my top priority.* Stronger units keep fighting. *(These preconditions are the agent's own perception via the find/senses API — spotters and breaches know nothing about each other or about the hub.)*
+- **Summoning is normal combat behavior** The tasked weakest unit places the call **as close to the player as is safe:** it retreats off the hot zone, advances only through rooms below the danger threshold, stops **at** that threshold, and plants the call there — keeping itself out of the player's reach.
+- The spotter **deliberately places exits well clear of the front line** specifically to avoid being interrupted by the player.
+- Non-combat spotting follows a state machine: **Infiltrate** (roam toward ground behind the intruder's line, steering away from player-scented chambers via the shared field) → **Transmit** (hold position deep enough behind the line and off player-y ground, **stationary and fully exposed for the whole broadcast** — this is the visible tell) → **Pour** (hub opens the breach; reinforcements surge and climb toward the intruder).
+- **The spotter is the vulnerability.** You cannot shoot a hole in the wall, but you can catch the transmitting agent mid-broadcast to stop the breach opening, or kill it afterward to deny the next call. Only one agent transmits at a time and only so many breaches open at once, so the reinforcement rate is bounded.
+
+### spotter garrison expansion (07-25)
+This is a restock/reinforcement system; just clearing an area once _doesn't clear it_ - this is a war, the enemy does not simply let you have ground you took but didn't hold. Terrain _can_ be held - but it must be cordoned off with turrets preventing any spotters from entering and the player must take care not to have a potential spotter slip past him, which some types deliberately try.
+
+- After planting its **first** breach, the spotter **pushes further behind** the player, **descending the chemotaxis gradients** to find safe spots where it plants **garrisons**.
+- After a safe garrison, it **climbs the danger field to a peak** (refusing to enter high-danger rooms), plants a breach there to **raid the player's base**, then switches back to descending for the next safe spot.
+- **A garrison is emergent, not an object.** Some agents patrol; some fall in behind a leader (e.g. a Warden) who directs them to fortify a room he chooses — an emergent "boss room." Leader AI comes later: for now leaders have no idea they have followers, and whatever room the leader happens to be in emerges as the base.
+- Add a **friendly-scent (kin) chemotaxis field** so callers climb **away** from other friendlies — garrisons spread out instead of clustering.
+
+
+### The marrow / hub economy
+- The hub is a **safe chamber kept off the reachable map** — an entire extremely difficult game area holding the **CORE** (a supply organ) and a **ring of guardian agents.** It is the most heavily defended place in the world. Lore: **the hub is a Testator construction the Adversary corrupted to its own ends** — the Adversary sees the Testators as a *weapon*; Adversaries themselves are *personnel*. **The hub is an entire game area unto itself — to be designed.**
+- The **marrow holds a finite reserve that regenerates slowly.** When the reserve is **exhausted it stops opening portals.**
+- The brief window **between reserve exhaustion and the portal closing** is the player's chance to **invade and destroy the core.** Destroying the core drives the reserve **deep negative**, forcing a resupply from the Adversary's home universe — the reinforcement layer goes offline for the duration.
+- **A core kill is a status effect the player applies to the enemy.** The reinforcement layer goes down for **~90 seconds** (placeholder: `reserve = -32` against 0.35/s resupply — see §1b; the real value depends on what a late-game player needs the hub down *for*, which we can't know yet), then the core comes back as soon as its reserve climbs above zero. Use it tactically — cut off a fortified area's reinforcements before charging it. Until the core is destroyed, breaches keep being called in.
+- **The core is an organ, not a single static NPC** — an entire system of agents, to be designed. It **regenerates HP while alive**, so it cannot be chipped down across deaths unless the player has established a real foothold (e.g. fought a pod into place nearby).
+- The hub is **reachable ONLY through a live breach, and VERY hard**, gated on the player **noticing** what's happening (the calling happens out of sight). Beating it is an **organic reward for paying careful attention**, not a signposted objective.
+- **The core generates all kinds of enemies, including Shriekers** — but it **never spawns the finite Adversary spotter units** themselves. The Adversaries are a finite population. **Exterminating that population permanently disables called breaches — intended**, and in practice near-unachievable because the reinforcement stream keeps protecting them; containment, not extermination, is the practical strategy. (Adversary reinforcements from the home universe are a possible later addition.)
+
+### Anti-turtle / direct connection (flank breach)
+- If a chamber's Distress reaches an extreme level, perhaps twice the peak of what it ever becomes during aggressive play, the Adversaries on the other side **notice and open a direct, spotterless connection** on the flank, no spotter needed.
+- **The direct-connection threshold must be extreme.** It is a **rare, near-irresistible punishment for extreme turtling/farming**, NOT part of ordinary play. It is *also* intended as a way for an advanced player to deliberately cause a breach at a time and location he controls - bait the enemy in to attacking an impenetrable fortress, burst out and kill your way in to the core.
+- **Aggressive perfect play avoids reinforcements entirely:** kill every Adversary on sight, leave no stragglers, don't turtle → no combat reinforcements. This does _not_ avoid Adversaries simply avoiding the combat zone entirely, routing around you and reclaiming ground you didn't hold, though. ("Perfect" means **perfect** — a limit case, not humanly achievable.)
+
+### Containment reward
+- **Fully clearing and cordoning an area clears it permanently**, as long as nothing slips through the cordon. Cleared ground behind the front **re-arms unless truly HELD**: a cordon of held crossings with nothing slipping through starves the layer (a spotter can't reach quiet ground behind you; an uncrossed breach seals itself). Careful containment is genuinely rewarded.
+
+### Intent for the moment-to-moment fight
+- For most of a run, **the reinforcement stream itself is the fight.** Standing and fighting reinforcements as they arrive is usually a better use of ammo and time than hunting the source.
+- If the Adversary force keeps fighting, it should **eventually be able to overwhelm and win.** Combat must be able to resolve in the enemy's favor. A competent player will intentionally manage how much aggro he's drawing, slow down to avoid getting overwhelmed, retreat to a firebase and fight out the reserves if he accidentally bites off more than he can chew. A player who is too timid to engage the enemy without backup will overheat the area and trigger the direct connection, a player who recklessly charges forward will be surrounded, mobility-cancelled, and destroyed.
+
+---
+
+## 1b. The ratified marrow shape (07-25)
+
+*Everything below is the implementation shape settled after two research waves and two external consults. **Numbers here are first-pass values chosen so the reasoning is visible, not tuning results** — every one of them is expected to move once measured. What must NOT drift is the structure: the economy is closed-loop and blind to the player, the tells are generated by the same arithmetic they report on, and nothing special-cases the breach.*
+
+### Reserve economy — closed-loop and blind
+
+The marrow's regeneration is driven by **how empty its own depot is**, never by how the fight is going:
+
+```
+reserve_cap = 120 dispatch-units
+regen       = 0.10/s * (1 + 2.5 * clamp(1 - reserve/reserve_cap, 0, 1))
+            → ~0.10/s when full, ~0.35/s when empty
+```
+
+This **never reads Distress, Noise, kill counts, player health, or difficulty** — the decoupling is structural, not a rule someone has to remember. Per-class dispatch cost: mite 1, husk 2, spitter 2, shrieker 3, flicker 3, brute 4, warden 8. Against a ~2.2s dispatch interval, a full reserve drains in roughly **110–150 seconds** of sustained pour — long enough that fighting the stream is a real encounter, short enough that a deliberate firebase stand can actually exhaust it.
+
+**When the next unit is unaffordable, the marrow waits for it — it never substitutes something cheaper.** This single rule is what makes the reserve legible without a HUD: the gap before a pending Warden stretches to ~23 seconds at low reserve, so *the stutter at the gate is the reserve gauge*, and it cannot lie without the economy itself lying.
+
+### Core kill — a ~90 second blackout, derived not timed
+
+Destroying all three Source Knots sets `reserve = -32`, which at the 0.35/s home-resupply rate returns to zero in **~90 seconds**. There is no blackout countdown anywhere; the outage *is* the debt being repaid. **90s is an explicit placeholder** — the right value depends on how long a late-game player actually needs the hub down for, which we won't know until there is late-game play. It is one scalar; retune it then, and never replace it with a timer.
+
+During the blackout: dispatch stops, existing breaches get a 10-second exhaustion grace then collapse regardless of crossings, and no new portal opens. **Spotters keep transmitting, because they do not know anything happened** — a dry call is consumed and produces nothing. At recovery the CORE reforms minimal (one Source, one Anchor, three Buds, one Caretaker) and the ordinary governor resumes.
+
+### Dispatch and the breach
+
+- **Sites are prevalidated at world build:** 1–3 viable wall segments per chamber. The spotter transmits a position; the marrow opens the viable site *nearest* it. The inventory never grows and the aperture never widens.
+- **Width** `max(96, 2 * largest_dispatchable_radius + 16)` — simply wide enough, once, forever.
+- **Scale-free by construction** (see the breach section above): carve both sides at the same width, assert the derived scale is 1.
+- **Pour shape:** ~3s formation tell → a burst drawn from the standing guardian shelf → sustained pour at ~2.2s/unit (3.14s with one Dispatch Collar destroyed, 4.89s with both) → cordon and exhaustion. Only **~10% of a dispatched group (minimum one) knows the transmitted position**; the rest run on ordinary one-hop fields, sight, and flocking. That produces strays and garrison seeds instead of an omniscient conga line, and makes killing scouts a *graded* counter rather than a switch.
+- **Closure**, first condition to apply: nothing crossed for 45s; reserve exhausted (+10s invasion grace); or no hub-side agent has routed toward it for 12s after opening. The breach object never inspects the reserve or other breaches — the marrow requests closure, pathing supplies route interest.
+- **Multiple breaches split combat EXPENDITURE, not headcount.** A cost-fair queue owned by the marrow: each live breach accrues equal dispatch credit, the readiest unit goes to the breach with the most credit, and its reserve cost is subtracted. A Warden through one gate is balanced by several cheap bodies through another; a new breach starts near mean credit so it neither starves nor floods. **Breaches never read each other** — the marrow, which owns dispatch, is the only thing comparing them.
+
+### The CORE as an organ
+
+Parts, with HP quantized to the player's own weapon arithmetic (42 = one rail shot, 84 = one charged Tau, 168 = two charged Tau / four rail):
+
+| Part | Count | HP | Killing it does |
+|---|---:|---:|---|
+| Dispatch Collar | 2 | 126 | Slows dispatch **immediately**; no effect on production |
+| Scriptorium | 1 | 84 | Erases the evidence ledger, stops learning |
+| Caretaker | 4 | 42 | Removes repair/rebuild — makes other damage *stick* |
+| Anchor | 4 | 84 | Releases its Buds as ordinary defenders; delayed production loss |
+| Producer Bud | 12 | 42 | Removes 1/12 of Bud-supported production |
+| Source Knot | 3 | 168 | Removes 1/3 of source capacity after a pipeline delay |
+| *all three Sources* | — | — | `reserve = -32` → the ~90s blackout |
+
+The parts have **deliberately opposite time constants** — collars change the current fight, anchors change the economy later, caretakers decide whether anything you did persists — so target choice is contextual. There is **no mandatory order, no invulnerable phase, and no master health bar**; a player who finds an emptied hub may simply rush the Sources. Self-defense is systemic: damage to a part schedules a response ~6s later (buds detach, local guardians converge through ordinary Muster). The CORE **regenerates while alive** (Sources 2 hp/s after 10s undamaged; Caretakers 6 hp/s in contact), so it cannot be chipped down across deaths without a real foothold.
+
+### The hub — a corrupted Testator cathedral
+
+**24 chambers, 10–11 portal crossings deep**, reachable only through a live breach. Half the floor area sits in the first three depth bands and shrinks with depth; a shallow transept loop gives early flanking, then a single axial trunk past the Rood Gatehouse. Breaches attach to seams in one of three **Receiving Apses**; **Guardian Courts** flank them; **Collar Chapels** hold the dispatch machinery; **Anchor Chapels** are mid-band side objectives; the **Scriptorium** receives returning evidence carriers; a **Long Exposed Connector** at ~three-quarters depth is the final commitment; three **Source Cells** branch off the last vestibule, separate enough that one Tau cannot take all three, attackable in any order. It is not a maze — the challenge is commitment, attrition, and fighting back out.
+
+**The guardian shelf IS the dispatch shelf.** Ten real, dispatchable agents stand between the production interior and the breach mouths. When the marrow dispatches them they physically leave, the entrance genuinely weakens, and replacements cost reserve and arrive no faster than one per 12s. That makes the timing the actual skill:
+
+> **The safest moment to invade is when the thing that would have guarded the hub is currently fighting your firebase somewhere else.**
+
+**Arrival must explain itself with no text and no objective marker.** Manufactured wall ribs and processional inlays say *built, not grown*; vacant guardian stations say *they left*; conduits carrying light inward and agents arriving from deeper say *that way is depth*. It should read as **a consecrated machine built for another purpose, seized and made to manufacture war** — repeated modular bays, brass and blackened steel, Latin maker's prayers, reliquary housings on the Sources, with the infestation visibly *secondary*: buds clipped onto old power rails, tendrils following existing conduit runs, icon panels obscured but intact. Never a cave, mound, or fleshy tunnel.
+
+**The way out is honest and unrescued:** return through the breach before it seals, keep it alive by crossing/firing through it, use the Portable Hole (the intended prepared-expedition tool — and mites and shriekers *can* follow through it), reach another live breach, plant a pod foothold inside the hub, or Self-Destruct and revive at a pod having lost the expedition but not the world. **No hidden emergency teleporter.**
+
+### Scouts — vagrant and lacuna
+
+| | Vagrant | Lacuna |
+|---|---|---|
+| Role | open-ground infiltrator | boundary scout |
+| HP | 84 | 42 |
+| Speed / turn | 1.45× Commando / 0.55× | 1.20× / 0.50× |
+| Behavior | long committed room-to-room legs through broad chambers | hugs walls and portal mouths; may root ~3s to **probe the next chamber through a portal without crossing it** |
+| Broadcast | 6s rooted (8s total exposure) | 8s rooted (10s total exposure) |
+
+Both transmit as **brace → rooted broadcast → release**, fully stationary and unable to fight for the whole broadcast, pulsing once per second, audible ~2 portal hops through the ordinary audio system. **Lacuna is the weaker class and therefore calls first** under the weakest-in-room rule. Critically, **a lacuna may only call into the chamber its body physically occupies** — probing through a cordon does not let it call past one, or the containment reward would be dead on arrival.
+
+Both classes are **authored into the world at initialization and never produced by the CORE**. Some begin dormant in quiet chambers with high thresholds, so killing the active ones may not visibly reduce pressure — but every death permanently reduces the census.
+
+**"Only one agent transmits at a time" is a property of the medium, not of the hub.** A scout takes a single world-level *call-medium lease* — the shared substrate, like one radio channel — broadcasts, and on completion leaves a **call imprint** (chamber, position, tick, caller class) that expires in ~15s. Interruption or death releases the lease. The marrow independently samples imprints and **consumes one whether or not it opens a portal**; calls never queue waiting for resources. The imprint carries no reserve demand, no hub state, and no desired enemy mix. That is how the spotter stays ignorant of the hub while the rule still holds — *if it calls and nothing is available, nothing comes.*
+
+### Composition — the hub is not what comes through the gate
+
+| Role | Resident hub | Delivered strike package |
+|---|---:|---:|
+| Screen (mite, husk) | 60% | 35% |
+| Ranged (spitter, shrieker) | 18% | 25% |
+| Mobility (flicker) | 10% | 15% |
+| Breaker (brute, warden) | 12% | 25% |
+
+The invaded hub reads visibly lighter than the force it sends, which gives the place an identity derived from the combat system rather than invented for it.
+
+### Garrisons — leader-anchored, leader oblivious
+
+A follower settles when a **Warden is physically present**, no hostile is visible, Noise < 0.20, Danger < 0.35, and it has held the chamber ~12 continuous seconds. The Warden's state machine is **completely unchanged**: no follower count, no base selection, no leader emission. Settled followers stop answering outside Muster, keep fighting normally, and emit Garrison Interior/Reach. Two settlers make a functioning garrison. If the Warden wanders off, existing settlers persist but no new ones settle. *(Leaderless Distress-conversion was considered and rejected: it would make the hottest combat chambers become bases, contradicting the spotter's whole job of finding quiet ground.)*
+
+### The tells, ranked
+
+1. **Gate payment stalls** — the strongest, because `wait = (cost - reserve)/regen` is generated by the economy itself.
+2. **Loss of the guardian burst** — a fresh call leads with standing guardians; later calls don't.
+3. **Dispatch machinery visibly missing beats** after collar damage.
+4. **Increasingly irregular arrival gaps.**
+5. **A dry transmission** — a scout completes a broadcast and no wall opens.
+6. **Exhaustion closure** — a breach collapsing on its own.
+7. **Direct inspection** — vacant posts and dim conduits, the highest-information observation, available only by committing to the raid.
+
+The first causal tell a new player is likely to learn: *a stationary pulsing scout broadcasts, and afterwards a wall opens.* Do not rely on the player estimating variance or spotting subtle stat variants.
+
+### Known risk, stated plainly
+
+The load-bearing assumption most likely to be wrong is that **a fixed-width portal can be both the place the player wants to stand and fight and a source that can eventually beat a prepared firebase.** A fixed mouth concentrates enemies and makes sentry fire maximally efficient. If measurement shows fighting at the mouth is strictly better on ammunition, damage taken, structures lost, and retreat portals denied, the fix is **approach geometry, arrest positions, and multi-route pressure — not enemy HP or damage inflation.**
+
+---
+
+## 2. Buildings & firebases
+
+- The bot must not be able to plop buildings in an enemy's face — it should have to **make distance and play strategically** around them.
+- **Buildings are destroyed on contact by any enemy except the very smallest (mite).**
+- **Projectile enemies prioritize buildings** as targets.
+- **30-second "unpack" phase** after placement: inert and fragile until active — you can't drop a turret into a swarm and have it fight.
+- **Sentries:** fire a couple times per second, kills a spitter in one shot, a single turret can 1v1 any enemy weaker than a Warden, which can 1v1 a sentry in open ground and win. They're glass cannons, designed to be highly lethal _as part of a system_ and highly vulnerable alone.
+- **Sentry animation:** turret **rotates to face its target**. It fires a pulsed high-frequency laser beam; make it look like a realistic extreme UV laser beam scattering off microdebris in the air (the Commando can see UV). _It must be obvious to the player what the sentry is, and what it is doing right now, at all times_.
+- **Sentry ammo:** run dry after **50 shots** unless **near a pod**, where nearness is **path (hop) distance, not straight-line.**
+- **Pod roots:** the pod **slowly grows visible roots over time**, and every component spent there applies a temporary buff to the growth rate, as it digs into the station to extract resources. The roots grow towards points of interest in the room such as props or clusters of decals (it's repurposing materials from station machinery or dead enemies) and glowing tendrils reach towards player-placed buildings indicating the pod is interacting with them.
+- **Repair station:** **no remote healing.** The player must **enter the station and stay vulnerable ~20 seconds** to be healed. Its niche: **it can be placed close to the fight**, where the pod cannot go. Losing a repair station is a minor sacrifice of a couple of components; **losing a pod is a major setback.**
+- **Pheromone scrubber (new building):** an air filter that **severely damps ALL chemo-signals** in its area. Unscrubbed bases **eventually getting found and purged is intended behavior** — you must actively cloak the chemical signature of any base you mean to keep.
+- **Cleaning robot:** a scrubber **linked to a pod** becomes the base station for a military-grade cleaning robot that keeps the FOB tidy. **Visually**: scrubs splatter off the ground, sweeps up shell casings, drags corpses into neat piles for the pod's roots to reach out and eat. **Mechanically**: cleaning up after a big fight (and sometimes moving a corpse) **emits a couple of components** — it cleans to make salvage easier and preps remains for recycling by the pod. **Standing rule: anything added to the game later that suggests an interaction with the cleaning robot gets one.**
+- **Iconography:** remove the **red cross** (copyrighted, wrong for a robot); replace with **Christian iconography** - iterate on what looks best and would make sense in-world.
+
+---
+
+## 3. The enemies
+
+- **Enemies can get behind the player / flank.** As of 07-23 they still couldn't. Simplest route: use chemotaxis to path to ground **behind the player's line**, avoiding **reinforced** and **player-scented** rooms. Each Adversary type gets a strategy suited to its capabilities.
+- **Fire on line-of-sight.** Without stealth upgrades that aren't implemented yet, it should not be possible to get more than 75% of a screen away from enemies without them becoming aware and initiating combat.
+- **Enemies corner-peek turrets** — approach/attack from cover. They can detect a room that requires peeking by the Danger scent.
+
+### Shrieker
+- A Shrieker **tails and marks the player**, emitting a "follow this / come only so close unless you smell enough friends" signal that lays a **follow-me trail** and **draws the swarm.**
+
+### Warden — engulf attack (07-25)
+- **Add to (not replace) the existing Warden state machine — keep all current behaviors.**
+- Engulf sequence: **stop**, **the Warden's main body flashes a brighter color twice over ~200ms** chargeup, then **lunge at ~2.5x normal move speed.**
+- The engulf-attack state **lasts until velocity drops back below normal.**
+- If it touches the player **while engulfing AND `dot(velocity, direction-to-player) > 0.5`** (so glancing hits don't count), the player is **rapidly drawn into the Warden's core**, taking **~75 HP/s** DoT and must **shoot his way out** (until the Warden is killed). Firing any weapon always hits the Warden.
+- ENSURE THERE IS NO STRONG COUPLING BETWEEN THE PLAYER AND THE WARDEN IN ARCHITECTING THIS SYSTEM!
+
+---
+
+## 4. Rendering & legibility
+
+*(The pygame-free renderer itself is an architectural correction — see IMPLEMENTATION CORRECTIONS. This section is the visual/UX design.)*
+
+- **Strip the HUD:** remove the banners and everything in the top-left **except the scrap count.** Retire the banners and the mid-screen objective one-liner.
+- **Carrying a pod is shown on the character** (a load on the player's body), not via a HUD indicator.
+- The **carried building sprite rotates with the player** so it reads as an object on his back, not a decal trailing him.
+- **Fixedsys Excelsior font always drawn at 16px.**
+
+---
+
+## 5. Level / world
+
+- **The final game is one connected world** — a single "level."
+- *(Every world always builds a marrow hub — architectural, see IMPLEMENTATION CORRECTIONS.)*
+
+---
+
+## 6. Economy
+
+- **Player carries only one thing at a time.** The pod (CUCULUS fabricator) prints an assembly kit; the player loads **one** on his back, carries it (slowed), and assembles it in situ. Loadout starts with **zero kits.**
+- **The CUCULUS loop is self-reinforcing:** the pod is fired in; it creates the chassis; the chassis spreads more pods; the pods subvert more and more of the station's resources; the chassis grows more powerful. **Additional pods are fabricated and planted by the player** — the forward pod chain is the engine of expansion.
+- **Chassis supply: for now the starting pod has an infinite supply of backup chassis** (revisit in a future unit).
+- **Health packs → Testator field-repair kits:** much rarer, kept only in **designated storage areas**, never scattered randomly on the floor.
+- **Marrow reserve** economy per §1 (finite, slow-regen, exhausts, drivable negative by killing the core).
+
+---
+
+## 7. Working-discipline rules the director insists on
+
+*(Code-architecture rules — no feature flags, decoupling, one-canonical-file, simple launch, gamemodes-own-init — are collected in IMPLEMENTATION CORRECTIONS above. These are the working-discipline rules.)*
+
+- **Don't fake around problems.** If a behavior isn't happening in the actual Gauntlet level, **diagnose why** — don't route around it in a test scaffold.
+- **Build isolated, purpose-built test vectors.** Do not test everything in the real level all the time.
+- **Verification = a full run with a Sonnet checking every 5th frame.** Ten frames is not verification. Watch the actual output.
+- **Stop asserting things work and explaining away contrary evidence.** Investigate **all** competing hypotheses before concluding; gathering evidence after forming a theory biases the body of evidence. Allow yourself to notice confusion.
+- **Never reward-hack** by shrinking/degrading the target. "Can't be done" is not an out.
+- **Do not impose a determinism requirement** — it's a video game, not a deterministic system.
+- **For live human playtests, instrument the human exactly like the bot** to study his strategy in detail.
+- **Immune-inspiration research:** delegate to an **Opus 5**, and require it to **omit all medical/immunological terms** from report and response — frame everything purely as **game mechanics.** Immune terminology causes safety false-positives that can be avoided by simply referring to the concepts as lessons on distributed coordination agent design rather than using immune terms directly.
+
+---
+
+# Open design units
+
+**Drafted in §1b** (07-25) and ready to build against: the hub area, vagrant & lacuna, the CORE organ, the reserve economy, breach/dispatch mechanics, and garrison settlement. Those need implementation and measurement now, not more design.
+
+Still genuinely open:
+
+- **Leader AI** — deferred; garrisons emerge around oblivious leaders for now.
+- **Find/senses API** — shape is drafted (immutable `SenseHit`/`PortalSense` observations, `portal_depth ≤ 1`, a lacuna portal-probe that is *not* an adjacent-room wallhack); the query set needs to be settled against real callers as they are written.
+- **Pheromone scrubber / cleaning robot** — direction settled (a subtractive, shared-capacity sink of ~1.2 signal-units/s over its own chamber at 1.0 and neighbours at 0.5, so a quiet base hides and a loud fight leaks; **a scrubbed region is *not* independently suspicious** — agents sample only one hop and have no regional baseline to notice an absence against). Costs, coverage, and the robot's component-emission rate still need numbers.
+- **The learning layer** — adaptive counter-biasing, evidence relay, and counterplay reward. Direction: a small fixed-capacity evidence ledger in the Scriptorium, written by carriers that physically return through a live breach, decaying with a ~75s half-life so switching tactics measurably slips the counter. Destroying the Scriptorium erases it.
+- **Late-game shape** — what a player actually wants the hub down *for*. This is what sets the real blackout depth.
+- **The killbox question** — measure whether fighting at a breach mouth is strictly dominant before adding anything to the stream (see §1b, "Known risk").
+
+---
+
+# Appendix: Adversary constitution (ratified vocabulary, not implementation)
+
+The Adversary is a **decentralized, non-conscious swarm** of many mostly-interchangeable defense agents coordinating through a **shared signal medium** — no chain of command, **no commander to kill**, no single unit whose death ends the response. Removing any one agent **thins** the response without stopping it. It **responds to disturbance, not identity**: gunfire, structural damage, and a hurt/killed agent recruit a response; standing still and quiet draws little. It should feel like a coordinated strategic response, and a truly advanced player will intuit how the system communicates with itself and manipulate it to his advantage.
+
+**Signal fields** — scalar, one value per chamber (polygon), spreading **hop-by-hop across the portal graph** (never through a wall, never beyond the doorways), fading over time. Each agent samples **only its own chamber and chambers one portal away.**
+
+| Signal | Emitted by | Spread / fade | Meaning (in general) |
+|---|---|---|---|
+| **Distress** | agent hurt/killed | spreads slowly, fades slowly | There is a persistent threat here, pay attention to this area |
+| **Danger** | Agent _killed_ here | no spread, very slow fade | This room is deadly, don't enter unless you smell enough Muster to indicate you are part of a coordinated push |
+| **Noise** | gunfire, movement, agents in contact with a hostile | spreads fast & wide, fades fast | There is an active intruder here |
+| **Trail** | the intruder's passage, at their position | does not spread; fades enough that it can be consistently followed to the player | An intruder has been here recently |
+| **Patrol** | Patrolling agents | no spread, slow fade | This room has been searched already recently, if patrolling look for a less explored place; if looking for a safe route, if patrol is high and danger is low the room must be a well explored safe route |
+| **Muster** | agents already committed to a fight | Spreads with very exponential dropoff per hop, fades VERY FAST | Rally here, we are preparing for or currently executing a coordinated raid |
+| **Garrison interior** | agents settled in an emergent base (e.g. around a leader such as the Warden) | special spread — needs two fronts to meet to spread "interior", otherwise spreads "reach"; fades fast if the garrison is destroyed | This is "inside the wire" — we are holding this cluster of polygons as a FOB |
+| **Garrison reach** | (same garrison agents) | if garrison emission reaches a room by only a single path it spreads *reach* instead of *interior*; spreads far, fades fast | The FOB is this way |
+| **Kin** | every Adversary agent, in its own chamber | spreads a short distance, fades moderately | *My own side is thick here.* Climbed **downward**: a spotter descends the Kin gradient to find underdefended ground |
+
+**Kin is load-bearing and stays a field** (ruled 07-25). Scalars on polygons are cheap, and a diffusing scalar is the **only** way a spotter working behind the lines can tell where the *underdefended* polygons are. A purely local substitute — counting the friendlies an agent can see and damping its own recruitment — only reports "I am crowded *here*"; it cannot point at distant thin ground, which is exactly the query garrison expansion depends on. Contact-based damping may be layered on top as flavour, but it does not replace the field.
+
+The room stores what simulation tick it was last updated on; decay is always computed from the delta. This makes it so a room that has stopped recieving or is recieving updates less often decays at the same effective rate.
+
+**Decay is exponential, so separation in TIME comes from different half-lives — never from amplitude.** Under exponential decay, doubling a signal's initial value buys exactly one extra half-life above a fixed detection threshold: an additive offset, not a multiplier. Amplitude sets how *loudly* a fresh event reads; half-life sets how *long* it matters. First-pass half-lives, with `time_above_threshold = half_life * log2(initial / threshold)`:
+
+| Signal | Half-life | Typical initial | Time above 0.10 |
+|---|---:|---:|---:|
+| **Trail** | 12 s | 0.80 | ~36 s |
+| **Patrol** | 60 s | 1.00 saturated | ~199 s |
+| **Danger** | 180 s | 0.40 per death | ~360 s |
+
+That produces the intended ordering — Trail means *recent passage*, Patrol means *searched within the last few minutes*, Danger means *this room has stayed lethal through a substantial fight*. The ordering is the design; the exact half-lives are a first pass to be measured.
+
+Distress is the inflammation analogue and behaves like real-world inflammation: it responds only to **agents being harmed** (there is no structural damage in this game); it integrates under a persistent stimulus and resolves when the stimulus stops.
+
+**Coordination behaviors (the designed TARGET — none verified live; build and verify each):**
+
+*Not "shipped." **The reverted base (`d85d3765`, 07-19) predates ALL of this — none of the coordination behaviors or the signal fields exist in it yet; it is all to be built.** And what was later built (07-20 → 07-23) was never confirmed working: the coordination never got a chance to show (a sparse stomp — "the enemies just don't have any chance to react"), and reinforcements never reached the player. The signal set above is a redesign. Treat every item as a spec to implement and verify against a real run, not as existing behavior.*
+
+- **Chemotaxis:** patrolling agents climb the Distress gradient, looking for trouble, refusing to enter rooms with high Danger
+- **Quorum (fractional, corrected 07-25):** an idle agent commits on the **fraction of the peers it can actually see that are already committed**, not on an absolute signal level. Calm visible peers form a *denominator* and inhibit commitment; the fields contribute one bounded virtual supporter, so a loud disturbance can still wake a lone picket. `f = (committed_visible + e) / (all_visible + 1)` where `e = clamp((Noise + Distress)/0.60, 0, 1)`, committed via a Hill curve against a per-agent threshold sampled **once at spawn** (not re-rolled per tick). Consequence: the same field value wakes a three-agent corridor while barely perturbing a twelve-agent hall, cascades start at sparse edges and propagate inward over a second or two, and killing habitual low-threshold initiators measurably thins future cascades. *(The old absolute-threshold rule had it backwards — it made a packed hall easier to flip than a thin picket.)*
+- **Relay-recruit:** agents in a "target in sight" state emit Distress+Muster — contact → more signal → more agents → a self-growing response from local re-broadcast.
+- **Flocking (priority budget, corrected 07-25):** boids steering where keep-apart outranks bunch-together **by allocation, not by weight** — each agent has an acceleration budget, separation claims from it first, and only the remainder goes to cohesion/alignment; influence falls off as 1/d². Weighted *averaging* fails precisely when two steering requests oppose (the average of "left" and "right" is "straight into the doorframe"), which is the doorway jitter we do not want. Gap still scales to agent size — loose formation with visible gaps.
+- **Stand-down:** a hunting agent not sharing the intruder's chamber whose local signal stayed faint ~5s exits the combat state.
+- **Room-danger / threshold-holding:** the collective tracks chambers that have hurt it persistently; a lone agent at such a chamber's doorway **holds and emits Muster** instead of entering alone; the group crosses together once enough force gathers.
+- **Trails:** a searching agent marks the doorway it commits to; markers fade unless reused; later agents weight toward heavily-marked doorways → traffic self-organizes into lanes.
+- **Raid (multi-approach fan):** ~1/3 of committed searchers take their **second-best** route so a push fans across multiple paths and reaches from multiple directions.
+- **Adaptive counter-biasing** — learn how this intruder fights, bias later reinforcement mixes toward counters.
+- **Evidence relay** — messenger agents carry evidence (remains, damage signatures) to a coordination chamber where it accumulates (feeds the counter-biasing).
+- **Counterplay reward** — repeating one tactic makes the future counter increasingly effective; switching tactics measurably slips it.
+
+**Hub as an emergent place:** it reads as a hub because of **what has gathered there** (off-map safe chamber + whatever a breach grows where it links in, cut into an ordinary chamber's wall wherever a spotter transmitted from) — the same way a firebase reads as a firebase from clustered pods and turrets. It deliberately does **not** use the level's own function tags, because the Adversary is a post-construction infestation.
+
+---
+
+*Revert bookkeeping: reverted `rewrite` to `d85d3765` (2026-07-19 13:56 — the last commit before the director's first-playthrough full clear, recorded in `out/director_fc/`; this is before coordination, reinforcements, and the CUCULUS building economy). The discarded 07-20 → 07-25 work is recoverable at `94b3397b` (git reflog), so nothing is lost — the AI's coordination/reinforcement implementations, the pygame-free renderer (`203da395`), and all commit history remain there to reference while rebuilding from this doc.*
+
+
+
+==============================================================================
+6. THE HUB AS BUILT (game/perihelion/hub.py, verbatim — the 24-chamber construction AND the HUB_LIGHT_PLAN this pass reshapes around)
+==============================================================================
+"""The marrow hub — a corrupted Testator cathedral (U8, DESIGN_7_25 §1b).
+
+Built at initialization, NEVER None: every world has one. 24 chambers,
+kept OFF the reachable map (no connection to the world — hop distance
+from anywhere is -1 until a live breach exists). The shape is the
+ratified one: three Receiving Apses whose seams are where breaches
+attach, Guardian Courts behind them, a shallow transept LOOP for early
+flanking (the loop closes across a fold — adjacency is the portal
+graph, not geometry), the Rood Gatehouse, one axial trunk with Collar
+and Anchor chapels and the Scriptorium off it, a Long Exposed Connector
+as the final commitment, a vestibule, and three separate Source Cells,
+pairwise nonadjacent, 10-11 crossings deep depending on the apse.
+
+Every internal glue goes through TopologyManager.connect_equal — the
+scale-1 guard is exercised ~26 times in every world build, so the
+lens-portal bug class dies at construction, not in playtest.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from .topology import EdgeHandle, TopologyManager
+
+DOOR_W = 70.0
+BREACH_W = 96.0
+
+# (name, width, height) — bands 0-2 (apses, courts, transepts) carry
+# ~52% of the floor area, per the ratified depth distribution
+_ROOMS = {
+    "A1": (220, 180), "A2": (220, 180), "A3": (220, 180),
+    "G1": (200, 170), "G2": (200, 170), "G3": (200, 170),
+    "T1": (190, 160), "T2": (190, 160), "T3": (190, 160),
+    "R": (150, 140),
+    "C1": (120, 120), "C2": (120, 120),
+    "N1": (140, 120), "N2": (140, 120), "N3": (140, 120), "N4": (140, 120),
+    "AN1": (120, 110), "AN2": (120, 110),
+    "SC": (130, 120),
+    "L": (340, 90),
+    "V": (420, 160),
+    "S1": (110, 100), "S2": (110, 100), "S3": (110, 100),
+}
+
+# the portal graph (each pair carved at DOOR_W on both sides and glued
+# scale-1). T3-T1 closes the transept loop across a fold.
+_LINKS = [
+    ("A1", "G1"), ("A2", "G2"), ("A3", "G3"),
+    ("G1", "T1"), ("G2", "T2"), ("G3", "T3"),
+    ("T1", "T2"), ("T2", "T3"), ("T3", "T1"),
+    ("C1", "T1"), ("C2", "T3"),
+    ("T2", "R"),
+    ("R", "N1"), ("N1", "N2"), ("N2", "N3"), ("N3", "N4"),
+    ("AN1", "N1"), ("AN2", "N2"), ("SC", "N3"),
+    ("N4", "L"), ("L", "V"),
+    ("V", "S1"), ("V", "S2"), ("V", "S3"),
+]
+
+
+# the RESIDENT population (ratified composition: the hub is not what
+# comes through the gate — residents read 60% screen / 18% ranged /
+# 10% mobility / 12% breaker, visibly LIGHTER than the 35/25/15/25
+# strike package it dispatches). 18 bodies, authored by chamber:
+# screen holds the transept loop, the trunk mixes in ranged and the
+# lurkers, the breakers stand at the last commitments. Organ rooms
+# (C*, SC, S*) keep no residents — the organ is its own tenant.
+RESIDENT_PLACEMENT = (
+    ("T1", "mite"), ("T1", "husk"),
+    ("T2", "mite"), ("T2", "husk"),
+    ("T3", "mite"), ("T3", "husk"),
+    ("R", "husk"), ("R", "spitter"),
+    ("N1", "mite"), ("N1", "flicker"),
+    ("N2", "spitter"),
+    ("N3", "mite"), ("N3", "shrieker"),
+    ("N4", "husk"),
+    ("L", "flicker"),
+    ("V", "brute"), ("V", "mite"),
+    ("AN1", "brute"),
+)
+
+
+# the cathedral's own light (ratified arrival language: 'conduits
+# carrying light inward and agents arriving from deeper say THAT WAY
+# IS DEPTH'). Cold violet at the receiving apses, blackened-brass
+# station light in the courts, processional inlays around the
+# transept, and a warmth/reach ramp down the nave trunk toward the
+# vestibule; the source cells burn reliquary violet-white — the prize
+# reads from the doorway. Colored architectural lights hold intensity
+# 1/3 (the hue clamp: above it the dominant channels whiten); only
+# the reliquaries and thresholds run hot on purpose.
+# (room, (dx, dy) from chamber center, color, intensity, radius)
+HUB_LIGHT_PLAN = (
+    ("A1", (0.0, 0.0), (150, 90, 190), 0.33, 150.0),
+    ("A2", (0.0, 0.0), (150, 90, 190), 0.33, 150.0),
+    ("A3", (0.0, 0.0), (150, 90, 190), 0.33, 150.0),
+    ("G1", (0.0, -20.0), (200, 140, 80), 0.33, 130.0),
+    ("G2", (0.0, -20.0), (200, 140, 80), 0.33, 130.0),
+    ("G3", (0.0, -20.0), (200, 140, 80), 0.33, 130.0),
+    ("T1", (0.0, 0.0), (140, 150, 200), 0.33, 120.0),
+    ("T2", (0.0, 0.0), (140, 150, 200), 0.33, 120.0),
+    ("T3", (0.0, 0.0), (140, 150, 200), 0.33, 120.0),
+    ("R", (0.0, 0.0), (220, 170, 110), 0.40, 140.0),
+    ("C1", (0.0, 0.0), (160, 100, 200), 0.30, 100.0),
+    ("C2", (0.0, 0.0), (160, 100, 200), 0.30, 100.0),
+    # the trunk: reach grows with depth — the conduit ramp
+    ("N1", (0.0, 0.0), (170, 130, 90), 0.33, 110.0),
+    ("N2", (0.0, 0.0), (170, 130, 90), 0.33, 120.0),
+    ("N3", (0.0, 0.0), (170, 130, 90), 0.33, 130.0),
+    ("N4", (0.0, 0.0), (170, 130, 90), 0.33, 140.0),
+    ("AN1", (0.0, 0.0), (160, 100, 200), 0.30, 100.0),
+    ("AN2", (0.0, 0.0), (160, 100, 200), 0.30, 100.0),
+    ("SC", (0.0, 0.0), (235, 225, 150), 0.33, 110.0),
+    ("L", (-120.0, 0.0), (120, 120, 150), 0.30, 100.0),
+    ("L", (120.0, 0.0), (120, 120, 150), 0.30, 100.0),
+    ("V", (-100.0, 0.0), (230, 180, 120), 0.40, 160.0),
+    ("V", (100.0, 0.0), (230, 180, 120), 0.40, 160.0),
+    ("S1", (0.0, 0.0), (235, 160, 255), 0.45, 120.0),
+    ("S2", (0.0, 0.0), (235, 160, 255), 0.45, 120.0),
+    ("S3", (0.0, 0.0), (235, 160, 255), 0.45, 120.0),
+)
+
+
+@dataclass(frozen=True, slots=True)
+class HubLayout:
+    chambers: dict          # name -> polygon index
+    receiving_apses: tuple[int, int, int]
+    guardian_courts: tuple[int, ...]
+    collar_chapels: tuple[int, int]
+    anchor_chapels: tuple[int, ...]
+    scriptorium: int
+    gatehouse: int
+    source_cells: tuple[int, int, int]
+    breach_edges: tuple[EdgeHandle, ...]   # carved BREACH_W apse seams
+
+
+def build_hub(session, topo: TopologyManager) -> HubLayout:
+    s = session.sim
+    idx: dict[str, int] = {}
+    for name, (w, h) in _ROOMS.items():
+        r = s.add_polygon([(0.0, 0.0), (0.0, float(h)),
+                           (float(w), float(h)), (float(w), 0.0)])
+        idx[name] = r
+        # every rendered polygon needs its detail seed (the paid-for
+        # lesson: growing the world without growing the seed list is a
+        # renderer crash later)
+        session.level.polygon_seeds.append(r * 7919 + 13)
+
+    # door placement: spread carve anchors along each room's perimeter
+    # so multiple doors into one room land on different walls/segments
+    used: dict[str, int] = {}
+    for a, b in _LINKS:
+        ha = _carve_spread(topo, session, idx[a], _ROOMS[a], used, a, DOOR_W)
+        hb = _carve_spread(topo, session, idx[b], _ROOMS[b], used, b, DOOR_W)
+        topo.connect_equal(ha, hb)
+
+    # the three breach seams: BREACH_W cuts in the apses' outer walls,
+    # adopted but UNCONNECTED — U9's dispatch glues the world side in
+    seams = []
+    for name in ("A1", "A2", "A3"):
+        w, h = _ROOMS[name]
+        hseam = topo.carve(idx[name], (w / 2.0 - _center(w, h)[0],
+                                       0.0 - _center(w, h)[1]), BREACH_W)
+        if hseam is None:
+            raise RuntimeError(f"apse {name} cannot hold its breach seam")
+        seams.append(hseam)
+
+    # the cathedral lights itself — registered against the static cache
+    # AFTER the doors are carved, so every wedge sees its doorways
+    from .levels import LightSpec
+    session.lighting.add_lights(s, [
+        LightSpec(polygon=idx[name], pos=pos, color=color,
+                  intensity=inten, radius=radius, kind="static")
+        for name, pos, color, inten, radius in HUB_LIGHT_PLAN])
+
+    return HubLayout(
+        chambers=dict(idx),
+        receiving_apses=(idx["A1"], idx["A2"], idx["A3"]),
+        guardian_courts=(idx["G1"], idx["G2"], idx["G3"]),
+        collar_chapels=(idx["C1"], idx["C2"]),
+        anchor_chapels=(idx["AN1"], idx["AN2"]),
+        scriptorium=idx["SC"],
+        gatehouse=idx["R"],
+        source_cells=(idx["S1"], idx["S2"], idx["S3"]),
+        breach_edges=tuple(seams),
+    )
+
+
+def _center(w, h):
+    return (w / 2.0, h / 2.0)
+
+
+def _carve_spread(topo, session, polygon, size, used, name, width):
+    """Carve the next door for `name` on a fresh stretch of wall: cycle
+    the four walls, offsetting along each so repeated doors into the
+    same room never fight for one segment."""
+    w, h = size
+    cx, cy = _center(w, h)
+    n = used.get(name, 0)
+    used[name] = n + 1
+    # anchor points in polygon-local (centered) coords, cycling walls;
+    # generous insets keep the carve span legal after earlier splits
+    anchors = [
+        (0.0 - cx + w * 0.25 + (n // 4) * 10.0, cy),          # bottom wall
+        (cx, 0.0 - cy + h * 0.30),                            # right wall
+        (0.0 - cx + w * 0.70, -cy),                           # top wall
+        (-cx, 0.0 - cy + h * 0.70),                           # left wall
+    ]
+    for k in range(4):
+        hnd = topo.carve(polygon, anchors[(n + k) % 4], width)
+        if hnd is not None:
+            return hnd
+    raise RuntimeError(f"no wall of {name} can hold door {n}")
+
+
+
+==============================================================================
+7. RENDERER FACTS (excerpts)
+==============================================================================
+# palette constants (render.py)
+        else:
+            out.append((x + dx / d * px, y + dy / d * px))
+    return out
+
+FLOOR_BASE = (104, 104, 132)       # flat-floor ALBEDO (2026-07-13): under zero-ambient
+                                   # multiply lighting the floor color is the brightness
+                                   # ceiling — at the old (26,26,33) no light could lift a
+                                   # bare polygon past ~11%. Scaled x4 into the same albedo
+                                   # class as generated textures (measured 100-150) so
+                                   # fixtures and the work lamp read on untextured polygons.
+                                   # UNLIT floors still render black (the lightmap is the
+                                   # sole illumination); this only changes what light finds.
+SHADOW_FLOOR = (11, 11, 15)        # known geometry outside line of sight: present, unlit
+OW_FLOOR = (52, 64, 58)            # otherworld: the floor itself luminesces, cold
+WALL_COLOR = (184, 196, 204)       # 0xb8c4cc
+WALL_MIN = (74, 80, 88)            # 0x4a5058 — walls never dim below this (readability skeleton)
+DOOR_COLOR = (208, 128, 24)        # 0xd08018
+KEY_COLORS = {
+    "red": (200, 60, 60),
+    "blue": (72, 132, 222),
+    "gold": (216, 180, 70),
+    "void": (122, 42, 168),
+}
+BLOOD_COLOR = (64, 12, 15)         # kept below every live-enemy fill: residue never outranks threats
+SCORCH_COLOR = (42, 38, 36)
+CHIP_COLOR = (150, 150, 140)
+EXIT_COLOR = (120, 255, 172)
+GIB_COLOR = (94, 16, 16)
+
+# the otherworld prop generator + kind registry (render.py)
+            out.append(prim)
+    return out
+
+
+
+def _props_otherworld(rng, verts, walls, x0, y0, x1, y1, descent=0.0, crng=None):
+    """The Otherworld: the prop vocabulary with its grammar broken. Familiar
+    objects in impossible syntax — a terminal slab floating mid-polygon facing
+    nothing, seats at half scale in a perfect ring, hairline afterimages of
+    the polygon's own outline. Placement rules everywhere else are law; here
+    their violation IS the read."""
+    prims = []
+    cx = (x0 + x1) / 2.0
+    cy = (y0 + y1) / 2.0
+    w = x1 - x0
+    h = y1 - y0
+    # afterimages: the polygon's own outline, shrunk and re-shrunk. Soft polygons
+    # deform after caching, so these echo what the polygon USED to be.
+    for shrink in (0.82, 0.62):
+        ring = [(cx + (vx - cx) * shrink, cy + (vy - cy) * shrink)
+                for vx, vy in verts]
+        prims.append(("polyline", ring, (52, 66, 58), 1, True))
+    # a floating console slab, mid-polygon, facing a direction that means
+    # nothing, screen glowing at nobody.
+    if rng.random() < 0.8 and min(w, h) > 60:
+        ang = rng.uniform(0, 2 * math.pi)
+        sw, sh = 14.0, 9.0
+        ca, sa = math.cos(ang), math.sin(ang)
+        px, py = cx + rng.uniform(-w * 0.18, w * 0.18), cy + rng.uniform(-h * 0.18, h * 0.18)
+        slab = [(px + ca * -sw - sa * -sh, py + sa * -sw + ca * -sh),
+                (px + ca * sw - sa * -sh, py + sa * sw + ca * -sh),
+                (px + ca * sw - sa * sh, py + sa * sw + ca * sh),
+                (px + ca * -sw - sa * sh, py + sa * -sw + ca * sh)]
+        prims.append(("poly", slab, (30, 34, 38), (72, 82, 86), 1))
+        prims.append(("screenglow", px + ca * 3, py + sa * 3, 7.0))
+    # a ring of half-scale seats around nothing.
+    if rng.random() < 0.6 and min(w, h) > 90:
+        n = rng.randint(5, 8)
+        rad = min(w, h) * 0.22
+        for i in range(n):
+            a = 2 * math.pi * i / n
+            bx, by = cx + math.cos(a) * rad, cy + math.sin(a) * rad
+            ca2, sa2 = math.cos(a), math.sin(a)
+            seat = [(bx + ca2 * -4 - sa2 * -2.5, by + sa2 * -4 + ca2 * -2.5),
+                    (bx + ca2 * 4 - sa2 * -2.5, by + sa2 * 4 + ca2 * -2.5),
+                    (bx + ca2 * 4 - sa2 * 2.5, by + sa2 * 4 + ca2 * 2.5),
+                    (bx + ca2 * -4 - sa2 * 2.5, by + sa2 * -4 + ca2 * 2.5)]
+            prims.append(("poly", seat, (36, 40, 42), None, 0))
+    # things half-into walls: a crate silhouette centered ON a wall vertex.
+    if walls and rng.random() < 0.7:
+        wd = rng.choice(walls)
+        (ax_, ay_), (bx_, by_) = wd["p0"], wd["p1"]
+        t = rng.random()
+        bx = ax_ + (bx_ - ax_) * t
+        by = ay_ + (by_ - ay_) * t
+        r = rng.uniform(6, 10)
+        prims.append(("poly", [(bx - r, by - r), (bx + r, by - r),
+                               (bx + r, by + r), (bx - r, by + r)],
+                      (32, 36, 40), (60, 66, 70), 1))
+    # sparse self-luminous floor speckle (the floor is starting to be sky)
+    for _ in range(rng.randint(3, 7)):
+        prims.append(("dot", (rng.uniform(x0, x1), rng.uniform(y0, y1))))
+    return prims
+
+
+_POLYGON_PROP_GENERATORS = {
+    "dock": _props_dock,
+    "corridor": _props_corridor,
+    "transit": _props_corridor,
+    "storage": _props_storage,
+    "pump": _props_pump,
+    "lab": _props_lab,
+    "hydro": _props_hydro,
+    "quarters": _props_quarters,
+    "chapel": _props_chapel,
+    "records": _props_records,
+    "medbay": _props_medbay,
+    "core": _props_core,
+    "generic": _props_generic,
+    "otherworld": _props_otherworld,
+}
+
+
+class Renderer:
+    """`Renderer(session).draw(surf, debug=False)` paints one frame and
+
+
+================================================================================
+THE ASK — A VISUAL PASS PLAN FOR THE MARROW
+================================================================================
+Design the pass that makes invading the marrow LOOK like invading an alien
+hive, implementable by a senior engineer against the systems above. We want
+RECOMMENDATIONS, not menus. Cover:
+
+1. GEOMETRY LANGUAGE. A shape grammar for the hub's 24 chambers (apses,
+   courts, transept, trunk, source cells) using arbitrary convex polygons:
+   what silhouettes read "grown, not built" at zoom 0.45 in a 640x360
+   internal frame, while staying convex and keeping every glued seam
+   width-equal (scale-1 law). Be concrete: for each chamber ROLE, give a
+   vertex-count range, aspect/irregularity guidance, and how the 96u door
+   carves survive the reshape. Say what the reshape must NOT break:
+   settlement anchors, organ part placement, the shelf, resident posts,
+   light positions.
+
+2. THE CORRUPTION GRADIENT. The director's ruling: transition to the
+   otherworld room kind as you get deeper in. Propose the exact mapping —
+   which depth band (the hub is 10-11 crossings deep; breach chambers
+   surface anywhere in the world) switches kind, whether the transition is
+   a hard kind swap per chamber or a staged use of _props_otherworld's
+   `descent` parameter plus lighting, and how the gradient reads in the
+   world OUTSIDE the hub (a breach mouth should look infected before you
+   ever cross). Respect that the otherworld kind changes the LIGHTING
+   MODEL (self-luminous floor, inverse darkness) — say how that interacts
+   with the hub light plan (HUB_LIGHT_PLAN's violet apses / brass courts /
+   trunk ramp) and with the player's own lights.
+
+3. LEGIBILITY UNDER THE LAWS. The visual vocabulary law: one symbol = one
+   meaning; rings = aggro only; body events on the body; enemies keep
+   tiered minimum pixel sizes; on-screen mechanics must be readable at
+   0.45. The organ parts are violet; the otherworld register is cold
+   green-blue. Resolve the palette so organ parts, enemies, decals, and
+   the player's warm light stay instantly separable in the new register —
+   name the specific color lanes.
+
+4. WHAT TO BUILD. The concrete change list: hub.py construction (which
+   rects become which polygons, staged how), level JSON / authoring
+   changes if any, render/prop changes if any (e.g. new prop vocabulary
+   for hive walls — note the walls-breathe law and the handcraft law from
+   the constitution), and the order to land them in given every gameplay
+   commit must pass a filmed playtest gate.
+
+5. FOR EACH RECOMMENDATION: what it PREDICTS on film and what it FORBIDS
+   (an observation that would show it failed), your odds it survives the
+   director's eye, and the single strongest reason you might be wrong.
+
+HARD CONSTRAINTS:
+  - Convex polygons only; portal glue is edge-to-edge with equal widths.
+  - No feature flags, no alternate modes; ship hardwired.
+  - Gameplay geometry is live: the hub is fought through — chamber
+    reshapes change combat sightlines, and that is acceptable but must be
+    called out where it changes a ratified behavior (shelf pour order,
+    one-door stall hazards — do NOT create more one-door chambers).
+  - 0.45 zoom is THE zoom. 640x360 internal resolution.
+  - The organ, residents, shelf, and light plan are landed systems —
+    reshape around them, do not redesign them.
+Be specific to OUR systems and vocabulary. The frames attached are real
+renders from the shipped build, not mockups.
