@@ -214,3 +214,85 @@ def test_gunfire_two_hops_away_starts_a_cascade():
     assert woke >= 3, (
         f"gunfire two hops away woke only {woke}/6 — the field-quorum "
         f"path is not carrying the alert")
+
+
+# ---------------------------------------------------------------------------
+# Run-51 watch item (d): the hub-resident stalls. A relayed scream must not
+# self-amplify, and a one-door hunt that cannot progress must stand down.
+# ---------------------------------------------------------------------------
+
+def _two_rooms_session():
+    """Open seam: A's scream reaches B; the player shares r1."""
+    b = LevelBuilder("STALL", 1)
+    r0 = b.rect(0, 0, 200, 160, kind="dock")
+    r1 = b.rect(200, 0, 200, 160, kind="dock")
+    b.connect(r0, 2, r1, 0)
+    b.player(r1, (340.0, 80.0))
+    b.exit(r1, (380.0, 80.0))
+    return GameSession(b.build(), seed=3)
+
+
+def _corner_session():
+    """r0 has ONE 40u door (a slit, not a full glued wall) and the
+    player stands outside the two-slit sight cone: no line of sight,
+    verified in-test."""
+    b = LevelBuilder("STALLC", 1)
+    r0 = b.polygon([(0, 0), (0, 160), (120, 160), (160, 100),
+                    (160, 60), (120, 0)], kind="dock")
+    r1 = b.rect(160, 60, 150, 40, kind="corridor")
+    r2 = b.polygon([(350, 220), (430, 220), (430, -100), (350, -100),
+                    (310, 60), (310, 100)], kind="dock")
+    b.connect_pts(r0, (160, 80), r1, (160, 80))
+    b.connect_pts(r1, (310, 80), r2, (310, 80))
+    b.player(r2, (390.0, -60.0))
+    b.exit(r2, (410.0, -60.0))
+    return GameSession(b.build(), seed=3)
+
+
+def test_a_scream_woken_shrieker_does_not_scream_back():
+    """The alarm carries first-hand knowledge; it does not self-amplify.
+    Two hunkered shriekers re-latched each other into hunt forever
+    through mutual rescreams (run 49/51, N2)."""
+    s = _two_rooms_session()
+    a = s.spawn_enemy(0, (60.0, 80.0), "shrieker")
+    bb = s.spawn_enemy(0, (140.0, 80.0), "shrieker")
+    ea, eb = s.enemies[a], s.enemies[bb]
+    s._set_enemy_state(a, ea, "hunt")
+    ea["scream_cd"] = 0
+    eb["scream_cd"] = 0
+    s._shrieker_ai(a, ea, 0, 1, 60.0, 80.0, 100.0)
+    assert eb["state"] == "hunt" and eb.get("_scream_woken"), \
+        "A's scream must wake B with the relayed-alarm mark"
+    fx_mark = len(s.fx)
+    s._shrieker_ai(bb, eb, 0, 1, 140.0, 80.0, 100.0)
+    screams = [f for f in s.fx[fx_mark:] if f[0] == "scream"]
+    assert not screams, "a scream-woken shrieker screamed back (relay loop)"
+    # first-hand stimulus re-arms it: any wake path through 'waking'
+    s._set_enemy_state(bb, eb, "waking")
+    assert "_scream_woken" not in eb
+
+
+def test_one_door_hunt_stands_down_instead_of_grinding():
+    """Run 49/51: brute 427 pushed AN1's only doorway for 7474 ticks.
+    Fifteen seconds at the single door with nothing in sight ends the
+    hunt on the record."""
+    s = _corner_session()
+    # r0 has exactly one portal; the player is outside the sight cone
+    eid = s.spawn_enemy(0, (60.0, 80.0), "brute")
+    e = s.enemies[eid]
+    assert s.senses.sight_of(eid, s.pid) is None, "vector broken: sighted"
+    s._set_enemy_state(eid, e, "hunt")
+    # something calls from next door — the intruder's trail
+    s.signals.emit(SignalKind.TRAIL, 1, 0.9, s.tick_count)
+    t0 = s.tick_count
+    edge = s._hunt_edge(eid, e, 0)
+    assert edge >= 0
+    e["route_stuck"] = (0, edge, t0 - 901)      # fifteen seconds ago
+    e.pop("route", None)                        # cache expired, re-pick
+    got = s._hunt_edge(eid, e, 0)
+    assert got == -1, "one-door grind did not stand down"
+    assert e["state"] == "idle"
+    stood = [r for r in s.trace.drain()
+             if r.kind == "coord_event"
+             and r.data.get("event") == "hunt_stall_stand_down"]
+    assert stood, "stand-down left no trace record"

@@ -2982,7 +2982,14 @@ class Renderer:
                     pts = necore.clip_polygon(pts, clip_screen)
                     if len(pts) < 3:
                         continue
-                canvas.polygon(PLAYER_COLOR, _pts(pts))
+                grace = getattr(self.session, "revival_grace", 0)
+                if grace > 0 and (grace // 8) % 2 == 0:
+                    # the rite of return: the untouchable fresh frame
+                    # pulses solid white ON THE BODY (body events on the
+                    # body; rings stay aggro-only)
+                    canvas.polygon((255, 255, 255), _pts(pts))
+                else:
+                    canvas.polygon(PLAYER_COLOR, _pts(pts))
                 canvas.polygon((255, 255, 255), _pts(pts), 1)
                 rt = getattr(self.session, "recall_t", 0)
                 if rt > 0:

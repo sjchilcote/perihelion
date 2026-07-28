@@ -88,22 +88,31 @@ def ground_truth(rec: Path) -> dict:
             matched += 1
         else:
             unmatched += 1
-    warden_moves = {}
+    # path INTEGRAL per enemy, not a bounding-box diagonal — the old span
+    # under-read patrolling wardens by up to 9.7x (run 51). Portal space
+    # makes cross-chamber deltas meaningless in world coordinates, so
+    # same-chamber legs are summed and each chamber change counts as one
+    # crossing instead of a euclidean jump.
+    moved = {}          # eid -> [path_u, chambers set, last (poly,x,y), kind]
     with open(rec / "trace.jsonl") as fh:
         for line in fh:
             r = json.loads(line)
-            if r.get("kind") == "sample" and "warden" in r:
-                w = r["warden"]
-                x, y = r["pos"]
-                lo_x, lo_y, hi_x, hi_y, ch = warden_moves.get(
-                    w, (x, y, x, y, set()))
-                ch.add(r.get("polygon"))
-                warden_moves[w] = (min(lo_x, x), min(lo_y, y),
-                                   max(hi_x, x), max(hi_y, y), ch)
+            if r.get("kind") == "enemy_positions":
+                for eid, (ekind, poly, x, y) in r["positions"].items():
+                    m = moved.get(eid)
+                    if m is None:
+                        moved[eid] = [0.0, {poly}, (poly, x, y), ekind]
+                        continue
+                    lp, lx, ly = m[2]
+                    if poly == lp:
+                        m[0] += ((x - lx) ** 2 + (y - ly) ** 2) ** 0.5
+                    m[1].add(poly)
+                    m[2] = (poly, x, y)
     warden_span = {
-        w: (f"moved {round(((hx - lx) ** 2 + (hy - ly) ** 2) ** 0.5)}u, "
-            f"{len(ch)} chambers")
-        for w, (lx, ly, hx, hy, ch) in warden_moves.items()}
+        eid: f"pathed {round(p)}u, {len(ch)} chambers"
+        for eid, (p, ch, _, ekind) in moved.items() if ekind == "warden"}
+    enemy_static = sum(1 for p, ch, _, _k in moved.values()
+                       if p < 1.0 and len(ch) == 1)
     return dict(
         camera="the camera zoom is CONSTANT for the whole session; "
                "no zoom snap, kill-cam, or close-up exists in the "
@@ -117,6 +126,8 @@ def ground_truth(rec: Path) -> dict:
         damage_by_source=dict(Counter(s for _, _, s in dmg)),
         player_chamber_changes=len(set(pr.values())),
         warden_movement_spans=warden_span,
+        enemies_tracked=len(moved),
+        enemies_never_moving=enemy_static,
     )
 
 

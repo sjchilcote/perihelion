@@ -85,12 +85,22 @@ def test_corpse_retrieval_returns_contents_exactly():
     assert not any(p["kind"] == "corpse_frame" for p in s.pickups.values())
 
 
-def test_no_chassis_means_no_station_respawn():
+def test_no_chassis_prints_at_the_starting_pod():
+    """DESIGN_7_25: the starting pod has infinite backup chassis (for
+    now) — with nothing racked you always come back, and what you pay
+    is the walk from the START, not the nearest station."""
     s = _session(components=1)
-    s.add_station(s.player_polygon(), s.player_pos())
+    home = s.stations[0]
+    near = (s.player_pos()[0] - 40, s.player_pos()[1])
+    s.add_station(s.player_polygon(), near)
     s._damage_player(9999.0, s.player_polygon(), source="test")
-    assert not s.respawn_at_station()
-    assert s.dead
+    assert s.respawn_at_station(), "the home pod must always print"
+    assert not s.dead and s.hp == s.max_hp and s.chassis == 0
+    assert s.player_polygon() == home["polygon"]
+    px, py = s.player_pos()
+    assert (round(px, 1), round(py, 1)) == (round(home["pos"][0], 1),
+                                            round(home["pos"][1], 1)), \
+        "a free print must come from the STARTING pod, not the nearest station"
 
 
 def test_fabricator_prices_and_purchases():
@@ -378,3 +388,35 @@ def test_recall_severed_by_damage():
 def test_recall_refuses_without_beacon():
     s = _session()
     assert not s.use_recall()
+
+
+def test_protected_revival_grants_a_grace_window():
+    """The rite of return (mindmap vocation capstone): a fresh print is
+    untouchable for 3 seconds — run 51 flagged the promised window as
+    having no consumer at all."""
+    s = _session(components=1, mind=["vocation-protected-revival"])
+    assert s._protected_revival, "unlock plumbing broken"
+    s._damage_player(9999.0, s.player_polygon(), source="test")
+    assert s.dead
+    assert s.respawn_at_station()
+    assert s.revival_grace == 180
+    hp0 = s.hp
+    s.hurt_cd = 0
+    s._damage_player(50.0, s.player_polygon(), source="test")
+    assert s.hp == hp0, "damage landed inside the grace window"
+    _tick(s, 181)
+    assert s.revival_grace == 0
+    s.hurt_cd = 0
+    s._damage_player(10.0, s.player_polygon(), source="test")
+    assert s.hp < hp0, "the window never closed"
+
+
+def test_no_grace_window_without_the_rite():
+    s = _session(components=1)
+    s._damage_player(9999.0, s.player_polygon(), source="test")
+    assert s.respawn_at_station()
+    assert s.revival_grace == 0
+    hp0 = s.hp
+    s.hurt_cd = 0
+    s._damage_player(10.0, s.player_polygon(), source="test")
+    assert s.hp < hp0

@@ -28,8 +28,8 @@ from .callmedium import CallMedium
 from . import scouts
 from .telemetry import (AgentTransition, BreachLifecycle, CoordEvent, CorePartEvent,
                         DamageApplied, DispatchDecision, EnemyDeath, ShelfReplaced,
-                        FieldSample, ImpulseApplied, PickupTaken,
-                        InputRecord, PortalCrossing, ReserveSample,
+                        EnemyPositions, FieldSample, ImpulseApplied, PickupTaken,
+                        InputRecord, PlayerDeath, PortalCrossing, ReserveSample,
                         TopologyChanged, TraceBus)
 from . import terrain
 
@@ -272,8 +272,10 @@ SENTRIES: dict[str, dict] = {
     # 18/14 the authored guns took 57-68% of ALL killing blows every
     # seed (run 46); 14/18 (-40% dps) keeps the field grinding what the
     # player softens without owning the scoreboard. Director's lever.
+    # alert_snd: the turret's OWN voice (run 51: it borrowed pistol_fire —
+    # one sound two meanings; vocabulary law applies to audio too)
     "sentry": dict(radius=7.0, dmg=14, cd=18, range=700.0, spin_up=10,
-                   bolt_speed=1400.0, alert_snd="pistol_fire"),
+                   bolt_speed=1400.0, alert_snd="sentry_fire"),
 }
 
 # DESIGN_7_25 §2: every placed building spends 30 seconds inert and fragile
@@ -496,6 +498,7 @@ class GameSession:
         # difficulty gates see an unchanged baseline.
         self.components = int(st.get("components", 0))
         self.chassis = int(st.get("chassis", 0))
+        self.revival_grace = 0   # protected_revival: post-reprint ticks
         self.station_kits = int(st.get("station_kits", 0))
         self.hp_ups = int(st.get("hp_ups", 0))
         # the mind map (9.2): integrated concept-node ids; faith is computed
@@ -1034,6 +1037,8 @@ class GameSession:
             self.cooldown -= 1
         if self.hurt_cd > 0:
             self.hurt_cd -= 1
+        if self.revival_grace > 0:
+            self.revival_grace -= 1
         self.lightning_charge = min(LIGHTNING_RECHARGE_TICKS, self.lightning_charge + 1)
 
         # camera follow (after physics; transfers already re-based the
@@ -1774,13 +1779,24 @@ class GameSession:
         courtesy."""
         if e["kind"] in CORE_KINDS:
             return
+        if new == "waking":
+            # every first-hand wake path (same chamber, sight, quorum,
+            # damage) transitions through "waking"; only a relayed
+            # scream jumps straight to hunt — so reaching here means
+            # the agent has its own stimulus again
+            e.pop("_scream_woken", None)
         old = e["state"]
         if old == new:
             return
         e["state"] = new
+        if self.sim.exists(eid):
+            _, _tx, _ty, *_ = self.sim.get(eid)
+        else:
+            _tx = _ty = 0.0
         self.trace.emit(AgentTransition(
             tick=self.tick_count, entity_id=eid, agent_kind=e["kind"],
-            from_state=old, to_state=new))
+            from_state=old, to_state=new,
+            x=round(_tx, 1), y=round(_ty, 1)))
 
     def _damage_enemy(self, eid: int, dmg: float, ndir, knock: float,
                       *, source: str):
@@ -1893,6 +1909,8 @@ class GameSession:
         self.signals.emit(SignalKind.DISTRESS, polygon, 0.25, self.tick_count)
 
     def _damage_player(self, dmg: float, polygon: int, *, source: str):
+        if self.revival_grace > 0:
+            return   # the rite of return: the fresh frame is untouchable
         if self.hurt_cd > 0 or self.dead:
             return
         self.hurt_cd = 30
@@ -1906,6 +1924,7 @@ class GameSession:
         self.trace.emit(DamageApplied(
             tick=self.tick_count, target_id=self.pid, target_kind="player",
             amount=round(dmg, 3), source=source))
+        self._last_hurt_source = source
         px, py = self.player_pos()
         self._snd("player_hurt", polygon, (px, py))
         self._shake(min(8.0, 2.0 + dmg * 0.25))
@@ -1921,6 +1940,11 @@ class GameSession:
         run 41 filmed a silent engulf death.)"""
         self.dead = True
         self.metrics["deaths"] += 1
+        self.trace.emit(PlayerDeath(
+            tick=self.tick_count, polygon=polygon,
+            x=round(px, 1), y=round(py, 1),
+            source=getattr(self, "_last_hurt_source", ""),
+            chassis_left=self.chassis, deaths=self.metrics["deaths"]))
         self._snd("player_die", polygon, (px, py))
         self.fx.append(("playerdie",))
         self._decal(polygon, "corpse_player", px, py, PLAYER_RADIUS)
@@ -2114,9 +2138,11 @@ class GameSession:
                         if quiet_ok and not e.get("garrison"):
                             e["garrison"] = polygon
                             self._set_enemy_state(eid, e, "idle")
+                            _, _gx, _gy, *_ = s.get(eid)
                             self.trace.emit(AgentTransition(
                                 tick=t_, entity_id=eid, agent_kind=kind,
-                                from_state="idle", to_state="settled"))
+                                from_state="idle", to_state="settled",
+                                x=round(_gx, 1), y=round(_gy, 1)))
                     if e.get("garrison") is not None \
                             and (self.tick_count + eid) % 15 == 1:
                         # a lone holder marks the WAY (reach); a pair or
@@ -2683,13 +2709,15 @@ class GameSession:
             elif cmd.kind == "seal":
                 self._seal_breach(cmd.breach_id, cmd.reason)
         if t_ % 60 == 0:
+            _pos = {}
             for weid, we in self.enemies.items():
-                if we["kind"] == "warden":
-                    _, wx2, wy2, *_ = self.sim.get(weid)
-                    self.trace.sample(t_, dict(
-                        warden=weid,
-                        polygon=self.sim.get_polygon(weid),
-                        pos=[round(wx2, 1), round(wy2, 1)]))
+                if not self.sim.exists(weid):
+                    continue
+                _, wx2, wy2, *_ = self.sim.get(weid)
+                _pos[str(weid)] = [we["kind"], self.sim.get_polygon(weid),
+                                   round(wx2, 1), round(wy2, 1)]
+            if _pos:
+                self.trace.emit(EnemyPositions(tick=t_, positions=_pos))
         if t_ % 60 == 0:
             self.trace.emit(ReserveSample(
                 tick=t_, reserve=round(self.marrow.depot.reserve, 3),
@@ -3042,9 +3070,11 @@ class GameSession:
             self.captures.release_for_entity(eid)
             self.medium.release(eid)
             self.adversary_census[e["kind"]] -= 1
+            _, _rx, _ry, *_ = s.get(eid)
             self.trace.emit(AgentTransition(
                 tick=t_, entity_id=eid, agent_kind=e["kind"],
-                from_state=e["state"], to_state="reabsorbed"))
+                from_state=e["state"], to_state="reabsorbed",
+                x=round(_rx, 1), y=round(_ry, 1)))
             self.enemies.pop(eid, None)
             s.remove(eid)
             return
@@ -3232,6 +3262,24 @@ class GameSession:
         edge = coord.choose_route(best[0], second_ok, bool(e.get("raid")))
         stuck = e.get("route_stuck")
         if stuck is not None and stuck[0] == polygon \
+                and stuck[1] == edge and t_ - stuck[2] > 900 \
+                and second_ok < 0 \
+                and self.senses.sight_of(eid, self.pid) is None:
+            # one-door chamber, fifteen seconds at the only doorway,
+            # nothing in sight: this hunt cannot progress (run 49/51:
+            # brute 427 pushed AN1's single door for 7474 ticks). Stand
+            # down — a resident returns to its post, fields can re-wake
+            # it on real stimulus.
+            self.trace.emit(CoordEvent(
+                tick=t_, entity_id=eid, agent_kind=e["kind"],
+                event="hunt_stall_stand_down",
+                detail=f"one-door polygon {polygon}, "
+                       f"{t_ - stuck[2]}t at door {stuck[1]}"))
+            e.pop("route", None)
+            e.pop("route_stuck", None)
+            self._set_enemy_state(eid, e, "idle")
+            return -1
+        if stuck is not None and stuck[0] == polygon \
                 and stuck[1] == edge and t_ - stuck[2] > 600 \
                 and second_ok >= 0 and second_ok != edge:
             # progress watchdog: ten seconds pushing the same doorway
@@ -3374,7 +3422,14 @@ class GameSession:
         s = self.sim
         d = ENEMIES["shrieker"]
         px, py = self.player_pos()
-        if e["scream_cd"] <= 0:
+        if e["scream_cd"] <= 0 and not e.get("_scream_woken"):
+            # a shrieker whose ONLY stimulus is someone else's scream
+            # does not itself scream: the alarm carries first-hand
+            # position knowledge, it does not self-amplify. Two hunkered
+            # shriekers in N2 re-latched each other into hunt forever
+            # through mutual rescreams (run 49/51 watch item) — the
+            # relay mark breaks the loop while leaving the ratified
+            # sight-scream-rally arc untouched.
             e["scream_cd"] = d["scream_cd"]
             self._snd("shrieker_scream", polygon, (ex, ey), 1.0)
             self.fx.append(("scream", polygon, ex, ey))
@@ -3384,6 +3439,8 @@ class GameSession:
                 orr = s.get_polygon(oid)
                 hd = s.hop_distance(orr, polygon)
                 if 0 <= hd <= 2:
+                    if oe["state"] == "idle":
+                        oe["_scream_woken"] = True
                     self._set_enemy_state(oid, oe, "hunt")
                     oe["buff"] = 60 * 5
         e["rally_cd"] = e.get("rally_cd", 0) - 1
@@ -3937,6 +3994,8 @@ class GameSession:
                     self.weapons.append(w)
                     self.weapon = w
                 self.ammo_bonus_for(w)
+                self.trace.emit(PickupTaken(
+                    tick=self.tick_count, item=kind, amount=1.0))
                 self._snd("pickup_ammo", ppolygon, (x, y))
                 self._acquired(w)
             elif kind == "safe_polygon_core":
@@ -3952,16 +4011,23 @@ class GameSession:
                 self.holes += 1 + self._hole_bonus
                 if "hole" not in self.weapons:
                     self.weapons.append("hole")
+                self.trace.emit(PickupTaken(
+                    tick=self.tick_count, item=kind,
+                    amount=float(1 + self._hole_bonus)))
                 self._snd("pickup_key", ppolygon, (x, y))
                 self._acquired("hole")
             elif kind == "implant_lightning":
                 if "lightning" not in self.weapons:
                     self.weapons.append("lightning")
+                self.trace.emit(PickupTaken(
+                    tick=self.tick_count, item=kind, amount=1.0))
                 self._snd("pickup_key", ppolygon, (x, y))
                 self._acquired("lightning")
             elif kind == "components":
                 n = p.get("amount", 1)
                 self.components += n
+                self.trace.emit(PickupTaken(
+                    tick=self.tick_count, item=kind, amount=float(n)))
                 self._snd("pickup_ammo", ppolygon, (x, y))
                 self.fx.append(("pickup_text", ppolygon, (x, y),
                                 f"+{n}c"))
@@ -3969,6 +4035,9 @@ class GameSession:
                 c = p.get("contents", {})
                 self.components += c.get("components", 0)
                 self.station_kits += c.get("station_kits", 0)
+                self.trace.emit(PickupTaken(
+                    tick=self.tick_count, item=kind,
+                    amount=float(c.get("components", 0))))
                 self._snd("corpse_recover", ppolygon, (x, y))
                 got = []
                 if c.get("components"):
@@ -3981,6 +4050,8 @@ class GameSession:
             elif kind.startswith("key_"):
                 key = kind[4:]
                 self.keys.add(key)
+                self.trace.emit(PickupTaken(
+                    tick=self.tick_count, item=kind, amount=1.0))
                 self._snd("pickup_key", ppolygon, (x, y))
                 meta = p.get("meta")
                 self.fx.append(("pickup_text", ppolygon, (x, y),
@@ -4262,18 +4333,23 @@ class GameSession:
         self.sim.set_dir(self.pid, st[5], st[6])
 
     def respawn_at_station(self) -> bool:
-        """Chassis path: a racked hull prints at the nearest seed station.
-        The world stays exactly as it lies -- enemies, doors, and the wreck
-        you just left. Returns False with no chassis or no station (the
-        caller falls back to the cold restore)."""
-        if self.chassis <= 0 or not self.stations:
+        """The reprint. A racked chassis prints at the NEAREST seed
+        station; with none racked, the STARTING pod itself always
+        prints (DESIGN_7_25: the starting pod has infinite backup
+        chassis for now) — what you pay is the walk back. The world
+        stays exactly as it lies -- enemies, doors, and the wreck you
+        just left. Returns False only with no station at all."""
+        if not self.stations:
             return False
         death_polygon = self.player_polygon()
-        best = min(self.stations,
-                   key=lambda st: (self.sim.hop_distance(st["polygon"], death_polygon)
-                                   if self.sim.hop_distance(st["polygon"], death_polygon) >= 0
-                                   else 1 << 20))
-        self.chassis -= 1
+        if self.chassis > 0:
+            best = min(self.stations,
+                       key=lambda st: (self.sim.hop_distance(st["polygon"], death_polygon)
+                                       if self.sim.hop_distance(st["polygon"], death_polygon) >= 0
+                                       else 1 << 20))
+            self.chassis -= 1
+        else:
+            best = self.stations[0]   # the starting pod (added at init)
         for eid in list(self.bullets):
             self.sim.remove(eid)
         self.bullets.clear()
@@ -4297,7 +4373,12 @@ class GameSession:
                 necore.mat_scale(self.zoom, self.zoom)),
             necore.mat_translate(-px, -py)))
         mark = len(self.fx)
-        self._objective(f"REPRINTED - {self.chassis} CHASSIS RACKED")
+        if self._protected_revival:
+            # the rite of return: a grace period no requisition order
+            # can grant (mindmap vocation capstone, now a real window)
+            self.revival_grace = 180
+        self._objective(f"REPRINTED - {self.chassis} CHASSIS RACKED"
+                        if self.chassis else "REPRINTED AT THE SEED POD")
         self._snd("reprint", polygon, (px, py))
         self.fx.append(("playerreprint",))
         self._park_oob(mark)

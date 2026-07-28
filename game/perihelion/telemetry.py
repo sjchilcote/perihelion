@@ -75,6 +75,34 @@ class AgentTransition:
     agent_kind: str
     from_state: str
     to_state: str
+    # where the transition happened (run 51: freeze certification could
+    # only be proxied for ~90% of the population without positions)
+    x: float = 0.0
+    y: float = 0.0
+
+
+@dataclass(frozen=True, slots=True)
+class EnemyPositions:
+    KIND = "enemy_positions"
+    # one bulk snapshot per cadence: eid -> [kind, polygon, x, y]. Replaces
+    # the warden-only rows that squatted the player's 'sample' schema
+    # (run 51: 77% of sample rows were wardens shadowing the player).
+    tick: int
+    positions: dict
+
+
+@dataclass(frozen=True, slots=True)
+class PlayerDeath:
+    KIND = "player_death"
+    # first-class death record (run 51: judges reconstructed deaths from
+    # hp staircases in DamageApplied rows)
+    tick: int
+    polygon: int
+    x: float
+    y: float
+    source: str          # what landed the killing blow
+    chassis_left: int
+    deaths: int          # cumulative, this session
 
 
 @dataclass(frozen=True, slots=True)
