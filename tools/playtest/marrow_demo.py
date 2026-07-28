@@ -61,6 +61,10 @@ def main() -> int:
     state = dict(FULL_LOADOUT)
     state["max_hp"] = state["hp"] = FULL_LOADOUT["max_hp"]
     state["dmg_taken_mul"] = 1.0
+    state["chassis"] = 3    # the starting pod grants reprints (canon);
+    #                         without them the filmed translocation
+    #                         never fires and every film ends at the
+    #                         first death
     level = load_level(ROOT / "levels" / "gauntlet4.json")
     session = GameSession(level, seed=a.seed, player_state=state,
                           screen=(640, 360), zoom=a.zoom)
@@ -104,7 +108,8 @@ def main() -> int:
         session.tick(inp)
         fx = session.fx
         renderer.consume_fx(fx)
-        audio.handle_sounds(session, fx)
+        audio.handle_sounds(session, fx,
+                            visible_instances=session.visible(3, 24))
         music.update(session)
         trace.drain_from(session.trace)
         if t % a.every == 0:

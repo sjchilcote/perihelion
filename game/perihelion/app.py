@@ -892,7 +892,9 @@ class App:
         fx = game.session.fx
 
         game.renderer.consume_fx(fx)
-        self.audio.handle_sounds(game.session, fx)
+        self.audio.handle_sounds(
+            game.session, fx,
+            visible_instances=game.session.visible(3, 24))
         self.audio.update_heartbeat(game.session)
         self.music.update(game.session)
 

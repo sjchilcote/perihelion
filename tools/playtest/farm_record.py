@@ -91,7 +91,8 @@ def main():
         session.tick(inp)
         fx = session.fx
         renderer.consume_fx(fx)
-        audio.handle_sounds(session, fx)
+        audio.handle_sounds(session, fx,
+                            visible_instances=session.visible(3, 24))
         music.update(session)
         if t % a.every == 0:
             frame = renderer.draw(surf)
