@@ -350,6 +350,38 @@ def gen_pistol_fire() -> np.ndarray:
     )
 
 
+def gen_sentry_fire() -> np.ndarray:
+    # The automated turret's OWN voice (run 51 vocabulary watch item: it
+    # borrowed pistol_fire — one sound, two meanings, and the player can't
+    # tell their own hits from their guns'). Design: reads MECHANICAL and
+    # servo-fed at a glance — a thinner, brighter snap than any handheld
+    # gun, with a short actuator tick right before the shot (the mount
+    # cycling) so even at doorway attenuation it says "machine".
+    seed = _seed("sentry")
+    shot = gunshot(
+        0.16, seed,
+        thump_kw=dict(f0=170, f1=62, pitch_s=0.02, dur_s=0.08, drive=2.2),
+        body_kw=dict(dur_s=0.06, f_hi=2600, f_lo=380, brown_mix=0.35),
+        tail_kw=dict(dur_s=0.1, lp_hz=900),
+        knock_gain=0.7, knock_hz=240.0,
+        transient_gain=1.0, transient_lp=6500,
+        body_gain=0.42,
+        sub_gain=0.55, sub_kw=dict(f0=70, f1=34, pitch_s=0.02, dur_s=0.09,
+                                   drive=1.6),
+        tail_gain=0.2, drive=2.4, fade_s=0.02,
+    )
+    shot = sy.soft_clip(sy.bitcrush(shot, bits=10), 1.15)
+    # the actuator tick: 12ms of bright filtered noise 30ms ahead of the
+    # muzzle, quiet — a servo latch, not a second gunshot
+    tick = sy.bandpass(sy.white_noise(0.012, seed=seed + 1), 4200.0, q=2.0)
+    tick = (tick * sy.env_exp_decay(0.012, tau=0.004) * 0.35).astype(np.float32)
+    pre = int(0.03 * SR)
+    out = np.zeros(pre + len(shot), dtype=np.float32)
+    out[:len(tick)] += tick
+    out[pre:] += shot
+    return out
+
+
 def gen_smg_fire() -> np.ndarray:
     # Round-3 punch-up, take 3: same fix as the pistol -- keep the snap's
     # body bright (level-tame it, don't dull it) and offset the sub so it
@@ -939,6 +971,36 @@ def gen_gland_fire() -> np.ndarray:
     x = grit(x, drive=2.4, floor_db=-30, seed=seed + 8)
     x = sy.lowpass(x, 3600)
     return finish(x, fade_s=0.04, pad_s=0.03)
+
+
+def gen_mark_hit() -> np.ndarray:
+    """THE MARK landing on the player (U10). A player-body event needs its
+    own voice: the marker used to play the shrieker's scream on contact,
+    which is one sound meaning two things (the vocabulary law applies to
+    audio — see the sentry's own voice). This is a wet impact followed by
+    a rising whine as the tag goes live and starts pouring: sticky, close,
+    unmistakably ON YOU rather than out there."""
+    seed = _seed("markhit")
+    dur = 0.55
+    # the splat: a short dense low-mid impact, no crack (nothing broke)
+    imp = sy.brown_noise(0.09, seed=seed)
+    imp = sy.lowpass(imp, 900.0)
+    imp = (imp * sy.env_exp_decay(0.09, tau=0.022)).astype(np.float32)
+    # the tag going live: a thin rising tone that keeps climbing after the
+    # impact, so the ear hears "this did not just hit me, it is doing
+    # something"
+    whine = sy.sine(np.linspace(430.0, 1180.0, sy.samples(dur)), dur)
+    whine = (whine * sy.env_adsr(dur, 0.05, 0.10, 0.55, 0.30)
+             * 0.34).astype(np.float32)
+    # a wet crawl underneath: filtered noise wobbling as the glob settles
+    crawl = sy.white_noise(dur, seed=seed + 3)
+    wob = 620.0 + 180.0 * sy.sine(7.0, dur)
+    crawl = sy.bandpass(crawl, wob, q=1.6)
+    crawl = (crawl * sy.env_adsr(dur, 0.02, 0.18, 0.35, 0.35)
+             * 0.28).astype(np.float32)
+    out = sy.mix_layers([sy.pad_to(imp, sy.samples(dur)), whine, crawl],
+                        [1.0, 1.0, 1.0])
+    return sy.fade_out(sy.soft_clip(out, 1.6), 0.06)
 
 
 def gen_shrieker_scream() -> np.ndarray:
@@ -2034,6 +2096,7 @@ PEAK_STEP = -7.0  # texture, not event: steps sit under everything
 # (name, spec, dur_min, dur_max, category, generator, normalize)
 _ENTRIES = [
     ("pistol_fire", "a punchy sci-fi pistol shot: sharp crack transient, tight low-mid body with real weight, fast natural decay -- must sound like a lethal handgun discharge, not a synth blip or metal ping", 0.10, 0.20, "gun", gen_pistol_fire, ("peak", PEAK_GUN)),
+    ("sentry_fire", "an automated sentry turret shot: thin bright mechanical snap with a tiny servo tick before the discharge -- unmistakably a machine's gun, smaller and sharper than any handheld weapon", 0.08, 0.22, "gun", gen_sentry_fire, ("peak", PEAK_GUN)),
     ("smg_fire", "a tight, ratty submachine-gun shot: fast sharp snap transient, compact low-mid body, very quick decay -- shorter and snappier than the pistol but with real low-end punch", 0.06, 0.14, "gun", gen_smg_fire, ("peak", PEAK_GUN)),
     ("shotgun_fire", "a deep shotgun boom: heavy low-end concussion, broadband pellet-spread rattle, longer decaying boom tail -- the heaviest, most physical gunshot in the game", 0.22, 0.42, "gun", gen_shotgun_fire, ("peak", PEAK_GUN)),
     ("scrap_fire", "the scrap driver firing salvage shards: a raspier, junkier gunshot than the shotgun -- bitcrushed grit and a rattling scattered-debris tail instead of a smooth boom, like flinging scrap metal, not firing a clean shotgun blast", 0.28, 0.55, "gun", gen_scrap_fire, ("peak", PEAK_GUN)),
@@ -2055,6 +2118,7 @@ _ENTRIES = [
     ("enemy_alert_mite", "rapid insect-like chittering", 0.15, 0.30, "enemy", gen_enemy_alert_mite, ("peak", PEAK_ENEMY)),
     ("spitter_shoot", "organic wet spit lob projectile launch", 0.15, 0.30, "enemy", gen_spitter_shoot, ("peak", PEAK_ENEMY)),
     ("gland_fire", "a grafted Adversary gland discharging: wet organic burst with a sour, faintly wrong detuned tonal component -- distinct from the enemy spitter's clean gurgle-plop, this is the player's own flesh doing something it shouldn't", 0.30, 0.55, "enemy", gen_gland_fire, ("peak", PEAK_ENEMY)),
+    ("mark_hit", "a wet sticky impact on the player's own body followed by a rising whine as the tag goes live -- close and personal, not a distant creature noise", 0.35, 0.70, "enemy", gen_mark_hit, ("peak", PEAK_PLAYER)),
     ("shrieker_scream", "piercing distorted shriek, the scariest sound in the game", 0.55, 1.0, "enemy", gen_shrieker_scream, ("peak", PEAK_ENEMY + 0.5)),
     ("player_hurt", "sharp grunt-like thump plus a high sting", 0.10, 0.20, "player", gen_player_hurt, ("peak", PEAK_PLAYER)),
     ("player_die", "long collapse with a fading ring", 1.0, 1.5, "player", gen_player_die, ("peak", PEAK_PLAYER)),
