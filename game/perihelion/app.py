@@ -367,7 +367,13 @@ class App:
                                  tick_clock=bool(getattr(args, "record",
                                                          None)))
 
-        self.debug = bool(args.fps)
+        # --fps is a frame-rate METER, nothing else. The renderer's
+        # chamber-label overlay (r<polygon> d<depth> on every room) is
+        # dev-only diagnosis behind PERIHELION_DEBUG_ROOMS — it must
+        # never ride along with an innocent fps readout (director
+        # 2026-07-28: "there's labels on every room").
+        self.show_fps = bool(args.fps)
+        self.debug = bool(os.environ.get("PERIHELION_DEBUG_ROOMS"))
         self.running = True
 
         self.scenes: list[menus.Scene] = []
@@ -417,11 +423,25 @@ class App:
         if getattr(args, "record", None):
             rec_dir = Path(args.record)
             rec_dir.mkdir(parents=True, exist_ok=True)
+            # lockstep (one sim tick per drawn frame, wall time ignored)
+            # is for BOT captures, where determinism beats pacing. A
+            # HUMAN playing gets the realtime loop — the sim must never
+            # slow down because a PNG is being written (director
+            # 2026-07-28: "the sim rate is just turned way down") — so
+            # frames count on the SIM clock and encoding happens on a
+            # writer thread.
             self._rec = dict(dir=rec_dir, every=max(1, int(args.record_every)),
                              frames=0, saved=0,
+                             lockstep=not getattr(args, "play", False),
                              max_frames=int(args.record_seconds * 60),
                              events=open(rec_dir / "events.jsonl", "w"),
                              inputs=open(rec_dir / "inputs.jsonl", "w"))
+            import queue as _queue
+            import threading as _threading
+            self._rec["q"] = _queue.Queue(maxsize=8)
+            self._rec["writer"] = _threading.Thread(
+                target=self._rec_writer_loop, daemon=True)
+            self._rec["writer"].start()
             self.audio.tap = self._audio_tap
 
         # ALWAYS-ON SESSION TRACE (the instrumentation spine, U1): the sim
@@ -469,11 +489,35 @@ class App:
             dict(t=self._rec["frames"] / 60.0, kind=kind, name=name,
                  vol=round(vol, 4), pan=round(pan, 4))) + "\n")
 
-    def _record_frame(self) -> None:
+    def _rec_writer_loop(self) -> None:
+        """PNG encoding off the main thread: the game loop enqueues a
+        surface copy, this thread pays the encode/write cost."""
+        q = self._rec["q"]
+        while True:
+            item = q.get()
+            if item is None:
+                return
+            surf, path = item
+            pygame.image.save(surf, path)
+
+    def _record_frame(self, n_ticks: int = 1) -> None:
+        """Advance the record clock by the sim ticks this drawn frame
+        carried (lockstep: always 1). The saved-frame cadence lives on
+        the SIM clock, so realtime play keeps an exact 60/every fps
+        video regardless of draw rate — a draw that carried 2 ticks
+        across a save boundary saves the same picture twice rather than
+        letting the film clock drift."""
+        rec = self._rec
+        for _ in range(max(0, n_ticks)):
+            self._record_one_tick()
+            if rec["frames"] >= rec["max_frames"]:
+                return
+
+    def _record_one_tick(self) -> None:
         rec = self._rec
         if rec["frames"] % rec["every"] == 0:
-            pygame.image.save(
-                self.internal, str(rec["dir"] / f"frame_{rec['saved']:06d}.png"))
+            rec["q"].put((self.internal.copy(),
+                          str(rec["dir"] / f"frame_{rec['saved']:06d}.png")))
             # PERIHELION_VIS_DUMP: debug instrumentation for the flicker
             # investigation -- dump the visible instance set (polygon, depth,
             # clip bbox) alongside every saved frame so a frame-pair diff
@@ -498,7 +542,24 @@ class App:
             rec["saved"] += 1
         rec["frames"] += 1
         if rec["frames"] >= rec["max_frames"]:
-            self.running = False
+            if rec["lockstep"]:
+                self.running = False   # capture done: the pipeline exits
+            else:
+                # a HUMAN hitting the record budget keeps playing —
+                # the film ends, the game does not
+                self._close_record()
+
+    def _close_record(self) -> None:
+        rec, self._rec = self._rec, None
+        if rec is None:
+            return
+        rec["q"].put(None)
+        rec["writer"].join(timeout=30.0)
+        rec["events"].close()
+        if rec.get("inputs") is not None:
+            rec["inputs"].close()
+        print(f"[record] {rec['saved']} frames + events.jsonl in "
+              f"{rec['dir']}", flush=True)
 
     # ------------------------------------------------------------------
     # layout / coordinate mapping
@@ -786,7 +847,7 @@ class App:
         accumulator = 0.0
         last = time.perf_counter()
         while self.running:
-            if self._rec is not None:
+            if self._rec is not None and self._rec["lockstep"]:
                 # lockstep: exactly one 60Hz sim tick per recorded frame,
                 # decoupled from wall time so capture speed doesn't matter
                 frame_dt = DT
@@ -841,14 +902,10 @@ class App:
 
             self._draw_frame()
             if self._rec is not None:
-                self._record_frame()
+                self._record_frame(1 if self._rec["lockstep"]
+                                   else ticks_this_frame)
             self.clock.tick(0 if self.dummy else 60)
-        if self._rec is not None:
-            self._rec["events"].close()
-            if self._rec.get("inputs") is not None:
-                self._rec["inputs"].close()
-            print(f"[record] {self._rec['saved']} frames + events.jsonl in "
-                  f"{self._rec['dir']}", file=sys.stderr)
+        self._close_record()
         if self._trace_writer is not None:
             self._trace_writer.close()
         self._persist_save()
@@ -978,7 +1035,7 @@ class App:
         self.internal.fill((0, 0, 0))
         if self.scenes:
             self.scenes[-1].draw(self, self.internal)
-        if self.debug:
+        if self.show_fps:
             self._draw_fps_overlay()
         self._blit_scaled()
         pygame.display.flip()
