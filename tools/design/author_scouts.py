@@ -20,7 +20,10 @@ spotters.
     uv run python tools/design/author_scouts.py levels/gauntlet4.json \
         [--vagrants 2] [--lacunas 3] [--dormant 2] [--write]
 
-Without --write it prints the plan only.
+Without --write it prints the plan only. Authoring REPLACES the census,
+so the run is idempotent; the shipped gauntlet4 census is exactly
+
+    ... levels/gauntlet4.json --band 5:20 --lacunas 5 --dormant 2 --write
 """
 from __future__ import annotations
 
@@ -35,6 +38,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "game"))
 
 SENTRY_TYPES = {"sentry", "turret"}
+SCOUT_TYPES = {"vagrant", "lacuna"}
 VAGRANT_MIN_AREA = 45_000.0   # top-quartile ground for this station scale
 
 
@@ -78,6 +82,20 @@ def main() -> int:
     data = json.loads(path.read_text())
     polys = data["polygons"]
     n = len(polys)
+
+    # authoring is a REPLACEMENT, not an append: a previous census would
+    # otherwise survive alongside the new one (duplicate scouts in the
+    # chambers both runs picked) and skew this run's combat_load
+    cleared = 0
+    for p in polys:
+        ents = p.get("entities")
+        if not ents:
+            continue
+        keep = [e for e in ents if e["type"] not in SCOUT_TYPES]
+        cleared += len(ents) - len(keep)
+        p["entities"] = keep
+    if cleared:
+        print(f"cleared {cleared} previously authored scouts")
 
     from perihelion.levels import load_level
     viable = seam_viable_chambers(load_level(path))
