@@ -8,6 +8,8 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 
+mod platform;
+
 use necore_core::{
     geom, raycast as core_raycast, polygons_within as core_polygons_within,
     terrain_avoid_dir as core_terrain_avoid_dir, terrain_light_segments as core_terrain_light_segments,
@@ -1185,6 +1187,9 @@ fn necore(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Sim>()?;
     m.add_class::<Raster>()?;
     m.add_class::<SignalField>()?;
+    m.add_class::<platform::AudioMixer>()?;
+    m.add_class::<platform::Window>()?;
+    m.add_function(wrap_pyfunction!(platform::write_png, m)?)?;
     m.add_function(wrap_pyfunction!(mat_mul, m)?)?;
     m.add_function(wrap_pyfunction!(mat_inv, m)?)?;
     m.add_function(wrap_pyfunction!(mat_apply, m)?)?;
