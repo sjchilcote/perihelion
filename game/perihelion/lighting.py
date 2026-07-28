@@ -259,6 +259,14 @@ class LightingSystem:
     def __init__(self, sim, level=None):
         self.lights: list[LightSpec] = []
         self._by_polygon: dict[int, list[tuple[int, LightInstance]]] = {}
+        # attached-light wedge cache, keyed on everything the visibility
+        # pass depends on besides topology. Most "attached" lights never
+        # move (breach tears, station lamps, pulse flashes decaying in
+        # place) yet burned a full engine visibility pass per light per
+        # frame — 13-15 passes/frame in heavy fights, the measured p99
+        # driver (2026-07-28). Identical inputs → identical wedges, so
+        # caching is behavior-free; `on_topology_changed` invalidates.
+        self._attached_cache: dict[tuple, list[LightInstance]] = {}
         if level is not None:
             self.add_lights(sim, level.lights)
 
@@ -283,7 +291,8 @@ class LightingSystem:
         return [(i, lt) for i, lt in enumerate(self.lights)
                 if lt.kind == "attached" and lt.intensity > 0.0]
 
-    def frame_lookup(self, sim) -> dict[int, list[tuple[int, LightInstance]]]:
+    def frame_lookup(self, sim, soft_polygons=None
+                     ) -> dict[int, list[tuple[int, LightInstance]]]:
         """Call once per frame: static cache plus freshly recomputed
         attached lights (e.g. the player's own light), merged into a
         polygon -> [(light_index, instance)] map for that frame's compositing
@@ -291,10 +300,41 @@ class LightingSystem:
         by_polygon: dict[int, list[tuple[int, LightInstance]]] = {
             polygon: list(insts) for polygon, insts in self._by_polygon.items()
         }
+        cache = self._attached_cache
         for i, lt in self.attached_lights():
-            for inst in compute_light_instances(sim, lt, max_instances=24):
+            key = (lt.polygon, lt.pos, lt.radius, lt.dir, lt.arc)
+            insts = cache.get(key)
+            if insts is not None and soft_polygons and (
+                    lt.polygon in soft_polygons
+                    or any(inst.polygon in soft_polygons for inst in insts)):
+                # BREATHING WALLS: a soft chamber's geometry moves every
+                # tick with no topology event, so a cached wedge is stale
+                # the moment it's reused — verified as a lit boundary
+                # column drifting off the fresh recompute (2026-07-28).
+                # Lights touching soft polygons are recomputed every
+                # frame, exactly as before the cache existed.
+                insts = None
+            if insts is None:
+                if len(cache) > 256:
+                    # moving lights (the player's lamp) mint a new key
+                    # per frame; a full clear is cheap and behavior-free
+                    cache.clear()
+                insts = compute_light_instances(sim, lt, max_instances=24)
+                if not soft_polygons or (
+                        lt.polygon not in soft_polygons
+                        and all(inst.polygon not in soft_polygons
+                                for inst in insts)):
+                    cache[key] = insts
+            for inst in insts:
                 by_polygon.setdefault(inst.polygon, []).append((i, inst))
         return by_polygon
+
+    def on_topology_changed(self) -> None:
+        """Portal graph changed (door, breach, carve): attached wedges may
+        now reach differently — drop them; they rebuild on next lookup.
+        (The static cache keeps its shipped behavior: computed at
+        registration, exactly as before.)"""
+        self._attached_cache.clear()
 
     def cache_count(self) -> int:
         return sum(len(v) for v in self._by_polygon.values())

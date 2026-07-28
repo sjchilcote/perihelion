@@ -24,6 +24,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Mapping
 
+import necore
+
 TICK_RATE = 60
 SPREAD_DT = 15                  # spread cadence in ticks (0.25s)
 _EPS = 1e-5                     # wet-set floor
@@ -73,26 +75,20 @@ class SignalNeighborhood:
 
 
 class SignalField:
-    """The substrate. `world` is the engine sim (portal adjacency); it is
-    the only dependency — no game system is visible from here."""
+    """Typed facade over the ENGINE's signal substrate (necore.SignalField,
+    engine/necore/src/signals.rs — the one implementation of the math).
+    This class owns only: the SignalKind enum boundary (kinds cross as
+    declaration-order indices), adjacency extraction from the world, and
+    the frozen observation dataclasses. The Python cell loops it replaced
+    were the sim's steady-state and spread-beat hot path (measured
+    2026-07-28: ~1.5-2 ms per spread tick at fight density)."""
 
-    __slots__ = ("_w", "_v", "_t", "wet", "_adj", "_adj_n",
-                 "_last_spread", "_trail", "_trail_t")
+    _IDX = {k: i for i, k in enumerate(SignalKind)}
 
     def __init__(self, world, tick: int = 0):
         self._w = world
-        n = world.num_polygons()
-        self._v = {k: [0.0] * n for k in SignalKind}
-        self._t = {k: [tick] * n for k in SignalKind}
-        self.wet: set[int] = set()
+        self._f = necore.SignalField(tick)
         self._adj: list[list[int]] = []
-        self._adj_n = -1
-        self._last_spread = tick
-        # doorway traffic marks: directed edge pheromone (polygon, edge),
-        # distinct from the chamber TRAIL field (the intruder's scent) —
-        # this is which route SEARCHERS have repeatedly chosen
-        self._trail: dict[tuple[int, int], float] = {}
-        self._trail_t: dict[tuple[int, int], int] = {}
         self.on_topology_changed()
 
     # -- topology ----------------------------------------------------------
@@ -105,93 +101,58 @@ class SignalField:
         n = w.num_polygons()
         self._adj = [[p[0] for p in w.polygon_portals(r) if p is not None]
                      for r in range(n)]
-        if n > self._adj_n:
-            for k in SignalKind:
-                self._v[k].extend([0.0] * (n - len(self._v[k])))
-                self._t[k].extend([self._last_spread]
-                                  * (n - len(self._t[k])))
-        self._adj_n = n
+        self._f.set_adjacency(self._adj)
 
     # -- write -------------------------------------------------------------
 
     def emit(self, kind: SignalKind, polygon: int, amount: float,
              tick: int) -> None:
-        if amount <= 0.0 or polygon < 0 or polygon >= self._adj_n:
-            return
-        self._materialize(kind, polygon, tick)
-        self._v[kind][polygon] += amount
-        self.wet.add(polygon)
+        self._f.emit(self._IDX[kind], polygon, amount, tick)
+
+    def emit_many(self, kind: SignalKind, polygons, amount: float,
+                  tick: int) -> None:
+        self._f.emit_many(self._IDX[kind], list(polygons), amount, tick)
 
     def emit_at_least(self, kind: SignalKind, polygon: int, level: float,
                       tick: int) -> None:
         """Raise the cell to at least `level` (the Trail idiom: passage
         re-arms the scent to full, it does not stack unboundedly)."""
-        if polygon < 0 or polygon >= self._adj_n:
-            return
-        cur = self.sample(kind, polygon, tick)
-        if cur < level:
-            self._v[kind][polygon] = level
-            self.wet.add(polygon)
+        self._f.emit_at_least(self._IDX[kind], polygon, level, tick)
 
     # -- read (never mutates observable state) ------------------------------
 
-    def _materialize(self, kind: SignalKind, polygon: int, tick: int) -> None:
-        dt = tick - self._t[kind][polygon]
-        if dt < 0:
-            raise ValueError(f"time ran backwards for {kind} in {polygon}")
-        if dt:
-            v = self._v[kind][polygon] * (_DECAY_PER_TICK[kind] ** dt)
-            self._v[kind][polygon] = 0.0 if v < _EPS else v
-            self._t[kind][polygon] = tick
-
     def sample(self, kind: SignalKind, polygon: int, tick: int) -> float:
-        if polygon < 0 or polygon >= self._adj_n:
-            raise ValueError(f"unknown chamber {polygon}")
-        dt = tick - self._t[kind][polygon]
-        if dt < 0:
-            raise ValueError(f"time ran backwards for {kind} in {polygon}")
-        v = self._v[kind][polygon] * (_DECAY_PER_TICK[kind] ** dt)
-        return 0.0 if v < _EPS else v
+        return self._f.sample(self._IDX[kind], polygon, tick)
 
     def neighborhood(self, polygon: int, tick: int, *,
                      depth: int = 1) -> SignalNeighborhood:
         if depth > 1:
             raise ValueError(
                 f"agents sample only one portal away (asked {depth})")
-        own = {k: self.sample(k, polygon, tick) for k in SignalKind}
+        own = dict(zip(SignalKind, self._f.sample_all(polygon, tick)))
         adj = []
         if depth >= 1:
             for nb in self._adj[polygon]:
-                adj.append((nb, {k: self.sample(k, nb, tick)
-                                 for k in SignalKind}))
+                adj.append((nb, dict(zip(SignalKind,
+                                         self._f.sample_all(nb, tick)))))
         return SignalNeighborhood(center=polygon, own=own,
                                   adjacent=tuple(adj))
 
     def total(self, kind: SignalKind, tick: int) -> float:
-        return sum(self.sample(kind, r, tick) for r in sorted(self.wet))
+        return self._f.totals(tick)[self._IDX[kind]]
+
+    def totals(self, tick: int) -> dict:
+        vals = self._f.totals(tick)
+        return {k: vals[i] for i, k in enumerate(SignalKind)}
 
     # -- doorway traffic marks ----------------------------------------------
 
-    _TRAIL_CAP = 8.0
-    _TRAIL_HL_TICKS = 660.0          # ~11s: only reused lanes persist
-
     def deposit_doorway_trail(self, polygon: int, edge: int, amount: float,
                               tick: int) -> None:
-        if amount <= 0.0:
-            return
-        k = (polygon, edge)
-        cur = self.doorway_trail(polygon, edge, tick)
-        self._trail[k] = min(self._TRAIL_CAP, cur + amount)
-        self._trail_t[k] = tick
+        self._f.deposit_doorway_trail(polygon, edge, amount, tick)
 
     def doorway_trail(self, polygon: int, edge: int, tick: int) -> float:
-        k = (polygon, edge)
-        v = self._trail.get(k)
-        if v is None:
-            return 0.0
-        dt = tick - self._trail_t[k]
-        v *= 0.5 ** (dt / self._TRAIL_HL_TICKS)
-        return 0.0 if v < _EPS else v
+        return self._f.doorway_trail(polygon, edge, tick)
 
     # -- spread (fixed cadence, independent of sampling) ---------------------
 
@@ -199,85 +160,7 @@ class SignalField:
         """Advance spread to `tick` in whole SPREAD_DT chunks. Decay needs
         no stepping (it is analytic); only transfer between neighbors
         happens here, so behavior cannot depend on call frequency."""
-        while tick - self._last_spread >= SPREAD_DT:
-            self._last_spread += SPREAD_DT
-            self._spread_chunk(self._last_spread)
-
-    def _spread_chunk(self, tick: int) -> None:
-        if not self.wet:
-            return
-        live = sorted(self.wet | {nb for r in self.wet if r < self._adj_n
-                                  for nb in self._adj[r]})
-        dt_s = SPREAD_DT / TICK_RATE
-        new_wet: set[int] = set()
-        for kind, (hl, rate, hop_gain) in _SPEC.items():
-            if rate <= 0.0:
-                for r in live:
-                    self._materialize(kind, r, tick)
-                    if self._v[kind][r] > 0.0:
-                        new_wet.add(r)
-                continue
-            arr = self._v[kind]
-            for r in live:
-                self._materialize(kind, r, tick)
-            frac = min(0.45, rate * dt_s)   # stability: never move >45%/side
-            if kind is SignalKind.GARRISON_INTERIOR:
-                self._spread_interior(live, frac, hop_gain, tick)
-            else:
-                # per-door outflow from a SNAPSHOT of the chunk's values
-                # (simultaneous update); total outflow capped below 90% so
-                # a many-doored room can never go negative in one chunk
-                flows = []
-                for r in live:
-                    cur = arr[r]
-                    if cur <= 0.0:
-                        continue
-                    deg = len(self._adj[r])
-                    if deg == 0:
-                        continue
-                    per = cur * min(0.9, frac * deg) / deg
-                    for nb in self._adj[r]:
-                        flows.append((r, nb, per))
-                for r, nb, per in flows:
-                    arr[r] -= per                   # what left the room
-                    arr[nb] += per * hop_gain       # what arrived (hop loss)
-            for r in live:
-                v = arr[r]
-                if v < _EPS:
-                    arr[r] = 0.0
-                else:
-                    new_wet.add(r)
-        self.wet = new_wet
-
-    def _spread_interior(self, live, frac, hop_gain, tick) -> None:
-        """Garrison Interior's two-front rule: a chamber only becomes
-        'inside the wire' when emission reaches it from TWO OR MORE
-        distinct neighbors; a single-path reach converts to Garrison
-        Reach instead (the FOB is this way, not you-are-inside-it)."""
-        interior = self._v[SignalKind.GARRISON_INTERIOR]
-        reach = self._v[SignalKind.GARRISON_REACH]
-        gains: dict[int, list[float]] = {}
-        outflow: dict[int, float] = {}
-        for r in live:
-            cur = interior[r]
-            if cur <= 0.0:
-                continue
-            deg = len(self._adj[r])
-            if deg == 0:
-                continue
-            per = cur * min(0.9, frac * deg) / deg
-            outflow[r] = per * deg
-            for nb in self._adj[r]:
-                gains.setdefault(nb, []).append(per)
-        for r, out in sorted(outflow.items()):
-            interior[r] -= out
-        for nb, parts in sorted(gains.items()):
-            total = sum(parts)
-            if len(parts) >= 2:
-                interior[nb] += total
-            else:
-                self._materialize(SignalKind.GARRISON_REACH, nb, tick)
-                reach[nb] += total
+        self._f.step_to(tick)
 
     # -- the scrubber's sink (U13 consumes this; the capacity is SHARED) ----
 
@@ -286,22 +169,4 @@ class SignalField:
         """Remove up to `capacity` signal-units TOTAL (all nine fields
         together, weighted per chamber), proportionally to what is
         actually there. Returns what was removed."""
-        pool = []
-        for r, wgt in sorted(polygon_weights.items()):
-            if r < 0 or r >= self._adj_n or wgt <= 0.0:
-                continue
-            for k in SignalKind:
-                v = self.sample(k, r, tick)
-                if v > 0.0:
-                    pool.append((k, r, v, wgt))
-        weighted = sum(v * wgt for _, _, v, wgt in pool)
-        if weighted <= 0.0 or capacity <= 0.0:
-            return 0.0
-        removed = 0.0
-        scale = min(1.0, capacity / weighted)
-        for k, r, v, wgt in pool:
-            self._materialize(k, r, tick)
-            cut = v * wgt * scale
-            self._v[k][r] = max(0.0, self._v[k][r] - cut)
-            removed += cut
-        return removed
+        return self._f.drain(list(polygon_weights.items()), capacity, tick)

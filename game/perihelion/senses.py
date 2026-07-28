@@ -104,49 +104,22 @@ class SenseQuery:
         """The target's position in the OBSERVER's local frame, if a real
         sightline exists (portal transforms composed along the chain,
         raycast-confirmed). Same-chamber sight is unconditional — the
-        chambers are convex, nothing inside one can hide a body."""
-        w = self._w
+        chambers are convex, nothing inside one can hide a body.
+
+        The geometric walk lives in the engine (`Sim.sightline`) — one
+        call instead of a per-hop Python loop; at ~270 sight queries per
+        tick the Python walk was the sim's single largest cost."""
         desc = self._describe(target_id)
         if desc is None:
             return None
         kind, faction, role, tags, group = desc
-        r0 = w.get_polygon(observer_id)
-        rt = w.get_polygon(target_id)
-        _, ox, oy, *_ = w.get(observer_id)
-        _, tx0, ty0, *_ = w.get(target_id)
-        if r0 == rt:
-            wx, wy, depth = tx0, ty0, 0
-        else:
-            hd = w.hop_distance(r0, rt)
-            if not (1 <= hd <= VISION_HOPS):
-                return None
-            pxf = None
-            r_ = r0
-            for _hop in range(VISION_HOPS):
-                if r_ == rt:
-                    break
-                pedge = w.next_edge(r_, rt)
-                if pedge < 0:
-                    return None
-                step_xf = w.portal_xform(r_, pedge)
-                if step_xf is None:
-                    return None
-                pxf = step_xf if pxf is None else necore.mat_mul(pxf, step_xf)
-                portal = w.polygon_portals(r_)[pedge]
-                r_ = portal[0]
-            if r_ != rt or pxf is None:
-                return None
-            wx, wy = necore.mat_apply(pxf, tx0, ty0)
-            depth = hd
-        ddx, ddy = wx - ox, wy - oy
-        dl = math.hypot(ddx, ddy) or 1e-6
-        if depth > 0:
-            hit = w.raycast(r0, ox, oy, ddx / dl, ddy / dl, 3,
-                            dl + 40.0, 1 << group, observer_id)
-            if hit[0] != "ent" or hit[1] != target_id:
-                return None
+        res = self._w.sightline(observer_id, target_id, group, VISION_HOPS)
+        if res is None:
+            return None
+        wx, wy, depth, dl = res
         return SenseHit(entity_id=target_id, kind=kind, faction=faction,
-                        role=role, polygon=rt, position=(wx, wy),
+                        role=role, polygon=self._w.get_polygon(target_id),
+                        position=(wx, wy),
                         distance=dl, portal_depth=depth,
                         state_tags=tags)
 
