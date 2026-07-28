@@ -179,3 +179,35 @@ shrieker stand-down after 45s with the squad. Run 49 PASS p=0.96, zero
 blockers. Seed 4's quiet tail held up as the suppression design (all
 scouts dead, marrow blind, zero calls) rather than a defect. Landed as
 618b89f6e6..bd8e440e57, 768 tests green.
+
+## Runs 50-51 (7/28): pygame eliminated
+
+The platform layer moved into the engine (winit window + input,
+softbuffer present, cpal mixer, png writer) and every pygame call
+site in game/tests/tools converted. Run 50 FAIL p=0.04 — six
+blockers, ALL in the port itself, all on live paths the films and
+the old suite never walked: plated UI text crashed on a changed
+fb2d.rect signature, the SFX pool was unbounded (2.3-3.7x clipping),
+a chunk queued on an idle channel never started (PRAYER died after
+any stop), OS auto-repeat flooded KEYDOWNs (pause menus stacked),
+button events had no cursor position (editor first-click crash),
+and screen shake was silently dropped. All six fixed at the source
+and pinned in test_platform_contracts.py.
+
+Run 51 PASS p=0.96, zero blockers. The judge's verify pass proved
+the diff behavior-preserving where it must be (seed-7 session ends
+at the identical tick; trace.jsonl byte-identical through the full
+render+audio path) and better where it touches audio (loops off the
+SFX pool, 1:1 sound-event causality on all four seeds; the old
+pygame pool measured empirically WORSE). Every blocker-class claim
+from 18 scanners died under adversarial verification. Carried watch
+items ledgered in verdict.json: live 12-voice saturation drops
+audible one-shots (pre-existing, two-part fix filed), woken hub
+residents in one-door chambers, telemetry gaps (enemy positions,
+first-class death record), chassis design-text drift, sentry
+alert sound reuse.
+
+Landed as five per-unit commits (engine platform module; audio/music
+port; app/ui window loop; tests/tools sweep; dependency removal).
+807 tests green. pygame-ce is out of pyproject; the runtime is
+necore + numpy + soundfile.
