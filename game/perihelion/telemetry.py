@@ -159,12 +159,48 @@ class DispatchDecision:
 
 
 @dataclass(frozen=True, slots=True)
+class PickupTaken:
+    KIND = "pickup_taken"
+    tick: int
+    item: str    # NOT 'kind': a field named kind would shadow the
+    #              record's own kind in to_json_line's merge and the
+    #              event would serialize as kind='medkit' — invisible
+    #              to every kind-based scan (found live: judges kept
+    #              seeing 'unexplained heals' after tracing was added)
+    amount: float
+
+
+@dataclass(frozen=True, slots=True)
 class ShelfReplaced:
     KIND = "shelf_replaced"
     tick: int
     unit_kind: str
     entity_id: int
     hub_chamber: int
+
+
+@dataclass(frozen=True, slots=True)
+class EnemyDeath:
+    KIND = "enemy_death"
+    tick: int
+    entity_id: int
+    enemy_kind: str
+    polygon: int
+
+
+@dataclass(frozen=True, slots=True)
+class CoordEvent:
+    # coordination-layer decisions (holds, prowls, watchdogs) — the
+    # judged behaviors run 42b called unjudgeable: danger_hold, prowl,
+    # and both chase watchdogs emitted no telemetry, so their filmed
+    # absence was indistinguishable from their filmed failure
+    KIND = "coord_event"
+    tick: int
+    entity_id: int
+    agent_kind: str
+    event: str                # hold_engage / hold_end / prowl_start /
+    #                           prowl_end / flank_switch / pursuit_stuck
+    detail: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -187,7 +223,8 @@ class TopologyChanged:
 TraceEvent = (InputRecord | AgentTransition | PortalCrossing
               | DamageApplied | ImpulseApplied | TopologyChanged
               | FieldSample | BreachLifecycle | ReserveSample
-              | DispatchDecision | ShelfReplaced | CorePartEvent)
+              | DispatchDecision | ShelfReplaced | CorePartEvent
+              | PickupTaken | EnemyDeath | CoordEvent)
 
 
 class TraceBus:
@@ -217,6 +254,10 @@ class TraceBus:
     def emit(self, event: TraceEvent) -> None:
         d = asdict(event)
         tick = d.pop("tick")
+        if "kind" in d:
+            raise ValueError(
+                f"{type(event).__name__} has a 'kind' field — it would "
+                "shadow the record kind in serialization; rename it")
         self._push(tick, type(event).KIND, d)
 
     def sample(self, tick: int, data: Mapping[str, Any]) -> None:
