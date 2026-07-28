@@ -24,7 +24,7 @@ just (0.7, 0.6, ...) — and the emotional spec still holds:
 MIXER ARCHITECTURE (the Tower-of-Torment mechanism — the director's own
 ChunkedMusicPlayer from pyweek-28, generalized to N lanes):
 
-    Every lane is a pygame channel playing equal BAR CHUNKS back-to-back
+    Every lane is an engine mixer channel playing equal BAR CHUNKS back-to-back
     via channel.queue(), so the audio device itself keeps sample-exact
     time. ALL musical change is WHICH variant's chunk gets queued for
     the next bar: bed_t<tier>, lead_<weapon>, bass_<dominant enemy>,
@@ -785,8 +785,9 @@ class MusicSystem:
         boundary table (round-per-boundary: no cumulative drift, every
         lane's chunk k has the identical sample length)."""
         import numpy as np
-        import pygame
         import soundfile as sf
+
+        from .audio import EngineSound
         chunks: dict[str, list] = {}
         n_total = None
         bounds = None
@@ -807,22 +808,21 @@ class MusicSystem:
             lst = []
             for k in range(self.n_bars):
                 seg = np.ascontiguousarray(data[bounds[k]:bounds[k + 1]])
-                lst.append(pygame.sndarray.make_sound(seg))
+                lst.append(EngineSound.from_array(self.bank, seg))
             chunks[name] = lst
         # a silence variant, one per distinct chunk length
         sil = []
         for k in range(self.n_bars):
             z = np.zeros((bounds[k + 1] - bounds[k], 2), dtype=np.int16)
-            sil.append(pygame.sndarray.make_sound(z))
+            sil.append(EngineSound.from_array(self.bank, z))
         chunks["silence"] = sil
         return chunks
 
-    @staticmethod
-    def _load_holy_tail(bank_dir):
-        import pygame
+    def _load_holy_tail(self, bank_dir):
+        from .audio import EngineSound
         fn = next((bank_dir / f"prayer_tail.{e}" for e in ("wav", "ogg")
                    if (bank_dir / f"prayer_tail.{e}").exists()), None)
-        return pygame.mixer.Sound(str(fn)) if fn is not None else None
+        return EngineSound.from_file(self.bank, fn) if fn is not None else None
 
     def _ensure_started(self, tick: int = 0):
         if self._started or not self.enabled or not self.has_bank:
@@ -835,18 +835,18 @@ class MusicSystem:
             self._boundary_tick = 0
             self._tap("music_bank", self.bank_dir.name, 1.0)
             return
-        import pygame
+        from .audio import EngineChannel, EngineSound
         sting_f = next((self.bank_dir / f"sting.{ext}"
                         for ext in ("wav", "ogg")
                         if (self.bank_dir / f"sting.{ext}").exists()),
                        None)
-        self._sting = pygame.mixer.Sound(str(sting_f)) if sting_f \
+        self._sting = EngineSound.from_file(self.bank, sting_f) if sting_f \
             else None
         stab_f = next((self.bank_dir / f"stab.{ext}"
                        for ext in ("wav", "ogg")
                        if (self.bank_dir / f"stab.{ext}").exists()),
                       None)
-        self._stab = pygame.mixer.Sound(str(stab_f)) if stab_f \
+        self._stab = EngineSound.from_file(self.bank, stab_f) if stab_f \
             else None
         if not self.rich:
             self._start_legacy()
@@ -856,20 +856,15 @@ class MusicSystem:
         assert len(lane_defs) <= MAX_LANES, sorted(lane_defs)
         riser_ch_idx = 4 + 2 * MAX_LANES   # polygon for BOTH lane sets
         holy_tail_idx = riser_ch_idx + 1   # the monk's phrase-tail voice
-        if pygame.mixer.get_num_channels() < riser_ch_idx + 14:
-            pygame.mixer.set_num_channels(riser_ch_idx + 14)
-        # channels 0..holy_tail are MUSIC/system territory: reserve
-        # them from SFX auto-allocation (Sound.play() steals the
-        # longest-running channel under load -- i.e. a music lane;
-        # and one-shots landing on ch2/3 got hard-cut by the next
-        # stab/sting). 12 channels remain as the SFX pool.
-        pygame.mixer.set_reserved(holy_tail_idx + 1)
+        # (the engine mixer's SFX pool is a separate voice set by
+        # construction — numbered channels can never be stolen, so the
+        # old reserve/num-channels dance is gone)
         master = self.bank.master_vol
         lane_defs = {k: v for k, v in lane_defs.items()
                      if v is not None}
         for i, (lname, variants) in enumerate(lane_defs.items()):
             lane = ChunkLane(
-                pygame.mixer.Channel(self._lane_ch_base + i), variants,
+                EngineChannel(self.bank, self._lane_ch_base + i), variants,
                 self.n_bars)
             self._lanes[lname] = lane
         # riser: a reserved channel, TRIGGERED one-shot (the stem is a
@@ -882,8 +877,8 @@ class MusicSystem:
         self._riser_ch = None
         self._riser_snd = None
         if riser_fn.exists():
-            self._riser_snd = pygame.mixer.Sound(str(riser_fn))
-            self._riser_ch = pygame.mixer.Channel(riser_ch_idx)
+            self._riser_snd = EngineSound.from_file(self.bank, riser_fn)
+            self._riser_ch = EngineChannel(self.bank, riser_ch_idx)
             self._riser_ch.set_volume(0.0)
         # the monk's SEAM VOICE (isolated-channel sweep, 2026-07-17):
         # form steering re-addresses every lane mid-phrase -- masked
@@ -893,7 +888,7 @@ class MusicSystem:
         # release tail (prayer_tail stem, no longer baked into
         # chunk[0] where it doubled the voice on every jump home)
         # rings into bar 0.
-        self._holy_tail_ch = pygame.mixer.Channel(holy_tail_idx)
+        self._holy_tail_ch = EngineChannel(self.bank, holy_tail_idx)
         self._holy_tail_snd = self._load_holy_tail(self.bank_dir)
         self._holy_tail_arm = None
         self._holy_prev_pos = None
@@ -1065,14 +1060,16 @@ class MusicSystem:
 
     # -- legacy 4-loop mixer (pre-rich banks) ------------------------------
     def _start_legacy(self):
-        import pygame
+        from .audio import EngineChannel, EngineSound
         for i, name in enumerate(("prayer", "contempt", "stalwart",
                                   "riser")):
             fn = self.bank_dir / f"{name}.wav"
             if not fn.exists():
                 continue
-            snd = pygame.mixer.Sound(str(fn))
-            ch = pygame.mixer.Channel(4 + i)
+            snd = EngineSound.from_file(self.bank, fn)
+            if snd is None:
+                continue
+            ch = EngineChannel(self.bank, 4 + i)
             ch.play(snd, loops=-1)
             ch.set_volume(0.0)
             self._channels[name] = ch
@@ -1671,10 +1668,10 @@ class MusicSystem:
             self._decode_thread.start()
         if self._decoded and self._next_names:
             # convert ONE stem's bar segments per tick (main thread owns
-            # pygame); ~26 stems finish well inside the 10-bar window
-            import pygame
+            # the mixer bank); ~26 stems finish well inside the 10-bar window
+            from .audio import EngineSound
             name = self._next_names.pop()
-            self._next_chunks[name] = [pygame.sndarray.make_sound(seg)
+            self._next_chunks[name] = [EngineSound.from_array(self.bank, seg)
                                        for seg in self._decoded[name]]
         if boundary and self._bar_idx >= ROTATE_BARS and \
                 self._decoded is not None and self._next_names is not None \
@@ -1686,7 +1683,7 @@ class MusicSystem:
             self._switch_bank(session)
 
     def _decode_bank(self, dir_) -> dict:
-        """Worker-thread half: pure soundfile/numpy, no pygame."""
+        """Worker-thread half: pure soundfile/numpy, no mixer access."""
         import numpy as np
         import soundfile as sf
         n_bars = load_bank_meta(dir_).n_bars   # validated, no defaults
@@ -1719,7 +1716,7 @@ class MusicSystem:
         """The handoff itself, on a just-sounded bar line: every lane
         restarts in the new bank's form at bar 0 -- a track change, on
         the grid, exactly like the chunk-queue promises."""
-        import pygame
+        from .audio import EngineChannel, EngineSound
         dir_, n_bars = self._decoded["__meta__"]
         self._bank_i = self._bank_dirs.index(dir_)
         self.bank_dir = dir_
@@ -1754,7 +1751,7 @@ class MusicSystem:
         sel = self._select_content()   # note: sel from OLD lane set is
         #   rebuilt below once lanes exist (variants differ per bank)
         for i, (lname, variants) in enumerate(lane_defs.items()):
-            lane = ChunkLane(pygame.mixer.Channel(new_base + i),
+            lane = ChunkLane(EngineChannel(self.bank, new_base + i),
                              variants, n_bars)
             self._lanes[lname] = lane
         sel = self._select_content()
@@ -1770,18 +1767,18 @@ class MusicSystem:
             sting_f = next((dir_ / f"sting.{ext}"
                             for ext in ("wav", "ogg")
                             if (dir_ / f"sting.{ext}").exists()), None)
-            self._sting = pygame.mixer.Sound(str(sting_f)) if sting_f \
-                else None
+            self._sting = EngineSound.from_file(self.bank, sting_f) \
+                if sting_f else None
             stab_f = next((dir_ / f"stab.{ext}"
                            for ext in ("wav", "ogg")
                            if (dir_ / f"stab.{ext}").exists()), None)
-            self._stab = pygame.mixer.Sound(str(stab_f)) if stab_f \
-                else None
+            self._stab = EngineSound.from_file(self.bank, stab_f) \
+                if stab_f else None
             riser_fn = next((dir_ / f"riser.{e}" for e in ("wav", "ogg")
                              if (dir_ / f"riser.{e}").exists()), None)
             if riser_fn is not None and self._riser_ch is not None:
                 self._riser_ch.stop()
-                self._riser_snd = pygame.mixer.Sound(str(riser_fn))
+                self._riser_snd = EngineSound.from_file(self.bank, riser_fn)
                 self._riser_ch.set_volume(0.0)
         except Exception as exc:
             print(f"[music] rotation sting/riser reload failed: {exc}",
@@ -1813,11 +1810,11 @@ class MusicSystem:
     def _stab_now(self):
         self._tap("music_stab", "stab", 1.0)
         if self._stab is not None and self._lanes:
-            import pygame
+            from .audio import EngineChannel
             try:
-                pygame.mixer.Channel(2).play(self._stab)
-                pygame.mixer.Channel(2).set_volume(
-                    0.7 * self.bank.master_vol)
+                ch2 = EngineChannel(self.bank, 2)
+                ch2.play(self._stab)
+                ch2.set_volume(0.7 * self.bank.master_vol)
             except Exception:
                 pass
 
@@ -1834,11 +1831,11 @@ class MusicSystem:
         self._last_sting_tick = tick
         self._tap("music_sting", "sting", 1.0)
         if self._sting is not None and (self._lanes or self._channels):
-            import pygame
+            from .audio import EngineChannel
             try:
-                pygame.mixer.Channel(3).play(self._sting)
-                pygame.mixer.Channel(3).set_volume(
-                    0.8 * self.bank.master_vol)
+                ch3 = EngineChannel(self.bank, 3)
+                ch3.play(self._sting)
+                ch3.set_volume(0.8 * self.bank.master_vol)
             except Exception:
                 pass
 
@@ -1859,9 +1856,9 @@ class MusicSystem:
         if self._sting is not None or self._stab is not None:
             # silence in-flight sting/stab one-shots too (channels 2/3)
             try:
-                import pygame
-                pygame.mixer.Channel(2).stop()
-                pygame.mixer.Channel(3).stop()
+                from .audio import EngineChannel
+                EngineChannel(self.bank, 2).stop()
+                EngineChannel(self.bank, 3).stop()
             except Exception:
                 pass
         self._pending_sting = False

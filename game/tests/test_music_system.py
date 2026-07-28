@@ -435,25 +435,21 @@ def test_live_start_contract():
     # start under the dummy audio driver. Any exception propagates
     # (the blanket except that turned 'no music at all' into one
     # stderr line is gone) and every lane must come up selected.
-    import os
-    os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
-    os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
-    import pygame
-    pygame.mixer.pre_init(44100, -16, 2)
-    pygame.mixer.init()
-    try:
-        bank = SimpleNamespace(_ready=True, master_vol=1.0, tap=None)
-        ms = MusicSystem(bank, enabled=True, bank_dirs=[_shipped()],
-                         tick_clock=False)
-        ms._ensure_started(0)
-        assert ms._lanes, "rich live start must build lanes"
-        assert "lead2" in ms._lanes
-        for ln, lane in ms._lanes.items():
-            assert lane.key is not None, f"lane {ln} never started"
-        assert pygame.mixer.get_num_channels() >= 4 + len(ms._lanes) + 13
-        ms.stop()
-    finally:
-        pygame.mixer.quit()
+    # engine-mixer era: the lanes come up on EngineChannels (distinct
+    # numbered channels, unbounded by construction — the old
+    # get_num_channels headroom assert has no analogue to fail)
+    bank = SimpleNamespace(_ready=True, master_vol=1.0, tap=None)
+    ms = MusicSystem(bank, enabled=True, bank_dirs=[_shipped()],
+                     tick_clock=False)
+    ms._ensure_started(0)
+    assert ms._lanes, "rich live start must build lanes"
+    assert "lead2" in ms._lanes
+    idxs = set()
+    for ln, lane in ms._lanes.items():
+        assert lane.key is not None, f"lane {ln} never started"
+        assert lane.ch.idx not in idxs, f"lane {ln} shares a channel"
+        idxs.add(lane.ch.idx)
+    ms.stop()
 
 
 def test_unknown_enemy_kind_crashes():
