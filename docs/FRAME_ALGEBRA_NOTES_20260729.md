@@ -313,3 +313,95 @@ Endpoint-only typing does **not** help with:
   a threshold expressed in another frame is still unchecked (§9).
 * **Point vs vector vs direction.** Still the torsor distinction (§4),
   orthogonal to all of this.
+
+---
+
+# 11. Requirements read-back (2026-07-29)
+
+No mechanism here on purpose. Several mechanism proposals have already
+been wrong (parallel "hub-local" spaces, a static/runtime category split,
+scope-generated brands, polygon ids as frame ids, allocated frame ids).
+Each was proposed in reaction to a correction rather than derived from
+the requirements, which is how a design gets talked into a shape nobody
+chose. The requirements are recorded first, and stand on their own.
+
+## 11.1 What must not be silently possible
+
+R1. Ask two objects for their position, subtract, and receive a number
+    when the two positions are not in the same frame.
+R2. Transform a position along a legitimate route to the WRONG frame,
+    and then use it as though it were in the frame the code assumes.
+    The route being valid is not the question; the destination is.
+R3. Be pushed into restricting work to a single polygon because
+    transforming properly is inconvenient. This is a usability
+    requirement with a correctness consequence: the observed failure is
+    guards of the form `if polygon == ppolygon`, which do not compute a
+    wrong answer but decline to compute at all, and so make bodies inert
+    across doorways in a game whose stated law forbids exactly that.
+
+In all three the defect is SILENCE. A loud refusal is an acceptable
+outcome; a plausible number is not.
+
+## 11.2 What must remain expressible
+
+R4. position − position → displacement, within one frame.
+R5. position + displacement → position.
+R6. displacement arithmetic: add, subtract, scale, magnitude.
+R7. Application of a transform to a position, and composition of
+    transforms.
+R8. Two positions that reached a common frame INDEPENDENTLY, with no
+    prior coordination between the code paths that produced them, must
+    be usable together. The worked case: both transformed to screen.
+R9. Position + position must not exist. It has no meaning.
+
+## 11.3 Identity
+
+R10. Frame sameness must be decidable.
+R11. Frame sameness must be STABLE and FINAL. The same frame reached
+     twice — in different scopes, at different times, by different code
+     — must compare as the same frame. Anything that mints a fresh
+     identity per scope is rejected.
+R12. Frame identity must not depend on the route taken to reach it.
+     A→B→C and A→C both arrive at C.
+R13. Frames are NOT polygons. A polygon has a frame; screen is a frame
+     and has no polygon. The set of frames is its own thing.
+R14. Frames can come into existence during a session, because breaches
+     carve new chambers.
+
+## 11.4 Enforcement
+
+R15. The guarantee must come from construction, not from a convention or
+     a hand-written guard the checker cannot see.
+R16. Both Rust and mypy must reject what each is capable of rejecting.
+R17. A frame mismatch must never yield a number.
+
+## 11.5 Explicit non-goals (director, verbatim in spirit)
+
+N1. A transform derived across a link that no longer exists may still
+    pass. Not a concern.
+N2. There need be no way to express a transform between two frames that
+    are not linked. That question is never asked, because they are not
+    linked.
+N3. Deliberately pretending two things are linked is permitted to
+    succeed. That is the author's doing and may be intentional.
+N4. No general guarantee of spatial correctness is wanted. The target is
+    exactly R1-R3.
+
+## 11.6 Environment
+
+E1. No dependent types in either language.
+E2. Rust lifetimes do not cross the PyO3 boundary.
+E3. The control seed must stay byte-identical through the migration.
+
+## 11.7 What is genuinely open
+
+Q1. R11 (stable identity) and "static proof" pull against each other.
+    Generativity gives static distinctness but violates R11. A stable
+    runtime key satisfies R11 but is, as observed, an arbitrary label
+    carrying no static content. Whether some third thing satisfies both
+    is the open question, and I do not currently know the answer.
+Q2. Whether a frame must be a runtime object at all, or whether it can
+    be purely a type-level thing that a runtime value merely witnesses.
+Q3. What the carrier of frame identity should BE, if not an allocated
+    id — whether a coordinate system has anything intrinsic to be
+    identified by.
