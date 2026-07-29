@@ -98,12 +98,34 @@ a new body source into the breach economy is a balance decision and a
 difficulty change, and inventing it unasked is how the last adversary
 pass went wrong.
 
-## What is safe to do meanwhile
+## The number, now measured
 
-Nothing further is needed for the books to be honest — they already are.
-`marrow_farm` now reports `scouts_killed` and `scouts_withdrawn`
-separately, so the next farm bank will show, for the first time, what
-fraction of adversary attrition the player is actually responsible for.
-**That number should be read before the ruling is made.** If it turns
-out the player already causes most of it, Option B is defensible; if
-withdrawal dominates, Option A or C is close to mandatory.
+Run before writing this section, so it could have come out the other
+way: `marrow_farm --seeds 8 --ticks 14400` on gauntlet4, the first bank
+since the two columns were separated.
+
+| | |
+|---|---|
+| Adversaries authored across 8 seeds | 72 |
+| killed by the player | **14** |
+| withdrew on their own | **33** |
+| still standing at the end | 25 |
+
+**The player is responsible for 30% of adversary attrition. Withdrawal
+is 70% of it.** The split is stable across seeds — every seed but one
+sat at 1–2 kills against a flat 4–5 withdrawals; the single outlier
+(seed 8, 5 kills) is also the only seed that emptied the roster.
+
+Two consequences:
+
+1. **Option B is not defensible.** It would mean the faction consumes
+   65% of its authored roster per session with the player accounting for
+   under a third of that. The finite-personnel framing would be
+   decoration and the dwell clock would be the real opponent.
+2. The ruling is now between **A and C**, and the recommendation above
+   stands. Note that a returning-Adversary path also has to answer what
+   happens on seeds like 8 where the roster genuinely empties — that
+   should stay a reachable player achievement, not become unreachable
+   because withdrawal keeps refilling the world.
+
+Raw data: `out/withdrawal_split.json`.
