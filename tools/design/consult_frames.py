@@ -1,0 +1,354 @@
+#!/usr/bin/env python3
+"""tools/design/consult_frames.py
+
+Make reference-frame mismatch STRUCTURALLY IMPOSSIBLE.
+
+Director's brief, 2026-07-29 (verbatim in THE ASK): develop a coordinate
+type so the mistake becomes structurally impossible; sensory calls return
+a trace, not the entity; its .pos is a necore vector that knows its
+reference frame and refuses to operate with a vector in a different one,
+while still supporting every operation that DOES make sense; find
+operations return the answer in the frame most useful to the caller;
+enforce with Rust types and mypy, provable, always, by construction.
+
+    uv run python tools/design/consult_frames.py --dry-run
+    uv run python tools/design/consult_frames.py --effort max
+"""
+from __future__ import annotations
+
+import argparse
+import os
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parent.parent.parent
+sys.path.insert(0, str(REPO / "tools" / "musicgen"))
+import consult_machinery as cm  # noqa: E402
+
+KEY_PATHS = [
+    REPO / ".openrouter_key",
+    Path.home() / "Documents" / "youtube" / "autoclipping" / ".openrouter_key",
+]
+
+
+def load_api_key() -> str | None:
+    key = os.environ.get("OPENROUTER_API_KEY")
+    if key and key.strip():
+        return key.strip()
+    for path in KEY_PATHS:
+        if path.exists():
+            text = path.read_text().strip()
+            if text:
+                return text
+    return None
+
+
+PRODUCT = """
+PERIHELION is a top-down shooter set in a non-Euclidean space. It is a
+Rust engine (`necore`, plus a PyO3 binding crate `necore-py`) and a
+Python game layer (`game/perihelion`, ~15k lines, mypy available but not
+yet enforced on this area).
+
+THE SPATIAL MODEL, which is the whole reason this problem exists:
+
+The map is a set of convex polygons ("chambers") joined by portals into a
+portal graph. It is genuinely non-Euclidean: walking through a portal can
+put you somewhere that is not geometrically adjacent, two portals can
+lead to the same chamber, and a chamber can be entered at different
+scales and rotations through different portals.
+
+Every position in the game is therefore POLYGON-LOCAL. A point is only
+meaningful together with the chamber whose frame it is expressed in.
+Composing a path through portals composes a chain of 3x3 affine
+transforms; the engine already does this correctly and exposes
+`mat_mul` / `mat_apply` / `mat_apply_dir` and a visibility query that
+returns per-instance transforms.
+
+Frames are RUNTIME VALUES, not static ones:
+  * polygon ids are u32 / int, assigned at level load;
+  * new chambers are CARVED AT RUNTIME — a "breach" cuts a 96-unit hole
+    in a wall and connects two chambers that were not connected before,
+    then may seal again and free the seam;
+  * so the set of frames, and the transforms between them, both change
+    during a session.
+"""
+
+FAILURE = """
+THE FAILURE THAT MOTIVATES THIS. Not hypothetical — it shipped, it was
+caught by a filmed playtest gate, and it cost two full gate cycles.
+
+I added a defensive weapon to an enemy. The aiming code did this:
+
+    px, py = self.player_pos()          # the PLAYER's polygon frame
+    dx, dy = px - ex, py - ey           # (ex, ey) is the SHOOTER's frame
+    dist = math.hypot(dx, dy)
+    if dist > d["shove_range"]: return
+    nx, ny = dx / dist, dy / dist       # fire along this heading
+
+Every line type-checks. Every line runs. In portal space the subtraction
+is meaningless whenever the two bodies are in different chambers.
+
+Measured consequence across four filmed sessions: 63 of 64 shots were
+cross-chamber, so aim, the range gate AND the knockback direction all ran
+on garbage. The behavior was delivered ONCE in 57,600 ticks. The judge's
+verdict was p=0.04 — the worst this project has recorded.
+
+Two aggravating details that matter for the design:
+
+1. The correct value was ALREADY IN HAND. The same function called
+   `senses.sight_of(eid, pid)`, which returns a `SenseHit` carrying a
+   `.position` already composed into the observer's frame and a real
+   `.distance`. The code computed a worse answer from raw parts instead
+   of reading the composed one it had just been handed.
+
+2. The unit tests were BLIND. Every fixture was a single rectangle, where
+   the observer frame and the subject frame coincide. That is the one
+   case in which the bug is invisible — and it occurred once in 64 real
+   fires. The tests passed the entire time.
+
+The same class of defect has now appeared three times in this codebase in
+different guises. It is not a discipline problem. `tuple[float, float]`
+is simply the wrong type.
+"""
+
+CURRENT_API = """
+WHAT EXISTS TODAY (abridged, real signatures).
+
+Rust (necore), all frame-naive:
+    fn mat_mul(a: Mat3, b: Mat3) -> Mat3
+    fn mat_apply(m: Mat3, x: f64, y: f64) -> (f64, f64)
+    fn mat_apply_dir(m: Mat3, x: f64, y: f64) -> (f64, f64)
+    fn edge_midpoint(&self, polygon: u32, edge: u32) -> (f64, f64)
+    fn get(&self, eid: u32) -> (u32, f64, f64, f64, f64, f64, f64)
+        // (polygon, x, y, vx, vy, dirx, diry) -- ALL polygon-local
+    fn get_polygon(&self, eid: u32) -> u32
+    fn visible_set(&self, root: u32, cam: Mat3, ax: f64, ay: f64, ...)
+        -> Vec<Instance>   // each Instance carries a composed xform
+    fn next_edge(&self, from_polygon: u32, to_polygon: u32) -> i32
+    fn terrain_avoid_dir(&self, polygon, x, y, r, nx, ny, dist) -> (f64,f64)
+
+Python (game/perihelion/senses.py), the one part that is already right:
+    @dataclass(frozen=True, slots=True)
+    class SenseHit:
+        entity_id: int
+        kind: str
+        polygon: int                     # the chamber the entity is IN
+        position: tuple[float, float]    # in the OBSERVER's local frame
+        distance: float                  # real composed portal distance
+        portal_depth: int                # 0 = same chamber
+        state_tags: frozenset[str]
+
+    def sight_of(self, observer: int, target: int) -> SenseHit | None
+
+So `SenseHit` is already a "trace" in the director's sense. Its
+`.position` is already composed. The type system just does not stop
+anyone from ignoring it and subtracting raw `get()` coordinates instead,
+which is exactly what happened.
+
+Call sites that matter: roughly 40 places in sim.py do arithmetic on
+positions. Most are same-frame-by-construction (a body steering inside
+its own chamber). A minority are genuinely cross-frame. Today nothing
+distinguishes the two at a glance, in review, or in the type checker.
+"""
+
+MY_DESIGN = """
+MY PROPOSED DESIGN, offered so you can attack it rather than start blank.
+I am confident about layers 1 and 2 and genuinely unsure about layer 3.
+
+LAYER 1 — Rust, generative brands for real static proof.
+
+Use invariant-lifetime branding (the `generativity` / `GhostCell` trick):
+
+    struct Frame<'id> { polygon: u32, _tag: InvariantLifetime<'id> }
+    struct P<'id> { x: f64, y: f64, _tag: InvariantLifetime<'id> }
+    struct V<'id> { ... }                 // a displacement, not a point
+    struct Xform<'a, 'b> { m: Mat3, ... } // maps P<'a> -> P<'b>
+
+    impl<'id> Sub for P<'id> { type Output = V<'id>; }   // point - point
+    impl<'id> Add<V<'id>> for P<'id> { type Output = P<'id>; }
+    // no Add for P + P, which is meaningless
+    impl<'a,'b> Xform<'a,'b> { fn apply(&self, p: P<'a>) -> P<'b> }
+
+Frames are minted inside a closure so each is a fresh invariant lifetime:
+
+    sim.with_frame(polygon, |f: Frame<'_>| { ... })
+
+`Xform` is obtainable ONLY from the topology by walking a real portal
+chain, so a transform between two frames cannot be fabricated, and two
+points can only be subtracted when the compiler has proved their brands
+identical. This is genuine compile-time proof.
+
+LAYER 2 — kill the operation, not just type-check it.
+
+Even with perfect types, the deepest fix is that the wrong expression
+should not be WRITABLE. So the public surface loses raw cross-frame
+arithmetic entirely, and every "find" takes the frame the caller wants
+its answer in:
+
+    sight_of(observer, target, *, in_frame: Frame) -> Trace
+    trace.pos   : Point   # already in `in_frame`
+    trace.dist  : float   # real composed distance, never recomputed
+    trace.toward: Unit    # heading in `in_frame`
+
+Default `in_frame` is the OBSERVER's chamber, because the overwhelmingly
+common caller is a body that wants to face or shoot at what it found. A
+caller wanting the subject's frame asks for it explicitly; anything
+stranger asks the topology for the transform chain and composes.
+
+LAYER 3 — Python and mypy. THIS IS WHERE I AM UNSURE.
+
+Rust lifetimes cannot cross the PyO3 boundary. Whatever the engine
+proves, Python cannot inherit. And mypy cannot prove that two runtime
+`int` polygon ids are equal — there is no dependent typing, and I do not
+believe generativity has a Python analogue that mypy actually checks.
+
+What I think IS achievable in Python:
+  (a) `Vec2[F]` generic in a phantom frame parameter, so category errors
+      (screen vs local vs world) are rejected;
+  (b) distinct frame ROLES as separate types (ObserverFrame,
+      SubjectFrame, ScreenFrame, HubFrame) — which does catch the exact
+      bug I shipped, observer vs subject;
+  (c) no `__sub__` between points at all in the Python API, so the
+      mistake is inexpressible rather than merely detectable;
+  (d) a runtime frame tag asserted in debug builds, as a backstop that
+      the type-level work is supposed to make unreachable.
+
+I considered and rejected: code-generating one NewType per polygon at
+level-build time, because breaches carve NEW chambers at runtime, so the
+frame set is not known statically.
+"""
+
+ASK = """
+==========
+THE ASK
+==========
+
+The director's words, verbatim:
+
+  "we need to develop a coordinate type so that mistake becomes
+  _structurally impossible_. So instead of raw numbers, the 'player' that
+  comes back from the sensory calls is a _trace_, not the player object
+  itself, and its .pos is a special necore vector type that knows its
+  reference frame and refuses to operate with positions in a different
+  reference frame. It _does_ support all operations that _do_ make sense
+  - if both vectors are transformed in to screen space, it becomes a
+  screen space comparison, both vectors are meaningful to each other, the
+  operation goes through. If you forget the transform or do it wrong on
+  one or the other, it does not. Find operations should be defined to
+  return the result in the reference frame most useful to most callers,
+  probably you pass in the polygon whose coordinate system you want the
+  answer in, so an enemy that wants to face an object it finds can just
+  face the coordinates it gets, which will be in its room's system - if
+  it wants to e.g. get a position in the coordinate system of the
+  _subject's_ room, it should either specify that to the function if
+  that's practical, otherwise get the path and ask the rooms to chain the
+  transforms to get to the coordinate system you want - enforce
+  correctness with Rust types and mypy. It must be provable by the type
+  system that there are no reference frame mismatches, and the compiler
+  or mypy must reject code that has them, _always_, by construction."
+
+Give me ONE design, concrete enough to implement, with real signatures.
+
+Answer these specifically. Be adversarial about my proposal; I would
+rather be corrected now than at gate 70.
+
+1. SOUNDNESS OF THE GOAL. Is "provable, always, by construction" actually
+   achievable given that frames are runtime values and chambers are
+   carved at runtime? If it is achievable only in Rust and not in mypy,
+   say so plainly and tell me what the strongest HONEST Python guarantee
+   is. Do not tell me something is proven when it is only conventional. I
+   would rather ship a smaller true guarantee than a larger false one.
+
+2. THE RUST DESIGN. Is generative branding right here, or is it too
+   viral for a codebase where positions flow through ECS-ish storage,
+   serialization, and a replay system that must stay byte-identical?
+   If branding is wrong, what replaces it — runtime frame tags with
+   `#[must_use]` accessors? A single canonical frame with transforms at
+   the edges? Something else? Concrete types, please.
+
+3. THE PYO3 BOUNDARY. Lifetimes do not cross FFI. How should the Python
+   `Vec2`/`Trace` be represented so the Rust proof is not silently thrown
+   away at the boundary? Is the right move to make Python incapable of
+   constructing a bare position at all, so every point Python holds came
+   from an engine call that already knew its frame?
+
+4. THE MYPY DESIGN. Give me the actual generic signatures. If polygon
+   identity cannot be checked, what is the best decomposition of frames
+   into statically-distinguishable categories such that the real bugs are
+   caught? Does a plugin, or `Literal` types, or an opaque
+   `Frame[F]`-token pattern buy anything real, or is it theatre?
+
+5. MIGRATION. ~40 arithmetic call sites and a 919-test suite that must
+   stay green, plus a filmed playtest gate that requires byte-identical
+   replays for its control seed. What is the order of operations? What is
+   the mechanical rule for deciding, at each existing call site, which
+   frame it MEANT? How do I avoid a big-bang rewrite?
+
+6. THE TEST LESSON. My fixtures were single-chamber, where the bug is
+   invisible. What is the general rule for fixture construction here, and
+   can it be enforced mechanically rather than remembered?
+
+7. WHAT THIS DOES NOT FIX. Name the frame-adjacent mistakes that survive
+   this design, so I know what is still on me.
+"""
+
+
+def build_prompt() -> str:
+    return "\n\n".join([
+        cm.section("0. PRODUCT CONTEXT", PRODUCT.strip()),
+        cm.section("1. THE FAILURE", FAILURE.strip()),
+        cm.section("2. THE CURRENT API", CURRENT_API.strip()),
+        cm.section("3. MY PROPOSED DESIGN (attack it)", MY_DESIGN.strip()),
+        ASK.strip(),
+    ])
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--model", default=cm.DEFAULT_MODEL)
+    ap.add_argument("--effort", default="max")
+    ap.add_argument("--max-tokens", type=int, default=cm.DEFAULT_MAX_TOKENS)
+    ap.add_argument("--out-root",
+                    default=str(REPO / "out" / "consult" / "frames"))
+    args = ap.parse_args()
+
+    api_key = load_api_key()
+    if not args.dry_run and not api_key:
+        print("FATAL: no OpenRouter key; use --dry-run.", file=sys.stderr)
+        return 2
+
+    prompt = build_prompt()
+    out_root = Path(args.out_root)
+    out_root.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    out_dir = out_root / stamp
+    out_dir.mkdir(parents=True, exist_ok=False)
+    (out_dir / "prompt.txt").write_text(prompt)
+
+    print(f"Wrote {out_dir / 'prompt.txt'}")
+    print(f"Prompt: {len(prompt):,} chars "
+          f"(~{cm.tokenish_size(prompt):,} tokens)")
+    if args.dry_run:
+        print("\n--dry-run: no API call made.")
+        return 0
+
+    print(f"\nCalling OpenRouter: model={args.model} effort={args.effort}\n"
+          f"Streaming to {out_dir}.", file=sys.stderr)
+    return cm.stream_consult_responses(
+        prompt=prompt,
+        api_key=api_key,
+        model=args.model,
+        effort=args.effort,
+        max_tokens=args.max_tokens,
+        connect_timeout_s=30.0,
+        out_dir=out_dir,
+        provider_prefs={"order": ["openai"], "allow_fallbacks": False},
+    )
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
