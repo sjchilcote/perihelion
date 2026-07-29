@@ -469,3 +469,52 @@ This differs from the rejected "allocated id" in the thing that matters:
 nobody allocates or maintains an identity. The identity IS the codomain
 of the morphism — structural data the topology already holds when it
 builds the transform.
+
+---
+
+# 13. Two confirmations, and the static/runtime split they expose
+
+## 13.1 A->B->C versus D->B->C
+
+Confirmed: no construct detects by simple equality that these end in the
+same coordinate system without knowing what A, D and C are. Both results
+are float pairs, and a pair of reals carries nothing about which
+coordinate system it belongs to. The frame of a result is the CODOMAIN
+of the morphism — a label on the morphism, absent from both the matrix
+and the coordinates. It has to be carried.
+
+Near-miss tested and rejected: tagging a value with THE LAST TRANSFORM
+APPLIED. Attractive because A->B->C and D->B->C share a final
+T(B->C). It fails in both directions. A value native to C has no last
+transform and a value arriving by E->C has a different one, so both are
+in C and would be falsely refused. And it catches no errors at all,
+because a transform does not inspect its input: apply T(B->C) wrongly to
+a value in D and the tag still reads T(B->C). Neither necessary nor
+sufficient.
+
+## 13.2 Camera transforms
+
+Confirmed for the general case: cam_A . p and cam_B . q are float pairs,
+and recovering the shared camera factor needs the matrices in hand,
+which is tracking.
+
+## 13.3 The split this exposes, which is useful
+
+A frame that is UNIQUE AND KNOWN AHEAD OF TIME can be a static type,
+checked by the compiler and by mypy, at zero runtime cost. A frame
+CREATED AT RUNTIME cannot be, and must carry its codomain as data.
+
+Screen is in the first category: there is exactly one, and it exists at
+compile time. So the case of two positions from different chambers
+independently transformed to screen — the director's own example — is
+fully statically solvable. A screen-typed value combines with another
+screen-typed value; a chamber-local value used where screen is wanted is
+a compile error.
+
+Chambers are in the second category, because breaches carve them during
+a session.
+
+This is the first principled line between what the type system can hold
+and what must be runtime data, and it is drawn by a property of the
+FRAME (unique and statically known, or not), not by a property of the
+code.
