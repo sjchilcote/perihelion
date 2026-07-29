@@ -1,9 +1,9 @@
 # Executive recommendation
 
-Ship a deliberately smaller first marrow than the packet proposes:
+Ship a deliberately smaller first dispatch fabric than the packet proposes:
 
 - **Closed-loop reserve governor:** yes.
-- **Runts, overshoot, corpse recycling, dynamic aperture growth, reverse-traffic veterans, field factories, vitrification, false beacons:** not in the first implementation.
+- **Runts, overshoot, disabled chassis recycling, dynamic aperture growth, reverse-traffic veterans, field factories, vitrification, false beacons:** not in the first implementation.
 - **CORE:** a redundant production network with optional attack surfaces, not a scripted boss sequence.
 - **Guardian ring:** the live front shelf of the reserve, so dispatch weakens the hub.
 - **Breaches:** fixed-width, scale-free real portals cut at prevalidated wall sites nearest the transmitted position.
@@ -47,7 +47,7 @@ Ship a four-part redundant production network:
    - Anchors are rebuilt by caretakers.
 
 3. **Four Caretakers**.
-   - They heal damaged parts, reconstruct anchors, and replace missing buds.
+   - They repair damaged parts, reconstruct anchors, and replace missing buds.
    - Killing them does not damage production immediately, but prevents rapid recovery.
 
 4. **Two Dispatch Collars** near the receiving chamber.
@@ -62,7 +62,7 @@ The intended attack order is therefore:
 - Anchors for delayed economic damage.
 - Sources for the tactical blackout.
 
-The player may ignore the first three and rush the Sources. Nothing is invulnerable, no door waits for a phase transition, and there is no master health bar.
+The player may ignore the first three and rush the Sources. Nothing is invulnerable, no door waits for a phase transition, and there is no master integrity bar.
 
 ### Mechanism
 
@@ -83,21 +83,21 @@ A successful implementation should produce different valid raid traces:
 
 - A collar-first raid should reduce dispatch within seconds but leave reserve regeneration unchanged.
 - An anchor-first raid should create an immediate local defender spike, followed around 20 seconds later by slower reserve regeneration.
-- A caretaker-first raid should show little immediate benefit but markedly less restored CORE health on a second push.
+- A caretaker-first raid should show little immediate benefit but markedly less restored CORE integrity on a second push.
 - A Source rush should be fastest but have the highest incoming pressure.
 
 ### Forbids
 
 - A mandatory attack order.
 - An invulnerable CORE phase.
-- One high-HP object whose death alone ends the response.
-- CORE health remaining partially depleted after an ordinary death-and-walk-back unless the player established a real foothold.
+- One high-HP object whose shutdown alone ends the response.
+- CORE integrity remaining partially depleted after an ordinary shutdown-and-walk-back unless the player established a real foothold.
 
 ### Odds
 
 **68%** that this overall shape survives.
 
-**Strongest reason I may be wrong:** the distinctions may be mechanically real but unreadable during a very fast top-down firefight, leaving players to shoot whatever is nearest. If target attribution is weak in recorded play, simplify the organ rather than adding UI.
+**Strongest reason I may be wrong:** the distinctions may be mechanically real but unreadable during a very fast top-down firefight, leaving players to shoot whatever is nearest. If target attribution is weak in recorded play, simplify the subsystem rather than adding UI.
 
 ---
 
@@ -135,7 +135,7 @@ Thus:
 - Near full: about **0.10 units/s**.
 - Empty: about **0.35 units/s**.
 - Regeneration never reads Distress, Noise, kills, player state, or difficulty.
-- Reserve is clamped at 120 while the CORE is alive.
+- Reserve is clamped at 120 while the CORE is operational.
 - No overshoot in the first implementation.
 
 Use this reinforcement mix:
@@ -228,7 +228,7 @@ This produces the required couple of minutes from the same unit economy. There i
 At reserve crossing above zero:
 
 - Reconstruct one Source Knot, one Anchor, three Producer Buds, and one Caretaker.
-- Return the CORE to an alive but weak state.
+- Return the CORE to an operational but weak state.
 - Resume the ordinary governor.
 - New breaches still require a fresh valid call; old calls are not queued indefinitely.
 
@@ -291,7 +291,7 @@ Take half of the packet’s patch-inventory proposal:
 - **Yes:** precompute viable wall sites at world initialization.
 - **No:** no aperture growth, seam agitation, key cache, antechamber, pressure valve, or moving mouth in the first implementation.
 
-Each chamber receives one to three validated breach sites on ordinary wall segments. A scout transmits its exact position. The marrow selects the viable site in that chamber nearest the transmitted position, subject to clearance.
+Each chamber receives one to three validated breach sites on ordinary wall segments. A scout transmits its exact position. The dispatch fabric selects the viable site in that chamber nearest the transmitted position, subject to clearance.
 
 The resulting portal:
 
@@ -326,7 +326,7 @@ A breach closes on the first applicable condition:
 2. Reserve exhausted, followed by a 10-second invasion grace.
 3. No normal path reservation by a hub-side dispatched agent for 12 seconds after opening grace.
 
-The breach object itself does not inspect the reserve or other breaches. The marrow requests exhaustion closure; the pathing system supplies ordinary route-interest counts.
+The breach object itself does not inspect the reserve or other breaches. The dispatch fabric requests exhaustion closure; the pathing system supplies ordinary route-interest counts.
 
 ### Why reject dynamic growth
 
@@ -341,7 +341,7 @@ The packet’s dynamic width proposals conflict with the director’s instructio
 
 ### Forbids
 
-- Spawn bursts directly on the world side.
+- Instantiate bursts directly on the world side.
 - Agent scaling at the connection.
 - Entry invulnerability or immobility.
 - A one-wide mouth that the player “levels up” by allowing crossings.
@@ -368,7 +368,7 @@ The packet’s dynamic width proposals conflict with the director’s instructio
 - Contact damage: 18, 1.1-second recovery.
 - Prefers broad chambers, low Patrol, low Trail, low Danger, and low Kin.
 - Uses long committed room-to-room legs but still runs the standard sight query at 5 Hz. I reject the packet’s deliberately blind long legs because they conflict with the ratified line-of-sight behavior.
-- Silhouette: tall split sail, narrow body, long forward lean.
+- Silhouette: tall split sail, narrow chassis, long forward lean.
 
 ### Lacuna — weaker boundary scout
 
@@ -382,7 +382,7 @@ The packet’s dynamic width proposals conflict with the director’s instructio
 - A probe reveals visible players, structures, and enemies in the adjacent chamber from the portal plane.
 - A probe does not count as a crossing and may be severed by damage through the portal mouth.
 
-Critically, a lacuna may only transmit a position in the chamber its body physically occupies. It cannot call a breach behind a cordon merely because it probed through it. The research candidate allowing that would contradict the director’s containment reward.
+Critically, a lacuna may only transmit a position in the chamber its chassis physically occupies. It cannot call a breach behind a cordon merely because it probed through it. The research candidate allowing that would contradict the director’s containment reward.
 
 Lacuna is the weaker Adversary class. If both classes are in a chamber, lacuna receives the call priority and vagrant keeps fighting.
 
@@ -491,7 +491,7 @@ The packet’s “weak fighter but loud emitter” proposal is also rejected. Se
 
 - A garrison forming solely because Distress is high.
 - Warden AI knowing it has followers.
-- A hidden base object or garrison health bar.
+- A hidden base object or garrison integrity bar.
 - Random reactivation behind a physically intact cordon.
 
 ### Odds
@@ -528,7 +528,7 @@ This means:
 - Sustained weapons fire, repeated kills, and multiple channels saturate the sink.
 - A scrubbed base is concealed under low load and leaks under heavy combat.
 - An agent physically entering the base still sees and attacks structures normally.
-- Calls and call imprints are not chemo-signals and are not erased.
+- Calls and call imprints are not scalar signal fields and are not erased.
 
 A scrubbed region is **not** suspicious merely because it is quiet. Agents only sample their chamber and adjacent chambers. They have no regional baseline against which to infer an anomalous absence. Adding a “quiet-hole detector” would undermine stealth and introduce an extra recognition system with no need.
 
@@ -545,13 +545,13 @@ The natural cost is opportunity and fragility:
 A scrubber linked to a pod within one portal hop provides one robot:
 
 - Move speed: 0.8× Commando.
-- One corpse carried at a time.
-- Five seconds to process a corpse at the pod.
-- Each corpse has a 25% chance to produce two components.
+- One disabled chassis carried at a time.
+- Five seconds to process a disabled chassis at the pod.
+- Each disabled chassis has a 25% chance to produce two components.
 - Splatter and casings are cosmetic cleanup and never produce reserve currency.
-- A corpse may yield only once.
+- A disabled chassis may yield only once.
 
-Do not ship cleanup ramping or corpse spoilage in the first implementation. The packet explicitly admits the proposed ramp magnitude is invented, and corpse-generated Distress conflicts with the ratified signal rule that Distress comes from agents being harmed.
+Do not ship cleanup ramping or disabled chassis spoilage in the first implementation. The packet explicitly admits the proposed ramp magnitude is invented, and disabled chassis-generated Distress conflicts with the ratified signal rule that Distress comes from agents being harmed.
 
 ### Predicts
 
@@ -565,7 +565,7 @@ Do not ship cleanup ramping or corpse spoilage in the first implementation. The 
 - “Scrubber on” meaning signals are disabled.
 - A scrubber cancelling direct vision.
 - A quiet region automatically becoming a target.
-- Cleanup directly regenerating or draining the marrow.
+- Cleanup directly regenerating or draining the dispatch fabric.
 - One robot becoming an unlimited component fountain.
 
 ### Odds
@@ -584,7 +584,7 @@ Give one breach a four-part arc:
 
 1. **Opening tell, 3 seconds**
    - Visible wall removal and portal lighting.
-   - No world-side spawning.
+   - No world-side instantiation.
 
 2. **Guardian burst, approximately 6 seconds**
    - Up to four existing guardian-ring agents receive the route first.
@@ -592,7 +592,7 @@ Give one breach a four-part arc:
 
 3. **Sustained pour**
    - Global purchase opportunity every 2.2 seconds.
-   - All agents spawn in the hub, walk normally, and cross normally.
+   - All agents instantiate in the hub, walk normally, and cross normally.
    - Multiple breaches split assignments evenly.
 
 4. **Cordon formation and exhaustion**
@@ -630,7 +630,7 @@ A breach fight has:
 - A sustained supply rhythm.
 - A delayed spatial transformation as arrivals begin holding exits rather than merely charging.
 
-The stream has a beginning, escalation, positional consequence, and economic end. It is not a flat spawn timer.
+The stream has a beginning, escalation, positional consequence, and economic end. It is not a flat instantiate timer.
 
 ### Predicts
 
@@ -651,7 +651,7 @@ The stream has a beginning, escalation, positional consequence, and economic end
 
 **65%**.
 
-**Strongest reason I may be wrong:** the fixed portal is intrinsically such a strong killbox that arrest outside it cannot compensate. If a competent firebase converts ammunition to kills with negligible health or territorial cost, cadence and approach fan must be fixed before adding more reserve.
+**Strongest reason I may be wrong:** the fixed portal is intrinsically such a strong killbox that arrest outside it cannot compensate. If a competent firebase converts ammunition to kills with negligible integrity or territorial cost, cadence and approach fan must be fixed before adding more reserve.
 
 ---
 
@@ -788,7 +788,7 @@ heal_rate          8 hp/s
 Priority:
 
 1. Flee direct line of fire.
-2. Heal a damaged Source.
+2. Repair a damaged Source.
 3. Rebuild a missing Anchor.
 4. Rebuild a missing Bud.
 5. Repair a Dispatch Collar.
@@ -899,7 +899,7 @@ rotation
 
 It has no scale member. Portal construction fails if the world and hub apertures do not have matching physical width.
 
-Every body and projectile crossing emits the ordinary generic `PortalCrossed` event. The breach listens only for events naming its portal handle.
+Every chassis and projectile crossing emits the ordinary generic `PortalCrossed` event. The breach listens only for events naming its portal handle.
 
 ## 1.7 Call imprint
 
@@ -919,7 +919,7 @@ Lifetime: 15 seconds.
 
 The imprint does not contain reserve demand, hub state, desired enemy mix, or success state.
 
-The marrow independently consumes an imprint when it samples it. Consumption happens whether or not a portal is opened. Calls do not queue until resources become available.
+The dispatch fabric independently consumes an imprint when it samples it. Consumption happens whether or not a portal is opened. Calls do not queue until resources become available.
 
 ## 1.8 Direct flank breach controller
 
@@ -1004,7 +1004,7 @@ The lacuna probe uses the portal-plane viewpoint and only returns entities visib
 
 One strictly necessary new signal is added: **Kin**. It is explicitly required by the ratified garrison expansion.
 
-No other chemo-signal is added.
+No other scalar signal is added.
 
 ```text
 SignalKind:
@@ -1038,8 +1038,8 @@ All values are unitless.
 
 | Signal | Cap | Half-life | Hop spread | Primary writes |
 |---|---:|---:|---:|---|
-| Distress | 2.0 | 45 s | 0.45 | harm, death |
-| Danger | 1.0 | 180 s | 0 | death |
+| Distress | 2.0 | 45 s | 0.45 | harm, shutdown |
+| Danger | 1.0 | 180 s | 0 | shutdown |
 | Noise | 2.0 | 4 s | 0.65 | gunfire, movement, contact |
 | Trail | 1.0 | 12 s | 0 | player presence |
 | Patrol | 1.0 | 60 s | 0 | patroller presence |
@@ -1052,8 +1052,8 @@ Initial emissions:
 
 ```text
 Distress on damage = 0.30 * damage/max_hp
-Distress on death  = +0.35
-Danger on death    = +0.40
+Distress on shutdown  = +0.35
+Danger on shutdown    = +0.40
 Noise ordinary shot = +0.35
 Noise heavy shot    = +0.60
 Trail player write  = max(current, 0.80), every 0.25 s
@@ -1102,14 +1102,14 @@ The accumulator time constants may initially match chamber half-life behavior ra
 | Combat enemies | own/adjacent signals, local find | Distress through damage events, Noise, Muster, Kin |
 | Settled followers | same | Garrison Interior, Reach, Kin, Muster |
 | Call medium | current lease and time | lease result, Call Imprint |
-| Marrow | Call Imprints, reserve, CORE state, collar count, breach handles | portals, dispatch assignments, reserve balance |
+| Dispatch Fabric | Call Imprints, reserve, CORE state, collar count, breach handles | portals, dispatch assignments, reserve balance |
 | Breach | portal crossing events, route-interest count, close requests | portal lifetime state |
 | CORE | own part state, own reserve balance, local damage | production factor, repair jobs, defenders |
 | Flank controller | chamber Distress/Trail, reserve eligibility | direct Call-equivalent request |
 | Scrubber | covered signal values | subtractive signal consumption |
-| Cleaning robot | visible debris/corpses, pod location | debris removal, component entities |
+| Cleaning robot | visible debris/disabled chassis, pod location | debris removal, component entities |
 
-No scout reads any row owned by the marrow.
+No scout reads any row owned by the dispatch fabric.
 
 ---
 
@@ -1198,7 +1198,7 @@ On success:
 - Begin class-specific visual deployment.
 - Duration 1.5 seconds.
 
-On damage, displacement, loss of footing, or death:
+On damage, displacement, loss of footing, or shutdown:
 
 - Release the lease.
 - Return to SEEK_CALL_SITE.
@@ -1348,10 +1348,10 @@ production_factor = 0
 
 At reserve crossing above zero:
 
-- Spawn minimal CORE chain.
+- Instantiate minimal CORE chain.
 - Resume normal production-factor calculation.
 - Return to READY.
-- Remaining organ parts rebuild through their ordinary rules.
+- Remaining component nodes rebuild through their ordinary rules.
 
 ## 3.4 Dispatch selection
 
@@ -1387,7 +1387,7 @@ Changes take effect after a 20-second fixed pipeline delay.
 
 Implementation can store timestamped factor changes in a deque rather than a 200-slot per-tick array.
 
-A surviving Source may rebuild another Source after 60 seconds. The timer resets if the rebuilding Source is damaged. Once no Sources survive, only home resupply can restart the organ.
+A surviving Source may rebuild another Source after 60 seconds. The timer resets if the rebuilding Source is damaged. Once no Sources survive, only home resupply can restart the subsystem.
 
 ---
 
@@ -1399,7 +1399,7 @@ A surviving Source may rebuild another Source after 60 seconds. The timer resets
 |---|---:|
 | Signal update | 10 Hz |
 | Agent senses/state update | 5 Hz |
-| Marrow call sampling | 2 Hz |
+| Dispatch Fabric call sampling | 2 Hz |
 | Direct-breach scan | 2 Hz |
 | Call imprint lifetime | 15 s |
 | Call lease timeout | 10 s |
@@ -1485,7 +1485,7 @@ CORE defense cooldown = 20 s
 buds detached per response = 2
 Source passive regen delay = 12 s
 Source passive regen = 1 hp/s
-Caretaker heal = 8 hp/s
+Caretaker repair = 8 hp/s
 ```
 
 ## Scrubber and robot
@@ -1498,10 +1498,10 @@ Caretaker heal = 8 hp/s
 | Own-chamber weight | 1.0 |
 | Adjacent-chamber weight | 0.5 |
 | Robot speed | 0.8× Commando |
-| Corpse process time | 5 s |
+| Disabled chassis process time | 5 s |
 | Component chance | 25% |
 | Component yield | 2 |
-| Robot carry capacity | 1 corpse |
+| Robot carry capacity | 1 disabled chassis |
 
 ## First constants expected to be wrong
 
@@ -1540,7 +1540,7 @@ Do this before accepting new emissions or reads.
 - Process generic portal crossings.
 - Emit `PortalCrossed` events.
 
-No breach-specific body handling occurs here.
+No breach-specific chassis handling occurs here.
 
 ### 3. Resolve damage and deaths
 
@@ -1607,7 +1607,7 @@ Flocking uses a chamber-local spatial hash, not pairwise all-agent scans.
 
 Audio and telemetry are independent subscribers. Logging never calls audio and audio never owns instrumentation.
 
-### 9. Update marrow and direct-breach controller
+### 9. Update dispatch fabric and direct-breach controller
 
 - Consume sampled Call Imprints.
 - Evaluate direct-flank thresholds.
@@ -1626,7 +1626,7 @@ O(active breaches + hub staging agents + newly sampled calls)
 
 - Advance scheduled defense responses.
 - Advance Source, Anchor, Bud, Caretaker, and Collar reconstruction.
-- Apply caretaker healing.
+- Apply caretaker repair.
 - Process CORE kill and reconstitution transitions.
 
 Only scalar timers advance when the hub is inactive.
@@ -1650,7 +1650,7 @@ Cost is O(number of breaches), capped at three in this draft.
 - Advance unpacking.
 - Find debris locally.
 - Path robots physically.
-- Process corpses.
+- Process disabled chassis.
 - Emit component entities.
 
 ### 13. Publish immutable frame events
@@ -1663,11 +1663,11 @@ Rendering, audio, and telemetry consume the same simulation facts independently.
 
 | Failure mode | Cheapest discriminating instrument |
 |---|---|
-| Portal scale mismatch returns | Assert the portal transform type has no scale member; log body radius, entry speed, crossing completion, and time inside aperture |
+| Portal scale mismatch returns | Assert the portal transform type has no scale member; log chassis radius, entry speed, crossing completion, and time inside aperture |
 | Agents still logjam | Histogram time from first aperture contact to completed crossing by class; compare with ordinary wide portals |
 | Reinforcements never reach the player | One causal trace: call started → call completed → imprint consumed → breach active → agent created → agent crossed → agent acquired hostile |
 | Calls appear despite no valid scout behavior | Per-call record of caller state, chamber ranks, visible tasked allies, and lease owner |
-| Scouts accidentally read hub state | Dependency test forbidding scout modules from importing marrow/core/breach modules; runtime interface objects expose no such fields |
+| Scouts accidentally read hub state | Dependency test forbidding scout modules from importing dispatch fabric/core/breach modules; runtime interface objects expose no such fields |
 | Weakest-in-room selection fails | Log all local Adversary ranks whenever BRACE starts; flag a stronger caller while a weaker eligible unit is present |
 | Global call lease starves callers | Lease wait-time histogram and percentage of safe scouts blocked for over ten seconds |
 | Reserve never exhausts | Trace reserve, regeneration, dispatch spending, guardians dispatched, and time-to-zero |
@@ -1682,17 +1682,17 @@ Rendering, audio, and telemetry consume the same simulation facts independently.
 | Arrest produces a passive perimeter the player ignores | Time in CORDON without denying a player crossing or firing; high values mean hold-site choice is wrong |
 | Guardian ring does not weaken after dispatch | Ring occupancy before call, after burst, and when player enters; correlate with dispatched count |
 | CORE becomes a scripted boss anyway | Record target order across human runs; if nearly all runs require the same order because alternatives fail, simplify |
-| CORE can be chipped across deaths | Record part HP at player death and at hub re-entry; expected recovery toward full without a foothold |
-| CORE heals too quickly to attack | Damage dealt versus repaired during uninterrupted player presence |
+| CORE can be chipped across deaths | Record part HP at player shutdown and at hub re-entry; expected recovery toward full without a foothold |
+| CORE repairs too quickly to attack | Damage dealt versus repaired during uninterrupted player presence |
 | Garrison system never appears | Count settlement eligibility starts, resets by reason, completions, and Warden chamber dwell |
 | Garrison appears in active combat | Flag any settlement completed with Noise or Danger above thresholds |
 | Leader accidentally commands followers | Assert Warden state has no follower count, garrison target, or settlement writes |
 | Lacuna probe is irrelevant | Compare route choice, survival, and completed calls with/without a successful probe in ordinary runs—not a feature-flag A/B in production |
-| Lacuna violates containment | Flag any call position whose caller body never entered that chamber |
+| Lacuna violates containment | Flag any call position whose caller chassis never entered that chamber |
 | Scrubber is a mandatory tax | Compare discovery time for quiet unscreened, hot unscreened, and hot screened pods |
 | Scrubber becomes a turtle button | Log raw emissions, capacity consumed, leakage, visible enemy contacts, and global call rate |
 | Stacked scrubbers erase a major battle | Track total capacity versus total emissions and count calls/contacts through heavily stacked coverage |
-| Cleaning becomes an economy exploit | Components gained per corpse, per ammo spent, and per minute at a defended breach |
+| Cleaning becomes an economy exploit | Components gained per disabled chassis, per ammo spent, and per minute at a defended breach |
 | Breaches remain open forever | Log age, last crossing, route interest, exhaustion request, and final close reason |
 | Breaches close while agents are approaching | On close, count hub-side agents whose current ordinary route included the portal |
 | Direct flank breach triggers in normal aggressive play | Track peak Distress and sustained duration in full runs; threshold should be untouched in nearly all aggressive clears |

@@ -1,7 +1,7 @@
 # PERIHELION — ADVERSARY ENEMY DESIGN: FINAL RESEARCH PACKET
 
 **Date:** 2026-07-28 · **For:** final synthesis pass, then the director
-**Deliverable this packet feeds:** replace the two placeholder Adversary units (`vagrant`,
+**Deliverable this packet provisions:** replace the two placeholder Adversary units (`vagrant`,
 `lacuna`) with final designs, and fill out the distributed strategic response around them.
 
 Everything in this document is stated in tactics and game-design language. No source-domain
@@ -20,16 +20,16 @@ stations — and when he bites off more than he can chew he falls back. Falling 
 fought for, not free.
 
 Everything that fights him belongs to one defending **swarm**. The swarm is decentralised
-and non-conscious. It has **no commander** and no unit whose death ends the response.
+and non-conscious. It has **no commander** and no unit whose shutdown ends the response.
 Removing any one agent **thins** it. It coordinates entirely through **nine scalar signal
 fields**, one value per chamber, spreading hop-by-hop across the portal graph and decaying by
 half-life. An agent's whole legal view of that medium is **its own chamber and chambers one
 portal away** — there is no deeper query, no map, no global view. Sight is separate and
 raycast-confirmed at whatever depth the geometry allows.
 
-Reinforcements do not spawn. They come from an off-map **reserve** (the marrow) through
+Reinforcements do not instantiate. They come from an off-map **reserve** (the dispatch fabric) through
 **breaches** that an agent must physically travel to, stand still in the open, and broadcast
-to open. The marrow is structurally blind to the fight: its regeneration reads only how empty
+to open. The dispatch fabric is structurally blind to the fight: its regeneration reads only how empty
 its own depot is.
 
 ### 1.2 The two lanes — the whole point of this program
@@ -37,11 +37,11 @@ its own depot is.
 The defending swarm is two populations with completely different worth, and today the game
 does not show the difference on screen.
 
-**TESTATOR lane — equipment and wildlife.** Repurposed local bodies: `mite`, `husk`,
+**TESTATOR lane — equipment and wildlife.** Repurposed local chassis: `mite`, `husk`,
 `spitter`, `brute`, `warden`, `shrieker`, `flicker`. Produced by the CORE, paid for out of
 reserve on a dispatch sheet (mite 1 → warden 8), thrown at a firebase without a second
-thought, left lying where they fall. The swarm does not care if one dies on an errand. It
-does not care if a hundred die at a doorway. Testator bodies **cannot call** — they only
+thought, left lying where they fall. The swarm does not care if one shuts down on an errand. It
+does not care if a hundred die at a doorway. Testator chassis **cannot call** — they only
 fight.
 
 **ADVERSARY lane — precious, finite, non-renewing personnel.** The interdimensional invaders
@@ -58,14 +58,14 @@ Three consequences the synthesis must honour:
 2. **Judgement is Adversary.** Anything that authorises, licenses, or decides on behalf of
    others is Adversary personnel.
 3. **The Adversary cannot stay.** Ordinary space is zero-Otherworldness and it wears them
-   down. An Adversary body carries a **dwell budget** and must **withdraw into a live breach**
-   before it empties. Withdrawal is the Adversary's *normal* outcome; death is the exceptional
+   down. An Adversary chassis carries a **dwell budget** and must **withdraw into a live breach**
+   before it empties. Withdrawal is the Adversary's *normal* outcome; shutdown is the exceptional
    one. **The census falls only when the player denies the withdrawal.** That is the
    director's new mechanic and it is the spine of this whole packet (§4).
 
 ### 1.3 What is being replaced
 
-Today the Adversary lane is two bodies that differ in almost nothing:
+Today the Adversary lane is two chassis that differ in almost nothing:
 
 | | `vagrant` | `lacuna` |
 |---|---|---|
@@ -107,28 +107,28 @@ either design or explicitly decline.
 | # | Job | Lane | Why that lane | Filled by |
 |---|---|---|---|---|
 | 1 | **Standing pickets** — the first Noise spike when the intruder crosses | Testator | Cheap resident watchers the swarm expects to lose at the crossing they watch | RIM (1), WATCH-ROOT (2), TRIPWIRE (3) |
-| 2 | **Alarm amplification** — units in contact re-broadcast Distress + Muster, so the response grows itself from local re-broadcast | Testator | The bodies in contact are the cheap ones | **Ships** (relay-recruit) |
+| 2 | **Alarm amplification** — units in contact re-broadcast Distress + Muster, so the response grows itself from local re-broadcast | Testator | The chassis in contact are the cheap ones | **Ships** (relay-recruit) |
 | 3 | **Gradient hunters** — climb Distress, refuse chambers above the danger hold line, hold at a doorway emitting Muster instead of entering alone | Testator | Patrol stock, spent freely | **Ships** |
-| 4 | **Marking** — paints the intruder so others aim, commit and converge; the mark outlives the marker | Testator | The shrieker's job; it dies constantly | **Ships** (shrieker) |
-| 5 | **Warrant / authorisation** — fights nothing, licenses specialists; its death thins, never stops | **Adversary** | Judgement is precious personnel work by the lane rule | WARRANT (13), HERALD (14), CONFIRM (15) |
-| 6 | **Licensed execution** — engages only a marked, warranted target; otherwise inert-but-mobile | **Adversary** | The lane's only top-end body; the swarm withdraws it rather than lose it | EXECUTIONER (16), RELEASE-AND-REACQUIRE (17) |
+| 4 | **Marking** — paints the intruder so others aim, commit and converge; the mark outlives the marker | Testator | The shrieker's job; it shuts down constantly | **Ships** (shrieker) |
+| 5 | **Warrant / authorisation** — fights nothing, licenses specialists; its shutdown thins, never stops | **Adversary** | Judgement is precious personnel work by the lane rule | WARRANT (13), HERALD (14), CONFIRM (15) |
+| 6 | **Licensed execution** — engages only a marked, warranted target; otherwise inert-but-mobile | **Adversary** | The lane's only top-end chassis; the swarm withdraws it rather than lose it | EXECUTIONER (16), RELEASE-AND-REACQUIRE (17) |
 | 7 | **Kin-check enforcement** — attacks whatever fails to read as one of theirs; the hook for punishing a player who wears or carries Adversary material | **Adversary** | An identity ruling, not a reflex | **EMPTY** — see §5.2 |
-| 8 | **Area denial** — residue that costs the player ground and time, not hit points | Testator | It is the residue of bodies that were spent | CHAFF (4), CAUSTIC CHAFF (5), SNARE MAT (6), CORDON WEB (7), DRAG FIELD (8) |
-| 9 | **Cordon-seal / walling-off** — when the intruder cannot be killed, seal him in and starve it | Both | Testator bodies do the standing; the decision to stop attacking is Adversary | **EMPTY** — both candidates rejected, see §5.2 |
-| 10 | **Suppression and resolution** — end a response so the swarm does not burn its reserve on an empty chamber; the counterweight to signal overheat | **Adversary** | A body that decides the fight is over on everyone's behalf | DAMPER (19), SURGE CAP (20) |
-| 11 | **Recruitment and dispatch** — finite reserve, cost-fair queue across live breaches, strike-package composition, a guardian shelf that genuinely empties | — | The marrow owns it | **Ships**; extended by POUR SURGE (47) |
-| 12 | **Breach opening** — travel to quiet ground behind the line, take the single call-medium lease, stand still and fully exposed for the whole broadcast, leave an imprint the marrow may or may not answer | **Adversary** | Only personnel can call — ratified | **EMPTY of replacements.** Filled today only by the two units being deleted. **This is the deliverable.** See §5.2 |
-| 13 | **Courier to the control centre** — physically carry evidence of how the intruder fights back through a live breach to the Scriptorium | Testator | The swarm does not care if it dies on the way | HAULER (9), LADEN (10), SPILL (11) |
-| 14 | **Memory of a repeat intruder** — counter-biasing toward counters, and a measurable slip when the player switches tactics | — | Ledger is hub-side; per-body memory is on the body | **PARTIAL / EMPTY** — VETERAN (48) and LEDGER BIAS (49) cover accumulation; **nothing specifies forgetting or the slip.** See §5.2 |
+| 8 | **Area denial** — residue that costs the player ground and time, not hit points | Testator | It is the residue of chassis that were spent | CHAFF (4), CAUSTIC CHAFF (5), SNARE MAT (6), CORDON WEB (7), DRAG FIELD (8) |
+| 9 | **Cordon-seal / walling-off** — when the intruder cannot be killed, seal him in and starve it | Both | Testator chassis do the standing; the decision to stop attacking is Adversary | **EMPTY** — both candidates rejected, see §5.2 |
+| 10 | **Suppression and resolution** — end a response so the swarm does not burn its reserve on an empty chamber; the counterweight to signal overheat | **Adversary** | A chassis that decides the fight is over on everyone's behalf | DAMPER (19), SURGE CAP (20) |
+| 11 | **Recruitment and dispatch** — finite reserve, cost-fair queue across live breaches, strike-package composition, a guardian shelf that genuinely empties | — | The dispatch fabric owns it | **Ships**; extended by POUR SURGE (47) |
+| 12 | **Breach opening** — travel to quiet ground behind the line, take the single call-medium lease, stand still and fully exposed for the whole broadcast, leave an imprint the dispatch fabric may or may not answer | **Adversary** | Only personnel can call — ratified | **EMPTY of replacements.** Filled today only by the two units being deleted. **This is the deliverable.** See §5.2 |
+| 13 | **Courier to the control centre** — physically carry evidence of how the intruder fights back through a live breach to the Scriptorium | Testator | The swarm does not care if it shuts down on the way | HAULER (9), LADEN (10), SPILL (11) |
+| 14 | **Memory of a repeat intruder** — counter-biasing toward counters, and a measurable slip when the player switches tactics | — | Ledger is hub-side; per-chassis memory is on the chassis | **PARTIAL / EMPTY** — VETERAN (48) and LEDGER BIAS (49) cover accumulation; **nothing specifies forgetting or the slip.** See §5.2 |
 | 15 | **Clean-up of the dead** — drag a wrecked chassis to the control centre; clear the swarm's own dead, which damps Distress and thins the future response | Testator | The director's explicit example, and the swarm spends these freely | HAULER (9), REANIMATOR (12) |
-| 16 | **Environment shift** — Otherworldness rising in ground the Adversary holds: both the tell that ground has been taken and their own life support | **Adversary** | It is what they do to geometry, and what keeps them alive | LOCAL UNFOLDING (21), ANCHOR (22) |
-| 17 | **Garrison and entrenchment** — followers settling behind an oblivious leader, holding a cluster, works that make retaking expensive | Both | Testator bodies settle; Adversary personnel shelter inside | **Ships**; extended by LOCAL LEVY (39), RE-TILE (40), GAP-FILL (41), WARD-TENDER (42), OCCUPANCY CAP (43), BLOOM (44), SHELL (45) |
+| 16 | **Environment shift** — Otherworldness rising in ground the Adversary holds: both the tell that ground has been taken and their own runtime support | **Adversary** | It is what they do to geometry, and what keeps them operational | LOCAL UNFOLDING (21), ANCHOR (22) |
+| 17 | **Garrison and entrenchment** — followers settling behind an oblivious leader, holding a cluster, works that make retaking expensive | Both | Testator chassis settle; Adversary personnel shelter inside | **Ships**; extended by LOCAL LEVY (39), RE-TILE (40), GAP-FILL (41), WARD-TENDER (42), OCCUPANCY CAP (43), BLOOM (44), SHELL (45) |
 | 18 | **Reserve husbandry / withdrawal discipline** — personnel spend a dwell budget in ordinary space and withdraw before it empties; census falls only when the player denies it | **Adversary** | The director's new mechanic; the definition of precious | MOORING (23) and the whole §4 family (24–38) |
 | 19 | **Residents** — the non-Adversary population already occupying the hub and any taken ground, reading visibly lighter than a delivered strike package | Testator | Already-present local stock | **Ships in the hub**; extended off-hub by LOCAL LEVY (39), OCCUPANCY CAP (43), BLOOM (44) |
 | 20 | **Dormancy** — units inert with high thresholds until a real disturbance, so clearing visible pressure does not clear the census | **Adversary** | The census is what dormancy protects | DEEP DORMANCY (46), EMBER DOCTRINE (29) |
 | 21 | **Traffic control** — doorway trail marks self-organising movement into lanes, arrest positions at chokes, the raid fan down second-best routes | Testator | Ordinary push stock | **Ships** |
-| 22 | **Anti-structure specialists** — prioritise pods, turrets and repair stations over the player, so a firebase decays under pressure | Testator | A body sent to die against a turret | **EMPTY** — and it does not "partly exist"; see §5.2 |
-| 23 | **Barrier and lifeline denial** — pressure that follows the player through his own shortcuts, including small bodies through a Portable Hole aperture | Testator | Only the small cheap bodies fit | **EMPTY** — see §5.2 |
+| 22 | **Anti-structure specialists** — prioritise pods, turrets and repair stations over the player, so a firebase decays under pressure | Testator | A chassis sent to die against a turret | **EMPTY** — and it does not "partly exist"; see §5.2 |
+| 23 | **Barrier and lifeline denial** — pressure that follows the player through his own shortcuts, including small chassis through a Portable Hole aperture | Testator | Only the small cheap chassis fit | **EMPTY** — see §5.2 |
 
 **Empty: rows 7, 9, 12, 14, 22, 23.** Row 12 is the deliverable itself and is the single most
 important hole in this packet.
@@ -158,14 +158,14 @@ doorway, WATCH-ROOT owns a chamber and never leaves it, TRIPWIRE spends itself o
   **ACT** holds position with steering biased hard at the one doorway it is posted at;
   engages anything that crosses; **never pursues past that doorway** — if the target steps
   back across, RIM returns to post and re-engages only if it re-enters. **CST** reserve,
-  cheapest tier. **TIM** immediate; no build-up. **RES** an ordinary body. **TELL** it is the
+  cheapest tier. **TIM** immediate; no build-up. **RES** an ordinary chassis. **TELL** it is the
   one enemy that reliably lets the player walk away once he is back through a specific
   doorway, mid-fight. That disengage is the tell; no ring.
 - **Counterplay** the boundary is absolute and learnable. Bait it, step back one doorway, and
   you are safe. It makes a crossing cost something once, rather than being a standing threat,
   so a player who knows the layout routes around the chamber it holds.
 - **Engine fit** `sim.py` already ships a posted-guardian primitive (a per-entity tether flag
-  set from `spec.props` at spawn) that holds position, waives pursuit, and fights through the
+  set from `spec.props` at instantiation) that holds position, waives pursuit, and fights through the
   doorway rather than chasing. RIM is that flag plus **one** new datum — an edge id, so the
   steering bias points at a specific doorway instead of the chamber generally.
 - **Falsifier** RIM seen more than one chamber from its post, or chasing across two doorways.
@@ -176,15 +176,15 @@ doorway, WATCH-ROOT owns a chamber and never leaves it, TRIPWIRE spends itself o
   cheapest perception on the roster and the reason it is affordable in numbers. **ACT** it is
   rooted: it does not patrol, does not travel, does not answer Muster from anywhere. On
   contact it fires a fast, short-reach Distress + Muster write into its own chamber and the
-  one hop out — the standard relay-recruit emission, from a body that was already there.
+  one hop out — the standard relay-recruit emission, from a chassis that was already there.
   **CST** reserve, cheapest tier; placed as resident stock rather than dispatched to a fight.
-  **TIM** fires within a tick of contact; contributes nothing afterwards. **RES** a body.
+  **TIM** fires within a tick of contact; contributes nothing afterwards. **RES** a chassis.
   **TELL** it is the only enemy that is standing still in an empty chamber before the player
   arrives and does not walk toward him — it turns in place and shouts.
 - **Counterplay** it cannot be drawn out. A player who wants a chamber quiet has to enter it
   and kill the thing in it; there is no baiting it into a corridor. Killing it before it
   emits is a real timing play — it is the first Distress write in most chambers.
-- **Engine fit** a settled, non-patrolling body reusing the existing relay-recruit write; no
+- **Engine fit** a settled, non-patrolling chassis reusing the existing relay-recruit write; no
   new field, no new sensing.
 - **Falsifier** a WATCH-ROOT observed walking toward a fight in an adjoining chamber.
 
@@ -193,17 +193,17 @@ doorway, WATCH-ROOT owns a chamber and never leaves it, TRIPWIRE spends itself o
   contact-range only. **ACT** discharges its whole response in **one shot**: an oversized,
   one-off Distress + Muster burst plus a **SNARE MAT (6)** laid where it stands, then it is
   **spent** — it cannot repeat, keeps moving, and fights only with weak contact damage until
-  killed. **CST** reserve, cheap; the swarm accepts one-use bodies. **TIM** the burst is
-  under a second; the spent state lasts until it dies. **RES** a snare mat plus a body.
-  **TELL** the discharge draws on the body as a single hard flash, and the body afterwards
+  killed. **CST** reserve, cheap; the swarm accepts one-use chassis. **TIM** the burst is
+  under a second; the spent state lasts until it shuts down. **RES** a snare mat plus a chassis.
+  **TELL** the discharge draws on the chassis as a single hard flash, and the chassis afterwards
   visibly moves differently — slower, no longer closing.
 - **Counterplay** it has exactly one dangerous moment. Trigger it from range, or accept the
-  burst and take the ground while it is spent. A player who learns which body this is stops
+  burst and take the ground while it is spent. A player who learns which chassis this is stops
   wasting ammunition on it after it has fired.
 - **Engine fit** existing relay-recruit emission at a larger amount, once, plus the area-denial
   substrate (see 6). Per-agent state: one spent flag.
 - **Falsifier** a TRIPWIRE firing a second burst, or standing still after it has fired (a spent
-  body must keep moving — no unit may freeze in an active state).
+  chassis must keep moving — no unit may freeze in an active state).
 
 ---
 
@@ -215,16 +215,16 @@ or area-denial zone system exists anywhere in the codebase today, so whoever bui
 one owns it for all of them. Cards 6, 7 and 8 are one mechanism with three triggers.
 
 #### 4. CHAFF — **RECOVERED** (this is the brief's WORKED EXAMPLE 1)
-- **L** Testator, **dispatch cost 1** — the cheapest thing the marrow will pay for. **TRG**
+- **L** Testator, **dispatch cost 1** — the cheapest thing the dispatch fabric will pay for. **TRG**
   any Noise above the picket line in its own chamber or one hop away. **No quorum check** — it
   does not wait for peers and it never evaluates Danger, so it walks into chambers a patroller
   would refuse. That is exactly why it is the thing the player meets first. **PER** one-hop
   fields plus sight. **ACT** straight-line commit up the strongest Noise gradient; touch damage
   only; no ranged, no disengage. **CST** reserve, spent faster than anything else on the sheet.
-  **TIM** dies inside one engagement. It is also disposable **on a clock** — an unengaged chaff
-  body expires and quietly stops rather than loitering as a standing threat, so a corridor the
+  **TIM** shuts down inside one engagement. It is also disposable **on a clock** — an unengaged chaff
+  chassis expires and quietly stops rather than loitering as a standing threat, so a corridor the
   player avoided does not accumulate a garrison of them. **RES** a **SNARE MAT (6)** where it
-  fell. **TELL** a body-drawn splash under the corpse that stays after the corpse is gone.
+  fell. **TELL** a chassis-drawn splash under the disabled chassis that stays after the disabled chassis is gone.
   No ring, because a ring means aggro.
 - **Counterplay** killing chaff is cheap and always available — but a corridor that killed
   twenty of them is a corridor the player cannot fall back through at speed. That is the point:
@@ -235,48 +235,48 @@ one owns it for all of them. Cards 6, 7 and 8 are one mechanism with three trigg
 - **Falsifier** chaff that waits for quorum, refuses a high-Danger chamber, or leaves no mat.
 
 #### 5. CAUSTIC CHAFF — **RECOVERED** (the kin-misfire variant)
-- **L** Testator. **TRG** identical to CHAFF. **PER** identical. **ACT** on death it releases a
+- **L** Testator. **TRG** identical to CHAFF. **PER** identical. **ACT** on shutdown it releases a
   short-range damaging burst instead of a pure movement residue — and the burst **does not
-  check side**. Its own-side splash **scales with local crowding**: one caustic body dying in an
-  empty corridor hurts only the player; six dying in a packed doorway visibly kill each other.
-  **CST** reserve, cheap. **TIM** the burst resolves instantly on death. **RES** a smaller,
-  hotter mat. **TELL** the swarm visibly damaging itself in a crowd — a body-drawn burst that
-  makes neighbouring bodies flash their own hit reaction.
+  check side**. Its own-side splash **scales with local crowding**: one caustic chassis failing in an
+  empty corridor hurts only the player; six failing in a packed doorway visibly kill each other.
+  **CST** reserve, cheap. **TIM** the burst resolves instantly on shutdown. **RES** a smaller,
+  hotter mat. **TELL** the swarm visibly damaging itself in a crowd — a chassis-drawn burst that
+  makes neighbouring chassis flash their own hit reaction.
 - **Counterplay** this is the only mechanism in the packet where the player can make the swarm
   hurt itself, and it is deliberately learnable: **funnel them.** Fighting a dense push at a
   doorway is rewarded, not just survivable. It is also the closest thing the packet has to a
   comedy beat — the response over-committing and paying for it.
-- **Engine fit** an on-death damage event with no side filter; density is read as the count of
-  bodies in touch range, the same local read flocking separation already does.
-- **Falsifier** a caustic burst that never damages another Testator body no matter how crowded.
+- **Engine fit** an on-shutdown damage event with no side filter; density is read as the count of
+  chassis in touch range, the same local read flocking separation already does.
+- **Falsifier** a caustic burst that never damages another Testator chassis no matter how crowded.
 
 #### 6. SNARE MAT
 - **L** field/structure — the residue itself, and the substrate all area denial in the game
-  should share. **TRG** deposited by a body dying (chaff, tripwire) or by a specific attack.
+  should share. **TRG** deposited by a chassis failing (chaff, tripwire) or by a specific attack.
   **PER** none — it is floor. **ACT** applies a movement penalty to **anything** crossing it,
   player and swarm alike. It is **side-blind**; the swarm pays the same tax routing its own
   reinforcements through it. **CST** nothing standing. **TIM** decays on its own short
   half-life (order of twenty seconds), independent of the fight that made it. **Passage
   re-arms it to full rather than stacking it without bound** — the existing Trail idiom, so a
   much-used corridor does not accumulate an impassable floor. **RES** it *is* the residue.
-  **TELL** a floor decal that outlives the corpse. The floor is one of the few genuinely
+  **TELL** a floor decal that outlives the disabled chassis. The floor is one of the few genuinely
   unused tell channels in the game (see §6.7).
 - **Counterplay** ground you won is not ground you can retreat through at speed. Sweeping a
   corridor clean and *then* falling back is a different plan from falling back through the
   sweep.
 - **Engine fit** **new substrate.** One per-chamber-or-per-patch decaying scalar plus one
   movement-multiplier read at the physics step. Structurally parallel to how Danger is stored.
-- **Falsifier** mats that slow only the player and never a reinforcing body.
+- **Falsifier** mats that slow only the player and never a reinforcing chassis.
 
 #### 7. CORDON WEB — **RECOVERED**
 - **L** field/structure. **TRG** enough mats laid close together inside one time window —
-  a mass-death event in one place, not a scatter of single kills. **PER** none. **ACT** the
+  a mass-shutdown event in one place, not a scatter of single kills. **PER** none. **ACT** the
   mats **fuse** into an actual barrier that separates the two sides of the chamber, rather than
   merely slowing traffic across it. **CST** nothing standing; it is bought entirely with
-  Testator bodies the player himself killed. **TIM** a longer half-life than a single mat,
+  Testator chassis the player himself killed. **TIM** a longer half-life than a single mat,
   but still a half-life — it always dissolves. **RES** it is the residue. **TELL** the mats
   visibly join up: separate floor patches merge into one continuous shape.
-- **Counterplay** this is the swarm's honest answer to a killbox. Grinding a hundred bodies in
+- **Counterplay** this is the swarm's honest answer to a killbox. Grinding a hundred chassis in
   one doorway eventually walls that doorway — with their remains. It is also the answer to the
   standing "killbox question": it degrades a fixed firing position **without** touching enemy
   hit points or damage.
@@ -286,7 +286,7 @@ one owns it for all of them. Cards 6, 7 and 8 are one mechanism with three trigg
 
 #### 8. DRAG FIELD
 - **L** field. **TRG** a chamber whose **Danger has held above the hold line (0.70) for a
-  sustained stretch** — a real fight, not one death. **PER** own chamber. **ACT** lays a
+  sustained stretch** — a real fight, not one shutdown. **PER** own chamber. **ACT** lays a
   chamber-wide movement tax on the same substrate as (6), side-blind. **CST** none standing;
   the swarm pays it too, on its own reinforcement traffic. **TIM** its own long half-life,
   independent of the Danger reading that created it. **RES** it is the residue. **TELL** same
@@ -303,9 +303,9 @@ one owns it for all of them. Cards 6, 7 and 8 are one mechanism with three trigg
 
 ### 3.C — LOGISTICS: HAULERS, CLEAN-UP, AND WHAT COMES BACK (roles 13 and 15, Testator)
 
-Four lanes independently designed the same body four times (Retriever, Courier, Clearance,
+Four lanes independently designed the same chassis four times (Retriever, Courier, Clearance,
 Carrier) plus a fifth object for it to carry. At 0.45 zoom they are all the same read: a
-non-combat body picks something off the floor and walks away from the fight. **They are merged
+non-combat chassis picks something off the floor and walks away from the fight. **They are merged
 here into one class with three cargo types.**
 
 #### 9. HAULER
@@ -317,14 +317,14 @@ here into one class with three cargo types.**
      the Scriptorium at the control centre;
   2. **the swarm's own dead** — a short haul, one or two chambers, into an adjoining chamber
      with lower Distress;
-  3. **a corpse as evidence** — the body itself is the record of how it died; the game already
-     threads a damage-source string through every kill and every death trace, so **no fifth
+  3. **a disabled chassis as evidence** — the chassis itself is the record of how it shut down; the game already
+     threads a damage-source string through every kill and every shutdown trace, so **no fifth
      floor object needs to be invented** for the ledger to have a payload.
-- **A corpse is not a valid target the instant it falls.** It becomes claimable after a short
+- **A disabled chassis is not a valid target the instant it falls.** It becomes claimable after a short
   window. **That window is the player's loot race** — get back to your own wreck before the
   window opens and it is still yours.
 - **PER** one-hop fields plus the existing find/senses API; a wrecked chassis already persists
-  as a pickup entity after death, so it is already something the find API can see. Inside the
+  as a pickup entity after shutdown, so it is already something the find API can see. Inside the
   control centre it stops sampling fields entirely and walks the fixed hop-distance route to
   the Scriptorium, reusing the same nearest-landmark-by-hop-distance lookup the existing
   nearest-station search already performs, aimed at a different landmark.
@@ -334,16 +334,16 @@ here into one class with three cargo types.**
 - **It has a finite carry bout.** After clearing enough material it measurably slows and has to
   return and unload before it works at full rate again — never an unlimited vacuum.
 - **CST** reserve, cheapest tier. Losing one costs the swarm nothing but the cargo it drops.
-- **TIM** the haul is tens of seconds. **An uncleared own-side body keeps writing a small
+- **TIM** the haul is tens of seconds. **An uncleared own-side chassis keeps writing a small
   trickle of Distress every few seconds until a hauler moves it** — that is the whole reason
   clean-up matters, and it is one extra periodic writer against a call site that already
-  exists (a dying agent already writes Distress once on death).
+  exists (a failing agent already writes Distress once on shutdown).
 - **RES** nothing of its own; it *removes* residue. **TELL** it carries a visible load on its
   back — the same visual grammar as the player carrying a pod, reusing the shipped carried-load
   draw. It walks **away** from the fight while everything else walks toward it.
 - **Counterplay** three real, different plays:
-  - **Race it.** A player who wants his salvage back has to beat a hauler to his own death site,
-    which puts time pressure on the walk-back the death rule already imposes.
+  - **Race it.** A player who wants his salvage back has to beat a hauler to his own shutdown site,
+    which puts time pressure on the walk-back the shutdown rule already imposes.
   - **Kill it.** Killing haulers on sight starves the ledger and keeps chambers loud. That is a
     genuine trade, not a free win: **leaving your own kills lying where they fell keeps a
     chamber's Distress elevated and the future response fatter, but it also keeps the swarm's
@@ -360,7 +360,7 @@ here into one class with three cargo types.**
   cleared.
 
 #### 10. LADEN
-- **L** shared behavioural mode, not a body. **TRG** holding cargo. **PER** unchanged — same
+- **L** shared behavioural mode, not a chassis. **TRG** holding cargo. **PER** unchanged — same
   one-hop sampling, different targets. **ACT** while laden, a unit **stops sampling whatever
   field sent it looking for work** and instead climbs Kin upward and Danger downward — the
   direction reversal a carrier shows the moment it stops looking for trouble and starts looking
@@ -377,49 +377,49 @@ here into one class with three cargo types.**
   the swarm's memory short of a full hub raid.
 - **Engine fit** one boolean and a carried-object reference, read by the gradient-climb code
   every field consumer already runs. The settle path reuses the shipped garrison-follower
-  conditions verbatim.
+  conditions directly.
 - **Falsifier** a laden unit answering Muster, or standing motionless indefinitely when denied a
   route (a direct no-freeze violation).
 
 #### 11. SPILL
-- **L** interruption rule attached to LADEN. **ACT** on a laden unit's death its cargo **drops
-  at the death position** as an ordinary floor pickup, indistinguishable from one never picked
+- **L** interruption rule attached to LADEN. **ACT** on a laden unit's shutdown its cargo **drops
+  at the shutdown position** as an ordinary floor pickup, indistinguishable from one never picked
   up, and fades on the same residue timer. Nothing a carrier holds is ever simply deleted.
-  **TELL** the load visibly leaves the body and lands.
-- **Counterplay** intercepting a hauler near your own death site gets your salvage back on the
+  **TELL** the load visibly leaves the chassis and lands.
+- **Counterplay** intercepting a hauler near your own shutdown site gets your salvage back on the
   spot — a cheaper resolution than invading the hub for it. That choice is the whole point.
-- **Engine fit** reuses the drop-and-spawn-pickup call already used for the player's own death.
-- **Falsifier** cargo vanishing with the body.
+- **Engine fit** reuses the drop-and-instantiate-pickup call already used for the player's own shutdown.
+- **Falsifier** cargo vanishing with the chassis.
 
 #### 12. REANIMATOR — **RECOVERED**
 *(the answer to "the hauler's cargo goes in and nothing comes out")*
-- **L** Testator. **TRG** an inert body lying unclaimed in a chamber whose Danger is under the
-  hold line — a player kill, a resident, or an Adversary body. **PER** own chamber and one hop.
-  **ACT** a small, cheap, unthreatening crawler lands on the body and, over a **visible dwell
+- **L** Testator. **TRG** an inert chassis lying unclaimed in a chamber whose Danger is under the
+  hold line — a player kill, a resident, or an Adversary chassis. **PER** own chamber and one hop.
+  **ACT** a small, cheap, unthreatening crawler lands on the chassis and, over a **visible dwell
   period**, converts it into a new hostile Testator-lane unit that then behaves like ordinary
-  dispatch stock. The crawler supplies only direction; the body it lands on does the work.
-  **This is the mechanism behind "reanimated bodies," which the ratified design already names
+  dispatch stock. The crawler supplies only direction; the chassis it lands on does the work.
+  **This is the mechanism behind "reanimated chassis," which the ratified design already names
   on the Adversary's non-caller roster and has never explained.** **CST** reserve, cheapest
-  tier for the crawler; the resulting body costs whatever its class costs. **TIM** the
+  tier for the crawler; the resulting chassis costs whatever its class costs. **TIM** the
   conversion is slow enough to be interrupted — that is the whole play. **RES** if interrupted,
-  the body stays a body. **TELL** a small thing sitting **on** a corpse, working, for several
-  seconds. A body event drawn on the body — no ring.
+  the chassis stays a chassis. **TELL** a small thing sitting **on** a disabled chassis, working, for several
+  seconds. A chassis event drawn on the chassis — no ring.
 - **Counterplay** shooting the crawler mid-conversion is cheap and always available, which
   makes leaving a battlefield unattended a real cost. It also gives the player's own wrecked
   chassis a second possible fate: **the player must recognise his own wrecked chassis walking
   at him.** That is a strong art-direction claim and it must be checked against the authorship
-  lanes before it is proposed — the corrupted body has to still read as Testator handcraft
+  lanes before it is proposed — the corrupted chassis has to still read as Testator handcraft
   under its defacement, never as invader chaos.
 - **Constraint** the CORE never produces Adversary personnel and the census never grows, so
   **anything that comes back is Testator lane, cheap, and probably wrong in some legible way.**
-- **Falsifier** a conversion that completes instantly, or that produces an Adversary-lane body.
+- **Falsifier** a conversion that completes instantly, or that produces an Adversary-lane chassis.
 
 ---
 
 ### 3.D — AUTHORISATION AND LICENSED EXECUTION (roles 5 and 6, Adversary)
 
 The cleanest demonstration of the no-commander law the design has: a unit that fights nothing,
-whose death makes specialists inert without stopping chaff, pickets, patrollers or breakers.
+whose shutdown makes specialists inert without stopping chaff, pickets, patrollers or breakers.
 Two lanes produced these, they were orphaned, and they are recovered here in full.
 
 #### 13. WARRANT
@@ -438,16 +438,16 @@ Two lanes produced these, they were orphaned, and they are recovered here in ful
   tuned **longer than a single engagement**, so a warrant expiring on its own clock is the rare
   case and **the player denying it is the common one**. It carries a real withdrawal phase and
   walks toward a breach when it runs low, continuing to write the whole way so the licence
-  visibly recedes with it rather than cutting off in place. **RES** on death, the ordinary loud
-  death plus the enlarged deposit of TOLL (18). **TELL** it is the only unit on screen that
-  walks toward a fight and never shoots. The licence itself draws **on the executioner's body**,
-  as a slow body-anchored pulse — not as a ring, and not on the warrant.
+  visibly recedes with it rather than cutting off in place. **RES** on shutdown, the ordinary loud
+  shutdown plus the enlarged deposit of TOLL (18). **TELL** it is the only unit on screen that
+  walks toward a fight and never shoots. The licence itself draws **on the executioner's chassis**,
+  as a slow chassis-anchored pulse — not as a ring, and not on the warrant.
 - **Counterplay** it never fires a shot, so a player who identifies it can kill it for the price
   of walking into its stand-off range once — after which nearby specialists go inert within a
   second or two, not instantly, leaving a beat where they are still dangerous. A sharper player
   baits it to hold at a doorway and kills it from the safe side without ever crossing the line
   it was guarding. Cutting the portal it needs to reach its breach is a slower, separate play
-  against the same body: **cordon the breaches and you starve the licence out of an area without
+  against the same chassis: **cordon the breaches and you starve the licence out of an area without
   ever getting a shot at the unit.**
 - **No-commander compliance** killing it does not stop the response. Chaff, pickets, patrollers
   and breakers all fight on exactly as before. It only makes the specialists inert. It is a way
@@ -473,7 +473,7 @@ Two lanes produced these, they were orphaned, and they are recovered here in ful
   attack worth risking census over. **CST** census. **TIM** the confirm window is a few
   seconds. Because confirming requires exposing itself to sight rather than merely standing in
   a hot chamber, it **burns risk faster than WARRANT, which never needs sight at all**.
-  **RES** loud death plus TOLL. **TELL** a body that circles at range and deliberately breaks
+  **RES** loud shutdown plus TOLL. **TELL** a chassis that circles at range and deliberately breaks
   cover instead of closing — and the moment it gets a clean look, the room it is in visibly
   commits noticeably faster than an equally noisy room that has not been confirmed.
 - **Counterplay** **deny sightlines and you throttle it specifically**, without touching
@@ -485,11 +485,11 @@ Two lanes produced these, they were orphaned, and they are recovered here in ful
   as a confirmed one.
 
 #### 15. CONFIRM
-- **L** rule, not a body. **ACT** on a HERALD confirm, the quorum virtual-supporter term is
+- **L** rule, not a chassis. **ACT** on a HERALD confirm, the quorum virtual-supporter term is
   forced to its ceiling in that chamber for roughly three to five seconds instead of being
   computed from ambient Noise + Distress; it decays back to the ordinary formula when the
   window ends or sight breaks, whichever comes first. **Why it is a boost and not a switch:**
-  the correct read is a standing local raising of how easily nearby bodies commit, not a one-off
+  the correct read is a standing local raising of how easily nearby chassis commit, not a one-off
   unlock. **TELL** carried entirely by (14).
 - **Engine fit** modifies the existing quorum term for a duration. No new field, no new
   per-agent state beyond the timer HERALD already owns. A chamber with no herald in it is
@@ -497,20 +497,20 @@ Two lanes produced these, they were orphaned, and they are recovered here in ful
 - **Falsifier** cascades in a confirmed room taking exactly as long as in an unconfirmed one.
 
 #### 16. EXECUTIONER
-- **L** **Adversary.** The lane's only genuinely dangerous body. **TRG** it samples its own
+- **L** **Adversary.** The lane's only genuinely dangerous chassis. **TRG** it samples its own
   chamber's authorisation field every tick. **Below the floor it moves like an ordinary
   patroller — chases nothing, attacks nothing, and never freezes; it always has somewhere to
   walk.** Above the floor **and** with a Marked target in its own chamber, it commits.
   **PER** own chamber for the field (it only fights what is in its own chamber, so it never
   needs the one-hop reach), plus the existing mark state the shrieker already writes, plus
   sight. **ACT** closes, takes a brief high-damage grip, then **releases and immediately
-  reacquires** the next marked body in reach rather than grinding one target to zero and
-  standing over the corpse. **A grip already in progress is honoured through to its release
+  reacquires** the next marked chassis in reach rather than grinding one target to zero and
+  standing over the disabled chassis. **A grip already in progress is honoured through to its release
   even if the field drops mid-grip; a new grip will not start without a live reading.**
-  **CST** census. **TIM** grips are short — seconds. **RES** loud death plus TOLL. **TELL** an
-  armed body walking calmly past the player when no warrant is in range, turning hostile the
+  **CST** census. **TIM** grips are short — seconds. **RES** loud shutdown plus TOLL. **TELL** an
+  armed chassis walking calmly past the player when no warrant is in range, turning hostile the
   instant it enters a chamber where a warrant is holding and the player is marked. Kills arrive
-  as short grip-release bursts, not one long grind. The licence draws on **its** body.
+  as short grip-release bursts, not one long grind. The licence draws on **its** chassis.
 - **Counterplay** killing the warrant (or breaking its reach) is a cheaper way to neutralise it
   than fighting it head-on; killing the executioner while the warrant lives just gets a fresh
   one dispatched against the same authorisation. Learning which of the two pays is the point of
@@ -532,18 +532,18 @@ Two lanes produced these, they were orphaned, and they are recovered here in ful
   movement rather than standing over the down target.
 - **Counterplay** keeping only one target marked at a time denies the chain anything to roll
   into, forcing it to idle-patrol between fights instead of snowballing through a group.
-- **Falsifier** one executioner parked on a single target while other marked bodies stand
+- **Falsifier** one executioner parked on a single target while other marked chassis stand
   untouched in the same chamber.
 
 #### 18. TOLL
-- **L** rule on an existing field write. **ACT** an Adversary death — including a failed
-  withdrawal — writes its **Danger deposit at a larger initial amplitude** than a Testator death
+- **L** rule on an existing field write. **ACT** an Adversary shutdown — including a failed
+  withdrawal — writes its **Danger deposit at a larger initial amplitude** than a Testator shutdown
   in the same spot, then rides the same 180 s half-life. **No new field, no new decay curve;
   only the amplitude at the moment of writing differs by lane.** **TELL** patrollers and
-  gradient hunters visibly avoid a chamber where personnel died for noticeably longer than an
-  equally-fought chamber where only equipment died.
+  gradient hunters visibly avoid a chamber where personnel shut down for noticeably longer than an
+  equally-fought chamber where only equipment shut down.
 - **Why this and not the inverse** an earlier proposal tried to record the same fact by lowering
-  **Kin** where personnel died. That has the sign backwards: a caller **descends** Kin to find
+  **Kin** where personnel shut down. That has the sign backwards: a caller **descends** Kin to find
   thin ground, so scarring Kin would send the next caller straight back to the player's best
   killing ground. Danger is already "this room has stayed lethal," is already descended by
   everything that avoids ground, and already carries the longest half-life in the game. TOLL is
@@ -551,8 +551,8 @@ Two lanes produced these, they were orphaned, and they are recovered here in ful
 - **Counterplay** baiting personnel to die in ground you intend to hold makes that ground read
   deadlier for longer, discouraging the swarm from recontesting it soon — a reason to
   specifically hunt Adversary lives in ground you want to keep, rather than taking any kill.
-- **Engine fit** a one-line amplitude branch on the existing write-on-death path. It does not
-  touch the marrow's census counter; this is purely local and purely legible.
+- **Engine fit** a one-line amplitude branch on the existing write-on-shutdown path. It does not
+  touch the dispatch fabric's census counter; this is purely local and purely legible.
 - **Falsifier** patrol avoidance decaying at the identical rate for both lanes' deaths.
 
 ---
@@ -570,19 +570,19 @@ engine already ships the exact capability it needs, with no caller anywhere in t
   signal-units across the fields proportionally to what is actually there**. It fights nothing.
   **CST** census. **TIM** seconds-scale drain against fields whose half-lives are 1 s (Muster)
   to 45 s (Distress); it works fastest exactly where the response is loudest.
-  **RES** loud death plus TOLL. **TELL** this is the most legible of the whole Adversary set:
+  **RES** loud shutdown plus TOLL. **TELL** this is the most legible of the whole Adversary set:
   **Muster falls, arrivals stop, and the chamber visibly loses interest in the player** while
-  a body stands at the edge doing nothing. The player sees the response deflate.
+  a chassis stands at the edge doing nothing. The player sees the response deflate.
 - **Why an agent and not a rule** resolution is an **active** job with its own dedicated
   mechanism, not passive fading. A rule that reached in and cut Distress and Muster by a
   multiplier was proposed and rejected (§5.1): the signal substrate's own law is that
   **separation in time comes from half-lives, never amplitude**, and a one-shot multiplicative
-  cut makes a chamber's level stop being reconstructible from its emission history. A body
+  cut makes a chamber's level stop being reconstructible from its emission history. A chassis
   spending a bounded drain capacity is the same effect through the front door.
 - **Counterplay** the genuinely novel one in this packet: **killing it makes the response harder
   to shake.** A player who wants a quiet exit lets it work. A player who wants to keep the
   pressure — to farm the stream, to hold the swarm's attention in one sector while he works
-  elsewhere — kills it. That is a real reason to leave an enemy alive.
+  elsewhere — kills it. That is a real reason to leave an enemy operational.
 - **Engine fit** **zero new engine work.** `SignalField.drain(polygon_weights, capacity, tick)`
   already exists and is called from nowhere in the game — "remove up to `capacity` signal-units
   total across all nine fields, proportionally to what is there." Weights of 1.0 on its own
@@ -592,23 +592,23 @@ engine already ships the exact capability it needs, with no caller anywhere in t
   its own half-life while a damper stands next to it.
 
 #### 20. SURGE CAP — **RECOVERED**
-- **L** rule inside the marrow's own dispatch bookkeeping. **TRG** high committed density
-  already at a site. **ACT** **the bodies that amplify recruitment desensitise to their own
+- **L** rule inside the dispatch fabric's own dispatch bookkeeping. **TRG** high committed density
+  already at a site. **ACT** **the chassis that amplify recruitment desensitise to their own
   recruiting signal once local density is high**, which caps the swarm at that site with no
   central controller. Concretely: a per-chamber dispatch throttle keyed to local Muster and
   committed count, sitting inside the existing cost-fair breach queue. **CST** none. **TIM**
   rides Muster's 1 s half-life, so it releases the moment the crowd thins. **TELL** the stutter
   at a saturated gate — the same reserve-gauge grammar the economy already uses.
-- **Why it matters** it is the mechanism that stops the marrow dumping its whole reserve into
+- **Why it matters** it is the mechanism that stops the dispatch fabric dumping its whole reserve into
   one doorway. Without it, "signal overheat" — a runaway Muster/Distress cascade the swarm
   cannot stand down from — has no counterweight on the dispatch side, only on the field side
   (19). It also directly addresses the standing killbox risk: a fixed mouth that concentrates
-  bodies stops being fed once it saturates.
+  chassis stops being fed once it saturates.
 - **Counterplay** a player who saturates one doorway is choosing to be throttled there; pressure
   goes elsewhere instead. The raid fan already sends a third of a push down its second-best
   route, so what arrives instead is pressure from another direction.
-- **Engine fit** inside the marrow's existing queue — a second input to a decision it already
-  makes. **It must not read a signal field directly**; the marrow's blindness to the fight is
+- **Engine fit** inside the dispatch fabric's existing queue — a second input to a decision it already
+  makes. **It must not read a signal field directly**; the dispatch fabric's blindness to the fight is
   structural. Feed it the committed count the dispatch side can already see, not Distress.
 - **Falsifier** a single doorway absorbing the entire reserve with no throttle.
 - **Naming collision** this is unrelated to POUR SURGE (47). Two lanes coined near-identical
@@ -620,7 +620,7 @@ engine already ships the exact capability it needs, with no caller anywhere in t
 
 #### 21. LOCAL UNFOLDING
 - **L** field — a **tenth** per-chamber scalar, proposed explicitly rather than smuggled in.
-  **TRG** presence, not events: any Adversary body standing still or settled (not sprinting
+  **TRG** presence, not events: any Adversary chassis standing still or settled (not sprinting
   through) continuously writes a small amount into its own chamber. **PER** own chamber, one
   hop, like every field. **ACT** rises where personnel hold ground; decays on a **long**
   half-life once none remain; spreads only a faint fraction one hop — a bleed under the
@@ -629,9 +629,9 @@ engine already ships the exact capability it needs, with no caller anywhere in t
   what a held chamber's breathing-wall intensity IS.** A chamber the Adversary has held for
   thirty seconds visibly breathes harder than one taken ten seconds ago; a chamber cleared and
   left alone settles back to still walls.
-- **What it does mechanically** it is the scalar an Adversary body's dwell budget draws against
+- **What it does mechanically** it is the scalar an Adversary chassis's dwell budget draws against
   (§4). It is the mechanical reason personnel need to **hold** ground rather than roam it, and
-  the reason a player who never lets them settle starves the whole lane's life support.
+  the reason a player who never lets them settle starves the whole lane's runtime support.
 - **Engine cost — priced honestly, and it is not free plumbing.** An earlier estimate claimed
   two render call sites gate wall-breathing on a binary polygon-kind switch and could simply
   read a float instead. Verified, that is wrong in three ways: (i) "otherworld" is an **authored
@@ -646,7 +646,7 @@ engine already ships the exact capability it needs, with no caller anywhere in t
   standing in high-Unfolding ground. That is the opposite of a tell, and the cost of this ground
   must be paid by the Adversary side, not smuggled onto the player's.
 - **Falsifier** wall-breathing intensity identical the instant a chamber flips from zero to one
-  Adversary body present — that would be the old binary switch with extra steps.
+  Adversary chassis present — that would be the old binary switch with extra steps.
 
 #### 22. ANCHOR
 *(recast from OTHERWORLD ANCHOR: it **writes** Local Unfolding, it does not invent a second copy
@@ -662,13 +662,13 @@ of that field — two lanes independently proposed the same field and the duplic
   chamber's breathing intensity is the tell (21); the anchor itself is the quiet unarmed thing
   at the centre of a firebase.
 - **Counterplay** **attacking the quiet unarmed structure at the centre of a held cluster is
-  strictly more valuable than attacking any single body standing near it**, once the player
-  learns to read it. Destroying it turns every Adversary body there overdrawn within seconds and
+  strictly more valuable than attacking any single chassis standing near it**, once the player
+  learns to read it. Destroying it turns every Adversary chassis there overdrawn within seconds and
   forces a visible scramble for the nearest breach.
 - **Engine fit** reads the shipped Garrison interior field to gate where it may be built; writes
   Local Unfolding. Nothing else.
 - **Falsifier** personnel holding indefinitely in a chamber with no anchor and no breach nearby;
-  or destroying an anchor having no visible effect on nearby bodies.
+  or destroying an anchor having no visible effect on nearby chassis.
 
 ---
 
@@ -678,8 +678,8 @@ Sixteen cards. This is the director's headline mechanic and the spine of the lan
 dossier that reads them as one system**, including the two places where lanes disagree.
 
 #### 23. MOORING — *the control law*
-- **L** field/rule carried by every Adversary body. **TRG** every tick. **PER** **its own
-  chamber only** — this is a property of where the body is, so it needs no hop-out read.
+- **L** field/rule carried by every Adversary chassis. **TRG** every tick. **PER** **its own
+  chamber only** — this is a property of where the chassis is, so it needs no hop-out read.
   **ACT** sample local Otherworldness (21); drain or refill dwell at the rate that scalar
   implies. Continuously compare current dwell against the **low edge**; the instant it is
   crossed, switch movement bias toward rising Otherworldness — the nearest already-held chamber
@@ -693,12 +693,12 @@ dossier that reads them as one system**, including the two places where lanes di
   RECALL DRIFT (24) implements at the far edge, and it is directly buildable on the one-hop
   sampling substrate with no global coordinate.
 - **Counterplay** a player who tracks which chambers read as held ground can predict where a
-  pressured body will run and beat it there. A player who never sustains a fight past about a
+  pressured chassis will run and beat it there. A player who never sustains a fight past about a
   minute never sees the system fire at all — **it rewards sustained pressure, not burst damage.**
-- **Engine fit** one new per-agent scalar on Adversary bodies; reads a chamber scalar exactly
+- **Engine fit** one new per-agent scalar on Adversary chassis; reads a chamber scalar exactly
   the way any gradient climb reads a field. The low-edge override composes with existing
   movement the same way the danger-hold-line refusal already overrides pursuit.
-- **Falsifier** Adversary bodies fighting indefinitely in a chamber that never reads as held
+- **Falsifier** Adversary chassis fighting indefinitely in a chamber that never reads as held
   ground, with no dwell-triggered peel-off across a long session.
 
 #### 24. RECALL DRIFT — *the other edge of the band*
@@ -709,67 +709,67 @@ dossier that reads them as one system**, including the two places where lanes di
   dwell. **ACT** begins gradient-**descending** on Otherworldness instead of climbing it —
   drifting back out toward relevance. Cancels the instant any of those three reads live again
   anywhere in its neighbourhood. **CST** none. **TIM** as above. **RES** none. **TELL** a lone
-  Adversary body walking calmly back into a cleared wing from deeper held ground, with no alarm
+  Adversary chassis walking calmly back into a cleared wing from deeper held ground, with no alarm
   and no escort.
-- **Why it exists** without it, safe ground becomes a permanent sink for bodies that topped off
+- **Why it exists** without it, safe ground becomes a permanent sink for chassis that topped off
   once and never re-entered play — turtling, by the enemy.
 - **Counterplay** **a wing you cleared and left comes back to life behind you.** Ground the
   Adversary still holds is not safe for good; taking it — pushing Otherworldness down — is the
   only way to keep it clear. A player camping a quiet corridor eventually gets a lone, exposed,
-  telegraphed body walking into it.
-- **Falsifier** topped-up bodies sitting motionless in held ground with live Noise one hop away
+  telegraphed chassis walking into it.
+- **Falsifier** topped-up chassis sitting motionless in held ground with live Noise one hop away
   that they never answer.
 
 #### 25. OVERDRAWN — *the terminal window*
 - **L** **Adversary** state. **TRG** dwell reaching zero. **ACT** a fixed ~6-second window
-  during which it **keeps running the low-edge climb under a visibly degrading body** — accel
+  during which it **keeps running the low-edge climb under a visibly degrading chassis** — accel
   and turn both cut about a third, so it staggers and its turning arc widens. **It never stops
   moving.** If it reaches a live breach mouth or held ground before the window elapses, it
   resolves as a clean withdrawal (26) with no penalty for the near miss. If the window elapses
   first, it **self-terminates on the spot**, emitting the same Danger deposit and Distress burst
-  a combat kill emits. **CST** this **is** the census loss. **TIM** 6 s, hard. **RES** a body,
+  a combat kill emits. **CST** this **is** the census loss. **TIM** 6 s, hard. **RES** a chassis,
   a Danger deposit (at TOLL amplitude), a Distress burst. **TELL** the spent stage of GUTTERING
   (37), plus the stagger.
 - **Why it matters** this is the piece that makes cutting off a breach a **kill** rather than a
   debuff. It closes the loop the whole finite-personnel fiction depends on.
-- **Counterplay** trapping a body away from every reachable breach yields a census point without
-  a shot — **but self-termination is a LOUD death** (Danger + Distress at that spot), so farming
-  it in one corridor deliberately feeds the response there. Finishing an overdrawn body with a
-  shot instead denies its slim escape chance and trades a noisy death for a quiet one. A real
+- **Counterplay** trapping a chassis away from every reachable breach yields a census point without
+  a shot — **but self-termination is a LOUD shutdown** (Danger + Distress at that spot), so farming
+  it in one corridor deliberately provisions the response there. Finishing an overdrawn chassis with a
+  shot instead denies its slim escape chance and trades a noisy shutdown for a quiet one. A real
   choice either way.
-- **Engine fit** reuses the existing on-death emission path unmodified; self-termination routes
+- **Engine fit** reuses the existing on-shutdown emission path unmodified; self-termination routes
   through the same call as a combat kill. New: a bounded per-agent countdown plus a movement
   multiplier composed with existing accel and turn — still the same climb, degraded, **not** a
   special-cased branch.
-- **Falsifier** a body that reaches zero dwell and simply stops moving. That is a direct
+- **Falsifier** a chassis that reaches zero dwell and simply stops moving. That is a direct
   no-freeze violation and proves it was not built as specified.
 
 #### 26. QUIET GATE — *what success looks like*
-- **L** rule. **TRG** a body at any dwell level standing in a live breach mouth. **ACT** a
-  fixed sub-one-second fold-inward animation on its own silhouette, then removal. **No death
-  bark, no body, no touch-damage window during the fold, and nothing emitted to any field.**
-  Dwell resets off-map on the marrow's own clock, entirely outside the chamber it left.
-  **TELL** the **total absence** of any death cue is the tell. That asymmetry against a loud
-  death is the defining, deliberate design of the pair.
-- **Counterplay** a player mid-fight with a body that reaches a breach mouth learns immediately
-  that it got away rather than died, and that nothing nearby got recruited by it — the tell that
+- **L** rule. **TRG** a chassis at any dwell level standing in a live breach mouth. **ACT** a
+  fixed sub-one-second fold-inward animation on its own silhouette, then removal. **No shutdown
+  bark, no chassis, no touch-damage window during the fold, and nothing emitted to any field.**
+  Dwell resets off-map on the dispatch fabric's own clock, entirely outside the chamber it left.
+  **TELL** the **total absence** of any shutdown cue is the tell. That asymmetry against a loud
+  shutdown is the defining, deliberate design of the pair.
+- **Counterplay** a player mid-fight with a chassis that reaches a breach mouth learns immediately
+  that it got away rather than shut down, and that nothing nearby got recruited by it — the tell that
   says *that one doesn't count*, which matters because the census only moves on the loud version.
-- **Engine fit** a short animation state plus explicit suppression of the on-death emission for
-  this exit only. The on-death emission is currently unconditional, so the difference between
+- **Engine fit** a short animation state plus explicit suppression of the on-shutdown emission for
+  this exit only. The on-shutdown emission is currently unconditional, so the difference between
   this and (25) is a real code path, not a rendering skin.
-- **Falsifier** a withdrawing body leaving a corpse, a Danger deposit, or a death bark.
+- **Falsifier** a withdrawing chassis leaving a disabled chassis, a Danger deposit, or a shutdown bark.
 
 #### 27. LAST CALL — *who gets the exit first, with no commander*
 - **L** rule. **TRG** approaching a breach mouth already occupied or contested by another
-  Adversary body within sight. **PER** ordinary sight through the shared find/senses API — it
-  compares **the same on-body degradation tell the player can see** (37), never a hidden queue
+  Adversary chassis within sight. **PER** ordinary sight through the shared find/senses API — it
+  compares **the same on-chassis degradation tell the player can see** (37), never a hidden queue
   number. **ACT** if any visible contender reads more overdrawn than itself, **yield**: hold one
   step back, let it cross first, re-check every tick until the mouth clears. The yield is a
   one-step hold, never a stop-in-place. **CST** every contender keeps spending dwell while it
   waits — **a crowded breach mouth measurably costs the swarm more census than a clear one.**
-  **TELL** visibly-more-degraded bodies crossing first while less-degraded ones hang back a step
+  **TELL** visibly-more-degraded chassis crossing first while less-degraded ones hang back a step
   — not a scrum, and not arrival order.
-- **Counterplay** a cluster of overdrawn bodies queuing at one breach is often winnable even
+- **Counterplay** a cluster of overdrawn chassis queuing at one breach is often winnable even
   several at once, because the ones yielding are actively choosing not to fight through. **A
   crowd at a breach mouth is a learnable soft-target tell**, and forcing the pile-up by
   threatening a breach early is a deliberate, high-value play.
@@ -781,18 +781,18 @@ dossier that reads them as one system**, including the two places where lanes di
 
 #### 28. BREACH PRESSURE
 - **L** structure state on the breach mouth. **TRG** more than a small fixed count of Adversary
-  bodies within its immediate contest range for a sustained beat. **PER** a local body count at
+  chassis within its immediate contest range for a sustained beat. **PER** a local chassis count at
   the mouth — no global tally. **ACT** escalates its visual state from the ordinary single-fold
   cue to a **held, swelling pulse** that persists while contention continues and drops back the
   instant the count clears. **TELL** that pulse — it makes LAST CALL's queue visible, since one
   yield is subtle but four are not.
 - **Counterplay** the player can tell across a chamber whether a breach is worth camping for a
-  multi-kill or serves one body at a time — and since every body in the jam is still spending
+  multi-kill or serves one chassis at a time — and since every chassis in the jam is still spending
   dwell while it waits, **holding the doorway punishes the swarm for trying to save itself.**
 - **Falsifier** a mouth that looks identical busy and empty.
 
-#### 29. EMBER DOCTRINE — *the ruling on dormant bodies*
-- **L** ruling, zero new mechanism. **ACT** a dormant Adversary body samples Otherworldness on
+#### 29. EMBER DOCTRINE — *the ruling on dormant chassis*
+- **L** ruling, zero new mechanism. **ACT** a dormant Adversary chassis samples Otherworldness on
   the same cadence as an active one and drains or refills by the same curve. **Dormancy changes
   what it does with the result — nothing, until its wake threshold fires — never whether it
   accrues it.** The safety of a sleeper is a **placement** property, not a runtime exemption: it
@@ -803,9 +803,9 @@ dossier that reads them as one system**, including the two places where lanes di
   physically takes and holds starts killing sleepers on a clock even if none ever wake to
   fight.** That gives the player a real, learnable reason to hold cleared ground rather than
   just clear it — and it is the only way dormant census is ever actually reduced.
-- **Why the alternative is banned** an exemption flag for inert bodies is a feature flag, and
+- **Why the alternative is banned** an exemption flag for inert chassis is a feature flag, and
   feature flags are forbidden outright.
-- **Falsifier** sleepers dying of dwell while their garrison is intact; or never dying no matter
+- **Falsifier** sleepers failing of dwell while their garrison is intact; or never failing no matter
   how long their garrison has been gone and the ground held.
 
 #### 30. UNDERTOW — *the routing answer*
@@ -820,7 +820,7 @@ dossier that reads them as one system**, including the two places where lanes di
   **RES** SEAM MARK (31) on the way in. **TELL** the retrace lights the same corridor in
   mirrored order as the advance did.
 - **Why not a homing field** three options were weighed. (1) The breach emits a long-spread
-  homing scalar only Adversary bodies read — buildable in principle (that is exactly how Muster,
+  homing scalar only Adversary chassis read — buildable in principle (that is exactly how Muster,
   Kin and Garrison reach already work), rejected on governance: it needs either an **eleventh**
   field or the overloading of Garrison reach with a second, not-always-coincident meaning
   ("the FOB is this way" **and** "the breach is this way"), and breaches are not always inside a
@@ -831,8 +831,8 @@ dossier that reads them as one system**, including the two places where lanes di
   to reopen the ratified field list. This packet does not make that call.
 - **Critically, it does not read the shared doorway-trail scalar for its routing.** That pooled
   value also carries ordinary hunt-trail deposits and the player's own mark trail; reading it
-  would let a busy corridor mislead an overdrawn body away from its real path home, reproducing
-  exactly the "wanders and dies" failure the design forbids.
+  would let a busy corridor mislead an overdrawn chassis away from its real path home, reproducing
+  exactly the "wanders and shuts down" failure the design forbids.
 - **Counterplay** the retrace is a **deterministic replay of the exact doorways it used going
   in**. The player does not need to chase it across the map: **holding or contesting the single
   doorway furthest down its stack reliably stops it.** A corridor already cleared is worth
@@ -840,7 +840,7 @@ dossier that reads them as one system**, including the two places where lanes di
 - **Engine fit** new per-agent state only: a dwell float and a bounded stack of (chamber, edge).
   Both filled by hooking the existing portal-crossing event. Reversal is a strictly local
   one-hop lookup at the far end of the stored edge.
-- **Falsifier** an overdrawn body taking a route it never advanced through, or beelining toward
+- **Falsifier** an overdrawn chassis taking a route it never advanced through, or beelining toward
   a breach it has no recorded path to.
 
 #### 31. SEAM MARK
@@ -848,21 +848,21 @@ dossier that reads them as one system**, including the two places where lanes di
   per-doorway residue through the existing doorway-trail call at the same moment UNDERTOW pushes
   to its stack, at an amount **well below the ordinary hunt trail and far below the player's own
   mark trail**, so it reads as its own distinct weight rather than blending into either. Decays
-  on the same half-life as any other write to that scalar; only an actual body crossing again
+  on the same half-life as any other write to that scalar; only an actual chassis crossing again
   refreshes it. **TELL** a distinctly light doorway mark that says *the Adversary itself came
   through here*.
 - **Counterplay** a player who learns to read it gets **advance notice of where an overdrawn
   survivor will retrace, before UNDERTOW ever fires.**
 - **Engine fit** rendering and tuning only, on a shipped primitive. **Nothing reads it for
   navigation** — decoupled from (30) on purpose, so retuning its amount or decay can never
-  change where a body actually withdraws.
+  change where a chassis actually withdraws.
 - **Falsifier / standing test** disabling UNDERTOW's stack push while leaving this write on
-  should produce **zero** change in where bodies withdraw. If a withdrawal route ever shifts when
+  should produce **zero** change in where chassis withdraw. If a withdrawal route ever shifts when
   this mark is retuned, the two systems were coupled by accident.
 
 #### 32. WARM SEAM
 - **L** structure/rule. **TRG** standing in a chamber whose Garrison interior reading is above
-  its floor. **ACT** an overdrawn body standing there **stops spending dwell** for as long as it
+  its floor. **ACT** an overdrawn chassis standing there **stops spending dwell** for as long as it
   remains, and resumes the instant it leaves — waystations along a deep withdrawal route, giving
   it more reach than one unbroken sprint on the raw budget. **CST** none. **TELL** the
   degradation tell (37) visibly **holds steady** only inside garrison-held chambers.
@@ -876,54 +876,54 @@ dossier that reads them as one system**, including the two places where lanes di
 #### 33. NEAR SEAM
 - **L** priority branch. **TRG** while overdrawn, an ordinary raycast-confirmed sighting of **any**
   breach mouth. **ACT** abandon the remembered retrace and walk straight for the sighted one —
-  the sure thing over the memorised route — so a body never visibly ignores an open way out
+  the sure thing over the memorised route — so a chassis never visibly ignores an open way out
   standing in front of it. If none is in sight, (30) proceeds unchanged.
 - **Counterplay** **line-of-sight denial becomes a lever on the withdrawal.** Keeping a breach
-  mouth out of an overdrawn body's sightline — fighting from cover, around a corner — forces it
+  mouth out of an overdrawn chassis's sightline — fighting from cover, around a corner — forces it
   back onto the slower, interceptable retrace.
-- **Falsifier** an overdrawn body walking past an in-sight open breach to continue an unrelated
+- **Falsifier** an overdrawn chassis walking past an in-sight open breach to continue an unrelated
   multi-hop retrace.
 
 #### 34. LAST GROUND
 - **L** **Adversary** state branch. **TRG** the private stack is empty **and** no breach mouth is
   within the ordinary one-hop sight check. **ACT** stop moving toward anything, **plant, and
   fight at full aggression** until dwell hits zero or it is killed — producing the ordinary loud
-  death rather than an unexplained walk-off. **CST** guaranteed census loss the moment it
+  shutdown rather than an unexplained walk-off. **CST** guaranteed census loss the moment it
   commits. **TELL** it stops retreating and fights harder — a clear behavioural switch.
 - **Why it exists** it is the exact case a pure retrace leaves open, and the case the design
-  explicitly forbids leaving unhandled. Overdraw must always resolve to a legible loud death,
-  never to a body wandering aimlessly.
+  explicitly forbids leaving unhandled. Overdraw must always resolve to a legible loud shutdown,
+  never to a chassis wandering aimlessly.
 - **Counterplay** a player who recognises it knows the census cost is already guaranteed and can
   commit to the kill without worrying about a clean withdrawal escaping.
-- **Falsifier** a body wandering aimlessly with nonzero dwell and no combat commitment. That
+- **Falsifier** a chassis wandering aimlessly with nonzero dwell and no combat commitment. That
   state should not exist under this design.
 
 #### 35. DEAD SEAM
 - **L** **Adversary** branch. **TRG** at the final stack entry, the breach it was banking on has
   already sealed — so the ordinary crossing it always attempts is simply not there. **ACT** after
   a short refusal window with no crossing available, it falls straight through to LAST GROUND on
-  the spot. **TELL** overdrawn bodies converging and piling up fighting right at a chamber whose
+  the spot. **TELL** overdrawn chassis converging and piling up fighting right at a chamber whose
   breach sealed moments before they arrived — a small last stand exactly at the seam.
 - **Counterplay** **the single highest-leverage play the whole mechanic offers.** Forcing a
   breach closed — denying reinforcement, or outlasting its closure timer — while a raid is still
-  inside converts every body banking on that breach into a guaranteed kill, without hunting any
+  inside converts every chassis banking on that breach into a guaranteed kill, without hunting any
   of them individually.
-- **Engine fit** no new state; it reads portal existence at the chamber pair the marrow already
+- **Engine fit** no new state; it reads portal existence at the chamber pair the dispatch fabric already
   tracks per breach, then falls into (34).
-- **Falsifier** an overdrawn body re-routing to a different live breach after its original
+- **Falsifier** an overdrawn chassis re-routing to a different live breach after its original
   sealed — that would require the live map query this design deliberately does not have.
 
 #### 36. FIRST STEP
-- **L** spawn-time initialisation. **ACT** at dispatch/pour, the body's private stack is seeded
+- **L** instantiate-time initialisation. **ACT** at dispatch/pour, the chassis's private stack is seeded
   with **the single crossing the pour itself performs** (hub chamber → world chamber), so it
   always has a correct one-entry route home from the instant it exists. Every subsequent crossing
   pushes on top exactly as (30) specifies.
 - **Why** without it, an early overdraw hits LAST GROUND one hop from an open breach for no
   reason. One line at the existing dispatch call site.
-- **Falsifier** a freshly poured body hitting LAST GROUND with its home breach open one hop away.
+- **Falsifier** a freshly poured chassis hitting LAST GROUND with its home breach open one hop away.
 
 #### 37. GUTTERING — *the tell*
-- **L** rendering only. **ACT** a body-anchored, cold-light seam across the chassis that narrows
+- **L** rendering only. **ACT** a chassis-anchored, cold-light seam across the chassis that narrows
   and dims as dwell falls, interpolating continuously through **three stages — steady, guttering,
   spent** — so it reads as a countdown in progress rather than a flag flipping. Reads UNDERTOW's
   dwell float directly and writes nothing.
@@ -931,12 +931,12 @@ dossier that reads them as one system**, including the two places where lanes di
   no HUD number, which the standing law makes a ship requirement: **if you cannot name the tell,
   the mechanism does not ship.** It is also the value LAST CALL (27) compares — agents read the
   same thing the player reads.
-- **Deliberately never a ring.** A ring means aggro and nothing else. This is a body event and
-  body events draw on the body.
-- **Counterplay** a player who reads the stage on sight can choose to disengage from a body about
+- **Deliberately never a ring.** A ring means aggro and nothing else. This is a chassis event and
+  chassis events draw on the chassis.
+- **Counterplay** a player who reads the stage on sight can choose to disengage from a chassis about
   to hit LAST GROUND (a guaranteed kill either way, not worth the ammunition) versus one still
-  healthy and worth avoiding entirely.
-- **Falsifier** a body dying to overdraw with no visible change from its spawn appearance.
+  operational and worth avoiding entirely.
+- **Falsifier** a chassis failing to overdraw with no visible change from its instantiate appearance.
 
 #### 38. STRAIN — **RECOVERED**
 - **L** rule on dwell. **TRG** each engagement. **ACT** a **per-engagement surcharge stacked on
@@ -944,11 +944,11 @@ dossier that reads them as one system**, including the two places where lanes di
   than one that merely stands around. This is keyed to **repeated engagement**, not elapsed
   presence — which is exactly what separates it from dwell itself, which burns on time in
   ordinary space regardless of combat. **CST** accelerates census exposure. **TELL** it shows up
-  through GUTTERING (37) advancing visibly faster on a body that has been fighting.
-- **Why it matters** without it, an Adversary body that fights constantly and one that hides in a
+  through GUTTERING (37) advancing visibly faster on a chassis that has been fighting.
+- **Why it matters** without it, an Adversary chassis that fights constantly and one that hides in a
   corner run down at exactly the same rate, and the player's damage output has no relationship to
   the withdrawal mechanic. With it, **pressure itself shortens the enemy's clock.**
-- **Falsifier** two bodies of the same class, one in constant combat and one idle in the same
+- **Falsifier** two chassis of the same class, one in constant combat and one idle in the same
   chamber, reaching the low edge at the same time.
 
 ---
@@ -961,14 +961,14 @@ ground the swarm has held for minutes reads identically to ground it took thirty
 
 #### 39. LOCAL LEVY — **RECOVERED**
 - **L** Testator. **TRG** a Garrison interior chamber below its resident count. **ACT** a
-  **cheap, capped, slow local trickle** of new resident bodies inside garrison-interior chambers
-  — functionally and visibly distinct from a marrow-dispatched strike package. When the local
+  **cheap, capped, slow local trickle** of new resident chassis inside garrison-interior chambers
+  — functionally and visibly distinct from a dispatch fabric-dispatched strike package. When the local
   supply is unavailable or the population is emptied faster than the trickle refills, the gap is
-  instead filled by the marrow at full dispatch cost (see 41). **CST** minimal reserve, capped
-  rate. **TIM** slow — tens of seconds per body. **TELL** held ground quietly repopulating on its
+  instead filled by the dispatch fabric at full dispatch cost (see 41). **CST** minimal reserve, capped
+  rate. **TIM** slow — tens of seconds per chassis. **TELL** held ground quietly repopulating on its
   own, in ones, versus a pour arriving in a burst at a breach mouth.
 - **Counterplay** a garrison the player thins but does not break refills for free; a garrison he
-  breaks costs the marrow real reserve to restore. **Half-clearing is the worst outcome for the
+  breaks costs the dispatch fabric real reserve to restore. **Half-clearing is the worst outcome for the
   player** and that is legible.
 
 #### 40. RE-TILE — **RECOVERED**
@@ -980,17 +980,17 @@ ground the swarm has held for minutes reads identically to ground it took thirty
 - **Why it is distinct from 41** this is the **free, fast, local reshuffle**; GAP-FILL is the
   **slow, reserve-funded replacement** when there is no neighbour left to slide over. Different
   timescale, different cost, and the difference is legible.
-- **Counterplay** clearing a boundary one body at a time never opens it — the coverage heals
+- **Counterplay** clearing a boundary one chassis at a time never opens it — the coverage repairs
   behind you. Opening a boundary means killing **enough at once** that no neighbour is left.
 
 #### 41. GAP-FILL — **RECOVERED**
 - **L** Testator. **TRG** a coverage gap with no adjacent watcher available to re-tile. **ACT**
-  the marrow funds a replacement at ordinary dispatch cost, arriving no faster than the dispatch
+  the dispatch fabric funds a replacement at ordinary dispatch cost, arriving no faster than the dispatch
   queue allows. **CST** reserve. **TIM** slow. **TELL** the replacement walks in from elsewhere
   rather than sliding over from next door.
 
 #### 42. WARD-TENDER — **RECOVERED**
-- **L** Testator. **TRG** locally sampled Distress. **ACT** the same body reversibly switches
+- **L** Testator. **TRG** locally sampled Distress. **ACT** the same chassis reversibly switches
   posture between **fighting** and **tending the garrison works** — gated on the local field:
   live Distress favours the combative posture, its resolution favours the building one. An
   unresolved combative posture is what produces a garrison that never finishes its works.
@@ -1016,16 +1016,16 @@ ground the swarm has held for minutes reads identically to ground it took thirty
   the whole local group flips together** into a different, active behaviour. Structurally
   identical to the game's shipped fractional quorum rule and therefore **reused rather than
   reinvented** — the local, visible-peer count, never a global one.
-- **TELL** a room full of apparently inert bodies that all come alive at once when enough are
+- **TELL** a room full of apparently inert chassis that all come operational at once when enough are
   present — a collective, not an individual, reaction.
 - **Counterplay** keep a resident chamber below its threshold and it never activates. Killing
   down to just under the line is a real, learnable target.
 
 #### 45. SHELL — **RECOVERED**
 - **L** structure. **ACT** a garrison **collectively builds a shared shell over itself** (see 42
-  for who builds it). The shell, not the individual members, is what resists: it must be wounded
+  for who builds it). The shell, not the individual members, is what resists: it must be damaged
   down by different means than ordinary single-target damage, while the members underneath stay
-  cheap and replaceable. **The shell is the investment; the bodies are not.**
+  cheap and replaceable. **The shell is the investment; the chassis are not.**
 - **Counterplay** this is the enemy-side answer to a player firebase, and it should read as the
   same kind of object: a thing you have to bring the right tool to, not a thing you chip.
 - **Open** what "different means" is mechanically — area damage, sustained damage, structural
@@ -1033,9 +1033,9 @@ ground the swarm has held for minutes reads identically to ground it took thirty
 
 #### 46. DEEP DORMANCY — **RECOVERED** *(role 20 — the strongest recovered item in this group)*
 - **L** Adversary (and residents). **TRG** **depth in the portal graph** — hops from any breach
-  and from ordinary traffic — not a per-body coin flip. **ACT** bodies many hops from the front
+  and from ordinary traffic — not a per-chassis coin flip. **ACT** chassis many hops from the front
   sit at a **much higher wake threshold** and answer only direct contact, not ordinary field
-  levels. Bodies near the exposed surface run ordinary thresholds and react readily. **CST**
+  levels. Chassis near the exposed surface run ordinary thresholds and react readily. **CST**
   none. **TELL** ground deep behind the line is visibly still while the same field level would
   have woken a chamber near the front.
 - **Why it matters** it is exactly what row 20 asks for: **clearing visible pressure near the
@@ -1069,26 +1069,26 @@ Both accumulate. **Neither forgets**, and nothing here specifies the slip. See �
 
 #### 48. VETERAN — **RECOVERED**
 - **L** per-agent state, either lane. **ACT** memory that lives **in an individual persisting
-  body**, not in a central ledger: a body that has survived a real engagement carries a
+  chassis**, not in a central ledger: a chassis that has survived a real engagement carries a
   permanently shifted personal commit threshold. Local, personal, and **destroyable** — killing
   the veteran deletes that memory, which a global stat can never offer.
 - **Why it is separate from the ledger** the ledger is population-level counter-biasing of the
-  strike-package mix; this is one body being harder to surprise a second time. Keeping them
+  strike-package mix; this is one chassis being harder to surprise a second time. Keeping them
   distinct is what lets the player attack each one differently.
-- **TELL** open — a veteran must be distinguishable from a fresh body at 0.45 zoom or it is a
+- **TELL** open — a veteran must be distinguishable from a fresh chassis at 0.45 zoom or it is a
   hidden statistic. **This is an unfilled tell slot and the synthesis must close it or cut the
   candidate.**
-- **Counterplay** killing the bodies that have fought you before is a real, targeted play; letting
+- **Counterplay** killing the chassis that have fought you before is a real, targeted play; letting
   them live means the same corridor gets harder each time.
 
 #### 49. LEDGER BIAS
 *(the salvaged half of a rejected candidate — see §5.1)*
-- **L** rule inside the marrow's own bookkeeping. **ACT** the Scriptorium's small fixed-capacity
+- **L** rule inside the dispatch fabric's own bookkeeping. **ACT** the Scriptorium's small fixed-capacity
   ledger, fed by haulers that physically arrived, **biases the deterministic 20-slot strike
-  cycle** toward counters. **It reads no signal field at all** — the marrow's blindness to the
+  cycle** toward counters. **It reads no signal field at all** — the dispatch fabric's blindness to the
   fight is structural and must not be broken. It counts what has been filed, nothing else.
 - **What was cut and why** the original proposal gated dispatch on a live Distress/Muster read
-  plus a hop-distance ledger lookup. The marrow's step function takes tick, imprint, live
+  plus a hop-distance ledger lookup. The dispatch fabric's step function takes tick, imprint, live
   breaches, shelf census, dispatch factor and capacity — **nothing about the player or the
   fight** — and composition today is a deterministic cycle, not a field-driven decision. Wiring a
   live field read into dispatch is exactly the cross-system reach the design forbids. What
@@ -1115,15 +1115,15 @@ already have a home in this game:
 1. **The dependent tier — Adversary personnel.** Ordinary space (zero Otherworldness) does not
    merely inconvenience them; it wears them down on a clock. They are confined to pockets and
    must return to one. This is the director's ruling, and it is the whole lane.
-2. **The indifferent tier — Testator bodies.** Already true in the game and requiring no work:
-   these are ordinary local bodies. Ordinary space is where they are from. They never withdraw,
-   never carry a budget, and die like any other body.
-3. **The pocket-makers.** A body that, by its own sustained presence, **raises the local
+2. **The indifferent tier — Testator chassis.** Already true in the game and requiring no work:
+   these are ordinary local chassis. Ordinary space is where they are from. They never withdraw,
+   never carry a budget, and die like any other chassis.
+3. **The pocket-makers.** A chassis that, by its own sustained presence, **raises the local
    condition** and opens livable ground inside otherwise hostile territory. That is LOCAL
    UNFOLDING (21), produced passively by presence, and concentrated by the ANCHOR (22).
 
 The design consequence: **the Adversary must hold ground rather than roam it**, and a player who
-never lets them settle starves the lane's life support without ever fighting for it.
+never lets them settle starves the lane's runtime support without ever fighting for it.
 
 ### 4.2 The control law, and the numbers
 
@@ -1136,7 +1136,7 @@ maintained purely by continuous local sampling with no global coordinate:
 - **High edge — uselessly deep.** Topped up with nothing to fight forces a drift back out toward
   relevance (RECALL DRIFT, 24).
 
-Bodies released into such a gradient oscillate inside the band. That is a population that holds a
+Chassis released into such a gradient oscillate inside the band. That is a population that holds a
 front instead of either evaporating into ordinary space or turtling in its own ground forever.
 
 **First-pass numbers**, chosen so the reasoning is visible, all expected to move once measured:
@@ -1146,23 +1146,23 @@ front instead of either evaporating into ordinary space or turtling in its own g
 | dwell ceiling | 90 units | 2× the Distress half-life (45 s), so the maximum unsupported presence is legible against a signal the player already learns to read |
 | drain, zero Otherworldness | 1.0 / s | ceiling ÷ drain = **90 s** absolute maximum unsupported time in raw ground |
 | drain, fully held ground | 0.1 / s | ~900 s, i.e. 20× the Distress half-life — deliberately far enough into "does not matter this session" that held ground reads as **true safety**, not a slower countdown |
-| low edge | 30 / 90 (33%) | sized against Adversary run speed and the shipped rooted-broadcast timings so a body turning back at the edge has roughly 2–3 hops of travel before the terminal window opens |
+| low edge | 30 / 90 (33%) | sized against Adversary run speed and the shipped rooted-broadcast timings so a chassis turning back at the edge has roughly 2–3 hops of travel before the terminal window opens |
 | high edge | 63 / 90 (70%) + 8 s quiet | eight full Muster half-lives, long enough that a stray blip cannot fire the drift |
 | terminal window | 6 s | bounded, always moving, always shootable |
 | degrade while overdrawn | ≈35% cut to accel and turn | staggers and widens its turning arc; never zero |
 
-Layered on top: **STRAIN (38)**, a per-engagement surcharge, so a body that fights burns faster
+Layered on top: **STRAIN (38)**, a per-engagement surcharge, so a chassis that fights burns faster
 than one that stands around. Without it, the player's own pressure has no relationship to the
 mechanic.
 
-### 4.3 The retreat decision, and how a body with one-hop perception finds a breach
+### 4.3 The retreat decision, and how a chassis with one-hop perception finds a breach
 
 **This is the hardest buildability question in the director's mechanic** and it deserves the
 plainest possible statement of the problem: an agent's whole legal field view is its own chamber
 and one hop. "Withdraw into a breach" therefore needs a homing rule that reaches further than one
 hop. The obvious candidates fail:
 
-- **Garrison reach** is emitted by settled bodies and is consumed by **exactly zero agents
+- **Garrison reach** is emitted by settled chassis and is consumed by **exactly zero agents
   anywhere in the game** — nothing gradient-climbs it. It is also the wrong meaning.
 - **Kin** is climbed **downward** by callers looking for thin ground. Wrong direction, wrong
   meaning, and overloading it would invert the caller.
@@ -1171,14 +1171,14 @@ Three buildable answers were weighed, and the lane picked one (see UNDERTOW, 30)
 
 | Option | Shape | Verdict |
 |---|---|---|
-| A breach-homing scalar | the breach emits a long-spread, short-half-life field only Adversary bodies read | **Rejected on governance, not buildability.** It needs an eleventh field (reopening the ratified appendix) or the overloading of Garrison reach with a second, not-always-coincident meaning — a direct one-symbol-one-meaning violation, since breaches are not always inside a garrison's reach. **Recorded as reopenable if the director wants to reopen the field list.** |
-| **A private crossing memory** | the body pushes each (chamber, doorway) it crosses onto a bounded private stack and walks the reverse when overdrawn | **Chosen.** No new field, no coordinate, no map. Makes cutting a withdrawal route a matter of **holding the doorways it actually used**, which is a play the player can see and execute. |
+| A breach-homing scalar | the breach emits a long-spread, short-half-life field only Adversary chassis read | **Rejected on governance, not buildability.** It needs an eleventh field (reopening the ratified appendix) or the overloading of Garrison reach with a second, not-always-coincident meaning — a direct one-symbol-one-meaning violation, since breaches are not always inside a garrison's reach. **Recorded as reopenable if the director wants to reopen the field list.** |
+| **A private crossing memory** | the chassis pushes each (chamber, doorway) it crosses onto a bounded private stack and walks the reverse when overdrawn | **Chosen.** No new field, no coordinate, no map. Makes cutting a withdrawal route a matter of **holding the doorways it actually used**, which is a play the player can see and execute. |
 | No routing at all | withdraw only if a breach is inside the one-hop view, otherwise die where you stand | Rejected: it would make ANCHOR placement the entire game and turn the census into a passive drain the player never earns |
 
-The chosen answer needs four guard cases, all specified: **FIRST STEP (36)** so a fresh body is
+The chosen answer needs four guard cases, all specified: **FIRST STEP (36)** so a fresh chassis is
 never stranded at the door it was born at; **NEAR SEAM (33)** so it never walks past an open
 breach it can see; **DEAD SEAM (35)** for the breach that sealed underneath it; and **LAST
-GROUND (34)** so an exhausted stack resolves to a legible loud death rather than a body wandering
+GROUND (34)** so an exhausted stack resolves to a legible loud shutdown rather than a chassis wandering
 aimlessly. Combined with **LAST CALL (27)** for who gets a contested mouth first — decided
 locally, by comparing the visible degradation tell, never by a queue number.
 
@@ -1191,37 +1191,37 @@ a merge of two lanes' answers and the synthesis should ratify it explicitly rath
 The whole system is worthless if the player cannot read it. The tells, and the asymmetry that
 carries the fiction:
 
-- **GUTTERING (37)** — a body-anchored cold seam through three stages, steady → guttering →
+- **GUTTERING (37)** — a chassis-anchored cold seam through three stages, steady → guttering →
   spent, interpolated continuously. Never a ring. This is the only readout; there is no number
   anywhere.
-- **QUIET GATE (26) versus a loud death (25).** A successful withdrawal is a sub-second silent
-  fold with **no body, no deposit, no bark, and nothing emitted**. A failure is a loud death that
-  leaves a body, a Danger deposit at TOLL amplitude, and a Distress burst that recruits. **That
-  asymmetry is the player-facing point of the entire lane**: the absence of a death cue is the
+- **QUIET GATE (26) versus a loud shutdown (25).** A successful withdrawal is a sub-second silent
+  fold with **no chassis, no deposit, no bark, and nothing emitted**. A failure is a loud shutdown that
+  leaves a chassis, a Danger deposit at TOLL amplitude, and a Distress burst that recruits. **That
+  asymmetry is the player-facing point of the entire lane**: the absence of a shutdown cue is the
   tell that says *that one doesn't count*, because the census only moves on the loud version.
 - **BREACH PRESSURE (28)** — a mouth under a mass withdrawal swells and holds instead of
   showing the ordinary single fold, so "cordon the exits" becomes a readable, targetable moment
   rather than an invisible bookkeeping event.
-- **The behavioural tells** — a body peeling off mid-engagement and running while nothing is
-  chasing it (23); a lone body walking calmly back into a wing you cleared ten seconds ago (24);
-  a body that stops retreating and plants (34); a small last stand exactly at a seam that just
+- **The behavioural tells** — a chassis peeling off mid-engagement and running while nothing is
+  chasing it (23); a lone chassis walking calmly back into a wing you cleared ten seconds ago (24);
+  a chassis that stops retreating and plants (34); a small last stand exactly at a seam that just
   sealed (35).
 
 ### 4.5 The contradiction nobody caught: the census is a counter, and it must be a roster
 
 **The shipped code does the opposite of what the director asked for.** In `sim.py`, an Adversary
-body that crosses into the hub is *reabsorbed*, and the code decrements the census **permanently**
-— its own comment says "not a death — a departure; the census decrement is permanent either way."
+chassis that crosses into the hub is *reabsorbed*, and the code decrements the census **permanently**
+— its own comment says "not a shutdown — a departure; the census decrement is permanent either way."
 
-The director's mechanic requires the reverse: **withdrawal preserves the body**, and the census
+The director's mechanic requires the reverse: **withdrawal preserves the chassis**, and the census
 falls **only** when the player denies the route. As written, going home costs the swarm exactly
-as much as dying, which drains the census automatically over any long session and deletes the
+as much as failing, which drains the census automatically over any long session and deletes the
 player's entire reason to cordon a breach.
 
 **This is not a per-agent timer change. It is a change to the census model itself:** an off-map
-roster that a withdrawn body returns *to* and can re-emerge *from*, replacing a counter that only
+roster that a withdrawn chassis returns *to* and can re-emerge *from*, replacing a counter that only
 ever decrements. Nothing in the catalogue noticed this, and it is a prerequisite for every card
-in §3.G. It also raises a live question the synthesis must answer: **what does a withdrawn body
+in §3.G. It also raises a live question the synthesis must answer: **what does a withdrawn chassis
 do off-map, and under what conditions does it come back?**
 
 ### 4.6 The open conflicts inside this section
@@ -1234,7 +1234,7 @@ do off-map, and under what conditions does it come back?**
    engine, cache invalidation, and a ruling on composing with the authored corruption gradient.
    If it does not ship, the whole lane runs on Garrison interior and the environment tell stays
    binary.
-3. **Whether dormant bodies accrue dwell.** EMBER DOCTRINE (29) rules **yes**, with safety coming
+3. **Whether dormant chassis accrue dwell.** EMBER DOCTRINE (29) rules **yes**, with safety coming
    from placement rather than an exemption — because an exemption is a feature flag. That ruling
    is cheap, honest, and gives the player a real payoff for holding cleared ground. It needs
    confirming against whatever the shipped dwell design ends up being, not assuming.
@@ -1247,10 +1247,10 @@ do off-map, and under what conditions does it come back?**
 
 | Candidate | Critics' reason | Ruling |
 |---|---|---|
-| **CARRIER, Courier, Clearance** | One body designed four times; at 0.45 zoom they are the same read | **Upheld.** Merged into HAULER (9) with three cargo types. Clearance's one load-bearing idea — an uncleared body keeps trickling Distress until moved — is preserved as a HAULER clause, because it is the only part of the hauler family that changes how a later fight goes |
-| **Kill-Sign** | A fifth floor object invented so a redundant class had something to carry; the corpse already **is** the record, and the kill path already threads a damage-source string | **Upheld.** Cut. At 0.45 zoom a typed pickup is a small blob among small blobs; its own prediction ("switching weapons visibly changes what gets dropped") is not achievable in that budget |
+| **CARRIER, Courier, Clearance** | One chassis designed four times; at 0.45 zoom they are the same read | **Upheld.** Merged into HAULER (9) with three cargo types. Clearance's one load-bearing idea — an uncleared chassis keeps trickling Distress until moved — is preserved as a HAULER clause, because it is the only part of the hauler family that changes how a later fight goes |
+| **Kill-Sign** | A fifth floor object invented so a redundant class had something to carry; the disabled chassis already **is** the record, and the kill path already threads a damage-source string | **Upheld.** Cut. At 0.45 zoom a typed pickup is a small blob among small blobs; its own prediction ("switching weapons visibly changes what gets dropped") is not achievable in that budget |
 | **The Filing, Stage, Spill, Laden** | Four roster slots spent on the bookkeeping of one job | **Partly upheld.** LADEN (10) and SPILL (11) survive as named shared rules because three consumers need them and they carry real counterplay. The Filing's one real contribution — a player can camp the Scriptorium and deny deliveries from inside — is folded into HAULER. Stage is folded into LADEN |
-| **Corroboration** | Breaks the marrow's structural blindness and misdescribes what it extends: dispatch composition is a deterministic 20-slot cycle, not a field-driven decision | **Upheld as written.** The salvageable half survives as LEDGER BIAS (49): bias the cycle from a hub-side count, with **no field read at all** |
+| **Corroboration** | Breaks the dispatch fabric's structural blindness and misdescribes what it extends: dispatch composition is a deterministic 20-slot cycle, not a field-driven decision | **Upheld as written.** The salvageable half survives as LEDGER BIAS (49): bias the cycle from a hub-side count, with **no field read at all** |
 | **Kin Scar** | Sign error — a caller **descends** Kin to find thin ground, so scarring Kin would steer the next caller **to** the player's best killing ground, not away | **Upheld.** Cut. The intent (personnel deaths should mark ground more heavily than equipment deaths) is correctly wired by TOLL (18) on the Danger side instead |
 | **BLANK** | Kin is emitted **uniformly by every enemy**, so a Kin deficit reports thin swarm density, never "something here is not one of ours." The counterplay (carry Adversary salvage to raise your own reading) is unimplementable — the player emits no Kin — and if implemented would **invert** the caller's thin-ground search, making salvage a reward | **Upheld.** Cut. Role 7 is genuinely missing and needs a different channel — see §5.2 |
 | **TEMPER** | Falls with BLANK; has no tell ("visibly differ in twitchiness" is a statistic, not a screen read); and its documented counterplay is its own defeat | **Upheld.** Cut |
@@ -1258,11 +1258,11 @@ do off-map, and under what conditions does it come back?**
 | **STARK** | Punishes the exact play the ratified design rewards (fast, clean, no stragglers); no distinguishable tell; and it inherits BLANK's broken Kin premise | **Upheld.** Cut |
 | **CULL** | Needs the senses to expose a recently-damaged tag, which the entity-description contract deliberately withholds; and it thins the response **for** the player | **Upheld.** Cut. Note that the second objection is the decisive one — it is a gift dressed as a threat |
 | **SEAM** | Needs three pieces of new substrate (a persistent garrison structure entity, an edge-scoped threshold override, edge-keyed adjacency the field layer does not have) for an effect that falls out of calibration for free | **Upheld.** Cut |
-| **Paint Cascade** | Its cited substrate turned out to be an unrelated flat player upgrade; a stack count on a 7-px body is a HUD in disguise; its mobility-cancel branch collides with the standing anti-stunlock law; and it duplicates the shipped mark | **Upheld.** Cut |
+| **Paint Cascade** | Its cited substrate turned out to be an unrelated flat player upgrade; a stack count on a 7-px chassis is a HUD in disguise; its mobility-cancel branch collides with the standing anti-stunlock law; and it duplicates the shipped mark | **Upheld.** Cut |
 | **Brace Call** | An invisible defensive buff — its own prediction is "his first hit reads weaker than his second," which the player experiences as inconsistent damage; and it duplicates Muster at the same call site with the same emit shape | **Upheld.** Cut |
 | **Stand-Down Pulse** | A one-shot multiplicative cut violates the substrate's own law that separation in time comes from half-lives and never amplitude, and duplicates two shipped resolutions | **Upheld.** Cut. Row 10 goes to DAMPER (19), which achieves the same end through the already-built drain capacity |
 | **Cordon-Seal Ring** and **CORDON-SEAL WORKS** and **SEALWRIGHT** | They collide with each other (a soft auto-releasing hold versus a hard barricade, same trigger, same on-screen picture, incompatible rules), and both reintroduce the permanent doorway standoff the codebase spent filmed runs deleting — there are two live scars in `sim.py` from exactly that failure. SEALWRIGHT is separately a statue with hit points | **Upheld, all three.** Row 9 is left **EMPTY** rather than filled badly — see §5.2 |
-| **SCAR GROUND** | Permanent, irreversible geometry change plus a permanent Danger emitter, in a game whose containment reward is that cleared and cordoned ground stays clear; "never decays" is not a half-life; and the runtime disconnect/carve/reconnect sequence is the highest-risk operation in the codebase, fired mid-fight with bodies in the doorway | **Upheld.** Cut. If the idea returns it must be bounded — a very long half-life, not permanence, and a cap per level |
+| **SCAR GROUND** | Permanent, irreversible geometry change plus a permanent Danger emitter, in a game whose containment reward is that cleared and cordoned ground stays clear; "never decays" is not a half-life; and the runtime disconnect/carve/reconnect sequence is the highest-risk operation in the codebase, fired mid-fight with chassis in the doorway | **Upheld.** Cut. If the idea returns it must be bounded — a very long half-life, not permanence, and a cap per level |
 | **BEACON WORKS** | Amplifies Garrison reach, which **has zero consumers anywhere in the game**; the catalogue contradicted itself on this point | **Upheld.** Cut |
 | **ARREST COLLAR** | A structure re-depositing a full-strength doorway mark forever changes what the mark **means** — from "recent traffic" to "traffic, ever" — a second meaning on one symbol; and its prediction is a cross-run statistic | **Upheld.** Cut |
 | **MUSTER GATE** | Not a design: its own fields say it adds no machinery and it retracts the routing signal it was named for | **Upheld.** Cut as a roster row. It survives as a **level-design note**: a firebase's reinforcement traffic funnels through whichever doorway is the least-hopped link to the nearest breach or hub route, so a player can scout that doorway and interdict resupply there instead of assaulting the perimeter |
@@ -1273,7 +1273,7 @@ do off-map, and under what conditions does it come back?**
 **Row 12 — breach opening. The deliverable itself is missing, and this is the single most
 important line in this packet.**
 Not one candidate across every lane proposes what replaces `vagrant` and `lacuna`. The catalogue's
-Adversary bodies are hunters, enforcers, authorisers and specialists; **none of them calls, roots,
+Adversary chassis are hunters, enforcers, authorisers and specialists; **none of them calls, roots,
 holds the lease, or does garrison expansion.** If the synthesis shipped today, deleting the
 placeholders would delete breach-opening from the game. The shipped caller loop is short and
 concrete — creep to the edge of the hot zone, brace, take the world's single lease, transmit
@@ -1291,7 +1291,7 @@ marks the lane; and the tell that distinguishes the two **mid-broadcast** at 0.4
 **Row 7 — kin-check enforcement.** The role is real; BLANK was the wrong wire. The buildable
 channel exists and nobody used it: the entity-description path already returns state tags for the
 player and the sight hit already carries ground-truth side. **A carry-state tag on the player, read
-through sight at raycast range**, gives a kin-check body a real, legible trigger and the player a
+through sight at raycast range**, gives a kin-check chassis a real, legible trigger and the player a
 real choice — carry the Adversary salvage and be hunted differently, or leave it. That is the
 mechanic the precious-personnel framing implies, and it needs a designed false-positive story too:
 a response that never misidentifies reads as omniscient, which the constitution warns against. The
@@ -1305,13 +1305,13 @@ after.** What killed the candidates was the implementation: a permanent doorway 
 mobility cancel by another name, the codebase has already deleted two versions of that standoff,
 and combat canon buys spacing with knockback rather than denial of movement. A working version has
 to seal **without** producing a doorway the player cannot walk through, and it has to release.
-CORDON WEB (7) — a barrier bought entirely with bodies the player himself killed, on a half-life —
+CORDON WEB (7) — a barrier bought entirely with chassis the player himself killed, on a half-life —
 is the nearest thing in the packet to a legal answer and may be the whole answer.
 
 **Row 14 — memory: nothing forgets, and the slip is unspecified.** Accumulation is covered
 (48, 49). The row explicitly requires **a measurable slip in the counter when the player switches
 tactics**, and no candidate specifies decay, capacity pressure, or the slip arithmetic. Worse, the
-death rule means death does not reset the world, so the ledger persists across the player's own
+shutdown rule means shutdown does not reset the world, so the ledger persists across the player's own
 deaths and nobody has said what that means. A ledger that only accumulates converges on one hard
 counter and stays there — a difficulty ramp, not a conversation.
 
@@ -1322,32 +1322,32 @@ session's collision matrix. So a player who builds a firebase owns that ground f
 whole building economy has no pressure term. Zero candidates addressed it. **This is the
 catalogue's biggest omission for play** — it is the difference between a base being a decision and
 a base being a win button. It must be priced honestly: making sentries killable needs a new
-collision pair **and** teaching ranged bodies to aim at something that is not the player. The
+collision pair **and** teaching ranged chassis to aim at something that is not the player. The
 design questions are: what makes a pod or a turret a target at all (a sentry emits; a pod does
 not); whether the specialist ignores the player entirely while structures are in reach (it should,
 or it is not a specialist); its dispatch cost; how it reads on screen walking past the player
-toward a turret; and what it costs the swarm to send one, since a body that ignores the player is
-a body the player kills for free.
+toward a turret; and what it costs the swarm to send one, since a chassis that ignores the player is
+a chassis the player kills for free.
 
 **Row 23 — barrier and lifeline denial.** The ratified design is explicit that the Portable Hole's
-aperture passes only small bodies, that hole-capable pursuers must exist, and that firing through
+aperture passes only small chassis, that hole-capable pursuers must exist, and that firing through
 a hole mouth draws pursuit through it — a hole is a lifeline, never a consequence-free firing slit.
 No candidate engaged with it. The likely cheap answer: **a hole is a runtime portal, so it should
 already appear in the adjacency the topology-change handler rebuilds, and therefore signals already
-cross it** — which may be most of the work. What still needs designing: how a body decides to enter
+cross it** — which may be most of the work. What still needs designing: how a chassis decides to enter
 a hole using only one-hop perception; whether a hole mouth accumulates a doorway mark like any
-other crossing; what a large body does when it can sense through a hole it cannot fit through (it
+other crossing; what a large chassis does when it can sense through a hole it cannot fit through (it
 must not freeze); and whether the swarm can deny the hole from the far side instead of following.
 
 **Two more holes nobody swept, both worth naming:**
 
 - **What the swarm does when it is starved.** Reserve exhaustion, the CORE blackout and a full
-  breach cordon are all shipped or ratified economy states, and **nothing says what bodies already
-  on the map do in them.** The marrow stops dispatching; the bodies keep fighting exactly as
+  breach cordon are all shipped or ratified economy states, and **nothing says what chassis already
+  on the map do in them.** The dispatch fabric stops dispatching; the chassis keep fighting exactly as
   before, so the player gets no behavioural read that he has won the economy. The vocabulary for
-  this already exists and is unused: **spent** — a body that no longer answers Muster. This is the
+  this already exists and is unused: **spent** — a chassis that no longer answers Muster. This is the
   cheapest way to make the reinforcement economy legible without a HUD and it is empty. It must be
-  built without letting any agent read the reserve, since the marrow's blindness is structural.
+  built without letting any agent read the reserve, since the dispatch fabric's blindness is structural.
 - **Home-ground doctrine.** Every card in this packet is designed for field conditions: patrol,
   gradient climb, doorway hold, breach pour. The hub is an entire game area, the most heavily
   defended place in the world, and the player is expected to invade it — and **nothing addresses
@@ -1359,7 +1359,7 @@ must not freeze); and whether the swarm can deny the hole from the far side inst
   interior as an input to the hold rule); do the CORE's own parts have any behaviour at all (today
   they are skipped in the agent loop entirely, and whether the Caretaker in particular should act
   is unanswered); and is dwell infinite inside the hub (presumably yes — the hub is fully unfolded,
-  and **that is the reason the precious bodies live there** — but it should be said explicitly).
+  and **that is the reason the precious chassis live there** — but it should be said explicitly).
 
 ---
 
@@ -1369,19 +1369,19 @@ These are the real decisions. Each names its tension.
 
 ### 6.1 How many Adversary units should exist, and what is each one for?
 
-The lane currently has two bodies that do one job. The catalogue proposes, across all lanes, up
+The lane currently has two chassis that do one job. The catalogue proposes, across all lanes, up
 to six distinct Adversary jobs: **two callers** (row 12), **a warrant** (row 5), **an executioner**
-(row 6), **a herald** (row 5's sensing half), **a damper** (row 10), and **a kin-check body**
+(row 6), **a herald** (row 5's sensing half), **a damper** (row 10), and **a kin-check chassis**
 (row 7). Six classes of precious personnel is a lot of silhouettes to teach at 0.45 zoom on a
-7-pixel body, and every one of them competes for the same doubled-outline render channel.
+7-pixel chassis, and every one of them competes for the same doubled-outline render channel.
 
 *The tension:* the fiction wants the Adversary to feel like **personnel** — individuals with jobs,
 not a horde — which argues for differentiation. The legibility law wants the smallest set the
 player can actually learn, and the census wants each class rare enough that meeting one is an
 event. Two callers plus two or three specialists is probably the ceiling. **Which of warrant,
-executioner, herald, damper and kin-check are separate bodies, and which are behaviours the
+executioner, herald, damper and kin-check are separate chassis, and which are behaviours the
 callers themselves take on when the situation calls for it?** Note that warrant and damper are
-nearly the same silhouette-level read — an unarmed body that walks toward a fight and stops short
+nearly the same silhouette-level read — an unarmed chassis that walks toward a fight and stops short
 — which is an argument for merging them and an argument against, since one symbol should mean one
 thing.
 
@@ -1393,14 +1393,14 @@ packet applies it: haulers, couriers, clean-up, pickets, chaff, area denial, tra
 → Testator. Warrant, execution, suppression, kin-check, dwell, dormancy → Adversary.
 
 *The tension nobody resolved:* **the relationship itself is asserted and never mechanised.** With
-no commander, an Adversary body cannot *order* Testators to screen it. So how does a precious body
-get cheap bodies to interpose without telling them to? It must be a field write plus an existing
+no commander, an Adversary chassis cannot *order* Testators to screen it. So how does a precious chassis
+get cheap chassis to interpose without telling them to? It must be a field write plus an existing
 gradient consumer, never a pointer. Candidate shapes, all unbuilt:
 
 - personnel emit an outsized Kin or Muster contribution, so Testators cohere toward them and end
   up between them and the player **as a side effect of ordinary flocking**;
-- a withdrawing body emits a terminal Distress/Muster spike that pulls Testators into the chamber
-  it is leaving — **buying its exit with their bodies**, which is the sharpest possible statement
+- a withdrawing chassis emits a terminal Distress/Muster spike that pulls Testators into the chamber
+  it is leaving — **buying its exit with their chassis**, which is the sharpest possible statement
   of the relationship;
 - personnel position by descending Noise while staying inside Kin reach, so they are structurally
   always the second rank.
@@ -1413,7 +1413,7 @@ appears on screen at all.
 
 ### 6.3 How should the withdrawal rule read in play so it is a threat and not an anticlimax?
 
-*The tension:* a body that runs away when it is losing is, on its face, **an anticlimax** — the
+*The tension:* a chassis that runs away when it is losing is, on its face, **an anticlimax** — the
 player lines up a kill and the game takes it away. Everything in §3.G exists to make that the
 opposite of what happens, and the synthesis has to be sure it lands:
 
@@ -1421,11 +1421,11 @@ opposite of what happens, and the synthesis has to be sure it lands:
   furthest down its route (30), cut the sightline to the nearest mouth (33), force a breach closed
   underneath it (35), cordon the region (32's waystations), or just be at the mouth (27, 28).
 - The escape must **cost the swarm something visible even when it succeeds** — a crowded mouth
-  spends more census than a clear one (27), and a body that fought hard leaves sooner (38).
+  spends more census than a clear one (27), and a chassis that fought hard leaves sooner (38).
 - The failure must be **loud and the success silent** (25 versus 26), so the player learns to tell
   the two apart instantly and knows which one counted.
-- And it must never resolve as a body standing still: overdraw is a bounded, always-moving,
-  always-shootable terminal window (25), or a body that plants and fights harder (34).
+- And it must never resolve as a chassis standing still: overdraw is a bounded, always-moving,
+  always-shootable terminal window (25), or a chassis that plants and fights harder (34).
 
 Three sub-decisions remain live: **what pauses dwell** (Garrison interior versus Local Unfolding —
 §4.6.1); **whether the tenth field ships at all**, given the real engine cost (§4.6.2); and
@@ -1440,7 +1440,7 @@ forbidden (no HUD text) and would also be wrong — the swarm has no global view
 in the fiction knows the number.
 
 What the packet offers instead is **local legibility**: TOLL (18) makes a chamber where personnel
-died read as deadlier for longer than one where equipment died, so ground the player has bled them
+shut down read as deadlier for longer than one where equipment shut down, so ground the player has bled them
 in stays visibly avoided. DEEP DORMANCY (46) plus EMBER DOCTRINE (29) mean clearing the front does
 not touch the census but **holding** ground does. And the fiction's own framing — containment, not
 extermination, is the practical strategy — means the player is not supposed to be counting down to
@@ -1472,7 +1472,7 @@ learnable play **with a designed limit**:
 - **Spoofing Muster** to pull a garrison off a breach.
 - **Deliberately sparing** a damper or a warrant to shape the response — the packet already has
   this one (19), and it is the model for the rest.
-- **Baiting the swarm into hurting itself** — funnelling caustic bodies (5) is the only own-side
+- **Baiting the swarm into hurting itself** — funnelling caustic chassis (5) is the only own-side
   damage lever in the packet.
 - **Deliberately overheating** a chamber to trigger the spotterless flank breach at a time and
   place the player controls — already ratified as an intended advanced play, and nothing in the
@@ -1501,14 +1501,14 @@ ground" and one of them may be redundant.
 
 **The tell budget.** One symbol means exactly one thing is a **global** constraint, checkable only
 globally, and no individual candidate can verify it. The vocabulary already spent: closed rings =
-aggro; a magenta glob on the body = the mark; a red body blink = this is what just hurt you; a
-white body flash = your hit landed; expanding violet rings = a caller transmitting; a dimmed trace
+aggro; a magenta glob on the chassis = the mark; a red chassis blink = this is what just hurt you; a
+white chassis flash = your hit landed; expanding violet rings = a caller transmitting; a dimmed trace
 = a lurking ambusher; a brightened trace = an engulf charge; a doubled boiling outline = the
 Adversary lane; a teal shape on the back = a carried load; a closing ring = unpack or recall. At
-0.45 zoom, bodies are **3–10 screen pixels.** The genuinely unused channels are: **the floor**
-(decals already ship and survive the corpse), **the walls** (soft deformation), **body silhouette
+0.45 zoom, chassis are **3–10 screen pixels.** The genuinely unused channels are: **the floor**
+(decals already ship and survive the disabled chassis), **the walls** (soft deformation), **chassis silhouette
 shape**, and **audio**. This packet's new tells claim: the floor (6, 7, 8), the walls (21), the
-body (37, and the licence pulse on 16), the carried-load channel already in use (9), and the
+chassis (37, and the licence pulse on 16), the carried-load channel already in use (9), and the
 breach mouth as a structure (28). **Every survivor must claim a channel or be cut, and the
 rejection must happen on the tell first.**
 
@@ -1533,8 +1533,8 @@ broadcast length.**
 The shape the gap analysis argues for is **two callers that answer different questions with the
 same lease**:
 
-- one that works **at the edge of the hot zone** — a contact call, a short root, dies if the
-  player turns around, and exists to convert a live fight into more bodies arriving now;
+- one that works **at the edge of the hot zone** — a contact call, a short root, shuts down if the
+  player turns around, and exists to convert a live fight into more chassis arriving now;
 - one that works **quiet ground behind the line** — a long root, refuses anything above the entry
   line, deliberately slips past the player rather than fighting, and exists for garrison seeds and
   raid calls that reclaim ground the player took but did not hold.
@@ -1546,7 +1546,7 @@ opposite counterplay: the first is denied by turning around fast, the second by 
 watching your own back line. And it gives the weakness ordering a reason to exist — the weaker
 class calls first because the swarm risks the cheaper judgement first.
 
-*The tension:* every Adversary body added elsewhere in §6.1 competes with these two for the
+*The tension:* every Adversary chassis added elsewhere in §6.1 competes with these two for the
 player's attention and for the lane's render channel, and **the census cannot afford six kinds of
 precious.** If the synthesis wants a warrant and an executioner, the two callers may have to carry
 more of the other jobs themselves. **That trade is the last thing to decide, and everything else
