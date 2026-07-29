@@ -124,14 +124,33 @@ is correct, and it rejects an Offset where a Coordinate is correct.
    entity that reads its own position is not affected, because its own
    space is the same space.
 4. Give the perception system its tag search and its Tracks.
-5. Move the call sites, innermost first, one group in each commit. The
-   control seed must stay the same to the byte.
+5. Move the call sites, innermost first, one group in each commit.
 6. Remove the raw number accessors from Python. This step makes the
    error impossible to write.
 7. Start the type checker on the game module.
 8. Last, examine the four guards that compare a polygon with the
    player's polygon. Each one is a behavior change and each one needs its
    own filmed gate.
+
+## 8b. The collision group system, examined
+
+The director asked whether the collision group system is necessary. The
+result: it is connected, but it holds very little.
+
+Five groups exist. One function reads the matrix, in the collision loop.
+The matrix holds 25 pairs and 5 of them are on: the player and an enemy
+collide, two enemies collide, a player round hits an enemy, an enemy
+round hits the player, and a player round can come back and hit the
+player.
+
+The pickup group collides with nothing. A pickup is collected by a
+distance test and not by a collision. Thus that group can go.
+
+The concept is necessary, because rounds must not collide with each
+other. The interface is not: the matrix is set one time when the world is
+built and it never changes again, so it can be a constant in the engine
+and the Python function that sets it can go. That agrees with the law
+that behavior is hardwired.
 
 ## 9. Open items
 
@@ -143,4 +162,5 @@ is correct, and it rejects an Offset where a Coordinate is correct.
 - A distance is a number and a number has no space. Thus a limit in one
   space is not comparable with a distance in a different space.
 - The tie between two shortest paths must break the same way every time,
-  or the control seed changes.
+  because a stable answer is easier to reason about. The engine is not
+  deterministic and this design does not assume that it is.
