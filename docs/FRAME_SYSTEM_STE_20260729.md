@@ -164,3 +164,35 @@ that behavior is hardwired.
 - The tie between two shortest paths must break the same way every time,
   because a stable answer is easier to reason about. The engine is not
   deterministic and this design does not assume that it is.
+
+## 8c. Collision: everything touches, except a pickup
+
+The director's ruling: friendly fire is on, and the game is a 2D
+immersive simulation and not a generic arcade game. Thus rounds collide
+with rounds, and a round from an enemy hits an enemy.
+
+As a result the group system holds no information. The function that
+sets a pair leaves the Python interface, the 16-wide mask goes, and the
+pickup group goes. One fact remains: a pickup is not a physics object.
+That fact belongs on the pickup.
+
+What this gives, and all of it uses systems that already exist:
+
+- A crowd obstructs itself. A group cannot fire through itself, thus it
+  spreads or it holds. This adds to the garrison and quorum rules.
+- The player can put one enemy between itself and a second enemy.
+- The Adversary's thrown object pushes a Testator, which agrees with how
+  the Adversary treats them.
+
+The enemy stays ignorant of friendly fire on purpose. A check for a
+friend in the line is the arcade answer, and an immersive simulation
+prefers an enemy the player can use against itself.
+
+One consequence needs work. An enemy can now kill an Adversary, and the
+count of lost Adversaries increases on every death. That count is the
+number behind the measurement that the player causes 30 percent of
+Adversary losses. The count stays correct, because a dead body is lost,
+but the cause must separate a player kill from a friendly-fire kill, or
+the measurement no longer means what the ruling document says. The
+damage function already carries its cause, so the information exists and
+is only not separated.
