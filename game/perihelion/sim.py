@@ -225,6 +225,15 @@ for _ename, _e in ENEMIES.items():
 assert ENEMIES["warden"]["hp"] == 168, "warden is a normal enemy: 2 charged tau / 4 rail"
 WARDEN_CRUISE = ENEMIES["warden"]["accel"] / ENEMIES["warden"]["fric"]
 ADVERSARY = ("vagrant", "lacuna")
+# How long a withdrawn Adversary stays out of the world before a live
+# breach can put it back. FIRST TUNING VALUE and expected to move: 60s
+# sits in the same order as the other long timers (Danger's half-life is
+# 180s, the reserve's regen is a whole session), and it is long enough
+# that a withdrawal reads as a real absence instead of a revolving door,
+# while still letting a body return inside the 4-minute engagement the
+# game is actually filmed at. The rate to check it against is the farm's
+# measured ~4-5 withdrawals per session per seed.
+ADVERSARY_RECOVERY_TICKS = 3600
 
 PICKUPS: dict[str, dict] = {
     "ammo_9mm": dict(radius=5.0, amount=30),
@@ -649,6 +658,17 @@ class GameSession:
         # instead of one `census0 - census_end` lump.
         self.adversary_lost = {k: 0 for k in ADVERSARY}       # killed
         self.adversary_withdrawn = {k: 0 for k in ADVERSARY}  # departed
+        self.adversary_returned = {k: 0 for k in ADVERSARY}   # came back
+        # ...and the personnel currently out of the world but still
+        # alive, as (kind, earliest return tick). DEATH is the permanent
+        # exit; withdrawal is not — the ratified law decrements the
+        # census permanently on a death and calls withdrawal the NORMAL
+        # outcome, which cannot both be true if going home costs what
+        # dying costs. Measured before this existed: the player caused
+        # only 30% of adversary attrition across 8 seeds (14 kills to 33
+        # withdrawals), so a permanent withdrawal had the faction eating
+        # its own finite roster on a clock the player could not touch.
+        self.adversary_out: list[tuple[str, int]] = []
         for polygon, spec in level.entities:
             self._spawn_from_spec(polygon, spec)
 
@@ -2828,6 +2848,30 @@ class GameSession:
                 # the light worked, the pool was just short)
                 br["light"].intensity = 0.85
                 br["light"].radius = 300.0
+        # WITHDRAWN PERSONNEL COME BACK. A recovered Adversary re-enters
+        # the world through a live breach, at the mouth of a tear it
+        # could actually have used. The breach IS the whole gate: seal
+        # them and nobody returns, which puts the counterplay in a
+        # system that already exists and already has tells (the light,
+        # the seam, the sealing) rather than in a hidden respawn timer.
+        # Only a KILL is permanent — that is the entire point.
+        if self.adversary_out and self.breaches:
+            due = next((i for i, (_, tk) in enumerate(self.adversary_out)
+                        if t_ >= tk), None)
+            if due is not None:
+                kind, _ = self.adversary_out.pop(due)
+                br = self.breaches[t_ % len(self.breaches)]
+                jx = self.rng.uniform(-40.0, 40.0)
+                jy = self.rng.uniform(-40.0, 40.0)
+                rid = self.spawn_enemy(br["polygon"],
+                                       (br["pos"][0] + jx,
+                                        br["pos"][1] + jy), kind)
+                self.adversary_returned[kind] += 1
+                self.trace.emit(AgentTransition(
+                    tick=t_, entity_id=rid, agent_kind=kind,
+                    from_state="withdrawn", to_state="returned",
+                    x=round(br["pos"][0] + jx, 1),
+                    y=round(br["pos"][1] + jy, 1)))
         self.hub_shelf = [sid for sid in self.hub_shelf
                           if sid in self.enemies]
         census = [self.enemies[sid]["kind"] for sid in self.hub_shelf]
@@ -3226,6 +3270,10 @@ class GameSession:
             self.medium.release(eid)
             self.adversary_census[e["kind"]] -= 1
             self.adversary_withdrawn[e["kind"]] += 1
+            # it is out of the world, not out of the campaign: it may
+            # walk back out of a live breach once it has recovered
+            self.adversary_out.append(
+                (e["kind"], t_ + ADVERSARY_RECOVERY_TICKS))
             _, _rx, _ry, *_ = s.get(eid)
             self.trace.emit(AgentTransition(
                 tick=t_, entity_id=eid, agent_kind=e["kind"],
