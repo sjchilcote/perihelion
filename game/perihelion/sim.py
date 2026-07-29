@@ -234,6 +234,13 @@ ADVERSARY = ("vagrant", "lacuna")
 # game is actually filmed at. The rate to check it against is the farm's
 # measured ~4-5 withdrawals per session per seed.
 ADVERSARY_RECOVERY_TICKS = 3600
+# ...and how long a freshly returned body is not allowed to turn round
+# and go home again. Gate 60 measured ~20% of returns bouncing back into
+# the hub within seconds, because the mouth it arrives at neighbours the
+# chamber whose crossing IS the withdrawal trigger — the body stepped
+# out and immediately re-crossed, which read on film as a revolving
+# door. 10s is long enough to clear the seam and be somewhere.
+ADVERSARY_ARRIVAL_GRACE = 600
 
 PICKUPS: dict[str, dict] = {
     "ammo_9mm": dict(radius=5.0, amount=30),
@@ -2867,6 +2874,22 @@ class GameSession:
                                        (br["pos"][0] + jx,
                                         br["pos"][1] + jy), kind)
                 self.adversary_returned[kind] += 1
+                # it just arrived: it does not get to re-cross the seam
+                # it came out of and book itself home again
+                self.enemies[rid]["arrived"] = t_
+                # THE ARRIVAL HAS ITS OWN PRESENTATION (gate 60: "the
+                # return has no presentation of its own" — a body
+                # appearing at a mouth was indistinguishable from an
+                # ordinary pour). Cold cyan, which nothing else owns:
+                # the breach's own tear is violet (190,80,235) and means
+                # "a way through is open"; a muzzle is warm amber. This
+                # is on the BODY's arrival, and means "one of the finite
+                # ones is back".
+                self.pulse_light(br["polygon"],
+                                 (br["pos"][0] + jx, br["pos"][1] + jy),
+                                 165.0, 1.5, (90, 220, 235))
+                self._snd("adversary_return", br["polygon"],
+                          (br["pos"][0] + jx, br["pos"][1] + jy), 0.8)
                 self.trace.emit(AgentTransition(
                     tick=t_, entity_id=rid, agent_kind=kind,
                     from_state="withdrawn", to_state="returned",
@@ -3260,7 +3283,8 @@ class GameSession:
         vulnerability."""
         s = self.sim
         t_ = self.tick_count
-        if polygon in self.hub.chambers.values():
+        if polygon in self.hub.chambers.values() \
+                and t_ - e.get("arrived", -1 << 30) >= ADVERSARY_ARRIVAL_GRACE:
             # it crossed into the marrow's own house: reabsorbed. Not a
             # death — a DEPARTURE, and the two must not be the same
             # entry in the books. It leaves the standing count either

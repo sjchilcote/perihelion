@@ -14,7 +14,8 @@ still permanent, which is the whole point.
 from __future__ import annotations
 
 from perihelion.levels import LevelBuilder, load_level
-from perihelion.sim import (ADVERSARY_RECOVERY_TICKS, GameSession,
+from perihelion.sim import (ADVERSARY_ARRIVAL_GRACE,
+                            ADVERSARY_RECOVERY_TICKS, GameSession,
                             InputFrame)
 from perihelion.testkit.humanbot import HumanBot
 
@@ -99,3 +100,56 @@ def test_recovery_constant_is_a_real_delay():
     by a future tuning pass without anybody noticing."""
     assert ADVERSARY_RECOVERY_TICKS >= 1800, (
         "a withdrawal shorter than 30s stops reading as an absence")
+
+
+def test_arrival_has_its_own_tell():
+    """Gate 60: 'the return has no presentation of its own.' A body
+    arriving must be distinguishable from an ordinary pour, in both
+    channels."""
+    level = load_level("../levels/gauntlet4.json")
+    s = GameSession(level, seed=4, screen=(640, 360), zoom=0.45)
+    bot = HumanBot(4)
+    s.adversary_out.append(("lacuna", 0))
+    heard = False
+    for _ in range(12000):
+        s.tick(bot.step(s.snapshot(), s))
+        heard = heard or any(f[0] == "sound" and f[1] == "adversary_return"
+                             for f in s.fx)
+        if sum(s.adversary_returned.values()):
+            break
+    assert s.adversary_returned["lacuna"] == 1, "the return must happen"
+    assert heard, (
+        "an arrival must announce itself — adversary_return never played")
+
+
+def test_a_returned_body_cannot_immediately_go_home_again():
+    """Gate 60 measured ~20% of returns re-crossing into the hub within
+    seconds: the mouth they arrive at neighbours the chamber whose
+    crossing IS the withdrawal trigger, so they stepped out and booked
+    themselves straight back in. A body that just arrived is arriving,
+    not leaving."""
+    b = LevelBuilder("RET", 1)
+    r0 = b.rect(0, 0, 400, 300)
+    b.player(r0, (150, 0))
+    s = GameSession(b.build(), seed=4, screen=(640, 360), zoom=0.45)
+    eid = s.spawn_enemy(r0, (0.0, 0.0), "lacuna")
+    # this chamber is the marrow's house, so standing here is the whole
+    # withdrawal condition — the only thing holding it is the grace
+    s.hub.chambers["_test_home"] = r0
+    s.enemies[eid]["scout"] = "flee"
+    s.enemies[eid]["arrived"] = s.tick_count
+    for _ in range(300):
+        s.tick(InputFrame())
+    assert eid in s.enemies, (
+        "a body inside its arrival grace must not be reabsorbed")
+    assert s.adversary_withdrawn["lacuna"] == 0
+
+    # ...and once the grace is spent, the ordinary rule applies again
+    s.enemies[eid]["arrived"] = s.tick_count - ADVERSARY_ARRIVAL_GRACE - 1
+    for _ in range(120):
+        s.tick(InputFrame())
+        if eid not in s.enemies:
+            break
+    assert eid not in s.enemies, (
+        "past the grace, crossing home withdraws normally again")
+    assert s.adversary_withdrawn["lacuna"] == 1

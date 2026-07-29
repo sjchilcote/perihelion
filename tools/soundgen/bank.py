@@ -918,6 +918,40 @@ def gen_enemy_alert_warden() -> np.ndarray:
     return finish(x, fade_s=0.05)
 
 
+def gen_adversary_return() -> np.ndarray:
+    """One of the finite ones steps back into the world (gate 60: "the
+    return has no presentation of its own" -- a body arriving at a
+    breach mouth was indistinguishable from an ordinary pour).
+
+    An EVENT, not a throat: no formants and no vibrato, because nothing
+    here should read as a creature announcing itself. A pressure swell
+    drawn inward, the snap of something coming through, and a cold ring
+    behind it -- the audio half of the cyan flash, and the only sound in
+    the bank that runs backwards before it runs forwards."""
+    seed = _seed("advreturn")
+    dur = 0.46
+    n = sy.samples(dur)
+    # the inward draw: noise swelling INTO the arrival, the reverse
+    # envelope that makes the snap feel caused rather than random
+    draw = sy.white_noise(0.26, seed=seed)
+    draw = sy.bandpass(draw, sy.pitch_env(0.26, 320.0, 1900.0), q=1.6)
+    swell = np.linspace(0.0, 1.0, sy.samples(0.26)) ** 2.2
+    draw = (draw.astype(np.float64) * swell).astype(np.float32)
+    draw = sy.normalize_peak(draw, -8.0)
+    # through: a hard bright snap, all attack
+    snap = sy.white_noise(0.05, seed=seed + 1)
+    snap = sy.bandpass(snap, 2400.0, q=1.1)
+    snap = sy.apply_env(snap, sy.env_exp_decay(0.05, tau=0.009))
+    snap = sy.normalize_peak(snap, -1.0)
+    # the cold ring after it: two detuned partials, no warmth
+    ring = sy.mix_layers([sy.sine(905.0, 0.20), sy.sine(1347.0, 0.20)],
+                         [1.0, 0.6])
+    ring = sy.apply_env(ring, sy.env_exp_decay(0.20, tau=0.06))
+    out = place(dur, (0.0, draw, 0.55), (0.25, snap, 0.9),
+                (0.26, ring, 0.4))
+    return finish(sy.soft_clip(out, 1.4), fade_s=0.04)
+
+
 def gen_warden_engulf() -> np.ndarray:
     """The warden LAUNCHES (gate 58 blocker: the lunge played
     shrieker_scream at 0.85 -- the loudest scream in a whole session was
@@ -2247,6 +2281,7 @@ _ENTRIES = [
     ("enemy_die_brute", "heavy wet fall plus sub thud", 0.45, 0.85, "enemy", gen_enemy_die_brute, ("peak", PEAK_ENEMY)),
     ("enemy_alert_husk", "raspy inhale and groan, unsettling", 0.25, 0.60, "enemy", gen_enemy_alert_husk, ("peak", PEAK_ENEMY)),
     ("enemy_alert_mite", "rapid insect-like chittering", 0.15, 0.30, "enemy", gen_enemy_alert_mite, ("peak", PEAK_ENEMY)),
+    ("adversary_return", "one of the finite personnel stepping back into the world through a breach: a pressure swell drawn inward, a hard snap of something coming through, and a cold ring behind it -- an event, not a creature, and the audio half of the cyan arrival flash", 0.35, 0.65, "enemy", gen_adversary_return, ("peak", PEAK_ENEMY)),
     ("warden_engulf", "the warden launching itself: an armour scrape and a fast rising strained roar, half the length of its alert and sweeping upward -- the player's dodge cue, and never mistakable either for the caller's cry or for the warden merely noticing", 0.40, 0.75, "enemy", gen_warden_engulf, ("peak", PEAK_ENEMY + 0.5)),
     ("enemy_alert_warden", "the warden noticing: armour plates taking up the slack, then a deep unhurried chest bellow an octave and a half below the shrieker's cry -- heavy and authoritative, never panicked, and never mistakable for an alarm", 0.60, 1.00, "enemy", gen_enemy_alert_warden, ("peak", PEAK_ENEMY)),
     ("spitter_shoot", "organic wet spit lob projectile launch", 0.15, 0.30, "enemy", gen_spitter_shoot, ("peak", PEAK_ENEMY)),
