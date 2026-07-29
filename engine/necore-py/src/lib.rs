@@ -9,6 +9,7 @@ use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 
 mod platform;
+mod video;
 
 use necore_core::{
     geom, raycast as core_raycast, polygons_within as core_polygons_within,
@@ -1190,6 +1191,7 @@ fn necore(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<SignalField>()?;
     m.add_class::<platform::AudioMixer>()?;
     m.add_class::<platform::Window>()?;
+    m.add_class::<video::VideoRecorder>()?;
     m.add_function(wrap_pyfunction!(platform::write_png, m)?)?;
     m.add_function(wrap_pyfunction!(mat_mul, m)?)?;
     m.add_function(wrap_pyfunction!(mat_inv, m)?)?;

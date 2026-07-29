@@ -167,13 +167,28 @@ ENEMIES: dict[str, dict] = {
     # world build, never produced by any core — the only classes that can
     # call reinforcements. Runners, not fighters: fast, fragile-ish,
     # wide turning. Lacuna is the weaker CLASS and therefore calls first.
+    # THE SHOVE is the Adversary's only weapon and it is DEFENSIVE. It
+    # fires while fleeing and never while approaching, it does almost no
+    # damage, and what it buys is SPACING — the same thing the player's
+    # own knockback buys when the bot is chased. This is the faction's
+    # whole identity in one mechanic: withdrawal is the normal outcome,
+    # so the runner's answer to being closed on is to push you off and
+    # leave, not to fight you for the ground.
     "vagrant": dict(hp=84, radius=9.5, mass=1.5, accel=701.0, fric=3.4,
                     turn=3.5, touch_dmg=6,
                     touch_cd=50, alert_snd="enemy_alert_mite",
+                    shove_cd=90, shove_speed=520.0, shove_dmg=3,
+                    shove_imp=300.0, shove_range=260.0,
+                    snare_cd=200, snare_speed=430.0, snare_range=560.0,
+                    snare_hold=90, snare_slow=0.35,
                     die_snd="enemy_die_mite", score=6),
     "lacuna": dict(hp=42, radius=8.5, mass=1.4, accel=653.0, fric=3.8,
                    turn=3.2, touch_dmg=4,
                    touch_cd=50, alert_snd="enemy_alert_mite",
+                   shove_cd=110, shove_speed=470.0, shove_dmg=2,
+                   shove_imp=250.0, shove_range=230.0,
+                   snare_cd=240, snare_speed=400.0, snare_range=500.0,
+                   snare_hold=75, snare_slow=0.45,
                    die_snd="enemy_die_mite", score=4),
     # The CORE's organ bodies (U11): shootable parts of the marrow's
     # production machine — no AI of their own (skipped in _enemy_ai);
@@ -682,6 +697,11 @@ class GameSession:
         # withdrawals), so a permanent withdrawal had the faction eating
         # its own finite roster on a clock the player could not touch.
         self.adversary_out: list[tuple[str, int]] = []
+        # the snare's hold on the player: ticks remaining and how much
+        # of their acceleration they keep while it lasts
+        self.snare_t = 0
+        self.snare_slow = 1.0
+
         for polygon, spec in level.entities:
             self._spawn_from_spec(polygon, spec)
 
@@ -807,6 +827,7 @@ class GameSession:
         state = "lurk" if kind == "flicker" else "idle"
         self.enemies[eid] = dict(kind=kind, hp=d["hp"] * self._hp_mul, state=state,
                                  touch_cd=0, spit_cd=0, scream_cd=0,
+                                 shove_cd=0, snare_cd=0,
                                  wander_cd=0, buff=0, trace_intensity=1.0,
                                  # per-agent quorum threshold, sampled ONCE
                                  # at spawn (killing habitual low-threshold
@@ -995,6 +1016,10 @@ class GameSession:
     def player_polygon(self) -> int:
         return self.sim.get_polygon(self.pid)
 
+    def entity_pos(self, eid: int):
+        _, x, y, *_ = self.sim.get(eid)
+        return (x, y)
+
     WAKE_TICKS = {"husk": 32, "mite": 18, "spitter": 26, "brute": 45,
                   "shrieker": 12, "warden": 20,
                   # scouts notice fast — they live by noticing
@@ -1165,6 +1190,8 @@ class GameSession:
             self.cooldown -= 1
         if self.hurt_cd > 0:
             self.hurt_cd -= 1
+        if self.snare_t > 0:
+            self.snare_t -= 1
         if self.revival_grace > 0:
             self.revival_grace -= 1
         self.lightning_charge = min(LIGHTNING_RECHARGE_TICKS, self.lightning_charge + 1)
@@ -1235,8 +1262,10 @@ class GameSession:
             ml = math.hypot(mdx, mdy)
             if ml > 1e-9:
                 ax_, ay_ = mdx / ml * mlen, mdy / ml * mlen
-                s.set_vel(self.pid, vx + ax_ * PLAYER_ACCEL * self._accel_mul * DT,
-                          vy + ay_ * PLAYER_ACCEL * self._accel_mul * DT)
+                snare = self.snare_slow if self.snare_t > 0 else 1.0
+                s.set_vel(self.pid,
+                          vx + ax_ * PLAYER_ACCEL * self._accel_mul * snare * DT,
+                          vy + ay_ * PLAYER_ACCEL * self._accel_mul * snare * DT)
         # fire
         if inp.fire and self.cooldown <= 0:
             self.last_fire_tick = self.tick_count
@@ -2120,7 +2149,7 @@ class GameSession:
                 e["_came_from_t"] = self.tick_count
             e["_at_polygon"] = polygon
             for k in ("touch_cd", "spit_cd", "scream_cd", "wander_cd",
-                      "engulf_cd"):
+                      "engulf_cd", "shove_cd", "snare_cd"):
                 if e.get(k, 0) > 0:
                     e[k] -= 1
             if e.get("buff", 0) > 0:
@@ -3422,6 +3451,12 @@ class GameSession:
                 e["scout"] = "seek"
                 self._set_enemy_state(eid, e, "idle")
                 return
+            # ...and it does not run in silence. A runner that is being
+            # closed on shoves the player off and keeps going — feet
+            # still retreating, exactly like the player's own bot keeps
+            # firing while it backs out of a room.
+            self._adversary_arsenal(eid, e, polygon, ex, ey,
+                                    ENEMIES[e["kind"]])
             tgt = scouts.safe_target(nbh)
             if tgt is not None:
                 self._scout_move_to(eid, e, polygon, ex, ey, evx, evy, tgt)
@@ -3765,6 +3800,71 @@ class GameSession:
                          math.sin(ang) * d["spit_speed"])
         self.bullets[bid] = dict(kind="spit", dmg=d["spit_dmg"], ttl=180)
         self._snd("spitter_shoot", polygon, (ex, ey), 0.9)
+
+    # THE ADVERSARY'S ARSENAL. Every tool here buys the same thing in a
+    # different currency, because this faction does not fight for ground:
+    # it is finite, it is on a clock, and its normal outcome is leaving.
+    # So the weapons answer HOW the player is closing rather than trying
+    # to kill them.
+    #
+    #   close  -> SHOVE, which buys DISTANCE
+    #   middle -> SNARE, which buys TIME
+    #
+    # All of it fires from the flee state and nowhere else.
+    #
+    # COORDINATES. Everything below aims off the SenseHit, whose
+    # `position` is already composed into the observer's frame and whose
+    # `distance` is the real portal distance. Gate 66 failed at p=0.04
+    # because the first cut computed player_pos() — the PLAYER's frame —
+    # and subtracted the shooter's coordinates: unrelated numbers the
+    # moment a shot crosses a chamber, which 63 of 64 filmed fires did.
+    # The sighting is already in hand at every call site; there is never
+    # a reason to recompute a heading from two different frames.
+
+    def _adversary_arsenal(self, eid, e, polygon, ex, ey, d) -> bool:
+        """Pick the tool that answers the way the player is closing."""
+        hit = self.senses.sight_of(eid, self.pid)
+        if hit is None:
+            return False
+        tx, ty = hit.position          # observer frame == this body's frame
+        dist = hit.distance
+        if dist < 1e-6:
+            return False
+        if dist <= d["shove_range"] and e.get("shove_cd", 0) <= 0:
+            return self._adversary_round(
+                eid, e, polygon, ex, ey, d, tx, ty, dist, "shove")
+        if dist <= d["snare_range"] and e.get("snare_cd", 0) <= 0:
+            return self._adversary_round(
+                eid, e, polygon, ex, ey, d, tx, ty, dist, "snare")
+        return False
+
+    def _adversary_round(self, eid, e, polygon, ex, ey, d, tx, ty, dist,
+                         which: str) -> bool:
+        """Loose one round of `which` along the composed heading."""
+        nx, ny = (tx - ex) / dist, (ty - ey) / dist
+        speed = d[f"{which}_speed"]
+        bid = self.sim.spawn(polygon, ex + nx * (d["radius"] + 4),
+                             ey + ny * (d["radius"] + 4),
+                             3.0 if which == "shove" else 4.0, 0.01,
+                             GROUP_EBULLET)
+        self.sim.set_props(bid, rest_wall=0.0, max_substep=3.0)
+        ang = math.atan2(ny, nx) + self.rng.uniform(-0.05, 0.05)
+        self.sim.set_vel(bid, math.cos(ang) * speed, math.sin(ang) * speed)
+        if which == "shove":
+            self.bullets[bid] = dict(kind="shove", dmg=d["shove_dmg"],
+                                     ttl=120, imp=d["shove_imp"], src=eid)
+            self._snd("adversary_shove", polygon, (ex, ey), 0.85)
+        else:
+            self.bullets[bid] = dict(kind="snare", dmg=0.0, ttl=180,
+                                     hold=d["snare_hold"],
+                                     slow=d["snare_slow"], src=eid)
+            self._snd("adversary_snare", polygon, (ex, ey), 0.8)
+        e[f"{which}_cd"] = d[f"{which}_cd"]
+        self.trace.emit(CoordEvent(
+            tick=self.tick_count, entity_id=eid, agent_kind=e["kind"],
+            event=f"{which}_fire",
+            detail=f"range {dist:.0f}u"))
+        return True
 
     # -- shrieker helpers (salvaged b2c27600, adapted to SignalField/senses) --
 
@@ -4449,6 +4549,37 @@ class GameSession:
                     self.fx.append(("marked", polygon, cx, cy))
                 elif bx["kind"] == "spit":
                     self._damage_player(bx["dmg"], polygon, source="spit")
+                elif bx["kind"] == "shove":
+                    # the damage is a token; the IMPULSE is the weapon.
+                    # The push runs along the ROUND's own velocity, which
+                    # is frame-free: the round is already travelling in
+                    # the collision polygon's frame, so this cannot
+                    # repeat gate 66's mixed-frame subtraction however
+                    # many chambers the shot crossed.
+                    self._damage_player(bx["dmg"], polygon, source="shove")
+                    _, _, _, rvx, rvy, _, _ = self.sim.get(x)
+                    rl = math.hypot(rvx, rvy) or 1e-6
+                    self._apply_impulse(
+                        self.pid, rvx / rl * bx["imp"],
+                        rvy / rl * bx["imp"], source="shove_knock")
+                    self.fx.append(("attacker_mark", bx.get("src", -1)))
+                elif bx["kind"] == "snare":
+                    # buys TIME instead of distance: no damage at all,
+                    # the player is simply slower for a moment and the
+                    # runner uses it to reach a breach.
+                    self.snare_t = max(self.snare_t, int(bx["hold"]))
+                    # min(): two overlapping snares take the STRONGER
+                    # slow. Plain assignment let a late weak round
+                    # loosen a hold that a stronger one had already set.
+                    self.snare_slow = min(self.snare_slow
+                                          if self.snare_t > 0 else 1.0,
+                                          float(bx["slow"]))
+                    self._snd("adversary_snare_hit", polygon, (cx, cy), 0.9)
+                    self.fx.append(("attacker_mark", bx.get("src", -1)))
+                    self.trace.emit(CoordEvent(
+                        tick=self.tick_count, entity_id=self.pid,
+                        agent_kind="player", event="snared",
+                        detail=f"{int(bx['hold'])}t at {bx['slow']:.2f}x"))
                 elif bx["kind"] == "dart":
                     self._detonate_dart(x, polygon, cx, cy)
                     px_, py_ = self.player_pos()
@@ -5161,9 +5292,18 @@ class GameSession:
                 py += ny_ * push
         return px, py
 
-    def visible(self, max_depth: int = 14, max_instances: int = 96):
-        ppolygon = self.player_polygon()
-        px, py = self.player_pos()
+    def visible(self, max_depth: int = 14, max_instances: int = 96,
+                *, root: int | None = None, cam=None, apex=None):
+        """The portal-visibility query. `root`/`cam` default to the
+        PLAYER and must stay that way for every gameplay caller — the
+        bot perceives through this exact query, so a demo that moved the
+        root here would move the bot's eyes too and the replay would
+        stop matching the run it was supposed to reproduce (measured:
+        the spectated body no longer existed at the moment pass one
+        found it). Only the renderer passes them, only to look
+        somewhere else, and never during a scored run."""
+        ppolygon = self.player_polygon() if root is None else root
+        px, py = self.player_pos() if apex is None else apex
         # the camera apex is the player (strict LOS from the character),
         # clamped into the polygon so mid-transfer overshoot can't blind it
         px, py = self._clamp_apex(ppolygon, px, py)

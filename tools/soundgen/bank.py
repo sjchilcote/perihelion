@@ -918,6 +918,69 @@ def gen_enemy_alert_warden() -> np.ndarray:
     return finish(x, fade_s=0.05)
 
 
+def gen_adversary_snare() -> np.ndarray:
+    """The runner throws the snare: a wet unspooling whip, no report.
+
+    It is not a gun and it must not read as one — this buys TIME, not
+    damage. Higher and thinner than the shove, so a player can tell
+    which of the two is in the air without looking."""
+    seed = _seed("advsnare")
+    dur = 0.36
+    unspool = sy.white_noise(0.26, seed=seed)
+    unspool = sy.bandpass(unspool, sy.pitch_env(0.26, 900.0, 2600.0), q=1.4)
+    unspool = sy.apply_env(unspool, sy.env_adsr(0.26, attack=0.02,
+                                                decay=0.08,
+                                                sustain_level=0.5,
+                                                release=0.14))
+    unspool = sy.normalize_peak(unspool, -4.0)
+    whip = sy.sine(sy.pitch_env(0.20, 420.0, 1150.0), 0.20)
+    whip = sy.apply_env(whip, sy.env_exp_decay(0.20, tau=0.07))
+    out = place(dur, (0.0, unspool, 0.85), (0.04, whip, 0.4))
+    return finish(sy.soft_clip(out, 1.4), fade_s=0.04)
+
+
+def gen_adversary_snare_hit() -> np.ndarray:
+    """It takes hold: a damp slap and a low tightening drag under it —
+    the sound of being slowed, not of being hurt."""
+    seed = _seed("advsnarehit")
+    dur = 0.40
+    slap = sy.white_noise(0.07, seed=seed)
+    slap = sy.bandpass(slap, 700.0, q=1.0)
+    slap = sy.apply_env(slap, sy.env_exp_decay(0.07, tau=0.018))
+    slap = sy.normalize_peak(slap, -2.0)
+    drag = sy.saw(sy.pitch_env(0.34, 150.0, 78.0), 0.34)
+    drag = sy.lowpass(sy.soft_clip(drag, 2.0), 520.0)
+    drag = sy.apply_env(drag, sy.env_adsr(0.34, attack=0.03, decay=0.10,
+                                          sustain_level=0.55,
+                                          release=0.18))
+    out = place(dur, (0.0, slap, 0.9), (0.02, drag, 0.75))
+    return finish(sy.soft_clip(out, 1.5), fade_s=0.05)
+
+
+def gen_adversary_shove() -> np.ndarray:
+    """The Adversary pushes you off so it can leave.
+
+    A pressure event, not a gunshot and not a throat: the faction does
+    not fight for ground, and its one weapon has to sound like a shove
+    rather than an attack. A low compressed thump with a fast air
+    release over it, short enough to read as a single push."""
+    seed = _seed("advshove")
+    dur = 0.30
+    n = sy.samples(dur)
+    # the thump: the mass of it
+    thump = sy.sine(sy.pitch_env(0.14, 170.0, 68.0), 0.14)
+    thump = sy.soft_clip(thump, 2.2)
+    thump = sy.apply_env(thump, sy.env_exp_decay(0.14, tau=0.035))
+    # the air leaving: a fast wide-band push, dropping away
+    air = sy.white_noise(0.22, seed=seed)
+    air = sy.bandpass(air, sy.pitch_env(0.22, 1800.0, 520.0), q=0.8)
+    air = sy.apply_env(air, sy.env_adsr(0.22, attack=0.008, decay=0.05,
+                                       sustain_level=0.35, release=0.14))
+    air = sy.normalize_peak(air, -6.0)
+    out = place(dur, (0.0, thump, 1.0), (0.0, air, 0.7))
+    return finish(sy.soft_clip(out, 1.5), fade_s=0.03)
+
+
 def gen_adversary_return() -> np.ndarray:
     """One of the finite ones steps back into the world (gate 60: "the
     return has no presentation of its own" -- a body arriving at a
@@ -2281,6 +2344,9 @@ _ENTRIES = [
     ("enemy_die_brute", "heavy wet fall plus sub thud", 0.45, 0.85, "enemy", gen_enemy_die_brute, ("peak", PEAK_ENEMY)),
     ("enemy_alert_husk", "raspy inhale and groan, unsettling", 0.25, 0.60, "enemy", gen_enemy_alert_husk, ("peak", PEAK_ENEMY)),
     ("enemy_alert_mite", "rapid insect-like chittering", 0.15, 0.30, "enemy", gen_enemy_alert_mite, ("peak", PEAK_ENEMY)),
+    ("adversary_snare", "the Adversary throwing its snare: a wet unspooling whip, thin and high, with no report at all -- it buys time, not damage, and must never read as a gun", 0.25, 0.50, "enemy", gen_adversary_snare, ("peak", PEAK_ENEMY)),
+    ("adversary_snare_hit", "the snare taking hold on the player: a damp slap over a low tightening drag -- the sound of being slowed, not of being hurt", 0.28, 0.55, "enemy", gen_adversary_snare_hit, ("peak", PEAK_PLAYER)),
+    ("adversary_shove", "the Adversary pushing the player off so it can leave: a low compressed thump with a fast air release over it -- a shove, not a gunshot, and never an attack sound", 0.20, 0.45, "enemy", gen_adversary_shove, ("peak", PEAK_ENEMY)),
     ("adversary_return", "one of the finite personnel stepping back into the world through a breach: a pressure swell drawn inward, a hard snap of something coming through, and a cold ring behind it -- an event, not a creature, and the audio half of the cyan arrival flash", 0.35, 0.65, "enemy", gen_adversary_return, ("peak", PEAK_ENEMY)),
     ("warden_engulf", "the warden launching itself: an armour scrape and a fast rising strained roar, half the length of its alert and sweeping upward -- the player's dodge cue, and never mistakable either for the caller's cry or for the warden merely noticing", 0.40, 0.75, "enemy", gen_warden_engulf, ("peak", PEAK_ENEMY + 0.5)),
     ("enemy_alert_warden", "the warden noticing: armour plates taking up the slack, then a deep unhurried chest bellow an octave and a half below the shrieker's cry -- heavy and authoritative, never panicked, and never mistakable for an alarm", 0.60, 1.00, "enemy", gen_enemy_alert_warden, ("peak", PEAK_ENEMY)),

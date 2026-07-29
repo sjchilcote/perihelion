@@ -1691,6 +1691,8 @@ class Renderer:
         self._screams: list[dict] = []
         self._floaters: list[dict] = []   # pickup text that rises + fades
         self._hitflash: dict[int, int] = {}
+        # demo tooling: see the spectate block in draw()
+        self.spectate_eid: int | None = None
         # the arrival tint: a returned Adversary's own body flares. Gate
         # 62 proved a coloured LIGHT cannot carry this meaning -- the
         # lighting multiply takes the room's albedo, so the same flare
@@ -1948,7 +1950,28 @@ class Renderer:
         self._deferred_screen_glows = []
         self._deferred_bolt_glows = []
         self._deferred_floaters = []
-        instances = session.visible(self.max_depth, self.max_instances)
+        # SPECTATE (demo tooling only): render from another body's
+        # chamber with the camera locked on it, so a feature that
+        # belongs to an enemy can be watched where it happens instead of
+        # wherever the player happens to be looking. This is RENDER-ONLY
+        # by construction — it passes an explicit root/cam into the
+        # query and never moves the session's own camera, because the
+        # bot perceives through session.visible() too and moving the
+        # real root moved the bot's eyes with it.
+        root = cam = apex = None
+        eid = getattr(self, "spectate_eid", None)
+        if eid is not None and session.sim.exists(eid):
+            root = session.sim.get_polygon(eid)
+            ex_, ey_ = session.entity_pos(eid)
+            apex = (ex_, ey_)
+            cam = necore.mat_mul(
+                necore.mat_mul(
+                    necore.mat_translate(session.screen_w / 2,
+                                         session.screen_h / 2),
+                    necore.mat_scale(session.zoom, session.zoom)),
+                necore.mat_translate(-ex_, -ey_))
+        instances = session.visible(self.max_depth, self.max_instances,
+                                    root=root, cam=cam, apex=apex)
         size = _size_of(surf)
         self._draw_world_rust(size, instances)
         fb = self._rgb  # (W, H, 3) view of the rust framebuffer
@@ -3197,6 +3220,8 @@ class Renderer:
                                _pts(pts), 2 if marked else 1)
                 if marked:
                     self._draw_brand(canvas, sx, sy, max(srad, 2.0))
+                if getattr(self.session, "snare_t", 0) > 0:
+                    self._draw_snared(canvas, sx, sy, max(srad, 2.0))
                 rt = getattr(self.session, "recall_t", 0)
                 if rt > 0:
                     # recall channel: a ring closing on the frame
@@ -3732,6 +3757,32 @@ class Renderer:
         canvas.circle((255, 170, 235), _pt((gx, gy)), max(1, gr - 2))
         canvas.circle((255, 232, 250), _pt((gx, gy)), max(1, gr // 3))
 
+    def _draw_snared(self, canvas, sx, sy, srad):
+        """The snare, drawn ON THE PLAYER — cause, duration and release
+        all visible where the effect is felt.
+
+        Gate 67 blocked the first cut for painting nothing at all: the
+        player steered like mud for 75-90 ticks with no indication of
+        onset, persistence or release. Same law the brand and the
+        pod-carry slow already obey. Filaments pinned to the body, and
+        they THIN as the hold runs out, so the release is legible before
+        it happens rather than being noticed afterwards."""
+        s = self.session
+        left = max(0, getattr(s, "snare_t", 0))
+        k = min(1.0, left / 90.0)
+        n = 6
+        base = s.tick_count * 0.06
+        for i in range(n):
+            a = base + i * (2.0 * math.pi / n)
+            r0 = srad * 0.9
+            r1 = srad * (1.7 + 0.5 * k)
+            x0, y0 = sx + math.cos(a) * r0, sy + math.sin(a) * r0
+            x1, y1 = sx + math.cos(a) * r1, sy + math.sin(a) * r1
+            canvas.line((205, 190, 240), _pt((x0, y0)), _pt((x1, y1)),
+                        2 if k > 0.4 else 1)
+        canvas.circle((235, 225, 255), _pt((sx, sy)),
+                      max(2, int(srad * 0.5)), 1)
+
     def _draw_bullet(self, canvas, kind, sx, sy, dirx, diry, clip_screen):
         if clip_screen is not None and not _point_in_poly(sx, sy, clip_screen):
             return
@@ -3768,6 +3819,26 @@ class Renderer:
             tx, ty = sx - dirx * 10, sy - diry * 10
             canvas.line(color, _pt((sx, sy)), _pt((tx, ty)), 1)
             canvas.circle(color, _pt((sx, sy)), 2)
+        elif kind == "shove":
+            # the Adversary's close tool. Run 46's law: an enemy round
+            # must never be pixel-identical to the player's own fire.
+            # Blunt and hot, with a THICK short streak — it reads as
+            # mass arriving, which is what it delivers.
+            tx_, ty_ = sx - dirx * 9, sy - diry * 9
+            canvas.line((255, 120, 50), _pt((tx_, ty_)), _pt((sx, sy)), 3)
+            canvas.circle((255, 90, 30), _pt((sx, sy)), 4)
+            canvas.circle((255, 210, 160), _pt((sx, sy)), 2)
+        elif kind == "snare":
+            # ...and the mid tool, which must not read as the shove:
+            # one damages, one slows. SHAPE carries it — a long dotted
+            # filament instead of every other round's solid streak — so
+            # the two stay apart even where the palette crowds.
+            col = (205, 190, 240)
+            for i in range(5):
+                fx_, fy_ = sx - dirx * (5 + i * 6), sy - diry * (5 + i * 6)
+                canvas.circle(col, _pt((fx_, fy_)), max(1, 2 - i // 2))
+            canvas.circle((235, 225, 255), _pt((sx, sy)), 3)
+            canvas.circle(col, _pt((sx, sy)), 1)
         else:  # "bullet" / "tracer"
             color = (255, 245, 180)
             tx, ty = sx - dirx * 12, sy - diry * 12
