@@ -212,3 +212,104 @@ Open, and these are the real design questions:
    byte-identical-seed requirement?
 4. **What is the revision discipline** for transforms across a breach or
    seal?
+
+---
+
+# 10. The simplification that collapses this (director, 2026-07-29)
+
+> "We don't need to prove anything about the path that was taken, we only
+> need to prove that it ended in the same spot."
+
+This is correct, and it is a much bigger simplification than it sounds.
+
+## 10.1 Why it is sound, not merely convenient
+
+Holonomy makes *where you land* depend on the route. It does not make the
+landing coordinate any less a coordinate of the frame you landed in.
+Transport a position around a loop back to A and you get a different pair
+of numbers — but they are still valid A-coordinates, and subtracting them
+from an untransported A-position is legitimate arithmetic that answers a
+real question ("how far apart are these two images").
+
+So endpoint equality is **sufficient for well-formedness**. The remaining
+question — *which image of the chamber did you mean* — is a decision
+about which transform to apply, made before the arithmetic. It is a
+gameplay question, and a type system should stay out of it.
+
+## 10.2 What it deletes from the design
+
+I had been heading toward putting the groupoid's **morphisms** into the
+types: routes, path words, a free groupoid on the portal graph, types
+that record how a value travelled. All of that goes.
+
+**The groupoid lives at runtime. The types need only its object set.**
+
+Concretely:
+
+* `Pos<F>` is indexed by frame identity alone. No route, ever.
+* `Xform<A,B>` needs only its two endpoints in the type. Which route the
+  topology chose is a runtime property of the matrix, not of the type.
+* Composition still type-checks as `Xform<A,B> ∘ Xform<B,C> = Xform<A,C>`
+  and does not care that a direct `A→C` also exists with a different
+  matrix. Both are `Xform<A,C>`. That is the *desired* behaviour.
+* §2's non-thinness stops being a typing problem. It remains a real
+  property of the world, handled where it belongs: in the topology, and
+  in the caller's choice of which visible instance to ask about.
+
+The director's worked example resolves with nothing left over:
+
+| value | type | verdict |
+|---|---|---|
+| position in A | `Pos<A>` | refused where `Pos<C>` wanted |
+| A→B | `Pos<B>` | refused |
+| A→B→C | `Pos<C>` | accepted |
+| A→C, after linking C—A | `Pos<C>` | accepted, identically |
+| two positions, independently → screen | `Pos<Screen>` both | combine, no prior coordination |
+
+## 10.3 What the problem reduces to
+
+Exactly one question remains:
+
+> **How do we reflect the identity of a runtime-created frame into the
+> type system, so that "same frame" is a static fact?**
+
+That is no longer geometry. It is the well-studied problem of giving a
+runtime value a nominal type identity, and it has known answers:
+
+* **Rank-2 existential branding** — Haskell's `runST`, `Data.Reflection`'s
+  `reify`, Rust's `generativity` / `GhostCell`. A fresh invariant index
+  per scope that cannot unify with any other. Phantom, zero bytes.
+* **Singleton types** in dependently typed languages, which is the same
+  idea with the runtime witness kept.
+
+The essential ingredient is **invariance**: a merely covariant lifetime
+would let the compiler unify two different frames by subtyping, which
+silently destroys the guarantee.
+
+## 10.4 The one seam left, and it is bounded
+
+Two brands minted for the *same* polygon in different scopes will not
+unify, even though they denote the same spot. This is conservative — it
+refuses valid programs, never accepts invalid ones — but it is the thing
+that will actually annoy in practice.
+
+The standard remedy is a single **dynamic-to-static bridge**: compare
+the two frame keys once at runtime and, on success, hand back a proof
+witness that makes everything downstream static.
+
+    fn unify<'a, 'b>(a: Frame<'a>, b: Frame<'b>) -> Option<Same<'a, 'b>>
+
+This is the only place a runtime frame comparison should exist, and it
+is sound because it produces a proof rather than permitting an operation.
+
+## 10.5 What is unaffected
+
+Endpoint-only typing does **not** help with:
+
+* **Staleness.** A transform derived before a breach carved or a seal
+  closed still has type `Xform<A,B>` while its matrix is wrong. Needs a
+  revision stamp (§8), unchanged.
+* **Scale.** A `float` distance carries no frame, so comparing it against
+  a threshold expressed in another frame is still unchecked (§9).
+* **Point vs vector vs direction.** Still the torsor distinction (§4),
+  orthogonal to all of this.
