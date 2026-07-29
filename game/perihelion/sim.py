@@ -153,7 +153,14 @@ ENEMIES: dict[str, dict] = {
     # exactly 2 full-charge Tau (84) or 4 rail (42); no brood, no enrage.
     "warden": dict(hp=168, radius=16.0, mass=12.0, accel=386.0, fric=2.4, turn=2.6,
                    touch_dmg=30,
-                   touch_cd=48, alert_snd="shrieker_scream", die_snd="enemy_die_brute",
+                   # its OWN voice (gate 56/57: the warden borrowed
+                   # shrieker_scream, and at >85% of every scream
+                   # emission in a bank it WAS the scream as far as the
+                   # player could tell — the cry meant "a big thing
+                   # noticed you" far more often than it meant "a caller
+                   # is crying". One symbol, one meaning.)
+                   touch_cd=48, alert_snd="enemy_alert_warden",
+                   die_snd="enemy_die_brute",
                    spit_cd=70, spit_speed=460.0, spit_dmg=13, keep_min=0.0,
                    keep_max=100.0, score=10),
     # The ADVERSARY lane (DESIGN_7_25 §1b): finite personnel, authored at
@@ -2343,11 +2350,18 @@ class GameSession:
                     self._set_enemy_state(eid, e, "hunt")
                 continue
 
-            # hunting: audible before visible — the dread channel
+            # hunting: audible before visible — the dread channel. The
+            # shrieker is exempt, exactly as it is from footfalls above:
+            # its alert voice IS the cry, so an idle hunt-groan spent the
+            # game's one alarm symbol on "walking about" (gate 57: the
+            # ungated fall-through had dispatched callers emitting the
+            # scream from hub chambers, ~3/session). A caller is silent
+            # until it has something to say.
             e["groan_cd"] = e.get("groan_cd", self.rng.randrange(60, 200)) - 1
             if e["groan_cd"] <= 0:
                 e["groan_cd"] = self.rng.randrange(140, 260)
-                self._snd(d["alert_snd"], polygon, (ex, ey), 0.35)
+                if kind != "shrieker":
+                    self._snd(d["alert_snd"], polygon, (ex, ey), 0.35)
             accel = d["accel"] * (e.get("buff_mul", 1.25)
                                   if e.get("buff", 0) > 0 else 1.0)
             if e.get("dispatched") is not None \
@@ -3113,7 +3127,13 @@ class GameSession:
                 spd = WARDEN_CRUISE * WARDEN_ENGULF_LUNGE_MULT
                 s.set_dir(eid, dx / dl, dy / dl)
                 s.set_vel(eid, dx / dl * spd, dy / dl * spd)
-                self._snd("shrieker_scream", polygon, (ex, ey), 0.85)
+                # the lunge's OWN voice (gate 58 blocker: this played
+                # shrieker_scream at 0.85, so the loudest scream in a
+                # session was a warden jumping, not a caller crying —
+                # and it is not the warden's ALERT either, because
+                # "noticed you" and "coming for you, move" are two
+                # meanings and get two sounds)
+                self._snd("warden_engulf", polygon, (ex, ey), 0.85)
                 e["engulf"] = "lunge"
             return
         # lunge

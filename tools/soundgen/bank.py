@@ -865,6 +865,105 @@ def gen_enemy_alert_husk() -> np.ndarray:
     return finish(x, fade_s=0.04)
 
 
+def gen_enemy_alert_warden() -> np.ndarray:
+    """The warden's OWN voice (gate 56/57: the warden borrowed
+    shrieker_scream, so >85% of the scream emissions in a bank carried
+    no alarm meaning at all -- the one sound that is supposed to mean
+    'a caller is crying' mostly meant 'a big thing noticed you').
+
+    Everything here is chosen to be un-mistakable for that scream. The
+    scream lives at 520-1400Hz with fast vibrato and a torn-throat rasp;
+    this sits an octave and a half below it, moves slowly, and opens
+    with a sound no throat makes: the armour taking up the slack as the
+    body draws breath. Deep, unhurried, and heavy -- authority rather
+    than panic."""
+    seed = _seed("alertwarden")
+    dur = 0.78
+    # the plates: a short metallic shift as the mass settles forward.
+    # This is the identity marker -- no other creature voice in the bank
+    # has a struck-metal transient in front of it.
+    plate = sy.white_noise(0.10, seed=seed)
+    plate = sy.bandpass(plate, sy.pitch_env(0.10, 2600.0, 1500.0), q=3.2)
+    plate = sy.apply_env(plate, sy.env_exp_decay(0.10, tau=0.024))
+    # the bandpass costs the burst ~5x its amplitude, so it has to be
+    # given back or the plate vanishes under the bellow entirely (first
+    # cut measured 0% of the onset's energy above 1200Hz -- the metallic
+    # attack this voice is identified by was simply not in the file)
+    plate = sy.normalize_peak(plate, -3.0)
+    ring = sy.mix_layers([sy.sine(196.0, 0.16), sy.sine(431.0, 0.16)],
+                         [1.0, 0.45])
+    ring = sy.apply_env(ring, sy.env_exp_decay(0.16, tau=0.05))
+    # the bellow: slow and low, barely any vibrato -- it is not
+    # straining. The formants carry it: pitched well under the husk's
+    # groan but with real mid presence, because a voice built purely out
+    # of sub-bass measures as "deep" and PLAYS as inaudible on anything
+    # smaller than a subwoofer (first cut of this sound put 96% of its
+    # energy under 250Hz and vanished on laptop speakers).
+    bell_dur = dur - 0.10
+    voice = creature_voice(bell_dur, [74, 90, 84, 63], vib_hz=2.1,
+                           vib_depth_end=0.05,
+                           formant1=(430, 310), formant2=(1320, 980),
+                           drive=5.0, breath=0.22, seed=seed + 1)
+    voice = sy.apply_env(voice, sy.env_adsr(bell_dur, attack=0.07,
+                                            decay=0.14, sustain_level=0.72,
+                                            release=0.22))
+    # chest sub: the weight behind it, felt more than heard, and kept
+    # quiet enough that it never becomes the sound itself
+    sub = sy.sine(sy.pitch_env(bell_dur, 46.0, 35.0), bell_dur)
+    sub = sy.apply_env(sub, sy.env_adsr(bell_dur, attack=0.10, decay=0.18,
+                                        sustain_level=0.8, release=0.26))
+    x = place(dur, (0.0, plate, 0.95), (0.0, ring, 0.5),
+              (0.09, voice, 1.0), (0.09, sub, 0.18))
+    x = sy.soft_clip(x, 1.5)
+    return finish(x, fade_s=0.05)
+
+
+def gen_warden_engulf() -> np.ndarray:
+    """The warden LAUNCHES (gate 58 blocker: the lunge played
+    shrieker_scream at 0.85 -- the loudest scream in a whole session was
+    a warden jumping at you, not a caller crying).
+
+    This is a dodge cue, so it is not the warden's alert either: 'I have
+    noticed you' and 'I am coming, move NOW' are two meanings and
+    therefore two sounds. Same throat as `enemy_alert_warden` -- same
+    low fundamental, same armour -- but everything that voice does
+    slowly this one does fast and upward: half the length, pitch and
+    formants sweeping UP instead of settling down, and bright enough to
+    cut through a firefight."""
+    seed = _seed("wardenengulf")
+    dur = 0.52
+    # the mass leaving the ground: armour scrape, harder and shorter
+    # than the alert's settling plate
+    scrape = sy.white_noise(0.09, seed=seed)
+    scrape = sy.bandpass(scrape, sy.pitch_env(0.09, 1200.0, 3400.0), q=2.4)
+    scrape = sy.apply_env(scrape, sy.env_adsr(0.09, attack=0.012, decay=0.03,
+                                              sustain_level=0.5,
+                                              release=0.04))
+    scrape = sy.normalize_peak(scrape, -2.0)
+    # the roar: rising, strained, the opposite contour to the alert
+    roar_dur = dur - 0.04
+    # NB the sweep has to end high. A first cut peaking at 158Hz with
+    # formants topping out at 2200 measured a 426Hz median -- five hertz
+    # off enemy_alert_husk's 421 -- which would have traded the borrowed
+    # scream for a fresh collision with the husk's groan.
+    voice = creature_voice(roar_dur, [96, 178, 240, 210], vib_hz=6.5,
+                           vib_depth_end=0.10,
+                           formant1=(500, 1500), formant2=(1650, 3700),
+                           drive=6.5, breath=0.35, seed=seed + 1)
+    voice = sy.apply_env(voice, sy.env_adsr(roar_dur, attack=0.03,
+                                            decay=0.10, sustain_level=0.85,
+                                            release=0.16))
+    # the shove of air in front of it
+    gust = sy.white_noise(roar_dur, seed=seed + 2)
+    gust = sy.bandpass(gust, sy.pitch_env(roar_dur, 500.0, 1800.0), q=1.1)
+    gust = sy.apply_env(gust, sy.env_adsr(roar_dur, attack=0.06, decay=0.12,
+                                          sustain_level=0.6, release=0.18))
+    x = place(dur, (0.0, scrape, 0.9), (0.04, voice, 1.0),
+              (0.04, gust, 0.45))
+    x = sy.soft_clip(x, 1.7)
+    return finish(x, fade_s=0.035)
+
+
 def gen_enemy_alert_mite() -> np.ndarray:
     seed = _seed("alertmite")
     rng = np.random.default_rng(seed)
@@ -2148,6 +2247,8 @@ _ENTRIES = [
     ("enemy_die_brute", "heavy wet fall plus sub thud", 0.45, 0.85, "enemy", gen_enemy_die_brute, ("peak", PEAK_ENEMY)),
     ("enemy_alert_husk", "raspy inhale and groan, unsettling", 0.25, 0.60, "enemy", gen_enemy_alert_husk, ("peak", PEAK_ENEMY)),
     ("enemy_alert_mite", "rapid insect-like chittering", 0.15, 0.30, "enemy", gen_enemy_alert_mite, ("peak", PEAK_ENEMY)),
+    ("warden_engulf", "the warden launching itself: an armour scrape and a fast rising strained roar, half the length of its alert and sweeping upward -- the player's dodge cue, and never mistakable either for the caller's cry or for the warden merely noticing", 0.40, 0.75, "enemy", gen_warden_engulf, ("peak", PEAK_ENEMY + 0.5)),
+    ("enemy_alert_warden", "the warden noticing: armour plates taking up the slack, then a deep unhurried chest bellow an octave and a half below the shrieker's cry -- heavy and authoritative, never panicked, and never mistakable for an alarm", 0.60, 1.00, "enemy", gen_enemy_alert_warden, ("peak", PEAK_ENEMY)),
     ("spitter_shoot", "organic wet spit lob projectile launch", 0.15, 0.30, "enemy", gen_spitter_shoot, ("peak", PEAK_ENEMY)),
     ("gland_fire", "a grafted Adversary gland discharging: wet organic burst with a sour, faintly wrong detuned tonal component -- distinct from the enemy spitter's clean gurgle-plop, this is the player's own flesh doing something it shouldn't", 0.30, 0.55, "enemy", gen_gland_fire, ("peak", PEAK_ENEMY)),
     ("mark_hit", "a wet sticky impact on the player's own body followed by a rising whine as the tag goes live -- close and personal, not a distant creature noise", 0.35, 0.70, "enemy", gen_mark_hit, ("peak", PEAK_PLAYER)),
