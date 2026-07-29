@@ -241,6 +241,12 @@ ADVERSARY_RECOVERY_TICKS = 3600
 # out and immediately re-crossed, which read on film as a revolving
 # door. 10s is long enough to clear the seam and be somewhere.
 ADVERSARY_ARRIVAL_GRACE = 600
+# ...and how long a returned body may stand still before the world gives
+# up on it and takes it back. Bounds both of gate 63's degenerate second
+# lives: the body stranded at a sealed seam, and the one idling in the
+# hub under its own grace. Shorter than the grace on purpose — a body
+# that is not moving is not using the window it was given.
+ADVERSARY_STRAND_TICKS = 420
 
 PICKUPS: dict[str, dict] = {
     "ammo_9mm": dict(radius=5.0, amount=30),
@@ -2251,6 +2257,34 @@ class GameSession:
                 # six logged hits, zero movement)
                 e["scout"] = "flee"
                 e["scout_t"] = scouts.FLEE_TICKS
+            # A RETURN THAT GOES NOWHERE IS NOT A SECOND LIFE. This
+            # runs HERE, in the loop that sees every body, not inside
+            # _scout_ai: gate 64 found a returned body that was never
+            # tasked and never fleeing, so the scout path never ran and
+            # the strand detector could not see it at all — it stood at
+            # one coordinate for 4,200 ticks. Bodies standing in the
+            # marrow's own house are excluded on purpose: they are home,
+            # and home is the other rule's business (gate 64 caught this
+            # code booking 3 of 6 strands with a dead-seam story about
+            # bodies that had simply walked back inside).
+            if kind in ADVERSARY and "arrived" in e \
+                    and polygon not in self.hub.chambers.values():
+                mv = e.get("_ret_pos")
+                if mv is not None and mv[0] == polygon \
+                        and (ex - mv[1]) ** 2 + (ey - mv[2]) ** 2 < 16.0:
+                    e["_ret_still"] = e.get("_ret_still", 0) + 1
+                else:
+                    e["_ret_still"] = 0
+                    e["_ret_pos"] = (polygon, ex, ey)
+                if e["_ret_still"] > ADVERSARY_STRAND_TICKS:
+                    self.trace.emit(CoordEvent(
+                        tick=self.tick_count, entity_id=eid,
+                        agent_kind=kind, event="return_stranded",
+                        detail=f"still {e['_ret_still']}t in {polygon}, "
+                               f"out in the world; reabsorbed in place"))
+                    self._withdraw_adversary(eid, e, "stranded")
+                    continue
+
             if kind in ADVERSARY and (e.get("scout")
                                       or self._maybe_task_scout(eid, e, polygon)):
                 self._scout_ai(eid, e, polygon, ex, ey, evx, evy)
@@ -2876,18 +2910,44 @@ class GameSession:
                 self.adversary_returned[kind] += 1
                 # it just arrived: it does not get to re-cross the seam
                 # it came out of and book itself home again
+                # ...for its own jittered window. A shared constant had
+                # 12 of 21 bodies leaving on the exact tick it expired
+                # (gate 61) — the grace had stopped preventing a defect
+                # and started scheduling the behaviour.
                 self.enemies[rid]["arrived"] = t_
+                # the door it came out of, so the grace can be revoked
+                # if that door dies (gate 62: a body returned through a
+                # breach that sealed moments later stood inert in an
+                # abandoned lane for 3,180 ticks — the grace outlived
+                # the thing that justified it), and so ordinary movement
+                # does not immediately walk it back through the same
+                # seam (gate 62 seam-loiter: home is one step away)
+                self.enemies[rid]["arrived_via"] = br["obj"].breach_id
+                self.enemies[rid]["_came_from"] = br["obj"].hub_chamber
+                self.enemies[rid]["grace"] = (
+                    ADVERSARY_ARRIVAL_GRACE
+                    + self.rng.randrange(0, ADVERSARY_ARRIVAL_GRACE + 1))
                 # THE ARRIVAL HAS ITS OWN PRESENTATION (gate 60: "the
                 # return has no presentation of its own" — a body
                 # appearing at a mouth was indistinguishable from an
-                # ordinary pour). Cold cyan, which nothing else owns:
-                # the breach's own tear is violet (190,80,235) and means
-                # "a way through is open"; a muzzle is warm amber. This
-                # is on the BODY's arrival, and means "one of the finite
-                # ones is back".
-                self.pulse_light(br["polygon"],
-                                 (br["pos"][0] + jx, br["pos"][1] + jy),
-                                 165.0, 1.5, (90, 220, 235))
+                # ordinary pour). It is on the BODY's arrival, not on
+                # the breach, and means "one of the finite ones is back".
+                #
+                # It is a TINT ON THE BODY, not a light. Gate 62 killed
+                # the coloured-flare version on its own film: a pulse
+                # light's hue does not survive the albedo multiply, so
+                # the same flare read warm-white in pink chambers and
+                # green only where the floor cooperated, and no scanner
+                # at any cadence found a green symbol anywhere. A symbol
+                # whose colour depends on the room is not a symbol. The
+                # cyan before it was worse still — render.ADVERSARY_TRACE
+                # already gives the vagrant (120,245,230), so it stole a
+                # kind's own identity colour. The body flash carries the
+                # whole meaning now (render._arrival_flash) and there is
+                # no arrival light at all — the mouth already has the
+                # breach's violet, and a second light there was muddying
+                # the one symbol that was supposed to be readable.
+                self.fx.append(("arrived", rid))
                 self._snd("adversary_return", br["polygon"],
                           (br["pos"][0] + jx, br["pos"][1] + jy), 0.8)
                 self.trace.emit(AgentTransition(
@@ -3101,6 +3161,36 @@ class GameSession:
             tick=self.tick_count, unit_kind=kind, entity_id=eid,
             hub_chamber=court))
 
+    def _withdraw_adversary(self, eid: int, e: dict, why: str) -> None:
+        """A DEPARTURE, not a death, from wherever it happens to stand.
+
+        Three things end an Adversary's time in the world and only one
+        of them is a kill: it walks into the marrow's own house
+        ("home"), the door it arrived through dies under it ("no_door"),
+        or it has stopped using the second life it was given
+        ("stranded"). All three book the same column and queue the same
+        recovery — but `why` is on the record, because gate 64 caught
+        this code telling a dead-seam story about bodies that were
+        standing at home.
+        """
+        t_ = self.tick_count
+        self.captures.release_for_entity(eid)
+        self.medium.release(eid)
+        self.adversary_census[e["kind"]] -= 1
+        self.adversary_withdrawn[e["kind"]] += 1
+        # out of the world, not out of the campaign — and jittered,
+        # because a fixed delay made the constant a metronome (gate 61)
+        self.adversary_out.append(
+            (e["kind"], t_ + ADVERSARY_RECOVERY_TICKS
+             + self.rng.randrange(0, ADVERSARY_RECOVERY_TICKS // 2)))
+        _, _rx, _ry, *_ = self.sim.get(eid)
+        self.trace.emit(AgentTransition(
+            tick=t_, entity_id=eid, agent_kind=e["kind"],
+            from_state=e["state"], to_state=f"reabsorbed:{why}",
+            x=round(_rx, 1), y=round(_ry, 1)))
+        self.enemies.pop(eid, None)
+        self.sim.remove(eid)
+
     def _seal_breach(self, breach_id: int, reason: str) -> None:
         t_ = self.tick_count
         br = next((b for b in self.breaches
@@ -3116,6 +3206,17 @@ class GameSession:
             self._dying_lights.append((br["light"], t_,
                                        br["light"].radius))
         self.breaches.remove(br)
+        # A BODY WHOSE DOOR DIES GOES WITH IT. Gates 62-64 all failed on
+        # this and each earlier attempt treated the WINDOW: revoking the
+        # grace only stripped the `arrived` flag the strand detector was
+        # gated on, so the two fixes cancelled and s7's eid 14618 stood
+        # at one coordinate for 4,200 ticks — a longer statue than the
+        # ones the earlier gates rejected. The body arrived through this
+        # seam and has no route without it, so the seal resolves it here
+        # and now rather than leaving a timer to notice later.
+        for oeid, oe in list(self.enemies.items()):
+            if oe.get("arrived_via") == breach_id:
+                self._withdraw_adversary(oeid, oe, "no_door")
         self.marrow.on_breach_sealed(breach_id)
         # the wound closing is an EVENT, not an absence: the sour snap,
         # a frame shudder, a last violet flare where the tear was, and
@@ -3283,28 +3384,16 @@ class GameSession:
         vulnerability."""
         s = self.sim
         t_ = self.tick_count
+
+        # ...and the strand reabsorbs WHEREVER it stands, which is the
+        # whole point: the stranded body is at a dead seam out in the
+        # world, so clearing its grace alone would have left it exactly
+        # where it was. Being home is one way to leave; giving up is the
+        # other.
         if polygon in self.hub.chambers.values() \
-                and t_ - e.get("arrived", -1 << 30) >= ADVERSARY_ARRIVAL_GRACE:
-            # it crossed into the marrow's own house: reabsorbed. Not a
-            # death — a DEPARTURE, and the two must not be the same
-            # entry in the books. It leaves the standing count either
-            # way, but it leaves as withdrawn, not as killed; the call
-            # channel frees immediately.
-            self.captures.release_for_entity(eid)
-            self.medium.release(eid)
-            self.adversary_census[e["kind"]] -= 1
-            self.adversary_withdrawn[e["kind"]] += 1
-            # it is out of the world, not out of the campaign: it may
-            # walk back out of a live breach once it has recovered
-            self.adversary_out.append(
-                (e["kind"], t_ + ADVERSARY_RECOVERY_TICKS))
-            _, _rx, _ry, *_ = s.get(eid)
-            self.trace.emit(AgentTransition(
-                tick=t_, entity_id=eid, agent_kind=e["kind"],
-                from_state=e["state"], to_state="reabsorbed",
-                x=round(_rx, 1), y=round(_ry, 1)))
-            self.enemies.pop(eid, None)
-            s.remove(eid)
+                and t_ - e.get("arrived", -1 << 30) \
+                >= e.get("grace", ADVERSARY_ARRIVAL_GRACE):
+            self._withdraw_adversary(eid, e, "home")
             return
         st = e.get("scout")
         # DAMAGE interrupts first — the "catch the transmitting agent"

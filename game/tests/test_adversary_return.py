@@ -15,7 +15,8 @@ from __future__ import annotations
 
 from perihelion.levels import LevelBuilder, load_level
 from perihelion.sim import (ADVERSARY_ARRIVAL_GRACE,
-                            ADVERSARY_RECOVERY_TICKS, GameSession,
+                            ADVERSARY_RECOVERY_TICKS,
+                            ADVERSARY_STRAND_TICKS, GameSession,
                             InputFrame)
 from perihelion.testkit.humanbot import HumanBot
 
@@ -153,3 +154,126 @@ def test_a_returned_body_cannot_immediately_go_home_again():
     assert eid not in s.enemies, (
         "past the grace, crossing home withdraws normally again")
     assert s.adversary_withdrawn["lacuna"] == 1
+
+
+def test_pacing_is_jittered_not_a_metronome():
+    """Gate 61: every observed return gap sat exactly on the recovery
+    floor and 12 of 21 bodies left on the exact tick the grace expired.
+    A constant that is only ever respected is never tested, and returns
+    that arrive on a beat teach the player a rhythm rather than a rule.
+    Both windows are sampled per body."""
+    b = LevelBuilder("RET", 1)
+    r0 = b.rect(0, 0, 400, 300)
+    b.player(r0, (150, 0))
+    s = GameSession(b.build(), seed=4, screen=(640, 360), zoom=0.45)
+    s.hub.chambers["_test_home"] = r0
+
+    due = []
+    for _ in range(24):
+        eid = s.spawn_enemy(r0, (0.0, 0.0), "lacuna")
+        s.enemies[eid]["scout"] = "flee"
+        s.enemies[eid]["arrived"] = -10 ** 6      # long since arrived
+        s.tick(InputFrame())
+        if s.adversary_out:
+            due.append(s.adversary_out[-1][1])
+    assert len(due) >= 8, "not enough withdrawals to judge the spread"
+    assert len(set(due)) > 1, (
+        "recovery is a metronome — every body came due on the same beat")
+    spread = max(due) - min(due)
+    assert spread > ADVERSARY_RECOVERY_TICKS // 8, (
+        f"recovery jitter is too tight to matter (spread {spread}t)")
+
+
+def test_arrival_grace_is_sampled_per_body():
+    """The grace must vary too, or bodies leave in lockstep."""
+    b = LevelBuilder("RET", 1)
+    r0 = b.rect(0, 0, 400, 300)
+    b.player(r0, (150, 0))
+    s = GameSession(b.build(), seed=9, screen=(640, 360), zoom=0.45)
+    graces = set()
+    for _ in range(40):
+        graces.add(ADVERSARY_ARRIVAL_GRACE
+                   + s.rng.randrange(0, ADVERSARY_ARRIVAL_GRACE + 1))
+    assert len(graces) > 1
+    assert min(graces) >= ADVERSARY_ARRIVAL_GRACE, (
+        "the constant is a FLOOR — jitter may only ever extend it, never "
+        "shorten the window that stops the bounce")
+
+
+def test_a_sealed_breach_takes_its_returns_with_it():
+    """Gates 62-64 all failed here, and every earlier attempt treated
+    the WINDOW. Revoking the grace only stripped the flag the strand
+    detector was gated on, so the two fixes cancelled and a body stood
+    at one coordinate for 4,200 ticks. A body that arrived through this
+    seam has no route without it: the seal resolves it now."""
+    level = load_level("../levels/gauntlet4.json")
+    s = GameSession(level, seed=4, screen=(640, 360), zoom=0.45)
+    bot = HumanBot(4)
+    for _ in range(12000):
+        s.tick(bot.step(s.snapshot(), s))
+        if s.breaches:
+            break
+    assert s.breaches, "no breach opened, nothing to seal"
+    bid = s.breaches[0]["obj"].breach_id
+
+    eid = next(e for e, v in s.enemies.items() if v["kind"] in ("lacuna",
+                                                               "vagrant"))
+    kind = s.enemies[eid]["kind"]
+    w0 = s.adversary_withdrawn[kind]
+    s.enemies[eid].update(arrived=s.tick_count, grace=600, arrived_via=bid)
+
+    s._seal_breach(bid, "test")
+    assert eid not in s.enemies, (
+        "a body whose door died must be resolved, not left standing")
+    assert s.adversary_withdrawn[kind] == w0 + 1, "it books as a departure"
+    assert s.adversary_lost[kind] == 0, "and never as a kill"
+
+
+def test_an_unrelated_seal_leaves_a_grace_alone():
+    """Only the door that granted it may revoke it."""
+    level = load_level("../levels/gauntlet4.json")
+    s = GameSession(level, seed=4, screen=(640, 360), zoom=0.45)
+    bot = HumanBot(4)
+    for _ in range(12000):
+        s.tick(bot.step(s.snapshot(), s))
+        if s.breaches:
+            break
+    assert s.breaches
+    bid = s.breaches[0]["obj"].breach_id
+    eid = next(iter(s.enemies))
+    s.enemies[eid].update(arrived=s.tick_count, grace=600,
+                          arrived_via=bid + 999)
+    s._seal_breach(bid, "test")
+    assert s.enemies[eid].get("grace") == 600, (
+        "a body that came through a different door keeps its window")
+
+
+def test_a_stranded_return_is_reabsorbed_where_it_stands():
+    """Gate 63: a returned body whose door sealed behind it stood 3,120
+    ticks at the dead seam, because revoking its grace gave it no route
+    — it was not in the marrow's house, so nothing took it back. A
+    second life that goes nowhere is spent: it reabsorbs in place."""
+    b = LevelBuilder("RET", 1)
+    r0 = b.rect(0, 0, 400, 300)
+    r1 = b.rect(900, 0, 200, 300)
+    b.connect(r0, 2, r1, 0)
+    b.player(r1, (1000, 150))
+    s = GameSession(b.build(), seed=4, screen=(640, 360), zoom=0.45)
+    eid = s.spawn_enemy(r0, (0.0, 0.0), "lacuna")
+    assert r0 not in s.hub.chambers.values(), (
+        "the body must be OUT IN THE WORLD, not in the marrow's house — "
+        "that is the case the hub check cannot reach")
+    s.enemies[eid]["arrived"] = s.tick_count
+    s.enemies[eid]["grace"] = 100000        # protected, and going nowhere
+    s.enemies[eid]["scout"] = "flee"
+    s.sim.set_vel(eid, 0.0, 0.0)
+
+    for _ in range(ADVERSARY_STRAND_TICKS + 400):
+        s.tick(InputFrame())
+        if eid not in s.enemies:
+            break
+    assert eid not in s.enemies, (
+        "a returned body that has gone still must be taken back rather "
+        "than left as a statue at a dead door")
+    assert s.adversary_withdrawn["lacuna"] == 1, "it books as a departure"
+    assert s.adversary_lost["lacuna"] == 0, "and never as a kill"

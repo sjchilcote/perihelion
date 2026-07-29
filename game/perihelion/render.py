@@ -1691,6 +1691,14 @@ class Renderer:
         self._screams: list[dict] = []
         self._floaters: list[dict] = []   # pickup text that rises + fades
         self._hitflash: dict[int, int] = {}
+        # the arrival tint: a returned Adversary's own body flares. Gate
+        # 62 proved a coloured LIGHT cannot carry this meaning -- the
+        # lighting multiply takes the room's albedo, so the same flare
+        # filmed warm-white in pink chambers and green only where the
+        # floor happened to cooperate. A symbol whose colour depends on
+        # the room is not a symbol. Same lesson _attacker_flash already
+        # learned against the breach-magenta wash.
+        self._arrival_flash: dict[int, int] = {}
         self._hurt_ticks = 0
         self._death_fade = 0
         self._dying = False
@@ -1783,6 +1791,11 @@ class Renderer:
             self._attacker_flash[eid] -= 1
             if self._attacker_flash[eid] <= 0:
                 del self._attacker_flash[eid]
+
+        for eid in list(self._arrival_flash):
+            self._arrival_flash[eid] -= 1
+            if self._arrival_flash[eid] <= 0:
+                del self._arrival_flash[eid]
 
         if self._hurt_ticks > 0:
             self._hurt_ticks -= 1
@@ -1879,6 +1892,12 @@ class Renderer:
             elif tag == "hitflash":
                 _, eid = fx
                 self._hitflash[eid] = 3
+            elif tag == "arrived":
+                # long enough to survive a 12fps capture sampling it:
+                # gate 62 found a 5-tick light "invisible as a distinct
+                # pulse at capture cadence" at every single arrival
+                _, eid = fx
+                self._arrival_flash[eid] = 26
             elif tag == "playerhurt":
                 self._hurt_ticks = 2
             elif tag == "playerdie":
@@ -3354,6 +3373,19 @@ class Renderer:
           connect points the outline does not — inside is not enclosed.
         """
         col = ADVERSARY_TRACE[kind]
+        # ONE OF THE FINITE ONES IS BACK. It has to be mixed HERE: this
+        # path ignores the fill/rim _draw_enemy computes, so the arrival
+        # tint (and, it turns out, _attacker_flash) were dead code for
+        # lacuna and vagrant — gate 63 proved it with a doused-slot A/B
+        # showing zero changed pixels at every blink phase. Every shell,
+        # tendril and chord below derives from `col`, so mixing once
+        # here flares the whole trace. Spring green: red is "this one
+        # hurt you", white is a hit, and it is the complement of the
+        # lacuna's own purple trace (185,140,255), the arrival that
+        # filmed weakest.
+        rf = self._arrival_flash.get(eid, 0)
+        if rf > 0 and (rf // 3) % 2 == 0:
+            col = _mix(col, (120, 255, 160), 0.85)
         if flashed:
             col = (255, 255, 255)
         if clip_screen is not None and not fully_inside \
@@ -3574,6 +3606,16 @@ class Renderer:
             # breach-magenta wash that dissolved the plain white flash
             fill = _mix(fill, (255, 60, 45), 0.75)
             rim = _mix(rim, (255, 120, 90), 0.9)
+        rf = self._arrival_flash.get(eid, 0)
+        if rf > 0 and not flashed and (rf // 3) % 2 == 0:
+            # ONE OF THE FINITE ONES IS BACK. On the body, not on the
+            # room: an emissive tint keeps its hue through the lightmap
+            # the way the attacker flash does. Spring green is unclaimed
+            # -- red is "this one hurt you", white is a hit, and it is
+            # the complement of the lacuna's purple body (62,48,92),
+            # which is the arrival that filmed weakest.
+            fill = _mix(fill, (120, 255, 160), 0.85)
+            rim = _mix(rim, (205, 255, 220), 0.95)
         if flashed:
             fill = rim = (255, 255, 255)
         if kind.startswith("core_"):
