@@ -405,3 +405,67 @@ Q2. Whether a frame must be a runtime object at all, or whether it can
 Q3. What the carrier of frame identity should BE, if not an allocated
     id — whether a coordinate system has anything intrinsic to be
     identified by.
+
+---
+
+# 12. Can a transported sentinel detect "same frame"? No — proof
+
+Director's question: is there a sentinel value we transform alongside
+the real vector, applying every transform to both, such that comparing
+sentinels detects "same reference frame" — without tracking frames?
+
+## 12.1 Counterexample
+
+Chambers A and C joined by two portals, P and Q. The transform through P
+is the identity; through Q it is translate(100, 0). Both are legitimate
+morphisms A→C. For a sentinel s0 in A:
+
+    via P:  s = s0
+    via Q:  s = s0 + (100, 0)
+
+The sentinels differ, but both results are genuinely C-coordinates. The
+test reports "different frames" and is wrong, violating R8 and R12.
+
+## 12.2 The general obstruction
+
+For a pushed-through sentinel to work there must be an assignment of a
+marker to each frame preserved by EVERY morphism:
+
+    T . s_A = s_B    for every T : A -> B
+
+That is an invariant section of the groupoid action. Composing any loop
+back to A requires h . s_A = s_A for every holonomy h at A. So the
+section exists **iff the holonomy group has a common fixed point**. A
+pure-translation holonomy has no fixed point at all, so generically no
+such marker exists.
+
+## 12.3 The one-line reason
+
+**The destination frame is not a function of the accumulated matrix.**
+A matrix is numbers; the same numbers can be a morphism between many
+different pairs of frames. The codomain is extra structural data carried
+by the morphism, not recoverable from it. No quantity pushed through the
+same matrices can reconstruct it, because the information was never in
+the numbers.
+
+Corollary: the variant where the sentinel accumulates the transform
+itself is route-dependent, so two values independently reaching screen
+space would be refused — breaking the case the director specifically
+requires.
+
+## 12.4 What survives, and why it is not the rejected "arbitrary id"
+
+The information must come from the morphism, because that is the only
+place it exists. So the tag rides on the value and the TRANSFORM writes
+it. No frame is ever named, looked up, or managed by a caller.
+
+The director's lerp example then works exactly as described: a body in B
+receives a displacement already transformed into B, samples points along
+it, compares them with its own position, and every line is ordinary
+single-frame Euclidean geometry. A vector transformed to the wrong place
+is refused at the first comparison.
+
+This differs from the rejected "allocated id" in the thing that matters:
+nobody allocates or maintains an identity. The identity IS the codomain
+of the morphism — structural data the topology already holds when it
+builds the transform.
