@@ -71,8 +71,13 @@ def run_seed(level, seed: int, ticks: int) -> dict:
     m["kills"] = s.metrics["kills"]
     m["census_start"] = census0
     m["census_end"] = dict(s.adversary_census)
-    m["scouts_killed"] = (sum(census0.values())
-                          - sum(s.adversary_census.values()))
+    # killed and withdrawn are DIFFERENT outcomes: withdrawal is the
+    # Adversary's normal one. Subtracting the end census from the start
+    # counted a body that walked home as a body the player put down.
+    m["scouts_killed"] = sum(s.adversary_lost.values())
+    m["scouts_withdrawn"] = sum(s.adversary_withdrawn.values())
+    m["census_lost"] = dict(s.adversary_lost)
+    m["census_withdrawn"] = dict(s.adversary_withdrawn)
     return m
 
 

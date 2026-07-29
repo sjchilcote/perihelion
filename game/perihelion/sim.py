@@ -628,10 +628,20 @@ class GameSession:
             dict(polygon=t.polygon, pos=t.pos, text=t.text, read=False)
             for t in level.terminals
         ]
-        # the finite Adversary census — every scout death is permanent.
-        # Initialized BEFORE the authored-entity loop: levels author
-        # scouts (ratified §1b), and spawn_enemy counts them as they land
+        # the finite Adversary census — how many are STANDING IN THE
+        # WORLD right now. Initialized BEFORE the authored-entity loop:
+        # levels author scouts (ratified §1b), and spawn_enemy counts
+        # them as they land.
         self.adversary_census = {k: 0 for k in ADVERSARY}
+        # ...and the two ways a body leaves that count, kept apart.
+        # Withdrawal is the Adversary's NORMAL outcome and death the
+        # exceptional one, so a tally that adds them together cannot see
+        # the difference between the player winning a fight and the
+        # enemy simply going home on schedule. Nothing in the sim reads
+        # these — they exist so the farm can report the two separately
+        # instead of one `census0 - census_end` lump.
+        self.adversary_lost = {k: 0 for k in ADVERSARY}       # killed
+        self.adversary_withdrawn = {k: 0 for k in ADVERSARY}  # departed
         for polygon, spec in level.entities:
             self._spawn_from_spec(polygon, spec)
 
@@ -1936,6 +1946,7 @@ class GameSession:
         e = self.enemies.pop(eid)
         if e["kind"] in ADVERSARY:
             self.adversary_census[e["kind"]] -= 1
+            self.adversary_lost[e["kind"]] += 1   # killed: the rare one
         kind = e["kind"]
         d = ENEMIES[kind]
         self.metrics["kills"] += 1
@@ -2148,13 +2159,22 @@ class GameSession:
                                                 else 1.0))
                 continue
 
-            if kind == "flicker":
+            if kind == "flicker" and e.get("dispatched") is None:
                 # Deliberately bypasses the standard idle/waking/hunt
                 # state machine entirely -- a flicker's resting behavior
                 # already IS an active state (holding low-light ground),
                 # not "wait until the player enters the polygon" like every
                 # other kind; see `_flicker_ai`'s own docstring for the
                 # LURK/AMBUSH/hunt/disengage state machine.
+                # DISPATCHED is generic locomotion, not this machine —
+                # the same gate the shrieker branch carries, and for the
+                # same reason: this branch `continue`s above the
+                # march/DELIVERED block, so an ungated dispatched flicker
+                # never marched, never shed the tag, and pinned its
+                # breach's route interest open. Gate 55 found that bug on
+                # the shrieker; gate 56 found it still latent here
+                # (bounded only because every dispatched flicker happened
+                # to die — one seal delayed 365t).
                 self._flicker_ai(eid, e, polygon, ppolygon, ex, ey, evx, evy)
                 continue
 
@@ -2343,6 +2363,20 @@ class GameSession:
                 # delivered body is an ordinary soldier; a quiet breach
                 # may seal and return its seam.
                 e.pop("dispatched", None)
+                # ...and "hunt" was the march's locomotion bookkeeping,
+                # not a sighting. A delivered caller kept state=hunt with
+                # no path back to rest (gate 56: 24,900 phantom
+                # shrieker-ticks bank-wide, worst 5707t) — standing
+                # still, seeing nothing, yet counting as a committed peer
+                # in every neighbour's quorum fraction. Hand the body
+                # back to its own machine at rest. A body that can
+                # actually see the player keeps hunting: only the lie is
+                # cleared, never a real engagement. `phase` is left
+                # alone — _shrieker_phase is its one writer and a
+                # delivered caller is already SENTINEL.
+                if self.senses.sight_of(eid, self.pid) is None:
+                    self._set_enemy_state(
+                        eid, e, "lurk" if kind == "flicker" else "idle")
             if e.get("dispatched") is not None \
                     and polygon in self._hub_chamber_set:
                 # the marrow's own house: a dispatched column knows the
@@ -3164,11 +3198,14 @@ class GameSession:
         t_ = self.tick_count
         if polygon in self.hub.chambers.values():
             # it crossed into the marrow's own house: reabsorbed. Not a
-            # death — a departure; the census decrement is permanent
-            # either way, and the call channel frees immediately.
+            # death — a DEPARTURE, and the two must not be the same
+            # entry in the books. It leaves the standing count either
+            # way, but it leaves as withdrawn, not as killed; the call
+            # channel frees immediately.
             self.captures.release_for_entity(eid)
             self.medium.release(eid)
             self.adversary_census[e["kind"]] -= 1
+            self.adversary_withdrawn[e["kind"]] += 1
             _, _rx, _ry, *_ = s.get(eid)
             self.trace.emit(AgentTransition(
                 tick=t_, entity_id=eid, agent_kind=e["kind"],
