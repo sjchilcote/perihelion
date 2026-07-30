@@ -13,7 +13,11 @@ real hole in a real map), so it warms the shipped level only until a
 breach exists and then puts a recovered body on the roster: a snapshot
 of a world where an Adversary is about to return.
 
-**The camera belongs to the AGENT.** A recording that follows the player
+**The camera belongs to the AGENT** — root, apex AND matrix. (The matrix
+was the missing third: `session.visible()` accepted a spectate camera and
+ignored it, so these clips moved the root to the agent and then framed the
+world through the player's camera. The body under test sat wherever it
+happened to fall.) A recording that follows the player
 is the wrong instrument for proving an enemy behavior — the feature
 happens wherever the enemy is, which is frequently off screen. "The
 scanners found no cyan" has already once meant "the arrival was off
@@ -83,30 +87,49 @@ def _adversary_label(s, eid):
 # scenarios
 # ---------------------------------------------------------------------------
 
-def _room(name, w=1100.0, h=750.0):
-    """A LIT room. An unlit builder room renders essentially black, and
-    a demo of a behavior nobody can see is not a demo — the first cut of
-    these scenarios produced 40 KB of near-empty frames."""
+# A demo chamber is sized to FILL THE FRAME at the gate's own zoom.
+# 1280 px / 0.45 = 2844 world units across; a 1100x750 room drew into a
+# quarter of the screen with black all round it, so the action sat in a
+# small bright island and the clip read as mostly nothing. Bodies stay at
+# their true scale (this is the zoom the game is judged at); it is the
+# room that grows to meet the frame.
+DEMO_W, DEMO_H = 2700.0, 1480.0
+
+
+def _room(name, w=DEMO_W, h=DEMO_H):
+    """A LIT room, frame-sized. An unlit builder room renders essentially
+    black, and a demo of a behavior nobody can see is not a demo — the
+    first cut of these scenarios produced 40 KB of near-empty frames."""
     b = LevelBuilder(name, 1)
     r0 = b.rect(0.0, 0.0, w, h)
-    b.player(r0, (0.0, 0.0))
+    # THE MIDDLE, in authored coordinates. `rect(0, 0, w, h)` puts its
+    # corner at the origin and the engine re-centres the polygon on its
+    # centroid, so authoring the player at (0, 0) parked him in the
+    # top-left corner while the lamps lit the centre — three quarters of
+    # every single-room clip was black, and the action happened in the one
+    # dark corner.
+    b.player(r0, (w * 0.5, h * 0.5))
     return b.build(), r0
 
 
 def _light(s, r0):
-    px, py = s.player_pos()
+    """Two static lamps in `r0`, placed in ITS OWN local frame (the
+    centroid is the origin, so (0,0) is the middle of the chamber). An
+    earlier cut placed them at the player's coordinates regardless of
+    which chamber it was lighting — which lit the right spot only when
+    the player happened to be in that chamber."""
     s.lighting.add_lights(s.sim, [
-        LightSpec(polygon=r0, pos=(px, py), color=(220, 225, 245),
-                  intensity=1.25, radius=760.0, kind="static"),
-        LightSpec(polygon=r0, pos=(px + 420.0, py), color=(255, 205, 170),
-                  intensity=1.0, radius=680.0, kind="static"),
+        LightSpec(polygon=r0, pos=(x, 0.0),
+                  color=(220, 225, 245) if i % 2 else (255, 205, 170),
+                  intensity=1.15, radius=1000.0, kind="static")
+        for i, x in enumerate((-900.0, -300.0, 300.0, 900.0))
     ])
 
 
 def _walk_toward(s, get_target):
     """Drive the player straight at a moving target, forever."""
     while True:
-        px, py = s.player_pos()
+        px, py = s.player_pos().local()
         tx, ty = get_target()
         dx, dy = tx - px, ty - py
         dist = (dx * dx + dy * dy) ** 0.5 or 1.0
@@ -114,27 +137,42 @@ def _walk_toward(s, get_target):
                          ax=INTERNAL_W / 2, ay=INTERNAL_H / 2)
 
 
-def scenario_shove():
-    """A player closing on a fleeing Adversary. The runner's answer is a
-    shove that buys it room, which is the entire behavior."""
-    level, r0 = _room("SHOVE")
-    s = GameSession(level, seed=4, screen=SCREEN, zoom=0.45)
+def scenario_lob():
+    """A player closing on a fleeing Adversary, ACROSS A DOORWAY. The
+    runner's answer is a rubber grenade — a large, heavy, slow object
+    whose momentum IS the knockback.
+
+    Two chambers on purpose, and this is the point of the clip: the
+    object is aimed on portal-composed coordinates. A single-rect
+    scenario is exactly the fixture that hid gate 66's frame bug, where
+    63 of 64 filmed fires crossed a chamber and the tool delivered once
+    in 57,600 ticks.
+
+    The player starts outside the 180u lob range, so the clip shows the
+    approach that provokes it — and the throw is unled, which suits a
+    panicking runner: it connects because the player is closing head-on,
+    not because the runner is a marksman."""
+    b = LevelBuilder("LOB", 1)
+    r0 = b.rect(0.0, 0.0, DEMO_W / 2, DEMO_H)
+    r1 = b.rect(DEMO_W / 2, 0.0, DEMO_W / 2, DEMO_H)
+    b.connect(r0, 2, r1, 0)
+    b.player(r1, (DEMO_W * 0.55, DEMO_H / 2))
+    s = GameSession(b.build(), seed=4, screen=SCREEN, zoom=0.45)
     s.tick(InputFrame())
+    _light(s, r1)
     _light(s, r0)
-    px, py = s.player_pos()
-    # OUTSIDE the 260u shove range: the player has to close before the
-    # runner answers, so the clip shows the approach that provokes it
-    eid = s.spawn_enemy(r0, (px + 470.0, py), "vagrant")
+    eid = s.spawn_enemy(r0, (480.0, 0.0), "vagrant")
     s.enemies[eid]["scout"] = "flee"
     s.enemies[eid]["scout_t"] = 10 ** 6      # it is running for the clip
 
     def target():
         if eid in s.enemies:
-            _, ex, ey, *_ = s.sim.get(eid)
-            return ex, ey
-        return s.player_pos()
+            hit = s.senses.sight_of(s.pid, eid)
+            if hit is not None:
+                return hit.pos.local()
+        return s.player_pos().local()
 
-    return s, eid, _walk_toward(s, target), _adversary_label, "shove_fire"
+    return s, eid, _walk_toward(s, target), _adversary_label, "lob_fire"
 
 
 def scenario_snare():
@@ -145,16 +183,16 @@ def scenario_snare():
     coordinates, and a single-rect scenario is exactly the fixture that
     hid gate 66's frame bug."""
     b = LevelBuilder("SNARE", 1)
-    r0 = b.rect(0.0, 0.0, 700.0, 520.0)
-    r1 = b.rect(700.0, 0.0, 900.0, 520.0)
+    r0 = b.rect(0.0, 0.0, DEMO_W / 2, DEMO_H)
+    r1 = b.rect(DEMO_W / 2, 0.0, DEMO_W / 2, DEMO_H)
     b.connect(r0, 2, r1, 0)
     # start OUTSIDE the 560u snare band so the clip shows the pursuit
     # that provokes it, not just the answer
-    b.player(r1, (1480.0, 260.0))
+    b.player(r1, (DEMO_W * 0.92, DEMO_H / 2))
     s = GameSession(b.build(), seed=4, screen=SCREEN, zoom=0.45)
     s.tick(InputFrame())
     _light(s, r1)
-    eid = s.spawn_enemy(r0, (300.0, 0.0), "vagrant")
+    eid = s.spawn_enemy(r0, (-300.0, 0.0), "vagrant")
     s.enemies[eid]["scout"] = "flee"
     s.enemies[eid]["scout_t"] = 10 ** 6
 
@@ -162,8 +200,8 @@ def scenario_snare():
         if eid in s.enemies:
             hit = s.senses.sight_of(s.pid, eid)
             if hit is not None:
-                return hit.position
-        return s.player_pos()
+                return hit.pos.local()
+        return s.player_pos().local()
 
     return s, eid, _walk_toward(s, target), _adversary_label, "snare_fire"
 
@@ -176,10 +214,10 @@ def scenario_mark():
     s = GameSession(level, seed=4, screen=SCREEN, zoom=0.45)
     s.tick(InputFrame())
     _light(s, r0)
-    px, py = s.player_pos()
+    px, py = s.player_pos().local()
     # far enough that SENTINEL -> WARNING -> APPROACH -> MARKING each get
     # screen time; close in and it fires before the label can show them
-    eid = s.spawn_enemy(r0, (px + 520.0, py + 90.0), "shrieker")
+    eid = s.spawn_enemy(r0, (px + 700.0, py + 120.0), "shrieker")
 
     def drive():
         while True:
@@ -220,10 +258,10 @@ def scenario_return(warmup_cap: int = 9000):
 
 
 FEATURES = {
-    "adversary_shove": dict(
-        build=scenario_shove, title="ADVERSARY SHOVE",
-        blurb="the defensive push that buys room to withdraw",
-        max_ticks=900, tail=240),
+    "adversary_lob": dict(
+        build=scenario_lob, title="ADVERSARY LOB (rubber grenade)",
+        blurb="thrown across a doorway; its momentum is the knockback",
+        max_ticks=1200, tail=300),
     "adversary_snare": dict(
         build=scenario_snare, title="ADVERSARY SNARE",
         blurb="the mid-range tool: buys time instead of distance",

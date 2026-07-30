@@ -13,6 +13,7 @@ dependencies = [
 dev = [
     "pytest",
     "maturin",
+    "mypy>=1.14",
     "pillow>=12.3.0",
     "hypothesis>=6.156.6",
     "scipy>=1.17.1",
@@ -47,3 +48,24 @@ testpaths = ["game/tests"]
 markers = [
     "slow: a slower test; deselect with '-m \"not slow\"' for a fast subset",
 ]
+
+# MYPY: what a type checker can and cannot prove about coordinate spaces.
+#
+# It proves the TYPE distinctions — place vs difference vs raw tuple — from
+# game/stubs/necore.pyi, statically: `place + place` has no overload and is
+# rejected before anything runs. It cannot prove space IDENTITY, because a
+# space id is a runtime value; that half raises FrameMismatch. Claiming
+# more than this would be dishonest (FRAME_SYSTEM_DESIGN_20260729.md §11).
+#
+# `check_untyped_defs` is the load-bearing setting: almost nothing in
+# game/perihelion carries annotations, and without it mypy would skip
+# every function body — including all the coordinate arithmetic this is
+# here to check.
+[tool.mypy]
+files = ["game/perihelion"]
+mypy_path = "game/stubs"
+python_version = "3.11"
+check_untyped_defs = true
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true

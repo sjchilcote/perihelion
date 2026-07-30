@@ -31,7 +31,7 @@ def _tick(s, n=1, **kw):
 def test_kill_drops_salvage_worth_score():
     s = _session()
     eid = s.spawn_enemy(0, (120.0, 0.0), "husk")
-    s._damage_enemy(eid, 999.0, (1.0, 0.0), 0.0, source="test")
+    s._damage_enemy(eid, 999.0, s.sim.get(eid).pos.offset(1.0, 0.0), 0.0, source="test")
     drops = [p for p in s.pickups.values() if p["kind"] == "components"]
     assert len(drops) == 1
     assert drops[0]["amount"] == ENEMIES["husk"]["score"]
@@ -39,7 +39,7 @@ def test_kill_drops_salvage_worth_score():
 
 def test_components_pickup_adds_to_wallet():
     s = _session()
-    px, py = s.player_pos()
+    px, py = s.player_pos().local()
     s.spawn_pickup(s.player_polygon(), (px + 2, py), "components",
                    extra=dict(amount=5))
     _tick(s, 2)
@@ -60,7 +60,7 @@ def test_death_drops_corpse_and_zeroes_carried_salvage():
 
 def test_multiple_corpses_accumulate():
     s = _session(components=3, chassis=2)
-    s.add_station(s.player_polygon(), s.player_pos())
+    s.add_station(s.player_polygon(), s.player_pos().local())
     s._damage_player(9999.0, s.player_polygon(), source="test")
     assert s.respawn_at_station()
     s.components = 4
@@ -73,13 +73,13 @@ def test_multiple_corpses_accumulate():
 def test_corpse_retrieval_returns_contents_exactly():
     s = _session(components=9, chassis=1)
     polygon = s.player_polygon()
-    pos = s.player_pos()
+    pos = s.player_pos().local()
     s.add_station(polygon, (pos[0] - 60, pos[1]))
     s._damage_player(9999.0, polygon, source="test")
     assert s.respawn_at_station()
     assert not s.dead and s.hp == s.max_hp and s.chassis == 0
     # walk back onto the wreck
-    s.sim.set_pos(s.pid, *pos)
+    s.sim.set_pos(s.pid, s.sim.place(s.player_polygon(), *pos))
     _tick(s, 2)
     assert s.components == 9
     assert not any(p["kind"] == "corpse_frame" for p in s.pickups.values())
@@ -91,13 +91,14 @@ def test_no_chassis_prints_at_the_starting_pod():
     is the walk from the START, not the nearest station."""
     s = _session(components=1)
     home = s.stations[0]
-    near = (s.player_pos()[0] - 40, s.player_pos()[1])
+    near = (s.player_pos().local()[0] - 40,
+            s.player_pos().local()[1])
     s.add_station(s.player_polygon(), near)
     s._damage_player(9999.0, s.player_polygon(), source="test")
     assert s.respawn_at_station(), "the home pod must always print"
     assert not s.dead and s.hp == s.max_hp and s.chassis == 0
     assert s.player_polygon() == home["polygon"]
-    px, py = s.player_pos()
+    px, py = s.player_pos().local()
     assert (round(px, 1), round(py, 1)) == (round(home["pos"][0], 1),
                                             round(home["pos"][1], 1)), \
         "a free print must come from the STARTING pod, not the nearest station"
@@ -135,7 +136,7 @@ def test_place_station_consumes_kit_and_anchors_here():
 
 def test_interact_at_station_opens_shop():
     s = _session()
-    s.add_station(s.player_polygon(), s.player_pos())
+    s.add_station(s.player_polygon(), s.player_pos().local())
     s.fx.clear()
     _tick(s, 1, interact=True)
     assert ("shop",) in s.fx
@@ -297,7 +298,7 @@ def test_mind_rides_state_snapshots():
 
 def test_thinking_survives_death_and_reprint():
     s = _session(components=9, chassis=1)
-    s.add_station(s.player_polygon(), s.player_pos())
+    s.add_station(s.player_polygon(), s.player_pos().local())
     assert s.set_focus("vocation-just-war")
     _tick(s, 30)
     s._damage_player(9999.0, s.player_polygon(), source="test")
@@ -365,12 +366,12 @@ def test_recall_channel_completes_at_the_seed():
     s = _session(components=10)
     assert s.buy("recall") and s.recalls == 1
     home = s.stations[0]
-    s.sim.set_pos(s.pid, home["pos"][0] + 80, home["pos"][1])
+    s.sim.set_pos(s.pid, s.sim.place(s.sim.get_polygon(s.pid), home["pos"][0] + 80, home["pos"][1]))
     assert s.use_recall()
     assert not s.use_recall()  # channel already open
     _tick(s, 95)
     assert s.recalls == 0 and s.recall_t == 0
-    px, py = s.player_pos()
+    px, py = s.player_pos().local()
     assert abs(px - home["pos"][0]) < 2 and abs(py - home["pos"][1]) < 2
 
 

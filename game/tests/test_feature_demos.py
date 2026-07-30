@@ -44,7 +44,7 @@ pytestmark = pytest.mark.skipif(
     reason="feature demo capture is opt-in: set PERIHELION_FEATURE_DEMOS=1",
 )
 
-FEATURES = ["adversary_return", "adversary_shove",
+FEATURES = ["adversary_return", "adversary_lob",
             "adversary_snare", "shrieker_mark"]
 
 

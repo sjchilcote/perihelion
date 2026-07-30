@@ -238,7 +238,7 @@ def test_sim_emissions_follow_the_fight():
     assert s.signals.sample(SignalKind.KIN, epoly, tk) > 0.0, \
         "a standing agent must thicken Kin"
     # kill it: Danger appears exactly where it died and nowhere else
-    s._damage_enemy(eid, 999.0, (1.0, 0.0), 0.0, source="test")
+    s._damage_enemy(eid, 999.0, s.sim.get(eid).pos.offset(1.0, 0.0), 0.0, source="test")
     tk = s.tick_count
     assert s.signals.sample(SignalKind.DANGER, epoly, tk) >= 0.40 - 1e-6
     assert s.signals.sample(SignalKind.DANGER, rb, tk) == 0.0

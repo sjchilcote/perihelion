@@ -184,9 +184,9 @@ def test_rooted_broadcast_timing_and_stillness():
             if st == "transmit":
                 if transmit_at is None:
                     transmit_at = t
-                    pos_at_root = s.sim.get(eid)[1:3]
+                    pos_at_root = s.sim.get(eid).pos.local()
                 else:
-                    x, y = s.sim.get(eid)[1:3]
+                    x, y = s.sim.get(eid).pos.local()
                     max_disp = max(max_disp,
                                    math.hypot(x - pos_at_root[0],
                                               y - pos_at_root[1]))
@@ -236,10 +236,10 @@ def test_damage_interrupts_and_census_is_permanent():
         if s.enemies[eid].get("scout") == "transmit":
             break
     assert s.enemies[eid].get("scout") == "transmit"
-    s._damage_enemy(eid, 5.0, (1.0, 0.0), 0.0, source="test")
+    s._damage_enemy(eid, 5.0, s.sim.get(eid).pos.offset(1.0, 0.0), 0.0, source="test")
     s.tick(InputFrame())
     assert s.enemies[eid].get("scout") == "flee", "damage must interrupt"
     assert s.medium.holder() is None, "interruption frees the channel"
     assert s.medium.pending(s.tick_count) == 0, "no imprint from a cut call"
-    s._damage_enemy(eid, 999.0, (1.0, 0.0), 0.0, source="test")
+    s._damage_enemy(eid, 999.0, s.sim.get(eid).pos.offset(1.0, 0.0), 0.0, source="test")
     assert s.adversary_census["lacuna"] == 0, "every death is permanent"

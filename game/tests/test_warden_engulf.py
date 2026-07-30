@@ -13,6 +13,10 @@ releases the grip on the very same tick.
 """
 from __future__ import annotations
 
+from types import SimpleNamespace
+
+import necore
+
 import inspect
 import math
 
@@ -60,6 +64,15 @@ def test_warden_ai_never_touches_player_hp():
 
 def test_one_captor_per_captive_and_same_tick_release():
     class W:
+        """A world stub in the shape the capture system now reads: places
+        are Coordinates, and pulling a captive toward a captor in another
+        chamber goes through `develop`. One space here (`ONE`), because
+        this vector is about who may hold whom, not about geometry — but
+        the types still have to be the real ones, or the fake is a lie
+        about the contract."""
+
+        ONE = necore.Space("CaptureTestChamber")
+
         def __init__(self):
             self.alive = {1, 2, 9}
             self.pos = {1: (0.0, 0.0), 2: (50.0, 0.0), 9: (10.0, 0.0)}
@@ -70,10 +83,17 @@ def test_one_captor_per_captive_and_same_tick_release():
 
         def get(self, i):
             x, y = self.pos[i]
-            return (i, x, y, 0.0, 0.0, 1.0, 0.0)
+            return SimpleNamespace(polygon=0, space=self.ONE,
+                                   pos=self.ONE.place(x, y),
+                                   vel=necore.Offset(self.ONE, 0.0, 0.0),
+                                   dir=necore.Offset(self.ONE, 1.0, 0.0))
 
-        def set_vel(self, i, vx, vy):
-            self.vel[i] = (vx, vy)
+        def develop(self, coord, into):
+            # one space: developing into it is the identity
+            return coord if coord.space == into else None
+
+        def set_vel(self, i, off):
+            self.vel[i] = off.local()
 
     w = W()
     cs = CaptureSystem()
@@ -119,7 +139,7 @@ def test_charge_flashes_twice_then_lunges_at_2_5x():
         if bright and not prev_bright:
             flashes += 1
         prev_bright = bright
-        vx, vy = s.sim.get(eid)[3:5]
+        vx, vy = s.sim.get(eid).vel.local()
         if e.get("engulf") == "charge":
             speeds.append(math.hypot(vx, vy))
         s.tick(InputFrame())
@@ -128,7 +148,7 @@ def test_charge_flashes_twice_then_lunges_at_2_5x():
     assert flashes == 2, f"the body must flash exactly twice, saw {flashes}"
     assert all(sp < 1.0 for sp in speeds), "charging warden must be rooted"
     assert s.enemies[eid].get("engulf") == "lunge"
-    vx, vy = s.sim.get(eid)[3:5]
+    vx, vy = s.sim.get(eid).vel.local()
     peak = math.hypot(vx, vy) / WARDEN_CRUISE
     assert 2.4 <= peak <= 2.6, f"lunge peak {peak:.2f}x cruise"
 
@@ -169,9 +189,9 @@ def test_glancing_hit_does_not_capture():
         if e is None:
             break
         if e.get("engulf") == "lunge":
-            vx, vy = s.sim.get(eid)[3:5]
-            px, py = s.player_pos()
-            _, ex, ey, *_ = s.sim.get(eid)
+            vx, vy = s.sim.get(eid).vel.local()
+            px, py = s.player_pos().local()
+            ex, ey = s.sim.get(eid).pos.local()
             dl = math.hypot(px - ex, py - ey) or 1e-6
             sp = math.hypot(vx, vy) or 1e-6
             dot = (vx * (px - ex) + vy * (py - ey)) / (sp * dl)

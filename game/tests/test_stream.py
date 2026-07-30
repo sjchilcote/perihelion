@@ -27,7 +27,7 @@ def _chunks(n=3):
 
 def _go(s, ws, polygon_target, point, max_ticks=2500, fire=False):
     for _ in range(max_ticks):
-        px, py = s.player_pos()
+        px, py = s.player_pos().local()
         if s.player_polygon() == polygon_target and \
                 abs(px - point[0]) + abs(py - point[1]) < 26:
             return True
@@ -71,7 +71,7 @@ def test_stream_lazy_load_arrival_and_completion():
     lvl2 = c2["level"]
     assert _go(s, ws, lvl2.exit_polygon + c2["offset"], lvl2.exit_pos, fire=True)
     for _ in range(120):
-        px, py = s.player_pos()
+        px, py = s.player_pos().local()
         mx, my = nav_to_point(s, px, py, lvl2.exit_pos)
         s.tick(InputFrame(mx=mx, my=my))
         ws.tick()

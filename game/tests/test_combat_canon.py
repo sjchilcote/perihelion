@@ -82,15 +82,15 @@ def test_impulse_mass_law_exact():
     s = GameSession(level, seed=3)
     husk = s.spawn_enemy(r0, (100.0, 100.0), "husk")      # mass 1.6
     warden = s.spawn_enemy(r0, (100.0, -100.0), "warden")  # mass 12.0
-    s.sim.apply_impulse(husk, 400.0, 0.0)
-    s.sim.apply_impulse(warden, 400.0, 0.0)
-    dv_h = s.sim.get(husk)[3]
-    dv_w = s.sim.get(warden)[3]
+    s.sim.apply_impulse(husk, s.sim.get(husk).pos.offset(400.0, 0.0))
+    s.sim.apply_impulse(warden, s.sim.get(warden).pos.offset(400.0, 0.0))
+    dv_h = s.sim.get(husk).vel.local()[0]
+    dv_w = s.sim.get(warden).vel.local()[0]
     assert abs(dv_h - 400.0 / 1.6) < 1e-9
     assert abs(dv_w - 400.0 / 12.0) < 1e-9
     assert abs(dv_h / dv_w - 12.0 / 1.6) < 1e-9
     with pytest.raises(ValueError):
-        s.sim.apply_impulse(999999, 1.0, 0.0)
+        s.sim.apply_impulse(999999, s.sim.get(999999).pos.offset(1.0, 0.0))
 
 
 # ---------------------------------------------------------------------------
@@ -101,12 +101,13 @@ def test_four_rail_shots_kill_a_warden():
     level, r0 = _arena(800.0)
     s = GameSession(level, seed=3)
     eid = s.spawn_enemy(r0, (60.0, 0.0), "warden")
-    px, py = s.player_pos()
+    at = s.player_pos()
+    east = at.offset(1.0, 0.0)
     for i in range(3):
-        s._fire_rail(s.player_polygon(), px, py, 1.0, 0.0)
+        s._fire_rail(at, east)
         assert eid in s.enemies, f"warden died on rail hit {i + 1}"
     assert abs(s.enemies[eid]["hp"] - 42.0) < 1e-9, "3 rails must leave 42"
-    s._fire_rail(s.player_polygon(), px, py, 1.0, 0.0)
+    s._fire_rail(at, east)
     assert eid not in s.enemies, "4 rails must kill a 168 warden"
 
 
@@ -161,7 +162,7 @@ def test_full_tau_aoe_reaches_20u_not_60u():
     hit = (near not in s.enemies) or s.enemies[near]["hp"] < hp_near0
     assert hit, "20u neighbor must take AoE damage"
     if near in s.enemies:
-        vy = s.sim.get(near)[4]
+        vy = s.sim.get(near).vel.local()[1]
         assert vy > 0.0, "20u neighbor must be pushed outward"
     assert far in s.enemies and s.enemies[far]["hp"] == hp_far0, (
         "60u body must be unaffected by the 48u burst")
@@ -190,7 +191,7 @@ def _player_terminal(level):
     top = 0.0
     for _ in range(600):
         s.tick(InputFrame(mx=1.0))
-        vx, vy = s.sim.get(s.pid)[3:5]
+        vx, vy = s.sim.get(s.pid).vel.local()
         top = max(top, math.hypot(vx, vy))
     return top
 
@@ -203,12 +204,13 @@ def _enemy_terminal(level, r0, kind):
     s.enemies[eid]["state"] = "hunt"
     top = 0.0
     for _ in range(600):
-        _, ex, ey, *_ = s.sim.get(eid)
-        s.sim.set_pos(s.pid, min(1450.0, ex + 800.0), 0.0)
+        ex, ey = s.sim.get(eid).pos.local()
+        s.sim.set_pos(s.pid, s.sim.place(s.player_polygon(),
+                                         min(1450.0, ex + 800.0), 0.0))
         s.tick(InputFrame())
         if eid not in s.enemies or not s.sim.exists(eid):
             break
-        vx, vy = s.sim.get(eid)[3:5]
+        vx, vy = s.sim.get(eid).vel.local()
         top = max(top, math.hypot(vx, vy))
     return top
 
@@ -231,14 +233,16 @@ def _reversal_ticks_enemy(level, r0, kind):
     s = GameSession(level, seed=5)
     eid = s.spawn_enemy(r0, (0.0, 0.0), kind)
     s.enemies[eid]["state"] = "hunt"
-    s.sim.set_pos(s.pid, 600.0, 0.0)
+    s.sim.set_pos(s.pid, s.sim.place(s.sim.get_polygon(s.pid), 600.0, 0.0))
     for _ in range(240):
         s.tick(InputFrame())
-    s.sim.set_pos(s.pid, *_north_of(s, eid))
+    s.sim.set_pos(s.pid, s.sim.place(s.player_polygon(),
+                                     *_north_of(s, eid)))
     for t in range(1, 601):
         s.tick(InputFrame())
-        s.sim.set_pos(s.pid, *_north_of(s, eid))
-        vx, vy = s.sim.get(eid)[3:5]
+        s.sim.set_pos(s.pid, s.sim.place(s.player_polygon(),
+                                     *_north_of(s, eid)))
+        vx, vy = s.sim.get(eid).vel.local()
         sp = math.hypot(vx, vy)
         if sp > 30.0 and vy < 0 and abs(vx) < -vy * math.tan(math.radians(30)):
             return t
@@ -246,7 +250,7 @@ def _reversal_ticks_enemy(level, r0, kind):
 
 
 def _north_of(s, eid):
-    _, ex, ey, *_ = s.sim.get(eid)
+    ex, ey = s.sim.get(eid).pos.local()
     return ex, max(-380.0, ey - 500.0)
 
 
@@ -256,7 +260,7 @@ def _reversal_ticks_player(level):
         s.tick(InputFrame(mx=1.0))
     for t in range(1, 601):
         s.tick(InputFrame(my=-1.0))
-        vx, vy = s.sim.get(s.pid)[3:5]
+        vx, vy = s.sim.get(s.pid).vel.local()
         sp = math.hypot(vx, vy)
         if sp > 30.0 and vy < 0 and abs(vx) < -vy * math.tan(math.radians(30)):
             return t

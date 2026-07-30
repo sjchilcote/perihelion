@@ -21,8 +21,8 @@ def two_polygon_sim():
 
 def test_transfer_preserves_speed_and_changes_polygon():
     sim, a, b = two_polygon_sim()
-    eid = sim.spawn(a, 0.0, 0.0, 5.0, 1.0, 0)
-    sim.set_vel(eid, 200.0, 0.0)
+    eid = sim.spawn(sim.place(a, 0.0, 0.0), 5.0, 1.0, 0)
+    sim.set_vel(eid, sim.get(eid).pos.offset(200.0, 0.0))
 
     transfer = None
     for _ in range(600):
@@ -38,7 +38,11 @@ def test_transfer_preserves_speed_and_changes_polygon():
     assert from_polygon == a
     assert to_polygon == b
 
-    polygon, px, py, vx, vy, dx, dy = sim.get(eid)
+    st = sim.get(eid)
+    polygon = st.polygon
+    px, py = st.pos.local()
+    vx, vy = st.vel.local()
+    dx, dy = st.dir.local()
     assert polygon == b
     speed = math.hypot(vx, vy)
     assert abs(speed - 200.0) < 1e-6
@@ -66,13 +70,18 @@ def test_raycast_crosses_portal_and_hits_far_wall():
     sim, a, b = two_polygon_sim()
     # From the centroid of polygon a, straight through the shared edge (edge 2,
     # the +x side) into polygon b, which should report a wall hit in polygon b.
-    kind, polygon, edge, px, py, dist, hops, m9 = sim.raycast(
-        a, 0.0, 0.0, 1.0, 0.0, 4, 1000.0, 0xFFFF, -1
-    )
-    assert kind == "wall"
-    assert polygon == b
-    assert hops >= 1
-    assert dist > 50.0  # travelled past the shared edge into b
+    origin = sim.place(a, 0.0, 0.0)
+    hit = sim.raycast(origin, origin.offset(1.0, 0.0), 4, 1000.0, 0xFFFF, -1)
+    assert hit.kind == "wall"
+    assert hit.polygon == b
+    assert hit.hops >= 1
+    assert hit.distance > 50.0  # travelled past the shared edge into b
+    # the hit place is in the HIT polygon's space, and the composition
+    # back to the space the ray was fired from is named
+    assert hit.pos.space == sim.polygon_space(b)
+    assert hit.to_origin.from_space == sim.polygon_space(b)
+    assert hit.to_origin.to_space == sim.polygon_space(a)
+    assert hit.pos.transformed(hit.to_origin).space == sim.polygon_space(a)
 
 
 def test_mat_helpers_roundtrip():

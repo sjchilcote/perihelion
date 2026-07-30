@@ -129,23 +129,23 @@ def test_walk_mask_blocks_player_movement(tmp_path, monkeypatch):
     # tunnel through.
     session, w, h = _polygon0_mask_session(tmp_path, monkeypatch, (200, 150, 280, 210))
     sim = session.sim
-    sim.set_pos(session.pid, -60.0, 0.0)
-    sim.set_vel(session.pid, 150.0, 0.0)
+    sim.set_pos(session.pid, sim.place(sim.get_polygon(session.pid), -60.0, 0.0))
+    sim.set_vel(session.pid, sim.get(session.pid).pos.offset(150.0, 0.0))
     for _ in range(120):
         sim.step(1.0 / 60.0)
-    _, px, py, *_ = sim.get(session.pid)
+    px, py = sim.get(session.pid).pos.local()
     assert px < -13.0 + 1.0, f"player tunneled through walk-mask terrain: pos ({px},{py})"
 
 
 def test_walk_mask_blocks_projectiles(tmp_path, monkeypatch):
     session, w, h = _polygon0_mask_session(tmp_path, monkeypatch, (200, 150, 280, 210))
     sim = session.sim
-    bid = sim.spawn(0, -60.0, 0.0, 1.5, 0.01, 2)  # GROUP_PBULLET
+    bid = sim.spawn(sim.place(0, -60.0, 0.0), 1.5, 0.01, 2)  # GROUP_PBULLET
     sim.set_props(bid, rest_wall=0.0, max_substep=3.0)
-    sim.set_vel(bid, 2000.0, 0.0)
+    sim.set_vel(bid, sim.get(bid).pos.offset(2000.0, 0.0))
     for _ in range(30):
         sim.step(1.0 / 60.0)
-    _, bx, by, *_ = sim.get(bid)
+    bx, by = sim.get(bid).pos.local()
     assert bx < -13.0 + 1.0, f"projectile passed through walk-mask terrain: pos ({bx},{by})"
 
 

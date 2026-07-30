@@ -80,7 +80,7 @@ caught by a filmed playtest gate, and it cost two full gate cycles.
 
 I added a defensive weapon to an enemy. The aiming code did this:
 
-    px, py = self.player_pos()          # the PLAYER's polygon frame
+    px, py = self.player_pos().local()          # the PLAYER's polygon frame
     dx, dy = px - ex, py - ey           # (ex, ey) is the SHOOTER's frame
     dist = math.hypot(dx, dy)
     if dist > d["shove_range"]: return
@@ -98,7 +98,7 @@ Two aggravating details that matter for the design:
 
 1. The correct value was ALREADY IN HAND. The same function called
    `senses.sight_of(eid, pid)`, which returns a `SenseHit` carrying a
-   `.position` already composed into the observer's frame and a real
+   `.pos.local()` already composed into the observer's frame and a real
    `.distance`. The code computed a worse answer from raw parts instead
    of reading the composed one it had just been handed.
 
@@ -142,7 +142,7 @@ Python (game/perihelion/senses.py), the one part that is already right:
     def sight_of(self, observer: int, target: int) -> SenseHit | None
 
 So `SenseHit` is already a "trace" in the director's sense. Its
-`.position` is already composed. The type system just does not stop
+`.pos.local()` is already composed. The type system just does not stop
 anyone from ignoring it and subtracting raw `get()` coordinates instead,
 which is exactly what happened.
 

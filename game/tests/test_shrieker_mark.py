@@ -158,7 +158,7 @@ def test_branded_crossing_lays_the_doorway_trail():
 def _brand_diff(s, r, moving):
     surf = (640, 360)
     if moving:
-        s.sim.set_vel(s.pid, 120.0, 40.0)
+        s.sim.set_vel(s.pid, s.sim.get(s.pid).pos.offset(120.0, 40.0))
     base = r.draw(surf).astype(np.int32)
     s.brand.renew(1)
     branded = r.draw(surf).astype(np.int32)
@@ -447,7 +447,7 @@ def test_a_dispatched_caller_marches_delivers_and_only_then_posts():
 def test_being_shot_is_first_hand_and_does_cry():
     s = _blind_arena()
     eid = _blind_sentinel(s)
-    s._damage_enemy(eid, 1.0, (1.0, 0.0), 0.0, source="test")
+    s._damage_enemy(eid, 1.0, s.sim.get(eid).pos.offset(1.0, 0.0), 0.0, source="test")
     _tick(s)
     e = s.enemies[eid]
     assert _phase(e) == "warning", "a shot sentinel did not raise the alarm"

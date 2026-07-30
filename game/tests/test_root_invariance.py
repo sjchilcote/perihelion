@@ -481,8 +481,9 @@ def test_jamb_walls_visible_before_crossing_within_apex_clamp_margin(
     # fresh tick): spawning within a wall's push-out margin triggers the
     # engine's own spawn-clear physics, which relocates the entity on its
     # first step -- exactly the kind of confound this test must not have.
-    session.sim.set_pos(session.pid, 60.0 - dist, 0.0)
-    session.sim.set_vel(session.pid, 0.0, 0.0)
+    session.sim.set_pos(session.pid, session.sim.place(session.sim.get_polygon(session.pid), 60.0 - dist, 0.0))
+    session.sim.set_vel(session.pid,
+                        session.sim.get(session.pid).pos.offset(0.0, 0.0))
     assert session.player_polygon() == rA, "test setup crossed early"
     assert dist <= session._APEX_EPS, "test setup outside the clamp-pinned band"
 

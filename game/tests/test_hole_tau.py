@@ -23,13 +23,13 @@ def test_portable_hole_links_two_walls():
     for _ in range(40):
         s.tick(InputFrame(mx=1.0))
     assert s.holes == 2 and "hole" in s.weapons
-    px, py = s.player_pos()
+    px, py = s.player_pos().local()
     ax, ay = necore.mat_apply(s.cam, px, py - 50)
     s.tick(InputFrame(weapon=8, ax=ax, ay=ay, fire=True))
     assert s.hole_mark is not None
     for _ in range(20):
         s.tick(InputFrame())
-    px, py = s.player_pos()
+    px, py = s.player_pos().local()
     ax2, ay2 = necore.mat_apply(s.cam, px, py + 50)
     s.tick(InputFrame(ax=ax2, ay=ay2, fire=True))
     assert s.hole_mark is None and s.holes == 1
@@ -64,7 +64,7 @@ def test_tau_primary_ricochets_and_charged_shot_fires():
         s.tick(InputFrame(mx=1.0))
     assert "tau" in s.weapons and s.ammo["cell"] >= 8
     # primary at a wall: bullet should ricochet (still alive after wall hit)
-    px, py = s.player_pos()
+    px, py = s.player_pos().local()
     ax, ay = necore.mat_apply(s.cam, px + 40, py - 60)
     s.tick(InputFrame(weapon=7, ax=ax, ay=ay, fire=True))
     assert any(bl["kind"] == "tau" for bl in s.bullets.values())

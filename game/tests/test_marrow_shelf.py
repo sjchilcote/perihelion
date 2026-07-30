@@ -112,7 +112,7 @@ def test_sim_posts_the_replacement_body_in_a_court():
     s = _world()
     victim = s.hub_shelf[0]
     kind = s.enemies[victim]["kind"]
-    s._damage_enemy(victim, 9999.0, (1.0, 0.0), 0.0, source="test")
+    s._damage_enemy(victim, 9999.0, s.sim.get(victim).pos.offset(1.0, 0.0), 0.0, source="test")
     assert victim not in s.enemies
     events = []
     # kill-freeze ticks return before the marrow runs, so drive on the

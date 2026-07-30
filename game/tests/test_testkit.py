@@ -126,7 +126,8 @@ def test_replay_record_play_roundtrip_identical_final_state():
     assert replayed_session.tick_count == session.tick_count
     assert replayed_session.hp == session.hp
     assert replayed_metrics["kills"] == session.metrics["kills"]
-    assert replayed_session.player_pos() == session.player_pos()
+    assert replayed_session.player_pos().local() \
+        == session.player_pos().local()
     assert replayed_session.dead == session.dead
     assert replayed_session.complete == session.complete
 
@@ -155,7 +156,8 @@ def test_replay_save_load_gzip_roundtrip():
     replayed_session, _ = play(loaded)
     assert replayed_session.tick_count == session.tick_count
     assert replayed_session.hp == session.hp
-    assert replayed_session.player_pos() == session.player_pos()
+    assert replayed_session.player_pos().local() \
+        == session.player_pos().local()
 
 
 # ---------------------------------------------------------------------------

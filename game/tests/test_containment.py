@@ -22,10 +22,10 @@ def test_escaped_enemy_is_recovered():
     game-level sweep (6 consecutive 30-tick strikes) can even arm."""
     s = GameSession(_level(), seed=1)
     eid = next(iter(s.enemies))
-    s.sim.set_pos(eid, 4000.0, -4000.0)  # far outside the polygon polygon
+    s.sim.set_pos(eid, s.sim.place(s.sim.get_polygon(eid), 4000.0, -4000.0))  # far outside the polygon polygon
     for _ in range(3):
         s.tick(InputFrame())
-    _, x, y, *_ = s.sim.get(eid)
+    x, y = s.sim.get(eid).pos.local()
     assert GameSession._outside_by(x, y, s.level.polygon_verts[0]) <= 1e-6
     # the sweep stayed silent: the engine fixed it first
     for _ in range(200):

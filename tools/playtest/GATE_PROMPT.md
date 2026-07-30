@@ -13,6 +13,21 @@ is newer than every file under game/ and levels/.
 `uv run python tools/playtest/ground_truth.py <dir>` computes hard
 per-session facts. The ratified design is DESIGN_7_25.md.
 
+The full test suite for the code under judgement has ALREADY BEEN RUN;
+its output is out/eval_gate/pytest.log (check it is newer than game/ and
+levels/, as with the film). Read it rather than re-running it — a fresh
+run takes sixteen minutes and you do not have a second turn to collect it
+in.
+
+YOU HAVE EXACTLY ONE TURN. This runs as `claude -p`: there is no next
+turn to come back on. Anything you start in the background — a film, a
+test run, a Workflow, a subagent — you must WAIT for inside this turn.
+Ending your turn with work outstanding kills that work and produces no
+verdict at all, which is worse than any verdict; runs 69 and 69b both
+died that way, one of them ten minutes in with the film half rendered.
+This says nothing about the standard you apply — only about not walking
+away from your own instruments.
+
 The question:
 
     Is P(this is a fun, critically acclaimed, commercially

@@ -119,6 +119,35 @@ def _chain(n_rooms, w=300, h=200):
     return b, rooms
 
 
+def _bent_chain(n_rooms, w=200):
+    """A chain of square chambers where every doorway TURNS A CORNER: each
+    room's right edge is glued to the next room's TOP edge, so the
+    developed corridor makes a quarter turn at every threshold. Nothing
+    past the second chamber is on a straight line from the first, so sight
+    genuinely fails there.
+
+    A straight chain does NOT do this any more, and the tests that used one
+    were relying on an accident. The confirming ray used to be hardcoded to
+    three doorways while the transform walk was allowed twelve, so a body
+    four chambers down an open corridor composed a correct position and was
+    then refused — a straight sightline denied by a magic number, which is
+    the third failure the coordinate work exists to delete
+    (docs/FRAME_SYSTEM_DESIGN_20260729.md §12). With the ray given the same
+    reach as the walk, that body can see the player, and it is right to.
+    Testing "sees nothing" now needs a world with nothing to see.
+
+    Note that DRAWING the rooms in an L would not have been enough: gluing
+    a right edge to a left edge is a straight continuation however the
+    rooms are laid out on paper, because the portal transform is what
+    decides the geometry. The turn has to be in the gluing."""
+    b = LevelBuilder("COORDB", 1)
+    rooms = [b.rect(i * w, 0, w, w) for i in range(n_rooms)]
+    for i in range(n_rooms - 1):
+        b.connect(rooms[i], 2, rooms[i + 1], 3)   # right -> top: a corner
+    b.player(rooms[0], (w // 2, w // 2))
+    return b, rooms
+
+
 def test_raid_flag_demographics():
     b, rooms = _chain(2)
     s = GameSession(b.build(), seed=11)
@@ -131,9 +160,9 @@ def test_raid_flag_demographics():
 
 
 def test_stand_down_exits_hunt_at_300_quiet_ticks():
-    # five rooms: the far hunter is 4 hops out — beyond even a straight
-    # sightline (VISION_HOPS = 3), so nothing keeps it committed
-    b, rooms = _chain(5)
+    # five chambers in a ZIGZAG: the far hunter is 4 doorways out and,
+    # unlike a straight chain, genuinely cannot see the player from there
+    b, rooms = _bent_chain(5)
     s = GameSession(b.build(), seed=11)
     eid = s.spawn_enemy(rooms[4], (0.0, 0.0), "husk")
     s.enemies[eid]["state"] = "hunt"

@@ -45,9 +45,9 @@ def _pinned_scene():
 
 def test_a_keep_apart_demand_that_keeps_nothing_apart_yields():
     s, victim, wall = _pinned_scene()
-    _, x0, y0, *_ = s.sim.get(victim)
+    x0, y0 = s.sim.get(victim).pos.local()
     _tick(s, SEP_FUTILE_TICKS + 240)
-    _, x1, y1, *_ = s.sim.get(victim)
+    x1, y1 = s.sim.get(victim).pos.local()
     moved = abs(x1 - x0) + abs(y1 - y0)
     assert moved > 8.0, (
         f"the wedged hunter travelled {moved:.2f}u in "

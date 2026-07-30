@@ -28,7 +28,7 @@ def test_floater_renders_with_all_other_pools_empty():
     for _ in range(5):
         s.tick(idle)
         r.consume_fx(s.fx)
-    px, py = s.player_pos()
+    px, py = s.player_pos().local()
     s.spawn_pickup(s.player_polygon(), (px + 6, py), "ammo_shell")
     for _ in range(3):
         s.tick(idle)

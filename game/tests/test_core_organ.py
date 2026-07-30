@@ -36,7 +36,7 @@ def _world():
 def _rail_hit(s, eid, n=1):
     for _ in range(n):
         if eid in s.enemies:
-            s._damage_enemy(eid, WEAPONS["rail"]["dmg"], (1.0, 0.0), 0.0,
+            s._damage_enemy(eid, WEAPONS["rail"]["dmg"], s.sim.get(eid).pos.offset(1.0, 0.0), 0.0,
                             source="rail")
 
 

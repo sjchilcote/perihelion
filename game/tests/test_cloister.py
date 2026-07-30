@@ -26,7 +26,7 @@ def _session():
 
 def _go_to(s, polygon_target, point, max_ticks=1200):
     for _ in range(max_ticks):
-        px, py = s.player_pos()
+        px, py = s.player_pos().local()
         if s.player_polygon() == polygon_target and \
                 abs(px - point[0]) + abs(py - point[1]) < 20:
             return True
@@ -55,7 +55,7 @@ def test_core_pickup_builds_pocket_with_guardians():
 def test_link_enter_exit_and_rotation():
     s = _session()
     c = s.cloister
-    px, py = s.player_pos()
+    px, py = s.player_pos().local()
     ax, ay = necore.mat_apply(s.cam, px, py - 60)
     s.tick(InputFrame(weapon=8, ax=ax, ay=ay, fire=True))
     assert len(c["links"]) == 1 and c["attached"] == 0
@@ -65,7 +65,7 @@ def test_link_enter_exit_and_rotation():
     assert _go_to(s, 1, (0, 0))
     for _ in range(40):
         s.tick(InputFrame())
-    px, py = s.player_pos()
+    px, py = s.player_pos().local()
     ax, ay = necore.mat_apply(s.cam, px, py + 60)
     s.tick(InputFrame(weapon=8, ax=ax, ay=ay, fire=True))
     assert len(c["links"]) == 2 and c["attached"] == 1
@@ -81,7 +81,7 @@ def test_guardians_kill_pursuers():
         s.tick(InputFrame())  # the mite notices on sight; no gunfire needed
     for _ in range(30):
         s.tick(InputFrame())
-    px, py = s.player_pos()
+    px, py = s.player_pos().local()
     ax, ay = necore.mat_apply(s.cam, px, py + 60)
     s.tick(InputFrame(weapon=8, ax=ax, ay=ay, fire=True))
     hub_polys = set(s.hub.chambers.values())

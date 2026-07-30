@@ -116,7 +116,7 @@ def _drive(session):
     for name, ((tx, ty), hold_ticks) in zip(MARK_NAMES, WAYPOINTS):
         stall = 0
         while True:
-            px, py = session.player_pos()
+            px, py = session.player_pos().local()
             dx, dy = tx - px, ty - py
             dist = (dx * dx + dy * dy) ** 0.5
             mark = None

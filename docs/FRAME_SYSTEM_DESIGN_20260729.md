@@ -5,6 +5,11 @@ Status: **settled in conversation with the director. Authoritative.**
 
 Companion documents, each with a distinct job:
 
+* `docs/FRAME_SYSTEM_REDTEAM_20260729.md` — five readers implementing
+  advanced operations from the documentation alone, what they got right,
+  and every gap they found (all closed, one of which added an engine
+  primitive).
+
 * `docs/FRAME_ALGEBRA_NOTES_20260729.md` — the reasoning and the
   impossibility proofs behind the choices here. Read it to understand
   *why*, not *what*.
@@ -99,9 +104,13 @@ error later.
 A **report of a sighting**, returned by perception. Not a proxy for an
 entity; a record about one.
 
-* the entity **id**, resolved lazily so it reads `None` once the entity
-  is in no polygon, without a Track keeping a removed entity alive and
-  valid-looking;
+* the entity **id** as it was at the sighting. (The plan said "resolved
+  lazily so it reads `None` once the entity is in no polygon". Built
+  otherwise, on reflection: a Track is a snapshot, and "does that body
+  still exist" is a question about the world NOW — `sim.exists(id)`.
+  Making one field a live query is the two-moments confusion the tick
+  stamp exists to prevent. A Track holds an integer, so it cannot keep
+  anything alive to begin with.)
 * a Coordinate in the space the caller asked for;
 * the tick of the sighting;
 * relational facts already computed.
@@ -193,6 +202,12 @@ the generator and owns the consequences.
 
 **`sim.get` returning a Coordinate in that entity's own space is the
 whole gate on the Python side.** Confirmed with the director.
+
+*As built:* `sim.get(id)` returns an `EntityState` whose `pos` is that
+Coordinate, alongside `vel` and `dir` as Offsets and `polygon` as a bare
+index. The fields allocate only when read, so `st.polygon` costs nothing;
+`st.space`, `st.pos.space`, `st.vel.space` and `st.dir.space` are all the
+same space. The stub (`game/stubs/necore.pyi`) is authoritative on shape.
 
 Consequences:
 
@@ -287,13 +302,230 @@ calls against only 13 uses of the composed `sight_of` path.
 * A Track holds values computed at one tick, and that tick must be
   visible or an old answer reads as current. This is the same
   silent-wrongness shape as the frame bug, in time rather than space.
+  **Built:** `Track.tick`, stamped at the query.
 * A fact computed on demand evaluates against the current world while
   the Coordinate is a snapshot of an earlier one, so a Track must not
-  hold two moments without saying so.
+  hold two moments without saying so. **Built:** every field on a Track
+  is computed at the one instant it reports; nothing is lazy.
 * A distance is a scalar and a scalar has no space, so a threshold
   expressed in one space is not comparable with a distance measured in
   another. Under a scaling portal this is live, and it already affects
-  the range constants shipped today.
+  the range constants shipped today. **Still open** — see §13.
 * What mypy proves is the type distinctions — Coordinate versus Offset
   versus a raw tuple — and not space identity, because the id is a
   runtime value. Claiming more than that would be dishonest.
+
+---
+
+# AS BUILT — 2026-07-29
+
+Everything in §1–§10 shipped. This section records what the code does,
+where it deviates from the plan above and why, and what the system found
+the moment it met the existing codebase.
+
+The machine-checkable API reference is **`game/stubs/necore.pyi`**. If a
+signature there disagrees with `engine/necore-py/src/`, the stub is the
+bug.
+
+## 12. Deviations, each with its reason
+
+**A place can be built — but never without naming its space in the same
+expression.** §10 step 2 said "Python cannot build a Coordinate from
+numbers", and that turned out to be one word too strong. Level files say
+"polygon 7, at (40, -12)", and a mouse arrives from the OS in screen
+coordinates; something has to turn those into places. Two doors do it:
+
+    sim.place(polygon, x, y)     the door for authored data
+    space.place(x, y)            the door for screen input
+
+Note what stays impossible. The gate-66 defect was numbers whose space was
+*never stated anywhere* — not numbers whose space is stated out loud and
+then checked by the algebra. Both doors state it in the same call as the
+numbers, so the pairing cannot drift, and everything downstream is checked.
+
+**`Coordinate.local()` is the one documented unwrap.** Sound, decals and
+the fx queue are wire formats the renderer and mixer read as
+`(tag, polygon, x, y, …)`. They are a legitimate reason to take raw numbers
+out of a place, and they take them at three funnels in `sim.py` (`_snd`,
+`_decal`, `_fx_at`) rather than at a hundred call sites. Gameplay code
+holds no bare pairs; `local()` does not appear in the AI at all.
+
+**A Track carries velocity and facing as well as place.** §3 left the set
+of relational facts to implementation, as "the intersection of what
+perception already computes and what callers would find useful". Two
+callers needed more than distance: the husk's lunge leads a moving target,
+and the shrieker's mark aims at the ground *behind* him. Both need the
+subject's velocity/facing **in the observer's space**, and the only way to
+get that right is to carry it along the route the sighting itself took —
+developing the place and a one-second-ahead point through two
+independently chosen routes gives a difference polluted by the holonomy
+between them, which is a real number about nothing. Adding them retired a
+punt: the mark used to read his raw facing out of his own chamber and then
+give up (`# a rotated frame: just close in`) whenever the shot crossed a
+doorway.
+
+**Route policy is measured between doorway midpoints.** §6 asks for "total
+distance of the shortest physical path". A true geodesic through a polygon
+soup needs a funnel algorithm; `query::route` runs Dijkstra over
+`(polygon, entry edge, hops)` with legs measured doorway-centre to
+doorway-centre in each polygon's own metric. That is an upper bound on the
+geodesic, exact when the path runs through doorway centres, and it is
+already enough to disagree with hop-count routing — which is the property
+that mattered (`route_measures_distance_and_not_hops` builds a world where
+the hop-minimal route is 990u and the physical one is 90u across three
+chambers).
+
+**The confirming ray now gets the same reach as the compose walk.**
+`sightline` composed transforms up to `VISION_HOPS = 12` and then
+confirmed with a raycast hardcoded to 3 hops, so a straight sightline down
+a colonnade of five small chambers composed correctly and was refused.
+That is failure mode 3 wearing a magic number. Both are `max_hops` now.
+
+**The collision matrix is gone, replaced by one boolean on the body.**
+`Entity.physical` (default true) carries the single fact the 16×16 mask
+encoded — a pickup is not a physics object. `set_collision_pair` is off
+the Python surface entirely.
+
+**Three `polygon == ppolygon` guards removed; the fourth was not a guard.**
+`music.py`'s was `hops = 0 if polygon == ppolygon else hop_distance(...)`
+— a redundant fast path around a function that already answers 0 for a
+chamber against itself. Deleting it changes nothing but the reading. The
+three real ones:
+
+* the **notice beat** was two branches, an immediate one gated on sharing
+  the player's chamber and a staggered line-of-sight one that lacked the
+  growl's volume, the fx and the turn toward the intruder. One beat now,
+  fired by a sighting at whatever depth the geometry gives it. The frame
+  test bought 9 ticks of latency in the player's own chamber and cost the
+  game its own law.
+* the **flicker's ambush** would not spring with the intruder a
+  body-length away through a doorway, and its hunt walked to the next door
+  the instant he stepped over a threshold. An ambush predator that cannot
+  reach across a doorway is an ambush predator with no doorways, in a game
+  made of them.
+
+A grep for `== ppolygon` still finds three, and all three are kept
+deliberately, because they ask a topological question rather than decline a
+geometric one:
+
+* the seed-station scan and the exit scan — you must be IN the chamber with
+  the pod or the door. That is a design statement about interaction, not an
+  inconvenient transform avoided.
+* the music's lurker term — a flicker holding the dark in *your* room is a
+  different dread from one a doorway away, and the music is entitled to say
+  so.
+
+The distinction that matters: a frame test used as a cheap stand-in for
+"close enough to fight" is the defect; a frame test asking "is this thing
+in the room with me" is a question with a real answer.
+
+## 13. What the system found on contact with the codebase
+
+The point of a type that refuses is what it refuses. Four defects fell out
+during the migration, none of them known beforehand, none reachable by
+reading:
+
+1. **`Event::Contact` resolved its polygon too late.** The PyO3 layer
+   looked up "entity a's polygon" when it converted the event, but events
+   are consumed after the whole physics step, and the rest of that step can
+   transfer either body through a doorway. So a contact normal was
+   occasionally read in the chamber a body *ended* in. `Contact` carries
+   the polygon it happened in now, recorded at contact time, because it is
+   not recoverable afterwards. Caught the first time a turret round's
+   knockback crossed a threshold mid-step.
+2. **The post-physics scans used the chamber the player had left.**
+   `ppolygon` is read at the top of the tick, before physics; `_pickup_scan`,
+   `_terminal_scan`, `_station_scan` and `_exit_scan` all run after it and
+   all measure a distance from the player's *current* place to something in
+   that named chamber. After any transfer they compared one chamber's
+   numbers with another's. Shipped, unnoticed, for however long.
+3. **A capture could pull its captive nowhere.** `capture.py` subtracted
+   the captor's raw position from the captive's — and a warden's grip
+   straddles a doorway routinely, because portal geometry puts bodies in
+   each other's laps. It develops the captor's place into the captive's
+   space now, and releases the grip if the world can find no route.
+4. **The rail's knockback pushed in the shooter's frame.** The beam is
+   aimed in the shooter's space and pierces up to three bodies, which may
+   be chambers away; `_damage_enemy` was handed the shooter's numbers as
+   the impulse direction. It now carries the heading into the struck body's
+   own space through the ray's own composition (`RayResult.to_origin`,
+   inverted).
+5. **Firing point-blank into a captor a doorway away pushed nowhere** —
+   and this one was found by 14,400 ticks of filmed play, after 943 tests
+   were green. `_fire`'s inside-the-grip branch (and the charged tau's)
+   handed the damage door a heading in the PLAYER's space, and a warden's
+   grip straddles a threshold routinely. Every fixture that exercised a
+   grip had both bodies in one chamber — the one case where the bug is
+   invisible, which is precisely how gate 66 got through too.
+
+   The fix is one named carry, `GameSession._carry`, at the damage door
+   and the push door: it asks the world for ONE transform
+   (`Sim.transform_between`) rather than developing two places and
+   differencing them, and answers None when no route exists. A hit whose
+   direction cannot be expressed still lands; it just does not push,
+   because there is no honest direction to push along. The engine's writes
+   stay strict — the carry is in the game, where the target is known.
+   Regression: `game/tests/test_grip_across_a_doorway.py`.
+
+A fifth was a design smell rather than a bug: the AI kept a copy of each
+body's heading in `e["hdg"]`, a bare pair that the engine's own `dir`
+duplicated — except the engine transports `dir` through a doorway
+transform on transfer and a python pair cannot. Every portal crossing
+slewed the body from a heading expressed in the chamber it had just left.
+One value now, owned by the thing that knows how to carry it.
+
+## 14. What is still open
+
+* **A length has no space.** `snare_range = 560.0` means 560 in *whose*
+  metric? Today: the observer's, because `Track.distance` is measured
+  there. Under a scaling portal the same pair of bodies is genuinely
+  further apart measured from one side than the other, and there is no
+  fact of the matter about which is "the" distance. The types make the
+  choice visible (`Offset.length` is documented as space-free) but they do
+  not make it for you. A `Length` carrying a space would be the next
+  increment if scaling portals ever carry gameplay weight.
+* **The renderer is exempt by construction, not by proof.** Per-frame bulk
+  geometry (`visible_set` instances, decal blobs, the raster command
+  stream) crosses the boundary as raw tuples in one named space — screen —
+  and is consumed immediately. That is a performance decision (this is a
+  240 fps target with the pixel work in Rust), and it is safe because
+  nothing there mixes two spaces. The three places where the renderer
+  reaches into *sim* state do go through Coordinates.
+* **`_peer_bodies` is same-chamber by construction.** The flocking
+  separation rule reads chamber-mates as raw triples out of one space in
+  one loop. The day keep-apart reaches through a doorway it needs
+  Coordinates, and the comment there says so.
+* **The existing detonations do not cross doorways.** `_detonate_tau` and
+  `_detonate_dart` iterate `polygon_entities(polygon)`, so a blast stops at
+  a threshold — failure mode 3 in the shipped code, in a shape the §10
+  audit never looked for (it searched for `polygon == ppolygon`).
+  `Sim.transform_between` was added so the fix is cheap when it is wanted;
+  changing blast reach is a difficulty question and is not folded in here.
+  Found by red-teaming the documentation
+  (`docs/FRAME_SYSTEM_REDTEAM_20260729.md`).
+* **A straight-line radius through a doorway is a chord, not a walking
+  distance.** Nothing in this system says otherwise, and nothing yet
+  decides whether an AoE should reach by one or the other.
+* **Friendly fire's first two consequences were defects, and gate 69
+  found both.** Making enemy rounds hit enemies meant the enemy arm of
+  `_contact` was reached for the first time — and it had neither guard the
+  player arm had grown: no shooter exclusion (the Adversary shoved
+  *itself* on ~30% of throws, s4 t10468 / s7 t12529 / s11 t990) and no
+  once-per-object spend (one bouncing grenade billed a husk four times).
+  Both now sit above the dispatch, where they belong to every round rather
+  than to one branch. Regressions in
+  `test_a_round_never_damages_the_body_that_loosed_it` and
+  `test_one_throw_bills_a_body_once`.
+* **Separating the arsenal's bands made the snare mute, and that needed
+  the other half of the design.** Gate 69 measured 3 connects in 43: with
+  the lob owning everything inside 165-180u, the snare only ever fires
+  past that, where an unled 400 u/s round cannot catch a moving player.
+  "Middle buys TIME" has to be something the player experiences. The snare
+  now LEADS — a thrown net is aimed — using `Track.vel`, which is the
+  velocity carried along the sighting's own route and is exactly what §12
+  added it for. The lob stays unled on purpose. Measured 10/10 after,
+  against 3/43 before.
+* **Friendly fire's balance has not been tested.** It is on, the physics is
+  honest, and the AI is deliberately ignorant of it. What that does to
+  difficulty over a full session is a question for the difficulty pass
+  (U16), not for this system.

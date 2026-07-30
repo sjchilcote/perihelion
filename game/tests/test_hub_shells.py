@@ -130,7 +130,7 @@ def test_every_landed_system_still_stands_inside_its_chamber():
         polygon = s.sim.get_polygon(eid)
         if polygon not in hub_polygons:
             continue
-        _, ex, ey, *_ = s.sim.get(eid)
+        ex, ey = s.sim.get(eid).pos.local()
         assert _inside(s, polygon, ex, ey), (
             f"{e['kind']} {eid} is outside chamber {polygon}")
         checked += 1

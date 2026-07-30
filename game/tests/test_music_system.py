@@ -29,7 +29,37 @@ class FakeSim:
         return abs(a - b)
 
 
-def make_session(enemies, polygons, hp=100.0, ppolygon=0, tick=0):
+class FakeSenses:
+    """A perception stub that answers in SIGHTINGS, because that is what
+    the music engine reads now.
+
+    It used to read raw positions and subtract them from the player's,
+    which is meaningless across a doorway — the very case the melee
+    override exists to catch. `distance` here is derived from the fake's
+    hop metric so that the co-polygon case reads as contact range and
+    anything further does not; a fake that answered a fixed number would
+    make both branches untestable."""
+
+    def __init__(self, sim, polygons, ppolygon, seen_distance):
+        self._sim = sim
+        self._polygons = polygons
+        self._ppolygon = ppolygon
+        self._d = seen_distance
+
+    def sight_of(self, observer_id, target_id):
+        if target_id not in self._polygons:
+            return None
+        d = self._d
+        if d is None:
+            return None
+        hops = abs(self._polygons[target_id] - self._ppolygon)
+        return SimpleNamespace(entity_id=target_id,
+                               distance=d if hops == 0 else d + 400.0,
+                               portal_depth=hops)
+
+
+def make_session(enemies, polygons, hp=100.0, ppolygon=0, tick=0,
+                 seen_distance=40.0):
     # models the FULL session contract the engine reads strictly
     # (fail-fast law: fakes that under-declare the contract are lies)
     s = SimpleNamespace()
@@ -37,7 +67,9 @@ def make_session(enemies, polygons, hp=100.0, ppolygon=0, tick=0):
     s.sim = FakeSim(polygons)
     s.hp = hp
     s.tick_count = tick
+    s.pid = 0
     s.player_polygon = lambda: ppolygon
+    s.senses = FakeSenses(s.sim, polygons, ppolygon, seen_distance)
     s.metrics = {"kills": 0}
     s.music_tier = 1
     return s

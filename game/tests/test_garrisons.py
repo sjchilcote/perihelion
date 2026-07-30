@@ -63,7 +63,7 @@ def test_no_warden_no_settlement_and_persistence_after_departure():
     s = GameSession(level, seed=4)
     w, (f1, f2) = _spawn_garrison(s, bend)
     _run(s, 600)
-    s._damage_enemy(w, 9999.0, (1.0, 0.0), 0.0, source="test")
+    s._damage_enemy(w, 9999.0, s.sim.get(w).pos.offset(1.0, 0.0), 0.0, source="test")
     _run(s, SETTLE_HOLD_TICKS)
     assert s.enemies[f1].get("garrison") is None, (
         "settlement without a present Warden")
@@ -72,7 +72,7 @@ def test_no_warden_no_settlement_and_persistence_after_departure():
     w2, (g1, g2) = _spawn_garrison(s2, bend)
     _run(s2, SETTLE_HOLD_TICKS + 60)
     assert s2.enemies[g1].get("garrison") == bend
-    s2._damage_enemy(w2, 9999.0, (1.0, 0.0), 0.0, source="test")
+    s2._damage_enemy(w2, 9999.0, s2.sim.get(w2).pos.offset(1.0, 0.0), 0.0, source="test")
     late = s2.spawn_enemy(bend, (-70.0, -40.0), "husk")
     _run(s2, SETTLE_HOLD_TICKS + 120)
     assert s2.enemies[g1].get("garrison") == bend, "settlers persist"

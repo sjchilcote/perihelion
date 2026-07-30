@@ -79,12 +79,12 @@ def test_sentry_ignores_enemy_out_of_range():
     s = GameSession(b.build(), seed=1)
     husk_id = _one_husk(s)
     tid = next(iter(s.sentries))
-    _, hx, hy, *_ = s.sim.get(husk_id)
+    hx, hy = s.sim.get(husk_id).pos.local()
     for _ in range(200):
         s.tick(InputFrame())
         if husk_id in s.enemies:
-            s.sim.set_pos(husk_id, hx, hy)  # pin: isolate range, not AI wander
-            s.sim.set_vel(husk_id, 0.0, 0.0)
+            s.sim.set_pos(husk_id, s.sim.place(s.sim.get_polygon(husk_id), hx, hy))  # pin: isolate range, not AI wander
+            s.sim.set_vel(husk_id, s.sim.get(husk_id).pos.offset(0.0, 0.0))
     assert husk_id in s.enemies and s.enemies[husk_id]["hp"] == ENEMIES["husk"]["hp"], \
         "an enemy beyond the sentry's range must never be engaged"
 
@@ -123,10 +123,10 @@ def test_sentry_never_damages_player():
     b.exit(r0, (380, 380))
     s = GameSession(b.build(), seed=7)
     husk_id = _one_husk(s)
-    _, hx0, hy0, *_ = s.sim.get(husk_id)
+    hx0, hy0 = s.sim.get(husk_id).pos.local()
     tid = next(iter(s.sentries))
-    _, tx0, ty0, *_ = s.sim.get(tid)
-    px0, py0 = s.player_pos()
+    tx0, ty0 = s.sim.get(tid).pos.local()
+    px0, py0 = s.player_pos().local()
     # sanity: player strictly between sentry and husk on that line, and
     # well outside the husk's own melee-touch reach (~14.5u)
     assert math.hypot(tx0 - px0, ty0 - py0) < math.hypot(tx0 - hx0, ty0 - hy0)
@@ -146,8 +146,8 @@ def test_sentry_never_damages_player():
                 shots_fired += 1
         assert s.hp == 100 and not s.dead, "sentry fire must never touch the player"
         if husk_id in s.enemies:
-            s.sim.set_pos(husk_id, hx0, hy0)
-            s.sim.set_vel(husk_id, 0.0, 0.0)
+            s.sim.set_pos(husk_id, s.sim.place(s.sim.get_polygon(husk_id), hx0, hy0))
+            s.sim.set_vel(husk_id, s.sim.get(husk_id).pos.offset(0.0, 0.0))
     assert shots_fired >= 10, "test never exercised repeated sentry fire through the player"
     assert husk_id in s.enemies and s.enemies[husk_id]["hp"] == ENEMIES["husk"]["hp"], \
         ("setup sanity: the husk is un-occluded and in range, so it surviving "
@@ -172,17 +172,17 @@ def _terrain_los_scenario(seed: int, block: bool):
     b.exit(r0, (280, 20))
     s = GameSession(b.build(), seed=seed)
     tid = next(iter(s.sentries))
-    _, tx, ty, *_ = s.sim.get(tid)
+    tx, ty = s.sim.get(tid).pos.local()
     husk_id = _one_husk(s)
-    _, hx, hy, *_ = s.sim.get(husk_id)
+    hx, hy = s.sim.get(husk_id).pos.local()
     if block:
         mx, my = (tx + hx) / 2.0, (ty + hy) / 2.0
         s.sim.set_polygon_terrain(0, [(mx - 40.0, my - 25.0, mx + 40.0, my + 25.0)])
     for _ in range(250):
         s.tick(InputFrame())
         if husk_id in s.enemies:
-            s.sim.set_pos(husk_id, hx, hy)
-            s.sim.set_vel(husk_id, 0.0, 0.0)
+            s.sim.set_pos(husk_id, s.sim.place(s.sim.get_polygon(husk_id), hx, hy))
+            s.sim.set_vel(husk_id, s.sim.get(husk_id).pos.offset(0.0, 0.0))
         else:
             return "died"
     return s.enemies[husk_id]["hp"]
@@ -234,11 +234,11 @@ def test_sentry_prefers_farther_visible_target_over_nearer_occluded_one():
     b.exit(r0, (380, 380))
     s = GameSession(b.build(), seed=9)
     tid = next(iter(s.sentries))
-    _, tx, ty, *_ = s.sim.get(tid)
+    tx, ty = s.sim.get(tid).pos.local()
     husks = [eid for eid, e in s.enemies.items() if e["kind"] == "husk"]
     pos = {}
     for eid in husks:
-        _, ex, ey, *_ = s.sim.get(eid)
+        ex, ey = s.sim.get(eid).pos.local()
         pos[eid] = (ex, ey)
     a_id = min(husks, key=lambda e: math.hypot(pos[e][0] - tx, pos[e][1] - ty))
     b_id = max(husks, key=lambda e: math.hypot(pos[e][0] - tx, pos[e][1] - ty))
@@ -251,8 +251,8 @@ def test_sentry_prefers_farther_visible_target_over_nearer_occluded_one():
         for eid in husks:
             if eid in s.enemies:
                 ex, ey = pos[eid]
-                s.sim.set_pos(eid, ex, ey)
-                s.sim.set_vel(eid, 0.0, 0.0)
+                s.sim.set_pos(eid, s.sim.place(s.sim.get_polygon(eid), ex, ey))
+                s.sim.set_vel(eid, s.sim.get(eid).pos.offset(0.0, 0.0))
 
     assert a_id in s.enemies and s.enemies[a_id]["hp"] == ENEMIES["husk"]["hp"], \
         "the nearer, occluded husk must never be damaged"
@@ -281,7 +281,7 @@ def test_sentry_is_deterministic():
             trace.append((
                 s.hp, s.dead,
                 sorted(round(e["hp"], 4) for e in s.enemies.values()),
-                tuple(round(c, 4) for c in s.player_pos()),
+                tuple(round(c, 4) for c in s.player_pos().local()),
             ))
         return trace
 
@@ -296,7 +296,7 @@ def test_sentry_is_deterministic():
 
 def _go_to(s: GameSession, polygon_target: int, point, max_ticks: int) -> bool:
     for _ in range(max_ticks):
-        px, py = s.player_pos()
+        px, py = s.player_pos().local()
         if s.player_polygon() == polygon_target and abs(px - point[0]) + abs(py - point[1]) < 20:
             return True
         if s.player_polygon() == polygon_target:

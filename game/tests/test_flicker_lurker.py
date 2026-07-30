@@ -133,7 +133,7 @@ def test_lurk_holds_low_light_position_under_moving_worklight():
             "entered its ambush_radius -- geometry regression")
         total_samples += 1
         light_map = session._polygon_light_map()
-        _, ex, ey, *_ = session.sim.get(eid)
+        ex, ey = session.sim.get(eid).pos.local()
         level_here = light_level_at(light_map, session.lighting.lights, r0, ex, ey)
         if level_here > session.LURK_MAX_LIGHT:
             lit_samples += 1
@@ -254,7 +254,7 @@ def test_flicker_ai_is_deterministic_given_seed_and_inputs():
             if e is None:
                 trace.append(None)
                 continue
-            _, ex, ey, *_ = session.sim.get(eid)
+            ex, ey = session.sim.get(eid).pos.local()
             trace.append((round(ex, 6), round(ey, 6), e["state"],
                           round(e["trace_intensity"], 6)))
         return trace

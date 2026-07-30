@@ -196,3 +196,146 @@ but the cause must separate a player kill from a friendly-fire kill, or
 the measurement no longer means what the ruling document says. The
 damage function already carries its cause, so the information exists and
 is only not separated.
+
+
+---
+
+# The work as built — 2026-07-29
+
+## 10. What changed from the plan, and why
+
+The plan said that Python cannot make a place from numbers. This is one
+word too strong. A level file gives a polygon and a pair of numbers, and a
+mouse gives a pair of screen numbers. Something must make a place from
+them. Two operations do this:
+
+    sim.place(polygon, x, y)     for authored data
+    space.place(x, y)            for screen input
+
+Each operation states the space in the same expression as the numbers.
+This is the condition that makes them safe. The failure this system
+prevents is numbers whose space is never stated. It is not numbers whose
+space is stated and then checked.
+
+A place has one operation that gives its raw numbers. The name is
+`local()`. Three functions in the simulation use it: the sound function,
+the decal function and the effect function. These functions write to
+channels that the renderer and the mixer read, and those channels use raw
+numbers. No other part of the game holds a raw pair.
+
+A sighting report now carries the speed and the facing of the body, and
+not only its place. Two behaviours need them: a body that jumps at a
+moving target must lead the target, and the caller that marks the player
+must aim at the ground behind him. Both need the value in the space of the
+observer. The only correct method is to carry the value along the same
+route as the place. A value carried along a different route differs by the
+holonomy between the two routes. Such a value is a real number about
+nothing.
+
+The route policy measures between the centres of doorways. A true
+shortest line through a set of polygons needs a different algorithm. The
+measurement here is an upper limit on that line, and it is exact when the
+path goes through the centres of the doorways. This is sufficient,
+because it already disagrees with a measurement in hops, which was the
+necessary property.
+
+The confirming ray now goes as far as the transform walk. Before, the
+walk was permitted twelve doorways and the ray was permitted three. A
+straight line of sight through five small chambers therefore gave a
+correct place and was then refused.
+
+The collision matrix is deleted. One value on the body replaces it: the
+body is physical, or it is not. A pickup is not.
+
+Three tests of the form "if this polygon is the player's polygon" are
+deleted. A fourth was not a restriction: it was a shorter method to get a
+number that the function already gives, and it is deleted for clarity.
+
+## 11. What the system found in the existing code
+
+A type that refuses is worth what it refuses. Four defects appeared
+during the change. Nobody knew about them before, and reading the code
+did not show them.
+
+1. The contact event gave the wrong polygon. The event is read after the
+   whole physics step, and that step can move a body through a doorway.
+   The event now records the polygon at the moment of contact.
+2. Four functions that measure a distance from the player ran after the
+   physics and used the polygon from before the physics. After the player
+   crossed a doorway, they compared numbers from two chambers.
+3. A capture could pull its captive to the wrong place. A grip across a
+   doorway is normal, and the code subtracted two raw places.
+4. The beam weapon pushed bodies in the wrong direction. The beam is
+   aimed in the space of the shooter and can hit a body several chambers
+   away.
+5. A shot fired at point-blank range into a body that holds the player
+   pushed in the wrong direction. A hold across a doorway is normal. This
+   defect appeared only after 14,400 ticks of recorded play, when the
+   whole test set was already correct: every test of a hold put both
+   bodies in one chamber, which is the one condition that hides the
+   defect. The correction is one named operation that carries a direction
+   into the space of the body that receives it. It asks the world for one
+   transform. If no route exists, the answer is none, and the hit does
+   damage but gives no push, because no direction is correct.
+
+A fifth item was a bad design and not a defect. The behaviour code kept
+its own copy of each body's facing. The engine carries a facing through a
+doorway transform; a copy in the game cannot. Every crossing therefore
+used a facing from the previous chamber. There is now one value, and the
+engine owns it.
+
+## 12. What a type checker proves
+
+The type checker proves the difference between a place, a difference and a
+raw pair. It does this before the program runs. The addition of two places
+has no definition, so the checker refuses it.
+
+The type checker does not prove that two places are in the same space.
+The identity of a space is a value that exists only when the program
+runs. That half of the system refuses at run time.
+
+A test holds this property. The test writes thirteen expressions, runs the
+type checker, and requires that six are refused and seven are accepted.
+Both halves are necessary. A system that refused every expression would
+pass a test of the refusals alone, and would be useless.
+
+## 13. What is still open
+
+* A length has no space. A range of 560 units is 560 units in the metric
+  of one space, and a portal that scales makes the same separation a
+  different number on each side. The types make this choice visible. They
+  do not make the choice.
+* The renderer is outside this system by decision, not by proof. Bulk
+  data for each frame crosses as raw numbers in one space, which is the
+  screen. This is a decision about speed. It is safe because nothing in
+  that data mixes two spaces.
+* The two blast functions do not reach through a doorway. This is the
+  third failure in the shipped code, in a form the first survey did not
+  look for. The operation that makes the correction cheap now exists.
+* Friendly fire is not yet measured for difficulty.
+
+
+## 14. What the recorded playtest found
+
+The test set was correct and the recorded playtest was not. Run 69 gave
+0.87 against a limit of 0.95, and named two defects. Both were in the new
+code and both were correct.
+
+The first defect: a thrown object damaged the body that threw it, on
+about three throws in ten. Friendly fire is new, so a round from an enemy
+could reach another enemy for the first time, and that path did not have
+the two rules the player path had: a round does not damage its own
+shooter, and one object bills one body one time. Both rules now sit above
+the choice of round type. They apply to every round.
+
+The second defect: the net almost never connected. Three connects in
+forty-three. The cause was the correction made earlier in this same work:
+the two tools now hold separate distance bands, so the net only fires
+beyond 165 units, and at that distance a round of 400 units per second
+cannot catch a player who is moving. The promise "the middle buys time"
+was a promise the player did not experience.
+
+The correction is that the net now aims at where the player will be. A
+thrown net is aimed. The heavy object stays unaimed, because a body that
+is running away and heaving a mass at a pursuer who is already closing is
+not a marksman. The measurement after the change is ten connects in ten.

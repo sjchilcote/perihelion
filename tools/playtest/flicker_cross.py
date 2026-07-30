@@ -230,7 +230,7 @@ def main() -> int:
         for inst in vis:
             by_polygon.setdefault(inst[0], []).append(inst)
 
-        px, py = session.player_pos()
+        px, py = session.player_pos().local()
         moved = 0.0 if prev_pos is None else math.hypot(px - prev_pos[0], py - prev_pos[1])
         prev_pos = (px, py)
 

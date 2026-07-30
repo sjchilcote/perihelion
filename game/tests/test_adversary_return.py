@@ -89,7 +89,7 @@ def test_a_kill_is_permanent():
     b.player(r0, (150, 0))
     s = GameSession(b.build(), seed=4, screen=(640, 360), zoom=0.45)
     eid = s.spawn_enemy(r0, (-100.0, 0.0), "lacuna")
-    s._damage_enemy(eid, 9999.0, (1.0, 0.0), 0.0, source="test")
+    s._damage_enemy(eid, 9999.0, s.sim.get(eid).pos.offset(1.0, 0.0), 0.0, source="test")
     assert s.adversary_lost["lacuna"] == 1
     assert s.adversary_out == [], (
         "a killed Adversary must never queue a return — death is the "
@@ -266,7 +266,7 @@ def test_a_stranded_return_is_reabsorbed_where_it_stands():
     s.enemies[eid]["arrived"] = s.tick_count
     s.enemies[eid]["grace"] = 100000        # protected, and going nowhere
     s.enemies[eid]["scout"] = "flee"
-    s.sim.set_vel(eid, 0.0, 0.0)
+    s.sim.set_vel(eid, s.sim.get(eid).pos.offset(0.0, 0.0))
 
     for _ in range(ADVERSARY_STRAND_TICKS + 400):
         s.tick(InputFrame())

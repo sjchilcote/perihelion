@@ -129,7 +129,7 @@ def test_kill_and_withdrawal_are_different_entries():
     assert s.adversary_lost["lacuna"] == 0
     assert s.adversary_withdrawn["lacuna"] == 0
 
-    s._damage_enemy(eid, 9999.0, (1.0, 0.0), 0.0, source="test")
+    s._damage_enemy(eid, 9999.0, s.sim.get(eid).pos.offset(1.0, 0.0), 0.0, source="test")
     assert s.adversary_census["lacuna"] == 0, "it left the standing count"
     assert s.adversary_lost["lacuna"] == 1, "a kill books as KILLED"
     assert s.adversary_withdrawn["lacuna"] == 0, (

@@ -63,7 +63,7 @@ def test_drop_conserves_totals_normal_case(components, station_kits):
     """
     s = _session(components, station_kits, protected=False)
     polygon = s.level.player_polygon
-    px, py = s.player_pos()
+    px, py = s.player_pos().local()
 
     s._drop_corpse(polygon, (px, py))
 
@@ -97,7 +97,7 @@ def test_drop_conserves_totals_protected_revival(components, station_kits):
     """
     s = _session(components, station_kits, protected=True)
     polygon = s.level.player_polygon
-    px, py = s.player_pos()
+    px, py = s.player_pos().local()
 
     s._drop_corpse(polygon, (px, py))
 
@@ -134,7 +134,7 @@ def test_drop_then_retrieve_round_trips_exactly(components, station_kits):
     """
     s = _session(components, station_kits, protected=False)
     polygon = s.level.player_polygon
-    px, py = s.player_pos()
+    px, py = s.player_pos().local()
 
     s._drop_corpse(polygon, (px, py))
     assert s.components == 0 and s.station_kits == 0

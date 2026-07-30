@@ -100,7 +100,7 @@ def test_residents_are_ordinary_agents_not_organs():
                   if s.sim.get_polygon(eid) in hub_chambers
                   and eid not in shelf
                   and not e["kind"].startswith("core_"))
-    s._damage_enemy(victim, 1.0, (1.0, 0.0), 0.0, source="test")
+    s._damage_enemy(victim, 1.0, s.sim.get(victim).pos.offset(1.0, 0.0), 0.0, source="test")
     assert s.enemies[victim]["state"] == "hunt", (
         "a hurt resident must fight — only organ parts stay passive")
 

@@ -38,7 +38,7 @@ def test_every_scout_home_can_hold_a_breach():
     it as dry_no_site."""
     level = load_level("../levels/gauntlet4.json")
     s = GameSession(level, seed=5)
-    homes = {s.sim.get(eid)[0] for eid, e in s.enemies.items()
+    homes = {s.sim.get_polygon(eid) for eid, e in s.enemies.items()
              if e["kind"] in ADVERSARY}
     assert len(homes) == 9, "one scout per chamber"
     for chamber in sorted(homes):
@@ -63,11 +63,11 @@ def test_dormant_scout_sleeps_until_the_fight_arrives():
     s = GameSession(level, seed=9)
     eid = s.spawn_enemy(rb, (0.0, 0.0), "lacuna")
     s.enemies[eid]["dormant"] = 0.5
-    x0 = s.sim.get(eid)[1:3]
+    x0 = s.sim.get(eid).pos.local()
     for _ in range(8 * 60):
         s.tick(InputFrame())
     e = s.enemies[eid]
-    x1 = s.sim.get(eid)[1:3]
+    x1 = s.sim.get(eid).pos.local()
     assert e.get("dormant"), "woke with nothing happening"
     assert e.get("scout") is None, "tasked itself while dormant"
     assert abs(x1[0] - x0[0]) + abs(x1[1] - x0[1]) < 1.0, (
@@ -111,7 +111,7 @@ def test_shooting_a_dormant_scout_wakes_it():
     s = GameSession(b.build(), seed=9)
     eid = s.spawn_enemy(rb, (0.0, 0.0), "lacuna")
     s.enemies[eid]["dormant"] = 0.5
-    s._damage_enemy(eid, 5.0, (1.0, 0.0), 0.0, source="test")
+    s._damage_enemy(eid, 5.0, s.sim.get(eid).pos.offset(1.0, 0.0), 0.0, source="test")
     for _ in range(120):
         s.tick(InputFrame())
     assert not s.enemies[eid].get("dormant"), (
