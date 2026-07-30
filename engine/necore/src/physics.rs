@@ -28,6 +28,15 @@ pub struct Entity {
     pub rest_wall: f64,
     pub rest_ent: f64,
     pub group: u8,
+    /// Whether this body takes part in body-to-body collision at all.
+    ///
+    /// This replaced a 16x16 group collision matrix that encoded exactly one
+    /// fact: a pickup is not a physics object. Everything else in the matrix
+    /// was either "yes" or a way of sparing the game a consequence it should
+    /// have (an enemy's round passing through an enemy). Friendly fire is on,
+    /// so the matrix had nothing left to say, and the one surviving fact
+    /// belongs on the body it is a fact about.
+    pub physical: bool,
     pub max_substep: f64,
     /// Entities that never transfer stay put at portals (turrets, decals).
     pub transfers: bool,
@@ -69,6 +78,16 @@ pub enum Event {
     Contact {
         a: u64,
         b: u64,
+        /// The polygon the contact HAPPENED IN, and therefore the space
+        /// `pos` and `normal` are expressed in.
+        ///
+        /// Recorded here, at contact time, because it is not recoverable
+        /// afterwards: the rest of the step can transfer either body through a
+        /// doorway, and a consumer that looked up "a's polygon" when it read
+        /// the event would get the space the body ENDED in and silently
+        /// misread the normal. Caught by the coordinate types the first time
+        /// a turret round's knockback crossed a threshold mid-step.
+        polygon: PolygonId,
         pos: Vec2,
         /// Unit vector from b toward a.
         normal: Vec2,
@@ -80,8 +99,7 @@ pub struct Sim {
     pub world: World,
     pub entities: BTreeMap<u64, Entity>,
     next_id: u64,
-    /// collision_mask[g] bit h => groups g and h collide.
-    pub collision_mask: [u16; 16],
+
     /// Bit `g` set => entities of group `g` are blocked by walk-mask
     /// terrain (default: every group, matching the director's "blocked is
     /// the default" spec). Cleared per-group via `set_terrain_block` for
@@ -101,7 +119,6 @@ impl Sim {
             world,
             entities: BTreeMap::new(),
             next_id: 1,
-            collision_mask: [0xffff; 16],
             terrain_blocks: 0xffff,
             active_polygons: vec![true; n],
             all_active: true,
@@ -121,21 +138,6 @@ impl Sim {
     pub fn soft_wall_impulse(&mut self, polygon: PolygonId, edge: usize, t: f64, magnitude: f64) {
         self.soft
             .wall_impulse(&self.world, polygon, edge, t, magnitude);
-    }
-
-    pub fn set_collision_pair(&mut self, g: u8, h: u8, collide: bool) {
-        let (g, h) = (g as usize & 15, h as usize & 15);
-        if collide {
-            self.collision_mask[g] |= 1 << h;
-            self.collision_mask[h] |= 1 << g;
-        } else {
-            self.collision_mask[g] &= !(1 << h);
-            self.collision_mask[h] &= !(1 << g);
-        }
-    }
-
-    fn groups_collide(&self, g: u8, h: u8) -> bool {
-        self.collision_mask[g as usize & 15] & (1 << (h as usize & 15)) != 0
     }
 
     /// Set whether entities of `group` are blocked by walk-mask terrain
@@ -251,6 +253,7 @@ impl Sim {
                 rest_wall: 0.0,
                 rest_ent: 0.3,
                 group,
+                physical: true,
                 max_substep: radius.max(1.0),
                 transfers: true,
                 alive: true,
@@ -375,7 +378,7 @@ impl Sim {
                     Some(o) if o.alive => o.clone(),
                     _ => continue,
                 };
-                if !self.groups_collide(e.group, o.group) {
+                if !(e.physical && o.physical) {
                     continue;
                 }
                 let rr = e.radius + o.radius;
@@ -587,6 +590,7 @@ impl Sim {
                         events.push(Event::Contact {
                             a: id,
                             b: oid,
+                            polygon: e.polygon,
                             pos: contact_pos,
                             normal: n,
                             rel_speed: rel_n.abs(),

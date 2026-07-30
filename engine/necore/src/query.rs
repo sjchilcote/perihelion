@@ -1,5 +1,7 @@
-use std::collections::{HashMap, VecDeque};
+use std::cmp::Ordering as CmpOrdering;
+use std::collections::{BinaryHeap, HashMap, HashSet, VecDeque};
 
+use crate::frames::{Coordinate, SpaceId, Step};
 use crate::math::{Mat3, Vec2};
 use crate::physics::Sim;
 use crate::world::{PolygonId, World};
@@ -330,6 +332,339 @@ pub fn terrain_avoid_dir(
     (d + perp * (side * 0.9)).normalized()
 }
 
+// ---------------------------------------------------------------------------
+// Physical routing: the route policy perception makes on the caller's behalf
+// ---------------------------------------------------------------------------
+//
+// `Router` above answers in HOPS, which is the right metric for "is this
+// chamber near mine" and the wrong one for "which way is the player, really".
+// A three-hop chain of small chambers is closer than one hop across a hall,
+// and a hop-minimal route can bend somewhere the straight line never goes —
+// which is how a composed sight position ends up somewhere the raycast then
+// refuses to confirm.
+//
+// So perception routes by TOTAL PHYSICAL DISTANCE through the assembled world.
+// Legs are measured between doorway midpoints in each polygon's own local
+// metric (the standard portal-graph measure: an upper bound on the true
+// geodesic, and exact when the path runs through doorway centres). Distances
+// under a scaling portal are deliberately measured in each leg's own space —
+// the space really does stretch, and a range constant means what it means on
+// the side it was written for.
+
+/// A route through the polygon graph, with the record a `Coordinate` needs to
+/// travel it.
+#[derive(Debug, Clone)]
+pub struct Route {
+    /// Polygons entered, in order. The source polygon is not included, so an
+    /// empty list means "already there".
+    pub polygons: Vec<PolygonId>,
+    /// One step per hop: the space entered and the matrix that carried a
+    /// coordinate into it.
+    pub steps: Vec<Step>,
+    /// Physical path length: source point -> doorway -> ... -> final doorway.
+    /// It stops AT the last doorway, because the route has no opinion about
+    /// where in the destination the caller was heading; add the last leg
+    /// yourself when you have a destination point.
+    pub dist: f64,
+    /// Which edge of the destination polygon the route arrives through, so a
+    /// caller can measure that last leg. `None` for the empty route.
+    pub entry_edge: Option<usize>,
+}
+
+impl Route {
+    pub fn hops(&self) -> usize {
+        self.steps.len()
+    }
+}
+
+/// f64 ordering for the priority queues below. Distances here are finite by
+/// construction (every leg is a length between two real points), so a NaN
+/// would be a bug elsewhere; it sorts last rather than panicking.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct Cost(f64);
+
+impl Eq for Cost {}
+
+impl Ord for Cost {
+    fn cmp(&self, o: &Cost) -> CmpOrdering {
+        // reversed: BinaryHeap is a max-heap, we want the cheapest first
+        o.0.partial_cmp(&self.0).unwrap_or(CmpOrdering::Equal)
+    }
+}
+
+impl PartialOrd for Cost {
+    fn partial_cmp(&self, o: &Cost) -> Option<CmpOrdering> {
+        Some(self.cmp(o))
+    }
+}
+
+fn edge_mid(world: &World, r: PolygonId, e: usize) -> Option<Vec2> {
+    let polygon = world.polygons.get(r)?;
+    if e >= polygon.num_edges() {
+        return None;
+    }
+    let (a, b) = polygon.edge(e);
+    Some(a.lerp(b, 0.5))
+}
+
+/// The step that crosses edge `e` of polygon `r`: the space entered and the
+/// matrix taking `r`-local coordinates into the neighbour's.
+fn crossing(world: &World, r: PolygonId, e: usize) -> Option<(PolygonId, usize, Step)> {
+    let p = (*world.polygons.get(r)?.portals.get(e)?)?;
+    let space = world.polygon_space(p.target_polygon)?.id();
+    Some((
+        p.target_polygon,
+        p.target_edge,
+        Step { into: space, xform: p.inv },
+    ))
+}
+
+/// The shortest PHYSICAL route from `from_pos` in polygon `from` to any point
+/// of polygon `to`, using at most `max_hops` doorways. `None` when no such
+/// route exists inside the cap.
+///
+/// Keyed on (polygon, entry edge, hops) so the cap cannot make a cheap deep
+/// state hide a dearer shallow one — an approximation that would silently pick
+/// the wrong route near the ceiling.
+pub fn route(
+    world: &World,
+    from: PolygonId,
+    from_pos: Vec2,
+    to: PolygonId,
+    max_hops: usize,
+) -> Option<Route> {
+    if from >= world.polygons.len() || to >= world.polygons.len() {
+        return None;
+    }
+    if from == to {
+        return Some(Route {
+            polygons: Vec::new(),
+            steps: Vec::new(),
+            dist: 0.0,
+            entry_edge: None,
+        });
+    }
+    type Key = (PolygonId, usize, usize); // polygon, entry edge, hops
+    const SOURCE_EDGE: usize = usize::MAX;
+
+    let start: Key = (from, SOURCE_EDGE, 0);
+    let mut best: HashMap<Key, f64> = HashMap::new();
+    let mut prev: HashMap<Key, (Key, Step)> = HashMap::new();
+    let mut heap: BinaryHeap<(Cost, Key)> = BinaryHeap::new();
+    best.insert(start, 0.0);
+    heap.push((Cost(0.0), start));
+
+    while let Some((Cost(d), key)) = heap.pop() {
+        let (r, entry, hops) = key;
+        if best.get(&key).map(|b| d > *b + 1e-12).unwrap_or(true) {
+            continue; // stale queue entry
+        }
+        if r == to {
+            // reconstruct
+            let mut polygons = Vec::new();
+            let mut steps = Vec::new();
+            let mut cur = key;
+            while let Some((p, step)) = prev.get(&cur) {
+                polygons.push(cur.0);
+                steps.push(*step);
+                cur = *p;
+            }
+            polygons.reverse();
+            steps.reverse();
+            return Some(Route {
+                polygons,
+                steps,
+                dist: d,
+                entry_edge: if entry == SOURCE_EDGE { None } else { Some(entry) },
+            });
+        }
+        if hops >= max_hops {
+            continue;
+        }
+        let here = if entry == SOURCE_EDGE {
+            from_pos
+        } else {
+            match edge_mid(world, r, entry) {
+                Some(p) => p,
+                None => continue,
+            }
+        };
+        let n_edges = world.polygons[r].num_edges();
+        for e in 0..n_edges {
+            if e == entry {
+                continue; // never back out the way we came in
+            }
+            let Some((next_r, next_e, step)) = crossing(world, r, e) else {
+                continue;
+            };
+            let Some(mid) = edge_mid(world, r, e) else { continue };
+            let nd = d + here.dist(mid);
+            let nkey: Key = (next_r, next_e, hops + 1);
+            if best.get(&nkey).map(|b| nd < *b - 1e-12).unwrap_or(true) {
+                best.insert(nkey, nd);
+                prev.insert(nkey, (key, step));
+                heap.push((Cost(nd), nkey));
+            }
+        }
+    }
+    None
+}
+
+/// Every DISTINCT route from `from_pos` in polygon `from` into polygon `to`,
+/// shortest first. Distinct means distinct developed image: two routes that
+/// put the point in the same place are the same sighting, however differently
+/// they got there.
+///
+/// A portal graph with a loop admits unboundedly many routes, so this is
+/// bounded by `max_hops` and `max_images` and the caller raises the budget to
+/// see further. That is the honest shape of "the generator may never
+/// terminate": there is no complete answer to return.
+pub fn routes(
+    world: &World,
+    from: PolygonId,
+    from_pos: Vec2,
+    to: PolygonId,
+    max_hops: usize,
+    max_images: usize,
+) -> Vec<Route> {
+    let mut out: Vec<Route> = Vec::new();
+    if from >= world.polygons.len() || to >= world.polygons.len() || max_images == 0 {
+        return out;
+    }
+    // Distinct-image key: the developed point at 1e-3 units, which is far
+    // finer than anything gameplay distinguishes and far coarser than the
+    // float noise two different matrix products accumulate.
+    let mut seen: HashSet<(PolygonId, i64, i64)> = HashSet::new();
+    let quant = |r: PolygonId, p: Vec2| (r, (p.x * 1000.0) as i64, (p.y * 1000.0) as i64);
+
+    struct Partial {
+        r: PolygonId,
+        entry: usize,
+        at: Vec2,       // where we are on the path (a doorway midpoint)
+        img: Vec2,      // the developed source point, in r's coordinates
+        steps: Vec<Step>,
+        polygons: Vec<PolygonId>,
+    }
+    const SOURCE_EDGE: usize = usize::MAX;
+    let mut heap: BinaryHeap<(Cost, usize)> = BinaryHeap::new();
+    let mut pool: Vec<Partial> = vec![Partial {
+        r: from,
+        entry: SOURCE_EDGE,
+        at: from_pos,
+        img: from_pos,
+        steps: Vec::new(),
+        polygons: Vec::new(),
+    }];
+    heap.push((Cost(0.0), 0));
+    // A hard expansion ceiling so a loopy graph cannot spin here forever even
+    // when it can never produce `max_images` distinct images.
+    let mut budget = max_images.saturating_mul(256).saturating_add(4096);
+
+    while let Some((Cost(d), idx)) = heap.pop() {
+        if out.len() >= max_images || budget == 0 {
+            break;
+        }
+        budget -= 1;
+        let (r, entry, at, img, hops) = {
+            let p = &pool[idx];
+            (p.r, p.entry, p.at, p.img, p.steps.len())
+        };
+        if r == to && seen.insert(quant(r, img)) {
+            let p = &pool[idx];
+            out.push(Route {
+                polygons: p.polygons.clone(),
+                steps: p.steps.clone(),
+                dist: d,
+                entry_edge: if entry == SOURCE_EDGE { None } else { Some(entry) },
+            });
+            if out.len() >= max_images {
+                break;
+            }
+        }
+        if hops >= max_hops {
+            continue;
+        }
+        let n_edges = world.polygons[r].num_edges();
+        for e in 0..n_edges {
+            if e == entry {
+                continue;
+            }
+            let Some((next_r, next_e, step)) = crossing(world, r, e) else {
+                continue;
+            };
+            let Some(mid) = edge_mid(world, r, e) else { continue };
+            let (mut steps, mut polygons) = {
+                let p = &pool[idx];
+                (p.steps.clone(), p.polygons.clone())
+            };
+            steps.push(step);
+            polygons.push(next_r);
+            pool.push(Partial {
+                r: next_r,
+                entry: next_e,
+                at: step.xform.apply(mid),
+                img: step.xform.apply(img),
+                steps,
+                polygons,
+            });
+            heap.push((Cost(d + at.dist(mid)), pool.len() - 1));
+        }
+    }
+    out
+}
+
+/// The composed transform from one space into another, along the shortest
+/// physical route — or None when no route exists (or either space is not one
+/// of this world's polygons).
+///
+/// WHY THIS EXISTS ALONGSIDE `develop`. `develop` carries ONE place one way.
+/// A blast that reaches through a doorway needs both directions at once: each
+/// body's place in the blast's space to measure the falloff, and the blast's
+/// place in each body's space to push it away — and doing that with two
+/// `develop` calls is two graph searches whose routes are not even guaranteed
+/// to be the same one. A Transform is invertible, so one search answers both,
+/// and the pair provably agrees. (Found by a reader working from the
+/// documentation alone, who needed exactly this and correctly reported that
+/// nothing offered it.)
+pub fn transform_between(
+    world: &World,
+    from: SpaceId,
+    into: SpaceId,
+) -> Option<crate::frames::Transform> {
+    if from == into {
+        return crate::frames::Transform::new(from, into, Mat3::IDENTITY, "identity").ok();
+    }
+    let a = world.polygon_of_space(from)?;
+    let b = world.polygon_of_space(into)?;
+    // measured from the source polygon's centroid (its local origin), which is
+    // the route a body near the middle of it would take
+    let r = route(world, a, Vec2::ZERO, b, world.polygons.len())?;
+    let mut m = Mat3::IDENTITY;
+    for step in &r.steps {
+        m = step.xform.mul(m);
+    }
+    crate::frames::Transform::new(from, into, m, "composed route").ok()
+}
+
+/// Develop a coordinate into another space: the one operation here that
+/// consults live topology.
+///
+/// It belongs to the world, not to the Coordinate — putting it on the
+/// Coordinate would imply the answer is derivable from what the Coordinate
+/// holds, when in fact it is a search against world state that can fail. It
+/// fails (None) when either space is not one of this world's polygons — the
+/// screen is a space, and no route through doorways reaches it — or when no
+/// route exists.
+pub fn develop(world: &World, c: &Coordinate, into: SpaceId) -> Option<Coordinate> {
+    if c.space() == into {
+        return Some(c.clone());
+    }
+    let from = world.polygon_of_space(c.space())?;
+    let to = world.polygon_of_space(into)?;
+    let r = route(world, from, c.local(), to, world.polygons.len())?;
+    Some(c.extended(&r.steps))
+}
+
 pub fn polygons_within(world: &World, center: PolygonId, hops: usize) -> Vec<PolygonId> {
     let mut seen = vec![false; world.polygons.len()];
     let mut out = vec![center];
@@ -480,6 +815,165 @@ mod tests {
             router.next_edge(&w, polygons[3], polygons[0]),
             fresh.next_edge(&w, polygons[3], polygons[0])
         );
+    }
+
+    // -- physical routing --------------------------------------------
+
+    fn rect(w: f64, h: f64) -> Vec<Vec2> {
+        vec![
+            v(-w * 0.5, -h * 0.5),
+            v(-w * 0.5, h * 0.5),
+            v(w * 0.5, h * 0.5),
+            v(w * 0.5, -h * 0.5),
+        ]
+    }
+
+    /// A world where the hop-minimal route and the physically shortest route
+    /// DISAGREE, which is the whole reason this metric exists. `a` is a long
+    /// hall; the source sits at its left end. One doorway at the far right end
+    /// reaches `t` in a single hop (990 units away). Three small chambers
+    /// hanging off the near left edge reach `t` in three hops but 90 units.
+    fn hops_vs_distance() -> (World, PolygonId, PolygonId, Vec2) {
+        let mut w = World::new();
+        let a = w.add_polygon(&rect(1000.0, 200.0)).unwrap();
+        let b = w.add_polygon(&rect(40.0, 200.0)).unwrap();
+        let c = w.add_polygon(&rect(40.0, 200.0)).unwrap();
+        let t = w.add_polygon(&rect(200.0, 200.0)).unwrap();
+        w.connect(a, 2, t, 0).unwrap(); // far right end -> t, one hop
+        w.connect(a, 0, b, 2).unwrap(); // near left end -> b
+        w.connect(b, 0, c, 2).unwrap();
+        w.connect(c, 0, t, 3).unwrap();
+        (w, a, t, v(-490.0, 0.0))
+    }
+
+    #[test]
+    fn route_measures_distance_and_not_hops() {
+        let (w, a, t, src) = hops_vs_distance();
+        // The hop router picks the one-hop door, as it should — that is the
+        // right answer to a different question.
+        let mut hop = Router::new();
+        assert_eq!(hop.hop_distance(&w, a, t), Some(1));
+
+        let r = route(&w, a, src, t, 8).expect("a route must exist");
+        assert_eq!(
+            r.hops(),
+            3,
+            "physical routing must take the three short chambers (90u), not \
+             the single 990u hall — got {} hops, {:.0}u",
+            r.hops(),
+            r.dist
+        );
+        assert!((r.dist - 90.0).abs() < 1e-6, "dist {:.3}", r.dist);
+        assert_eq!(r.polygons.last().copied(), Some(t));
+        assert_eq!(r.steps.len(), r.polygons.len());
+        assert_eq!(
+            r.steps.last().unwrap().into,
+            w.polygon_space(t).unwrap().id(),
+            "the last step must enter the destination's own space"
+        );
+    }
+
+    #[test]
+    fn route_obeys_the_hop_ceiling_without_silently_picking_a_worse_answer() {
+        let (w, a, t, src) = hops_vs_distance();
+        // Cap below the short route: the long one is still legitimate.
+        let r = route(&w, a, src, t, 2).expect("the one-hop route is inside the cap");
+        assert_eq!(r.hops(), 1);
+        assert!((r.dist - 990.0).abs() < 1e-6, "dist {:.3}", r.dist);
+        // Cap at zero: nowhere to go.
+        assert!(route(&w, a, src, t, 0).is_none());
+        // Same polygon is the empty route, not a failure.
+        let same = route(&w, a, src, a, 4).unwrap();
+        assert_eq!(same.hops(), 0);
+        assert_eq!(same.dist, 0.0);
+    }
+
+    #[test]
+    fn develop_carries_a_coordinate_into_another_polygons_space() {
+        let (w, a, t, src) = hops_vs_distance();
+        let here = Coordinate::new(w.polygon_space(a).unwrap().id(), src);
+        let there = develop(&w, &here, w.polygon_space(t).unwrap().id()).unwrap();
+        assert_eq!(there.space(), w.polygon_space(t).unwrap().id());
+        assert_eq!(there.record().len(), 3, "the record must show the route taken");
+        // The developed place is comparable with a local one, and the numbers
+        // agree with composing the portal matrices by hand.
+        let mut m = Mat3::IDENTITY;
+        for step in there.record() {
+            m = step.xform.mul(m);
+        }
+        assert!((there.local() - m.apply(src)).len() < 1e-9);
+        // Developing to where it already is changes nothing.
+        let same = develop(&w, &here, w.polygon_space(a).unwrap().id()).unwrap();
+        assert_eq!(same.record().len(), 0);
+    }
+
+    #[test]
+    fn develop_answers_none_for_a_space_no_doorway_reaches() {
+        // The screen is a space. No route of doorways reaches it, and the
+        // honest answer is None rather than a plausible number.
+        let (w, a, _t, src) = hops_vs_distance();
+        let screen = crate::frames::CoordinateSpace::new("Screenspace");
+        let here = Coordinate::new(w.polygon_space(a).unwrap().id(), src);
+        assert!(develop(&w, &here, screen.id()).is_none());
+        // ...and for a polygon with no route at all.
+        let mut w2 = World::new();
+        let x = w2.add_polygon(&rect(50.0, 50.0)).unwrap();
+        let y = w2.add_polygon(&rect(50.0, 50.0)).unwrap();
+        let p = Coordinate::new(w2.polygon_space(x).unwrap().id(), v(0.0, 0.0));
+        assert!(develop(&w2, &p, w2.polygon_space(y).unwrap().id()).is_none());
+    }
+
+    #[test]
+    fn routes_enumerates_distinct_images_shortest_first() {
+        // Two doorways between the same pair of chambers: two genuinely
+        // different images of the same body, and a loop, so the enumeration
+        // has no end — only a budget.
+        let mut w = World::new();
+        let a = w.add_polygon(&rect(200.0, 200.0)).unwrap();
+        let b = w.add_polygon(&rect(200.0, 200.0)).unwrap();
+        w.connect(a, 2, b, 0).unwrap();
+        w.connect(a, 0, b, 2).unwrap();
+        let src = v(-50.0, 0.0);
+        let got = routes(&w, a, src, b, 6, 4);
+        assert!(got.len() >= 2, "two doorways must give at least two images");
+        for pair in got.windows(2) {
+            assert!(
+                pair[0].dist <= pair[1].dist + 1e-9,
+                "must come shortest first: {:.1} then {:.1}",
+                pair[0].dist,
+                pair[1].dist
+            );
+        }
+        // Distinct means distinct developed image.
+        let mut images: Vec<(i64, i64)> = got
+            .iter()
+            .map(|r| {
+                let mut p = src;
+                for s in &r.steps {
+                    p = s.xform.apply(p);
+                }
+                ((p.x * 1000.0) as i64, (p.y * 1000.0) as i64)
+            })
+            .collect();
+        let n = images.len();
+        images.sort_unstable();
+        images.dedup();
+        assert_eq!(images.len(), n, "the same image must not be listed twice");
+        // Raising the budget really does see further — that is what "the
+        // generator may never terminate" means in practice.
+        assert!(routes(&w, a, src, b, 12, 12).len() > got.len());
+        // The shortest of the enumeration agrees with the single-answer route.
+        let best = route(&w, a, src, b, 6).unwrap();
+        assert!((got[0].dist - best.dist).abs() < 1e-9);
+    }
+
+    #[test]
+    fn routes_from_a_polygon_to_itself_starts_with_the_empty_route() {
+        let (w, a, _t, src) = hops_vs_distance();
+        let got = routes(&w, a, src, a, 4, 3);
+        assert!(!got.is_empty());
+        assert_eq!(got[0].hops(), 0);
+        assert_eq!(got[0].dist, 0.0);
     }
 
     // -- walk-mask terrain queries -----------------------------------

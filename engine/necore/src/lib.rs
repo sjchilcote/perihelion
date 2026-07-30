@@ -7,6 +7,7 @@
 //! and emits events; deciding what any of it *means* belongs to the game
 //! layer above.
 
+pub mod frames;
 pub mod geom;
 pub mod math;
 pub mod signals;
@@ -17,9 +18,13 @@ pub mod soft;
 pub mod visibility;
 pub mod world;
 
+pub use frames::{Coordinate, CoordinateSpace, FrameError, Offset, SpaceId, Step, Transform};
 pub use math::{v, Mat3, Vec2};
 pub use physics::{Entity, Event, Sim};
-pub use query::{raycast, polygons_within, terrain_avoid_dir, terrain_light_segments, RayHit, Router};
+pub use query::{
+    develop, polygons_within, raycast, route, routes, terrain_avoid_dir, terrain_light_segments,
+    transform_between, RayHit, Route, Router,
+};
 pub use raster::{Raster, RasterError};
 pub use signals::SignalField as CoreSignalField;
 pub use visibility::{visible_set, Frustum, PolygonInstance};

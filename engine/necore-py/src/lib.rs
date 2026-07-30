@@ -8,14 +8,21 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 
+mod frames;
 mod platform;
 mod video;
 
+use frames::{
+    frame_err, FrameMismatch, PyCoordinate, PyEntityState, PyOffset, PyRayResult, PySpace, PyTrack,
+    PyTransform,
+};
+use necore_core::frames as core_frames;
 use necore_core::{
-    geom, raycast as core_raycast, polygons_within as core_polygons_within,
+    develop as core_develop, geom, transform_between as core_transform_between, polygons_within as core_polygons_within,
+    raycast as core_raycast, route as core_route, routes as core_routes,
     terrain_avoid_dir as core_terrain_avoid_dir, terrain_light_segments as core_terrain_light_segments,
-    visible_set as core_visible_set, v, Mat3, RayHit, Raster as CoreRaster, Polygon, Router,
-    Sim as CoreSim, Vec2, World,
+    visible_set as core_visible_set, v, Coordinate, Mat3, Polygon, RayHit, Raster as CoreRaster,
+    Router, Sim as CoreSim, Vec2, World,
 };
 
 /// Row-major 3x3 homogeneous transform as it crosses the Python boundary.
@@ -52,37 +59,41 @@ fn get_polygon(world: &World, r: usize) -> PyResult<&Polygon> {
     world.polygons.get(r).ok_or_else(|| no_polygon(r))
 }
 
-fn event_to_obj(py: Python<'_>, ev: necore_core::Event) -> PyObject {
+/// Engine events, with every position and direction space-tagged.
+///
+/// The polygon is included on the ones that have one so the game side never has
+/// to recover it with a second call — and so the values can be minted in the
+/// right space here, at the source, rather than assembled from floats later by
+/// code that has to remember which frame they were in.
+fn event_to_obj(sim: &CoreSim, py: Python<'_>, ev: necore_core::Event) -> PyObject {
     use necore_core::Event::*;
+    let space = |r: usize| -> core_frames::SpaceId {
+        sim.world.polygon_space(r).map(|s| s.id()).unwrap_or(0)
+    };
+    let place = |r: usize, p: Vec2| PyCoordinate::of(Coordinate::new(space(r), p));
+    let dir = |r: usize, d: Vec2| PyOffset::of(core_frames::Offset::new(space(r), d));
     match ev {
         Transfer { ent, from, to, edge, xform } => {
             ("transfer", ent, from, to, edge, mat_to_tuple(xform)).into_py(py)
         }
         WallHit { ent, polygon, edge, pos, normal, speed } => (
-            "wall", ent, polygon, edge, pos.x, pos.y, normal.x, normal.y, speed,
+            "wall", ent, polygon, edge, place(polygon, pos), dir(polygon, normal), speed,
         )
             .into_py(py),
         TerrainHit { ent, polygon, terrain, pos, normal, speed } => (
-            "terrain", ent, polygon, terrain, pos.x, pos.y, normal.x, normal.y, speed,
+            "terrain", ent, polygon, terrain, place(polygon, pos), dir(polygon, normal), speed,
         )
             .into_py(py),
-        Contact { a, b, pos, normal, rel_speed } => {
-            ("contact", a, b, pos.x, pos.y, normal.x, normal.y, rel_speed).into_py(py)
-        }
-    }
-}
-
-fn rayhit_to_obj(py: Python<'_>, hit: RayHit) -> PyObject {
-    match hit {
-        RayHit::Wall { polygon, edge, pos, xform, dist, hops } => {
-            ("wall", polygon, edge, pos.x, pos.y, dist, hops, mat_to_tuple(xform)).into_py(py)
-        }
-        RayHit::Entity { id, polygon, pos, xform, dist, hops } => {
-            ("ent", id, polygon, pos.x, pos.y, dist, hops, mat_to_tuple(xform)).into_py(py)
-        }
-        RayHit::Nothing { polygon, pos, xform, dist, hops } => {
-            ("none", polygon, pos.x, pos.y, dist, hops, mat_to_tuple(xform)).into_py(py)
-        }
+        // Entity contact is always WITHIN one polygon (the physics only tests a
+        // body against its own polygon's list), so one space serves both bodies
+        // and the normal — and the polygon comes from the EVENT, not from
+        // either body's current membership, because the rest of the step can
+        // move them.
+        Contact { a, b, polygon, pos, normal, rel_speed } => (
+            "contact", a, b, polygon, place(polygon, pos), dir(polygon, normal),
+            rel_speed,
+        )
+            .into_py(py),
     }
 }
 
@@ -92,73 +103,80 @@ struct Sim {
     router: Router,
 }
 
-/// The geometric core shared by `Sim.sightline` and `Sim.sentry_acquire`:
-/// compose portal transforms along the next_edge chain, then raycast-
-/// confirm. Returns (wx, wy, portal_depth, dist) in the observer's frame.
-fn sightline_core(
-    router: &mut Router,
+/// The geometric core shared by `Sim.track_of` and `Sim.sentry_acquire`:
+/// pick the physically shortest route from the target's chamber to the
+/// observer's, develop the target's position along it, then raycast-confirm
+/// the line actually reaches the target (no wallhacks at any depth).
+///
+/// Returns the sighting in the OBSERVER's space. The route is chosen by TOTAL
+/// PHYSICAL DISTANCE, not hop count (query::route): a hop-minimal route can
+/// bend somewhere a straight line never goes, and then the composed position
+/// lands somewhere the confirming ray refuses — sight that fails for a reason
+/// that has nothing to do with the geometry between the two bodies.
+///
+/// The confirming ray is allowed the same `max_hops` as the compose walk. It
+/// used to be hardcoded to 3 while the walk was allowed 12, so a straight
+/// sightline down a colonnade of five small chambers composed correctly and
+/// was then refused — silent inertness across a doorway, which is the thing
+/// this game's own law forbids.
+fn track_core(
     sim: &CoreSim,
     observer: u64,
     target: u64,
     group: u8,
     max_hops: usize,
-) -> Option<(f64, f64, usize, f64)> {
+) -> Option<(Coordinate, core_frames::Offset, core_frames::Offset, f64, f64, usize, usize)> {
     let obs = sim.entities.get(&observer)?;
     let tgt = sim.entities.get(&target)?;
-    let (r0, ox, oy) = (obs.polygon, obs.pos.x, obs.pos.y);
-    let (rt, tx0, ty0) = (tgt.polygon, tgt.pos.x, tgt.pos.y);
-    let (wx, wy, depth) = if r0 == rt {
-        (tx0, ty0, 0usize)
-    } else {
-        let hd = match router.hop_distance(&sim.world, r0, rt) {
-            Some(hd) if (1..=max_hops as u32).contains(&hd) => hd as usize,
-            _ => return None,
-        };
-        let mut pxf: Option<Mat3> = None;
-        let mut r_ = r0;
-        for _ in 0..max_hops {
-            if r_ == rt {
-                break;
-            }
-            let pedge = router.next_edge(&sim.world, r_, rt)?;
-            let polygon = sim.world.polygons.get(r_)?;
-            let Some(Some(portal)) = polygon.portals.get(pedge) else {
+    let obs_space = sim.world.polygon_space(obs.polygon)?.id();
+    if obs.polygon == tgt.polygon {
+        // Same chamber: unconditional. Chambers are convex, so nothing inside
+        // one can hide a body.
+        let d = (tgt.pos - obs.pos).len();
+        return Some((
+            Coordinate::new(obs_space, tgt.pos),
+            core_frames::Offset::new(obs_space, tgt.vel),
+            core_frames::Offset::new(obs_space, tgt.dir),
+            d,
+            d,
+            0,
+            tgt.polygon,
+        ));
+    }
+    let tgt_space = sim.world.polygon_space(tgt.polygon)?.id();
+    let r = core_route(&sim.world, tgt.polygon, tgt.pos, obs.polygon, max_hops)?;
+    let here = Coordinate::new(tgt_space, tgt.pos).extended(&r.steps);
+    let vel = core_frames::Offset::new(tgt_space, tgt.vel).extended(&r.steps);
+    let facing = core_frames::Offset::new(tgt_space, tgt.dir).extended(&r.steps);
+    let dd = here.local() - obs.pos;
+    let dl = dd.len().max(1e-6);
+    match core_raycast(
+        sim,
+        obs.polygon,
+        obs.pos,
+        v(dd.x / dl, dd.y / dl),
+        max_hops,
+        dl + 40.0,
+        1u16 << group,
+        Some(observer),
+    ) {
+        RayHit::Entity { id, .. } if id == target => {}
+        _ => return None,
+    }
+    // The route stops at the last doorway; the leg from there to the observer
+    // is the caller's to add, and this is the caller.
+    let last_leg = r
+        .entry_edge
+        .and_then(|e| {
+            let polygon = sim.world.polygons.get(obs.polygon)?;
+            if e >= polygon.num_edges() {
                 return None;
-            };
-            pxf = Some(match pxf {
-                None => portal.xform,
-                Some(m) => m.mul(portal.xform),
-            });
-            r_ = portal.target_polygon;
-        }
-        if r_ != rt {
-            return None;
-        }
-        let p = pxf?.apply(v(tx0, ty0));
-        (p.x, p.y, hd)
-    };
-    let (ddx, ddy) = (wx - ox, wy - oy);
-    let mut dl = ddx.hypot(ddy);
-    if dl == 0.0 {
-        dl = 1e-6;
-    }
-    if depth > 0 {
-        let hit = core_raycast(
-            sim,
-            r0,
-            v(ox, oy),
-            v(ddx / dl, ddy / dl),
-            3,
-            dl + 40.0,
-            1u16 << group,
-            Some(observer),
-        );
-        match hit {
-            RayHit::Entity { id, .. } if id == target => {}
-            _ => return None,
-        }
-    }
-    Some((wx, wy, depth, dl))
+            }
+            let (a, b) = polygon.edge(e);
+            Some((obs.pos - a.lerp(b, 0.5)).len())
+        })
+        .unwrap_or(0.0);
+    Some((here, vel, facing, dl, r.dist + last_leg, r.steps.len(), tgt.polygon))
 }
 
 /// Liang-Barsky segment-vs-AABB — the exact port of sim.py's
@@ -199,6 +217,46 @@ fn segment_crosses_rect(
         }
     }
     t0 < t1
+}
+
+/// Helpers that are NOT part of the Python surface: the space bookkeeping every
+/// coordinate-taking method needs.
+impl Sim {
+    fn entity_space(&self, id: u64) -> PyResult<core_frames::SpaceId> {
+        let e = self.sim.entities.get(&id).ok_or_else(|| no_ent(id))?;
+        Ok(self
+            .sim
+            .world
+            .polygon_space(e.polygon)
+            .ok_or_else(|| no_polygon(e.polygon))?
+            .id())
+    }
+
+    fn polygon_for(&self, space: core_frames::SpaceId) -> PyResult<usize> {
+        self.sim.world.polygon_of_space(space).ok_or_else(|| {
+            FrameMismatch::new_err(format!(
+                "{} is not one of this world's polygons, so it names no place \
+                 to put a body",
+                core_frames::name_of(space)
+            ))
+        })
+    }
+
+    /// An offset that must already be in the body's OWN space. Strict on
+    /// purpose: a heading meant for this body should have been computed from
+    /// this body's own place, and reconciling silently here would hide the one
+    /// case where it was not.
+    fn own_offset(&self, id: u64, o: &PyOffset) -> PyResult<Vec2> {
+        let space = self.entity_space(id)?;
+        if o.inner.space() != space {
+            return Err(FrameMismatch::new_err(format!(
+                "entity {id} is in {}, but the offset given is in {}",
+                core_frames::name_of(space),
+                core_frames::name_of(o.inner.space())
+            )));
+        }
+        Ok(o.inner.local())
+    }
 }
 
 #[pymethods]
@@ -274,20 +332,115 @@ impl Sim {
         Ok((a.x, a.y, b.x, b.y))
     }
 
-    fn edge_midpoint(&self, r: usize, e: usize) -> PyResult<(f64, f64)> {
+    /// A doorway's midpoint as a PLACE in that polygon's space — the steering
+    /// target when an agent heads for a door. Space-tagged because the whole
+    /// point of steering is subtracting it from the agent's own position, and
+    /// that subtraction is only meaningful in one space.
+    fn edge_midpoint(&self, r: usize, e: usize) -> PyResult<PyCoordinate> {
+        let space = self
+            .sim
+            .world
+            .polygon_space(r)
+            .ok_or_else(|| no_polygon(r))?
+            .id();
         let polygon = get_polygon(&self.sim.world, r)?;
         if e >= polygon.num_edges() {
             return Err(no_edge(r, e));
         }
         let (a, b) = polygon.edge(e);
-        let m = a.lerp(b, 0.5);
-        Ok((m.x, m.y))
+        Ok(PyCoordinate::of(Coordinate::new(space, a.lerp(b, 0.5))))
     }
 
-    fn edge_normal(&self, r: usize, e: usize) -> PyResult<(f64, f64)> {
+    /// The unit INWARD normal of an edge, as a direction in that polygon's
+    /// space.
+    fn edge_normal(&self, r: usize, e: usize) -> PyResult<PyOffset> {
+        let space = self
+            .sim
+            .world
+            .polygon_space(r)
+            .ok_or_else(|| no_polygon(r))?
+            .id();
         let polygon = get_polygon(&self.sim.world, r)?;
-        let n = polygon.normals.get(e).ok_or_else(|| no_edge(r, e))?;
-        Ok((n.x, n.y))
+        let n = *polygon.normals.get(e).ok_or_else(|| no_edge(r, e))?;
+        Ok(PyOffset::of(core_frames::Offset::new(space, n)))
+    }
+
+    // --- Coordinate spaces --------------------------------------------
+
+    /// A polygon's coordinate space. A polygon's frame IS its space; this is
+    /// the handle a caller needs to build an Offset in it, or to ask for a
+    /// sighting developed into it.
+    fn polygon_space(&self, r: usize) -> PyResult<PySpace> {
+        Ok(PySpace::of(
+            self.sim
+                .world
+                .polygon_space(r)
+                .ok_or_else(|| no_polygon(r))?
+                .clone(),
+        ))
+    }
+
+    /// The place in polygon `r` at local coordinates (x, y).
+    ///
+    /// THE DOOR FOR AUTHORED DATA. Level files say "polygon 7, at (40, -12)",
+    /// and something has to turn that into a place. Note what makes this safe
+    /// where a bare `Coordinate(x, y)` would not be: the polygon is named in
+    /// the SAME call as the numbers, so the pairing cannot drift. The defect
+    /// this whole system targets is numbers whose space was never stated at
+    /// all — not numbers whose space is stated out loud.
+    fn place(&self, r: usize, x: f64, y: f64) -> PyResult<PyCoordinate> {
+        let space = self
+            .sim
+            .world
+            .polygon_space(r)
+            .ok_or_else(|| no_polygon(r))?
+            .id();
+        Ok(PyCoordinate::of(Coordinate::new(space, v(x, y))))
+    }
+
+    /// Which polygon a space belongs to, or None for a space this world did
+    /// not mint. The inverse of `polygon_space`, and the bridge for channels
+    /// that still speak in polygon indices (sound, decals, the fx queue).
+    fn polygon_of(&self, space: &PySpace) -> Option<usize> {
+        self.sim.world.polygon_of_space(space.inner.id())
+    }
+
+    /// A doorway's transform, tagged with the two spaces it maps between: it
+    /// takes the NEIGHBOUR's coordinates into polygon `r`'s.
+    fn portal_transform(&self, r: usize, e: usize) -> PyResult<Option<PyTransform>> {
+        if r >= self.sim.world.polygons.len() {
+            return Err(no_polygon(r));
+        }
+        Ok(self.sim.world.portal_transform(r, e).map(PyTransform::of))
+    }
+
+    /// The composed transform between two spaces, along the shortest physical
+    /// route — INVERTIBLE, so one topology search answers both directions.
+    ///
+    /// This is what an operation centred on a place needs when it reaches
+    /// through a doorway: a blast measures each body's distance in the blast's
+    /// space and pushes each body in the BODY's space, and those are the two
+    /// directions of one transform. Two `develop` calls would be two searches
+    /// whose routes are not guaranteed to match. It is also how a direction
+    /// minted somewhere else travels to where it is needed — a contact normal,
+    /// or a shot loosed into a captor standing in the next chamber.
+    ///
+    /// None when no route exists, or when either space is not one of this
+    /// world's polygons.
+    fn transform_between(&self, from: &PySpace, into: &PySpace)
+                         -> Option<PyTransform> {
+        core_transform_between(&self.sim.world, from.inner.id(), into.inner.id())
+            .map(PyTransform::of)
+    }
+
+    /// Develop a place into another space: the ONE operation here that consults
+    /// live topology, which is why it belongs to the world and not to the
+    /// coordinate. A deep search for the physically shortest route, then the
+    /// transform. `None` when no route exists, or when the target space is not
+    /// one of this world's polygons — the screen is a space, and no doorway
+    /// reaches it.
+    fn develop(&self, c: &PyCoordinate, into: &PySpace) -> Option<PyCoordinate> {
+        core_develop(&self.sim.world, &c.inner, into.inner.id()).map(PyCoordinate::of)
     }
 
     fn polygon_radius(&self, r: usize) -> PyResult<f64> {
@@ -354,30 +507,44 @@ impl Sim {
     /// that case -- see `query::terrain_avoid_dir`'s doc comment). Returns
     /// a unit vector; pass the result as the entity's desired heading
     /// before scaling by speed and calling `set_vel`.
-    #[pyo3(signature = (r, x, y, radius, dx, dy, lookahead = 40.0))]
-    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature = (from, radius, desired, lookahead = 40.0))]
     fn terrain_avoid_dir(
         &self,
-        r: usize,
-        x: f64,
-        y: f64,
+        from: &PyCoordinate,
         radius: f64,
-        dx: f64,
-        dy: f64,
+        desired: &PyOffset,
         lookahead: f64,
-    ) -> PyResult<(f64, f64)> {
-        if r >= self.sim.world.polygons.len() {
-            return Err(no_polygon(r));
+    ) -> PyResult<PyOffset> {
+        let space = from.inner.space();
+        if desired.inner.space() != space {
+            return Err(FrameMismatch::new_err(format!(
+                "terrain_avoid_dir: standing in {} but steering in {}",
+                core_frames::name_of(space),
+                core_frames::name_of(desired.inner.space())
+            )));
         }
-        let out = core_terrain_avoid_dir(&self.sim.world, r, v(x, y), radius, v(dx, dy), lookahead);
-        Ok((out.x, out.y))
+        let r = self.polygon_for(space)?;
+        let out = core_terrain_avoid_dir(
+            &self.sim.world,
+            r,
+            from.inner.local(),
+            radius,
+            desired.inner.local(),
+            lookahead,
+        );
+        Ok(PyOffset::of(core_frames::Offset::new(space, out)))
     }
 
     // --- Entities ---------------------------------------------------------
 
-    fn spawn(&mut self, polygon: usize, x: f64, y: f64, radius: f64, mass: f64, group: u8) -> PyResult<u64> {
+    /// Spawn a body AT a place. The polygon comes from the coordinate's space,
+    /// so there is no way to pass a position from one chamber with the index of
+    /// another — a pairing nothing checked before.
+    fn spawn(&mut self, at: &PyCoordinate, radius: f64, mass: f64, group: u8) -> PyResult<u64> {
+        let polygon = self.polygon_for(at.inner.space())?;
+        let p = at.inner.local();
         self.sim
-            .spawn(polygon, v(x, y), radius, mass, group)
+            .spawn(polygon, p, radius, mass, group)
             .map_err(PyValueError::new_err)
     }
 
@@ -389,18 +556,22 @@ impl Sim {
         self.sim.entities.contains_key(&id)
     }
 
-    fn set_vel(&mut self, id: u64, vx: f64, vy: f64) -> PyResult<()> {
+    /// Velocity as an Offset in the body's own space. A velocity is a
+    /// difference per unit time, so it transforms by the linear part of a
+    /// portal — which is why this cannot be two bare floats whose space
+    /// nobody stated.
+    fn set_vel(&mut self, id: u64, vel: &PyOffset) -> PyResult<()> {
+        let d = self.own_offset(id, vel)?;
         let e = self.sim.entities.get_mut(&id).ok_or_else(|| no_ent(id))?;
-        e.vel = v(vx, vy);
+        e.vel = d;
         Ok(())
     }
 
     /// Mass-scaled impulse: dv = J / m — knockback as force through the
     /// physics, never a velocity write.
-    fn apply_impulse(&mut self, id: u64, jx: f64, jy: f64) -> PyResult<()> {
-        self.sim
-            .apply_impulse(id, v(jx, jy))
-            .map_err(PyValueError::new_err)
+    fn apply_impulse(&mut self, id: u64, j: &PyOffset) -> PyResult<()> {
+        let d = self.own_offset(id, j)?;
+        self.sim.apply_impulse(id, d).map_err(PyValueError::new_err)
     }
 
     /// Mark a polygon's walls soft (Otherworld).
@@ -413,19 +584,32 @@ impl Sim {
         self.sim.soft_wall_impulse(polygon, edge, t, magnitude);
     }
 
-    fn set_pos(&mut self, id: u64, x: f64, y: f64) -> PyResult<()> {
+    /// Teleport within the body's CURRENT chamber. Polygon membership does not
+    /// follow a position write (that is a `step` job), so the coordinate must
+    /// already be in the body's own space and is refused otherwise.
+    fn set_pos(&mut self, id: u64, at: &PyCoordinate) -> PyResult<()> {
+        let space = self.entity_space(id)?;
+        if at.inner.space() != space {
+            return Err(FrameMismatch::new_err(format!(
+                "set_pos: entity {id} is in {}, but the position given is in {}",
+                core_frames::name_of(space),
+                core_frames::name_of(at.inner.space())
+            )));
+        }
+        let p = at.inner.local();
         let e = self.sim.entities.get_mut(&id).ok_or_else(|| no_ent(id))?;
-        e.pos = v(x, y);
+        e.pos = p;
         Ok(())
     }
 
-    fn set_dir(&mut self, id: u64, dx: f64, dy: f64) -> PyResult<()> {
+    fn set_dir(&mut self, id: u64, dir: &PyOffset) -> PyResult<()> {
+        let d = self.own_offset(id, dir)?;
         let e = self.sim.entities.get_mut(&id).ok_or_else(|| no_ent(id))?;
-        e.dir = v(dx, dy).normalized();
+        e.dir = d.normalized();
         Ok(())
     }
 
-    #[pyo3(signature = (id, rest_wall=None, rest_ent=None, max_substep=None, transfers=None, radius=None, mass=None, group=None))]
+    #[pyo3(signature = (id, rest_wall=None, rest_ent=None, max_substep=None, transfers=None, radius=None, mass=None, group=None, physical=None))]
     #[allow(clippy::too_many_arguments)]
     fn set_props(
         &mut self,
@@ -437,6 +621,7 @@ impl Sim {
         radius: Option<f64>,
         mass: Option<f64>,
         group: Option<u8>,
+        physical: Option<bool>,
     ) -> PyResult<()> {
         let e = self.sim.entities.get_mut(&id).ok_or_else(|| no_ent(id))?;
         if let Some(x) = rest_wall {
@@ -460,12 +645,34 @@ impl Sim {
         if let Some(x) = group {
             e.group = x;
         }
+        if let Some(x) = physical {
+            e.physical = x;
+        }
         Ok(())
     }
 
-    fn get(&self, id: u64) -> PyResult<(usize, f64, f64, f64, f64, f64, f64)> {
+    /// One body's state at this instant: polygon, place, velocity, facing.
+    ///
+    /// Replaces the seven-float tuple. Every float in that tuple was a number
+    /// with no space attached, and the 28 sites that unpacked it as
+    /// `_, ex, ey, *_ =` were free to subtract one body's from another's — how
+    /// the Adversary's shove came to aim at nothing (gate 66, p=0.04).
+    fn get(&self, id: u64) -> PyResult<PyEntityState> {
         let e = self.sim.entities.get(&id).ok_or_else(|| no_ent(id))?;
-        Ok((e.polygon, e.pos.x, e.pos.y, e.vel.x, e.vel.y, e.dir.x, e.dir.y))
+        let space = self
+            .sim
+            .world
+            .polygon_space(e.polygon)
+            .ok_or_else(|| no_polygon(e.polygon))?
+            .id();
+        Ok(PyEntityState {
+            polygon: e.polygon,
+            space,
+            pos: e.pos,
+            vel: e.vel,
+            dir: e.dir,
+            radius: e.radius,
+        })
     }
 
     fn get_radius(&self, id: u64) -> PyResult<f64> {
@@ -478,10 +685,6 @@ impl Sim {
 
     fn polygon_entities(&self, polygon: usize) -> PyResult<Vec<u64>> {
         Ok(get_polygon(&self.sim.world, polygon)?.entities.clone())
-    }
-
-    fn set_collision_pair(&mut self, g: u8, h: u8, on: bool) {
-        self.sim.set_collision_pair(g, h, on);
     }
 
     fn set_active_within(&mut self, polygon: usize, hops: usize) -> PyResult<()> {
@@ -510,10 +713,10 @@ impl Sim {
     // --- Simulation ---------------------------------------------------
 
     fn step(&mut self, py: Python<'_>, dt: f64) -> Vec<PyObject> {
-        self.sim
-            .step(dt)
+        let events = self.sim.step(dt);
+        events
             .into_iter()
-            .map(|e| event_to_obj(py, e))
+            .map(|e| event_to_obj(&self.sim, py, e))
             .collect()
     }
 
@@ -619,108 +822,239 @@ impl Sim {
 
     // --- Queries -----------------------------------------------------
 
-    #[pyo3(signature = (polygon, ox, oy, dx, dy, max_hops, max_len, mask, ignore=-1))]
-    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature = (from, dir, max_hops, max_len, mask, ignore=-1))]
     fn raycast(
         &self,
-        py: Python<'_>,
-        polygon: usize,
-        ox: f64,
-        oy: f64,
-        dx: f64,
-        dy: f64,
+        from: &PyCoordinate,
+        dir: &PyOffset,
         max_hops: usize,
         max_len: f64,
         mask: u16,
         ignore: i64,
-    ) -> PyResult<PyObject> {
-        if polygon >= self.sim.world.polygons.len() {
-            return Err(no_polygon(polygon));
+    ) -> PyResult<PyRayResult> {
+        let origin_space = from.inner.space();
+        if dir.inner.space() != origin_space {
+            return Err(FrameMismatch::new_err(format!(
+                "raycast: the origin is in {} but the direction is in {}",
+                core_frames::name_of(origin_space),
+                core_frames::name_of(dir.inner.space())
+            )));
         }
+        let polygon = self.polygon_for(origin_space)?;
         let ignore_opt = if ignore < 0 { None } else { Some(ignore as u64) };
         let hit = core_raycast(
             &self.sim,
             polygon,
-            v(ox, oy),
-            v(dx, dy),
+            from.inner.local(),
+            dir.inner.local(),
             max_hops,
             max_len,
             mask,
             ignore_opt,
         );
-        Ok(rayhit_to_obj(py, hit))
+        let (kind, entity_id, hit_polygon, edge, pos, xform, dist, hops) = match hit {
+            RayHit::Wall { polygon, edge, pos, xform, dist, hops } => {
+                ("wall", None, polygon, Some(edge), pos, xform, dist, hops)
+            }
+            RayHit::Entity { id, polygon, pos, xform, dist, hops } => {
+                ("ent", Some(id), polygon, None, pos, xform, dist, hops)
+            }
+            RayHit::Nothing { polygon, pos, xform, dist, hops } => {
+                ("none", None, polygon, None, pos, xform, dist, hops)
+            }
+        };
+        let hit_space = self
+            .sim
+            .world
+            .polygon_space(hit_polygon)
+            .ok_or_else(|| no_polygon(hit_polygon))?
+            .id();
+        Ok(PyRayResult {
+            kind: kind.to_string(),
+            entity_id,
+            polygon: hit_polygon,
+            edge,
+            pos: Coordinate::new(hit_space, pos),
+            to_origin: core_frames::Transform::new(
+                hit_space,
+                origin_space,
+                xform,
+                "ray composition",
+            )
+            .map_err(frame_err)?,
+            distance: dist,
+            hops,
+        })
     }
 
-    /// The geometric core of targeted sight (senses.sight_of), in one
-    /// engine call: compose portal transforms along the next_edge chain
-    /// from the observer's chamber to the target's, then raycast-confirm
-    /// the line actually reaches the target (no wallhacks at any depth).
-    /// Returns (wx, wy, portal_depth, dist) in the OBSERVER's local frame,
-    /// or None. Same-chamber sight is unconditional (convex chambers).
-    /// `group` is the target's collision group (mask = 1 << group);
-    /// `max_hops` is the compose-walk cost ceiling, never a targeting law.
-    fn sightline(
-        &mut self,
+    /// TARGETED sight: a Track, or None.
+    ///
+    /// The one query that answers "where is that body, from here". The place it
+    /// reports is developed into the OBSERVER's own space along the physically
+    /// shortest route, and raycast-confirmed, so there are no wallhacks at any
+    /// depth. `tick` is stamped on the Track: everything on it was computed at
+    /// one instant, and an old sighting read as current is the same silent
+    /// wrongness as a frame mismatch, in time instead of space.
+    #[pyo3(signature = (observer, target, group, max_hops, tick = 0))]
+    fn track_of(
+        &self,
         observer: u64,
         target: u64,
         group: u8,
         max_hops: usize,
-    ) -> PyResult<Option<(f64, f64, usize, f64)>> {
+        tick: i64,
+    ) -> PyResult<Option<PyTrack>> {
         if !self.sim.entities.contains_key(&observer) {
             return Err(no_ent(observer));
         }
         if !self.sim.entities.contains_key(&target) {
             return Err(no_ent(target));
         }
-        Ok(sightline_core(
-            &mut self.router, &self.sim, observer, target, group, max_hops,
+        Ok(track_core(&self.sim, observer, target, group, max_hops).map(
+            |(pos, vel, dir, dl, path, depth, polygon)| PyTrack {
+                entity_id: target,
+                polygon,
+                pos,
+                vel,
+                dir,
+                path_distance: path,
+                distance: dl,
+                portal_depth: depth,
+                tick,
+            },
         ))
     }
 
-    /// Sentry target acquisition, whole scan in one call: among
-    /// `candidates` (in the caller's iteration order — ties keep the
-    /// earlier candidate, matching the Python loop's strict `<`), the
-    /// nearest sighted one within `max_range`, where same-chamber
-    /// sightlines must additionally clear this polygon's walk-mask
-    /// terrain rects (`_sentry_los_clear`'s Liang-Barsky test). Returns
-    /// (candidate_id, x, y) in the OBSERVER's local frame, or None.
+    /// EVERY distinct image of one body, shortest first.
+    ///
+    /// A portal graph with a loop admits unboundedly many routes, so this takes
+    /// a budget and the caller raises it to see further; that is the honest
+    /// shape of "the generator may never terminate". Distinct means distinct
+    /// developed place: two routes that put the body in the same spot are one
+    /// sighting however differently they got there.
+    ///
+    /// Unlike `track_of` these are NOT raycast-confirmed — an alternate image
+    /// is a geometric fact about the world, and a caller asking for all of them
+    /// is asking about the geometry, not about what it can shoot.
+    #[pyo3(signature = (observer, target, max_hops, max_images, tick = 0))]
+    fn tracks_to(
+        &self,
+        observer: u64,
+        target: u64,
+        max_hops: usize,
+        max_images: usize,
+        tick: i64,
+    ) -> PyResult<Vec<PyTrack>> {
+        let obs = self.sim.entities.get(&observer).ok_or_else(|| no_ent(observer))?;
+        let tgt = self.sim.entities.get(&target).ok_or_else(|| no_ent(target))?;
+        let obs_space = self
+            .sim
+            .world
+            .polygon_space(obs.polygon)
+            .ok_or_else(|| no_polygon(obs.polygon))?
+            .id();
+        let tgt_space = self
+            .sim
+            .world
+            .polygon_space(tgt.polygon)
+            .ok_or_else(|| no_polygon(tgt.polygon))?
+            .id();
+        let here = Coordinate::new(tgt_space, tgt.pos);
+        let here_vel = core_frames::Offset::new(tgt_space, tgt.vel);
+        let here_dir = core_frames::Offset::new(tgt_space, tgt.dir);
+        let mut out = Vec::new();
+        for r in core_routes(
+            &self.sim.world,
+            tgt.polygon,
+            tgt.pos,
+            obs.polygon,
+            max_hops,
+            max_images,
+        ) {
+            let developed = here.extended(&r.steps);
+            let dl = (developed.local() - obs.pos).len();
+            let last_leg = r
+                .entry_edge
+                .and_then(|e| {
+                    let polygon = self.sim.world.polygons.get(obs.polygon)?;
+                    if e >= polygon.num_edges() {
+                        return None;
+                    }
+                    let (a, b) = polygon.edge(e);
+                    Some((obs.pos - a.lerp(b, 0.5)).len())
+                })
+                .unwrap_or(0.0);
+            debug_assert_eq!(developed.space(), obs_space);
+            out.push(PyTrack {
+                entity_id: target,
+                polygon: tgt.polygon,
+                pos: developed,
+                vel: here_vel.extended(&r.steps),
+                dir: here_dir.extended(&r.steps),
+                path_distance: r.dist + last_leg,
+                distance: dl,
+                portal_depth: r.steps.len(),
+                tick,
+            });
+        }
+        Ok(out)
+    }
+
+    /// Sentry target acquisition, whole scan in one call: among `candidates`
+    /// (in the caller's iteration order — ties keep the earlier candidate,
+    /// matching the Python loop's strict `<`), the nearest sighted one within
+    /// `max_range`, where same-chamber sightlines must additionally clear this
+    /// polygon's walk-mask terrain rects. Returns a Track, or None.
+    #[pyo3(signature = (observer, candidates, group, max_hops, max_range, tick = 0))]
+    #[allow(clippy::too_many_arguments)]
     fn sentry_acquire(
-        &mut self,
+        &self,
         observer: u64,
         candidates: Vec<u64>,
         group: u8,
         max_hops: usize,
         max_range: f64,
-    ) -> PyResult<Option<(u64, f64, f64)>> {
+        tick: i64,
+    ) -> PyResult<Option<PyTrack>> {
         let obs = self.sim.entities.get(&observer).ok_or_else(|| no_ent(observer))?;
-        let (r0, ox, oy) = (obs.polygon, obs.pos.x, obs.pos.y);
-        let mut best: Option<(u64, f64, f64)> = None;
+        let (r0, o) = (obs.polygon, obs.pos);
+        let mut best: Option<PyTrack> = None;
         let mut best_d2 = max_range * max_range;
         for target in candidates {
-            let Some(tgt) = self.sim.entities.get(&target) else {
+            if !self.sim.entities.contains_key(&target) {
                 continue;
-            };
-            let _ = tgt;
-            let Some((wx, wy, depth, _dl)) =
-                sightline_core(&mut self.router, &self.sim, observer, target, group, max_hops)
+            }
+            let Some((pos, vel, dir, _dl, path, depth, polygon)) =
+                track_core(&self.sim, observer, target, group, max_hops)
             else {
                 continue;
             };
-            let d2 = (wx - ox) * (wx - ox) + (wy - oy) * (wy - oy);
+            let w = pos.local();
+            let d2 = (w - o).len2();
             if d2 > best_d2 {
                 continue;
             }
             if depth == 0 {
                 let terrain = &get_polygon(&self.sim.world, r0)?.terrain;
                 let blocked = terrain.iter().any(|rect| {
-                    segment_crosses_rect(ox, oy, wx, wy, rect.lo.x, rect.lo.y, rect.hi.x, rect.hi.y)
+                    segment_crosses_rect(o.x, o.y, w.x, w.y, rect.lo.x, rect.lo.y, rect.hi.x, rect.hi.y)
                 });
                 if blocked {
                     continue;
                 }
             }
-            best = Some((target, wx, wy));
             best_d2 = d2;
+            best = Some(PyTrack {
+                entity_id: target,
+                polygon,
+                pos,
+                vel,
+                dir,
+                path_distance: path,
+                distance: d2.sqrt(),
+                portal_depth: depth,
+                tick,
+            });
         }
         Ok(best)
     }
@@ -1185,9 +1519,17 @@ impl SignalField {
 }
 
 #[pymodule]
-fn necore(m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn necore(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Sim>()?;
     m.add_class::<Raster>()?;
+    m.add_class::<PySpace>()?;
+    m.add_class::<PyCoordinate>()?;
+    m.add_class::<PyOffset>()?;
+    m.add_class::<PyTransform>()?;
+    m.add_class::<PyEntityState>()?;
+    m.add_class::<PyTrack>()?;
+    m.add_class::<PyRayResult>()?;
+    m.add("FrameMismatch", py.get_type::<FrameMismatch>())?;
     m.add_class::<SignalField>()?;
     m.add_class::<platform::AudioMixer>()?;
     m.add_class::<platform::Window>()?;

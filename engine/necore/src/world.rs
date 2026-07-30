@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+
+use crate::frames::{CoordinateSpace, SpaceId, Transform};
 use crate::geom;
 use crate::math::{Mat3, Vec2};
 
@@ -80,11 +83,40 @@ pub struct World {
     pub polygons: Vec<Polygon>,
     /// Bumped on any topology change; invalidates route caches.
     pub topology_version: u64,
+    /// One coordinate space per polygon, parallel to `polygons`. A polygon's
+    /// frame IS its space; the ids are what a `Coordinate` carries around so
+    /// that two numbers can say whether they are comparable.
+    spaces: Vec<CoordinateSpace>,
+    /// Reverse map, so a coordinate's space id finds its polygon in O(1).
+    /// Spaces the world did not mint (the screen) are simply absent, which is
+    /// why `develop` into them answers None rather than guessing.
+    by_space: HashMap<SpaceId, PolygonId>,
 }
 
 impl World {
     pub fn new() -> World {
         World::default()
+    }
+
+    pub fn polygon_space(&self, r: PolygonId) -> Option<&CoordinateSpace> {
+        self.spaces.get(r)
+    }
+
+    pub fn polygon_of_space(&self, s: SpaceId) -> Option<PolygonId> {
+        self.by_space.get(&s).copied()
+    }
+
+    /// The transform on edge `ea` of polygon `a`, as a space-tagged Transform:
+    /// it maps the NEIGHBOUR's coordinates into `a`'s, matching `Portal::xform`.
+    pub fn portal_transform(&self, a: PolygonId, ea: usize) -> Option<Transform> {
+        let p = (*self.polygons.get(a)?.portals.get(ea)?)?;
+        Transform::new(
+            self.spaces.get(p.target_polygon)?.id(),
+            self.spaces.get(a)?.id(),
+            p.xform,
+            format!("portal {a}:{ea}"),
+        )
+        .ok()
     }
 
     /// Add a convex polygon. Vertices are re-centered on their centroid and
@@ -124,8 +156,12 @@ impl World {
             radius,
             terrain: Vec::new(),
         });
+        let id = self.polygons.len() - 1;
+        let space = CoordinateSpace::new(format!("Polygon {id}"));
+        self.by_space.insert(space.id(), id);
+        self.spaces.push(space);
         self.topology_version += 1;
-        Ok(self.polygons.len() - 1)
+        Ok(id)
     }
 
     /// Replace polygon `r`'s walk-mask terrain wholesale (idempotent; an empty
