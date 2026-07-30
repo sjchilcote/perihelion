@@ -1534,6 +1534,7 @@ fn necore(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<platform::AudioMixer>()?;
     m.add_class::<platform::Window>()?;
     m.add_class::<video::VideoRecorder>()?;
+    m.add_function(wrap_pyfunction!(video::read_sidecars, m)?)?;
     m.add_function(wrap_pyfunction!(platform::write_png, m)?)?;
     m.add_function(wrap_pyfunction!(mat_mul, m)?)?;
     m.add_function(wrap_pyfunction!(mat_inv, m)?)?;

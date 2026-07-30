@@ -567,6 +567,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "fdk-aac-sys"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "24516d2611506d5cb1833555adc75f6baf9fe2706b9c13e6fc33a6b22c51ca83"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "find-msvc-tools"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -946,6 +955,7 @@ version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dedfad4c0e1879118fe4fe2ecc1024dd8e9709eee96fe7c86ec4cfacd017b1db"
 dependencies = [
+ "fdk-aac-sys",
  "libc",
  "minimp4-sys",
 ]
