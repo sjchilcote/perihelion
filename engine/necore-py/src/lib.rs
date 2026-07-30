@@ -8,6 +8,8 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 
+mod mp4;
+mod h264;
 mod frames;
 mod platform;
 mod video;

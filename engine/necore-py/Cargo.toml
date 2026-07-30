@@ -16,9 +16,4 @@ winit = "0.30"
 softbuffer = "0.4"
 cpal = "0.15"
 png = "0.17"
-# capture encode: a real video codec in the engine, so recording a
-# session no longer means dumping one PNG per frame and shelling out to
-# ffmpeg afterwards. openh264 builds its vendored C source, minimp4
-# muxes the elementary stream into a playable .mp4.
-openh264 = { version = "0.9", features = ["source"] }
 minimp4 = { version = "0.1", features = ["aac"] }

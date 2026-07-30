@@ -162,6 +162,48 @@ def test_odd_dimensions_are_refused(tmp_path):
         necore.VideoRecorder(str(tmp_path / "i.mp4"), 321, 240, FPS)
 
 
-def test_max_qp_is_range_checked(tmp_path):
-    with pytest.raises(ValueError, match="max_qp"):
-        necore.VideoRecorder(str(tmp_path / "j.mp4"), W, H, FPS, None, 52)
+def test_unknown_profile_is_refused(tmp_path):
+    with pytest.raises(ValueError, match="profile"):
+        necore.VideoRecorder(str(tmp_path / "j.mp4"), W, H, FPS, "medium")
+
+
+def test_the_video_is_full_chroma(tmp_path):
+    """4:4:4 is the point, not a detail: 4:2:0 cannot represent a
+    one-pixel saturated line on near-black, and that is the game's
+    entire visual vocabulary. It also measured FASTER than 4:2:0,
+    because nothing has to subsample the chroma."""
+    p = tmp_path / "k.mp4"
+    rec = necore.VideoRecorder(str(p), W, H, FPS)
+    for f in _frames(30):
+        rec.add_frame(f)
+    rec.finish()
+    rows = _probe(p, "codec_name", "pix_fmt")
+    assert rows and "444" in rows[0], f"expected full chroma, got {rows}"
+
+
+def test_both_profiles_encode(tmp_path):
+    """One pipeline, two settings. Telemetry must come out smaller than
+    HQ on identical frames — that is the whole point of the split.
+
+    The frames carry NOISE on purpose. `_frames` is a dark gradient and
+    a one-pixel line, which compresses to almost nothing at any
+    quantiser, so crf 18 and crf 30 landed within noise of each other
+    and the comparison measured container overhead rather than the
+    setting under test."""
+    rng = np.random.default_rng(7)
+    noisy = []
+    for t in range(60):
+        img = rng.integers(0, 255, (H, W, 3), dtype=np.uint8)
+        img[:, (t * 3) % W] = (255, 220, 40)
+        noisy.append(img.tobytes())
+    sizes = {}
+    for prof in ("hq", "telemetry"):
+        p = tmp_path / f"{prof}.mp4"
+        rec = necore.VideoRecorder(str(p), W, H, FPS, prof)
+        for f in noisy:
+            rec.add_frame(f)
+        rec.finish()
+        assert _probe(p, "nb_read_frames") == ["60"], prof
+        sizes[prof] = p.stat().st_size
+    assert sizes["telemetry"] < sizes["hq"], (
+        f"telemetry must be the cheaper setting, got {sizes}")
