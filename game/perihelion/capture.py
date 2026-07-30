@@ -56,19 +56,29 @@ class CaptureSystem:
             del self._by_captive[cid]
 
     def step(self, world, burn) -> None:
-        """Advance every grip one tick. `world` answers exists/get/set_vel
-        (the engine sim); `burn(captive_id, captor_id, dps)` is the
-        session's damage door — this module never touches HP. A capture
-        whose captor stopped existing releases THIS tick."""
+        """Advance every grip one tick. `world` answers
+        exists/get/set_vel/develop (the engine sim);
+        `burn(captive_id, captor_id, dps)` is the session's damage door —
+        this module never touches HP. A capture whose captor stopped
+        existing releases THIS tick.
+
+        A GRIP CAN STRADDLE A DOORWAY. Portal geometry puts bodies in
+        each other's laps across a threshold, so the pull direction is
+        the captor's place DEVELOPED into the captive's own space — this
+        used to subtract two raw positions and, whenever the pair spanned
+        a chamber, pulled the captive somewhere arbitrary. If the world
+        can find no route between them the grip is over, which is the
+        honest reading of a captor that is no longer anywhere near."""
         for captive, spec in list(self._by_captive.items()):
             if not world.exists(spec.captor_id) or not world.exists(captive):
                 del self._by_captive[captive]
                 continue
-            _, cx, cy, *_ = world.get(spec.captor_id)
-            _, px, py, *_ = world.get(captive)
-            dx, dy = cx - px, cy - py
-            d = math.hypot(dx, dy)
-            if d > 1e-6:
-                world.set_vel(captive, dx / d * spec.pull_speed,
-                              dy / d * spec.pull_speed)
+            prey = world.get(captive).pos
+            grip = world.develop(world.get(spec.captor_id).pos, prey.space)
+            if grip is None:
+                del self._by_captive[captive]
+                continue
+            pull = prey.toward(grip)
+            if pull.length > 1e-6:
+                world.set_vel(captive, pull.normalized() * spec.pull_speed)
             burn(captive, spec.captor_id, spec.damage_per_second)

@@ -16,7 +16,7 @@ import necore
 
 from .levels import Level
 from .lighting import LightingSystem, light_level_at
-from .senses import VISION_HOPS, SenseQuery
+from .senses import VISION_HOPS, SenseQuery, Sighting
 from .signals import SignalField, SignalKind
 from . import coordination as coord
 from .capture import CaptureSpec, CaptureSystem
@@ -177,16 +177,21 @@ ENEMIES: dict[str, dict] = {
     "vagrant": dict(hp=84, radius=9.5, mass=1.5, accel=701.0, fric=3.4,
                     turn=3.5, touch_dmg=6,
                     touch_cd=50, alert_snd="enemy_alert_mite",
-                    shove_cd=90, shove_speed=520.0, shove_dmg=3,
-                    shove_imp=300.0, shove_range=260.0,
+                    # the rubber grenade: heavy and slow, so the shove is
+                    # its momentum and not a bespoke impulse field. Mass
+                    # 2.4 against the Commando's 1.2 lands ~210 u/s of
+                    # knockback at 300 u/s — the same push the old
+                    # `shove_imp=300` bought, now through the physics.
+                    lob_cd=90, lob_speed=300.0, lob_dmg=3, lob_range=180.0,
+                    lob_mass=2.4, lob_radius=16.0, lob_rest=0.55,
                     snare_cd=200, snare_speed=430.0, snare_range=560.0,
                     snare_hold=90, snare_slow=0.35,
                     die_snd="enemy_die_mite", score=6),
     "lacuna": dict(hp=42, radius=8.5, mass=1.4, accel=653.0, fric=3.8,
                    turn=3.2, touch_dmg=4,
                    touch_cd=50, alert_snd="enemy_alert_mite",
-                   shove_cd=110, shove_speed=470.0, shove_dmg=2,
-                   shove_imp=250.0, shove_range=230.0,
+                   lob_cd=110, lob_speed=280.0, lob_dmg=2, lob_range=165.0,
+                   lob_mass=2.1, lob_radius=14.0, lob_rest=0.55,
                    snare_cd=240, snare_speed=400.0, snare_range=500.0,
                    snare_hold=75, snare_slow=0.45,
                    die_snd="enemy_die_mite", score=4),
@@ -490,16 +495,23 @@ class GameSession:
             s.connect(a, ea, b, eb)
         for a, ea, b, eb, m9 in level.connects_x:
             s.connect_with_xform(a, ea, b, eb, m9)
-        # collision matrix
-        for g in range(5):
-            for h in range(5):
-                s.set_collision_pair(g, h, False)
-        s.set_collision_pair(GROUP_PLAYER, GROUP_ENEMY, True)
-        s.set_collision_pair(GROUP_ENEMY, GROUP_ENEMY, True)
-        s.set_collision_pair(GROUP_PBULLET, GROUP_ENEMY, True)
-        s.set_collision_pair(GROUP_EBULLET, GROUP_PLAYER, True)
-        # your own rounds CAN come back: mirrors and ricochets are honest
-        s.set_collision_pair(GROUP_PBULLET, GROUP_PLAYER, True)
+        # NO COLLISION MATRIX. Everything physical collides with
+        # everything physical, and the only body that is not physical is
+        # a pickup — a fact that now lives on the pickup (set_props
+        # physical=False in spawn_pickup / spawn_sentry) instead of in a
+        # 16-wide bitmask that encoded it sixteen times.
+        #
+        # FRIENDLY FIRE IS ON. This is a 2D immersive sim, not an arcade
+        # game, so physical honesty is the default: rounds collide with
+        # rounds, an enemy's round hits an enemy, and a crowd obstructs
+        # itself. What that buys lands on machinery that already exists —
+        # a pack must spread or hold (the garrison and quorum rules), the
+        # player can put one body between itself and another, and the
+        # Adversary's thrown object shoves Testators, which matches how
+        # it regards them. The AI stays deliberately ignorant of it: a
+        # don't-shoot-your-friend check is the arcade answer, and an
+        # immersive sim prefers an enemy the player can turn against
+        # itself.
 
         # --- lighting: world lights, cast via the visibility engine itself
         # (portals wired above, so static caches see the real chain).
@@ -581,7 +593,7 @@ class GameSession:
 
         # --- player ---
         st = player_state or {}
-        self.pid = s.spawn(level.player_polygon, *level.player_pos,
+        self.pid = s.spawn(s.place(level.player_polygon, *level.player_pos),
                            PLAYER_RADIUS, PLAYER_MASS, GROUP_PLAYER)
         s.set_props(self.pid, rest_wall=0.0, rest_ent=0.05, max_substep=6.0)
         self.max_hp = int(st.get("max_hp", PLAYER_HP))
@@ -640,7 +652,17 @@ class GameSession:
         self.lightning_charge = LIGHTNING_RECHARGE_TICKS  # full
         self.cooldown = 0
         self.hurt_cd = 0
-        self.aim = (1.0, 0.0)
+        # THE SCREEN IS A COORDINATE SPACE, like every polygon. It is not
+        # a polygon, which is the point: there is no doorway route to it,
+        # so `sim.develop` cannot reach it and the ONLY way a value gets
+        # there or back is the camera transform, named. That is what makes
+        # a screen point and a chamber point comparable at all (see
+        # `camera_transform` and the aim path in _player_control).
+        self.screen_space = necore.Space("Screenspace")
+        # aim is an Offset in the player's own chamber's space, refreshed
+        # every tick by _player_control before anything reads it
+        self.aim = necore.Offset(s.polygon_space(level.player_polygon),
+                                 1.0, 0.0)
         self.holes = int(st.get("holes", 0))
         self.hole_mark: tuple | None = None  # (polygon, edge, t0, t1, x, y)
         self.tau_charge = 0
@@ -697,6 +719,8 @@ class GameSession:
         # withdrawals), so a permanent withdrawal had the faction eating
         # its own finite roster on a clock the player could not touch.
         self.adversary_out: list[tuple[str, int]] = []
+        # who caused each Adversary death: "player" or "crossfire"
+        self.adversary_killed_by: dict[str, int] = {}
         # the snare's hold on the player: ticks remaining and how much
         # of their acceleration they keep while it lasts
         self.snare_t = 0
@@ -718,7 +742,8 @@ class GameSession:
         self.trace = TraceBus()
         # the shared find/senses infrastructure (DESIGN_7_25): every
         # "what can I see from here?" goes through this one query object
-        self.senses = SenseQuery(self.sim, self._describe_entity)
+        self.senses = SenseQuery(self.sim, self._describe_entity,
+                                 lambda: self.tick_count)
         # the nine-field signal substrate — the shared medium the whole
         # Adversary coordinates through. Always on; every world has one.
         self.signals = SignalField(self.sim, tick=0)
@@ -819,7 +844,8 @@ class GameSession:
 
     def spawn_enemy(self, polygon: int, pos, kind: str) -> int:
         d = ENEMIES[kind]
-        eid = self.sim.spawn(polygon, pos[0], pos[1], d["radius"], d["mass"], GROUP_ENEMY)
+        eid = self.sim.spawn(self.sim.place(polygon, pos[0], pos[1]),
+                             d["radius"], d["mass"], GROUP_ENEMY)
         self.sim.set_props(eid, rest_wall=0.0, rest_ent=0.2, max_substep=8.0)
         # A flicker's resting behavior IS lurking (not idle-until-noticed
         # like the standard state machine) -- it never uses idle/waking,
@@ -827,7 +853,7 @@ class GameSession:
         state = "lurk" if kind == "flicker" else "idle"
         self.enemies[eid] = dict(kind=kind, hp=d["hp"] * self._hp_mul, state=state,
                                  touch_cd=0, spit_cd=0, scream_cd=0,
-                                 shove_cd=0, snare_cd=0,
+                                 lob_cd=0, snare_cd=0,
                                  wander_cd=0, buff=0, trace_intensity=1.0,
                                  # per-agent quorum threshold, sampled ONCE
                                  # at spawn (killing habitual low-threshold
@@ -842,8 +868,9 @@ class GameSession:
     def spawn_pickup(self, polygon: int, pos, kind: str, meta=None,
                      extra: dict | None = None) -> int:
         d = PICKUPS[kind]
-        eid = self.sim.spawn(polygon, pos[0], pos[1], d["radius"], 100.0, GROUP_PICKUP)
-        self.sim.set_props(eid, transfers=False)
+        eid = self.sim.spawn(self.sim.place(polygon, pos[0], pos[1]),
+                             d["radius"], 100.0, GROUP_PICKUP)
+        self.sim.set_props(eid, transfers=False, physical=False)
         rec = dict(kind=kind)
         if meta is not None:
             rec["meta"] = meta  # KeyMeta: the object this key id is here
@@ -864,7 +891,7 @@ class GameSession:
             _pl.intensity = 0.0
         self._lights_doused = True
 
-    def pulse_light(self, polygon: int, pos, radius: float,
+    def pulse_light(self, at, radius: float,
                     intensity: float, color=(255, 214, 150)) -> None:
         """Flare one of the transient pulse lights (tau discharge, sentry
         muzzle, wall breach, reprint pad) at `pos`, decaying like the
@@ -878,16 +905,17 @@ class GameSession:
             return
         pl = self._pulse_lights[self._pulse_at]
         self._pulse_at = (self._pulse_at + 1) % len(self._pulse_lights)
-        pl.polygon = polygon
-        pl.pos = (pos[0], pos[1])
+        pl.polygon = self.sim.polygon_of(at.space)
+        pl.pos = at.local()
         pl.color = color
         pl.radius = radius
         pl.intensity = intensity
 
     def spawn_sentry(self, polygon: int, pos, kind: str = "sentry") -> int:
         d = SENTRIES[kind]
-        eid = self.sim.spawn(polygon, pos[0], pos[1], d["radius"], 100.0, GROUP_PICKUP)
-        self.sim.set_props(eid, transfers=False)
+        eid = self.sim.spawn(self.sim.place(polygon, pos[0], pos[1]),
+                             d["radius"], 100.0, GROUP_PICKUP)
+        self.sim.set_props(eid, transfers=False, physical=False)
         self.sentries[eid] = dict(kind=kind, cd=0, spin=d["spin_up"])
         return eid
 
@@ -895,8 +923,23 @@ class GameSession:
     # helpers
     # ------------------------------------------------------------------
 
-    def _snd(self, name: str, polygon: int, pos, vol: float = 1.0):
-        self.fx.append(("sound", name, polygon, pos[0], pos[1], vol))
+    # THE UNWRAP POINTS. Sound, decals and the fx queue are wire formats
+    # read by the renderer and the mixer: (tag, polygon, x, y, ...). They
+    # are the one legitimate reason to take raw numbers out of a
+    # Coordinate, and they take them HERE, once, so that no gameplay code
+    # ever holds a bare pair. `Coordinate.local()` appears nowhere in the
+    # AI for the same reason it exists at all: a number with no space is
+    # only safe on its way out of the simulation.
+
+    def _snd(self, name: str, at, vol: float = 1.0):
+        x, y = at.local()
+        self.fx.append(("sound", name, self.sim.polygon_of(at.space), x, y,
+                        vol))
+
+    def _fx_at(self, tag: str, at, *extra):
+        """A positional fx event at a place."""
+        x, y = at.local()
+        self.fx.append((tag, self.sim.polygon_of(at.space), x, y, *extra))
 
     def _shake(self, mag: float):
         self.fx.append(("shake", mag))
@@ -904,8 +947,9 @@ class GameSession:
     def _hitstop(self, ticks: int):
         self.freeze = max(self.freeze, ticks)
 
-    def _decal(self, polygon: int, kind: str, x: float, y: float,
-               size: float, angle: float = 0.0):
+    def _decal(self, kind: str, at, size: float, angle: float = 0.0):
+        polygon = self.sim.polygon_of(at.space)
+        x, y = at.local()
         lst = self.decals.setdefault(polygon, [])
         lst.append((kind, x, y, size, angle))
         if len(lst) > 250:
@@ -1009,16 +1053,37 @@ class GameSession:
         self._cam_smooth = necore.mat_mul(self._cam_smooth, inv9)
         self.cam = necore.mat_mul(self.cam, inv9)
 
+    def camera_transform(self):
+        """This chamber's space -> the screen's, as a named Transform.
+
+        `_cam_smooth` is the exact matrix (the rendered `cam` snaps to
+        whole pixels; nothing gameplay-facing integrates on that), and it
+        is re-based at every portal crossing, so it always maps the
+        chamber the player is standing in right now."""
+        return necore.Transform(self.player_space(), self.screen_space,
+                                self._cam_smooth, "camera")
+
     def player_pos(self):
-        _, px, py, *_ = self.sim.get(self.pid)
-        return px, py
+        """The player's place, in the player's own chamber's space.
+
+        A Coordinate, not a pair. Twenty-four call sites used to read this
+        as two floats and subtract them from an enemy's — which is
+        meaningless the moment the two are in different chambers, and is
+        exactly what gate 66 filmed failing 63 times out of 64. Those
+        call sites now either work in the player's own space (the player's
+        own code does) or ask perception for a sighting."""
+        return self.sim.get(self.pid).pos
 
     def player_polygon(self) -> int:
         return self.sim.get_polygon(self.pid)
 
+    def player_space(self):
+        return self.sim.polygon_space(self.player_polygon())
+
     def entity_pos(self, eid: int):
-        _, x, y, *_ = self.sim.get(eid)
-        return (x, y)
+        """One body's place, in ITS OWN chamber's space. Comparing this
+        with anything but a value from the same chamber raises."""
+        return self.sim.get(eid).pos
 
     WAKE_TICKS = {"husk": 32, "mite": 18, "spitter": 26, "brute": 45,
                   "shrieker": 12, "warden": 20,
@@ -1044,7 +1109,7 @@ class GameSession:
             alt=bool(inp.alt), interact=bool(inp.interact),
             weapon=int(inp.weapon)))
         if self.tick_count % 15 == 0 and self.sim.exists(self.pid):
-            px_s, py_s = self.player_pos()
+            px_s, py_s = self.player_pos().local()
             m = self.metrics
             self.trace.sample(self.tick_count, dict(
                 hp=round(self.hp, 1), polygon=self.player_polygon(),
@@ -1181,6 +1246,14 @@ class GameSession:
             # levels, and -- critically -- does not scoop its own corpse
             # in the tick that dropped it
             return
+        # THE PLAYER MAY HAVE MOVED CHAMBERS. `ppolygon` was read at the
+        # top of the tick, before physics ran, and physics is what carries
+        # a body through a doorway. These four scans all measure a
+        # distance from the player's CURRENT place to something in a named
+        # chamber, so a stale index meant comparing this chamber's numbers
+        # with the last one's — found by the coordinate types refusing the
+        # subtraction, after shipping unnoticed however long.
+        ppolygon = self.player_polygon()
         self._pickup_scan(ppolygon)
         self._terminal_scan(ppolygon, inp)
         self._station_scan(ppolygon, inp)
@@ -1200,7 +1273,7 @@ class GameSession:
         # matrix via _cam_rebase). Integrates on the SMOOTH matrix; the
         # rendered cam is stepped toward it by whole pixels only, see
         # _cam_step_follow.
-        px2, py2 = self.player_pos()
+        px2, py2 = self.player_pos().local()
         spx, spy = necore.mat_apply(self._cam_smooth, px2, py2)
         k = min(1.0, 7.0 * DT)
         smooth_new = necore.mat_mul(
@@ -1213,11 +1286,10 @@ class GameSession:
 
     def _apply_friction(self, eid: int, fric: float):
         try:
-            _, _, _, vx, vy, _, _ = self.sim.get(eid)
+            vel = self.sim.get(eid).vel
         except Exception:
             return
-        f = max(0.0, 1.0 - fric * DT)
-        self.sim.set_vel(eid, vx * f, vy * f)
+        self.sim.set_vel(eid, vel * max(0.0, 1.0 - fric * DT))
 
     def _player_control(self, inp: InputFrame, ppolygon: int):
         s = self.sim
@@ -1244,107 +1316,130 @@ class GameSession:
         # in-tree. (Bots also read `session.cam` when composing inputs,
         # so seeded bot runs would have shifted under any camera change
         # regardless of this choice.)
-        inv = necore.mat_inv(self._cam_smooth)
-        awx, awy = necore.mat_apply(inv, inp.ax, inp.ay)
-        _, px, py, vx, vy, _, _ = s.get(self.pid)
-        dx, dy = awx - px, awy - py
-        dl = math.hypot(dx, dy)
-        if dl > 1e-6:
-            s.set_dir(self.pid, dx / dl, dy / dl)
-            self.aim = (dx / dl, dy / dl)
+        # THE AIM POINT COMES FROM THE SCREEN. It arrives from the OS in
+        # screen coordinates, and the camera transform is what relates that
+        # space to this chamber's — so the two are declared, brought
+        # together, and then subtracted by an algebra that would have
+        # refused if they had not been.
+        #
+        # This is the concrete answer to "can two positions developed into
+        # screen space independently be recognised as the same space":
+        # yes, because the transform that put them there names it.
+        st = s.get(self.pid)
+        cam = self.camera_transform()
+        here = self.screen_space.place(inp.ax, inp.ay).transformed(
+            cam.inverse())
+        aim = st.pos.toward(here)
+        if aim.length > 1e-6:
+            aim = aim.normalized()
+            s.set_dir(self.pid, aim)
+            self.aim = aim
         else:
-            self.aim = s.get(self.pid)[5:7]
+            self.aim = st.dir
         # move (screen-space -> polygon-space through inverse camera rotation)
         mlen = math.hypot(inp.mx, inp.my)
         if mlen > 1e-6:
             mlen = min(1.0, mlen)
-            mdx, mdy = necore.mat_apply_dir(inv, inp.mx, inp.my)
-            ml = math.hypot(mdx, mdy)
-            if ml > 1e-9:
-                ax_, ay_ = mdx / ml * mlen, mdy / ml * mlen
+            # the stick is a screen-space DIRECTION, so it comes back
+            # through the same camera transform's linear part only
+            move = necore.Offset(self.screen_space, inp.mx, inp.my
+                                 ).transformed(cam.inverse())
+            if move.length > 1e-9:
                 snare = self.snare_slow if self.snare_t > 0 else 1.0
-                s.set_vel(self.pid,
-                          vx + ax_ * PLAYER_ACCEL * self._accel_mul * snare * DT,
-                          vy + ay_ * PLAYER_ACCEL * self._accel_mul * snare * DT)
+                push = (move.normalized()
+                        * (mlen * PLAYER_ACCEL * self._accel_mul * snare * DT))
+                s.set_vel(self.pid, st.vel + push)
         # fire
         if inp.fire and self.cooldown <= 0:
             self.last_fire_tick = self.tick_count
-            self._fire(ppolygon, px, py)
+            self._fire(st.pos)
         # alt: tau charge when tau is in hand, lightning implant otherwise
         if self.weapon == "tau" and "tau" in self.weapons:
             if inp.alt and self.ammo.get("cell", 0) > 0:
                 self.tau_charge += 1
                 if self.tau_charge == 1:
-                    self._snd("tau_charge", ppolygon, (px, py), 0.8)
+                    self._snd("tau_charge", st.pos, 0.8)
                 if self.tau_charge > TAU_OVERCHARGE:
                     self._damage_player(12, ppolygon, source="tau_overcharge")
-                    self._snd("tau_overcharge_hurt", ppolygon, (px, py))
+                    self._snd("tau_overcharge_hurt", st.pos)
                     self.tau_charge = 0
             elif self.tau_charge > 0:
-                self._fire_tau_charged(ppolygon, px, py)
+                self._fire_tau_charged(st.pos)
                 self.tau_charge = 0
         elif inp.alt and self.lightning_charge >= LIGHTNING_RECHARGE_TICKS \
                 and "lightning" in self.weapons:
-            self._fire_lightning(ppolygon, px, py)
+            self._fire_lightning(st.pos)
 
-    def _fire(self, ppolygon: int, px: float, py: float):
+    def _fire(self, at):
+        """Fire the weapon in hand from `at`, the player's own place.
+
+        EVERY heading below is an Offset in the player's own space, and
+        every target position arrives either from a sighting or from the
+        world developing it into that space. Nothing here subtracts one
+        body's raw coordinates from another's."""
         w = WEAPONS[self.weapon]
-        adx, ady = self.aim
+        aim = self.aim
+        ppolygon = self.sim.polygon_of(at.space)
         ft = self.captures.forced_target(self.pid)
         if ft is not None and self.sim.exists(ft):
             # engulfed: you are inside its grip — every weapon fires into
-            # the body around you, whichever way you thought you aimed
-            _, fx_, fy_, *_ = self.sim.get(ft)
-            fdx, fdy = fx_ - px, fy_ - py
-            fdl = math.hypot(fdx, fdy) or 1e-6
-            adx, ady = fdx / fdl, fdy / fdl
+            # the body around you, whichever way you thought you aimed.
+            # A grip can straddle a doorway (portals put bodies in each
+            # other's laps), so the captor's place is DEVELOPED into this
+            # space rather than read raw and subtracted.
+            grip = self.sim.develop(self.sim.get(ft).pos, at.space)
+            if grip is not None:
+                toward = at.toward(grip)
+                if toward.length > 1e-6:
+                    aim = toward.normalized()
         if self.weapon == "lightning":
             # the implant fires the same whether triggered or selected
             self.cooldown = 18
             if self.lightning_charge >= LIGHTNING_RECHARGE_TICKS:
-                self._fire_lightning(ppolygon, px, py)
+                self._fire_lightning(at)
             else:
-                self._snd("dry_click", ppolygon, (px, py))
+                self._snd("dry_click", at)
             return
         if self.weapon == "hole":
             self.cooldown = w["cd"]
-            self._hole_shot(ppolygon, px, py, adx, ady)
+            self._hole_shot(at, aim)
             return
         if self.weapon == "knife":
             self.cooldown = w["cd"]
-            self._snd("knife_swing", ppolygon, (px, py))
+            self._snd("knife_swing", at)
             self.metrics["shots"] += 1
             hit_any = False
             for eid in list(self.sim.polygon_entities(ppolygon)):
                 e = self.enemies.get(eid)
                 if not e:
                     continue
-                _, ex, ey, *_ = self.sim.get(eid)
-                ddx, ddy = ex - px, ey - py
-                dist = math.hypot(ddx, ddy)
+                # same chamber by construction (polygon_entities), so the
+                # subtraction is same-space and the type says so
+                to_body = at.toward(self.sim.get(eid).pos)
+                dist = to_body.length
                 reach = w["range"] + self.sim.get_radius(eid)
                 if dist < 1e-6 or dist > reach:
                     continue
-                ang = math.atan2(ddy, ddx) - math.atan2(ady, adx)
+                ang = to_body.angle - aim.angle
                 ang = (ang + math.pi) % (2 * math.pi) - math.pi
                 if abs(ang) <= w["arc"]:
-                    self._damage_enemy(eid, w["dmg"], (ddx / dist, ddy / dist),
+                    self._damage_enemy(eid, w["dmg"], to_body.normalized(),
                                        w["imp"], source="knife")
                     hit_any = True
             if hit_any:
-                self._snd("knife_hit", ppolygon, (px, py))
+                self._snd("knife_hit", at)
                 self._shake(1.5)
             return
         ammo_t = w.get("ammo")
         if ammo_t and self.ammo.get(ammo_t, 0) < w.get("per", 1):
             self.cooldown = 18
-            self._snd("dry_click", ppolygon, (px, py))
+            self._snd("dry_click", at)
             return
         elif ammo_t:
             self.ammo[ammo_t] -= w.get("per", 1)
         self.cooldown = w["cd"]
         self.metrics["shots"] += 1
-        self._snd(w["sound"], ppolygon, (px, py))
+        self._snd(w["sound"], at)
         self._shake(w.get("kick", 2.0))
         # MUZZLE CLAMP (2026-07-19, ground-truth trace): firing within
         # muzzle length of a portal plane (or wall) put the spawn
@@ -1354,22 +1449,21 @@ class GameSession:
         # taken, misattributed for a day to fold returns). Clamp the
         # muzzle inside the polygon like the camera apex; the round
         # then crosses the portal by flying, as physics intends.
-        mx_, my_ = self._clamp_apex(
-            ppolygon, px + adx * (PLAYER_RADIUS + 5),
-            py + ady * (PLAYER_RADIUS + 5))
+        muzzle = self._clamp_apex(at + aim * (PLAYER_RADIUS + 5))
         # the flash IS a light and nothing else (COMBAT_REDESIGN §10),
         # decaying over ~5 ticks (see tick())
         if not getattr(self, "_lights_doused", False):
             self.muzzle_light.polygon = ppolygon
-            self.muzzle_light.pos = (mx_, my_)
+            self.muzzle_light.pos = muzzle.local()
             self.muzzle_light.intensity = 1.35
         if self.weapon == "rail":
-            self._fire_rail(ppolygon, px, py, adx, ady)
+            self._fire_rail(at, aim)
         else:
-            _, _, _, pvx, pvy, _, _ = self.sim.get(self.pid)
+            pvel = self.sim.get(self.pid).vel
             for _ in range(w.get("pellets", 1)):
-                ang = math.atan2(ady, adx) + self.rng.uniform(
-                    -w["spread"], w["spread"]) * self._spread_mul
+                spread = self.rng.uniform(-w["spread"], w["spread"]) \
+                    * self._spread_mul
+                shot = aim.rotated(spread)
                 spd = w["speed"] * self.rng.uniform(0.95, 1.05)
                 if ft is not None and self.sim.exists(ft):
                     # point-blank inside a grip the trigger pull IS the
@@ -1377,15 +1471,13 @@ class GameSession:
                     # eaten by spawn-overlap resolution before it can
                     # contact (measured), so the damage goes through the
                     # one door directly — every weapon hits the captor
-                    self._damage_enemy(ft, w["dmg"],
-                                       (math.cos(ang), math.sin(ang)),
-                                       w["imp"], source=self.weapon)
+                    self._damage_enemy(ft, w["dmg"], shot, w["imp"],
+                                       source=self.weapon)
                     continue
-                bid = self.sim.spawn(ppolygon, mx_, my_, 1.6, 0.002, GROUP_PBULLET)
+                bid = self.sim.spawn(muzzle, 1.6, 0.002, GROUP_PBULLET)
                 self.sim.set_props(bid, rest_wall=0.0, rest_ent=0.0, max_substep=3.2)
-                self.sim.set_vel(bid, math.cos(ang) * spd + pvx * 0.4,
-                                 math.sin(ang) * spd + pvy * 0.4)
-                self.sim.set_dir(bid, math.cos(ang), math.sin(ang))
+                self.sim.set_vel(bid, shot * spd + pvel * 0.4)
+                self.sim.set_dir(bid, shot)
                 self.bullets[bid] = dict(kind="bullet", dmg=w["dmg"], ttl=90,
                                          imp=w["imp"], born=self.tick_count)
                 if self.weapon == "tau":
@@ -1396,55 +1488,67 @@ class GameSession:
         # hop-by-hop and the quorum rule decides who commits
         self.signals.emit(SignalKind.NOISE, ppolygon, 0.8, self.tick_count)
 
-    def _fire_rail(self, ppolygon, px, py, adx, ady):
-        ox, oy, polygon = px + adx * (PLAYER_RADIUS + 3), py + ady * (PLAYER_RADIUS + 3), ppolygon
-        dx, dy = adx, ady
-        ignore = self.pid
+    def _fire_rail(self, at, aim):
+        """A piercing beam through as many chambers as the ray clears.
+
+        THE KNOCKBACK DIRECTION IS THE FRAME PROBLEM IN MINIATURE. The
+        beam is aimed in the shooter's space; the body it strikes may be
+        several chambers along, in a space where "that way" is a
+        different pair of numbers. So the impulse heading is carried into
+        the hit body's own space through the ray's own composition
+        (`to_origin`, inverted) instead of being handed the shooter's
+        numbers and hoping."""
         w = WEAPONS["rail"]
+        origin = at + aim * (PLAYER_RADIUS + 3)
+        ray_from, ray_dir = origin, aim
+        ignore = self.pid
         for _ in range(w["pierce"]):
-            hit = self.sim.raycast(polygon, ox, oy, dx, dy, 8, 2000.0,
+            hit = self.sim.raycast(ray_from, ray_dir, 8, 2000.0,
                                    1 << GROUP_ENEMY, ignore)
-            kind = hit[0]
-            if kind == "ent":
-                _, eid, hpolygon, hx, hy, dist, hops, m9 = hit
-                self._damage_enemy(eid, w["dmg"], (dx, dy), w["imp"], source="rail")
-                r = self.sim.get_radius(eid) if self.sim.exists(eid) else 8.0
-                ox, oy, polygon, ignore = hx + dx * (2 * r + 1.0), hy + dy * (2 * r + 1.0), hpolygon, eid
+            if hit.kind == "ent":
+                into_hit = hit.to_origin.inverse()
+                self._damage_enemy(hit.entity_id, w["dmg"],
+                                   ray_dir.transformed(into_hit).normalized(),
+                                   w["imp"], source="rail")
+                r = self.sim.get_radius(hit.entity_id) \
+                    if self.sim.exists(hit.entity_id) else 8.0
+                ray_dir = ray_dir.transformed(into_hit)
+                ray_from = hit.pos + ray_dir.normalized() * (2 * r + 1.0)
+                ignore = hit.entity_id
             else:
-                if kind == "wall":
-                    _, hpolygon, hedge, hx, hy, dist, hops, m9 = hit
-                    self._decal(hpolygon, "scorch", hx, hy, 4.0)
+                if hit.kind == "wall":
+                    self._decal("scorch", hit.pos, 4.0)
                 break
         # visual tracer that flies the same path
-        bid = self.sim.spawn(ppolygon, px + adx * (PLAYER_RADIUS + 3),
-                             py + ady * (PLAYER_RADIUS + 3), 1.2, 0.0005, GROUP_PBULLET)
+        bid = self.sim.spawn(origin, 1.2, 0.0005, GROUP_PBULLET)
         self.sim.set_props(bid, rest_wall=0.0, max_substep=4.0)
-        self.sim.set_vel(bid, adx * 5200.0, ady * 5200.0)
+        self.sim.set_vel(bid, aim * 5200.0)
         self.bullets[bid] = dict(kind="tracer", dmg=0, ttl=14,
                                  born=self.tick_count)
         self._hitstop(2)
 
-    def _fire_lightning(self, ppolygon, px, py):
+    def _fire_lightning(self, at):
         self.lightning_charge = 0
-        adx, ady = self.aim
+        aim = self.aim
         w = WEAPONS["lightning"]
-        _, _, _, pvx, pvy, _, _ = self.sim.get(self.pid)
-        bid = self.sim.spawn(ppolygon, px + adx * (PLAYER_RADIUS + 6),
-                             py + ady * (PLAYER_RADIUS + 6), 3.0, 0.02, GROUP_PBULLET)
+        pvel = self.sim.get(self.pid).vel
+        bid = self.sim.spawn(at + aim * (PLAYER_RADIUS + 6), 3.0, 0.02,
+                             GROUP_PBULLET)
         self.sim.set_props(bid, rest_wall=0.0, max_substep=4.0)
-        self.sim.set_vel(bid, adx * w["speed"] + pvx * 0.5, ady * w["speed"] + pvy * 0.5)
+        self.sim.set_vel(bid, aim * w["speed"] + pvel * 0.5)
         self.bullets[bid] = dict(kind="dart", dmg=w["dmg"], ttl=240,
                                  born=self.tick_count)
-        self._snd("lightning_fire", ppolygon, (px, py))
+        self._snd("lightning_fire", at)
         self._shake(4.0)
-        self.signals.emit(SignalKind.NOISE, ppolygon, 0.9, self.tick_count)
+        self.signals.emit(SignalKind.NOISE, self.sim.polygon_of(at.space), 0.9,
+                          self.tick_count)
 
-    def _fire_tau_charged(self, ppolygon, px, py):
-        adx, ady = self.aim
+    def _fire_tau_charged(self, at):
+        aim = self.aim
         frac = min(1.0, self.tau_charge / TAU_CHARGE_FULL)
         cost = min(self.ammo.get("cell", 0), 5)
         if cost <= 0:
-            self._snd("dry_click", ppolygon, (px, py))
+            self._snd("dry_click", at)
             return
         self.ammo["cell"] -= cost
         power = frac * (0.4 + 0.6 * cost / 5.0)
@@ -1452,20 +1556,19 @@ class GameSession:
         # ratified weapon arithmetic (DESIGN_7_25)
         dmg = 18 + 66 * power
         full = power >= 0.999
-        _, _, _, pvx, pvy, _, _ = self.sim.get(self.pid)
-        bid = self.sim.spawn(ppolygon, px + adx * (PLAYER_RADIUS + 5),
-                             py + ady * (PLAYER_RADIUS + 5), 2.2, 0.006,
+        pvel = self.sim.get(self.pid).vel
+        bid = self.sim.spawn(at + aim * (PLAYER_RADIUS + 5), 2.2, 0.006,
                              GROUP_PBULLET)
         self.sim.set_props(bid, rest_wall=1.0, max_substep=4.0)
-        self.sim.set_vel(bid, adx * 2600.0 + pvx * 0.3, ady * 2600.0 + pvy * 0.3)
+        self.sim.set_vel(bid, aim * 2600.0 + pvel * 0.3)
         ft = self.captures.forced_target(self.pid)
         if ft is not None and self.sim.exists(ft):
             # gripped: the discharge goes straight into the captor
             self.sim.remove(bid)
-            self._damage_enemy(ft, dmg, (adx, ady),
-                               TAU_CHARGED_IMP * power, source="taucharged")
+            self._damage_enemy(ft, dmg, aim, TAU_CHARGED_IMP * power,
+                               source="taucharged")
             self.metrics["shots"] += 1
-            self._snd("tau_charged_fire", ppolygon, (px, py))
+            self._snd("tau_charged_fire", at)
             self._hitstop(2)
             return
         # a FULL charge detonates on impact (small AoE + push) instead of
@@ -1476,56 +1579,60 @@ class GameSession:
                                  imp=TAU_CHARGED_IMP * power,
                                  born=self.tick_count)
         self.metrics["shots"] += 1
-        self._snd("tau_charged_fire", ppolygon, (px, py))
+        self._snd("tau_charged_fire", at)
         self._shake(4.0 + 5.0 * power)
         self._hitstop(2)
-        self.pulse_light(ppolygon, (px + adx * 12, py + ady * 12), 300.0, 1.2)
-        self.signals.emit(SignalKind.NOISE, ppolygon, 1.0, self.tick_count)
+        self.pulse_light(at + aim * 12, 300.0, 1.2)
+        self.signals.emit(SignalKind.NOISE, self.sim.polygon_of(at.space), 1.0,
+                          self.tick_count)
 
     # ------------------------------------------------------------------
     # portable hole
     # ------------------------------------------------------------------
 
-    def _hole_shot(self, ppolygon, px, py, adx, ady):
+    def _hole_shot(self, at, aim):
         if self.holes <= 0:
-            self._snd("dry_click", ppolygon, (px, py))
+            self._snd("dry_click", at)
             return
-        hit = self.sim.raycast(ppolygon, px, py, adx, ady, 0, HOLE_RANGE, 0, self.pid)
-        if hit[0] != "wall":
-            self._snd("dry_click", ppolygon, (px, py), 0.5)
+        hit = self.sim.raycast(at, aim, 0, HOLE_RANGE, 0, self.pid)
+        if hit.kind != "wall":
+            self._snd("dry_click", at, 0.5)
             return
-        _, polygon, edge, hx, hy, dist, hops, m9 = hit
+        # max_hops=0, so the wall is in the shooter's own chamber and
+        # `hit.pos` is already in this space.
+        polygon, edge = hit.polygon, hit.edge
+        hx, hy = hit.pos.local()
         x1, y1, x2, y2 = self.sim.edge_endpoints(polygon, edge)
         elen = math.hypot(x2 - x1, y2 - y1)
         along = (hx - x1) * (x2 - x1) / elen + (hy - y1) * (y2 - y1) / elen
         half = HOLE_WIDTH / 2.0
         if along < half + 2.0 or along > elen - half - 2.0:
-            self._snd("dry_click", ppolygon, (px, py), 0.5)
+            self._snd("dry_click", at, 0.5)
             return
         t0, t1 = (along - half) / elen, (along + half) / elen
         if self.cloister is not None:
             if polygon in (self.cloister["sanctum"], self.cloister["corridor"]):
-                self._snd("dry_click", ppolygon, (px, py), 0.5)
+                self._snd("dry_click", at, 0.5)
                 return
             mid = self.sim.split_edge(polygon, edge, t0, t1)
             self._shift_edge_maps(polygon, edge)
             self.cloister["links"].append((polygon, mid))
             self._attach_cloister(len(self.cloister["links"]) - 1)
             self.holes -= 1
-            self._decal(polygon, "scorch", hx, hy, 8.0)
-            self._snd("door_unlock", polygon, (hx, hy))
-            self.pulse_light(polygon, (hx, hy), 220.0, 0.9)
+            self._decal("scorch", hit.pos, 8.0)
+            self._snd("door_unlock", hit.pos)
+            self.pulse_light(hit.pos, 220.0, 0.9)
             self._shake(2.5)
             return
         if self.hole_mark is None:
             self.hole_mark = (polygon, edge, t0, t1, hx, hy)
-            self._decal(polygon, "scorch", hx, hy, 5.0)
-            self._snd("terminal_type", polygon, (hx, hy))
-            self.pulse_light(polygon, (hx, hy), 140.0, 0.5)
+            self._decal("scorch", hit.pos, 5.0)
+            self._snd("terminal_type", hit.pos)
+            self.pulse_light(hit.pos, 140.0, 0.5)
             return
         m_polygon, m_edge, m_t0, m_t1, mx, my = self.hole_mark
         if m_polygon == polygon and m_edge == edge:
-            self._snd("dry_click", ppolygon, (px, py), 0.5)
+            self._snd("dry_click", at, 0.5)
             return
         # split the FIRST mark's wall first; if the second mark shares the
         # polygon with a later edge index, account for the insertion shift
@@ -1553,8 +1660,8 @@ class GameSession:
         self.level.polygon_seeds.append(cor * 7919 + 13)
         self.holes -= 1
         self.hole_mark = None
-        self._snd("door_unlock", polygon, (hx, hy))
-        self.pulse_light(polygon, (hx, hy), 220.0, 0.9)
+        self._snd("door_unlock", hit.pos)
+        self.pulse_light(hit.pos, 220.0, 0.9)
         self._shake(3.0)
 
     def carve_door(self, polygon: int, near, width: float = 70.0) -> int | None:
@@ -1666,8 +1773,8 @@ class GameSession:
                              links=[], attached=None)
         # the anti-looter guardians, re-sworn: invincible, player-loyal
         for tx, ty in ((-30.0, -34.0), (-30.0, 34.0)):
-            tid = s.spawn(sanctum, tx, ty, 6.0, 50.0, GROUP_PICKUP)
-            s.set_props(tid, transfers=False)
+            tid = s.spawn(s.place(sanctum, tx, ty), 6.0, 50.0, GROUP_PICKUP)
+            s.set_props(tid, transfers=False, physical=False)
             self.turrets[tid] = dict(cd=0)
         # the seed keeps the pantry stocked
         self.spawn_pickup(sanctum, (30.0, -20.0), "medkit")
@@ -1706,33 +1813,28 @@ class GameSession:
                 t["cd"] -= 1
                 continue
             polygon = s.get_polygon(tid)
-            _, tx, ty, *_ = s.get(tid)
+            at = s.get(tid).pos
             # sighted targets at any portal depth the ray reaches — the
-            # guardians obey the same cross-room law as everything else
-            best, bd = None, 700.0 * 700.0
-            for eid in list(self.enemies):
-                if not 0 <= s.hop_distance(
-                        polygon, s.get_polygon(eid)) <= VISION_HOPS:
-                    continue
-                hit = self.senses.sight_of(tid, eid)
-                if hit is None:
-                    continue
-                ex, ey = hit.position
-                d = (ex - tx) ** 2 + (ey - ty) ** 2
-                if d < bd:
-                    best, bd = (ex, ey), d
+            # guardians obey the same cross-room law as everything else.
+            # `find` sorts by real path distance, so "nearest" needs no
+            # hand-rolled comparison and no raw positions at all.
+            best = None
+            for track in self.senses.find(tid, Sighting.ENEMY,
+                                          within_hops=VISION_HOPS):
+                if track.entity_id in self.enemies:
+                    best = track
+                    break
             if best is None:
                 continue
             t["cd"] = 16
-            dx, dy = best[0] - tx, best[1] - ty
-            dl = math.hypot(dx, dy) or 1e-6
-            nx, ny = dx / dl, dy / dl
-            bid = s.spawn(polygon, tx + nx * 8, ty + ny * 8, 1.6, 0.002, GROUP_PBULLET)
+            aim = at.toward(best.pos).normalized()
+            muzzle = at + aim * 8
+            bid = s.spawn(muzzle, 1.6, 0.002, GROUP_PBULLET)
             s.set_props(bid, rest_wall=0.0, max_substep=3.2)
-            s.set_vel(bid, nx * 1200.0, ny * 1200.0)
+            s.set_vel(bid, aim * 1200.0)
             self.bullets[bid] = dict(kind="turret", dmg=6, ttl=40)
-            self._snd("smg_fire", polygon, (tx, ty), 0.35)
-            self.pulse_light(polygon, (tx + nx * 8, ty + ny * 8), 190.0, 0.85)
+            self._snd("smg_fire", at, 0.35)
+            self.pulse_light(muzzle, 190.0, 0.85)
 
     # ------------------------------------------------------------------
     # gauntlet sentries: data-driven, range/LOS-gated defensive turrets
@@ -1758,8 +1860,7 @@ class GameSession:
             d = SENTRIES[t["kind"]]
             if t["cd"] > 0:
                 t["cd"] -= 1
-            polygon = s.get_polygon(tid)
-            _, tx, ty, *_ = s.get(tid)
+            at = s.get(tid).pos
             # nearest SIGHTED enemy in range, at ANY portal depth the
             # sightline reaches (cross-room combat law: the map is
             # polygons in continuous portal space, nothing is blind at
@@ -1779,21 +1880,17 @@ class GameSession:
             # the exact selection the Python loop ran, minus ~270
             # per-tick sightline round-trips
             res = s.sentry_acquire(tid, scan, GROUP_ENEMY, VISION_HOPS,
-                                   d["range"])
+                                   d["range"], self.tick_count)
             if res is None:
                 t.pop("target", None)
                 t["spin"] = d["spin_up"]  # target lost: re-acquire from cold
                 continue
-            eid_, bx_, by_ = res
-            t["target"] = eid_
-            best = (bx_, by_)
-            dx, dy = best[0] - tx, best[1] - ty
-            dl = math.hypot(dx, dy) or 1e-6
-            nx, ny = dx / dl, dy / dl
+            t["target"] = res.entity_id
+            aim = at.toward(res.pos).normalized()
             # the barrel tracks the target every tick it holds one —
             # the renderer's slew/muzzle draw reads these (run 46: they
             # were never set, so the turret art aimed at nothing)
-            t["face"] = math.atan2(ny, nx)
+            t["face"] = aim.angle
             if t["spin"] > 0:
                 t["spin"] -= 1  # instant-ish acquisition, not instant
                 continue
@@ -1801,75 +1898,75 @@ class GameSession:
                 continue
             t["cd"] = d["cd"]
             t["fire_tick"] = self.tick_count
-            bid = s.spawn(polygon, tx + nx * (d["radius"] + 2), ty + ny * (d["radius"] + 2),
-                         1.6, 0.002, GROUP_PBULLET)
+            muzzle = at + aim * (d["radius"] + 2)
+            bid = s.spawn(muzzle, 1.6, 0.002, GROUP_PBULLET)
             s.set_props(bid, rest_wall=0.0, max_substep=3.2)
-            s.set_vel(bid, nx * d["bolt_speed"], ny * d["bolt_speed"])
+            s.set_vel(bid, aim * d["bolt_speed"])
             self.bullets[bid] = dict(kind="turret", dmg=d["dmg"], ttl=50)
-            self._snd(d["alert_snd"], polygon, (tx, ty), 0.4)
+            self._snd(d["alert_snd"], at, 0.4)
             # muzzle FLARE — a real pulse light at the barrel, brief and
             # bright (director 2026-07-23: "muzzle flash, and muzzle flare
             # at the barrel"); the render adds the sprite flash off fire_tick
-            self.pulse_light(polygon, (tx + nx * (d["radius"] + 2),
-                                       ty + ny * (d["radius"] + 2)), 150.0, 0.7)
+            self.pulse_light(muzzle, 150.0, 0.7)
 
-    def _detonate_tau(self, bid: int, polygon: int, x: float, y: float,
-                      b: dict, skip: int | None = None):
+    def _detonate_tau(self, bid: int, at, b: dict, skip: int | None = None):
         """Full-charge tau impact: a SMALL burst (DESIGN_7_25 — 'detonates
         on impact with a small AoE + push'), nothing like the lightning
         blast. Neighbors inside TAU_AOE_RADIUS take falloff damage and a
         falloff push; the directly-struck body (skip) already resolved."""
-        self.fx.append(("lightning", polygon, x, y, TAU_AOE_RADIUS))
+        polygon = self.sim.polygon_of(at.space)
+        self._fx_at("lightning", at, TAU_AOE_RADIUS)
         self.signals.emit(SignalKind.NOISE, polygon, 0.8, self.tick_count)
-        self._snd("tau_charged_fire", polygon, (x, y), 0.7)
+        self._snd("tau_charged_fire", at, 0.7)
         self._shake(4.0)
-        self._decal(polygon, "scorch", x, y, 10.0)
+        self._decal("scorch", at, 10.0)
         for eid in list(self.sim.polygon_entities(polygon)):
             if eid == skip or eid not in self.enemies:
                 continue
-            _, ex, ey, *_ = self.sim.get(eid)
-            d = math.hypot(ex - x, ey - y)
-            if d > TAU_AOE_RADIUS:
+            out = at.toward(self.sim.get(eid).pos)
+            if out.length > TAU_AOE_RADIUS:
                 continue
-            fall = 1.0 - d / TAU_AOE_RADIUS
-            nx, ny = ((ex - x) / d, (ey - y) / d) if d > 1e-6 else (1.0, 0.0)
-            self._apply_impulse(eid, nx * TAU_AOE_IMP * fall,
-                                ny * TAU_AOE_IMP * fall, source="taucharged_aoe")
-            self._damage_enemy(eid, TAU_AOE_DMG * fall, (nx, ny), 0.0,
+            fall = 1.0 - out.length / TAU_AOE_RADIUS
+            push = out.normalized() if out.length > 1e-6 else at.offset(1.0, 0.0)
+            self._apply_impulse(eid, push * (TAU_AOE_IMP * fall),
+                                source="taucharged_aoe")
+            self._damage_enemy(eid, TAU_AOE_DMG * fall, push, 0.0,
                                source="taucharged_aoe")
 
-    def _detonate_dart(self, bid: int, polygon: int, x: float, y: float):
+    def _detonate_dart(self, bid: int, at):
         """The lightning cannon IS the crowd-control option (director,
         2026-07-16): the blast kills weak enemies anywhere inside it
         (falloff floor keeps damage above husk hp), then CHAIN ARCS walk
         the bolt down the packed file — one shot into a choke takes out
         15-20 of the weakest."""
         w = WEAPONS["lightning"]
-        self.fx.append(("lightning", polygon, x, y, w["radius"]))
+        polygon = self.sim.polygon_of(at.space)
+        self._fx_at("lightning", at, w["radius"])
         self.signals.emit(SignalKind.NOISE, polygon, 1.0, self.tick_count)
-        self._snd("lightning_fire", polygon, (x, y), 1.0)
+        self._snd("lightning_fire", at, 1.0)
         self._shake(9.0)
         self._hitstop(5)
-        self._decal(polygon, "scorch", x, y, 22.0)
-        struck: list[tuple[float, float]] = [(x, y)]
+        self._decal("scorch", at, 22.0)
+        # every place here is in ONE chamber's space (the blast's own), so
+        # the arc walk below can compare them freely
+        struck = [at]
         hit_ids: set[int] = set()
         for eid in list(self.sim.polygon_entities(polygon)):
             e = self.enemies.get(eid)
             if not e:
                 continue
-            _, ex, ey, evx, evy, _, _ = self.sim.get(eid)
-            d = math.hypot(ex - x, ey - y)
-            if d > w["radius"]:
+            body = self.sim.get(eid).pos
+            out = at.toward(body)
+            if out.length > w["radius"]:
                 continue
-            fall = 1.0 - d / w["radius"]
-            nx, ny = ((ex - x) / d, (ey - y) / d) if d > 1e-6 else (1.0, 0.0)
+            fall = 1.0 - out.length / w["radius"]
+            push = out.normalized() if out.length > 1e-6 else at.offset(1.0, 0.0)
             # the cannon's push, generalized to every weapon by the canon:
             # a mass-scaled impulse — heavy bodies ride it out, light ones fly
-            self._apply_impulse(eid, nx * w["imp"] * fall, ny * w["imp"] * fall,
-                                source="lightning")
+            self._apply_impulse(eid, push * (w["imp"] * fall), source="lightning")
             self._damage_enemy(eid, w["dmg"] * (0.6 + 0.4 * fall),
-                               (nx, ny), 0.0, source="lightning")
-            struck.append((ex, ey))
+                               push, 0.0, source="lightning")
+            struck.append(body)
             hit_ids.add(eid)
         # chain arcs: hop to the nearest unstruck enemy within arc range
         # of ANY struck point, up to max_arcs — the bolt walks the file
@@ -1881,18 +1978,17 @@ class GameSession:
                     continue
                 if not self.sim.exists(eid):
                     continue
-                _, ex, ey, _, _, _, _ = self.sim.get(eid)
-                dmin = min(math.hypot(ex - sx, ey - sy)
-                           for sx, sy in struck)
-                if dmin <= w["arc_range"] and                         (best is None or dmin < best[0]):
-                    best = (dmin, eid, ex, ey)
+                body = self.sim.get(eid).pos
+                dmin = min(body.distance_to(sp) for sp in struck)
+                if dmin <= w["arc_range"] and (best is None or dmin < best[0]):
+                    best = (dmin, eid, body)
             if best is None:
                 break
-            _, eid, ex, ey = best
+            _, eid, body = best
             hit_ids.add(eid)
-            struck.append((ex, ey))
-            self.fx.append(("lightning", polygon, ex, ey, 40.0))
-            self._damage_enemy(eid, w["arc_dmg"], (0.0, 0.0), 0.0,
+            struck.append(body)
+            self._fx_at("lightning", body, 40.0)
+            self._damage_enemy(eid, w["arc_dmg"], body.offset(0.0, 0.0), 0.0,
                                source="lightning_arc")
             arcs += 1
 
@@ -1919,10 +2015,41 @@ class GameSession:
                     frozenset((e["state"],)), GROUP_ENEMY)
         return None
 
-    def _apply_impulse(self, eid: int, jx: float, jy: float, *, source: str):
+    def _carry(self, off, into):
+        """A direction, expressed in another space.
+
+        The engine's writes are strict on purpose: a heading meant for a
+        body should have been computed in that body's own space, and
+        reconciling silently at the boundary would hide the case where it
+        was not. But some headings are legitimately minted somewhere else
+        and have to travel — a contact normal belongs to the chamber the
+        contact happened in, and either body may have crossed a doorway
+        before the event was read; a shot fired point-blank into a captor
+        is aimed in the shooter's space while the captor stands in the
+        next chamber (a grip straddles a threshold routinely).
+
+        So the carry is explicit, named, and asks the world for ONE
+        transform rather than developing two places and differencing them.
+        None when no route exists, which the callers read as "this
+        direction cannot be expressed here" rather than guessing."""
+        if off.space == into:
+            return off
+        xf = self.sim.transform_between(off.space, into)
+        return None if xf is None else off.transformed(xf)
+
+    def _apply_impulse(self, eid: int, j, *, source: str):
         """The one sanctioned push: J through the engine (dv = J/m), traced.
-        Knockback is never a velocity write (DESIGN_7_25 combat canon)."""
-        self.sim.apply_impulse(eid, jx, jy)
+        Knockback is never a velocity write (DESIGN_7_25 combat canon).
+
+        `j` is carried into the pushed body's own space if it is not
+        already there. A push is a direction, and a direction from the
+        wrong chamber pushes somewhere arbitrary — the second half of the
+        gate-66 defect, which lived in exactly this call."""
+        j = self._carry(j, self.sim.get(eid).space)
+        if j is None:
+            return      # nowhere to push it from: the push is not real
+        self.sim.apply_impulse(eid, j)
+        jx, jy = j.local()
         self.trace.emit(ImpulseApplied(
             tick=self.tick_count, entity_id=eid,
             jx=round(jx, 3), jy=round(jy, 3), source=source))
@@ -1941,7 +2068,7 @@ class GameSession:
             return
         e["state"] = new
         if self.sim.exists(eid):
-            _, _tx, _ty, *_ = self.sim.get(eid)
+            _tx, _ty = self.sim.get(eid).pos.local()
         else:
             _tx = _ty = 0.0
         self.trace.emit(AgentTransition(
@@ -1950,7 +2077,11 @@ class GameSession:
             x=round(_tx, 1), y=round(_ty, 1)))
 
     def _damage_enemy(self, eid: int, dmg: float, ndir, knock: float,
-                      *, source: str):
+                      *, source: str, by: str = "player"):
+        """`ndir` is a unit Offset IN THE STRUCK BODY'S OWN SPACE — the
+        direction the hit came from. Callers that fire across a doorway
+        must carry their heading into that space (see `_fire_rail`), which
+        is the whole reason it is a typed Offset and not a pair."""
         e = self.enemies.get(eid)
         if e is None:
             return
@@ -1970,7 +2101,14 @@ class GameSession:
         self.metrics["hits"] += 1
         self.metrics["dmg_dealt"] += dmg
         polygon = self.sim.get_polygon(eid)
-        _, ex, ey, evx, evy, _, _ = self.sim.get(eid)
+        body = self.sim.get(eid).pos
+        # THE HIT DIRECTION, in the struck body's own space. Callers that
+        # fire across a doorway (the rail) already carry it; callers that
+        # cannot know they will (a round loosed into a captor standing in
+        # the next chamber) are carried here. A hit whose direction has no
+        # route still lands — it just does not push, because there is no
+        # honest direction to push along.
+        ndir = self._carry(ndir, body.space) or body.offset(1.0, 0.0)
         self.trace.emit(DamageApplied(
             tick=self.tick_count, target_id=eid, target_kind=e["kind"],
             amount=round(dmg, 3), source=source))
@@ -1982,17 +2120,18 @@ class GameSession:
         # keyed to agent harm only (there is no structural damage)
         self.signals.emit(SignalKind.DISTRESS, polygon, 0.15, self.tick_count)
         if knock > 0.0:
-            self._apply_impulse(eid, ndir[0] * knock, ndir[1] * knock,
-                                source=source)
-        self._snd("hit_flesh", polygon, (ex, ey), 0.8)
-        self._decal(polygon, "blood", ex + self.rng.uniform(-4, 4),
-                    ey + self.rng.uniform(-4, 4), self.rng.uniform(3, 7),
-                    self.rng.uniform(0, 6.28))
+            self._apply_impulse(eid, ndir * knock, source=source)
+        self._snd("hit_flesh", body, 0.8)
+        self._decal("blood",
+                    body + body.offset(self.rng.uniform(-4, 4),
+                                       self.rng.uniform(-4, 4)),
+                    self.rng.uniform(3, 7), self.rng.uniform(0, 6.28))
         self.fx.append(("hitflash", eid))
         if e["hp"] <= 0:
-            self._kill_enemy(eid, polygon, (ex, ey), ndir)
+            self._kill_enemy(eid, body, ndir, by)
 
-    def _kill_enemy(self, eid: int, polygon: int, pos, ndir):
+    def _kill_enemy(self, eid: int, at, ndir, by: str = "player"):
+        polygon = self.sim.polygon_of(at.space)
         self.trace.emit(EnemyDeath(
             tick=self.tick_count, entity_id=eid,
             enemy_kind=self.enemies[eid]["kind"], polygon=polygon))
@@ -2016,42 +2155,49 @@ class GameSession:
         if e["kind"] in ADVERSARY:
             self.adversary_census[e["kind"]] -= 1
             self.adversary_lost[e["kind"]] += 1   # killed: the rare one
+            # ...AND WHO KILLED IT. Friendly fire means a Testator's
+            # round can now finish an Adversary, and `adversary_lost`
+            # counts every death alike — true, but the ruling in
+            # docs/ADVERSARY_WITHDRAWAL_COST_20260729.md rests on the
+            # share of attrition the PLAYER causes, and that number stops
+            # meaning what it says if crossfire is folded into it.
+            self.adversary_killed_by[by] = \
+                self.adversary_killed_by.get(by, 0) + 1
         kind = e["kind"]
         d = ENEMIES[kind]
         self.metrics["kills"] += 1
-        self._snd(d["die_snd"], polygon, pos)
-        ang = math.atan2(ndir[1], ndir[0])
+        self._snd(d["die_snd"], at)
+        ang = ndir.angle
         # blood first, THEN the corpse: decals draw in list order, and
         # the spray landing on top of the body erased the silhouette the
         # corpsefall animation just spent 14 ticks landing on (run 46)
         for i in range(int(d["radius"])):
             a = self.rng.uniform(0, 6.28)
             r = self.rng.uniform(2, d["radius"] * 1.8)
-            self._decal(polygon, "blood", pos[0] + math.cos(a) * r,
-                        pos[1] + math.sin(a) * r, self.rng.uniform(2, 5), a)
-        self._decal(polygon, "corpse_" + kind, pos[0], pos[1],
-                    d["radius"], ang)
+            self._decal("blood",
+                        at + at.offset(math.cos(a) * r, math.sin(a) * r),
+                        self.rng.uniform(2, 5), a)
+        self._decal("corpse_" + kind, at, d["radius"], ang)
         # the death is the BODY's event: the silhouette collapses into its
         # corpse pose on film (renderer "corpsefall") and the chunks that
         # fly are pieces of THAT body, in its own palette
-        self.fx.append(("corpsefall", polygon, pos[0], pos[1], kind,
-                        d["radius"], ang))
-        self.fx.append(("gib", polygon, pos[0], pos[1], int(d["radius"]),
-                        (ndir[0], ndir[1]), kind))
+        self._fx_at("corpsefall", at, kind, d["radius"], ang)
+        self._fx_at("gib", at, int(d["radius"]), ndir.local(), kind)
         self._hitstop(4 if kind in ("husk", "mite") else 7)
         self._shake(2.5)
         self.sim.remove(eid)
         # drops
+        px, py = at.local()
         for p, kind_ in DROP_TABLES[kind]:
             if self.rng.random() < p:
-                self.spawn_pickup(polygon, (pos[0] + self.rng.uniform(-6, 6),
-                                         pos[1] + self.rng.uniform(-6, 6)), kind_)
+                self.spawn_pickup(polygon, (px + self.rng.uniform(-6, 6),
+                                            py + self.rng.uniform(-6, 6)), kind_)
                 break
         # Void path: with the harvesting protocol integrated, a spitter's
         # salvage: every kill yields its score in components (9.1 -- wrecks
         # are materials; score already priced each enemy's difficulty)
-        self.spawn_pickup(polygon, (pos[0] + self.rng.uniform(-5, 5),
-                                 pos[1] + self.rng.uniform(-5, 5)),
+        self.spawn_pickup(polygon, (px + self.rng.uniform(-5, 5),
+                                    py + self.rng.uniform(-5, 5)),
                           "components",
                           extra=dict(amount=int(math.ceil(
                               d["score"] * self._salvage_mul))))
@@ -2077,19 +2223,23 @@ class GameSession:
             tick=self.tick_count, target_id=self.pid, target_kind="player",
             amount=round(dmg, 3), source=source))
         self._last_hurt_source = source
-        px, py = self.player_pos()
-        self._snd("player_hurt", polygon, (px, py))
+        at = self.player_pos()
+        self._snd("player_hurt", at)
         self._shake(min(8.0, 2.0 + dmg * 0.25))
         self.fx.append(("playerhurt", dmg))
-        self._decal(polygon, "blood", px + self.rng.uniform(-5, 5),
-                    py + self.rng.uniform(-5, 5), self.rng.uniform(3, 6))
+        self._decal("blood",
+                    at + at.offset(self.rng.uniform(-5, 5),
+                                   self.rng.uniform(-5, 5)),
+                    self.rng.uniform(3, 6))
         if self.hp <= 0:
-            self._player_death(polygon, px, py)
+            self._player_death(at)
 
-    def _player_death(self, polygon: int, px: float, py: float) -> None:
+    def _player_death(self, at) -> None:
         """The one death: every path to zero HP lands here. (The engulf
         branch used to set dead=True bare — no sound, no fx, no corpse;
         run 41 filmed a silent engulf death.)"""
+        polygon = self.sim.polygon_of(at.space)
+        px, py = at.local()
         self.dead = True
         self.metrics["deaths"] += 1
         self.trace.emit(PlayerDeath(
@@ -2097,9 +2247,9 @@ class GameSession:
             x=round(px, 1), y=round(py, 1),
             source=getattr(self, "_last_hurt_source", ""),
             chassis_left=self.chassis, deaths=self.metrics["deaths"]))
-        self._snd("player_die", polygon, (px, py))
+        self._snd("player_die", at)
         self.fx.append(("playerdie",))
-        self._decal(polygon, "corpse_player", px, py, PLAYER_RADIUS)
+        self._decal("corpse_player", at, PLAYER_RADIUS)
         self._drop_corpse(polygon, (px, py))
 
     def _drop_corpse(self, polygon: int, pos) -> None:
@@ -2135,21 +2285,26 @@ class GameSession:
         # their minds (run 41: 28-39 of ~70 units/seed frozen
         # mid-transit, every late breach sealing into a dead hub)
         active = set(s.active_polygons())
-        px, py = self.player_pos()
         for eid, e in list(self.enemies.items()):
             polygon = s.get_polygon(eid)
             if polygon not in active:
                 continue
             kind = e["kind"]
             d = ENEMIES[kind]
-            _, ex, ey, evx, evy, edx, edy = s.get(eid)
+            # ONE read of this body's state, in this body's own space.
+            # Everything below steers, aims and pushes in `st.space`; the
+            # player only ever arrives as a SIGHTING already developed into
+            # it. There is no `player_pos()` in this loop any more, which is
+            # the shape of the gate-66 defect removed at the source.
+            st = s.get(eid)
+            at = st.pos
             lastp_ = e.get("_at_polygon")
             if lastp_ is not None and lastp_ != polygon:
                 e["_came_from"] = lastp_
                 e["_came_from_t"] = self.tick_count
             e["_at_polygon"] = polygon
             for k in ("touch_cd", "spit_cd", "scream_cd", "wander_cd",
-                      "engulf_cd", "shove_cd", "snare_cd"):
+                      "engulf_cd", "lob_cd", "snare_cd"):
                 if e.get(k, 0) > 0:
                     e[k] -= 1
             if e.get("buff", 0) > 0:
@@ -2168,18 +2323,16 @@ class GameSession:
                 # sponged 19 hits with zero dodges (run 41). Axis =
                 # its own motion, or facing when parked; DIAGONAL,
                 # because pure lateral cancels against choke walls
-                vl_ = math.hypot(evx, evy)
-                if vl_ > 1.0:
-                    axx, axy = evx / vl_, evy / vl_
-                else:
-                    axx, axy = edx, edy
+                axis = st.vel.normalized() if st.speed > 1.0 else st.dir
+                axx, axy = axis.local()
                 e["sidestep_cd"] = 30
                 wv = 1.0 if ((self.tick_count // 30) + eid) % 2 else -1.0
                 jmag = d["mass"] * 210.0
-                self._apply_impulse(eid,
-                                    (-axy * wv * 0.7 + axx * 0.7) * jmag,
-                                    (axx * wv * 0.7 + axy * 0.7) * jmag,
-                                    source="warden_sidestep")
+                self._apply_impulse(
+                    eid,
+                    at.offset((-axy * wv * 0.7 + axx * 0.7) * jmag,
+                              (axx * wv * 0.7 + axy * 0.7) * jmag),
+                    source="warden_sidestep")
             if e.get("sidestep_cd", 0) > 0:
                 e["sidestep_cd"] -= 1
             # hold/prowl stint closure: the stints latch where they run
@@ -2222,7 +2375,7 @@ class GameSession:
                 # 13/13 breaches across seeds). The machine begins at
                 # the POST, and for a dispatched caller the post is the
                 # delivery ground the generic pipeline walks it to.
-                self._shrieker_ai(eid, e, polygon, ppolygon, ex, ey,
+                self._shrieker_ai(eid, e, st, ppolygon,
                                   d["accel"] * (e.get("buff_mul", 1.25)
                                                 if e.get("buff", 0) > 0
                                                 else 1.0))
@@ -2244,7 +2397,7 @@ class GameSession:
                 # the shrieker; gate 56 found it still latent here
                 # (bounded only because every dispatched flicker happened
                 # to die — one seal delayed 365t).
-                self._flicker_ai(eid, e, polygon, ppolygon, ex, ey, evx, evy)
+                self._flicker_ai(eid, e, st, ppolygon)
                 continue
 
             # footfalls: the dread channel again — mass on deck plating,
@@ -2252,18 +2405,21 @@ class GameSession:
             # only meaningful within one polygon's local frame, so a transfer
             # resets the stride.
             if kind not in ("mite", "shrieker"):
-                lpolygon, lx, ly = e.get("step_from", (polygon, ex, ey))
-                if lpolygon == polygon:
-                    e["step_acc"] = e.get("step_acc", 0.0) + \
-                        math.hypot(ex - lx, ey - ly)
+                last = e.get("step_from")
+                # A stride is a DIFFERENCE, so it only means anything inside
+                # one space; a body that crossed a doorway starts over. The
+                # type would have refused the cross-frame version anyway.
+                if last is not None and last.space == at.space:
+                    e["step_acc"] = e.get("step_acc", 0.0) \
+                        + at.distance_to(last)
                 else:
                     e["step_acc"] = 0.0
-                e["step_from"] = (polygon, ex, ey)
+                e["step_from"] = at
                 stride = 44.0 if kind in ("brute", "warden") else 30.0
                 if e.get("step_acc", 0.0) >= stride:
                     e["step_acc"] = 0.0
                     self._snd("step_heavy" if kind in ("brute", "warden")
-                              else "step_soft", polygon, (ex, ey),
+                              else "step_soft", at,
                               0.6 if e["state"] == "hunt" else 0.35)
 
             if kind in CORE_KINDS:
@@ -2299,12 +2455,12 @@ class GameSession:
             if kind in ADVERSARY and "arrived" in e \
                     and polygon not in self.hub.chambers.values():
                 mv = e.get("_ret_pos")
-                if mv is not None and mv[0] == polygon \
-                        and (ex - mv[1]) ** 2 + (ey - mv[2]) ** 2 < 16.0:
+                if mv is not None and mv.space == at.space \
+                        and at.distance_to(mv) < 4.0:
                     e["_ret_still"] = e.get("_ret_still", 0) + 1
                 else:
                     e["_ret_still"] = 0
-                    e["_ret_pos"] = (polygon, ex, ey)
+                    e["_ret_pos"] = at
                 if e["_ret_still"] > ADVERSARY_STRAND_TICKS:
                     self.trace.emit(CoordEvent(
                         tick=self.tick_count, entity_id=eid,
@@ -2316,7 +2472,7 @@ class GameSession:
 
             if kind in ADVERSARY and (e.get("scout")
                                       or self._maybe_task_scout(eid, e, polygon)):
-                self._scout_ai(eid, e, polygon, ex, ey, evx, evy)
+                self._scout_ai(eid, e, st)
                 continue
 
             if e["state"] == "idle":
@@ -2346,7 +2502,7 @@ class GameSession:
                         if quiet_ok and not e.get("garrison"):
                             e["garrison"] = polygon
                             self._set_enemy_state(eid, e, "idle")
-                            _, _gx, _gy, *_ = s.get(eid)
+                            _gx, _gy = s.get(eid).pos.local()
                             self.trace.emit(AgentTransition(
                                 tick=t_, entity_id=eid, agent_kind=kind,
                                 from_state="idle", to_state="settled",
@@ -2364,32 +2520,32 @@ class GameSession:
                             else SignalKind.GARRISON_REACH
                         self.signals.emit(fkind, gpoly, 0.05,
                                           self.tick_count)
-                if polygon == ppolygon:
-                    # the notice beat: growl first, charge after — the
-                    # player always gets the first move
-                    self._set_enemy_state(eid, e, "waking")
-                    e["wake"] = self.WAKE_TICKS[kind]
-                    self._snd(d["alert_snd"], polygon, (ex, ey), 0.9)
-                    self.fx.append(("alerted", polygon, ex, ey))
-                    ddx, ddy = px - ex, py - ey
-                    dl = math.hypot(ddx, ddy) or 1e-6
-                    s.set_dir(eid, ddx / dl, ddy / dl)
+                # THE NOTICE BEAT, on a staggered awareness tick (every 10
+                # per agent): growl first, charge after — the player always
+                # gets the first move.
+                #
+                # This used to be two branches: an immediate one gated on
+                # `polygon == ppolygon`, and a staggered line-of-sight one
+                # that lacked the growl's full volume, the fx and the turn
+                # toward the intruder. The frame test bought 9 ticks of
+                # latency in the player's own chamber and cost the game its
+                # own law — a body watching you through a doorway noticed
+                # you differently from one in the room, for no reason but
+                # that comparing polygon indices was easy. One beat now,
+                # fired by a real sighting at whatever depth the geometry
+                # gives it.
+                seen = None
+                if (self.tick_count + eid) % 10 == 0:
+                    seen = self.senses.sight_of(eid, self.pid)
+                if seen is not None:
+                    self._notice(eid, e, d, at, seen)
                     continue
-                # staggered awareness beat (every 10 ticks per agent):
-                # fire on line of sight — an intruder plainly visible
-                # through a doorway wakes the watcher (DESIGN_7_25 §3) —
-                # and the FRACTIONAL QUORUM: commit on the fraction of
+                # ...and the FRACTIONAL QUORUM: commit on the fraction of
                 # visible chamber-mates already committed, plus one
                 # bounded virtual supporter from the fields. Calm packed
                 # halls inhibit; sparse pickets flip first.
                 if (self.tick_count + eid) % 10 == 0 \
                         and e.get("garrison") is None:
-                    if self.senses.sight_of(eid, self.pid) is not None:
-                        self._set_enemy_state(eid, e, "waking")
-                        e["wake"] = self.WAKE_TICKS[kind]
-                        self._snd(d["alert_snd"], polygon, (ex, ey), 0.7)
-                        self.fx.append(("alerted", polygon, ex, ey))
-                        continue
                     peers = [self.enemies[oid]
                              for oid in s.polygon_entities(polygon)
                              if oid != eid and oid in self.enemies
@@ -2406,15 +2562,8 @@ class GameSession:
                             f, e["q_thr"]):
                         self._set_enemy_state(eid, e, "waking")
                         e["wake"] = self.WAKE_TICKS[kind]
-                        self._snd(d["alert_snd"], polygon, (ex, ey), 0.5)
+                        self._snd(d["alert_snd"], at, 0.5)
                         continue
-                if e.get("garrison") is not None \
-                        and (self.tick_count + eid) % 10 == 0 \
-                        and self.senses.sight_of(eid, self.pid) is not None:
-                    self._set_enemy_state(eid, e, "waking")
-                    e["wake"] = self.WAKE_TICKS[kind]
-                    self._snd(d["alert_snd"], polygon, (ex, ey), 0.7)
-                    continue
                 if e.get("tether"):
                     continue     # a posted guardian STANDS its post
                 if e.get("garrison") is not None or e.get("hold_t", 0) > 0:
@@ -2430,8 +2579,8 @@ class GameSession:
                     a = self.rng.uniform(0, 6.28)
                     e["wander"] = (math.cos(a), math.sin(a))
                 wx, wy = e.get("wander", (0.0, 0.0))
-                s.set_vel(eid, evx + wx * d["accel"] * 0.35 * DT,
-                          evy + wy * d["accel"] * 0.35 * DT)
+                s.set_vel(eid, st.vel + at.offset(wx, wy)
+                          * (d["accel"] * 0.35 * DT))
                 continue
 
             if e["state"] == "waking":
@@ -2451,7 +2600,7 @@ class GameSession:
             if e["groan_cd"] <= 0:
                 e["groan_cd"] = self.rng.randrange(140, 260)
                 if kind != "shrieker":
-                    self._snd(d["alert_snd"], polygon, (ex, ey), 0.35)
+                    self._snd(d["alert_snd"], at, 0.35)
             accel = d["accel"] * (e.get("buff_mul", 1.25)
                                   if e.get("buff", 0) > 0 else 1.0)
             if e.get("dispatched") is not None \
@@ -2517,20 +2666,22 @@ class GameSession:
                     # failed — shed it and stand down to ordinary AI,
                     # on the record.
                     mp = e.get("_march_pos")
-                    if mp is not None and mp[0] == polygon and \
-                            (ex - mp[1]) ** 2 + (ey - mp[2]) ** 2 < 16.0:
+                    if mp is not None and mp.space == at.space and \
+                            at.distance_to(mp) < 4.0:
                         e["_march_still"] = e.get("_march_still", 0) + 1
                     else:
                         e["_march_still"] = 0
-                        e["_march_pos"] = (polygon, ex, ey)
+                        e["_march_pos"] = at
                     if e["_march_still"] > 0 and \
                             e["_march_still"] % 300 == 0:
                         wv_ = 1.0 if ((self.tick_count // 300) + eid) % 2 \
                             else -1.0
                         jm_ = d["mass"] * 210.0
+                        edx, edy = st.dir.local()
                         self._apply_impulse(
-                            eid, (-edy * wv_ * 0.7 + edx * 0.7) * jm_,
-                            (edx * wv_ * 0.7 + edy * 0.7) * jm_,
+                            eid,
+                            at.offset((-edy * wv_ * 0.7 + edx * 0.7) * jm_,
+                                      (edx * wv_ * 0.7 + edy * 0.7) * jm_),
                             source="march_unstick")
                         e.pop("_came_from", None)
                     if e["_march_still"] > 900:
@@ -2566,21 +2717,17 @@ class GameSession:
                             else 1 << 20))
                         edge = alts_[0][0]
                     if edge >= 0:
-                        gx_, gy_ = s.edge_midpoint(polygon, edge)
-                        mdx, mdy = gx_ - ex, gy_ - ey
-                        mdl = math.hypot(mdx, mdy) or 1e-6
-                        mnx, mny = mdx / mdl, mdy / mdl
-                        s.set_dir(eid, mnx, mny)
-                        msx, msy = s.terrain_avoid_dir(
-                            polygon, ex, ey, d["radius"], mnx, mny,
-                            max(40.0, min(mdl, 120.0)))
-                        msx, msy = self._steer_heading(eid, e, d,
-                                                       msx, msy)
-                        self._budget_move(eid, e, d, polygon, ex, ey,
-                                          evx, evy, msx, msy, accel)
+                        march = at.toward(s.edge_midpoint(polygon, edge))
+                        heading = march.normalized()
+                        s.set_dir(eid, heading)
+                        heading = s.terrain_avoid_dir(
+                            at, d["radius"], heading,
+                            max(40.0, min(march.length, 120.0)))
+                        heading = self._steer_heading(eid, e, d, st, heading)
+                        self._budget_move(eid, e, d, st, heading, accel)
                         continue
             if e.get("engulf") in ("charge", "lunge", "hold"):
-                self._warden_engulf_step(eid, e, polygon, ex, ey)
+                self._warden_engulf_step(eid, e, st)
                 continue
             # --- engagement target: the player's position in THIS polygon's
             # local frame. Polygons are individual polygons, so co-polygon is
@@ -2591,10 +2738,13 @@ class GameSession:
             # ray clears — aiming, spitting, lunging. An
             # enemy that goes inert when the player steps over a
             # threshold is not a fight.
-            tx = ty = None
+            # THE SIGHTING IS THE ONE VARIABLE. There used to be two — the
+            # Track and a `target` place lifted off it — and the pursuit
+            # watchdog cleared only the second, so every later read of the
+            # Track relied on a short-circuit in an unrelated clause to be
+            # safe. Dropping the engagement means dropping the sighting.
             sighting = self.senses.sight_of(eid, self.pid)
             if sighting is not None:
-                tx, ty = sighting.position
                 e["quiet"] = 0
                 # relay-recruit: an agent with the target in sight
                 # re-broadcasts — contact makes signal makes more contact
@@ -2626,7 +2776,7 @@ class GameSession:
                     e["quiet"] = 0
                     e.pop("route", None)
                     continue
-            if tx is not None:
+            if sighting is not None:
                 # PROGRESS WATCHDOG for sighted pursuit: a chase that
                 # closes no distance for ~8s is grinding a fold or a
                 # pinch, not chasing — drop the sighting for 5s so the
@@ -2636,9 +2786,9 @@ class GameSession:
                 # wardens poked at a choke for 32s without progress).
                 t_ = self.tick_count
                 if t_ < e.get("fold_stuck_until", 0):
-                    tx = None
+                    sighting = None
                 else:
-                    dist_now = math.hypot(tx - ex, ty - ey)
+                    dist_now = sighting.distance
                     mark = e.get("chase_mark")
                     if mark is None or dist_now < mark[1] - 24.0:
                         e["chase_mark"] = (t_, dist_now)
@@ -2650,16 +2800,16 @@ class GameSession:
                             event="pursuit_stuck",
                             detail=f"no progress {t_ - mark[0]}t at "
                                    f"dist {dist_now:.0f}"))
-                        tx = None
-            if tx is not None and kind == "warden" \
+                        sighting = None
+            if sighting is not None and kind == "warden" \
                     and sighting.portal_depth == 0 \
                     and e.get("engulf_cd", 0) <= 0 \
-                    and math.hypot(tx - ex, ty - ey) < WARDEN_ENGULF_RANGE:
+                    and sighting.distance < WARDEN_ENGULF_RANGE:
                 e["engulf"] = "charge"
                 e["engulf_t"] = WARDEN_ENGULF_CHARGE
-                self._warden_engulf_step(eid, e, polygon, ex, ey)
+                self._warden_engulf_step(eid, e, st)
                 continue
-            if tx is not None and sighting.portal_depth >= 1:
+            if sighting is not None and sighting.portal_depth >= 1:
                 # even a SIGHTED chase respects the threshold-holding
                 # rule: the chamber that keeps killing our kind is not
                 # entered alone just because the killer is visible in it
@@ -2689,26 +2839,25 @@ class GameSession:
                         if (t_ + eid) % 5 == 0:
                             self.signals.emit(SignalKind.MUSTER, polygon,
                                               0.05, t_)
-                        self._hold_at_door(eid, e, d, polygon, pedge,
-                                           ex, ey, evx, evy, accel)
+                        self._hold_at_door(eid, e, d, st, pedge, accel)
                         continue
-            if tx is not None:
-                ddx, ddy = tx - ex, ty - ey
-                dist = math.hypot(ddx, ddy) or 1e-6
-                nx, ny = ddx / dist, ddy / dist
-                s.set_dir(eid, nx, ny)  # aim/face the player exactly
+            if sighting is not None:
+                to_target = at.toward(sighting.pos)
+                dist = max(to_target.length, 1e-6)
+                bearing = to_target.normalized()
+                s.set_dir(eid, bearing)  # aim/face the player exactly
                 # Movement steers around walk-mask terrain: physics-level
                 # wall sliding alone doesn't route a bot around an obstacle
                 # it beelines straight into (only a polygon's convex boundary
                 # guarantees that) -- a straight seek toward a target
                 # directly behind painted equipment can generate zero
                 # tangential velocity and grind against it forever
-                # (confirmed fail-first in necore's physics tests). `sx,sy`
-                # is the movement heading; `nx,ny` stays the true bearing
-                # for aim/attacks below.
-                sx, sy = s.terrain_avoid_dir(polygon, ex, ey, d["radius"], nx, ny,
-                                             max(40.0, min(dist, 120.0)))
-                sx, sy = self._steer_heading(eid, e, d, sx, sy)
+                # (confirmed fail-first in necore's physics tests).
+                # `heading` is the movement direction; `bearing` stays the
+                # true one for aim/attacks below.
+                heading = s.terrain_avoid_dir(at, d["radius"], bearing,
+                                              max(40.0, min(dist, 120.0)))
+                heading = self._steer_heading(eid, e, d, st, heading)
                 # husks lunge: a sudden burst inside close range reads as an
                 # attack, not a shove
                 if kind in ("husk", "brute") and dist < 95.0 \
@@ -2722,13 +2871,15 @@ class GameSession:
                     # never by walking in a straight line. Measured: 8
                     # melee hits across three 4-minute filmed sessions
                     # with straight lunges; melee threat was fiction.
-                    pvx, pvy = self.sim.get(self.pid)[3:5]
-                    t_arr = dist / burst
-                    lx_, ly_ = tx + pvx * t_arr - ex, ty + pvy * t_arr - ey
-                    ll = math.hypot(lx_, ly_) or 1e-6
-                    lsx, lsy = lx_ / ll, ly_ / ll
-                    s.set_vel(eid, evx + lsx * burst, evy + lsy * burst)
-                    self._snd(d["alert_snd"], polygon, (ex, ey), 0.55)
+                    # The lead needs the player's VELOCITY in this body's
+                    # space, not in the player's. The sighting gives the
+                    # place; the velocity comes through the same route, via
+                    # the doorway transform chain the engine already walked.
+                    lead = at.toward(sighting.pos
+                                     + sighting.vel * (dist / burst))
+                    if lead.length > 1e-6:
+                        s.set_vel(eid, st.vel + lead.normalized() * burst)
+                    self._snd(d["alert_snd"], at, 0.55)
                 if e.get("lunge_cd", 0) > 0:
                     e["lunge_cd"] -= 1
                 # warden = a normal high-tier enemy (DESIGN_7_25): no
@@ -2739,17 +2890,17 @@ class GameSession:
                     if e.get("tether"):
                         pass                     # posted: shoot, don't chase
                     elif dist < d["keep_min"]:
-                        s.set_vel(eid, evx - sx * accel * DT, evy - sy * accel * DT)
+                        s.set_vel(eid, st.vel - heading * (accel * DT))
                     elif dist > d["keep_max"]:
-                        s.set_vel(eid, evx + sx * accel * DT, evy + sy * accel * DT)
+                        s.set_vel(eid, st.vel + heading * (accel * DT))
                     if e["spit_cd"] <= 0:
                         e["spit_cd"] = d["spit_cd"]
-                        self._spit(eid, polygon, ex, ey, nx, ny, d)
+                        self._spit(eid, at, bearing, d)
                     if kind != "warden":
                         continue
                 if not e.get("tether"):    # a posted guardian fights
-                    self._budget_move(eid, e, d, polygon, ex, ey,   # from
-                                      evx, evy, sx, sy, accel)      # its post
+                    self._budget_move(eid, e, d, st, heading,  # from its post
+                                      accel)
             else:
                 if e.get("tether"):
                     # holds its ground — but only pursuit is waived; an
@@ -2776,8 +2927,8 @@ class GameSession:
                         a = self.rng.uniform(0, 6.28)
                         e["wander"] = (math.cos(a), math.sin(a))
                     wx, wy = e.get("wander", (0.0, 0.0))
-                    s.set_vel(eid, evx + wx * d["accel"] * 0.4 * DT,
-                              evy + wy * d["accel"] * 0.4 * DT)
+                    s.set_vel(eid, st.vel + at.offset(wx, wy)
+                              * (d["accel"] * 0.4 * DT))
                     continue
                 portal = s.polygon_portals(polygon)[edge]
                 if portal is None:
@@ -2797,19 +2948,31 @@ class GameSession:
                     # hold (checked above): a provoked agent commits
                     if (t_ + eid) % 5 == 0:
                         self.signals.emit(SignalKind.MUSTER, polygon, 0.05, t_)
-                    self._hold_at_door(eid, e, d, polygon, edge,
-                                       ex, ey, evx, evy, accel)
+                    self._hold_at_door(eid, e, d, st, edge, accel)
                     continue
-                mx_, my_ = s.edge_midpoint(polygon, edge)
-                ddx, ddy = mx_ - ex, my_ - ey
-                dist = math.hypot(ddx, ddy) or 1e-6
-                nx, ny = ddx / dist, ddy / dist
-                s.set_dir(eid, nx, ny)
-                sx, sy = s.terrain_avoid_dir(polygon, ex, ey, d["radius"], nx, ny,
-                                             max(40.0, min(dist, 120.0)))
-                sx, sy = self._steer_heading(eid, e, d, sx, sy)
-                self._budget_move(eid, e, d, polygon, ex, ey, evx, evy,
-                                  sx, sy, accel)
+                to_door = at.toward(s.edge_midpoint(polygon, edge))
+                heading = to_door.normalized()
+                s.set_dir(eid, heading)
+                heading = s.terrain_avoid_dir(
+                    at, d["radius"], heading,
+                    max(40.0, min(to_door.length, 120.0)))
+                heading = self._steer_heading(eid, e, d, st, heading)
+                self._budget_move(eid, e, d, st, heading, accel)
+
+    def _notice(self, eid: int, e: dict, d: dict, at, seen) -> None:
+        """The one notice beat: growl, flag, and turn toward the intruder.
+
+        Fires off a real sighting, so it works at whatever depth the
+        geometry allows — a watcher across a doorway notices you the same
+        way one in the room does. (It used to be two beats, the richer of
+        which was gated on sharing the player's polygon.)"""
+        self._set_enemy_state(eid, e, "waking")
+        e["wake"] = self.WAKE_TICKS[e["kind"]]
+        self._snd(d["alert_snd"], at, 0.9)
+        self._fx_at("alerted", at)
+        face = at.toward(seen.pos)
+        if face.length > 1e-6:
+            self.sim.set_dir(eid, face.normalized())
 
     def _embody_core(self) -> None:
         """Give the organ its bodies, placed per the ratified layout:
@@ -2846,12 +3009,14 @@ class GameSession:
         caretakers = [p for p in self.core.live("core_caretaker")
                       if p.part_id in self.enemies]
         for ct in caretakers:
-            _, cx0, cy0, *_ = self.sim.get(ct.part_id)
+            # a caretaker only ever tends parts in its OWN chamber
+            # (`p.chamber != ct.chamber` below), so these places share a
+            # space and the distance is meaningful
+            here = self.sim.get(ct.part_id).pos
             for p in self.core.parts.values():
                 if p.part_id == ct.part_id or p.chamber != ct.chamber:
                     continue
-                _, px0, py0, *_ = self.sim.get(p.part_id)
-                if math.hypot(px0 - cx0, py0 - cy0) < 46.0:
+                if here.distance_to(self.sim.get(p.part_id).pos) < 46.0:
                     contacts.append(p.part_id)
         for pid_, hp_ in self.core.step_heal(t_, contacts):
             if pid_ in self.enemies:
@@ -2977,8 +3142,9 @@ class GameSession:
                 # breach's violet, and a second light there was muddying
                 # the one symbol that was supposed to be readable.
                 self.fx.append(("arrived", rid))
-                self._snd("adversary_return", br["polygon"],
-                          (br["pos"][0] + jx, br["pos"][1] + jy), 0.8)
+                self._snd("adversary_return",
+                          self.sim.place(br["polygon"], br["pos"][0] + jx,
+                                         br["pos"][1] + jy), 0.8)
                 self.trace.emit(AgentTransition(
                     tick=t_, entity_id=rid, agent_kind=kind,
                     from_state="withdrawn", to_state="returned",
@@ -3013,7 +3179,7 @@ class GameSession:
         for weid, we in self.enemies.items():
             if not self.sim.exists(weid):
                 continue
-            _, wx2, wy2, *_ = self.sim.get(weid)
+            wx2, wy2 = self.sim.get(weid).pos.local()
             _pos[str(weid)] = [we["kind"], self.sim.get_polygon(weid),
                                round(wx2, 1), round(wy2, 1)]
         if _pos:
@@ -3077,7 +3243,8 @@ class GameSession:
                 world_chamber=imprint.chamber, detail=str(exc)))
             return
         rp, ep = self.topology.current_edge(world_h)
-        mx_, my_ = self.sim.edge_midpoint(rp, ep)
+        mouth = self.sim.edge_midpoint(rp, ep)
+        mx_, my_ = mouth.local()
         hub_r, _ = self.topology.current_edge(seam)
         obj = Breach(breach_id=bid, world_chamber=rp, hub_chamber=hub_r,
                      opened_tick=t_, link=link, last_cross_tick=t_,
@@ -3112,10 +3279,10 @@ class GameSession:
         # body nearby turns toward it, which is how the mechanic reads
         # even when the tear itself is off-screen (first filmed
         # playtest: 'reinforcements just appear already-hunting')
-        self._snd("stinger_wrongness", rp, (mx_, my_), 1.6)
-        self._snd("door_unlock", rp, (mx_, my_), 1.0)
+        self._snd("stinger_wrongness", mouth, 1.6)
+        self._snd("door_unlock", mouth, 1.0)
         self._shake(7.0)
-        self.pulse_light(rp, (mx_, my_), 340.0, 1.0)
+        self.pulse_light(mouth, 340.0, 1.0)
         self.signals.emit_at_least(SignalKind.NOISE, rp, 0.9, t_)
         self.trace.emit(BreachLifecycle(
             tick=t_, breach_id=bid, event="opened", world_chamber=rp,
@@ -3212,7 +3379,7 @@ class GameSession:
         self.adversary_out.append(
             (e["kind"], t_ + ADVERSARY_RECOVERY_TICKS
              + self.rng.randrange(0, ADVERSARY_RECOVERY_TICKS // 2)))
-        _, _rx, _ry, *_ = self.sim.get(eid)
+        _rx, _ry = self.sim.get(eid).pos.local()
         self.trace.emit(AgentTransition(
             tick=t_, entity_id=eid, agent_kind=e["kind"],
             from_state=e["state"], to_state=f"reabsorbed:{why}",
@@ -3253,10 +3420,12 @@ class GameSession:
         # visual distinctness — bare empty corridor shots')
         if getattr(self, "_last_seal_snd_tick", -1) != t_:
             self._last_seal_snd_tick = t_
-            self._snd("reveal_sour", br["polygon"], br["pos"], 1.2)
-            self._snd("door_unlock", br["polygon"], br["pos"], 0.8)
+            scar = self.sim.place(br["polygon"], *br["pos"])
+            self._snd("reveal_sour", scar, 1.2)
+            self._snd("door_unlock", scar, 0.8)
             self._shake(4.0)
-        self.pulse_light(br["polygon"], br["pos"], 260.0, 0.8)
+        self.pulse_light(self.sim.place(br["polygon"], *br["pos"]),
+                         260.0, 0.8)
         self.trace.emit(BreachLifecycle(
             tick=t_, breach_id=breach_id, event="sealed",
             world_chamber=br["polygon"], detail=reason))
@@ -3275,10 +3444,9 @@ class GameSession:
         # death record inherited whatever last hurt him, and run 53 filed
         # two engulf kills as 'lightning_self' and 'contact:brute'
         self._last_hurt_source = "engulfed"
-        px, py = self.player_pos()
-        ppolygon = self.player_polygon()
+        at = self.player_pos()
         if self.tick_count % 5 == 0:
-            self._snd("player_hurt", ppolygon, (px, py))
+            self._snd("player_hurt", at)
             self.fx.append(("attacker_mark", captor))
             self.trace.emit(DamageApplied(
                 tick=self.tick_count, target_id=self.pid,
@@ -3287,9 +3455,9 @@ class GameSession:
         self.fx.append(("playerhurt", dmg))
         if self.hp <= 0:
             self.captures.release_for_entity(captive)
-            self._player_death(ppolygon, px, py)
+            self._player_death(at)
 
-    def _warden_engulf_step(self, eid, e, polygon, ex, ey) -> None:
+    def _warden_engulf_step(self, eid, e, st) -> None:
         """CHARGE: rooted, the body itself flashing brighter twice over
         the wind-up (driven through trace_intensity — the renderer's real
         state channel, never a free-running timer). LUNGE: hurled at the
@@ -3299,6 +3467,7 @@ class GameSession:
         system owns the rest."""
         s = self.sim
         d = ENEMIES["warden"]
+        at = st.pos
         if e["engulf"] == "hold":
             if self.captures.held_by(self.pid) != eid or self.dead:
                 e["engulf"] = None
@@ -3306,7 +3475,7 @@ class GameSession:
                 e["trace_intensity"] = 1.0
             return
         if e["engulf"] == "charge":
-            s.set_vel(eid, 0.0, 0.0)
+            s.set_vel(eid, at.offset(0.0, 0.0))
             e["engulf_t"] = e.get("engulf_t", WARDEN_ENGULF_CHARGE) - 1
             # two flashes across 12 ticks: on/off/on/off in 3-tick beats
             e["trace_intensity"] = 2.0 if (max(0, e["engulf_t"]) // 3) % 2 == 0 \
@@ -3318,24 +3487,21 @@ class GameSession:
                     e["engulf"] = None       # lost the target: abort
                     e["engulf_cd"] = WARDEN_ENGULF_COOLDOWN
                     return
-                tx, ty = hit.position
-                dx, dy = tx - ex, ty - ey
-                dl = math.hypot(dx, dy) or 1e-6
+                lunge = at.toward(hit.pos).normalized()
                 spd = WARDEN_CRUISE * WARDEN_ENGULF_LUNGE_MULT
-                s.set_dir(eid, dx / dl, dy / dl)
-                s.set_vel(eid, dx / dl * spd, dy / dl * spd)
+                s.set_dir(eid, lunge)
+                s.set_vel(eid, lunge * spd)
                 # the lunge's OWN voice (gate 58 blocker: this played
                 # shrieker_scream at 0.85, so the loudest scream in a
                 # session was a warden jumping, not a caller crying —
                 # and it is not the warden's ALERT either, because
                 # "noticed you" and "coming for you, move" are two
                 # meanings and get two sounds)
-                self._snd("warden_engulf", polygon, (ex, ey), 0.85)
+                self._snd("warden_engulf", at, 0.85)
                 e["engulf"] = "lunge"
             return
         # lunge
-        _, _, _, vx, vy, _, _ = s.get(eid)
-        spd = math.hypot(vx, vy)
+        spd = st.speed
         if spd < WARDEN_CRUISE:
             e["engulf"] = None               # spent: it missed
             e["engulf_cd"] = WARDEN_ENGULF_COOLDOWN
@@ -3343,19 +3509,18 @@ class GameSession:
         hit = self.senses.sight_of(eid, self.pid)
         if hit is not None and hit.portal_depth == 0 and not self.dead \
                 and self.captures.held_by(self.pid) is None:
-            tx, ty = hit.position
-            dx, dy = tx - ex, ty - ey
-            dl = math.hypot(dx, dy) or 1e-6
+            to_prey = at.toward(hit.pos)
+            dl = max(to_prey.length, 1e-6)
             if dl < d["radius"] + PLAYER_RADIUS + 8.0:
-                dot = (vx * dx + vy * dy) / ((spd or 1e-6) * dl)
+                dot = st.vel.dot(to_prey) / ((spd or 1e-6) * dl)
                 if dot >= WARDEN_ENGULF_DOT:
                     e["engulf"] = "hold"
                     self.captures.begin(CaptureSpec(
                         captor_id=eid, captive_id=self.pid,
                         pull_speed=WARDEN_ENGULF_PULL,
                         damage_per_second=WARDEN_ENGULF_DPS))
-                    self._snd("player_hurt", polygon, (tx, ty), 1.0)
-                    self.fx.append(("engulfed", polygon, tx, ty))
+                    self._snd("player_hurt", hit.pos, 1.0)
+                    self._fx_at("engulfed", hit.pos)
 
     def _maybe_task_scout(self, eid: int, e: dict, polygon: int) -> bool:
         """The ratified selection rule: if no ally in the room is already
@@ -3384,26 +3549,23 @@ class GameSession:
         e["scout_mode"] = e.get("scout_mode", "contact")
         return True
 
-    def _scout_move_to(self, eid, e, polygon, ex, ey, evx, evy, target):
+    def _scout_move_to(self, eid, e, st, target):
         s = self.sim
         d = ENEMIES[e["kind"]]
+        polygon = st.polygon
         for edge, portal in enumerate(s.polygon_portals(polygon)):
             if portal is not None and portal[0] == target:
-                mx_, my_ = s.edge_midpoint(polygon, edge)
-                ddx, ddy = mx_ - ex, my_ - ey
-                dist = math.hypot(ddx, ddy) or 1e-6
-                nx, ny = ddx / dist, ddy / dist
-                sx, sy = s.terrain_avoid_dir(polygon, ex, ey, d["radius"],
-                                             nx, ny,
-                                             max(40.0, min(dist, 120.0)))
-                sx, sy = self._steer_heading(eid, e, d, sx, sy)
-                self._budget_move(eid, e, d, polygon, ex, ey, evx, evy,
-                                  sx, sy, d["accel"])
+                to_door = st.pos.toward(s.edge_midpoint(polygon, edge))
+                heading = s.terrain_avoid_dir(
+                    st.pos, d["radius"], to_door.normalized(),
+                    max(40.0, min(to_door.length, 120.0)))
+                heading = self._steer_heading(eid, e, d, st, heading)
+                self._budget_move(eid, e, d, st, heading, d["accel"])
                 return
         # target not adjacent anymore: drift and rethink next beat
         e["scout_target"] = None
 
-    def _scout_ai(self, eid, e, polygon, ex, ey, evx, evy) -> None:
+    def _scout_ai(self, eid, e, st) -> None:
         """The tasked caller's loop: creep to the edge of the hot zone,
         brace, take the world's ONE call lease, transmit rooted and fully
         exposed (pulsing once a second through the ordinary audio), leave
@@ -3413,6 +3575,7 @@ class GameSession:
         vulnerability."""
         s = self.sim
         t_ = self.tick_count
+        polygon, at = st.polygon, st.pos
 
         # ...and the strand reabsorbs WHEREVER it stands, which is the
         # whole point: the stranded body is at a dead seam out in the
@@ -3424,7 +3587,7 @@ class GameSession:
                 >= e.get("grace", ADVERSARY_ARRIVAL_GRACE):
             self._withdraw_adversary(eid, e, "home")
             return
-        st = e.get("scout")
+        phase = e.get("scout")
         # DAMAGE interrupts first — the "catch the transmitting agent"
         # rule — and a shot scout READS engaged for its whole flee: the
         # projected e["state"] stays "hunt" so music, marks and the
@@ -3437,15 +3600,15 @@ class GameSession:
             e["trace_intensity"] = 1.0
             e["scout"] = "flee"
             e["scout_t"] = scouts.FLEE_TICKS
-            st = "flee"
-        if st == "flee" or t_ - e.get("last_hit", -10**9) <= 120:
+            phase = "flee"
+        if phase == "flee" or t_ - e.get("last_hit", -10**9) <= 120:
             self._set_enemy_state(eid, e, "hunt")
         elif e["state"] != "idle":
             # calm scout work (seek/observe/brace/transmit): whatever
             # combat-wake state the standard machine left is cleared
             self._set_enemy_state(eid, e, "idle")
         nbh = self.signals.neighborhood(polygon, t_)
-        if st == "flee":
+        if phase == "flee":
             e["scout_t"] = e.get("scout_t", 0) - 1
             if e["scout_t"] <= 0:
                 e["scout"] = "seek"
@@ -3455,38 +3618,37 @@ class GameSession:
             # closed on shoves the player off and keeps going — feet
             # still retreating, exactly like the player's own bot keeps
             # firing while it backs out of a room.
-            self._adversary_arsenal(eid, e, polygon, ex, ey,
-                                    ENEMIES[e["kind"]])
+            self._adversary_arsenal(eid, e, st, ENEMIES[e["kind"]])
             tgt = scouts.safe_target(nbh)
             if tgt is not None:
-                self._scout_move_to(eid, e, polygon, ex, ey, evx, evy, tgt)
+                self._scout_move_to(eid, e, st, tgt)
             return
-        if st == "brace":
-            s.set_vel(eid, 0.0, 0.0)
+        if phase == "brace":
+            s.set_vel(eid, at.offset(0.0, 0.0))
             e["scout_t"] = e.get("scout_t", 0) - 1
             if e["scout_t"] <= 0:
                 e["scout"] = "transmit"
                 e["scout_t"] = scouts.root_ticks(e["kind"])
                 e["call_t"] = e["scout_t"]
             return
-        if st == "transmit":
-            s.set_vel(eid, 0.0, 0.0)
+        if phase == "transmit":
+            s.set_vel(eid, at.offset(0.0, 0.0))
             e["scout_t"] = e.get("scout_t", 0) - 1
             e["call_t"] = e["scout_t"]
             beat = e["scout_t"] % 60
             e["trace_intensity"] = 2.0 if beat < 6 else 1.0
             if beat == 0 and e["scout_t"] > 0:
-                self._snd("terminal_type", polygon, (ex, ey), 0.8)
+                self._snd("terminal_type", at, 0.8)
             if e["scout_t"] <= 0:
                 e["trace_intensity"] = 1.0
-                self.medium.complete(eid, polygon, (ex, ey), t_, e["kind"])
+                self.medium.complete(eid, polygon, at.local(), t_, e["kind"])
                 e["scout_mode"] = {"contact": "safe", "safe": "peak",
                                    "peak": "safe"}[e.get("scout_mode",
                                                          "contact")]
                 e["scout"] = "observe"
                 e["scout_t"] = scouts.POUR_OBSERVE_TICKS
             return
-        if st == "observe":
+        if phase == "observe":
             e["scout_t"] = e.get("scout_t", 0) - 1
             if e["scout_t"] <= 0:
                 e["scout"] = "seek"
@@ -3515,23 +3677,32 @@ class GameSession:
                     e["scout_t"] = scouts.BRACE_TICKS
                 return
         if tgt is not None:
-            self._scout_move_to(eid, e, polygon, ex, ey, evx, evy, tgt)
+            self._scout_move_to(eid, e, st, tgt)
 
     def _peer_bodies(self, eid: int, polygon: int):
+        """Chamber-mates as (x, y, radius) in THIS chamber's space.
+
+        Same-chamber only, which is what makes the raw triples safe: they
+        are all read out of one space, in one loop, and consumed by the
+        flocking arithmetic before anything can travel. A crowd that
+        spread across a doorway would need Coordinates, and that is the
+        shape the day the separation rule reaches through one."""
         out = []
         for oid in self.sim.polygon_entities(polygon):
             if oid == eid or oid not in self.enemies:
                 continue
-            _, ox, oy, *_ = self.sim.get(oid)
+            ox, oy = self.sim.get(oid).pos.local()
             out.append((ox, oy, ENEMIES[self.enemies[oid]["kind"]]["radius"]))
         return out
 
-    def _budget_move(self, eid, e, d, polygon, ex, ey, evx, evy,
-                     sx, sy, accel) -> None:
+    def _budget_move(self, eid, e, d, st, heading, accel) -> None:
         """Priority-budget locomotion (the ratified flocking correction):
         keep-apart claims acceleration FIRST, only the remainder chases —
         opposed demands never average into the doorframe."""
-        peers = self._peer_bodies(eid, polygon)
+        at = st.pos
+        ex, ey = at.local()
+        sx, sy = heading.local()
+        peers = self._peer_bodies(eid, st.polygon)
         sep = coord.separation_request((ex, ey), d["radius"], peers)
         # separation claims FIRST but never the whole budget: in a packed
         # muster room an uncapped claim saturates every agent's budget and
@@ -3580,7 +3751,7 @@ class GameSession:
         ax, ay = coord.allocate_acceleration(
             accel, [(0, sep[0] * accel, sep[1] * accel),
                     (1, sx * accel, sy * accel)])
-        self.sim.set_vel(eid, evx + ax * DT, evy + ay * DT)
+        self.sim.set_vel(eid, st.vel + at.offset(ax * DT, ay * DT))
 
     def _hunt_edge(self, eid: int, e: dict, polygon: int) -> int:
         """Which doorway calls loudest: Noise + Trail + Distress + Muster
@@ -3705,14 +3876,14 @@ class GameSession:
             return True
         return False
 
-    def _hold_at_door(self, eid, e, d, polygon, edge, ex, ey,
-                      evx, evy, accel) -> None:
+    def _hold_at_door(self, eid, e, d, st, edge, accel) -> None:
         """Threshold-holding done like something that wants to live:
         gather BESIDE the door frame (out of the through-door firing
         cone), face the door, keep a restless shuffle. Sides and depths
         alternate per-agent so a gathering push visually stacks up
         along the wall instead of forming a firing-squad line."""
         t_ = self.tick_count
+        polygon, at = st.polygon, st.pos
         if "_holding" not in e:
             e["_holding"] = t_
         elif not e.get("_hold_emitted") and e.get("_hold_tick") == t_ - 1:
@@ -3725,7 +3896,8 @@ class GameSession:
                 detail=f"polygon {polygon} door {edge}"))
         e["_hold_tick"] = t_
         s = self.sim
-        mx_, my_ = s.edge_midpoint(polygon, edge)
+        door = s.edge_midpoint(polygon, edge)
+        mx_, my_ = door.local()
         verts = s.polygon_verts(polygon)
         ax_, ay_ = verts[edge]
         bx_, by_ = verts[(edge + 1) % len(verts)]
@@ -3739,21 +3911,22 @@ class GameSession:
         # centroid-centered, so (0,0) is the interior)
         il = math.hypot(mx_, my_) or 1e-6
         inx, iny = -mx_ / il, -my_ / il
-        px_ = mx_ + tx_ * side * lateral + inx * 40.0
-        py_ = my_ + ty_ * side * lateral + iny * 40.0
-        ddx, ddy = px_ - ex, py_ - ey
-        dist = math.hypot(ddx, ddy)
+        # the waiting spot, built as a doorway place plus an offset along
+        # the wall and into the interior — all in this chamber's own space
+        spot = door + door.offset(tx_ * side * lateral + inx * 40.0,
+                                  ty_ * side * lateral + iny * 40.0)
+        to_spot = at.toward(spot)
+        dist = to_spot.length
         # always FACE the doorway — the wait reads as intent
-        fdx, fdy = mx_ - ex, my_ - ey
-        fl = math.hypot(fdx, fdy) or 1e-6
-        s.set_dir(eid, fdx / fl, fdy / fl)
+        face = at.toward(door)
+        if face.length > 1e-6:
+            s.set_dir(eid, face.normalized())
         if dist > 26.0:
-            nx, ny = ddx / dist, ddy / dist
-            sx, sy = s.terrain_avoid_dir(polygon, ex, ey, d["radius"],
-                                         nx, ny, max(40.0, min(dist, 120.0)))
-            sx, sy = self._steer_heading(eid, e, d, sx, sy)
-            self._budget_move(eid, e, d, polygon, ex, ey,
-                              evx, evy, sx, sy, accel)
+            heading = s.terrain_avoid_dir(at, d["radius"],
+                                          to_spot.normalized(),
+                                          max(40.0, min(dist, 120.0)))
+            heading = self._steer_heading(eid, e, d, st, heading)
+            self._budget_move(eid, e, d, st, heading, accel)
         else:
             # parked at the frame: restless micro-shuffle, never a statue
             if e.get("wander_cd", 0) <= 0:
@@ -3761,45 +3934,57 @@ class GameSession:
                 a = self.rng.uniform(0, 6.28)
                 e["wander"] = (math.cos(a), math.sin(a))
             wx, wy = e.get("wander", (0.0, 0.0))
-            s.set_vel(eid, evx + wx * d["accel"] * 0.18 * DT,
-                      evy + wy * d["accel"] * 0.18 * DT)
+            s.set_vel(eid, st.vel + at.offset(wx, wy)
+                      * (d["accel"] * 0.18 * DT))
 
-    def _steer_heading(self, eid: int, e: dict, d: dict,
-                       wx: float, wy: float) -> tuple[float, float]:
+    def _steer_heading(self, eid: int, e: dict, d: dict, st, want):
         """Turn-rate-limited steering (DESIGN_7_25 kinematics: every kind
         turns WORSE than the Commando, who turns instantly). The body's
-        stored heading slews toward the wanted direction at most
-        d['turn'] rad/s; acceleration is applied along the heading, so a
-        fast heavy kind genuinely overshoots and arcs — escape is won by
-        turning inside them, not by outrunning them."""
-        m = math.hypot(wx, wy)
-        if m < 1e-9:
-            return e.get("hdg", (1.0, 0.0))
-        wx, wy = wx / m, wy / m
-        hx, hy = e.get("hdg", (wx, wy))
-        cross = hx * wy - hy * wx
-        dot = hx * wx + hy * wy
-        ang = math.atan2(cross, dot)
-        max_step = d["turn"] * DT
-        if abs(ang) <= max_step:
-            hx, hy = wx, wy
-        else:
-            st = max_step if ang > 0 else -max_step
-            ca, sa = math.cos(st), math.sin(st)
-            hx, hy = hx * ca - hy * sa, hx * sa + hy * ca
-        e["hdg"] = (hx, hy)
-        self.sim.set_dir(eid, hx, hy)   # the body faces where it moves
-        return hx, hy
+        MOVEMENT HEADING slews toward the wanted direction at most
+        d['turn'] rad/s; acceleration is applied along it, so a fast heavy
+        kind genuinely overshoots and arcs — escape is won by turning
+        inside them, not by outrunning them.
 
-    def _spit(self, eid, polygon, ex, ey, nx, ny, d):
-        bid = self.sim.spawn(polygon, ex + nx * (d["radius"] + 4),
-                             ey + ny * (d["radius"] + 4), 2.5, 0.01, GROUP_EBULLET)
+        THE HEADING IS NOT THE FACING. A body holding beside a doorway
+        faces the door and moves sideways; a body aiming faces its target
+        and moves elsewhere. So the heading is its own value, stored here.
+        (Collapsing the two into the engine's `dir` was tried and was
+        wrong: the hold's face-the-door write became the next tick's slew
+        origin, so a waiting body crept through the threshold it was
+        refusing to cross — 254 ticks of correct hold, then a crossing.)
+
+        IT IS AN OFFSET, and that is what fixes the defect the old bare
+        pair had. A heading kept as two floats cannot survive a doorway:
+        the engine carries a body's `dir` through the portal transform on
+        transfer and a python pair cannot, so every crossing slewed from a
+        heading expressed in the chamber just left. When the stored
+        heading belongs to another space, the engine's own transported
+        facing is the correct value to start from — it is the same
+        direction, carried properly."""
+        here = st.pos.space
+        heading = e.get("hdg")
+        if heading is None or heading.space != here:
+            heading = st.dir
+        if want.length < 1e-9:
+            e["hdg"] = heading
+            return heading
+        want = want.normalized()
+        ang = math.atan2(heading.cross(want), heading.dot(want))
+        max_step = d["turn"] * DT
+        heading = want if abs(ang) <= max_step else heading.rotated(
+            max_step if ang > 0 else -max_step)
+        e["hdg"] = heading
+        self.sim.set_dir(eid, heading)   # the body faces where it moves
+        return heading
+
+    def _spit(self, eid, at, bearing, d):
+        muzzle = at + bearing * (d["radius"] + 4)
+        bid = self.sim.spawn(muzzle, 2.5, 0.01, GROUP_EBULLET)
         self.sim.set_props(bid, rest_wall=0.0, max_substep=3.0)
-        ang = math.atan2(ny, nx) + self.rng.uniform(-0.06, 0.06)
-        self.sim.set_vel(bid, math.cos(ang) * d["spit_speed"],
-                         math.sin(ang) * d["spit_speed"])
+        shot = bearing.rotated(self.rng.uniform(-0.06, 0.06))
+        self.sim.set_vel(bid, shot * d["spit_speed"])
         self.bullets[bid] = dict(kind="spit", dmg=d["spit_dmg"], ttl=180)
-        self._snd("spitter_shoot", polygon, (ex, ey), 0.9)
+        self._snd("spitter_shoot", at, 0.9)
 
     # THE ADVERSARY'S ARSENAL. Every tool here buys the same thing in a
     # different currency, because this faction does not fight for ground:
@@ -3807,87 +3992,128 @@ class GameSession:
     # So the weapons answer HOW the player is closing rather than trying
     # to kill them.
     #
-    #   close  -> SHOVE, which buys DISTANCE
-    #   middle -> SNARE, which buys TIME
+    #   close  -> the LOB,   which buys DISTANCE
+    #   middle -> the SNARE, which buys TIME
     #
     # All of it fires from the flee state and nowhere else.
     #
-    # COORDINATES. Everything below aims off the SenseHit, whose
-    # `position` is already composed into the observer's frame and whose
-    # `distance` is the real portal distance. Gate 66 failed at p=0.04
-    # because the first cut computed player_pos() — the PLAYER's frame —
-    # and subtracted the shooter's coordinates: unrelated numbers the
-    # moment a shot crosses a chamber, which 63 of 64 filmed fires did.
-    # The sighting is already in hand at every call site; there is never
-    # a reason to recompute a heading from two different frames.
+    # THE LOB IS A RUBBER GRENADE, and it is the validating test case for
+    # the coordinate system (docs/FRAME_SYSTEM_DESIGN_20260729.md §9). It
+    # used to be a fast little round carrying a bespoke `imp` field, and
+    # `_contact` turned that field into an impulse along a hand-computed
+    # direction — which is where the second half of gate 66's failure
+    # lived. A large, heavy, slow object needs none of that: the knockback
+    # IS mass times velocity, the push direction IS the collision normal,
+    # and the physics already knows both. So `shove_imp` is gone, the
+    # impulse plumbing is gone, and what is left is an object.
+    #
+    # It is thrown by a body that is running away, at a player who is
+    # chasing — closing head-on, which is the one case where an unled lob
+    # at 300 u/s reliably connects. Big and slow is also self-telegraphing
+    # at 0.45 zoom (the object IS the tell), it bounces off walls because
+    # rest_wall says so, and it is a physical obstacle while it lives.
+    #
+    # COORDINATES. Everything below works off the Track, whose `pos` is a
+    # Coordinate already in this body's own space and whose `distance` is
+    # the real portal distance. There is no way to write the gate-66
+    # version any more: subtracting the player's raw place from this
+    # body's raises instead of answering.
 
-    def _adversary_arsenal(self, eid, e, polygon, ex, ey, d) -> bool:
-        """Pick the tool that answers the way the player is closing."""
+    def _adversary_arsenal(self, eid, e, st, d) -> bool:
+        """Pick the tool that answers the way the player is closing.
+
+        The bands do not overlap. They used to: the lob's range was a
+        prefix of the snare's, so a player at close range ate a lob AND
+        (once its cooldown lapsed) a snare, which blurred the one thing
+        the two tools are supposed to say — near buys distance, middle
+        buys time. A tool whose band starts where the other's ends can be
+        read off the screen."""
         hit = self.senses.sight_of(eid, self.pid)
         if hit is None:
             return False
-        tx, ty = hit.position          # observer frame == this body's frame
         dist = hit.distance
         if dist < 1e-6:
             return False
-        if dist <= d["shove_range"] and e.get("shove_cd", 0) <= 0:
-            return self._adversary_round(
-                eid, e, polygon, ex, ey, d, tx, ty, dist, "shove")
+        if dist <= d["lob_range"]:
+            if e.get("lob_cd", 0) <= 0:
+                return self._adversary_round(eid, e, st, d, hit, "lob")
+            return False
         if dist <= d["snare_range"] and e.get("snare_cd", 0) <= 0:
-            return self._adversary_round(
-                eid, e, polygon, ex, ey, d, tx, ty, dist, "snare")
+            return self._adversary_round(eid, e, st, d, hit, "snare")
         return False
 
-    def _adversary_round(self, eid, e, polygon, ex, ey, d, tx, ty, dist,
-                         which: str) -> bool:
-        """Loose one round of `which` along the composed heading."""
-        nx, ny = (tx - ex) / dist, (ty - ey) / dist
-        speed = d[f"{which}_speed"]
-        bid = self.sim.spawn(polygon, ex + nx * (d["radius"] + 4),
-                             ey + ny * (d["radius"] + 4),
-                             3.0 if which == "shove" else 4.0, 0.01,
-                             GROUP_EBULLET)
-        self.sim.set_props(bid, rest_wall=0.0, max_substep=3.0)
-        ang = math.atan2(ny, nx) + self.rng.uniform(-0.05, 0.05)
-        self.sim.set_vel(bid, math.cos(ang) * speed, math.sin(ang) * speed)
-        if which == "shove":
-            self.bullets[bid] = dict(kind="shove", dmg=d["shove_dmg"],
-                                     ttl=120, imp=d["shove_imp"], src=eid)
-            self._snd("adversary_shove", polygon, (ex, ey), 0.85)
+    def _adversary_round(self, eid, e, st, d, hit, which: str) -> bool:
+        """Loose one round of `which` along the sighted heading.
+
+        THE SNARE LEADS; THE LOB DOES NOT. Gate 69 measured the snare
+        connecting 3 times in 43 across four sessions and called it mute:
+        separating the bands (right, and it killed run 68's double-tap)
+        pushed the snare out past 165-180u, where an unled 400 u/s round
+        cannot catch a moving player. "Middle buys TIME" is a contract the
+        player has to actually experience.
+
+        A net is a thrown net — aimed at where he will be. The heavy lob
+        stays unled on purpose: that is a panicking runner heaving an
+        object, and its band is close enough that a head-on chaser runs
+        into it. Two tools, two aiming stories. The lead needs the
+        target's velocity IN THIS BODY'S SPACE, which is what the Track
+        carries along the route the sighting itself took."""
+        at = st.pos
+        aim_at = hit.pos
+        if which == "snare":
+            flight = max(hit.distance, 1e-6) / d["snare_speed"]
+            aim_at = hit.pos + hit.vel * flight
+        bearing = at.toward(aim_at).normalized()
+        shot = bearing.rotated(self.rng.uniform(-0.05, 0.05))
+        radius = d["lob_radius"] if which == "lob" else 4.0
+        mass = d["lob_mass"] if which == "lob" else 0.01
+        bid = self.sim.spawn(at + bearing * (d["radius"] + radius + 2),
+                             radius, mass, GROUP_EBULLET)
+        self.sim.set_props(bid, max_substep=3.0,
+                           rest_wall=d["lob_rest"] if which == "lob" else 0.0,
+                           rest_ent=0.5 if which == "lob" else 0.0)
+        self.sim.set_vel(bid, shot * d[f"{which}_speed"])
+        self.sim.set_dir(bid, shot)
+        if which == "lob":
+            # no `imp`: the object's own momentum is the push, resolved by
+            # the physics on contact with whatever it hits — the player,
+            # a Testator, another round.
+            self.bullets[bid] = dict(kind="lob", dmg=d["lob_dmg"],
+                                     ttl=300, src=eid,
+                                     born=self.tick_count)
+            self._snd("adversary_shove", at, 0.85)
         else:
             self.bullets[bid] = dict(kind="snare", dmg=0.0, ttl=180,
                                      hold=d["snare_hold"],
-                                     slow=d["snare_slow"], src=eid)
-            self._snd("adversary_snare", polygon, (ex, ey), 0.8)
+                                     slow=d["snare_slow"], src=eid,
+                                     born=self.tick_count)
+            self._snd("adversary_snare", at, 0.8)
         e[f"{which}_cd"] = d[f"{which}_cd"]
         self.trace.emit(CoordEvent(
             tick=self.tick_count, entity_id=eid, agent_kind=e["kind"],
             event=f"{which}_fire",
-            detail=f"range {dist:.0f}u"))
+            detail=f"range {hit.distance:.0f}u depth {hit.portal_depth}"))
         return True
 
     # -- shrieker helpers (salvaged b2c27600, adapted to SignalField/senses) --
 
-    def _steer_to_edge(self, eid, e, d, polygon, ex, ey, edge, accel_amt):
+    def _steer_to_edge(self, eid, e, d, st, edge, accel_amt):
         """Steer an enemy toward a portal edge's midpoint, terrain-avoiding,
         through the landed turn-limit (_steer_heading)."""
         s = self.sim
-        mx_, my_ = s.edge_midpoint(polygon, edge)
-        ddx, ddy = mx_ - ex, my_ - ey
-        dl = math.hypot(ddx, ddy) or 1e-6
-        nx, ny = ddx / dl, ddy / dl
-        sx, sy = s.terrain_avoid_dir(polygon, ex, ey, d["radius"], nx, ny,
-                                     max(40.0, min(dl, 120.0)))
-        sx, sy = self._steer_heading(eid, e, d, sx, sy)
-        _, _, _, vx, vy, _, _ = s.get(eid)
-        s.set_vel(eid, vx + sx * accel_amt * DT, vy + sy * accel_amt * DT)
+        to_door = st.pos.toward(s.edge_midpoint(st.polygon, edge))
+        heading = s.terrain_avoid_dir(st.pos, d["radius"],
+                                      to_door.normalized(),
+                                      max(40.0, min(to_door.length, 120.0)))
+        heading = self._steer_heading(eid, e, d, st, heading)
+        s.set_vel(eid, st.vel + heading * (accel_amt * DT))
 
-    def _shrieker_patrol(self, eid, e, d, polygon, ex, ey,
+    def _shrieker_patrol(self, eid, e, d, st,
                          accel_mult: float = 0.4) -> None:
         """Walk the folds room to room, re-picking a random portal when the
         wander timer lapses -- SENTINEL sweep and RALLYING spread."""
         s = self.sim
-        prt = s.polygon_portals(polygon)
+        prt = s.polygon_portals(st.polygon)
         pe = e.get("patrol_edge")
         if e.get("wander_cd", 0) <= 0 or pe is None \
                 or pe >= len(prt) or prt[pe] is None:
@@ -3896,8 +4122,7 @@ class GameSession:
                 return
             e["wander_cd"] = self.rng.randrange(150, 360)
             e["patrol_edge"] = pe = self.rng.choice(opts)
-        self._steer_to_edge(eid, e, d, polygon, ex, ey, pe,
-                            d["accel"] * accel_mult)
+        self._steer_to_edge(eid, e, d, st, pe, d["accel"] * accel_mult)
 
     def _shrieker_phase(self, eid: int, e: dict, to: str) -> None:
         """The one writer of a shrieker's phase. Run 53's telemetry
@@ -3912,22 +4137,25 @@ class GameSession:
                 agent_kind="shrieker", event="shrieker_phase",
                 detail=f"{frm}->{to}"))
 
-    def _fire_marker(self, eid, polygon, ex, ey, tx, ty) -> None:
+    def _fire_marker_at(self, eid, at, where, lead_vel) -> None:
         """Loose a MARKER projectile at the player; on contact it brands
         him (the bullet/player branch in _consume_events). It LEADS his
-        motion so the earned shot lands rather than trailing him."""
+        motion so the earned shot lands rather than trailing him.
+
+        The lead needs the target's VELOCITY in the shooter's space. That
+        comes off the Track, carried along the same doorway chain the
+        sighting itself travelled — a velocity developed by any other
+        route is a real number about nothing (gate 66's exact shape)."""
         s = self.sim
         rad = ENEMIES["shrieker"]["radius"]
-        _, _, _, pvx, pvy, _, _ = s.get(self.pid)
-        flight = (math.hypot(tx - ex, ty - ey) or 1e-6) / MARKER_SPEED
-        tx, ty = tx + pvx * flight, ty + pvy * flight
-        ddx, ddy = tx - ex, ty - ey
-        dl = math.hypot(ddx, ddy) or 1e-6
-        nx, ny = ddx / dl, ddy / dl
-        bid = s.spawn(polygon, ex + nx * (rad + 4), ey + ny * (rad + 4),
-                      2.0, 0.008, GROUP_EBULLET)
+        flight = max(at.distance_to(where), 1e-6) / MARKER_SPEED
+        lead = at.toward(where + lead_vel * flight)
+        dl = max(lead.length, 1e-6)
+        shot = lead.normalized()
+        nx, ny = shot.local()
+        bid = s.spawn(at + shot * (rad + 4), 2.0, 0.008, GROUP_EBULLET)
         s.set_props(bid, rest_wall=0.0, max_substep=3.0)
-        s.set_vel(bid, nx * MARKER_SPEED, ny * MARKER_SPEED)
+        s.set_vel(bid, shot * MARKER_SPEED)
         self.bullets[bid] = dict(kind="marker", dmg=0.0, ttl=MARKER_TTL,
                                  src=eid, born=self.tick_count)
         # its OWN voice (gate 54: the launch played shrieker_scream --
@@ -3937,8 +4165,8 @@ class GameSession:
         self.trace.emit(CoordEvent(
             tick=self.tick_count, entity_id=eid, agent_kind="shrieker",
             event="marker_fire", detail=f"range {dl:.0f}"))
-        self._snd("marker_launch", polygon, (ex, ey), 1.0)
-        self.fx.append(("marker_fire", polygon, ex, ey, nx, ny))
+        self._snd("marker_launch", at, 1.0)
+        self._fx_at("marker_fire", at, nx, ny)
 
     def _shrieker_rouse(self, eid, polygon) -> None:
         """A scream throws every nearby defender (<= 2 hops) straight into
@@ -3956,7 +4184,7 @@ class GameSession:
                 self._set_enemy_state(oid, oe, "hunt")
                 oe["buff"] = 60 * 5
 
-    def _shrieker_ai(self, eid, e, polygon, ppolygon, ex, ey, accel):
+    def _shrieker_ai(self, eid, e, st, ppolygon, accel):
         """Self-contained shrieker hunt (director 2026-07-25, salvaged
         b2c27600: 'actually perfect'). SENTINEL sweeps the folds and
         commits through the SHARED doors only: its own sightline
@@ -3974,7 +4202,7 @@ class GameSession:
         stands back down to SENTINEL."""
         s = self.sim
         d = ENEMIES["shrieker"]
-        _, _, _, evx, evy, _, _ = s.get(eid)
+        polygon, at = st.polygon, st.pos
         phase = e.get("phase", "sentinel")
         if "home" not in e:
             # the POST: where the machine first ran (spawn or dormancy
@@ -4042,7 +4270,7 @@ class GameSession:
                         e["approach_t"] = t_
                         self._set_enemy_state(eid, e, "hunt")
                         return
-            self._shrieker_patrol(eid, e, d, polygon, ex, ey)
+            self._shrieker_patrol(eid, e, d, st)
             return
 
         if phase == "warning":
@@ -4053,8 +4281,8 @@ class GameSession:
             if e["scream_cd"] <= 0:
                 e["scream_cd"] = d["scream_cd"]
                 e["cried"] = True
-                self._snd("shrieker_scream", polygon, (ex, ey), 1.0)
-                self.fx.append(("scream", polygon, ex, ey))
+                self._snd("shrieker_scream", at, 1.0)
+                self._fx_at("scream", at)
                 self._shrieker_rouse(eid, polygon)
             if not e.get("cried"):
                 # the ALARM comes first, structurally: a caller standing
@@ -4065,8 +4293,7 @@ class GameSession:
                 if polygon != e.get("home", polygon):
                     edge_ = s.next_edge(polygon, e.get("home", polygon))
                     if edge_ >= 0:
-                        self._steer_to_edge(eid, e, d, polygon, ex, ey,
-                                            edge_, accel)
+                        self._steer_to_edge(eid, e, d, st, edge_, accel)
                 return
             home = e.get("home", polygon)
             if polygon == home:
@@ -4080,7 +4307,7 @@ class GameSession:
                 self._shrieker_phase(eid, e, "approach")
                 e["approach_t"] = self.tick_count
                 return
-            self._steer_to_edge(eid, e, d, polygon, ex, ey, edge, accel)
+            self._steer_to_edge(eid, e, d, st, edge, accel)
             return
 
         if phase == "approach":
@@ -4116,7 +4343,7 @@ class GameSession:
                 e.pop("approach_t", None)
                 self._set_enemy_state(eid, e, "idle")
                 return
-            self._steer_to_edge(eid, e, d, polygon, ex, ey, edge, accel)
+            self._steer_to_edge(eid, e, d, st, edge, accel)
             return
 
         if phase == "marking":
@@ -4132,8 +4359,21 @@ class GameSession:
             # visible in it, mid-tell, and dies to one burst.
             hit = self.senses.sight_of(eid, self.pid)
             if hit is not None and hit.portal_depth <= 1:
-                e["mark_at"] = hit.position
+                e["mark_at"] = hit.pos
                 e["mark_lost"] = 0
+            elif e.get("mark_at") is not None \
+                    and e["mark_at"].space != at.space:
+                # THE COMMITMENT SURVIVES A DOORWAY. The remembered place
+                # is where he WAS, in the chamber this body was standing
+                # in when it saw him; a body that has since stepped
+                # through a door needs that place expressed HERE, and
+                # only the world can say where that is. If it cannot
+                # (the route died with a seal), the commitment dies too
+                # rather than aiming at a number.
+                e["mark_at"] = self.sim.develop(e["mark_at"], at.space)
+                if e["mark_at"] is None:
+                    e.pop("mark_at", None)
+                    e["mark_lock"] = 0
             if e.get("mark_lock", 0) > 0 and e.get("mark_at") is not None:
                 # COMMITTED: it holds, aims ~300ms and looses, and it
                 # sees the shot through even if he breaks the sightline
@@ -4141,13 +4381,18 @@ class GameSession:
                 # that evaporates the instant he steps behind a frame is
                 # not a commitment, and it was the second reason no
                 # marker ever left the machine.
-                tx, ty = e["mark_at"]
-                dist = math.hypot(tx - ex, ty - ey) or 1e-6
-                s.set_dir(eid, (tx - ex) / dist, (ty - ey) / dist)
-                s.set_vel(eid, evx * 0.25, evy * 0.25)
+                aim = at.toward(e["mark_at"])
+                if aim.length > 1e-6:
+                    s.set_dir(eid, aim.normalized())
+                s.set_vel(eid, st.vel * 0.25)
                 e["mark_lock"] += 1
                 if e["mark_lock"] > MARK_AIM_TICKS:
-                    self._fire_marker(eid, polygon, ex, ey, tx, ty)
+                    # `hit` may be None here: the commitment fires at the
+                    # remembered place, so the lead comes from the last
+                    # sighting's velocity, or zero when there is none.
+                    self._fire_marker_at(eid, at, e["mark_at"],
+                                         hit.vel if hit is not None
+                                         else at.offset(0.0, 0.0))
                     self._shrieker_phase(eid, e, "rally")
                     e["rally_t"] = RALLY_TICKS
                     e["mark_lock"] = 0
@@ -4166,28 +4411,25 @@ class GameSession:
                     return
                 edge = self._hunt_edge(eid, e, polygon)
                 if edge >= 0:
-                    self._steer_to_edge(eid, e, d, polygon, ex, ey, edge,
+                    self._steer_to_edge(eid, e, d, st, edge,
                                         accel * MARK_SPEED_MULT)
                 return
-            tx, ty = hit.position
-            dist = math.hypot(tx - ex, ty - ey) or 1e-6
-            if hit.portal_depth > 1 or dist >= MARK_FIRE_RANGE:
+            if hit.portal_depth > 1 or hit.distance >= MARK_FIRE_RANGE:
                 # too far down the chain, or out of range: dash for the
-                # ground behind him at 3x cruise
-                _, _, _, _, _, pfx, pfy = s.get(self.pid)
-                fmag = math.hypot(pfx, pfy) or 1e-6
-                gx = tx - pfx / fmag * MARK_STANDOFF
-                gy = ty - pfy / fmag * MARK_STANDOFF
-                if hit.portal_depth > 0:
-                    gx, gy = tx, ty      # a rotated frame: just close in
-                ddx, ddy = gx - ex, gy - ey
-                dl = math.hypot(ddx, ddy) or 1e-6
-                nx, ny = ddx / dl, ddy / dl
-                sx, sy = s.terrain_avoid_dir(polygon, ex, ey, d["radius"],
-                                             nx, ny, 80.0)
-                sx, sy = self._steer_heading(eid, e, d, sx, sy)
-                s.set_vel(eid, evx + sx * accel * MARK_SPEED_MULT * DT,
-                          evy + sy * accel * MARK_SPEED_MULT * DT)
+                # ground BEHIND him at 3x cruise. His facing arrives on
+                # the Track, carried along the same doorway chain as his
+                # position, so this works at any depth — it used to read
+                # his raw facing out of his own chamber and then punt
+                # ("a rotated frame: just close in") whenever the shot
+                # crossed a doorway, which is exactly the frame defect
+                # wearing a workaround.
+                behind = hit.pos + hit.dir.normalized() * -MARK_STANDOFF
+                to_ground = at.toward(behind)
+                heading = s.terrain_avoid_dir(at, d["radius"],
+                                              to_ground.normalized(), 80.0)
+                heading = self._steer_heading(eid, e, d, st, heading)
+                s.set_vel(eid, st.vel
+                          + heading * (accel * MARK_SPEED_MULT * DT))
                 return
             e["mark_lock"] = 1                            # commit
             return
@@ -4201,11 +4443,10 @@ class GameSession:
                 return
             if e["scream_cd"] <= 0:
                 e["scream_cd"] = d["scream_cd"]
-                self._snd("shrieker_scream", polygon, (ex, ey), 0.9)
-                self.fx.append(("scream", polygon, ex, ey))
+                self._snd("shrieker_scream", at, 0.9)
+                self._fx_at("scream", at)
                 self._shrieker_rouse(eid, polygon)   # spread the alarm
-            self._shrieker_patrol(eid, e, d, polygon, ex, ey,
-                                  accel_mult=0.6)
+            self._shrieker_patrol(eid, e, d, st, accel_mult=0.6)
             return
 
     # ------------------------------------------------------------------
@@ -4244,7 +4485,7 @@ class GameSession:
         e["flicker_cd"] = cd
         return 0.34 if e.get("flicker_on") else 0.12
 
-    def _flicker_ai(self, eid, e, polygon, ppolygon, ex, ey, evx, evy):
+    def _flicker_ai(self, eid, e, st, ppolygon):
         """LURK: seek/hold low-light polygon-local positions, steer away from
         lamp pools, reposition as the worklight sweep approaches (all via
         `light_level_at`, which already folds in Unit 1's terrain shadows
@@ -4256,26 +4497,32 @@ class GameSession:
         sustained beat) or the player kills it."""
         s = self.sim
         d = ENEMIES["flicker"]
-        px, py = self.player_pos()
+        polygon, at = st.polygon, st.pos
+        ex, ey = at.local()
+        # THE PREY IS A SIGHTING, not an address. Both of this machine's
+        # branches used to be gated on `polygon == ppolygon`: an ambusher
+        # holding the dark side of a doorway would not spring even with
+        # the intruder a body-length away through the frame, and once
+        # hunting it went straight from "seek" to "walk to the next door"
+        # the instant he stepped over a threshold. An ambush predator
+        # that cannot reach across a doorway is an ambush predator with
+        # no doorways, in a game made of them.
+        seen = self.senses.sight_of(eid, self.pid)
         light_map = self._polygon_light_map()
         level = light_level_at(light_map, self.lighting.lights, polygon, ex, ey)
 
         if e["state"] == "lurk":
             e["trace_intensity"] = self._flicker_dormant_trace(e)
-            if polygon == ppolygon:
-                dist = math.hypot(px - ex, py - ey)
-                if dist < d["ambush_radius"]:
-                    self._set_enemy_state(eid, e, "ambush")
-                    e["ambush_t"] = d["ambush_ticks"]
-                    dx, dy = px - ex, py - ey
-                    dl = math.hypot(dx, dy) or 1e-6
-                    nx, ny = dx / dl, dy / dl
-                    s.set_dir(eid, nx, ny)
-                    s.set_vel(eid, nx * d["ambush_burst"], ny * d["ambush_burst"])
-                    self._snd(d["alert_snd"], polygon, (ex, ey), 0.9)
-                    self.fx.append(("alerted", polygon, ex, ey))
-                    e["trace_intensity"] = 1.0
-                    return
+            if seen is not None and seen.distance < d["ambush_radius"]:
+                self._set_enemy_state(eid, e, "ambush")
+                e["ambush_t"] = d["ambush_ticks"]
+                spring = at.toward(seen.pos).normalized()
+                s.set_dir(eid, spring)
+                s.set_vel(eid, spring * d["ambush_burst"])
+                self._snd(d["alert_snd"], at, 0.9)
+                self._fx_at("alerted", at)
+                e["trace_intensity"] = 1.0
+                return
             # Reposition toward darkness ONLY while the current spot is
             # actually a lamp pool (debounced by `lurk_retarget_cd` so a
             # single bright tick doesn't cause thrashing) -- deliberately
@@ -4317,25 +4564,24 @@ class GameSession:
                             best = (lvl, cand)
                 e["lurk_target"] = best[1]
             tx, ty = e.get("lurk_target", (ex, ey))
-            dx, dy = tx - ex, ty - ey
-            dist = math.hypot(dx, dy)
-            if dist > 4.0:
-                nx, ny = dx / dist, dy / dist
-                sx, sy = s.terrain_avoid_dir(polygon, ex, ey, d["radius"], nx, ny, 44.0)
-                s.set_dir(eid, nx, ny)
-                s.set_vel(eid, sx * d["lurk_speed"], sy * d["lurk_speed"])
+            to_dark = at.offset(tx - ex, ty - ey)
+            if to_dark.length > 4.0:
+                nudge = to_dark.normalized()
+                s.set_dir(eid, nudge)
+                s.set_vel(eid, s.terrain_avoid_dir(at, d["radius"], nudge,
+                                                   44.0)
+                          * d["lurk_speed"])
             else:
-                s.set_vel(eid, evx * 0.8, evy * 0.8)
+                s.set_vel(eid, st.vel * 0.8)
             return
 
         if e["state"] == "ambush":
             e["trace_intensity"] = 1.0
             e["ambush_t"] -= 1
-            dx, dy = px - ex, py - ey
-            dl = math.hypot(dx, dy) or 1e-6
-            nx, ny = dx / dl, dy / dl
-            s.set_dir(eid, nx, ny)
-            s.set_vel(eid, evx + nx * d["accel"] * DT, evy + ny * d["accel"] * DT)
+            if seen is not None:
+                drive = at.toward(seen.pos).normalized()
+                s.set_dir(eid, drive)
+                s.set_vel(eid, st.vel + drive * (d["accel"] * DT))
             if e["ambush_t"] <= 0:
                 self._set_enemy_state(eid, e, "hunt")
                 e["dark_beat"] = 0
@@ -4344,15 +4590,15 @@ class GameSession:
         # hunt: fights like a normal aggressive (husk-pattern seek/lunge)
         # until it can disengage back to darkness.
         e["trace_intensity"] = 1.0
-        if polygon == ppolygon:
-            dx, dy = px - ex, py - ey
-            dist = math.hypot(dx, dy) or 1e-6
-            nx, ny = dx / dist, dy / dist
-            s.set_dir(eid, nx, ny)
-            sx, sy = s.terrain_avoid_dir(polygon, ex, ey, d["radius"], nx, ny,
-                                         max(40.0, min(dist, 120.0)))
-            s.set_vel(eid, evx + sx * d["accel"] * DT, evy + sy * d["accel"] * DT)
-            if level < d["disengage_light"] and dist > d["disengage_dist"]:
+        if seen is not None:
+            # sighted, at ANY depth: chase the bearing the sighting gives
+            bearing = at.toward(seen.pos).normalized()
+            s.set_dir(eid, bearing)
+            s.set_vel(eid, st.vel + s.terrain_avoid_dir(
+                at, d["radius"], bearing,
+                max(40.0, min(seen.distance, 120.0))) * (d["accel"] * DT))
+            if level < d["disengage_light"] \
+                    and seen.distance > d["disengage_dist"]:
                 e["dark_beat"] = e.get("dark_beat", 0) + 1
                 if e["dark_beat"] > d["disengage_beat"]:
                     self._set_enemy_state(eid, e, "lurk")
@@ -4360,16 +4606,15 @@ class GameSession:
             else:
                 e["dark_beat"] = 0
         else:
+            # lost him: walk toward his chamber, door by door
             edge = s.next_edge(polygon, ppolygon)
             if edge >= 0:
-                mx_, my_ = s.edge_midpoint(polygon, edge)
-                dx, dy = mx_ - ex, my_ - ey
-                dist = math.hypot(dx, dy) or 1e-6
-                nx, ny = dx / dist, dy / dist
-                s.set_dir(eid, nx, ny)
-                sx, sy = s.terrain_avoid_dir(polygon, ex, ey, d["radius"], nx, ny,
-                                             max(40.0, min(dist, 120.0)))
-                s.set_vel(eid, evx + sx * d["accel"] * DT, evy + sy * d["accel"] * DT)
+                to_door = at.toward(s.edge_midpoint(polygon, edge))
+                bearing = to_door.normalized()
+                s.set_dir(eid, bearing)
+                s.set_vel(eid, st.vel + s.terrain_avoid_dir(
+                    at, d["radius"], bearing,
+                    max(40.0, min(to_door.length, 120.0))) * (d["accel"] * DT))
 
     # ------------------------------------------------------------------
 
@@ -4420,7 +4665,8 @@ class GameSession:
                             from_polygon, edge, BRAND_TRAIL_DEPOSIT,
                             self.tick_count)
             elif tag == "wall":
-                _, ent, polygon, edge, px_, py_, nx, ny, speed = ev
+                _, ent, polygon, edge, hit_at, normal, speed = ev
+                px_, py_ = hit_at.local()
                 if ent == self.pid:
                     self._door_bump(polygon, edge)
                 if polygon in self.soft_polygons:
@@ -4459,34 +4705,39 @@ class GameSession:
                             self.lighting.on_topology_changed()
                             self.door_edges.pop((d["a"], d["ea"]), None)
                             self.door_edges.pop((d["b"], d["eb"]), None)
-                            self._snd("door_unlock", polygon, (px_, py_))
-                            self._decal(polygon, "scorch", px_, py_, 10.0)
+                            self._snd("door_unlock", hit_at)
+                            self._decal("scorch", hit_at, 10.0)
                             self._shake(3.0)
-                            self.pulse_light(polygon, (px_, py_), 220.0, 0.9)
+                            self.pulse_light(hit_at, 220.0, 0.9)
                             break
                 if b is not None:
                     if b["kind"] in ("tau", "taucharged") and b.get("bounces", 0) > 0:
                         b["bounces"] -= 1
-                        self._snd("ricochet", polygon, (px_, py_), 0.5)
-                        self.fx.append(("spark", polygon, px_, py_, nx, ny))
+                        self._snd("ricochet", hit_at, 0.5)
+                        self._fx_at("spark", hit_at, *normal.local())
                         continue  # engine already reflected it (rest_wall=1)
                     if b["kind"] == "spit":
-                        self._decal(polygon, "splat", px_, py_, 4.0)
+                        self._decal("splat", hit_at, 4.0)
+                    elif b["kind"] == "lob":
+                        # the rubber grenade BOUNCES: rest_wall carries it
+                        # off the wall and it stays a physical object until
+                        # its ttl runs out. Nothing to resolve here.
+                        continue
                     elif b["kind"] == "dart":
-                        self._detonate_dart(ent, polygon, px_, py_)
+                        self._detonate_dart(ent, hit_at)
                     elif b["kind"] == "taucharged" and b.get("aoe"):
                         # full charge: the wall stops it, the burst still
                         # happens — anything near the impact point eats it
-                        self._detonate_tau(ent, polygon, px_, py_, b)
+                        self._detonate_tau(ent, hit_at, b)
                     elif b["kind"] == "bullet":
-                        self._decal(polygon, "chip", px_, py_, 2.0)
-                        self._snd("hit_wall", polygon, (px_, py_), 0.35)
-                        self.fx.append(("spark", polygon, px_, py_, nx, ny))
+                        self._decal("chip", hit_at, 2.0)
+                        self._snd("hit_wall", hit_at, 0.35)
+                        self._fx_at("spark", hit_at, *normal.local())
                     self.sim.remove(ent)
                     self.bullets.pop(ent, None)
             elif tag == "contact":
-                _, a, b, cx, cy, nx, ny, rel = ev
-                self._contact(a, b, cx, cy, nx, ny)
+                _, a, b, polygon, spot, normal, rel = ev
+                self._contact(a, b, spot, normal)
 
     def _door_bump(self, polygon: int, edge: int):
         """The player pressed against a locked door: name the mechanism
@@ -4508,27 +4759,62 @@ class GameSession:
                 break
         self._objective(prompt or f"DOOR SEALED - {key.upper()} SEAL REQUIRED")
 
-    def _contact(self, a: int, b: int, cx: float, cy: float, nx: float, ny: float):
-        # normalize order: identify roles
+    def _contact(self, a: int, b: int, spot, normal):
+        """One contact between two bodies.
+
+        `spot` is where they touched and `normal` points from b toward a,
+        both in the chamber the contact happened in — the engine mints
+        them there, so everything below is same-space by construction and
+        the knockback directions need no hand-rolled geometry."""
         for x, y in ((a, b), (b, a)):
+            # the normal always points from the second-named body toward
+            # the first, so flip it when the roles are reversed
+            into_y = normal if x == b else -normal
             bx = self.bullets.get(x)
+            # A ROUND NEVER DAMAGES THE BODY THAT LOOSED IT. Gate 69
+            # measured the Adversary shoving ITSELF on ~30% of throws
+            # (s4 t10468, s7 t12529, s11 t990): friendly fire made
+            # enemy-round-hits-enemy possible for the first time, and the
+            # enemy branch below had neither of the two guards the player
+            # branch had grown — the shooter exclusion and the
+            # once-per-object spend. Both belong to every round, so the
+            # exclusion lives here instead of in one arm of the dispatch.
+            #
+            # `continue`, not `return`: the other ordering of this pair may
+            # still be a legitimate contact, and the touch-damage path
+            # below still has to run.
+            if bx is not None and bx.get("src") == y:
+                continue
             if bx is not None and y in self.enemies:
                 if bx["kind"] == "dart":
-                    polygon = self.sim.get_polygon(x) if self.sim.exists(x) \
-                        else self.sim.get_polygon(y)
-                    self._detonate_dart(x, polygon, cx, cy)
+                    self._detonate_dart(x, spot)
+                elif bx["kind"] == "lob":
+                    # FRIENDLY FIRE. The Adversary's thrown object shoves
+                    # a Testator exactly as it shoves the player, which
+                    # matches how the Adversary regards them; the physics
+                    # already did the push, so all that is left is the
+                    # token damage. It does NOT die on the body — a
+                    # heavy object carries through and stays an obstacle.
+                    #
+                    # ONCE PER BODY, though: gate 69 filmed husk 52 taking
+                    # four hits from one throw, and 3.25 damage events per
+                    # fire in s11, because a bouncing object contacts the
+                    # same body again and again. The object persisting is
+                    # the point; billing for it every time is not.
+                    struck = bx.setdefault("struck", set())
+                    if y not in struck:
+                        struck.add(y)
+                        self._damage_enemy(y, bx["dmg"], into_y, 0.0,
+                                           source="lob", by="crossfire")
+                    return
                 elif bx["kind"] in ("bullet", "tau", "taucharged", "turret"):
-                    self._damage_enemy(y, bx["dmg"],
-                                       (nx if x == b else -nx,
-                                        ny if x == b else -ny),
+                    self._damage_enemy(y, bx["dmg"], into_y,
                                        bx.get("imp", 90.0), source=bx["kind"])
                     if bx["kind"] == "taucharged" and bx.get("aoe"):
                         # full charge detonates on the body it struck:
                         # the small AoE catches the neighbors (the direct
                         # target already took full damage + push above)
-                        polygon = self.sim.get_polygon(y) if self.sim.exists(y) \
-                            else self.sim.get_polygon(x)
-                        self._detonate_tau(x, polygon, cx, cy, bx, skip=y)
+                        self._detonate_tau(x, spot, bx, skip=y)
                 self.sim.remove(x)
                 self.bullets.pop(x, None)
                 return
@@ -4545,44 +4831,59 @@ class GameSession:
                         agent_kind="player", event="brand_renew",
                         detail=(("renew" if renewing else "fresh")
                                 + f" src {bx.get('src', -1)}")))
-                    self._snd("mark_hit", polygon, (cx, cy), 0.9)
-                    self.fx.append(("marked", polygon, cx, cy))
+                    self._snd("mark_hit", spot, 0.9)
+                    self._fx_at("marked", spot)
                 elif bx["kind"] == "spit":
                     self._damage_player(bx["dmg"], polygon, source="spit")
-                elif bx["kind"] == "shove":
-                    # the damage is a token; the IMPULSE is the weapon.
-                    # The push runs along the ROUND's own velocity, which
-                    # is frame-free: the round is already travelling in
-                    # the collision polygon's frame, so this cannot
-                    # repeat gate 66's mixed-frame subtraction however
-                    # many chambers the shot crossed.
-                    self._damage_player(bx["dmg"], polygon, source="shove")
-                    _, _, _, rvx, rvy, _, _ = self.sim.get(x)
-                    rl = math.hypot(rvx, rvy) or 1e-6
-                    self._apply_impulse(
-                        self.pid, rvx / rl * bx["imp"],
-                        rvy / rl * bx["imp"], source="shove_knock")
-                    self.fx.append(("attacker_mark", bx.get("src", -1)))
+                elif bx["kind"] == "lob":
+                    # THE OBJECT IS THE WEAPON. There is no impulse call
+                    # here and no push direction: the grenade's mass and
+                    # velocity already moved the player through the
+                    # physics, along the collision normal, before this
+                    # code ran. The old fast round carried a bespoke
+                    # `imp` field applied along a direction computed in
+                    # python — half of gate 66's failure lived in exactly
+                    # that arithmetic. Deleting the weapon's numbers was
+                    # the fix; the damage that remains is a token.
+                    # ONCE PER OBJECT. It bounces and lives on, so without
+                    # this a single grenade rattling round a chamber chipped
+                    # the player on every contact for its whole five
+                    # seconds — measured at 169 damage events from 105
+                    # throws. The damage is a token for the throw; after
+                    # that the thing is an obstacle, and the physics keeps
+                    # shoving whatever it touches with or without a number
+                    # attached.
+                    if not bx.get("spent"):
+                        bx["spent"] = True
+                        self._damage_player(bx["dmg"], polygon, source="lob")
+                        self.fx.append(("attacker_mark", bx.get("src", -1)))
+                    return          # it bounces off and lives on
                 elif bx["kind"] == "snare":
                     # buys TIME instead of distance: no damage at all,
                     # the player is simply slower for a moment and the
                     # runner uses it to reach a breach.
+                    # ORDER MATTERS, and it was wrong: `snare_t` was
+                    # raised BEFORE the reset below was evaluated, so
+                    # `self.snare_t > 0` was always true by then and the
+                    # `else 1.0` branch was dead code. A fresh weak snare
+                    # landing after an old strong one had expired
+                    # inherited the expired hold's strength. Read the
+                    # expiry first, then arm.
+                    fresh = self.snare_t <= 0
                     self.snare_t = max(self.snare_t, int(bx["hold"]))
-                    # min(): two overlapping snares take the STRONGER
+                    # min(): two OVERLAPPING snares take the STRONGER
                     # slow. Plain assignment let a late weak round
                     # loosen a hold that a stronger one had already set.
-                    self.snare_slow = min(self.snare_slow
-                                          if self.snare_t > 0 else 1.0,
+                    self.snare_slow = min(1.0 if fresh else self.snare_slow,
                                           float(bx["slow"]))
-                    self._snd("adversary_snare_hit", polygon, (cx, cy), 0.9)
+                    self._snd("adversary_snare_hit", spot, 0.9)
                     self.fx.append(("attacker_mark", bx.get("src", -1)))
                     self.trace.emit(CoordEvent(
                         tick=self.tick_count, entity_id=self.pid,
                         agent_kind="player", event="snared",
                         detail=f"{int(bx['hold'])}t at {bx['slow']:.2f}x"))
                 elif bx["kind"] == "dart":
-                    self._detonate_dart(x, polygon, cx, cy)
-                    px_, py_ = self.player_pos()
+                    self._detonate_dart(x, spot)
                     self._damage_player(WEAPONS["lightning"]["dmg"] * 0.6,
                                         polygon, source="lightning_self")
                 elif bx["kind"] == "turret":
@@ -4636,13 +4937,14 @@ class GameSession:
                     # the anti-stunlock — no i-frames, the chain breaks
                     # because you are no longer in reach (gate runs
                     # 24-26: confirmed 5-hit contact chain, 77->13)
-                    px_, py_ = self.player_pos()
-                    _, ax2, ay2, *_ = self.sim.get(eid)
-                    kx, ky = px_ - ax2, py_ - ay2
-                    kl = math.hypot(kx, ky) or 1e-6
-                    self._apply_impulse(
-                        self.pid, kx / kl * 110.0, ky / kl * 110.0,
-                        source="contact_knock")
+                    # the bite's direction is the CONTACT NORMAL, which
+                    # the engine minted in the chamber the contact
+                    # happened in. It used to subtract the biter's raw
+                    # position from the player's — two chambers' numbers
+                    # whenever a body bit across a doorway.
+                    away = (normal if eid == b else -normal).normalized()
+                    self._apply_impulse(self.pid, away * 110.0,
+                                        source="contact_knock")
                     # ...and the bite REBOUNDS off the body it struck:
                     # the player's shove alone never separated a fast
                     # ambusher (run 43: two deaths to fixed 42-44-tick
@@ -4651,9 +4953,8 @@ class GameSession:
                     # does the tiering — a flicker rebounds ~3 radii
                     # and must close again honestly, a warden barely
                     # registers the same shove.
-                    self._apply_impulse(
-                        eid, -kx / kl * 400.0, -ky / kl * 400.0,
-                        source="bite_recoil")
+                    self._apply_impulse(eid, away * -400.0,
+                                        source="bite_recoil")
 
 
     # ------------------------------------------------------------------
@@ -4691,9 +4992,11 @@ class GameSession:
             if not self.sim.exists(eid):
                 streaks.pop(eid, None)
                 continue
-            polygon, x, y, *_ = self.sim.get(eid)
+            here = self.sim.get(eid)
+            polygon = here.polygon
             if polygon >= len(verts_all):
                 continue
+            x, y = here.pos.local()
             off = self._outside_by(x, y, verts_all[polygon])
             if off <= 25.0:
                 streaks.pop(eid, None)
@@ -4714,8 +5017,8 @@ class GameSession:
                 vs = verts_all[polygon]
                 cx = sum(v[0] for v in vs) / len(vs)
                 cy = sum(v[1] for v in vs) / len(vs)
-                self.sim.set_pos(eid, cx, cy)
-                self.sim.set_vel(eid, 0.0, 0.0)
+                self.sim.set_pos(eid, self.sim.place(polygon, cx, cy))
+                self.sim.set_vel(eid, here.pos.offset(0.0, 0.0))
                 self.metrics["containment_recoveries"] = \
                     self.metrics.get("containment_recoveries", 0) + 1
                 import sys as _sys
@@ -4725,13 +5028,14 @@ class GameSession:
                       f"recovered to centroid", file=_sys.stderr)
 
     def _pickup_scan(self, ppolygon: int):
-        px, py = self.player_pos()
+        at = self.player_pos()
         for eid in list(self.sim.polygon_entities(ppolygon)):
             p = self.pickups.get(eid)
             if p is None:
                 continue
-            _, x, y, *_ = self.sim.get(eid)
-            if math.hypot(x - px, y - py) > PLAYER_RADIUS + PICKUPS[p["kind"]]["radius"] + 2.0:
+            item = self.sim.get(eid).pos
+            if at.distance_to(item) > \
+                    PLAYER_RADIUS + PICKUPS[p["kind"]]["radius"] + 2.0:
                 continue
             kind = p["kind"]
             if kind.startswith("ammo_"):
@@ -4740,8 +5044,8 @@ class GameSession:
                 self.ammo[t] = self.ammo.get(t, 0) + amt
                 self.trace.emit(PickupTaken(
                     tick=self.tick_count, item=kind, amount=amt))
-                self._snd("pickup_ammo", ppolygon, (x, y))
-                self.fx.append(("pickup_text", ppolygon, (x, y),
+                self._snd("pickup_ammo", item)
+                self.fx.append(("pickup_text", ppolygon, item.local(),
                                 f"+{amt}"))
             elif kind == "medkit":
                 if self.hp > 70:
@@ -4750,8 +5054,8 @@ class GameSession:
                 self.trace.emit(PickupTaken(
                     tick=self.tick_count, item=kind,
                     amount=PICKUPS[kind]["amount"]))
-                self._snd("pickup_medkit", ppolygon, (x, y))
-                self.fx.append(("pickup_text", ppolygon, (x, y),
+                self._snd("pickup_medkit", item)
+                self.fx.append(("pickup_text", ppolygon, item.local(),
                                 f"+{PICKUPS[kind]['amount']}"))
             elif kind.startswith("weapon_"):
                 w = kind[7:]
@@ -4761,14 +5065,14 @@ class GameSession:
                 self.ammo_bonus_for(w)
                 self.trace.emit(PickupTaken(
                     tick=self.tick_count, item=kind, amount=1.0))
-                self._snd("pickup_ammo", ppolygon, (x, y))
+                self._snd("pickup_ammo", item)
                 self._acquired(w)
             elif kind == "safe_polygon_core":
                 self._build_cloister()
                 if "hole" not in self.weapons:
                     self.weapons.append("hole")
                 self.holes += 2
-                self._snd("pickup_key", ppolygon, (x, y))
+                self._snd("pickup_key", item)
                 self._acquired("cloister")
             elif kind == "turret":
                 continue  # not a pickup; the guardians are furniture
@@ -4779,22 +5083,22 @@ class GameSession:
                 self.trace.emit(PickupTaken(
                     tick=self.tick_count, item=kind,
                     amount=float(1 + self._hole_bonus)))
-                self._snd("pickup_key", ppolygon, (x, y))
+                self._snd("pickup_key", item)
                 self._acquired("hole")
             elif kind == "implant_lightning":
                 if "lightning" not in self.weapons:
                     self.weapons.append("lightning")
                 self.trace.emit(PickupTaken(
                     tick=self.tick_count, item=kind, amount=1.0))
-                self._snd("pickup_key", ppolygon, (x, y))
+                self._snd("pickup_key", item)
                 self._acquired("lightning")
             elif kind == "components":
                 n = p.get("amount", 1)
                 self.components += n
                 self.trace.emit(PickupTaken(
                     tick=self.tick_count, item=kind, amount=float(n)))
-                self._snd("pickup_ammo", ppolygon, (x, y))
-                self.fx.append(("pickup_text", ppolygon, (x, y),
+                self._snd("pickup_ammo", item)
+                self.fx.append(("pickup_text", ppolygon, item.local(),
                                 f"+{n}c"))
             elif kind == "corpse_frame":
                 c = p.get("contents", {})
@@ -4803,13 +5107,13 @@ class GameSession:
                 self.trace.emit(PickupTaken(
                     tick=self.tick_count, item=kind,
                     amount=float(c.get("components", 0))))
-                self._snd("corpse_recover", ppolygon, (x, y))
+                self._snd("corpse_recover", item)
                 got = []
                 if c.get("components"):
                     got.append(f"+{c['components']}c")
                 if c.get("station_kits"):
                     got.append(f"+{c['station_kits']}k")
-                self.fx.append(("pickup_text", ppolygon, (x, y),
+                self.fx.append(("pickup_text", ppolygon, item.local(),
                                 "FRAME " + " ".join(got)))
                 self.fx.append(("logvoice", p.get("line", 0)))
             elif kind.startswith("key_"):
@@ -4817,9 +5121,9 @@ class GameSession:
                 self.keys.add(key)
                 self.trace.emit(PickupTaken(
                     tick=self.tick_count, item=kind, amount=1.0))
-                self._snd("pickup_key", ppolygon, (x, y))
+                self._snd("pickup_key", item)
                 meta = p.get("meta")
-                self.fx.append(("pickup_text", ppolygon, (x, y),
+                self.fx.append(("pickup_text", ppolygon, item.local(),
                                 meta.item_name if meta
                                 else f"{key.upper()} SEAL"))
                 if meta:
@@ -4850,8 +5154,8 @@ class GameSession:
                 self.lighting.on_topology_changed()
                 self.door_edges.pop((d["a"], d["ea"]), None)
                 self.door_edges.pop((d["b"], d["eb"]), None)
-                mx, my = self.sim.edge_midpoint(d["a"], d["ea"])
-                self._snd("door_unlock", d["a"], (mx, my))
+                self._snd("door_unlock",
+                          self.sim.edge_midpoint(d["a"], d["ea"]))
 
     # ------------------------------------------------------------------
     # the revival economy: seed stations, the fabricator, chassis reprint
@@ -4869,10 +5173,10 @@ class GameSession:
         self.stations.append(dict(polygon=polygon, pos=(pos[0], pos[1])))
 
     def station_near(self, ppolygon: int):
-        px, py = self.player_pos()
+        at = self.player_pos()
         for st in self.stations:
-            if st["polygon"] == ppolygon and \
-                    math.hypot(st["pos"][0] - px, st["pos"][1] - py) < self.STATION_RADIUS:
+            if st["polygon"] == ppolygon and at.distance_to(
+                    self.sim.place(ppolygon, *st["pos"])) < self.STATION_RADIUS:
                 return st
         return None
 
@@ -4887,10 +5191,10 @@ class GameSession:
             return False
         mark = len(self.fx)
         ppolygon = self.player_polygon()
-        px, py = self.player_pos()
+        at = self.player_pos()
         self.station_kits -= 1
-        self.add_station(ppolygon, (px, py))
-        self._snd("seed_plant", ppolygon, (px, py))
+        self.add_station(ppolygon, at.local())
+        self._snd("seed_plant", at)
         self._objective("SEED PLANTED - REVIVAL ANCHORED HERE")
         self._park_oob(mark)
         return True
@@ -4916,8 +5220,8 @@ class GameSession:
             self.ammo[t] = self.ammo.get(t, 0) + n
         mark = len(self.fx)
         ppolygon = self.player_polygon()
-        self._snd("fabricate_buy", ppolygon, self.player_pos())
-        self.fx.append(("pickup_text", ppolygon, self.player_pos(),
+        self._snd("fabricate_buy", self.player_pos())
+        self.fx.append(("pickup_text", ppolygon, self.player_pos().local(),
                         f"-{cost} COMPONENTS"))
         self._park_oob(mark)
         return True
@@ -4935,7 +5239,7 @@ class GameSession:
         mark = len(self.fx)
         self.recall_t = 90
         self._objective("RECALL CHANNEL OPEN - ANY HIT SEVERS IT")
-        self._snd("terminal_open", self.player_polygon(), self.player_pos())
+        self._snd("terminal_open", self.player_pos())
         self._park_oob(mark)
         return True
 
@@ -4947,24 +5251,25 @@ class GameSession:
             return
         # channel held: the beacon spends itself and the seed takes you
         self.recalls -= 1
-        px, py = self.player_pos()
+        at = self.player_pos()
         best = min(self.stations,
                    key=lambda st: (self.sim.hop_distance(st["polygon"], ppolygon)
                                    if self.sim.hop_distance(st["polygon"], ppolygon) >= 0
                                    else 1 << 20))
         polygon, (tx, ty) = best["polygon"], best["pos"]
-        self.pulse_light(ppolygon, (px, py), 260.0, 1.0, (180, 235, 255))
+        self.pulse_light(at, 260.0, 1.0, (180, 235, 255))
         if ppolygon != polygon:
             self.reseat_player(polygon, (tx, ty))
         else:
-            self.sim.set_pos(self.pid, tx, ty)
-        self.sim.set_vel(self.pid, 0.0, 0.0)
+            self.sim.set_pos(self.pid, self.sim.place(polygon, tx, ty))
+        seat = self.sim.get(self.pid)
+        self.sim.set_vel(self.pid, seat.pos.offset(0.0, 0.0))
         self._set_cam(necore.mat_mul(
             necore.mat_mul(
                 necore.mat_translate(self.screen_w / 2, self.screen_h / 2),
                 necore.mat_scale(self.zoom, self.zoom)),
             necore.mat_translate(-tx, -ty)))
-        self._snd("reprint", polygon, (tx, ty))
+        self._snd("reprint", self.sim.place(polygon, tx, ty))
         self._objective("RECALLED TO THE SEED")
 
     # ------------------------------------------------------------------
@@ -4984,7 +5289,7 @@ class GameSession:
             return True
         self.think_focus = node_id
         mark = len(self.fx)
-        self._snd("terminal_type", self.player_polygon(), self.player_pos(), 0.6)
+        self._snd("terminal_type", self.player_pos(), 0.6)
         self._park_oob(mark)
         return True
 
@@ -5003,7 +5308,7 @@ class GameSession:
             self.think_focus = None
             self.think_done.append(nid)
             # quiet: a thought has finished (sfx placeholder; pipeline)
-            self._snd("think_complete", ppolygon, self.player_pos(), 0.6)
+            self._snd("think_complete", self.player_pos(), 0.6)
             self.fx.append(("thought_done", nid))
 
     def complete_focus(self, node_id: str) -> bool:
@@ -5020,7 +5325,7 @@ class GameSession:
         self._recompute_mind()
         mark = len(self.fx)
         ppolygon = self.player_polygon()
-        self._snd("pickup_key", ppolygon, self.player_pos())
+        self._snd("pickup_key", self.player_pos())
         label = mindmap.nodes()[node_id]["label"]
         self._objective(f"INTEGRATED: {label.upper()}")
         self._park_oob(mark)
@@ -5036,7 +5341,7 @@ class GameSession:
             tick=self.tick_count, item="pod_heal",
             amount=float(self.max_hp)))
         mark = len(self.fx)
-        self._snd("pickup_medkit", self.player_polygon(), self.player_pos(), 0.8)
+        self._snd("pickup_medkit", self.player_pos(), 0.8)
         self._objective("FRAME INTEGRITY RESTORED")
         self._park_oob(mark)
         return True
@@ -5089,13 +5394,17 @@ class GameSession:
     def reseat_player(self, polygon: int, pos) -> None:
         """Move the player's engine entity to another polygon (engine set_pos
         does not move polygon membership; respawn under the same groups)."""
-        st = self.sim.get(self.pid)
+        facing = self.sim.get(self.pid).dir.local()
         self.sim.remove(self.pid)
-        self.pid = self.sim.spawn(polygon, pos[0], pos[1], PLAYER_RADIUS,
-                                  PLAYER_MASS, GROUP_PLAYER)
+        self.pid = self.sim.spawn(self.sim.place(polygon, pos[0], pos[1]),
+                                  PLAYER_RADIUS, PLAYER_MASS, GROUP_PLAYER)
         self.sim.set_props(self.pid, rest_wall=0.0, rest_ent=0.05,
                            max_substep=6.0)
-        self.sim.set_dir(self.pid, st[5], st[6])
+        # the facing survives the reseat, expressed in the NEW chamber:
+        # the body is being placed there, so its heading is a decision
+        # about that space and is stated in it
+        seat = self.sim.get(self.pid)
+        self.sim.set_dir(self.pid, seat.pos.offset(*facing))
 
     def respawn_at_station(self) -> bool:
         """The reprint. A racked chassis prints at the NEAREST seed
@@ -5122,8 +5431,9 @@ class GameSession:
         if self.player_polygon() != polygon:
             self.reseat_player(polygon, (px, py))
         else:
-            self.sim.set_pos(self.pid, px, py)
-        self.sim.set_vel(self.pid, 0.0, 0.0)
+            self.sim.set_pos(self.pid, self.sim.place(polygon, px, py))
+        seat = self.sim.get(self.pid)
+        self.sim.set_vel(self.pid, seat.pos.offset(0.0, 0.0))
         self.hp = self.max_hp
         self.dead = False
         self.freeze = 0
@@ -5147,7 +5457,7 @@ class GameSession:
             self.revival_grace = 180
         self._objective(f"REPRINTED - {self.chassis} CHASSIS RACKED"
                         if self.chassis else "REPRINTED AT THE SEED POD")
-        self._snd("reprint", polygon, (px, py))
+        self._snd("reprint", self.sim.place(polygon, px, py))
         self.fx.append(("playerreprint",))
         self._park_oob(mark)
         return True
@@ -5161,23 +5471,24 @@ class GameSession:
     def _terminal_scan(self, ppolygon: int, inp: InputFrame):
         if not inp.interact:
             return
-        px, py = self.player_pos()
+        at = self.player_pos()
         for t in self.terminals:
             if t["polygon"] != ppolygon or t["read"]:
                 continue
-            if math.hypot(t["pos"][0] - px, t["pos"][1] - py) < 26.0:
+            here = self.sim.place(ppolygon, *t["pos"])
+            if at.distance_to(here) < 26.0:
                 t["read"] = True
                 self.fx.append(("terminal", t["text"]))
-                self._snd("terminal_open", ppolygon, t["pos"])
+                self._snd("terminal_open", here)
 
     def _exit_scan(self, ppolygon: int):
         if not getattr(self, "exit_enabled", True):
             return
         if self.exit_polygon < 0:
             return
-        px, py = self.player_pos()
-        near = (ppolygon == self.exit_polygon and
-                math.hypot(self.exit_pos[0] - px, self.exit_pos[1] - py) < 18.0)
+        at = self.player_pos()
+        near = (ppolygon == self.exit_polygon and at.distance_to(
+            self.sim.place(ppolygon, *self.exit_pos)) < 18.0)
         if not near:
             # prompts are transient (~4s): stepping away and coming back to
             # a still-sealed exit re-explains it
@@ -5234,14 +5545,12 @@ class GameSession:
                 # of muzzle velocity has already hit something and
                 # must not exist. (tau/taucharged excluded: ricochets
                 # are designed; spit/dart fly slow by design.)
-                if self.sim.exists(bid):
-                    _, _, _, bvx, bvy, _, _ = self.sim.get(bid)
-                    if bvx * bvx + bvy * bvy < 490000.0:   # <700 u/s
-                        dead = True
+                if self.sim.exists(bid) \
+                        and self.sim.get(bid).speed < 700.0:
+                    dead = True
             if dead:
                 if b["kind"] == "dart" and self.sim.exists(bid):
-                    _, x, y, *_ = self.sim.get(bid)
-                    self._detonate_dart(bid, self.sim.get_polygon(bid), x, y)
+                    self._detonate_dart(bid, self.sim.get(bid).pos)
                 self.sim.remove(bid)
                 del self.bullets[bid]
 
@@ -5265,7 +5574,7 @@ class GameSession:
     # this was a real, shipped bug; see game/tests/test_root_invariance.py.
     _APEX_EPS = 0.75
 
-    def _clamp_apex(self, polygon: int, px: float, py: float):
+    def _clamp_apex(self, at):
         """Pull the visibility apex just inside `polygon`'s polygon. For 1-3
         ticks after a portal transfer the entity is registered in the new
         polygon while its position still sits marginally OUTSIDE it (collision
@@ -5273,6 +5582,8 @@ class GameSession:
         traversal's sight-line cull discard the entry portal -- the polygon
         you just left, and everything behind it, blinks out for those
         ticks. At every doorway, constantly: the campaign-video flicker."""
+        polygon = self.sim.polygon_of(at.space)
+        px, py = at.local()
         verts = self.sim.polygon_verts(polygon)
         n = len(verts)
         for i in range(n):
@@ -5290,7 +5601,7 @@ class GameSession:
                 push = self._APEX_EPS - d
                 px += nx_ * push
                 py += ny_ * push
-        return px, py
+        return self.sim.place(polygon, px, py)
 
     def visible(self, max_depth: int = 14, max_instances: int = 96,
                 *, root: int | None = None, cam=None, apex=None):
@@ -5303,21 +5614,31 @@ class GameSession:
         found it). Only the renderer passes them, only to look
         somewhere else, and never during a scored run."""
         ppolygon = self.player_polygon() if root is None else root
-        px, py = self.player_pos() if apex is None else apex
+        eye = self.player_pos() if apex is None else apex
         # the camera apex is the player (strict LOS from the character),
         # clamped into the polygon so mid-transfer overshoot can't blind it
-        px, py = self._clamp_apex(ppolygon, px, py)
+        px, py = self._clamp_apex(eye).local()
         # keep the frame's attached work lamp on the player: same clamped apex,
         # so its visibility cast can never start outside the polygon either
         self.player_light.polygon = ppolygon
         self.player_light.pos = (px, py)
-        self.player_light.dir = self.aim
+        self.player_light.dir = self.aim.local()
         self.player_lamp.polygon = ppolygon
         self.player_lamp.pos = (px, py)
         if self.muzzle_light.intensity > 0.0:
             self.muzzle_light.polygon = ppolygon
-        return self.sim.visible_set(ppolygon, self.cam, px, py,
-                                    float(self.screen_w), float(self.screen_h),
+        # ...and the caller's camera, when it gave one. This argument was
+        # accepted and then dropped on the floor: a spectate demo moved the
+        # ROOT and the APEX to the agent and then drew the world through
+        # the PLAYER's camera matrix, so the body it was watching sat
+        # wherever it happened to fall on screen. "Watched from the agent"
+        # was two thirds true, which is the sort of instrument defect that
+        # makes a judge say "the arrival was off camera".
+        return self.sim.visible_set(ppolygon,
+                                    self.cam if cam is None else cam,
+                                    px, py,
+                                    float(self.screen_w),
+                                    float(self.screen_h),
                                     max_depth, max_instances)
 
     def _gate_count(self) -> int:
@@ -5412,13 +5733,13 @@ class GameSession:
                 continue
             if r != ppolygon:
                 continue
-            _, x, y, vx, vy, _, _ = s.get(bid)
-            out.append(dict(pos=(x, y), vel=(vx, vy)))
+            b_ = s.get(bid)
+            out.append(dict(pos=b_.pos.local(), vel=b_.vel.local()))
         return out
 
     def snapshot(self) -> dict:
         ppolygon = self.player_polygon()
-        px, py = self.player_pos()
+        px, py = self.player_pos().local()
         enemies = []
         hub_polys = set(self.hub.chambers.values())
         for eid, e in self.enemies.items():
@@ -5428,14 +5749,14 @@ class GameSession:
                 # residents enter the bots'/tests' world-view the moment
                 # they step OUT of it (dispatch, or an invaded hub)
                 continue
-            _, x, y, *_ = self.sim.get(eid)
+            x, y = self.sim.get(eid).pos.local()
             enemies.append(dict(id=eid, kind=e["kind"], polygon=r, pos=(x, y),
                                 hp=e["hp"], state=e["state"],
                                 hops=self.sim.hop_distance(r, ppolygon)))
         pickups = []
         for eid, p in self.pickups.items():
             r = self.sim.get_polygon(eid)
-            _, x, y, *_ = self.sim.get(eid)
+            x, y = self.sim.get(eid).pos.local()
             pickups.append(dict(id=eid, kind=p["kind"], polygon=r, pos=(x, y),
                                 hops=self.sim.hop_distance(r, ppolygon)))
         return dict(

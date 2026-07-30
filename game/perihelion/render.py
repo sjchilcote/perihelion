@@ -1962,8 +1962,8 @@ class Renderer:
         eid = getattr(self, "spectate_eid", None)
         if eid is not None and session.sim.exists(eid):
             root = session.sim.get_polygon(eid)
-            ex_, ey_ = session.entity_pos(eid)
-            apex = (ex_, ey_)
+            apex = session.entity_pos(eid)
+            ex_, ey_ = apex.local()
             cam = necore.mat_mul(
                 necore.mat_mul(
                     necore.mat_translate(session.screen_w / 2,
@@ -2939,7 +2939,7 @@ class Renderer:
                     continue
                 if session.sim.get_polygon(tid) != polygon:
                     continue
-                _, twx, twy, *_ = session.sim.get(tid)
+                twx, twy = session.sim.get(tid).pos.local()
                 tsx, tsy = necore.mat_apply(xform, twx, twy)
                 if not _point_in_poly(tsx, tsy, clip_screen):
                     continue
@@ -3232,7 +3232,8 @@ class Renderer:
                 self._draw_enemy(canvas, eid, kind, sx, sy, ang, srad, clip_screen, fully_inside)
                 self._draw_scan_pips(canvas, eid, sx, sy, srad, clip_screen)
             elif role == "bullet":
-                self._draw_bullet(canvas, kind, sx, sy, dirx, diry, clip_screen)
+                self._draw_bullet(canvas, kind, sx, sy, dirx, diry,
+                                  clip_screen, srad)
             elif role == "pickup":
                 self._draw_pickup(canvas, eid, kind, sx, sy, srad, clip_screen)
             elif role == "sentry":
@@ -3733,7 +3734,7 @@ class Renderer:
         s = self.session
         tick = s.tick_count
         try:
-            _, _, _, vx, vy, _, _ = s.sim.get(s.pid)
+            vx, vy = s.sim.get(s.pid).vel.local()
         except Exception:
             vx = vy = 0.0
         vmag = math.hypot(vx, vy)
@@ -3778,12 +3779,22 @@ class Renderer:
             r1 = srad * (1.7 + 0.5 * k)
             x0, y0 = sx + math.cos(a) * r0, sy + math.sin(a) * r0
             x1, y1 = sx + math.cos(a) * r1, sy + math.sin(a) * r1
+            # BACKED, so the filaments read on any floor. Gate 68 carried
+            # this: pale lavender on a warm-lit deck is nearly the same
+            # value as the deck, and the hold was legible in dark chambers
+            # and invisible in bright ones. A dark stroke under a light one
+            # is the same answer the player's own outline already uses.
+            canvas.line((28, 20, 44), _pt((x0, y0)), _pt((x1, y1)),
+                        4 if k > 0.4 else 3)
             canvas.line((205, 190, 240), _pt((x0, y0)), _pt((x1, y1)),
                         2 if k > 0.4 else 1)
+        canvas.circle((28, 20, 44), _pt((sx, sy)),
+                      max(3, int(srad * 0.5) + 1), 1)
         canvas.circle((235, 225, 255), _pt((sx, sy)),
                       max(2, int(srad * 0.5)), 1)
 
-    def _draw_bullet(self, canvas, kind, sx, sy, dirx, diry, clip_screen):
+    def _draw_bullet(self, canvas, kind, sx, sy, dirx, diry, clip_screen,
+                     srad=2.0):
         if clip_screen is not None and not _point_in_poly(sx, sy, clip_screen):
             return
         if kind == "marker":
@@ -3819,15 +3830,27 @@ class Renderer:
             tx, ty = sx - dirx * 10, sy - diry * 10
             canvas.line(color, _pt((sx, sy)), _pt((tx, ty)), 1)
             canvas.circle(color, _pt((sx, sy)), 2)
-        elif kind == "shove":
-            # the Adversary's close tool. Run 46's law: an enemy round
-            # must never be pixel-identical to the player's own fire.
-            # Blunt and hot, with a THICK short streak — it reads as
-            # mass arriving, which is what it delivers.
-            tx_, ty_ = sx - dirx * 9, sy - diry * 9
-            canvas.line((255, 120, 50), _pt((tx_, ty_)), _pt((sx, sy)), 3)
-            canvas.circle((255, 90, 30), _pt((sx, sy)), 4)
-            canvas.circle((255, 210, 160), _pt((sx, sy)), 2)
+        elif kind == "lob":
+            # THE RUBBER GRENADE. It is drawn at its REAL radius, because
+            # the object being big and slow is the whole tell — nothing
+            # else the Adversary throws has a body you could stand behind.
+            # Run 46's law still holds (an enemy round must never be
+            # pixel-identical to the player's own fire): this is a filled
+            # mass, and every player round is a thin streak.
+            r = max(3, int(srad))
+            canvas.circle((150, 62, 30), _pt((sx, sy)), r)
+            canvas.circle((255, 120, 50), _pt((sx, sy)), r, 1)
+            canvas.circle((255, 120, 50), _pt((sx, sy)), max(2, r - 1), 1)
+            # two seams that turn as it travels, so it reads as TUMBLING
+            # rather than sliding — a heavy thing, not a projectile
+            spin = self.session.tick_count * 0.09
+            for k in range(2):
+                a = spin + k * math.pi / 2.0
+                canvas.line((255, 190, 140),
+                            _pt((sx - math.cos(a) * r * 0.7,
+                                 sy - math.sin(a) * r * 0.7)),
+                            _pt((sx + math.cos(a) * r * 0.7,
+                                 sy + math.sin(a) * r * 0.7)), 1)
         elif kind == "snare":
             # ...and the mid tool, which must not read as the shove:
             # one damages, one slows. SHAPE carries it — a long dotted

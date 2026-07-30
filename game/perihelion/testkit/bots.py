@@ -83,9 +83,17 @@ def choose_weapon(snapshot: dict, dist: float, n_enemies: int) -> int:
 
 
 def nav_to_point(session: GameSession, px: float, py: float,
-                  target: tuple[float, float]) -> tuple[float, float]:
+                 target) -> tuple[float, float]:
     """Polygon-local direction toward `target`, expressed as a normalized
-    screen-space move vector (what `InputFrame.mx/my` expects)."""
+    screen-space move vector (what `InputFrame.mx/my` expects).
+
+    `target` is a pair in the PLAYER's own chamber, or a
+    `necore.Coordinate` — which is what every engine geometry query hands
+    back now, so callers pass one through without unwrapping. Both are
+    accepted because the bot also steers toward points it computed itself
+    (a reflection, a snapshot record), and those are pairs."""
+    if hasattr(target, "local"):
+        target = target.local()
     dx, dy = target[0] - px, target[1] - py
     d = math.hypot(dx, dy)
     if d < 1e-6:
@@ -108,7 +116,7 @@ def nav_to_polygon(session: GameSession, snapshot: dict, target_polygon: int,
     edge = session.sim.next_edge(ppolygon, target_polygon)
     if edge < 0:
         return (0.0, 0.0)
-    tx, ty = session.sim.edge_midpoint(ppolygon, edge)
+    tx, ty = session.sim.edge_midpoint(ppolygon, edge).local()
     return nav_to_point(session, px, py, (tx, ty))
 
 
@@ -123,7 +131,7 @@ def nav_to_exit(session: GameSession, snapshot: dict) -> tuple[float, float]:
     edge = snapshot.get("exit_next_edge", -1)
     if edge < 0:
         return (0.0, 0.0)
-    tx, ty = session.sim.edge_midpoint(ppolygon, edge)
+    tx, ty = session.sim.edge_midpoint(ppolygon, edge).local()
     return nav_to_point(session, px, py, (tx, ty))
 
 

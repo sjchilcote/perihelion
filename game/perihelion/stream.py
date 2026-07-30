@@ -375,12 +375,12 @@ class WorldStreamer:
         self._restore_state(self.entry_states[self.current])
         entry_polygon = c["entry_polygon"] + c["offset"]
         px, py = c["entry_pos"]
-        s.sim.set_pos(s.pid, px, py)
+        s.sim.set_pos(s.pid, s.sim.place(s.sim.get_polygon(s.pid), px, py))
         # engine set_pos does not move polygon membership; re-seat via a
         # remove/spawn would lose the id, so use the sim's own transfer:
         if s.sim.get_polygon(s.pid) != entry_polygon:
             self._reseat_player(entry_polygon, (px, py))
-        s.sim.set_vel(s.pid, 0.0, 0.0)
+        s.sim.set_vel(s.pid, s.sim.get(s.pid).pos.offset(0.0, 0.0))
         s.dead = False
         s.freeze = 0
         s.metrics["deaths"] += 1

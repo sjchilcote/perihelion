@@ -294,7 +294,8 @@ class HumanBot(_UnstickMixin, Bot):
                             session.sim.polygon_portals(ppolygon)):
                         if portal is not None and portal[0] == prev:
                             self._entry_door = \
-                                session.sim.edge_midpoint(ppolygon, edge)
+                                session.sim.edge_midpoint(
+                                    ppolygon, edge).local()
                             break
                 except Exception:
                     pass
@@ -811,7 +812,7 @@ class HumanBot(_UnstickMixin, Bot):
             for edge, portal in enumerate(portals):
                 if portal is None:
                     continue
-                mx_, my_ = session.sim.edge_midpoint(ppolygon, edge)
+                mx_, my_ = session.sim.edge_midpoint(ppolygon, edge).local()
                 pd = math.hypot(mx_ - px, my_ - py)
                 if pd >= 190.0:
                     continue
@@ -985,7 +986,7 @@ class HumanBot(_UnstickMixin, Bot):
                            and e.get("polygon") == portal[0]
                            for e in distant):
                     continue
-                mxb, myb = session.sim.edge_midpoint(ppolygon, edge)
+                mxb, myb = session.sim.edge_midpoint(ppolygon, edge).local()
                 dpx, dpy = px - mxb, py - myb
                 dp = math.hypot(dpx, dpy)
                 if dp < 85.0:
@@ -1017,7 +1018,7 @@ class HumanBot(_UnstickMixin, Bot):
                         continue
                 except Exception:
                     continue
-                mxb, myb = session.sim.edge_midpoint(ppolygon, edge)
+                mxb, myb = session.sim.edge_midpoint(ppolygon, edge).local()
                 dpx, dpy = px - mxb, py - myb
                 dp = math.hypot(dpx, dpy)
                 if dp < 75.0:
@@ -1653,7 +1654,7 @@ class HumanBot(_UnstickMixin, Bot):
         surfs the seam forever (seed 1002 spent 800s sliding along the
         fold at y=74.x). Overshooting along the outward direction
         carries the crossing through."""
-        mx_, my_ = session.sim.edge_midpoint(ppolygon, edge)
+        mx_, my_ = session.sim.edge_midpoint(ppolygon, edge).local()
         try:
             vs = session.level.polygon_verts[ppolygon]
             cx = sum(v[0] for v in vs) / len(vs)
@@ -1686,7 +1687,7 @@ class HumanBot(_UnstickMixin, Bot):
             for tid in session.sentries:
                 if session.sim.exists(tid) and \
                         session.sim.get_polygon(tid) == ppolygon:
-                    _, sx, sy, *_ = session.sim.get(tid)
+                    sx, sy = session.sim.get(tid).pos.local()
                     anchors.append((sx, sy))
             if not anchors:
                 return (0.0, 0.0)
@@ -1735,7 +1736,7 @@ class HumanBot(_UnstickMixin, Bot):
                 continue
             if (ppolygon, edge) in self._paused_thresholds:
                 continue
-            mx_, my_ = session.sim.edge_midpoint(ppolygon, edge)
+            mx_, my_ = session.sim.edge_midpoint(ppolygon, edge).local()
             if math.hypot(mx_ - px, my_ - py) < self.THRESHOLD_RADIUS:
                 self._paused_thresholds.add((ppolygon, edge))
                 self._pause_ticks = self._nav_rng.randint(*PAUSE_TICKS)

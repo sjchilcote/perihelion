@@ -162,10 +162,6 @@ def read_inputs(session) -> dict:
     player_hot = lf is not None and \
         (session.tick_count - lf) < 3 * TICKS_PER_S
     firing_now = lf is not None and (session.tick_count - lf) < 8
-    try:
-        px, py = session.player_pos()
-    except Exception:
-        px = py = None
     aggro = []          # (kind, hops) -- 0 co-polygon, 1 adjacent, 2 = far
     aggro_ids = []
     crowd = 0.0         # inverse-distance mass of co-polygon hunters
@@ -188,32 +184,27 @@ def read_inputs(session) -> dict:
             #             too, not just the AI's)
         try:
             polygon = session.sim.get_polygon(eid)
-            hops = 0 if polygon == ppolygon else \
-                session.sim.hop_distance(polygon, ppolygon)
+            # hop_distance already answers 0 for a chamber against itself;
+            # the equality fast path it used to carry was redundant, not a
+            # restriction, so removing it changes nothing but the reading.
+            hops = session.sim.hop_distance(polygon, ppolygon)
         except Exception:
             continue
         hops = hops if 0 <= hops <= 1 else 2
-        if hops != 0 and px is not None:
-            # MELEE-CONTACT override (frame-consistency sweep: a
-            # warden in melee read as adjacent-polygon -- non-euclidean
-            # portals put its center in the next polygon while its
-            # body touched the player). Contact danger IS co-polygon.
-            try:
-                import math as _m
-                _, ex, ey, *_ = session.sim.get(eid)
-                if _m.hypot(ex - px, ey - py) < 60.0:
-                    hops = 0
-            except Exception:
-                pass
+        # HOW FAR, REALLY. Both the melee override and the crowd term want
+        # the distance between two bodies, and a hop count is not one; the
+        # first cut subtracted the enemy's raw coordinates from the
+        # player's, which is meaningless across a doorway — precisely the
+        # case the override exists to catch ("portals put its center in
+        # the next polygon while its body touched the player"). The
+        # sighting reports the real separation.
+        seen = session.senses.sight_of(session.pid, eid)
+        if hops != 0 and seen is not None and seen.distance < 60.0:
+            hops = 0        # contact danger IS co-polygon
         aggro.append((kind, hops))
         aggro_ids.append(eid)
-        if hops == 0 and px is not None:
-            try:
-                import math as _m
-                _, ex, ey, *_ = session.sim.get(eid)
-                crowd += 1.0 / max(_m.hypot(ex - px, ey - py), 10.0)
-            except Exception:
-                pass
+        if hops == 0 and seen is not None:
+            crowd += 1.0 / max(seen.distance, 10.0)
     # COMPLETE input dict: every key the battery reads exists here
     # (EMA rates are 0.0 until the engine overwrites them) -- so the
     # battery reads strictly, and a missing key is a crash, not a
