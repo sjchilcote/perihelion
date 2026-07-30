@@ -261,6 +261,12 @@ ADVERSARY_RECOVERY_TICKS = 3600
 # out and immediately re-crossed, which read on film as a revolving
 # door. 10s is long enough to clear the seam and be somewhere.
 ADVERSARY_ARRIVAL_GRACE = 600
+# ...and how long a departure will WAIT for the player to look away
+# before it goes anyway. Nothing may pop out of existence on camera (the
+# return clip caught one doing exactly that, fifty ticks in), but a body
+# that may only leave unobserved can be pinned in the world by a player
+# who simply keeps watching — so the courtesy is bounded.
+WITHDRAW_UNSEEN_WAIT = 600
 # ...and how long a returned body may stand still before the world gives
 # up on it and takes it back. Bounds both of gate 63's degenerate second
 # lives: the body stranded at a sealed seam, and the one idling in the
@@ -3370,6 +3376,33 @@ class GameSession:
         standing at home.
         """
         t_ = self.tick_count
+        # NOTHING VANISHES WHERE THE PLAYER CAN SEE IT. A withdrawal is a
+        # body walking out of the world, and on film that read as a body
+        # being deleted mid-stride: the return demo caught one going out
+        # in plain view fifty ticks into the clip. So a departure that
+        # would happen on camera WAITS, and the body keeps acting under
+        # its own AI while it waits — it is going somewhere, not frozen,
+        # and it leaves the moment nobody is looking.
+        #
+        # "no_door" is exempt and must stay exempt: that body's doorway
+        # has just died under it, and deferring exactly this case is what
+        # left gate 62's statue standing in an abandoned lane for 3,180
+        # ticks. A forced departure outranks the presentation rule.
+        # The wait is BOUNDED, and the bound is not a detail. A body that
+        # may only leave unobserved is a body a watching player can keep
+        # in the world forever, and an Adversary population that cannot
+        # drain is the failure gates 62-64 kept catching from the other
+        # side. Ten seconds of walking is long enough to get out of a
+        # doorway; past that, leaving beats accumulating.
+        if why != "no_door" and self.senses.sight_of(self.pid, eid) is not None:
+            if "leaving" not in e:
+                e["leaving"] = t_
+                self.trace.emit(AgentTransition(
+                    tick=t_, entity_id=eid, agent_kind=e["kind"],
+                    from_state=e["state"], to_state=f"leaving:{why}",
+                    x=0.0, y=0.0))
+            if t_ - e["leaving"] < WITHDRAW_UNSEEN_WAIT:
+                return
         self.captures.release_for_entity(eid)
         self.medium.release(eid)
         self.adversary_census[e["kind"]] -= 1

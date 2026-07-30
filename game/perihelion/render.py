@@ -1972,6 +1972,12 @@ class Renderer:
                 necore.mat_translate(-ex_, -ey_))
         instances = session.visible(self.max_depth, self.max_instances,
                                     root=root, cam=cam, apex=apex)
+        # what this frame actually drew, kept for the callers that must
+        # AGREE with the picture rather than recompute it: the audio bus
+        # pans a source by its on-screen x, so a capture that recomputed
+        # its own visibility could pan a sound to a place the frame does
+        # not show it.
+        self.last_instances = instances
         size = _size_of(surf)
         self._draw_world_rust(size, instances)
         fb = self._rgb  # (W, H, 3) view of the rust framebuffer
