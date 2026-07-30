@@ -16,8 +16,8 @@ from __future__ import annotations
 from perihelion.levels import LevelBuilder, load_level
 from perihelion.sim import (ADVERSARY_ARRIVAL_GRACE,
                             ADVERSARY_RECOVERY_TICKS,
-                            ADVERSARY_STRAND_TICKS, GameSession,
-                            InputFrame)
+                            ADVERSARY_STRAND_TICKS, WITHDRAW_UNSEEN_WAIT,
+                            GameSession, InputFrame)
 from perihelion.testkit.humanbot import HumanBot
 
 
@@ -145,9 +145,13 @@ def test_a_returned_body_cannot_immediately_go_home_again():
         "a body inside its arrival grace must not be reabsorbed")
     assert s.adversary_withdrawn["lacuna"] == 0
 
-    # ...and once the grace is spent, the ordinary rule applies again
+    # ...and once the grace is spent, the ordinary rule applies again.
+    # The player is standing in this very chamber watching, so the
+    # departure also serves out the bounded look-away wait before it
+    # goes: nothing is allowed to vanish on camera, but nothing is
+    # allowed to be pinned in the world by staring either.
     s.enemies[eid]["arrived"] = s.tick_count - ADVERSARY_ARRIVAL_GRACE - 1
-    for _ in range(120):
+    for _ in range(WITHDRAW_UNSEEN_WAIT + 120):
         s.tick(InputFrame())
         if eid not in s.enemies:
             break
@@ -168,14 +172,19 @@ def test_pacing_is_jittered_not_a_metronome():
     s = GameSession(b.build(), seed=4, screen=(640, 360), zoom=0.45)
     s.hub.chambers["_test_home"] = r0
 
-    due = []
+    # Every body is stood up first and they serve the look-away wait
+    # together: the player is in this chamber watching, so none of them
+    # may vanish on the spawn tick. What is under test is the SPREAD of
+    # the recovery due-times, which is sampled when they finally go.
     for _ in range(24):
         eid = s.spawn_enemy(r0, (0.0, 0.0), "lacuna")
         s.enemies[eid]["scout"] = "flee"
         s.enemies[eid]["arrived"] = -10 ** 6      # long since arrived
+    for _ in range(WITHDRAW_UNSEEN_WAIT + 120):
         s.tick(InputFrame())
-        if s.adversary_out:
-            due.append(s.adversary_out[-1][1])
+        if len(s.adversary_out) >= 24:
+            break
+    due = [when for _kind, when in s.adversary_out]
     assert len(due) >= 8, "not enough withdrawals to judge the spread"
     assert len(set(due)) > 1, (
         "recovery is a metronome — every body came due on the same beat")
@@ -268,7 +277,11 @@ def test_a_stranded_return_is_reabsorbed_where_it_stands():
     s.enemies[eid]["scout"] = "flee"
     s.sim.set_vel(eid, s.sim.get(eid).pos.offset(0.0, 0.0))
 
-    for _ in range(ADVERSARY_STRAND_TICKS + 400):
+    # +WITHDRAW_UNSEEN_WAIT: the player is one doorway away and watching,
+    # so the reabsorption serves out the bounded look-away wait too. The
+    # contract is unchanged — a stranded body is taken back in bounded
+    # time — only the bound is larger.
+    for _ in range(ADVERSARY_STRAND_TICKS + WITHDRAW_UNSEEN_WAIT + 400):
         s.tick(InputFrame())
         if eid not in s.enemies:
             break
@@ -277,3 +290,51 @@ def test_a_stranded_return_is_reabsorbed_where_it_stands():
         "than left as a statue at a dead door")
     assert s.adversary_withdrawn["lacuna"] == 1, "it books as a departure"
     assert s.adversary_lost["lacuna"] == 0, "and never as a kill"
+
+
+def test_a_departure_never_pops_while_the_player_is_watching():
+    """Director's law, from the return clip: a body that goes out in
+    plain view reads as being deleted mid-stride, not as leaving.
+
+    The withdrawal itself is unchanged — this is purely about WHEN it is
+    allowed to happen. A watched body is marked `leaving` and keeps
+    acting under its own AI until either nobody is looking or the
+    bounded wait runs out."""
+    b = LevelBuilder("RET", 1)
+    r0 = b.rect(0, 0, 400, 300)
+    b.player(r0, (150, 0))
+    s = GameSession(b.build(), seed=4, screen=(640, 360), zoom=0.45)
+    s.hub.chambers["_test_home"] = r0
+    eid = s.spawn_enemy(r0, (0.0, 0.0), "lacuna")
+    s.enemies[eid]["scout"] = "flee"
+    s.enemies[eid]["arrived"] = -10 ** 6
+
+    s.tick(InputFrame())
+    assert s.senses.sight_of(s.pid, eid) is not None, (
+        "the scene is only meaningful while the player can see the body")
+    for _ in range(WITHDRAW_UNSEEN_WAIT - 30):
+        s.tick(InputFrame())
+        assert eid in s.enemies, (
+            "a body the player is looking at must never be removed "
+            "under the camera — that is the pop the clip caught")
+    assert s.enemies[eid].get("leaving") is not None, (
+        "and it must be ON RECORD as leaving, so the wait is measurable "
+        "instead of looking like an AI that forgot to go home")
+
+
+def test_a_forced_departure_outranks_the_camera():
+    """The one exemption, and it must stay one: a body whose doorway
+    dies under it goes immediately, watched or not. Deferring exactly
+    this case is what left gate 62's statue standing for 3,180 ticks."""
+    b = LevelBuilder("RET", 1)
+    r0 = b.rect(0, 0, 400, 300)
+    b.player(r0, (150, 0))
+    s = GameSession(b.build(), seed=4, screen=(640, 360), zoom=0.45)
+    eid = s.spawn_enemy(r0, (0.0, 0.0), "lacuna")
+    s.tick(InputFrame())
+    assert s.senses.sight_of(s.pid, eid) is not None, "watched"
+
+    s._withdraw_adversary(eid, s.enemies[eid], "no_door")
+    assert eid not in s.enemies, (
+        "a body whose door died leaves on the spot, in view or not")
+    assert s.adversary_withdrawn["lacuna"] == 1

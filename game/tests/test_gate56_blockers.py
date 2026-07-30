@@ -16,7 +16,7 @@ Each fails on the run-56 build:
 from __future__ import annotations
 
 from perihelion.levels import LevelBuilder
-from perihelion.sim import GameSession, InputFrame
+from perihelion.sim import (WITHDRAW_UNSEEN_WAIT, GameSession, InputFrame)
 
 
 def _tick(s, n=1):
@@ -152,6 +152,18 @@ def test_withdrawal_books_as_withdrawn_not_killed():
     s.hub.chambers["_test_withdraw"] = r0
     s.enemies[eid]["scout"] = "flee"
     _tick(s, 30)
+
+    # The player is one open doorway away and can see it, so the
+    # departure WAITS rather than deleting a body on camera. It is
+    # marked as leaving and keeps acting while it waits.
+    assert eid in s.enemies, (
+        "a departure the player can watch must not pop out of existence")
+    assert "leaving" in s.enemies[eid], "and it is marked as on its way out"
+    assert s.adversary_withdrawn["lacuna"] == 0, "not booked until it goes"
+
+    # ...but the courtesy is bounded: keep staring and it leaves anyway,
+    # because a population that cannot drain is the worse failure.
+    _tick(s, WITHDRAW_UNSEEN_WAIT + 5)
 
     assert eid not in s.enemies, "a reabsorbed scout leaves the world"
     assert s.adversary_census["lacuna"] == 0, "it left the standing count"

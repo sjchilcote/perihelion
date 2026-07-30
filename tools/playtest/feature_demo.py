@@ -46,14 +46,24 @@ os.environ.setdefault("PERIHELION_INTERNAL_RES", "1280x720")
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "game"))
 
+import json  # noqa: E402
+import zlib  # noqa: E402
+from dataclasses import asdict, is_dataclass  # noqa: E402
+
 import numpy as np  # noqa: E402
 from PIL import Image, ImageDraw  # noqa: E402
 
 import necore  # noqa: E402
+from perihelion.audio import Audio  # noqa: E402
 from perihelion.levels import LevelBuilder, LightSpec, load_level  # noqa: E402
 from perihelion.render import INTERNAL_H, INTERNAL_W, Renderer  # noqa: E402
 from perihelion.sim import GameSession, InputFrame  # noqa: E402
 from perihelion.testkit.humanbot import HumanBot  # noqa: E402
+
+# the offline mixer the run captures already use: same wav bank, same
+# placement arithmetic. A second mixer here would be a second set of
+# rounding rules for the same soundtrack.
+from mkvideo import RATE, _load_wav, _place  # noqa: E402
 
 LEVEL = ROOT / "levels" / "gauntlet4.json"
 FPS = 60
@@ -126,15 +136,45 @@ def _light(s, r0):
     ])
 
 
-def _walk_toward(s, get_target):
-    """Drive the player straight at a moving target, forever."""
+def _walk_toward(s, get_target, standoff=0.0):
+    """Drive the player at a moving target, holding at `standoff` units.
+
+    The hold is what makes a cross-doorway demo possible at all. These
+    scenarios pin the Adversary to `scout=flee`, so it runs AWAY and the
+    chasing player follows it through the doorway — which meant that by
+    the time either band was reached the two were in ONE chamber, and
+    both clips were measured firing at `shooter_polygon == player_polygon`
+    while captioned "thrown across a doorway". Standing off at a distance
+    inside the band keeps the player on his own side of the seam, which
+    is the entire property these demos exist to show (gate 66's frame bug
+    hid in exactly the single-chamber fixture)."""
     while True:
         px, py = s.player_pos().local()
         tx, ty = get_target()
         dx, dy = tx - px, ty - py
         dist = (dx * dx + dy * dy) ** 0.5 or 1.0
-        yield InputFrame(mx=dx / dist, my=dy / dist,
-                         ax=INTERNAL_W / 2, ay=INTERNAL_H / 2)
+        if dist <= standoff:
+            yield InputFrame(ax=INTERNAL_W / 2, ay=INTERNAL_H / 2)
+        else:
+            yield InputFrame(mx=dx / dist, my=dy / dist,
+                             ax=INTERNAL_W / 2, ay=INTERNAL_H / 2)
+
+
+# A shallow POCKET the fleeing body backs into, so the wall stops it
+# short of the far side and the player can provoke the tool from across
+# the seam. It has to be shallower than the band being demonstrated: at
+# 130u a cornered vagrant sits ~117u from the doorway, so a 180u lob
+# still reaches it with the player ~60u short of the threshold.
+POCKET_W = 130.0
+
+
+def _pocket_pair(name):
+    """A big room and the dead-end pocket beside it, both LIT."""
+    b = LevelBuilder(name, 1)
+    r0 = b.rect(0.0, 0.0, POCKET_W, DEMO_H)
+    r1 = b.rect(POCKET_W, 0.0, DEMO_W - POCKET_W, DEMO_H)
+    b.connect(r0, 2, r1, 0)
+    return b, r0, r1
 
 
 def scenario_lob():
@@ -152,16 +192,13 @@ def scenario_lob():
     approach that provokes it — and the throw is unled, which suits a
     panicking runner: it connects because the player is closing head-on,
     not because the runner is a marksman."""
-    b = LevelBuilder("LOB", 1)
-    r0 = b.rect(0.0, 0.0, DEMO_W / 2, DEMO_H)
-    r1 = b.rect(DEMO_W / 2, 0.0, DEMO_W / 2, DEMO_H)
-    b.connect(r0, 2, r1, 0)
+    b, r0, r1 = _pocket_pair("LOB")
     b.player(r1, (DEMO_W * 0.55, DEMO_H / 2))
     s = GameSession(b.build(), seed=4, screen=SCREEN, zoom=0.45)
     s.tick(InputFrame())
     _light(s, r1)
     _light(s, r0)
-    eid = s.spawn_enemy(r0, (480.0, 0.0), "vagrant")
+    eid = s.spawn_enemy(r0, (0.0, 0.0), "vagrant")
     s.enemies[eid]["scout"] = "flee"
     s.enemies[eid]["scout_t"] = 10 ** 6      # it is running for the clip
 
@@ -172,7 +209,9 @@ def scenario_lob():
                 return hit.pos.local()
         return s.player_pos().local()
 
-    return s, eid, _walk_toward(s, target), _adversary_label, "lob_fire"
+    # inside the 180u lob band, outside the pocket
+    return (s, eid, _walk_toward(s, target, standoff=170.0),
+            _adversary_label, "lob_fire")
 
 
 def scenario_snare():
@@ -182,17 +221,18 @@ def scenario_snare():
     Two chambers on purpose. The arsenal aims on portal-composed
     coordinates, and a single-rect scenario is exactly the fixture that
     hid gate 66's frame bug."""
-    b = LevelBuilder("SNARE", 1)
-    r0 = b.rect(0.0, 0.0, DEMO_W / 2, DEMO_H)
-    r1 = b.rect(DEMO_W / 2, 0.0, DEMO_W / 2, DEMO_H)
-    b.connect(r0, 2, r1, 0)
+    b, r0, r1 = _pocket_pair("SNARE")
     # start OUTSIDE the 560u snare band so the clip shows the pursuit
     # that provokes it, not just the answer
     b.player(r1, (DEMO_W * 0.92, DEMO_H / 2))
     s = GameSession(b.build(), seed=4, screen=SCREEN, zoom=0.45)
     s.tick(InputFrame())
     _light(s, r1)
-    eid = s.spawn_enemy(r0, (-300.0, 0.0), "vagrant")
+    # ...and r0 TOO. Lighting only the player's chamber left the body
+    # under test standing in an unlit one: two thirds of every frame of
+    # this clip was black, with the snare happening in the dark part.
+    _light(s, r0)
+    eid = s.spawn_enemy(r0, (0.0, 0.0), "vagrant")
     s.enemies[eid]["scout"] = "flee"
     s.enemies[eid]["scout_t"] = 10 ** 6
 
@@ -203,21 +243,43 @@ def scenario_snare():
                 return hit.pos.local()
         return s.player_pos().local()
 
-    return s, eid, _walk_toward(s, target), _adversary_label, "snare_fire"
+    # inside the 180-560u snare band, well clear of the lob band
+    return (s, eid, _walk_toward(s, target, standoff=400.0),
+            _adversary_label, "snare_fire")
 
 
 def scenario_mark():
     """A shrieker with the player in plain sight, run until it marks.
     The player stands still: the mark machine is the subject here, not a
-    chase, and standing is what lets the whole FSM play on camera."""
-    level, r0 = _room("MARK")
-    s = GameSession(level, seed=4, screen=SCREEN, zoom=0.45)
+    chase, and standing is what lets the whole FSM play on camera.
+
+    THREE CONNECTED CHAMBERS, with bodies to wake in the outer two.
+    MARKING is not the end of the machine — the shrieker goes to RALLY
+    for 720 ticks, and RALLY is `_shrieker_patrol` walking the folds
+    room to room screaming, rousing anything within two hops. On a
+    single-chamber map `polygon_portals` is four `None`s, `opts` comes
+    back empty and the patrol RETURNS having done nothing: the clip
+    showed a shrieker standing perfectly still through the entire phase
+    it exists to demonstrate. The alarm needs somewhere to spread to and
+    someone to spread to."""
+    b = LevelBuilder("MARK", 1)
+    w = DEMO_W / 3.0
+    rooms = [b.rect(i * w, 0.0, w, DEMO_H) for i in range(3)]
+    for i in range(2):
+        b.connect(rooms[i], 2, rooms[i + 1], 0)
+    b.player(rooms[1], (w * 1.5, DEMO_H / 2))
+    s = GameSession(b.build(), seed=4, screen=SCREEN, zoom=0.45)
     s.tick(InputFrame())
-    _light(s, r0)
+    for r in rooms:
+        _light(s, r)
     px, py = s.player_pos().local()
     # far enough that SENTINEL -> WARNING -> APPROACH -> MARKING each get
     # screen time; close in and it fires before the label can show them
-    eid = s.spawn_enemy(r0, (px + 700.0, py + 120.0), "shrieker")
+    eid = s.spawn_enemy(rooms[1], (px + 620.0, py + 120.0), "shrieker")
+    # the bodies the scream is FOR, one chamber out either way
+    for r, kind in ((rooms[0], "husk"), (rooms[0], "mite"),
+                    (rooms[2], "husk"), (rooms[2], "mite")):
+        s.spawn_enemy(r, (0.0, 120.0 if kind == "mite" else -120.0), kind)
 
     def drive():
         while True:
@@ -269,12 +331,55 @@ FEATURES = {
     "shrieker_mark": dict(
         build=scenario_mark, title="SHRIEKER MARK",
         blurb="watched from the shrieker, with its FSM state",
-        max_ticks=2400, tail=240),
+        # RALLY runs 720 ticks after the mark. A 240-tick tail cut away
+        # three quarters of the phase and left the clip ending on a
+        # shrieker that had not yet gone anywhere.
+        max_ticks=2400, tail=780),
     "adversary_return": dict(
         build=scenario_return, title="ADVERSARY RETURN",
         blurb="withdrawn personnel come back through a live breach",
         max_ticks=1200, tail=420),
 }
+
+
+def _mix(taps, n_frames):
+    """The sim's own sound taps, rendered offline into stereo PCM.
+
+    `taps` are `(tick, name, vol, pan)` straight off `Audio.tap`, so the
+    attenuation and panning are the GAME's — `handle_sounds` computed
+    them from hop distance and on-screen x against the very frame that
+    was drawn. Nothing here decides how loud anything is."""
+    n = int(RATE * (n_frames / FPS)) + RATE      # +1s of tail for decays
+    mix = np.zeros((n, 2), dtype=np.float32)
+    cache: dict = {}
+    placed = 0
+    for tick, name, vol, pan in taps:
+        snd = _load_wav(name, cache)
+        if snd is None:
+            continue
+        _place(mix, snd, tick / FPS, vol * (1.0 - pan), vol * pan)
+        placed += 1
+    peak = float(np.abs(mix).max())
+    if peak > 1.0:                                # never clip, never lie
+        mix /= peak
+    return (mix * 32767.0).astype("<i2").tobytes(), placed
+
+
+def _replay_blob(records, spec, feature):
+    """The run itself, for the sidecar: a header plus one JSON object per
+    trace record, deflated."""
+    head = json.dumps({
+        "feature": feature, "title": spec["title"], "fps": FPS,
+        "size": [INTERNAL_W, INTERNAL_H], "records": len(records),
+    })
+    lines = [head]
+    for r in records:
+        d = asdict(r) if is_dataclass(r) else getattr(r, "__dict__", None)
+        if d is None:
+            d = {"repr": repr(r)}
+        d.setdefault("type", type(r).__name__)
+        lines.append(json.dumps(d, default=repr))
+    return zlib.compress("\n".join(lines).encode(), 9)
 
 
 def _overlay(frame, title, blurb, label, fired_at, tick):
@@ -312,9 +417,20 @@ def run_one(feature: str, out_dir: Path) -> int:
     # something to prove.
     fired_at = None
     pending = []
+    # the soundtrack comes off the game's own bus, muted: `Audio.tap`
+    # fires even with no device, which is what it was built for
+    audio = Audio(mute=True)
+    taps: list[tuple[int, str, float, float]] = []
+    now = [0]
+    audio.tap = lambda kind, name, vol, pan: (
+        taps.append((now[0], name, vol, pan)) if kind == "sfx" else None)
+    records = []
     for t in range(spec["max_ticks"]):
+        now[0] = t
         s.tick(next(drive))
+        sounds = [ev for ev in s.fx if ev and ev[0] == "sound"]
         for r in s.trace.drain():
+            records.append(r)
             if fired_at is None and _fired(r, watch_for):
                 fired_at = t
                 if eid is None:
@@ -330,6 +446,10 @@ def run_one(feature: str, out_dir: Path) -> int:
         # corruption, not an error.
         frame = np.ascontiguousarray(
             np.transpose(np.asarray(ren.draw(SCREEN)), (1, 0, 2)))
+        # AFTER the draw, and against the instances that draw produced:
+        # pan is the source's x on THIS frame, so asking before the frame
+        # exists would pan sounds by the previous camera.
+        audio.handle_sounds(s, sounds, ren.last_instances)
         pending.append((t, frame, label_fn(s, eid)))
         if fired_at is not None and t >= fired_at + spec["tail"]:
             break
@@ -347,10 +467,17 @@ def run_one(feature: str, out_dir: Path) -> int:
     for t, frame, label in pending:
         rec.add_frame(_overlay(frame, spec["title"], spec["blurb"],
                                label, fired_at, t).tobytes())
+    kept = [tp for tp in taps if tp[0] < len(pending)]
+    pcm, placed = _mix(kept, len(pending))
+    rec.set_audio(pcm, RATE, 2)
+    blob = _replay_blob(records, spec, feature)
+    rec.set_sidecar("replay", blob)
     rec.finish()
     size = out.stat().st_size if out.exists() else 0
     print(f"[{feature}] wrote {out} — {len(pending)} frames, "
-          f"{size/1e6:.1f} MB", flush=True)
+          f"{placed}/{len(kept)} sounds, {len(records)} trace records "
+          f"({len(blob)/1024:.0f} KiB deflated), {size/1e6:.1f} MB",
+          flush=True)
     return 0 if pending and size else 1
 
 
