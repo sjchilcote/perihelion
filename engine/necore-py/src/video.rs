@@ -49,6 +49,14 @@ const HQ_PRESET: &str = "veryfast";
 const TELEMETRY_CRF: u8 = 30;
 const TELEMETRY_PRESET: &str = "veryfast";
 
+/// Audio bitrate per profile. This is NOT a detail: at 128 kbit/s the
+/// soundtrack costs about 0.96 MB/min, against a telemetry video stream
+/// of roughly 0.4 MB/min — the sound would be two and a half times the
+/// picture, and the cheap profile would not be cheap. 48 kbit/s is
+/// still plainly intelligible for working out what a player heard.
+const HQ_AUDIO_BPS: u32 = 128_000;
+const TELEMETRY_AUDIO_BPS: u32 = 48_000;
+
 /// One AAC access unit covers 1024 samples per channel.
 const AAC_FRAME: usize = 1024;
 
@@ -100,6 +108,7 @@ pub struct VideoRecorder {
     height: u32,
     fps: u32,
     frames: u64,
+    audio_bps: u32,
     /// Interleaved signed-16-bit little-endian PCM for the whole
     /// recording. AAC is encoded in one pass at mux time, so this
     /// accumulates.
@@ -146,6 +155,10 @@ impl VideoRecorder {
         if fps == 0 {
             return Err(PyValueError::new_err("VideoRecorder: fps must be > 0"));
         }
+        let audio_bps = match profile {
+            "telemetry" => TELEMETRY_AUDIO_BPS,
+            _ => HQ_AUDIO_BPS,
+        };
         let raw = PathBuf::from(path).with_extension("h264.tmp");
         let encoder = H264Encoder::new(width, height, fps, crf, preset, raw)?;
         Ok(Self {
@@ -157,6 +170,7 @@ impl VideoRecorder {
             height,
             fps,
             frames: 0,
+            audio_bps,
             pcm: Vec::new(),
             audio_rate: 0,
             audio_channels: 0,
@@ -266,6 +280,7 @@ impl VideoRecorder {
         let sidecars = std::mem::take(&mut self.sidecars);
         let (w, h, fps) = (self.width as u16, self.height as u16, self.fps);
         let (rate, channels) = (self.audio_rate, self.audio_channels);
+        let audio_bps = self.audio_bps;
         let path = self.path.clone();
 
         py.allow_threads(move || -> PyResult<()> {
@@ -281,7 +296,7 @@ impl VideoRecorder {
                 },
             }];
             if !pcm.is_empty() {
-                tracks.push(aac_track(&pcm, rate, channels)?);
+                tracks.push(aac_track(&pcm, rate, channels, audio_bps)?);
             }
             let mut bytes = mp4::write(&tracks);
             for (name, data) in &sidecars {
@@ -357,9 +372,9 @@ impl VideoRecorder {
 /// stream. Transport is raw (no ADTS headers): MP4 carries the setup in
 /// the sample entry, and a stream with ADTS headers inside it plays as
 /// noise in some players and not at all in others.
-fn aac_track(pcm: &[u8], rate: u32, channels: u32) -> PyResult<Track> {
+fn aac_track(pcm: &[u8], rate: u32, channels: u32, bps: u32) -> PyResult<Track> {
     let enc = AacEncoder::new(EncoderParams {
-        bit_rate: BitRate::Cbr(128_000),
+        bit_rate: BitRate::Cbr(bps),
         sample_rate: rate,
         channel_count: channels,
     })
