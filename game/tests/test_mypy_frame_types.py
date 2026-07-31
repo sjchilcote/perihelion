@@ -85,7 +85,6 @@ def scene(sim: necore.Sim, here: necore.Coordinate,
 """
 
 
-@pytest.mark.slow
 def test_mypy_settles_the_place_versus_difference_split():
     if shutil.which("mypy") is None:
         try:

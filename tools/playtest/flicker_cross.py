@@ -169,18 +169,26 @@ def probe_ink(frame, xform, decal_pts) -> int:
     return ink
 
 
-def movement(tick: int) -> tuple[float, float]:
-    """Deterministic tour: stand, then approach/strafe at each doorway."""
-    if tick < 120:
+def movement(tick: int, settle: int = 120, phase_len: int = 300
+             ) -> tuple[float, float]:
+    """Deterministic tour: stand, then approach/strafe at each doorway.
+
+    `settle` and `phase_len` scale the tour without changing its shape,
+    so a caller can cover all four doorways in fewer ticks. The demo
+    keeps the roomy default; the test compresses it, because at the
+    default a 700-tick run reaches only TWO of the four doorways — it
+    was paying for length and buying half the coverage."""
+    if tick < settle:
         return 0.0, 0.0
-    t = tick - 120
-    phase, local = divmod(t, 300)
+    t = tick - settle
+    phase, local = divmod(t, phase_len)
+    scale = phase_len / 300.0
     d = "NESW"[phase % 4]
     dx, dy = NEIGHBORS[{"N": "N", "E": "E", "S": "S", "W": "W"}[d]]
-    if local < 100:                       # walk toward the doorway
+    if local < 100 * scale:               # walk toward the doorway
         return dx, dy
-    if local < 220:                       # strafe oscillation at the threshold
-        s = math.sin(local * 0.31)
+    if local < 220 * scale:               # strafe oscillation at the threshold
+        s = math.sin(local * 0.31 / scale)
         return (s * -dy * 0.9, s * dx * 0.9)
     return -dx, -dy                       # walk back to center
 

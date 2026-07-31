@@ -13,30 +13,55 @@ still permanent, which is the whole point.
 """
 from __future__ import annotations
 
+from perihelion.callmedium import CallImprint
 from perihelion.levels import LevelBuilder, load_level
 from perihelion.sim import (ADVERSARY_ARRIVAL_GRACE,
                             ADVERSARY_CROSSING_TICKS,
                             ADVERSARY_RECOVERY_TICKS, ADVERSARY_ROOT_TICKS,
                             ADVERSARY_SAFE_TICKS, ADVERSARY_STRAND_TICKS,
                             GameSession, InputFrame)
-from perihelion.testkit.humanbot import HumanBot
+
+
+
+
+def _breached(seed=4):
+    """The real level with a live breach, WITHOUT waiting for one.
+
+    Every test below needs the same thing: a tear standing open. They
+    used to get it by running a bot for 6,000-12,000 ticks until the
+    world happened to produce one, which cost 241 seconds across this
+    file — 40% of the entire suite — to set up a precondition the sim
+    will hand over in a millisecond. The call medium's own imprint is
+    the honest way to ask for it: this is the same entry point a scout's
+    call uses, so the breach is a real breach and not a fixture double.
+    """
+    s = GameSession(load_level("../levels/gauntlet4.json"), seed=seed,
+                    screen=(640, 360), zoom=0.45)
+    s.tick(InputFrame())
+    imp = CallImprint(chamber=s.player_polygon(), position=(0.0, 0.0),
+                      tick=s.tick_count, caller_class="vagrant",
+                      expires_tick=s.tick_count + 600)
+    s._open_breach(imp)
+    assert s.breaches, "the scene needs a live tear"
+    return s
+
+
+def _until_return(s, limit=1200):
+    """Tick until something comes back, or the budget runs out."""
+    for _ in range(limit):
+        s.tick(InputFrame())
+        if sum(s.adversary_returned.values()):
+            return True
+    return False
 
 
 def test_withdrawn_adversary_returns_through_a_live_breach():
     """The positive path, on the real level: a recovered body walks
     back out of a tear."""
-    level = load_level("../levels/gauntlet4.json")
-    s = GameSession(level, seed=4, screen=(640, 360), zoom=0.45)
-    bot = HumanBot(4)
+    s = _breached()
     before = sum(s.adversary_census.values())
     s.adversary_out.append(("lacuna", 0))     # already recovered
-    for _ in range(12000):
-        s.tick(bot.step(s.snapshot(), s))
-        if sum(s.adversary_returned.values()):
-            break
-    assert s.breaches, (
-        "no breach ever opened in 12000 ticks — the scene cannot test "
-        "a breach-gated return")
+    _until_return(s)
     assert s.adversary_returned["lacuna"] == 1, (
         "a recovered Adversary must re-enter through a live breach")
     assert not s.adversary_out, "the returned body left the waiting list"
@@ -68,14 +93,15 @@ def test_recovery_is_not_instant():
     zero return count, because scouts withdraw and recover on their own
     during a live session — the first cut of this test assumed an idle
     world and caught an organic return instead of a bug."""
-    level = load_level("../levels/gauntlet4.json")
-    s = GameSession(level, seed=4, screen=(640, 360), zoom=0.45)
-    bot = HumanBot(4)
+    s = _breached()
     sentinel = ("vagrant", 10_000_000)          # never due
     s.adversary_out.append(sentinel)
-    for _ in range(6000):
-        s.tick(bot.step(s.snapshot(), s))
-    assert s.breaches, "a breach did open, so the gate was available"
+    # The return check runs EVERY tick against a live breach, so a body
+    # that is not due is refused on the first one. Ticking longer only
+    # re-proves the same branch at ~12ms a tick.
+    for _ in range(120):
+        s.tick(InputFrame())
+    assert s.breaches, "the gate was available the whole time"
     assert sentinel in s.adversary_out, (
         "an unrecovered body must still be waiting, breach or no breach")
     assert s.adversary_returned["vagrant"] == 0, (
@@ -108,13 +134,11 @@ def test_arrival_has_its_own_tell():
     """Gate 60: 'the return has no presentation of its own.' A body
     arriving must be distinguishable from an ordinary pour, in both
     channels."""
-    level = load_level("../levels/gauntlet4.json")
-    s = GameSession(level, seed=4, screen=(640, 360), zoom=0.45)
-    bot = HumanBot(4)
+    s = _breached()
     s.adversary_out.append(("lacuna", 0))
     heard = False
-    for _ in range(12000):
-        s.tick(bot.step(s.snapshot(), s))
+    for _ in range(1200):
+        s.tick(InputFrame())
         heard = heard or any(f[0] == "sound" and f[1] == "adversary_return"
                              for f in s.fx)
         if sum(s.adversary_returned.values()):
@@ -218,14 +242,7 @@ def test_a_sealed_breach_takes_its_returns_with_it():
     detector was gated on, so the two fixes cancelled and a body stood
     at one coordinate for 4,200 ticks. A body that arrived through this
     seam has no route without it: the seal resolves it now."""
-    level = load_level("../levels/gauntlet4.json")
-    s = GameSession(level, seed=4, screen=(640, 360), zoom=0.45)
-    bot = HumanBot(4)
-    for _ in range(12000):
-        s.tick(bot.step(s.snapshot(), s))
-        if s.breaches:
-            break
-    assert s.breaches, "no breach opened, nothing to seal"
+    s = _breached()
     bid = s.breaches[0]["obj"].breach_id
 
     eid = next(e for e, v in s.enemies.items() if v["kind"] in ("lacuna",
@@ -243,14 +260,7 @@ def test_a_sealed_breach_takes_its_returns_with_it():
 
 def test_an_unrelated_seal_leaves_a_grace_alone():
     """Only the door that granted it may revoke it."""
-    level = load_level("../levels/gauntlet4.json")
-    s = GameSession(level, seed=4, screen=(640, 360), zoom=0.45)
-    bot = HumanBot(4)
-    for _ in range(12000):
-        s.tick(bot.step(s.snapshot(), s))
-        if s.breaches:
-            break
-    assert s.breaches
+    s = _breached()
     bid = s.breaches[0]["obj"].breach_id
     eid = next(iter(s.enemies))
     s.enemies[eid].update(arrived=s.tick_count, grace=600,

@@ -237,7 +237,6 @@ def test_perf_budgets_fast_subset():
     assert issues == [], issues
 
 
-@pytest.mark.slow
 def test_perf_budgets_full_suite():
     """Full 600-tick perf run across all four worst-case worlds, including
     the radial hub. Measured well under 1s on dev hardware, but kept behind

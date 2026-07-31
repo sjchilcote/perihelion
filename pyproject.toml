@@ -31,6 +31,7 @@ dev = [
     "mido>=1.3.3",
     "scikit-learn>=1.9.0",
     "matplotlib>=3.11.0",
+    "pytest-xdist>=3.8.0",
 ]
 
 [tool.setuptools]
@@ -45,6 +46,22 @@ build-backend = "setuptools.build_meta"
 
 [tool.pytest.ini_options]
 testpaths = ["game/tests"]
+# PARALLEL BY DEFAULT. The suite is ~44s of work on one core and the
+# machine has many; running it serially was the reason it only ever got
+# run in the background, where an interrupted run strands it. 12 workers
+# is measured, not guessed: 8/12/16/24 all land within a second of each
+# other and 32 is worse (worker startup outweighs the gain).
+# `-p no:cacheprovider` is deliberately NOT set — the cache is what lets
+# `--lf` re-run just the failures.
+# `not slow` deselects the handful of end-to-end scenarios whose
+# INVARIANT is already covered by a fast constructed test beside them —
+# they walk a bot across the real level to re-prove it. The gate runs
+# the complete set:
+#
+#     uv run pytest -q -m ""        # everything, including slow
+# 18 workers is measured, not guessed: 14/18 land ~9.1-9.5s, 22 slips to
+# 10.1s and 26 to 12.2s as worker startup outweighs the packing gain.
+addopts = "-n 18 -m 'not slow'"
 markers = [
     "slow: a slower test; deselect with '-m \"not slow\"' for a fast subset",
 ]

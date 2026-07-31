@@ -67,6 +67,7 @@ game/tests/test_coordinate_spaces.py
 game/tests/test_coordination.py
 game/tests/test_core_organ.py
 game/tests/test_corpse_economy.py
+game/tests/test_crossing_is_visible.py
 game/tests/test_economy.py
 game/tests/test_editor.py
 game/tests/test_feature_demos.py
@@ -79,6 +80,7 @@ game/tests/test_gate53_blockers.py
 game/tests/test_gate56_blockers.py
 game/tests/test_gauntlet_calibration.py
 game/tests/test_gauntlet_level.py
+game/tests/test_grip_across_a_doorway.py
 game/tests/test_grip_attribution.py
 game/tests/test_hole_tau.py
 game/tests/test_hub_residents.py
@@ -94,6 +96,7 @@ game/tests/test_marrow.py
 game/tests/test_marrow_shelf.py
 game/tests/test_mindmap_layout.py
 game/tests/test_music_system.py
+game/tests/test_mypy_frame_types.py
 game/tests/test_necore_smoke.py
 game/tests/test_objective.py
 game/tests/test_platform_contracts.py
@@ -115,6 +118,7 @@ game/tests/test_telemetry.py
 game/tests/test_terrain_light_shadows.py
 game/tests/test_testkit.py
 game/tests/test_ui_pygame_free.py
+game/tests/test_video_recorder.py
 game/tests/test_walk_mask_terrain.py
 game/tests/test_walkmask_clearance_gate.py
 game/tests/test_warden_engulf.py

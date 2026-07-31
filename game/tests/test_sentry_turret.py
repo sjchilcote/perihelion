@@ -16,6 +16,7 @@ levels/gauntlet_cal.json end to end.
 from __future__ import annotations
 
 import json
+import pytest
 import math
 from pathlib import Path
 
@@ -312,6 +313,38 @@ def _go_to(s: GameSession, polygon_target: int, point, max_ticks: int) -> bool:
     return False
 
 
+def test_gauntlet_loot_polygon_kills_what_follows_the_player_in():
+    """The level guarantee, without the walk: a hunting enemy that ends
+    up inside a loot polygon dies to that polygon's sentry.
+
+    The end-to-end version below walks the whole retreat and costs four
+    seconds; it proves the same thing about the SENTRY plus something
+    extra about pursuit, so it is kept and marked slow. This one is the
+    invariant, constructed — the same principle the demo tool states:
+    build the world in the state where the behaviour is about to happen
+    rather than searching a live session for it."""
+    assert LEVEL_PATH.exists(), "run: uv run python tools/musiccal/build_gauntlet.py"
+    level = load_level(LEVEL_PATH)
+    meta = json.loads(META_PATH.read_text())
+    s = GameSession(level, seed=1)
+    loot = {int(r) for r, z in meta["zones"].items() if z["zone"] == "loot"}
+    covered = [r for r in loot
+               if any(s.sim.get_polygon(sid) == r for sid in s.sentries)]
+    assert covered, "no loot polygon carries a sentry — the zone is unarmed"
+    polygon = min(covered, key=lambda r: s.sim.hop_distance(
+        level.player_polygon, r))
+    eid = s.spawn_enemy(polygon, (0.0, 0.0), "mite")
+    s.enemies[eid]["state"] = "hunt"
+    for _ in range(600):
+        s.tick(InputFrame())
+        if eid not in s.enemies:
+            break
+    assert eid not in s.enemies, (
+        "a body standing in a sentried loot polygon must be put down — "
+        "that is what makes the retreat a real remedy")
+
+
+@pytest.mark.slow
 def test_gauntlet_pursued_into_loot_polygon_dies_to_sentry():
     """The literal scenario the director's remedy targets: walk into the
     nearest combat segment, get noticed, retreat the whole way back to the

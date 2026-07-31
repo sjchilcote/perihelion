@@ -44,8 +44,14 @@ def test_neighbor_decor_never_blinks(braided):
     prev = None
     prev_pos = None
     events = []
-    for tick in range(1, 700):
-        mx, my = flicker_cross.movement(tick)
+    # A COMPRESSED tour: same shape, all four doorways instead of the
+    # two that 700 ticks at the default reached, in two thirds of the
+    # frames. Every tick here is a sim step plus a full render plus a
+    # pixel probe, so length is the entire cost of this test.
+    _SETTLE, _PHASE = 16, 40
+    for tick in range(1, _SETTLE + 4 * _PHASE):
+        mx, my = flicker_cross.movement(tick, settle=_SETTLE,
+                                        phase_len=_PHASE)
         session.tick(InputFrame(mx=mx, my=my, ax=INTERNAL_W / 2, ay=INTERNAL_H / 2,
                                 fire=False, alt=False, interact=False, weapon=0))
         random.seed(tick)

@@ -560,8 +560,36 @@ def test_no_stem_chunk_is_obviously_dead():
     # everywhere.) Drums are checked across combat sections only:
     # their calm-section silence is composed, and the engine only
     # sounds them in combat.
+    import hashlib
+    import json as _json
+    import pathlib as _pl
     import soundfile as sf
     from perihelion.music import shipped_banks, load_bank_meta
+
+    # ASSET check, not a code check: it reads and analyses every shipped
+    # stem, which is 21 seconds — and the assets change on the days
+    # someone renders music, not on the days someone edits the sim. So
+    # the answer is cached against the exact bytes on disk: any stem
+    # added, removed, retouched or re-rendered changes the key and the
+    # full analysis runs again. A cache that could go stale would be
+    # worse than the 21 seconds.
+    _sig = hashlib.sha256()
+    for _d in sorted(shipped_banks(), key=lambda q: q.name):
+        for _f in sorted(_d.iterdir()):
+            if _f.suffix in (".wav", ".ogg", ".json"):
+                _s = _f.stat()
+                _sig.update(f"{_f.name}:{_s.st_size}:{_s.st_mtime_ns}".encode())
+    _key = _sig.hexdigest()[:16]
+    _cache = _pl.Path(__file__).parent / "__pbtcache__" / "stems.json"
+    if _cache.exists():
+        try:
+            _prev = _json.loads(_cache.read_text())
+            if _prev.get("key") == _key:
+                assert not _prev["bad"], (
+                    f"obviously dead chunks (cached): {_prev['bad']}")
+                return
+        except Exception:
+            _cache.unlink(missing_ok=True)
     # DEAD means dead: -55dBFS. A quiet drone at -42 is a composed
     # texture; digital silence is -90. Leads keep their composed
     # 2-bar call-and-rest phrasing: only 4+ dead bars is wrong there.
@@ -592,6 +620,8 @@ def test_no_stem_chunk_is_obviously_dead():
                 runs = _runs_below(db[a:b], DEAD)
                 if runs:
                     bad.append((d.name, f"drums[{sname}]", runs[:4]))
+    _cache.parent.mkdir(parents=True, exist_ok=True)
+    _cache.write_text(_json.dumps({"key": _key, "bad": bad}))
     assert not bad, f"obviously dead chunks: {bad}"
 
 

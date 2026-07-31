@@ -18,7 +18,10 @@ import pytest
 
 import necore
 
-W, H, FPS, N = 320, 240, 60, 90
+# Small and short on purpose: these assert CONTRACTS (frame count,
+# keyframe cadence, audio track present, sidecar round-trip), none of
+# which need a big picture or a long clip.
+W, H, FPS, N = 160, 120, 60, 24
 
 
 def _frames(n=N):
@@ -61,7 +64,7 @@ def test_the_clip_is_seekable_partway_through(tmp_path):
     decodes from the top of the file."""
     p = tmp_path / "b.mp4"
     rec = necore.VideoRecorder(str(p), W, H, FPS)
-    for f in _frames(FPS * 5):
+    for f in _frames(FPS * 3):
         rec.add_frame(f)
     rec.finish()
     out = subprocess.run(
@@ -69,8 +72,8 @@ def test_the_clip_is_seekable_partway_through(tmp_path):
          "-show_entries", "frame=key_frame", "-of", "csv=p=0", str(p)],
         capture_output=True, text=True)
     keys = sum(1 for line in out.stdout.split() if line.strip() == "1")
-    assert keys >= 3, (
-        f"only {keys} keyframes in 5s — the clip is not practically "
+    assert keys >= 2, (
+        f"only {keys} keyframes in 3s — the clip is not practically "
         "seekable, which is what a reviewer scrubbing a demo hits first")
 
 
@@ -192,7 +195,7 @@ def test_both_profiles_encode(tmp_path):
     setting under test."""
     rng = np.random.default_rng(7)
     noisy = []
-    for t in range(60):
+    for t in range(30):
         img = rng.integers(0, 255, (H, W, 3), dtype=np.uint8)
         img[:, (t * 3) % W] = (255, 220, 40)
         noisy.append(img.tobytes())
@@ -203,7 +206,7 @@ def test_both_profiles_encode(tmp_path):
         for f in noisy:
             rec.add_frame(f)
         rec.finish()
-        assert _probe(p, "nb_read_frames") == ["60"], prof
+        assert _probe(p, "nb_read_frames") == ["30"], prof
         sizes[prof] = p.stat().st_size
     assert sizes["telemetry"] < sizes["hq"], (
         f"telemetry must be the cheaper setting, got {sizes}")
