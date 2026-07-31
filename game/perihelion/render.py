@@ -1701,6 +1701,7 @@ class Renderer:
         # the room is not a symbol. Same lesson _attacker_flash already
         # learned against the breach-magenta wash.
         self._arrival_flash: dict[int, int] = {}
+        self._crossing_flash: dict[int, int] = {}
         self._hurt_ticks = 0
         self._death_fade = 0
         self._dying = False
@@ -1798,6 +1799,10 @@ class Renderer:
             self._arrival_flash[eid] -= 1
             if self._arrival_flash[eid] <= 0:
                 del self._arrival_flash[eid]
+        for eid in list(self._crossing_flash):
+            self._crossing_flash[eid] -= 1
+            if self._crossing_flash[eid] <= 0:
+                del self._crossing_flash[eid]
 
         if self._hurt_ticks > 0:
             self._hurt_ticks -= 1
@@ -1894,6 +1899,12 @@ class Renderer:
             elif tag == "hitflash":
                 _, eid = fx
                 self._hitflash[eid] = 3
+            elif tag == "crossing":
+                # THE WAY OUT, mirrored on the way in. Longer than the
+                # arrival flash because it is the last thing this body
+                # does and there is no second chance to read it.
+                _, eid = fx
+                self._crossing_flash[eid] = 48
             elif tag == "arrived":
                 # long enough to survive a 12fps capture sampling it:
                 # gate 62 found a 5-tick light "invisible as a distinct
@@ -3418,6 +3429,17 @@ class Renderer:
         rf = self._arrival_flash.get(eid, 0)
         if rf > 0 and (rf // 3) % 2 == 0:
             col = _mix(col, (120, 255, 160), 0.85)
+        # ...and the way OUT, which has to be read HERE and not only in
+        # `_draw_enemy`. Lacuna and vagrant — the only kinds that ever
+        # cross — hand off to this function, so a tint applied over
+        # there is dead code for exactly the bodies it was written for.
+        # Gate 73 measured it: 0 px at every phase of the crossing,
+        # against a 135 px arrival control. Third time this function has
+        # silently dropped a body tint (gates 63 and 67 were the others).
+        cf = self._crossing_flash.get(eid, 0)
+        if cf > 0:
+            k = cf / 48.0
+            col = _mix(col, (44, 92, 74), 1.0 - k * 0.75)
         if flashed:
             col = (255, 255, 255)
         if clip_screen is not None and not fully_inside \
@@ -3638,6 +3660,14 @@ class Renderer:
             # breach-magenta wash that dissolved the plain white flash
             fill = _mix(fill, (255, 60, 45), 0.75)
             rim = _mix(rim, (255, 120, 90), 0.9)
+        cf = self._crossing_flash.get(eid, 0)
+        if cf > 0 and not flashed:
+            # GOING. The arrival's spring green run backwards and
+            # dimming: the body cools toward the otherworld's own cold
+            # as it crosses, rather than blinking out at full strength.
+            k = cf / 48.0
+            fill = _mix(fill, (44, 92, 74), 1.0 - k * 0.75)
+            rim = _mix(rim, (150, 255, 210), 0.5 + k * 0.45)
         rf = self._arrival_flash.get(eid, 0)
         if rf > 0 and not flashed and (rf // 3) % 2 == 0:
             # ONE OF THE FINITE ONES IS BACK. On the body, not on the

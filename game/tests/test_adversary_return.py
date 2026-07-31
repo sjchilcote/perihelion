@@ -15,8 +15,9 @@ from __future__ import annotations
 
 from perihelion.levels import LevelBuilder, load_level
 from perihelion.sim import (ADVERSARY_ARRIVAL_GRACE,
-                            ADVERSARY_RECOVERY_TICKS,
-                            ADVERSARY_STRAND_TICKS, WITHDRAW_UNSEEN_WAIT,
+                            ADVERSARY_CROSSING_TICKS,
+                            ADVERSARY_RECOVERY_TICKS, ADVERSARY_ROOT_TICKS,
+                            ADVERSARY_SAFE_TICKS, ADVERSARY_STRAND_TICKS,
                             GameSession, InputFrame)
 from perihelion.testkit.humanbot import HumanBot
 
@@ -145,19 +146,18 @@ def test_a_returned_body_cannot_immediately_go_home_again():
         "a body inside its arrival grace must not be reabsorbed")
     assert s.adversary_withdrawn["lacuna"] == 0
 
-    # ...and once the grace is spent, the ordinary rule applies again.
-    # The player is standing in this very chamber watching, so the
-    # departure also serves out the bounded look-away wait before it
-    # goes: nothing is allowed to vanish on camera, but nothing is
-    # allowed to be pinned in the world by staring either.
+    # ...and once the grace is spent the body is FINISHED, which is not
+    # the same as gone: the player is standing in this chamber watching,
+    # so it may not blink out. It stays, and it stays live.
     s.enemies[eid]["arrived"] = s.tick_count - ADVERSARY_ARRIVAL_GRACE - 1
-    for _ in range(WITHDRAW_UNSEEN_WAIT + 120):
+    for _ in range(1200):
         s.tick(InputFrame())
         if eid not in s.enemies:
             break
-    assert eid not in s.enemies, (
-        "past the grace, crossing home withdraws normally again")
-    assert s.adversary_withdrawn["lacuna"] == 1
+    assert eid in s.enemies, (
+        "a body the player is watching must never blink out, however "
+        "long it has been finished — that is the mimesis-breaking case")
+    assert s.adversary_withdrawn["lacuna"] == 0, "and it is not booked"
 
 
 def test_pacing_is_jittered_not_a_metronome():
@@ -168,19 +168,22 @@ def test_pacing_is_jittered_not_a_metronome():
     Both windows are sampled per body."""
     b = LevelBuilder("RET", 1)
     r0 = b.rect(0, 0, 400, 300)
-    b.player(r0, (150, 0))
+    r1 = b.rect(400, 0, 200, 300)          # the elbow
+    r2 = b.rect(400, -500, 200, 300)       # player, around the corner
+    b.connect(r0, 2, r1, 0)
+    b.connect(r1, 1, r2, 3)
+    b.player(r2, (500, -400))
     s = GameSession(b.build(), seed=4, screen=(640, 360), zoom=0.45)
     s.hub.chambers["_test_home"] = r0
 
-    # Every body is stood up first and they serve the look-away wait
-    # together: the player is in this chamber watching, so none of them
-    # may vanish on the spawn tick. What is under test is the SPREAD of
-    # the recovery due-times, which is sampled when they finally go.
+    # Every body is stood up first, around the elbow from the player so
+    # nothing is being watched. What is under test is the SPREAD of the
+    # recovery due-times, sampled as they go.
     for _ in range(24):
         eid = s.spawn_enemy(r0, (0.0, 0.0), "lacuna")
         s.enemies[eid]["scout"] = "flee"
         s.enemies[eid]["arrived"] = -10 ** 6      # long since arrived
-    for _ in range(WITHDRAW_UNSEEN_WAIT + 120):
+    for _ in range(1200):
         s.tick(InputFrame())
         if len(s.adversary_out) >= 24:
             break
@@ -264,11 +267,16 @@ def test_a_stranded_return_is_reabsorbed_where_it_stands():
     second life that goes nowhere is spent: it reabsorbs in place."""
     b = LevelBuilder("RET", 1)
     r0 = b.rect(0, 0, 400, 300)
-    r1 = b.rect(900, 0, 200, 300)
+    r1 = b.rect(400, 0, 200, 300)          # the elbow
+    r2 = b.rect(400, -500, 200, 300)       # player, around the corner
     b.connect(r0, 2, r1, 0)
-    b.player(r1, (1000, 150))
+    b.connect(r1, 1, r2, 3)
+    b.player(r2, (500, -400))
     s = GameSession(b.build(), seed=4, screen=(640, 360), zoom=0.45)
     eid = s.spawn_enemy(r0, (0.0, 0.0), "lacuna")
+    assert s.senses.sight_of(s.pid, eid) is None, (
+        "a stranded body is taken back when nobody is looking; the "
+        "watched case is its own test")
     assert r0 not in s.hub.chambers.values(), (
         "the body must be OUT IN THE WORLD, not in the marrow's house — "
         "that is the case the hub check cannot reach")
@@ -277,11 +285,7 @@ def test_a_stranded_return_is_reabsorbed_where_it_stands():
     s.enemies[eid]["scout"] = "flee"
     s.sim.set_vel(eid, s.sim.get(eid).pos.offset(0.0, 0.0))
 
-    # +WITHDRAW_UNSEEN_WAIT: the player is one doorway away and watching,
-    # so the reabsorption serves out the bounded look-away wait too. The
-    # contract is unchanged — a stranded body is taken back in bounded
-    # time — only the bound is larger.
-    for _ in range(ADVERSARY_STRAND_TICKS + WITHDRAW_UNSEEN_WAIT + 400):
+    for _ in range(ADVERSARY_STRAND_TICKS + 400):
         s.tick(InputFrame())
         if eid not in s.enemies:
             break
@@ -312,11 +316,13 @@ def test_a_departure_never_pops_while_the_player_is_watching():
     s.tick(InputFrame())
     assert s.senses.sight_of(s.pid, eid) is not None, (
         "the scene is only meaningful while the player can see the body")
-    for _ in range(WITHDRAW_UNSEEN_WAIT - 30):
+    for _ in range(1500):
         s.tick(InputFrame())
         assert eid in s.enemies, (
             "a body the player is looking at must never be removed "
-            "under the camera — that is the pop the clip caught")
+            "under the camera — and the wait is UNBOUNDED, because a "
+            "body vanishing under a chasing player is the failure that "
+            "cannot be traded against a few wasted cycles")
     assert s.enemies[eid].get("leaving") is not None, (
         "and it must be ON RECORD as leaving, so the wait is measurable "
         "instead of looking like an AI that forgot to go home")
@@ -338,3 +344,83 @@ def test_a_forced_departure_outranks_the_camera():
     assert eid not in s.enemies, (
         "a body whose door died leaves on the spot, in view or not")
     assert s.adversary_withdrawn["lacuna"] == 1
+
+
+def _thin_scene():
+    """A thin chamber the body stands in, with the player around an
+    elbow so nobody is watching. `rect(kind="otherworld")` is what makes
+    a polygon a place the membrane shows through."""
+    b = LevelBuilder("CROSS", 1)
+    r0 = b.rect(0, 0, 400, 300, kind="otherworld")
+    r1 = b.rect(400, 0, 200, 300)          # the elbow
+    r2 = b.rect(400, -500, 200, 300)       # player, around the corner
+    b.connect(r0, 2, r1, 0)
+    b.connect(r1, 1, r2, 3)
+    b.player(r2, (500, -400))
+    s = GameSession(b.build(), seed=4, screen=(640, 360), zoom=0.45)
+    eid = s.spawn_enemy(r0, (0.0, 0.0), "lacuna")
+    s.enemies[eid]["scout"] = "flee"
+    return s, eid, r0
+
+
+def test_a_finished_body_crosses_where_the_membrane_is_thin():
+    """The ordinary exit is not a despawn. A body that is done walks to
+    a thin place, stands still in it, and crosses — and the world's own
+    otherworld polygons count, not just the cathedral's deep end."""
+    s, eid, r0 = _thin_scene()
+    assert r0 in s.soft_polygons, "the scene needs a genuinely thin room"
+    s._begin_ascent(eid, s.enemies[eid], r0)
+    assert s.enemies[eid].get("ascending") is not None
+
+    states = []
+    for _ in range(ADVERSARY_SAFE_TICKS + ADVERSARY_ROOT_TICKS
+                   + ADVERSARY_CROSSING_TICKS + 120):
+        s.tick(InputFrame())
+        for rec in s.trace.drain():
+            d = getattr(rec, "data", {}) or {}
+            if d.get("entity_id") == eid and d.get("to_state"):
+                states.append(d["to_state"])
+        if eid not in s.enemies:
+            break
+    assert "crossing" in states, (
+        f"it must commit to a crossing, saw {states}")
+    assert eid not in s.enemies, "and then it is gone"
+    assert s.adversary_withdrawn["lacuna"] == 1, "booked as a departure"
+    assert s.adversary_lost["lacuna"] == 0, "and never as a kill"
+
+
+def test_crossing_needs_stillness_not_just_arrival():
+    """Standing in a thin place is not enough — the crossing costs a
+    real rooted interval, the same bargain the breach call makes."""
+    s, eid, r0 = _thin_scene()
+    s._begin_ascent(eid, s.enemies[eid], r0)
+    for _ in range(ADVERSARY_SAFE_TICKS + 10):
+        s.tick(InputFrame())
+    assert eid in s.enemies, "still here: the root has barely started"
+    assert s.enemies[eid].get("crossing") is None, (
+        "arriving somewhere thin must not by itself commit the crossing")
+    assert s.enemies[eid].get("_root", 0) > 0, "but it IS rooting"
+
+
+def test_a_watched_body_will_not_cross():
+    """It only goes when it believes nobody is coming. A body that can
+    see the player abandons the attempt rather than escaping the fight
+    through the floor."""
+    b = LevelBuilder("CROSS", 1)
+    r0 = b.rect(0, 0, 400, 300, kind="otherworld")
+    b.player(r0, (150, 0))
+    s = GameSession(b.build(), seed=4, screen=(640, 360), zoom=0.45)
+    eid = s.spawn_enemy(r0, (-100.0, 0.0), "lacuna")
+    s.enemies[eid]["scout"] = "flee"
+    s.tick(InputFrame())
+    assert s.senses.sight_of(eid, s.pid) is not None, (
+        "the scene is only meaningful while the body can see the player")
+    s._begin_ascent(eid, s.enemies[eid], r0)
+    for _ in range(ADVERSARY_SAFE_TICKS + ADVERSARY_ROOT_TICKS + 200):
+        s.tick(InputFrame())
+        if eid not in s.enemies:
+            break
+    assert eid in s.enemies, (
+        "a body in contact must not cross out — that is escaping the "
+        "encounter, not leaving the world")
+    assert s.enemies[eid].get("crossing") is None

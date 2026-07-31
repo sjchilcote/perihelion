@@ -266,7 +266,24 @@ ADVERSARY_ARRIVAL_GRACE = 600
 # return clip caught one doing exactly that, fifty ticks in), but a body
 # that may only leave unobserved can be pinned in the world by a player
 # who simply keeps watching — so the courtesy is bounded.
-WITHDRAW_UNSEEN_WAIT = 600
+#
+# This governs the UNWILLING exits only — a body giving up where it
+# stands. The ordinary one is not a despawn at all: see `_begin_ascent`,
+# where a finished body climbs the hub to the otherworld and crosses.
+# How long the crossing itself takes, once it commits. Long enough to
+# read as an act rather than a cut — gate 62 measured a 5-tick arrival
+# light as "invisible as a distinct pulse at capture cadence", and a
+# departure nobody sees is the bug this fixes.
+ADVERSARY_CROSSING_TICKS = 48
+# ...and how long it must stand ROOTED in a thin place first. The same
+# bargain the breach call makes: crossing over is not something you do
+# while running, so it costs stillness, and stillness is where the
+# player can catch you at it.
+ADVERSARY_ROOT_TICKS = 150
+# ...and how long since it last saw the player before it believes it is
+# safe enough to try. A body that crosses out mid-fight is a body
+# escaping the encounter, which is not a departure, it is a cheat.
+ADVERSARY_SAFE_TICKS = 300
 # ...and how long a returned body may stand still before the world gives
 # up on it and takes it back. Bounds both of gate 63's degenerate second
 # lives: the body stranded at a sealed seam, and the one idling in the
@@ -725,6 +742,9 @@ class GameSession:
         # withdrawals), so a permanent withdrawal had the faction eating
         # its own finite roster on a clock the player could not touch.
         self.adversary_out: list[tuple[str, int]] = []
+        # deep-end chambers, resolved once on first use (see
+        # `_otherworld_chambers`)
+        self._ow_chambers: list[int] | None = None
         # who caused each Adversary death: "player" or "crossfire"
         self.adversary_killed_by: dict[str, int] = {}
         # the snare's hold on the player: ticks remaining and how much
@@ -1200,7 +1220,14 @@ class GameSession:
             # state (its idle) and rest sleeps like idle does — activating
             # lurkers globally woke every ambusher's neighborhood and
             # measurably changed session dynamics (danger-hold vector)
+            # ...and a body on its way OUT is as awake as one on its way
+            # in. Without `ascending` here, a leaver that walked past
+            # ACTIVE_HOPS into the deep hub stopped getting AI and froze
+            # mid-crossing forever — measured at 965 ticks against a
+            # 48-tick crossing, which is the run-48 wax museum again
+            # wearing this feature's name.
             if e_.get("dispatched") is not None \
+                    or e_.get("ascending") is not None \
                     or e_["state"] in ("hunt", "waking", "call") \
                     or "_holding" in e_ or e_.get("engulf"):
                 s.activate_also(s.get_polygon(eid_), 1)
@@ -2476,6 +2503,16 @@ class GameSession:
                     self._withdraw_adversary(eid, e, "stranded")
                     continue
 
+            # A BODY ON ITS WAY OUT OWNS ITS TICK, and this must sit
+            # ABOVE the scout branch: a leaving body is a scout, so a
+            # hook placed after this dispatch never ran at all — the
+            # bodies took `ascending` and then went on doing scout work
+            # forever (measured: 2 ascents begun, 0 ascent steps).
+            if e.get("ascending") is not None:
+                # `accel` is computed further down for the combat paths;
+                # a body that has resigned walks at its own cruise.
+                self._ascend_step(eid, e, d, st, polygon, at, d["accel"])
+                continue
             if kind in ADVERSARY and (e.get("scout")
                                       or self._maybe_task_scout(eid, e, polygon)):
                 self._scout_ai(eid, e, st)
@@ -3363,6 +3400,147 @@ class GameSession:
             tick=self.tick_count, unit_kind=kind, entity_id=eid,
             hub_chamber=court))
 
+    def _otherworld_chambers(self) -> list[int]:
+        """Every polygon where the otherworld is thin enough to cross.
+
+        Both the deep end of the cathedral (hub chambers at or past
+        OTHERWORLD_DEPTH) AND the world's own otherworld polygons —
+        `soft_polygons`, the ones whose walls already breathe. The rule
+        is about the PLACE, not about being home: if the membrane is
+        thin here, it is thin for anyone standing in it."""
+        if self._ow_chambers is None:
+            self._ow_chambers = sorted(
+                {r for r, (kind, _descent) in self.hub_polygon_meta.items()
+                 if kind == "otherworld"} | set(self.soft_polygons))
+        return self._ow_chambers
+
+    def _is_otherworld(self, polygon: int) -> bool:
+        return (polygon in self.soft_polygons
+                or self.hub_polygon_meta.get(polygon, ("", 0))[0]
+                == "otherworld")
+
+    def _begin_ascent(self, eid: int, e: dict, polygon: int) -> None:
+        """Send a finished body looking for a thin place instead of
+        deleting it.
+
+        Nothing is removed here: it is a body walking somewhere, and it
+        stays shootable, audible and visible the whole way, because that
+        is what makes this a departure rather than a despawn."""
+        s = self.sim
+        best, best_d = -1, 1 << 20
+        for r in self._otherworld_chambers():
+            hops = s.hop_distance(polygon, r)
+            if 0 <= hops < best_d:
+                best, best_d = r, hops
+        if best < 0:
+            # Nowhere thin is reachable. That is the stranded case, not
+            # a licence to vanish.
+            self._withdraw_adversary(eid, e, "stranded")
+            return
+        e["ascending"] = best
+        e["_last_saw"] = self.tick_count
+        e.pop("scout_target", None)
+        self.trace.emit(AgentTransition(
+            tick=self.tick_count, entity_id=eid, agent_kind=e["kind"],
+            from_state=e["state"], to_state="ascending",
+            x=0.0, y=0.0))
+
+    def _ascend_step(self, eid, e, d, st, polygon, at, accel) -> None:
+        """One tick of leaving: walk to a thin place, stand still in it,
+        and cross."""
+        s = self.sim
+        t_ = self.tick_count
+
+        # SEEING THE PLAYER, OR BEING SHOT, ENDS THE ATTEMPT. Not just
+        # the rooting — the whole notion that it is safe to go. A body
+        # that vanishes out of a fight has escaped rather than departed,
+        # and the player would rightly read it as the game cheating.
+        if self.senses.sight_of(eid, self.pid) is not None \
+                or t_ - e.get("last_hit", -10 ** 9) <= 120:
+            e["_last_saw"] = t_
+            if e.pop("crossing", None) is not None:
+                self.trace.emit(AgentTransition(
+                    tick=t_, entity_id=eid, agent_kind=e["kind"],
+                    from_state="crossing", to_state="interrupted",
+                    x=0.0, y=0.0))
+            e["_root"] = 0
+
+        if e.get("crossing") is not None:
+            # Committed. Allowed to be watched — the crossing IS the
+            # presentation, so this is the one exit that does not wait
+            # for the player to look away.
+            if t_ - e["crossing"] >= ADVERSARY_CROSSING_TICKS:
+                self._withdraw_adversary(eid, e, "otherworld")
+            return
+
+        if self._is_otherworld(polygon):
+            # In a thin place. Crossing costs stillness, the same bargain
+            # the breach call makes, and it only starts once the body
+            # believes nobody is coming.
+            if t_ - e.get("_last_saw", t_) < ADVERSARY_SAFE_TICKS:
+                self._budget_move(eid, e, d, st, st.dir * 0.0, 0.0)
+                return
+            e["_root"] = e.get("_root", 0) + 1
+            self._budget_move(eid, e, d, st, st.dir * 0.0, 0.0)
+            if e["_root"] >= ADVERSARY_ROOT_TICKS:
+                e["crossing"] = t_
+                self._snd("adversary_return", at, 0.7)
+                self.fx.append(("crossing", eid))
+                self._fx_at("scream", at)
+                self.trace.emit(AgentTransition(
+                    tick=t_, entity_id=eid, agent_kind=e["kind"],
+                    from_state="ascending", to_state="crossing",
+                    x=0.0, y=0.0))
+            return
+
+        target = e["ascending"]
+        # ...otherwise walk. Same stall-breaker the dispatched march
+        # carries: a body wedged on hub geometry held one bit-identical
+        # coordinate for 6120 ticks in run 48, and a statue on the way
+        # out would be that defect wearing this feature's name.
+        mp = e.get("_asc_pos")
+        if mp is not None and mp.space == at.space and at.distance_to(mp) < 4.0:
+            e["_asc_still"] = e.get("_asc_still", 0) + 1
+        else:
+            e["_asc_still"] = 0
+            e["_asc_pos"] = at
+        if e["_asc_still"] > ADVERSARY_STRAND_TICKS:
+            self.trace.emit(CoordEvent(
+                tick=t_, entity_id=eid, agent_kind=e["kind"],
+                event="ascent_stalled",
+                detail=f"stationary {e['_asc_still']}t in {polygon}"))
+            self._withdraw_adversary(eid, e, "stranded")
+            return
+        edge = s.next_edge(polygon, target)
+        if edge < 0:
+            self._withdraw_adversary(eid, e, "stranded")
+            return
+        # ANTI-BACKTRACK, the same rule the dispatched march carries.
+        # Every breach open or seal rewires the portal graph and flips
+        # equal-cost `next_edge` answers; committing to the flip each
+        # tick walks a body across one door forever. Measured here
+        # before the rule went in: three bodies climbing for ~1700 ticks
+        # and parked two hops from the target, moving the whole time.
+        prt_ = s.polygon_portals(polygon)
+        n_open_ = sum(1 for p_ in prt_ if p_ is not None)
+        if 0 <= edge < len(prt_) and n_open_ > 1 \
+                and prt_[edge] is not None \
+                and prt_[edge][0] == e.get("_came_from"):
+            alts_ = [(i_, p_) for i_, p_ in enumerate(prt_)
+                     if p_ is not None and i_ != edge]
+            alts_.sort(key=lambda ip: (
+                s.hop_distance(ip[1][0], target)
+                if s.hop_distance(ip[1][0], target) >= 0 else 1 << 20))
+            if alts_:
+                edge = alts_[0][0]
+        march = at.toward(s.edge_midpoint(polygon, edge))
+        heading = march.normalized()
+        s.set_dir(eid, heading)
+        heading = s.terrain_avoid_dir(at, d["radius"], heading,
+                                      max(40.0, min(march.length, 120.0)))
+        heading = self._steer_heading(eid, e, d, st, heading)
+        self._budget_move(eid, e, d, st, heading, accel)
+
     def _withdraw_adversary(self, eid: int, e: dict, why: str) -> None:
         """A DEPARTURE, not a death, from wherever it happens to stand.
 
@@ -3388,21 +3566,31 @@ class GameSession:
         # has just died under it, and deferring exactly this case is what
         # left gate 62's statue standing in an abandoned lane for 3,180
         # ticks. A forced departure outranks the presentation rule.
-        # The wait is BOUNDED, and the bound is not a detail. A body that
-        # may only leave unobserved is a body a watching player can keep
-        # in the world forever, and an Adversary population that cannot
-        # drain is the failure gates 62-64 kept catching from the other
-        # side. Ten seconds of walking is long enough to get out of a
-        # doorway; past that, leaving beats accumulating.
-        if why != "no_door" and self.senses.sight_of(self.pid, eid) is not None:
+        # THE WAIT IS NOT BOUNDED, and that is a ranking rather than an
+        # oversight (director, 7/31): a body the player is actively
+        # watching or chasing blinking out is mimesis-shattering, while
+        # simulating a body nobody has looked away from yet costs a few
+        # cycles. The two are not comparable, so the cheap failure is
+        # the one to accept.
+        #
+        # This is not the statue class gates 62-64 kept catching. Those
+        # were bodies stuck by defects — unseen, inert, accumulating.
+        # A body here is visible by definition, is still running its own
+        # AI every tick, and leaves the moment nobody is looking.
+        # "otherworld" is the ordinary exit and it is EXEMPT: the body
+        # has walked the length of the hub to a place where crossing is
+        # possible and played the crossing there. Making that wait for
+        # the player to look away would hide the one departure that was
+        # built to be seen.
+        if why not in ("no_door", "otherworld") \
+                and self.senses.sight_of(self.pid, eid) is not None:
             if "leaving" not in e:
                 e["leaving"] = t_
                 self.trace.emit(AgentTransition(
                     tick=t_, entity_id=eid, agent_kind=e["kind"],
                     from_state=e["state"], to_state=f"leaving:{why}",
                     x=0.0, y=0.0))
-            if t_ - e["leaving"] < WITHDRAW_UNSEEN_WAIT:
-                return
+            return
         self.captures.release_for_entity(eid)
         self.medium.release(eid)
         self.adversary_census[e["kind"]] -= 1
@@ -3617,8 +3805,15 @@ class GameSession:
         # other.
         if polygon in self.hub.chambers.values() \
                 and t_ - e.get("arrived", -1 << 30) \
-                >= e.get("grace", ADVERSARY_ARRIVAL_GRACE):
-            self._withdraw_adversary(eid, e, "home")
+                >= e.get("grace", ADVERSARY_ARRIVAL_GRACE) \
+                and "ascending" not in e:
+            # BEING HOME IS NOT LEAVING. Reaching the marrow used to
+            # delete the body where it stood, which on film was a soldier
+            # evaporating mid-stride one chamber inside a breach the
+            # player was looking through. The hub is a RAMP to the
+            # otherworld: a body that is done goes up it, and crosses at
+            # the top, where crossing is possible.
+            self._begin_ascent(eid, e, polygon)
             return
         phase = e.get("scout")
         # DAMAGE interrupts first — the "catch the transmitting agent"
