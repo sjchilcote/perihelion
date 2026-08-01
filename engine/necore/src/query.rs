@@ -665,6 +665,167 @@ pub fn develop(world: &World, c: &Coordinate, into: SpaceId) -> Option<Coordinat
     Some(c.extended(&r.steps))
 }
 
+/// One chamber an observer can reach, developed into the OBSERVER's space.
+#[derive(Debug, Clone)]
+pub struct Reached {
+    pub polygon: PolygonId,
+    /// Develops this chamber's local coordinates into the observer's.
+    pub into_obs: Mat3,
+    /// Doorways crossed to get here.
+    pub depth: usize,
+    /// Path length observer -> doorway -> ... -> the doorway into here,
+    /// measured through doorway midpoints. The caller adds the last leg.
+    pub path: f64,
+    /// A LOWER BOUND on the length of any straight line from the observer
+    /// into this chamber: a sightline must cross every doorway on the
+    /// route, so it is at least as long as the distance to the farthest
+    /// of those doorways. Sound to prune on, unlike `path` (a straight
+    /// line through a wide doorway is shorter than the midpoint walk).
+    pub near: f64,
+}
+
+/// Every chamber within `max_hops` doorways of the observer whose doorway
+/// chain admits a sightline no longer than `max_range`, nearest first, each
+/// carrying the matrix that develops it into the observer's own space.
+///
+/// WHY THIS EXISTS. Perception is a question about the observer's
+/// NEIGHBOURHOOD, so it must be answered by searching the polygon graph
+/// outward from the observer — once — and reading the bodies out of the
+/// chambers the search reaches. The alternative, and this engine shipped it
+/// for a while, is to take every body in the world and run a route search
+/// per body back to the observer: cost proportional to the world's whole
+/// population, paid every tick by every eye, to answer a question about one
+/// room and its neighbours. On a full level that was 3,200 route searches a
+/// tick for 36 turrets and it ate the entire frame budget.
+///
+/// One walk answers for every body at once because the route is a property
+/// of the CHAMBERS, not of the bodies standing in them.
+pub fn reach(
+    world: &World,
+    from: PolygonId,
+    from_pos: Vec2,
+    max_hops: usize,
+    max_range: f64,
+) -> Vec<Reached> {
+    let mut out: Vec<Reached> = Vec::new();
+    if from >= world.polygons.len() {
+        return out;
+    }
+    out.push(Reached {
+        polygon: from,
+        into_obs: Mat3::IDENTITY,
+        depth: 0,
+        path: 0.0,
+        near: 0.0,
+    });
+    if max_hops == 0 {
+        return out;
+    }
+    // Keyed on (polygon, entry edge) exactly like `route`: a chamber
+    // entered through a different doorway is a different image of it, and
+    // collapsing the two would hide the nearer one behind the first found.
+    let mut seen: HashSet<(PolygonId, usize)> = HashSet::new();
+    seen.insert((from, usize::MAX));
+    struct Node {
+        polygon: PolygonId,
+        entry: usize,
+        into_obs: Mat3,
+        depth: usize,
+        path: f64,
+        near: f64,
+        /// where we stand on the path, in THIS chamber's coordinates
+        at: Vec2,
+    }
+    let mut pool: Vec<Node> = vec![Node {
+        polygon: from,
+        entry: usize::MAX,
+        into_obs: Mat3::IDENTITY,
+        depth: 0,
+        path: 0.0,
+        near: 0.0,
+        at: from_pos,
+    }];
+    let mut heap: BinaryHeap<(Cost, usize)> = BinaryHeap::new();
+    heap.push((Cost(0.0), 0));
+
+    while let Some((_, idx)) = heap.pop() {
+        let (r, entry, depth) = {
+            let n = &pool[idx];
+            (n.polygon, n.entry, n.depth)
+        };
+        if depth >= max_hops {
+            continue;
+        }
+        let n_edges = world.polygons[r].num_edges();
+        for e in 0..n_edges {
+            if e == entry {
+                continue;
+            }
+            let Some((next_r, next_e, step)) = crossing(world, r, e) else {
+                continue;
+            };
+            if !seen.insert((next_r, next_e)) {
+                continue;
+            }
+            let Some(mid) = edge_mid(world, r, e) else { continue };
+            let Some(p) = world.polygons[r].portals[e] else { continue };
+            let (into_obs, path) = {
+                let n = &pool[idx];
+                // p.xform carries the NEIGHBOUR's coordinates into r's, so
+                // composing it under the accumulated matrix develops the
+                // neighbour all the way back into the observer's space.
+                (n.into_obs.mul(p.xform), n.path + n.at.dist(mid))
+            };
+            // the doorway we just crossed, seen from the observer: the
+            // sound lower bound on any sightline through it
+            let door = {
+                let polygon = &world.polygons[next_r];
+                if next_e >= polygon.num_edges() {
+                    continue;
+                }
+                let (a, b) = polygon.edge(next_e);
+                (into_obs.apply(a), into_obs.apply(b))
+            };
+            let near = {
+                let n = &pool[idx];
+                n.near.max(point_segment_dist(from_pos, door.0, door.1))
+            };
+            if near > max_range {
+                continue;
+            }
+            pool.push(Node {
+                polygon: next_r,
+                entry: next_e,
+                into_obs,
+                depth: depth + 1,
+                path,
+                near,
+                at: step.xform.apply(mid),
+            });
+            out.push(Reached {
+                polygon: next_r,
+                into_obs,
+                depth: depth + 1,
+                path,
+                near,
+            });
+            heap.push((Cost(path), pool.len() - 1));
+        }
+    }
+    out
+}
+
+/// Distance from a point to a segment — the doorway-crossing lower bound.
+fn point_segment_dist(p: Vec2, a: Vec2, b: Vec2) -> f64 {
+    let ab = b - a;
+    let l2 = ab.len2();
+    if l2 <= 1e-12 {
+        return (p - a).len();
+    }
+    let t = (((p - a).x * ab.x + (p - a).y * ab.y) / l2).clamp(0.0, 1.0);
+    (p - (a + ab * t)).len()
+}
+
 pub fn polygons_within(world: &World, center: PolygonId, hops: usize) -> Vec<PolygonId> {
     let mut seen = vec![false; world.polygons.len()];
     let mut out = vec![center];
@@ -699,6 +860,92 @@ mod tests {
             v(half, half),
             v(half, -half),
         ]
+    }
+
+    /// A corridor of `n` square chambers, each joined to the next.
+    fn corridor(n: usize) -> (World, Vec<PolygonId>) {
+        let mut w = World::new();
+        let mut ids = Vec::new();
+        for _ in 0..n {
+            ids.push(w.add_polygon(&square(50.0)).unwrap());
+        }
+        for i in 0..n - 1 {
+            w.connect(ids[i], 2, ids[i + 1], 0).unwrap();
+        }
+        (w, ids)
+    }
+
+    #[test]
+    fn reach_develops_each_chamber_into_the_observers_space() {
+        let (w, ids) = corridor(3);
+        let got = reach(&w, ids[0], v(0.0, 0.0), 4, 10_000.0);
+        assert_eq!(got.len(), 3, "one image per chamber: {got:?}");
+        // chambers are 100 wide and joined edge to edge, so the centre of
+        // the k-th sits 100k away along +x in the observer's frame
+        for (k, r) in got.iter().enumerate() {
+            let centre = r.into_obs.apply(v(0.0, 0.0));
+            assert!(
+                (centre.x - 100.0 * k as f64).abs() < 1e-6 && centre.y.abs() < 1e-6,
+                "chamber {k} developed to {centre:?}"
+            );
+            assert_eq!(r.depth, k);
+        }
+    }
+
+    #[test]
+    fn reach_stops_at_the_hop_cap() {
+        let (w, ids) = corridor(6);
+        let got = reach(&w, ids[0], v(0.0, 0.0), 2, 10_000.0);
+        assert_eq!(got.len(), 3, "observer + 2 hops");
+        assert!(got.iter().all(|r| r.depth <= 2));
+    }
+
+    #[test]
+    fn reach_prunes_on_range_but_never_a_chamber_a_sightline_could_enter() {
+        let (w, ids) = corridor(6);
+        // the doorway into chamber k is 50 + 100(k-1) away, so a 160-unit
+        // reach admits chambers 1 and 2 (doorways at 50 and 150) and must
+        // refuse chamber 3 (250)
+        let got = reach(&w, ids[0], v(0.0, 0.0), 8, 160.0);
+        let depths: Vec<usize> = got.iter().map(|r| r.depth).collect();
+        assert_eq!(depths, vec![0, 1, 2], "reached {depths:?}");
+    }
+
+    #[test]
+    fn reach_bound_is_never_longer_than_the_real_sightline() {
+        // the prune must be a LOWER bound: if it ever exceeded the true
+        // straight-line distance it would hide bodies that are in range
+        let (w, ids) = corridor(4);
+        for r in reach(&w, ids[0], v(0.0, 0.0), 8, 10_000.0) {
+            let centre = r.into_obs.apply(v(0.0, 0.0));
+            let real = (centre - v(0.0, 0.0)).len();
+            assert!(
+                r.near <= real + 1e-9,
+                "bound {} exceeds the real distance {real} at depth {}",
+                r.near,
+                r.depth
+            );
+        }
+    }
+
+    #[test]
+    fn reach_agrees_with_route_on_where_a_body_lands() {
+        // the walk is an inverted `route`; the two must develop a place to
+        // the same point or perception and navigation disagree
+        let (w, ids) = corridor(4);
+        let target = v(12.0, -7.0);
+        let got = reach(&w, ids[0], v(0.0, 0.0), 8, 10_000.0);
+        for r in &got {
+            let by_walk = r.into_obs.apply(target);
+            let rt = route(&w, r.polygon, target, ids[0], 8).expect("route back");
+            let by_route = Coordinate::new(
+                w.polygon_space(r.polygon).unwrap().id(),
+                target,
+            )
+            .extended(&rt.steps);
+            let d = (by_walk - by_route.local()).len();
+            assert!(d < 1e-6, "walk and route disagree by {d} at depth {}", r.depth);
+        }
     }
 
     #[test]

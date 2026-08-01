@@ -1888,7 +1888,6 @@ class GameSession:
         if not self.sentries:
             return
         s = self.sim
-        all_ids = list(self.enemies)   # one snapshot shared by every gun
         for tid, t in self.sentries.items():
             d = SENTRIES[t["kind"]]
             if t["cd"] > 0:
@@ -1905,15 +1904,18 @@ class GameSession:
             # terrain check stays for same-chamber shots; deeper shots
             # are raycast-confirmed by the senses (no wallhacks) and a
             # bolt that clips a far crate dies on it like any round.
-            cached = t.get("target")
-            scan = [cached] if cached in self.enemies else all_ids
-            # the whole scan is ONE engine call (Sim.sentry_acquire):
-            # nearest sighted candidate within range, same-chamber lines
-            # additionally cleared against this polygon's terrain rects —
-            # the exact selection the Python loop ran, minus ~270
-            # per-tick sightline round-trips
-            res = s.sentry_acquire(tid, scan, GROUP_ENEMY, VISION_HOPS,
-                                   d["range"], self.tick_count)
+            # ONE engine call that SEARCHES THE POLYGON GRAPH outward from
+            # this gun (Sim.find_closest_faction_member_with_los): nearest
+            # sighted enemy within range, same-chamber lines additionally
+            # cleared against this polygon's terrain rects, and the gun's
+            # current target kept while it still holds. Cost is set by the
+            # gun's neighbourhood, not by the world's population — the
+            # scan this replaced ran a route search per enemy ALIVE
+            # ANYWHERE, which on the gauntlet was ~270 of them per gun per
+            # tick and ate the whole frame budget on its own.
+            res = s.find_closest_faction_member_with_los(
+                tid, GROUP_ENEMY, VISION_HOPS, d["range"], self.tick_count,
+                t.get("target") or 0)
             if res is None:
                 t.pop("target", None)
                 t["spin"] = d["spin_up"]  # target lost: re-acquire from cold
@@ -3440,10 +3442,15 @@ class GameSession:
         e["ascending"] = best
         e["_last_saw"] = self.tick_count
         e.pop("scout_target", None)
+        # WHERE, and WHERE TO. Gate 74 asked for this: logging 0,0 with
+        # no destination made the route un-analysable from the trace
+        # alone, so a judge could not tell a body walking the ramp from
+        # one standing still.
+        _ax, _ay = s.get(eid).pos.local()
         self.trace.emit(AgentTransition(
             tick=self.tick_count, entity_id=eid, agent_kind=e["kind"],
-            from_state=e["state"], to_state="ascending",
-            x=0.0, y=0.0))
+            from_state=f"{e['state']}@{polygon}", to_state=f"ascending>{best}",
+            x=round(_ax, 1), y=round(_ay, 1)))
 
     def _ascend_step(self, eid, e, d, st, polygon, at, accel) -> None:
         """One tick of leaving: walk to a thin place, stand still in it,
@@ -3459,10 +3466,11 @@ class GameSession:
                 or t_ - e.get("last_hit", -10 ** 9) <= 120:
             e["_last_saw"] = t_
             if e.pop("crossing", None) is not None:
+                _ix, _iy = at.local()
                 self.trace.emit(AgentTransition(
                     tick=t_, entity_id=eid, agent_kind=e["kind"],
                     from_state="crossing", to_state="interrupted",
-                    x=0.0, y=0.0))
+                    x=round(_ix, 1), y=round(_iy, 1)))
             e["_root"] = 0
 
         if e.get("crossing") is not None:
@@ -3484,13 +3492,21 @@ class GameSession:
             self._budget_move(eid, e, d, st, st.dir * 0.0, 0.0)
             if e["_root"] >= ADVERSARY_ROOT_TICKS:
                 e["crossing"] = t_
-                self._snd("adversary_return", at, 0.7)
+                # ITS OWN VOICE. Gate 74's watch item: this borrowed
+                # `adversary_return`, so one cue meant both "one of the
+                # finite ones is back" and "one just left" — the same
+                # two-meanings defect as the run-55/58 borrows. The
+                # asset is the arrival reversed and pitched down, which
+                # is exactly what the crossing tint does to the arrival
+                # flash, so the pair reads as one idea in both channels.
+                self._snd("adversary_cross", at, 0.7)
                 self.fx.append(("crossing", eid))
                 self._fx_at("scream", at)
+                _cx, _cy = at.local()
                 self.trace.emit(AgentTransition(
                     tick=t_, entity_id=eid, agent_kind=e["kind"],
-                    from_state="ascending", to_state="crossing",
-                    x=0.0, y=0.0))
+                    from_state=f"ascending@{polygon}", to_state="crossing",
+                    x=round(_cx, 1), y=round(_cy, 1)))
             return
 
         target = e["ascending"]

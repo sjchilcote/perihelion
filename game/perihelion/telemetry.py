@@ -21,8 +21,11 @@ only, and nothing here is part of replay equality.
 from __future__ import annotations
 
 import json
+import time
 from dataclasses import asdict, dataclass, field, fields
 from typing import Any, Mapping
+
+_perf = time.perf_counter
 
 
 @dataclass(frozen=True, slots=True)
@@ -232,6 +235,108 @@ class CoordEvent:
 
 
 @dataclass(frozen=True, slots=True)
+class FrameTiming:
+    """What the loop actually spent, per phase, over a window of frames.
+
+    The sim has no concept of a frame, so this is the one record the APP
+    emits into the session bus. It exists because "unplayably slow" was
+    for a long time a report we could not answer with evidence — the fps
+    meter showed one number with no breakdown, and a recording, a draw,
+    and a heavy tick all look identical from the outside.
+
+    `sim_ticks / frames` is the tell that matters most: 1.0 is healthy,
+    and the loop's 4-tick catch-up cap means anything approaching 4.0 is
+    a frame that can no longer keep the sim on the wall clock — the game
+    is running in slow motion, not just drawing less often.
+    """
+    KIND = "frame_timing"
+    tick: int
+    frames: int          # frames in this window
+    fps: float           # observed, wall clock — what the player feels
+    ms_frame: float      # mean work per frame (total minus voluntary wait)
+    ms_worst: float      # worst single frame of work in the window
+    ms_sim: float        # per-frame means below
+    ms_draw: float
+    ms_present: float
+    ms_record: float
+    ms_wait: float       # idle headroom; large is GOOD
+    sim_ticks: int       # sim ticks executed across the window
+
+
+class FrameMeter:
+    """Wall-clock accumulator for FrameTiming. Stdlib-only, no I/O.
+
+    Usage per frame: begin(), then mark(phase) at the end of each phase,
+    then end(tick, sim_ticks) -> FrameTiming | None (one record per
+    window). Time between marks that no phase claims stays visible: the
+    phase means are reported alongside ms_frame, so unattributed cost
+    shows up as the gap rather than being silently folded into a phase.
+    """
+
+    PHASES = ("sim", "draw", "present", "record", "wait")
+
+    __slots__ = ("window", "_acc", "_frames", "_worst", "_ticks",
+                 "_t_phase", "_t_frame", "_wall0", "_frame_work")
+
+    def __init__(self, window: int = 60) -> None:
+        if window < 1:
+            raise ValueError(f"frame window must be >= 1, got {window}")
+        self.window = int(window)
+        self._acc = dict.fromkeys(self.PHASES, 0.0)
+        self._frames = 0
+        self._worst = 0.0
+        self._ticks = 0
+        self._frame_work = 0.0
+        self._t_phase = 0.0
+        self._t_frame = 0.0
+        self._wall0 = _perf()
+
+    def begin(self) -> None:
+        now = _perf()
+        self._t_phase = self._t_frame = now
+        self._frame_work = 0.0
+
+    def mark(self, phase: str) -> None:
+        if phase not in self._acc:
+            raise KeyError(f"unknown frame phase {phase!r}; "
+                           f"expected one of {self.PHASES}")
+        now = _perf()
+        dt = now - self._t_phase
+        self._t_phase = now
+        self._acc[phase] += dt
+        if phase != "wait":
+            self._frame_work += dt
+
+    def end(self, tick: int, sim_ticks: int) -> FrameTiming | None:
+        self._frames += 1
+        self._ticks += int(sim_ticks)
+        if self._frame_work > self._worst:
+            self._worst = self._frame_work
+        if self._frames < self.window:
+            return None
+        now = _perf()
+        wall = now - self._wall0
+        n = self._frames
+        rec = FrameTiming(
+            tick=int(tick), frames=n,
+            fps=round(n / wall, 1) if wall > 0 else 0.0,
+            ms_frame=round(1000.0 * (wall - self._acc["wait"]) / n, 2),
+            ms_worst=round(1000.0 * self._worst, 2),
+            ms_sim=round(1000.0 * self._acc["sim"] / n, 2),
+            ms_draw=round(1000.0 * self._acc["draw"] / n, 2),
+            ms_present=round(1000.0 * self._acc["present"] / n, 2),
+            ms_record=round(1000.0 * self._acc["record"] / n, 2),
+            ms_wait=round(1000.0 * self._acc["wait"] / n, 2),
+            sim_ticks=self._ticks)
+        self._acc = dict.fromkeys(self.PHASES, 0.0)
+        self._frames = 0
+        self._worst = 0.0
+        self._ticks = 0
+        self._wall0 = now
+        return rec
+
+
+@dataclass(frozen=True, slots=True)
 class TopologyChanged:
     KIND = "topology_changed"
     tick: int
@@ -252,7 +357,7 @@ TraceEvent = (InputRecord | AgentTransition | PortalCrossing
               | DamageApplied | ImpulseApplied | TopologyChanged
               | FieldSample | BreachLifecycle | ReserveSample
               | DispatchDecision | ShelfReplaced | CorePartEvent
-              | PickupTaken | EnemyDeath | CoordEvent)
+              | PickupTaken | EnemyDeath | CoordEvent | FrameTiming)
 
 
 class TraceBus:

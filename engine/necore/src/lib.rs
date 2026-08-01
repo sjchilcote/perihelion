@@ -22,8 +22,8 @@ pub use frames::{Coordinate, CoordinateSpace, FrameError, Offset, SpaceId, Step,
 pub use math::{v, Mat3, Vec2};
 pub use physics::{Entity, Event, Sim};
 pub use query::{
-    develop, polygons_within, raycast, route, routes, terrain_avoid_dir, terrain_light_segments,
-    transform_between, RayHit, Route, Router,
+    develop, polygons_within, raycast, reach, route, routes, terrain_avoid_dir,
+    terrain_light_segments, transform_between, RayHit, Reached, Route, Router,
 };
 pub use raster::{Raster, RasterError};
 pub use signals::SignalField as CoreSignalField;

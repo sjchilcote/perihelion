@@ -434,3 +434,76 @@ def test_a_watched_body_will_not_cross():
         "a body in contact must not cross out — that is escaping the "
         "encounter, not leaving the world")
     assert s.enemies[eid].get("crossing") is None
+
+
+def test_the_crossing_has_its_own_voice():
+    """Gate 74's watch item. The crossing borrowed `adversary_return`,
+    so one cue carried two opposite meanings — "one of the finite ones
+    is back" and "one just left" — which is the same defect class as the
+    run-55/58 borrows.
+
+    One symbol, one meaning: the departure must be audibly its own
+    thing, and must NOT sound the arrival while doing it."""
+    s, eid, r0 = _thin_scene()
+    s._begin_ascent(eid, s.enemies[eid], r0)
+    heard, borrowed = set(), False
+    for _ in range(ADVERSARY_SAFE_TICKS + ADVERSARY_ROOT_TICKS + 120):
+        s.tick(InputFrame())
+        for f in s.fx:
+            if f and f[0] == "sound":
+                heard.add(f[1])
+                borrowed = borrowed or f[1] == "adversary_return"
+        if eid not in s.enemies:
+            break
+    assert "adversary_cross" in heard, (
+        f"the crossing never announced itself; heard {sorted(heard)}")
+    assert not borrowed, (
+        "the crossing sounded the ARRIVAL cue — one symbol, one meaning")
+
+
+def test_the_crossing_cue_is_a_real_asset():
+    """A cue the bank cannot load is silence with extra steps."""
+    import pathlib
+    import perihelion.sim as _sim
+    wav = (pathlib.Path(_sim.__file__).parent.parent
+           / "assets" / "sfx" / "adversary_cross.wav")
+    assert wav.exists(), f"missing sfx asset: {wav}"
+    assert wav.stat().st_size > 1000, "the cue is empty"
+
+
+def test_a_departure_is_legible_in_the_trace_alone():
+    """Gate 74's other watch item: the ascent transitions logged
+    x=0, y=0 with no destination, so a judge reading the trace could not
+    tell a body walking the ramp from one standing still, nor say where
+    it went. A telemetry line that cannot answer 'where' is not
+    telemetry."""
+    s, eid, r0 = _thin_scene()
+    # A SECOND body, stood off the origin: with the first at 0,0 the
+    # claim "the trace records where it was" is indistinguishable from
+    # "the trace records nothing".
+    off = s.spawn_enemy(r0, (60.0, -40.0), "lacuna")
+    s.enemies[off]["scout"] = "flee"
+    s.tick(InputFrame())
+    eid = off
+    s._begin_ascent(eid, s.enemies[eid], r0)
+    seen = []
+    for _ in range(ADVERSARY_SAFE_TICKS + ADVERSARY_ROOT_TICKS + 120):
+        s.tick(InputFrame())
+        for rec in s.trace.drain():
+            d = getattr(rec, "data", {}) or {}
+            if d.get("entity_id") == eid and str(d.get("to_state", "")) \
+                    .startswith(("ascending", "crossing")):
+                seen.append(d)
+        if eid not in s.enemies:
+            break
+    assert seen, "the departure left no transitions at all"
+    start = next(d for d in seen if str(d["to_state"]).startswith("ascending"))
+    assert ">" in str(start["to_state"]), (
+        f"the ascent must record WHERE TO, got {start['to_state']!r}")
+    px, py = s.sim.get(eid).pos.local() if eid in s.enemies else (None, None)
+    assert (start["x"], start["y"]) != (0.0, 0.0), (
+        "the ascent must record where it began; the fixture deliberately "
+        "stands the body off the origin so 0,0 can only mean 'unset'")
+    assert abs(start["x"] - 60.0) < 40.0 and abs(start["y"] + 40.0) < 40.0, (
+        f"logged {start['x'], start['y']} is nowhere near where the body "
+        f"actually stood")

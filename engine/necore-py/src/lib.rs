@@ -21,7 +21,7 @@ use frames::{
 use necore_core::frames as core_frames;
 use necore_core::{
     develop as core_develop, geom, transform_between as core_transform_between, polygons_within as core_polygons_within,
-    raycast as core_raycast, route as core_route, routes as core_routes,
+    raycast as core_raycast, reach as core_reach, route as core_route, routes as core_routes,
     terrain_avoid_dir as core_terrain_avoid_dir, terrain_light_segments as core_terrain_light_segments,
     visible_set as core_visible_set, v, Coordinate, Mat3, Polygon, RayHit, Raster as CoreRaster,
     Router, Sim as CoreSim, Vec2, World,
@@ -179,6 +179,33 @@ fn track_core(
         })
         .unwrap_or(0.0);
     Some((here, vel, facing, dl, r.dist + last_leg, r.steps.len(), tgt.polygon))
+}
+
+/// One raycast-confirmed sighting, packaged for Python. The single place a
+/// Track is built from the geometry, so every query that reports one — the
+/// targeted `track_of` and the neighbourhood sweep
+/// `find_closest_faction_member_with_los` — reports the same numbers.
+fn sighting(
+    sim: &CoreSim,
+    observer: u64,
+    target: u64,
+    group: u8,
+    max_hops: usize,
+    tick: i64,
+) -> Option<PyTrack> {
+    track_core(sim, observer, target, group, max_hops).map(
+        |(pos, vel, dir, dl, path, depth, polygon)| PyTrack {
+            entity_id: target,
+            polygon,
+            pos,
+            vel,
+            dir,
+            path_distance: path,
+            distance: dl,
+            portal_depth: depth,
+            tick,
+        },
+    )
 }
 
 /// Liang-Barsky segment-vs-AABB — the exact port of sim.py's
@@ -912,19 +939,7 @@ impl Sim {
         if !self.sim.entities.contains_key(&target) {
             return Err(no_ent(target));
         }
-        Ok(track_core(&self.sim, observer, target, group, max_hops).map(
-            |(pos, vel, dir, dl, path, depth, polygon)| PyTrack {
-                entity_id: target,
-                polygon,
-                pos,
-                vel,
-                dir,
-                path_distance: path,
-                distance: dl,
-                portal_depth: depth,
-                tick,
-            },
-        ))
+        Ok(sighting(&self.sim, observer, target, group, max_hops, tick))
     }
 
     /// EVERY distinct image of one body, shortest first.
@@ -1002,64 +1017,102 @@ impl Sim {
         Ok(out)
     }
 
-    /// Sentry target acquisition, whole scan in one call: among `candidates`
-    /// (in the caller's iteration order — ties keep the earlier candidate,
-    /// matching the Python loop's strict `<`), the nearest sighted one within
-    /// `max_range`, where same-chamber sightlines must additionally clear this
-    /// polygon's walk-mask terrain rects. Returns a Track, or None.
-    #[pyo3(signature = (observer, candidates, group, max_hops, max_range, tick = 0))]
+    /// The nearest body of `faction` the observer actually has line of sight
+    /// to, within `max_range` and `max_hops` doorways. Returns a Track, or
+    /// None when the observer's neighbourhood holds no such body.
+    ///
+    /// This searches the POLYGON GRAPH: one outward walk from the observer
+    /// (`query::reach`) develops each chamber it reaches into the observer's
+    /// space, and candidates are read out of those chambers' entity indexes.
+    /// Cost scales with the observer's neighbourhood, not with the world's
+    /// population. The sightline confirmation is a real raycast, run
+    /// nearest-first and stopped at the first body that answers, so a clear
+    /// shot costs one ray rather than one per body in the level.
+    ///
+    /// `prefer` is target commitment: a gun already tracking a body keeps it
+    /// while it still holds (sighted, in range, unblocked) instead of
+    /// swinging to whatever is momentarily closest. Pass 0 for none.
+    ///
+    /// Same-chamber sightlines must additionally clear that chamber's
+    /// walk-mask terrain rects — deeper ones are confirmed by the ray.
+    #[pyo3(signature = (observer, faction, max_hops, max_range, tick = 0, prefer = 0))]
     #[allow(clippy::too_many_arguments)]
-    fn sentry_acquire(
+    fn find_closest_faction_member_with_los(
         &self,
         observer: u64,
-        candidates: Vec<u64>,
-        group: u8,
+        faction: u8,
         max_hops: usize,
         max_range: f64,
         tick: i64,
+        prefer: u64,
     ) -> PyResult<Option<PyTrack>> {
         let obs = self.sim.entities.get(&observer).ok_or_else(|| no_ent(observer))?;
         let (r0, o) = (obs.polygon, obs.pos);
-        let mut best: Option<PyTrack> = None;
-        let mut best_d2 = max_range * max_range;
-        for target in candidates {
-            if !self.sim.entities.contains_key(&target) {
-                continue;
+        let max_d2 = max_range * max_range;
+
+        if prefer != 0 && prefer != observer && self.sim.entities.contains_key(&prefer) {
+            if let Some(t) = sighting(&self.sim, observer, prefer, faction, max_hops, tick) {
+                if t.distance * t.distance <= max_d2 {
+                    return Ok(Some(t));
+                }
             }
-            let Some((pos, vel, dir, _dl, path, depth, polygon)) =
-                track_core(&self.sim, observer, target, group, max_hops)
-            else {
+        }
+
+        // one walk of the graph, then read the bodies out of what it reached
+        let reached = core_reach(&self.sim.world, r0, o, max_hops, max_range);
+        let mut candidates: Vec<(f64, u64, usize)> = Vec::new();
+        for (i, rr) in reached.iter().enumerate() {
+            let Some(polygon) = self.sim.world.polygons.get(rr.polygon) else {
                 continue;
             };
-            let w = pos.local();
-            let d2 = (w - o).len2();
-            if d2 > best_d2 {
-                continue;
+            for &eid in &polygon.entities {
+                if eid == observer {
+                    continue;
+                }
+                let Some(ent) = self.sim.entities.get(&eid) else {
+                    continue;
+                };
+                if ent.group != faction || !ent.alive {
+                    continue;
+                }
+                let d2 = (rr.into_obs.apply(ent.pos) - o).len2();
+                if d2 > max_d2 {
+                    continue;
+                }
+                candidates.push((d2, eid, i));
             }
-            if depth == 0 {
+        }
+        // nearest first; ties keep the body the walk reached first
+        candidates.sort_by(|a, b| {
+            a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        for (d2, eid, i) in candidates {
+            let rr = &reached[i];
+            let ent = &self.sim.entities[&eid];
+            let w = rr.into_obs.apply(ent.pos);
+            if rr.depth == 0 {
                 let terrain = &get_polygon(&self.sim.world, r0)?.terrain;
                 let blocked = terrain.iter().any(|rect| {
-                    segment_crosses_rect(o.x, o.y, w.x, w.y, rect.lo.x, rect.lo.y, rect.hi.x, rect.hi.y)
+                    segment_crosses_rect(
+                        o.x, o.y, w.x, w.y, rect.lo.x, rect.lo.y, rect.hi.x, rect.hi.y,
+                    )
                 });
                 if blocked {
                     continue;
                 }
             }
-            best_d2 = d2;
-            best = Some(PyTrack {
-                entity_id: target,
-                polygon,
-                pos,
-                vel,
-                dir,
-                path_distance: path,
-                distance: d2.sqrt(),
-                portal_depth: depth,
-                tick,
-            });
+            // the walk says a line COULD reach this chamber; the ray says
+            // whether it reaches this body
+            let _ = d2;
+            let Some(t) = sighting(&self.sim, observer, eid, faction, max_hops, tick) else {
+                continue;
+            };
+            return Ok(Some(t));
         }
-        Ok(best)
+        Ok(None)
     }
+
 
     fn next_edge(&mut self, from_polygon: usize, to_polygon: usize) -> PyResult<i64> {
         if from_polygon >= self.sim.world.polygons.len() {

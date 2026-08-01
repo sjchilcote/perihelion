@@ -20,6 +20,9 @@ PKG = Path(__file__).resolve().parent.parent / "perihelion"
 STDLIB_OK = {
     "__future__", "json", "math", "dataclasses", "typing", "collections",
     "enum", "io", "os", "random", "itertools", "functools", "abc",
+    # the frame meter measures wall time; a clock is not a dependency on
+    # the game, which is what this law is about
+    "time",
 }
 
 

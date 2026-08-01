@@ -363,6 +363,10 @@ class App:
         self.mouse_buttons: set[int] = set()
         self._fps_ema = 60.0
         self._frame_t0 = time.perf_counter()
+        # where every frame's wall clock goes (telemetry.FrameTiming)
+        from .telemetry import FrameMeter
+        self._meter = FrameMeter()
+        self._frame_stat = None
         if getattr(args, "zoom", None):
             ZOOM_BASE[0] = float(args.zoom)
         self.audio = Audio(mute=args.mute)
@@ -856,6 +860,7 @@ class App:
         accumulator = 0.0
         last = time.perf_counter()
         while self.running:
+            self._meter.begin()
             if self._rec is not None and self._rec["lockstep"]:
                 # lockstep: exactly one 60Hz sim tick per recorded frame,
                 # decoupled from wall time so capture speed doesn't matter
@@ -929,12 +934,16 @@ class App:
 
             if self.scenes:
                 self.scenes[-1].update(self, frame_dt)
+            self._meter.mark("sim")
 
             self._draw_frame()
             if self._rec is not None:
                 self._record_frame(1 if self._rec["lockstep"]
                                    else ticks_this_frame)
+            self._meter.mark("record")
             self._pace()
+            self._meter.mark("wait")
+            self._end_frame(ticks_this_frame)
         self._close_record()
         if self._trace_writer is not None:
             self._trace_writer.close()
@@ -1076,6 +1085,22 @@ class App:
         if dt > 0:
             self._fps_ema += 0.1 * (1.0 / dt - self._fps_ema)
 
+    def _end_frame(self, sim_ticks: int) -> None:
+        """Close the frame on the meter; publish a FrameTiming per window.
+
+        The record rides the session bus like everything else, so a human
+        run's out/sessions/*.jsonl carries the same performance evidence a
+        bot capture does — no separate profiling mode to remember to turn
+        on. Menus meter but do not publish: there is no session to stamp."""
+        rec = self._meter.end(
+            self.game.session.tick_count if self.game is not None else 0,
+            sim_ticks)
+        if rec is None:
+            return
+        self._frame_stat = rec
+        if self.game is not None:
+            self.game.session.trace.emit(rec)
+
     def _draw_frame(self) -> None:
         self._fb_np[:] = 0
         if self.scenes:
@@ -1083,6 +1108,15 @@ class App:
         if self.show_fps:
             text.blit_text(self.internal, f"{self._fps_ema:.0f} fps",
                            ui(4), ui(4), (255, 255, 0), 11)
+            st = self._frame_stat
+            if st is not None:
+                text.blit_text(
+                    self.internal,
+                    f"sim {st.ms_sim:.1f}  draw {st.ms_draw:.1f}  "
+                    f"pres {st.ms_present:.1f}  rec {st.ms_record:.1f}  "
+                    f"idle {st.ms_wait:.1f}  x{st.sim_ticks / st.frames:.2f}",
+                    ui(4), ui(14), (255, 255, 0), 11)
+        self._meter.mark("draw")
         if self.window is not None:
             sdx = sdy = 0
             game = self.game
@@ -1093,6 +1127,7 @@ class App:
                 sdx, sdy = int(fdx), int(fdy)
             self.window.present(bytes(self._fb_raw), INTERNAL_W, INTERNAL_H,
                                 sdx, sdy)
+        self._meter.mark("present")
 
     def _shake_offset(self, game: GameScene) -> tuple[float, float]:
         dx = dy = 0.0
