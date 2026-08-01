@@ -17,10 +17,33 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass, field
 
-RESERVE_CAP = 120.0
-REGEN_BASE = 0.10          # per second when full
-REGEN_EMPTY_BOOST = 2.5    # -> 0.35/s when empty (and during debt)
-CORE_KILL_DEBT = -32.0     # ~90s at the 0.35/s home-resupply rate
+# THE WORLD IS POPULATED, NOT STOCKED (director 2026-08-01: "the hub
+# needs to be generating enemies WAY more often... 10x the enemy count.
+# This shouldn't be a video game level you clear — it's a world,
+# populated by the enemy, who are actively working against you").
+#
+# Measured on a real 24-minute session: the census fell 277 -> 15,
+# monotonically, and never once recovered. Income was 0.35/s against an
+# average body cost of 3, so the marrow could field ~7 bodies a minute
+# while the player killed 17. The reserve sat at zero for 22 of the 24
+# minutes — the hive was broke from minute two onward, and "clearing the
+# level" was just outspending it.
+#
+# Income was the FIRST limit; it was not the only one. The claim that
+# once stood here — "a 132-tick interval across 3 breaches carries ~81
+# bodies a minute" — was false, and the gate caught it: the dispatch
+# counter is a single global, so breach count bought nothing and the
+# pipeline stayed pinned near 27/min while the reserve banked 290 of
+# 300 unspent. Both ends are fixed now (see the per-breach divisor in
+# `step`); this comment is kept as written-down proof that arithmetic
+# in a comment is not arithmetic in the code.
+RESERVE_CAP = 300.0
+REGEN_BASE = 1.00          # per second when full
+REGEN_EMPTY_BOOST = 2.5    # -> 3.5/s when empty (and during debt)
+# scaled WITH the regen it is denominated in: this is "~90s of outage",
+# and at the new resupply rate the old -32.0 would have been nine
+# seconds — a core kill has to keep costing the hive what it used to
+CORE_KILL_DEBT = -320.0    # ~90s at the 3.5/s home-resupply rate
 
 DISPATCH_COST = {"mite": 1, "husk": 2, "spitter": 2, "shrieker": 3,
                  "flicker": 3, "brute": 4, "warden": 8}
@@ -265,8 +288,16 @@ class MarrowController:
                     # already); production holds the sustained beat.
                     base = (SHELF_BURST_TICKS if cost == 0.0
                             else DISPATCH_INTERVAL_TICKS)
-                    self._next_dispatch = tick + int(
-                        base * max(1.0, dispatch_factor))
+                    # THE CADENCE IS PER WAY IN, NOT PER HIVE. This
+                    # counter is global, so three open breaches poured
+                    # no faster than one and the whole pipeline was
+                    # pinned near 27 bodies a minute however rich the
+                    # marrow got — which is exactly why raising income
+                    # tenfold left 290 of 300 reserve sitting unspent.
+                    # A second doorway is a second throat.
+                    self._next_dispatch = tick + max(1, int(
+                        base * max(1.0, dispatch_factor)
+                        / max(1, len(live_breaches))))
                     out.append(MarrowCommand(kind="dispatch",
                                              breach_id=bid, unit_kind=kind))
         for b in live_breaches:

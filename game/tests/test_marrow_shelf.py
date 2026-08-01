@@ -16,7 +16,7 @@ from __future__ import annotations
 from collections import Counter
 
 from perihelion.levels import LevelBuilder
-from perihelion.marrow import (DISPATCH_COST, GUARDIAN_SHELF,
+from perihelion.marrow import (CORE_KILL_DEBT, DISPATCH_COST, GUARDIAN_SHELF,
                                REPLACE_INTERVAL_TICKS, STRIKE_CYCLE,
                                Breach, MarrowController)
 from perihelion.sim import GameSession, InputFrame
@@ -101,7 +101,7 @@ def test_no_replacement_during_a_pour_or_while_exhausted():
             "the shelf rebuilt while a breach was live — the stall "
             "tell's arithmetic just went dishonest")
     m2 = MarrowController()
-    m2.depot.set_debt(-32.0)        # blackout
+    m2.depot.set_debt(CORE_KILL_DEBT)   # blackout, at whatever it costs now
     for t in range(1, 10 * 60):
         cmds = m2.step(t, None, [], shelf_census=[])
         assert not any(c.kind == "replace" for c in cmds), (

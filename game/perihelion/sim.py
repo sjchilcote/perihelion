@@ -41,6 +41,12 @@ GROUP_ENEMY = 1
 GROUP_PBULLET = 2
 GROUP_EBULLET = 3
 GROUP_PICKUP = 4
+# Emplacements — guns, not loot. They shared the pickup faction until the
+# swarm needed to SEE them (director 2026-08-01: "give the Testator
+# enemies more fear of turrets"), and perception cannot fear a thing it
+# cannot tell apart from a medkit. Nothing masks a raycast on either
+# group; the split is for recognition.
+GROUP_STRUCTURE = 5
 
 ACTIVE_HOPS = 5
 
@@ -404,19 +410,23 @@ SHOP: dict[str, dict] = {
     "ammo_cell": dict(cost=4, label="CELLS x8", ammo=("cell", 8)),
 }
 
+# NOTHING THAT DIES PAYS IN HEALTH (director 2026-07-31: "eliminate
+# health pack drops from enemies — that is the number one balance
+# ruiner"). Killing restores ammunition, never hull. Health is a map
+# resource you have to go and find and eventually run out of, so a room
+# full of enemies is a cost you cannot farm your way back from — with
+# medkits on the drop table, the harder the fight the more it healed
+# you, which is the exact inversion of a threat.
 DROP_TABLES = {
-    "husk": [(0.35, "ammo_9mm"), (0.08, "medkit")],
+    "husk": [(0.35, "ammo_9mm")],
     "mite": [(0.04, "ammo_9mm")],
-    "spitter": [(0.30, "ammo_shell"), (0.08, "medkit")],
-    "brute": [(0.55, "ammo_cell"), (0.25, "medkit")],
+    "spitter": [(0.30, "ammo_shell")],
+    "brute": [(0.55, "ammo_cell")],
     "shrieker": [(0.5, "ammo_9mm")],
-    # the boss carries the spoils: a guaranteed cache ON the kill —
-    # Sol 2 §6's encounter-clear recovery, attached to the victory
-    # itself. Flight recorder: late deaths were wounded bots pinned
-    # at boss doors with the map's medkits long consumed.
-    "warden": [(1.0, "medkit"), (1.0, "ammo_9mm"), (1.0, "ammo_shell"),
-               (0.5, "ammo_cell")],
-    "flicker": [(0.4, "ammo_9mm"), (0.1, "medkit")],
+    # the boss carries the spoils — ammunition for what the fight cost,
+    # not the hull back
+    "warden": [(1.0, "ammo_9mm"), (1.0, "ammo_shell"), (0.5, "ammo_cell")],
+    "flicker": [(0.4, "ammo_9mm")],
     # scouts travel light: killing one pays in denial, not salvage
     "vagrant": [(0.3, "ammo_9mm")],
     "lacuna": [(0.2, "ammo_9mm")],
@@ -940,7 +950,7 @@ class GameSession:
     def spawn_sentry(self, polygon: int, pos, kind: str = "sentry") -> int:
         d = SENTRIES[kind]
         eid = self.sim.spawn(self.sim.place(polygon, pos[0], pos[1]),
-                             d["radius"], 100.0, GROUP_PICKUP)
+                             d["radius"], 100.0, GROUP_STRUCTURE)
         self.sim.set_props(eid, transfers=False, physical=False)
         self.sentries[eid] = dict(kind=kind, cd=0, spin=d["spin_up"])
         return eid
@@ -1806,7 +1816,7 @@ class GameSession:
                              links=[], attached=None)
         # the anti-looter guardians, re-sworn: invincible, player-loyal
         for tx, ty in ((-30.0, -34.0), (-30.0, 34.0)):
-            tid = s.spawn(s.place(sanctum, tx, ty), 6.0, 50.0, GROUP_PICKUP)
+            tid = s.spawn(s.place(sanctum, tx, ty), 6.0, 50.0, GROUP_STRUCTURE)
             s.set_props(tid, transfers=False, physical=False)
             self.turrets[tid] = dict(cd=0)
         # the seed keeps the pantry stocked
@@ -2397,6 +2407,64 @@ class GameSession:
                     detail=f"prowled {t_h - e.pop('_prowling')}t"))
                 e.pop("_prowl_tick", None)
 
+            # FEAR OF EMPLACEMENTS. A body that can see a gun marks the
+            # ground with Danger and backs off, unless it has the
+            # numbers. The mark is the point: one body's dread teaches
+            # the whole swarm to route around the emplacement, instead
+            # of each of them discovering it by dying in front of it.
+            if kind not in ADVERSARY and kind not in CORE_KINDS \
+                    and not e.get("dispatched") and not e.get("dormant") \
+                    and self.sentries:
+                if e.get("dread_cd", 0) > 0:
+                    # ONE FLIGHT PER ENCOUNTER. Re-arming on every scan
+                    # while the gun stayed in view turned a 90-tick
+                    # backing-off into a 746-tick rout with the body's
+                    # whole AI suspended behind it — it fled, kept
+                    # seeing the thing it fled, and fled again forever.
+                    e["dread_cd"] -= 1
+                elif e.get("dread", 0) <= 0 \
+                        and (self.tick_count + eid) % 10 == 3:
+                    gun = s.find_closest_faction_member_with_los(
+                        eid, GROUP_STRUCTURE, VISION_HOPS,
+                        SENTRIES["sentry"]["range"], self.tick_count)
+                    if gun is not None:
+                        # A MARK IS A LEVEL, NOT A SUM. `emit` here let
+                        # every frightened body add 0.55 to the same
+                        # chamber forever: measured 19-23x the normal
+                        # Danger field, which the hold-line, scout
+                        # planting and routing all read — the fear
+                        # drowned the very field it was written into.
+                        self.signals.emit_at_least(
+                            SignalKind.DANGER, gun.polygon,
+                            coord.TURRET_DREAD, self.tick_count)
+                        peers = sum(
+                            1 for oid in s.polygon_entities(polygon)
+                            if oid != eid and oid in self.enemies
+                            and self.enemies[oid]["state"] in ("waking", "hunt"))
+                        if coord.dread_turret(peers):
+                            # keep a DIRECTION in this chamber's frame,
+                            # never the gun's place: a place held across
+                            # ticks is a place in a frame the body may
+                            # have left, and the two stop being
+                            # comparable the moment it crosses a door
+                            flee = gun.pos.toward(at)
+                            if flee.length > 1e-6:
+                                e["dread"] = coord.TURRET_DREAD_TICKS
+                                e["dread_cd"] = coord.TURRET_DREAD_COOLDOWN
+                                e["_dread_dir"] = flee.normalized().local()
+                                e["_dread_poly"] = polygon
+                        else:
+                            e.pop("dread", None)
+            if e.get("dread", 0) > 0:
+                if e.get("_dread_poly") != polygon:
+                    e.pop("dread", None)   # through a door: that fear is spent
+                else:
+                    e["dread"] -= 1
+                    dx, dy = e["_dread_dir"]
+                    self._budget_move(eid, e, d, st, at.offset(dx, dy),
+                                      d["accel"])
+                    continue
+
             if kind == "shrieker" and not e.get("tether") \
                     and not e.get("dormant") \
                     and e.get("dispatched") is None:
@@ -2580,10 +2648,31 @@ class GameSession:
                 # fired by a real sighting at whatever depth the geometry
                 # gives it.
                 seen = None
+                alarm = False
                 if (self.tick_count + eid) % 10 == 0:
                     seen = self.senses.sight_of(eid, self.pid)
+                    if seen is None and e.get("garrison") is None:
+                        # settled agents are excluded exactly as they are
+                        # from the quorum below: a post is a post, and it
+                        # is answered by what walks into it, not by what
+                        # can be smelled from it (U10)
+                        alarm = coord.alarmed(self.signals.sample(
+                            SignalKind.DISTRESS, polygon, self.tick_count))
                 if seen is not None:
                     self._notice(eid, e, d, at, seen)
+                    continue
+                if alarm:
+                    # THE ALARM DOES NOT NEED A VOTE. Below this line
+                    # sits the quorum, which asks what the neighbours
+                    # are doing and is INHIBITED by calm ones — correct
+                    # for deciding whether to investigate a rumour, and
+                    # exactly wrong for a room that reeks of a fight.
+                    # Anything that can smell this goes, and the going
+                    # is what makes a sighting summon everyone in range
+                    # instead of one body at a time.
+                    self._set_enemy_state(eid, e, "waking")
+                    e["wake"] = self.WAKE_TICKS[kind]
+                    self._snd(d["alert_snd"], at, 0.6)
                     continue
                 # ...and the FRACTIONAL QUORUM: commit on the fraction of
                 # visible chamber-mates already committed, plus one
@@ -2877,10 +2966,10 @@ class GameSession:
                             self.signals.sample(SignalKind.MUSTER,
                                                 polygon, t_),
                             cross_peers=1):
-                        # holding, but never IN the firing cone: being
-                        # shot lifts the hold above (a provoked agent
-                        # commits), and the wait happens flanking the
-                        # door frame, not centered on it
+                        # threshold-holding: a lone body does not walk
+                        # into a chamber that keeps killing its kind.
+                        # It waits at the doorframe and calls (Muster)
+                        # until a push gathers.
                         if (t_ + eid) % 5 == 0:
                             self.signals.emit(SignalKind.MUSTER, polygon,
                                               0.05, t_)
@@ -3015,6 +3104,15 @@ class GameSession:
         e["wake"] = self.WAKE_TICKS[e["kind"]]
         self._snd(d["alert_snd"], at, 0.9)
         self._fx_at("alerted", at)
+        # THE ALARM IS A SMELL. Seeing the intruder is itself a
+        # disturbance, and the biggest one there is: it dumps Distress
+        # where the sighting happened, which is what carries "he is
+        # HERE" to everything that cannot see him yet. Without this the
+        # only thing that ever called for help was being hurt — so the
+        # swarm learned about the player exclusively from its own
+        # casualties, one at a time, always too late.
+        self.signals.emit(SignalKind.DISTRESS, self.sim.get_polygon(eid),
+                          coord.SIGHT_DISTRESS, self.tick_count)
         face = at.toward(seen.pos)
         if face.length > 1e-6:
             self.sim.set_dir(eid, face.normalized())
@@ -4020,15 +4118,25 @@ class GameSession:
         portals_ = self.sim.polygon_portals(polygon)
         n_open = sum(1 for p_ in portals_ if p_ is not None)
         came_from = e.get("_came_from")
+        # BEACON, THEN SCENT. One pass for the trails first: if any
+        # doorway is carrying a fresh one, this hunter has cut the track
+        # and follows it alone. Otherwise it reads the diffuse fields and
+        # goes toward the commotion.
+        trails = {edge: self.signals.sample(SignalKind.TRAIL, portal[0], t_)
+                  for edge, portal in enumerate(portals_) if portal is not None}
+        locked = coord.scent_lock(trails.values())
+        e["_tracking"] = locked          # the renderer/telemetry tell
         for edge, portal in enumerate(portals_):
             if portal is None:
                 continue
             nb = portal[0]
-            att = (self.signals.sample(SignalKind.NOISE, nb, t_)
-                   + self.signals.sample(SignalKind.TRAIL, nb, t_)
-                   + 0.6 * self.signals.sample(SignalKind.DISTRESS, nb, t_)
-                   + 0.4 * self.signals.sample(SignalKind.MUSTER, nb, t_)
-                   + 0.15 * self.signals.doorway_trail(polygon, edge, t_))
+            att = coord.hunt_attraction(
+                trails[edge],
+                self.signals.sample(SignalKind.NOISE, nb, t_),
+                self.signals.sample(SignalKind.DISTRESS, nb, t_),
+                self.signals.sample(SignalKind.MUSTER, nb, t_),
+                self.signals.doorway_trail(polygon, edge, t_),
+                locked)
             if n_open > 1 and nb == came_from:
                 # anti-backtrack: one step of memory. Every route pick
                 # deposits doorway trail, so after a single crossing

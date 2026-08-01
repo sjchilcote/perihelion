@@ -142,6 +142,33 @@ def corpse_line(idx: int) -> str | None:
     return _CORPSE_LINES[idx % len(_CORPSE_LINES)]
 
 
+def _build_id() -> str:
+    """Which working tree produced this run: `<rev>` or `<rev>-dirty`.
+
+    An A/B is only a comparison if you can tell the two sides apart
+    afterwards, and uncommitted experiments are exactly the case where
+    the revision alone would lie — hence the dirty flag. When there is
+    no git to ask, this says so rather than inventing an identifier: a
+    trace headed "unknown" is a known unknown, a trace headed with a
+    plausible-looking hash that means nothing is a trap."""
+    import subprocess
+    try:
+        rev = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=Path(__file__).resolve().parent, capture_output=True,
+            text=True, timeout=5.0)
+        if rev.returncode != 0:
+            return "nogit"
+        dirty = subprocess.run(
+            ["git", "status", "--porcelain", "--untracked-files=no"],
+            cwd=Path(__file__).resolve().parent, capture_output=True,
+            text=True, timeout=5.0)
+        suffix = "-dirty" if dirty.stdout.strip() else ""
+        return rev.stdout.strip() + suffix
+    except (OSError, subprocess.SubprocessError):
+        return "nogit"
+
+
 def save_dir() -> Path:
     base = os.environ.get("XDG_DATA_HOME")
     root = Path(base) if base else Path.home() / ".local" / "share"
@@ -312,7 +339,13 @@ class GameScene(menus.Scene):
         if self.logvoice:
             txt, ticks = self.logvoice
             alpha = 255 if ticks > 60 else max(0, int(255 * ticks / 60))
-            self._ui_text(fb, txt, W // 2, H - ui(40), (150, 140, 120), 10,
+            # ui(58), not ui(40): the bottom-left block (weapon + ammo
+            # over the health line) reaches up to about H-41, and this
+            # plate is centred and wide enough to sit right on the ammo
+            # digits — a reader watching the film found "PISTOL" with no
+            # number under it for five straight seconds while a wreck's
+            # log line played. The voice speaks ABOVE the readout.
+            self._ui_text(fb, txt, W // 2, H - ui(58), (150, 140, 120), 10,
                           alpha, plate=True)
             self.logvoice = (txt, ticks - 1) if ticks > 1 else None
         if self.show_hints and self.session.tick_count < 60 * 14 \
@@ -486,10 +519,21 @@ class App:
             import time as _time
             stamp = _time.strftime("%Y%m%d_%H%M%S")
             name = Path(game.level_path or "session").stem
+            # A TRACE MUST SAY WHAT PRODUCED IT. `seed` here is the
+            # SESSION's seed, which is not the --seed argument and is not
+            # unique across runs: two different invocations wrote traces
+            # both headed "seed 2", and an A/B comparing them had no way
+            # to tell which build each came from. A measurement you
+            # cannot attribute is not a measurement, so the invocation
+            # and the working tree's revision go in the header — a run
+            # is then self-describing no matter how many pile up in
+            # out/sessions.
             self._trace_writer = TraceWriter(
                 Path("out") / "sessions" / f"{stamp}_{name}.jsonl",
                 header=dict(level=str(game.level_path or ""),
-                            seed=int(game.seed)))
+                            seed=int(game.seed),
+                            argv=sys.argv[1:],
+                            build=_build_id()))
             self._trace_session = game.session
         self._trace_writer.drain_from(game.session.trace)
 
@@ -546,6 +590,18 @@ class App:
         if rec["frames"] % rec["every"] == 0:
             rec["q"].put((bytes(self._fb_raw),
                           str(rec["dir"] / f"frame_{rec['saved']:06d}.png")))
+            # WHICH TICK IS THIS PICTURE? Recording starts when the APP
+            # does, so the film runs through menus and loads before a
+            # session exists and frame*every is NOT the tick. A reader
+            # correlating film against trace had to reverse-engineer the
+            # offset from HP transitions and landed on "tick ~ 3*frame -
+            # 546" — a guess that happens to work until a pause makes it
+            # silently wrong. The frame knows its own tick; write it.
+            rec["events"].write(json.dumps(dict(
+                t=rec["frames"] / 60.0, kind="frame",
+                frame=rec["saved"],
+                tick=(self.game.session.tick_count
+                      if self.game is not None else -1))) + "\n")
             # PERIHELION_VIS_DUMP: debug instrumentation for the flicker
             # investigation -- dump the visible instance set (polygon, depth,
             # clip bbox) alongside every saved frame so a frame-pair diff
@@ -1110,12 +1166,18 @@ class App:
                            ui(4), ui(4), (255, 255, 0), 11)
             st = self._frame_stat
             if st is not None:
+                # ui(17), not ui(14): at size 11 the glyphs are ~11px
+                # tall, so a 10px line step drew this straight through
+                # the descenders of the fps line above it and garbled
+                # BOTH. Caught by a reader watching the actual frames —
+                # it was in every frame of a 24-minute capture and no
+                # test could have seen it.
                 text.blit_text(
                     self.internal,
                     f"sim {st.ms_sim:.1f}  draw {st.ms_draw:.1f}  "
                     f"pres {st.ms_present:.1f}  rec {st.ms_record:.1f}  "
                     f"idle {st.ms_wait:.1f}  x{st.sim_ticks / st.frames:.2f}",
-                    ui(4), ui(14), (255, 255, 0), 11)
+                    ui(4), ui(17), (255, 255, 0), 11)
         self._meter.mark("draw")
         if self.window is not None:
             sdx = sdy = 0

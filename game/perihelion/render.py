@@ -74,6 +74,12 @@ def _parse_internal_res() -> tuple[int, int]:
 
 INTERNAL_W, INTERNAL_H = _parse_internal_res()
 
+# How long the "you were hit" vignette holds. Long enough to survive a
+# capture sampling it AND long enough for a human to register the source
+# before it clears — the same lesson gate 62 learned about the arrival
+# light, applied to the one tell the player most needs to read.
+HURT_VIGNETTE_TICKS = 14
+
 # The camera's baseline zoom (GameSession's default 1.0, sim.py) is
 # authored for the 640x360 default internal resolution. Scale it by the
 # resolution ratio so the world-space field of view is unchanged when
@@ -1871,7 +1877,7 @@ class Renderer:
                 # marker contact: the glob IS the tell (drawn on the body
                 # every frame while the brand holds); here just the hurt
                 # blink — NO rings, rings mean aggro
-                self._hurt_ticks = 2
+                self._hurt_ticks = HURT_VIGNETTE_TICKS
             elif tag == "marker_fire":
                 _, polygon, x, y, nx, ny = fx
                 self._sparks.append(dict(polygon=polygon, x=x, y=y,
@@ -1912,7 +1918,16 @@ class Renderer:
                 _, eid = fx
                 self._arrival_flash[eid] = 26
             elif tag == "playerhurt":
-                self._hurt_ticks = 2
+                # BEING HURT IS THE MOST IMPORTANT THING THAT HAPPENS TO
+                # YOU, so it may not also be the briefest. This was 2
+                # ticks — 33ms — three lines below a comment recording
+                # that gate 62 found a FIVE-tick light unreadable at
+                # capture cadence. A reader watching a real session
+                # measured the entire feedback window for a 13-damage
+                # spitter hit at ~100ms and could not tell what had hit
+                # him; the projectile came from off-screen and the flash
+                # was gone before the next sampled frame.
+                self._hurt_ticks = HURT_VIGNETTE_TICKS
             elif tag == "playerdie":
                 self._dying = True
             elif tag == "playerreprint":
@@ -4158,7 +4173,7 @@ class Renderer:
         if self._hurt_ticks > 0:
             # pain reads at the screen edges (red vignette) + a faint cast;
             # the center of the world must stay readable through the flash
-            k = self._hurt_ticks / 2.0
+            k = self._hurt_ticks / float(HURT_VIGNETTE_TICKS)
             passes.append((160, 8, 8, int(150 * k), True))
             passes.append((190, 26, 26, int(24 * k), False))
         if session.dead and self._death_fade > 0:

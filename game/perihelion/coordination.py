@@ -40,6 +40,108 @@ DANGER_HOLD_LINE = 0.70
 DANGER_CROSS_PEERS = 2     # visible committed peers that make a push
 DANGER_CROSS_MUSTER = 0.60 # or enough Muster gathered at the door
 
+# THE ALARM (director 2026-07-31). Measured on a real session before
+# this landed: agents spent 61,446 of 87,662 ticks HOLDING at doorways,
+# 1,159 separate stints, because the player's chamber sat over the
+# Danger line 47% of the time and Muster — the only other way in —
+# reached its 0.60 crossing threshold in 0 of 1,461 samples. Holding was
+# a terminal state, so a room the player had fought in became a room
+# nothing would enter, and the game read as enemies that did not care
+# that you were there.
+#
+# The rule that replaces it is stigmergic, not a threshold tweak:
+#
+#   seeing the intruder DUMPS Distress          -- the alarm is a smell
+#   smelling Distress commits you, and you climb it  -- toward the fight
+# A third leg — sending a lone agent up the KIN gradient to fetch help —
+# was written, measured, and REMOVED. It halved hunt commitments (31.8/min
+# against a 56.7 baseline) because an errand walks a body away from the
+# fight, and the Distress it laid never recruited enough to pay for the
+# leaving. Standing at the door is a worse behaviour that costs less. The
+# doorway-hold pathology is therefore still open; it wants a different
+# answer, not this one.
+SIGHT_DISTRESS = 0.50      # dumped where an agent sights the player
+ALARM_DISTRESS_LINE = 0.45 # smell this much and you go, whatever you were doing
+
+
+def alarmed(distress: float, line: float = ALARM_DISTRESS_LINE) -> bool:
+    """Is the local Distress loud enough to commit an idle agent?
+
+    This is deliberately NOT the quorum: the quorum asks what your
+    neighbours are doing, and a hall of calm neighbours inhibits it. An
+    alarm is a fact about the world, and a fact does not need a vote."""
+    return distress >= line
+
+
+# THE TWO-STAGE TRACK. Distress is a 45s field that SPREADS: it says
+# "something is happening over there" from far away. Trail is a 12s
+# field that does NOT spread and cannot accumulate past its cap: it says
+# "he went THIS WAY, seconds ago", and only to someone already standing
+# next to where he walked. They are a beacon and a scent, and they want
+# to be read in that order — beacon until you cut the scent, then scent
+# the rest of the way.
+#
+# They used to be SUMMED, which is why a tracker could lose you while
+# standing in your footprints: measured on a real session, Distress by a
+# busy fight reached 4.55 and enters that sum at 0.6x = 2.73, while
+# Trail is capped at 0.80 by construction. The diffuse smell outvoted
+# the fresh one better than three to one, so hunters drifted toward the
+# general commotion instead of running down the body that made it.
+TRAIL_LOCK = 0.30          # ~21s old: fresher than this and the scent WINS
+
+# TURRET DREAD (director 2026-08-01: "give the Testator enemies more fear
+# of turrets; they can simply dump Danger and run away when they even see
+# one unless they feel they have the numbers to take it on").
+#
+# Measured cause: emplaced guns took 56% of every killing blow in a real
+# session, and 74% of those kills happened 3+ hops from the player. Each
+# death dumps Danger where it happened, so the guns were pre-poisoning
+# the chambers the player was about to walk into, and the survivors then
+# refused to enter them. The swarm was feeding itself to the emplacements
+# and souring the map on its way down.
+#
+# A body that RECOGNISES a gun and backs off does three things at once:
+# it stops dying for nothing, it stops manufacturing Danger the player
+# never sees, and — because backing off dumps Danger AT the gun — it
+# teaches the rest of the swarm to route around the emplacement instead
+# of discovering it one corpse at a time. Numbers override dread: a
+# push with the bodies to spend still goes in.
+TURRET_DREAD = 0.55        # Danger dumped where a gun is seen
+TURRET_DREAD_PEERS = 3     # committed peers that make a gun worth rushing
+TURRET_DREAD_TICKS = 90    # ~1.5s of backing off bought per sighting
+# ...and then it may not be bought again for this long. Without a floor
+# on the gap, a body that flees while still able to see the gun re-arms
+# on its very next scan and never stops: measured at 746 continuous
+# ticks of flight with the body's whole AI suspended behind it.
+TURRET_DREAD_COOLDOWN = 600   # ~10s: flee at most ~1.5s in every 11.5s
+
+
+def dread_turret(peers_committed: int,
+                 needed: int = TURRET_DREAD_PEERS) -> bool:
+    """Does this body back away from a gun it can see?
+
+    Fear here is arithmetic, not cowardice: one body against an
+    emplacement is a corpse and a wasted Danger mark, and the same body
+    with a push around it is an assault."""
+    return peers_committed < needed
+
+
+def scent_lock(trails) -> bool:
+    """Is any doorway carrying a trail fresh enough to lock onto?"""
+    return max(trails, default=0.0) >= TRAIL_LOCK
+
+
+def hunt_attraction(trail: float, noise: float, distress: float,
+                    muster: float, doorway: float, locked: bool) -> float:
+    """How loudly one doorway calls a hunter.
+
+    `locked` (some doorway has a fresh scent) collapses this to the
+    scent alone: once you have the track you follow the track, and the
+    beacon that brought you here stops being able to pull you off it."""
+    if locked:
+        return trail + 0.15 * doorway
+    return (noise + trail + 0.6 * distress + 0.4 * muster + 0.15 * doorway)
+
 RAID_FRACTION = 1.0 / 3.0  # committed searchers taking the second route
 
 

@@ -23,6 +23,7 @@ from perihelion.levels import LevelBuilder
 from perihelion.marrow import (CORE_KILL_DEBT, DISPATCH_COST,
                                EXHAUST_GRACE_TICKS, GUARDIAN_SHELF,
                                IDLE_CLOSE_TICKS, NO_ROUTE_CLOSE_TICKS,
+                               REGEN_BASE, REGEN_EMPTY_BOOST, RESERVE_CAP,
                                Breach, CostFairScheduler, MarrowController,
                                ReserveDepot)
 from perihelion.sim import GameSession, InputFrame
@@ -67,24 +68,45 @@ def test_breach_stores_no_reserve_and_no_siblings():
 # ---------------------------------------------------------------------------
 
 def test_regen_rates_full_empty_and_debt():
-    d = ReserveDepot(120.0)
+    """The SHAPE of the economy, expressed in its own constants.
+
+    These used to hardcode 0.35 and 120.0, which made a deliberate
+    retune look identical to a broken formula. The laws being guarded
+    are: a full depot cannot exceed its cap, an empty one earns the
+    boosted rate, and a core-kill debt is denominated in that same rate
+    so the outage lasts a fixed WALL TIME however the economy is tuned.
+    """
+    empty_rate = REGEN_BASE * (1.0 + REGEN_EMPTY_BOOST)
+
+    d = ReserveDepot(RESERVE_CAP)
     for _ in range(60):
         d.advance(1.0 / 60.0)
-    assert abs(d.reserve - 120.0) < 1e-9, "full caps at cap"
+    assert abs(d.reserve - RESERVE_CAP) < 1e-9, "full caps at cap"
+
     d = ReserveDepot(0.0)
     for _ in range(60):
         d.advance(1.0 / 60.0)
-    assert abs(d.reserve - 0.35) < 0.001, d.reserve
+    # slightly under the nominal rate: the boost fades as the depot
+    # fills, so a second of earning from empty banks a hair less than
+    # the empty-rate. 2% covers that droop at any cap/rate pairing.
+    assert abs(d.reserve - empty_rate) < 0.02 * empty_rate, d.reserve
+
+    # the outage is ~90 seconds BY CONSTRUCTION: the debt is defined as
+    # that many seconds of boosted resupply, so this must hold at any
+    # tuning — if it stops holding, the two constants have drifted apart
+    outage_s = abs(CORE_KILL_DEBT) / empty_rate
+    assert 80.0 <= outage_s <= 100.0, (
+        f"a core kill should black the hive out for ~90s; at these "
+        f"constants it is {outage_s:.0f}s — CORE_KILL_DEBT and "
+        f"REGEN_BASE have drifted apart")
     d = ReserveDepot(0.0)
     d.set_debt(CORE_KILL_DEBT)
-    for _ in range(90 * 60):
+    for _ in range(int(outage_s * 60) - 60):
         d.advance(1.0 / 60.0)
-    assert -0.6 <= d.reserve <= -0.4, (
-        f"after 90s of home resupply the debt should sit near zero, "
-        f"got {d.reserve}")
+    assert d.reserve < 0.0, "the debt outlasts all but the last second"
     for _ in range(2 * 60):
         d.advance(1.0 / 60.0)
-    assert d.reserve > 0.0, "and cross it within two more seconds"
+    assert d.reserve > 0.0, "and clears just after"
 
 
 def test_the_stall_waits_for_the_selected_unit():
@@ -114,7 +136,8 @@ def test_the_stall_waits_for_the_selected_unit():
             break
         assert m._pending_kind == "warden"
     assert dispatched_at is not None
-    expect = (DISPATCH_COST["warden"] - 0.01) / 0.35 * 60
+    expect = ((DISPATCH_COST["warden"] - 0.01)
+              / (REGEN_BASE * (1.0 + REGEN_EMPTY_BOOST)) * 60)
     assert abs(dispatched_at - expect) < 120, (
         f"stall {dispatched_at} ticks, expected ~{expect:.0f}")
 
