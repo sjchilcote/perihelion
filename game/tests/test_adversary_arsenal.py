@@ -35,7 +35,8 @@ case is the special one.
 from __future__ import annotations
 
 from perihelion.levels import LevelBuilder
-from perihelion.sim import ENEMIES, GameSession, InputFrame
+from perihelion.sim import (ENEMIES, GROUP_EBULLET, GameSession,
+                            InputFrame)
 
 
 def _two_chamber(kind="vagrant"):
@@ -483,3 +484,79 @@ def test_the_snare_leads_a_moving_target():
         "the snare fired straight at the target, not ahead of it")
     assert lead_side * to_now.cross(hit.vel.normalized()) > 0.0, (
         "the snare led the wrong way")
+
+
+# ---------------------------------------------------------------------------
+# the two guards in `_contact`, which gate 69 paid for and nothing tested
+# ---------------------------------------------------------------------------
+
+def _plant_round(s, at_eid, src_eid, kind="lob", speed=0.0, dx=0.0):
+    """Put a live round ON a body, deterministically.
+
+    A thrown round spawns CLEAR of its thrower and only meets it again
+    by bouncing back, which a short fixture never reaches — the first
+    cut of these two tests passed for exactly that reason and both
+    mutants survived them. The contact these guards exist for is
+    constructed here instead of waited for."""
+    d = ENEMIES["vagrant"]
+    st = s.sim.get(at_eid)
+    # `.offset()` builds a DIFFERENCE; a place is pos + difference.
+    place = st.pos + st.pos.offset(dx, 0.0)
+    bid = s.sim.spawn(place, d["lob_radius"], d["lob_mass"], GROUP_EBULLET)
+    s.sim.set_props(bid, max_substep=3.0, rest_wall=d["lob_rest"], rest_ent=0.9)
+    s.sim.set_vel(bid, place.toward(st.pos).normalized() * speed
+                  if speed else place.toward(st.pos) * 0.0)
+    s.bullets[bid] = dict(kind=kind, dmg=d["lob_dmg"], ttl=300,
+                          src=src_eid, born=s.tick_count)
+    return bid
+
+
+def test_a_thrown_round_never_damages_its_own_thrower():
+    """Gate 69's first blocker: the Adversary shoved ITSELF on ~30% of
+    observed throws.
+
+    The player arm of `_contact` had grown a shooter exclusion; friendly
+    fire made the ENEMY arm reachable for the first time and it had
+    neither guard. A guard living in one arm of a dispatch is a guard
+    that will be missed when a new arm becomes reachable, so this pins
+    it from the enemy side. Verified against the mutant: delete the
+    `src == y` check and this test fails."""
+    s, eid = _same_chamber()
+    hp0 = s.enemies[eid]["hp"]
+    _plant_round(s, eid, src_eid=eid)          # its own round, on top of it
+    for _ in range(30):
+        s.tick(InputFrame())
+    assert eid in s.enemies, "the thrower was killed by its own round"
+    assert s.enemies[eid]["hp"] == hp0, (
+        f"the thrower lost {hp0 - s.enemies[eid]['hp']} hp to the round "
+        f"it threw — a body cannot be hurt by its own throw")
+
+
+def test_one_thrown_round_damages_a_body_at_most_once():
+    """Gate 69's second blocker: one bouncing grenade billed husk 52
+    four times, 3.25 damage events per fire.
+
+    A heavy object deliberately SURVIVES the body it hits and stays an
+    obstacle, so it goes on making contacts — which is precisely why the
+    once-per-object `struck` set has to exist. Verified against the
+    mutant: rebuild `struck` empty on each contact and this test
+    fails."""
+    s, eid = _same_chamber()
+    polygon = s.sim.get_polygon(eid)
+    # The victim is BACKED AGAINST A WALL and the round is thrown into
+    # it hard: a resting round only ever makes one contact, so the first
+    # cut of this test could not tell the guard from its absence. It has
+    # to bounce, which is the situation the guard was written for.
+    victim = s.spawn_enemy(polygon, (250.0, 0.0), "husk")
+    s.tick(InputFrame())
+    hp0 = s.enemies[victim]["hp"]
+    _plant_round(s, victim, src_eid=eid, speed=320.0, dx=-60.0)
+    for _ in range(240):
+        s.tick(InputFrame())
+        if victim not in s.enemies:
+            break
+    lost = hp0 - s.enemies.get(victim, {}).get("hp", -(10 ** 6))
+    assert lost <= ENEMIES["vagrant"]["lob_dmg"], (
+        f"{lost} hp lost to ONE round that deals "
+        f"{ENEMIES['vagrant']['lob_dmg']} — it is chipping the same body "
+        f"on every bounce")
