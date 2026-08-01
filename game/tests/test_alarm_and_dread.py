@@ -30,6 +30,17 @@ def test_an_alarm_does_not_need_a_vote():
     assert not coord.alarmed(coord.ALARM_DISTRESS_LINE - 0.01)
 
 
+def test_gunfire_alone_is_enough_to_commit_an_agent():
+    """Either channel arms the alarm. Firing already emitted Noise 0.8,
+    but its only consumer was the quorum — which caps ALL field
+    contribution at one bounded virtual supporter, so a shot next door
+    barely moved anyone. That is why rooms activated one at a time."""
+    assert coord.alarmed(0.0, coord.ALARM_NOISE_LINE)
+    assert coord.alarmed(0.0, 0.8), "a gunshot in this room must carry"
+    assert not coord.alarmed(0.0, coord.ALARM_NOISE_LINE - 0.01)
+    assert not coord.alarmed(0.0, 0.0), "silence commits nobody"
+
+
 def test_a_fresh_scent_beats_the_beacon_that_led_you_to_it():
     """The whole point of staging Trail over Distress: near a big fight
     Distress dwarfs Trail's hard 0.80 cap, so a summed score walks the

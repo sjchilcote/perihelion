@@ -62,15 +62,28 @@ DANGER_CROSS_MUSTER = 0.60 # or enough Muster gathered at the door
 # answer, not this one.
 SIGHT_DISTRESS = 0.50      # dumped where an agent sights the player
 ALARM_DISTRESS_LINE = 0.45 # smell this much and you go, whatever you were doing
+# GUNFIRE IS THE LOUDEST THING THE PLAYER DOES, and until this line
+# existed almost nothing heard it. Firing already emitted Noise 0.8, but
+# its only consumer was the quorum — which caps the whole field
+# contribution at ONE bounded virtual supporter, so a shot fired in the
+# next room barely moved anybody's commit probability. That is the
+# mechanism behind the pattern every reviewer of the director's session
+# described independently: rooms activating one at a time, enemies
+# "only beginning to move after the player fires at them", a conga line
+# instead of a response. Noise has a 3s half-life and spreads fast, so
+# this reads as "they heard that" and not as clairvoyance.
+ALARM_NOISE_LINE = 0.40
 
 
-def alarmed(distress: float, line: float = ALARM_DISTRESS_LINE) -> bool:
-    """Is the local Distress loud enough to commit an idle agent?
+def alarmed(distress: float, noise: float = 0.0,
+            line: float = ALARM_DISTRESS_LINE,
+            noise_line: float = ALARM_NOISE_LINE) -> bool:
+    """Has something loud enough happened here to commit an idle agent?
 
     This is deliberately NOT the quorum: the quorum asks what your
     neighbours are doing, and a hall of calm neighbours inhibits it. An
     alarm is a fact about the world, and a fact does not need a vote."""
-    return distress >= line
+    return distress >= line or noise >= noise_line
 
 
 # THE TWO-STAGE TRACK. Distress is a 45s field that SPREADS: it says

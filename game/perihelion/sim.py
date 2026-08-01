@@ -2656,8 +2656,11 @@ class GameSession:
                         # from the quorum below: a post is a post, and it
                         # is answered by what walks into it, not by what
                         # can be smelled from it (U10)
-                        alarm = coord.alarmed(self.signals.sample(
-                            SignalKind.DISTRESS, polygon, self.tick_count))
+                        alarm = coord.alarmed(
+                            self.signals.sample(SignalKind.DISTRESS,
+                                                polygon, self.tick_count),
+                            self.signals.sample(SignalKind.NOISE,
+                                                polygon, self.tick_count))
                 if seen is not None:
                     self._notice(eid, e, d, at, seen)
                     continue

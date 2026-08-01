@@ -670,6 +670,20 @@ def _scale_color(c, f: float):
 # Every enemy gets a value-contrast outline (fill +70); these override the
 # derived color/width where the archetype's read demands it.
 ENEMY_RIM = {"warden": (235, 235, 245)}
+# The rim a warden wears WHILE IT HOLDS YOU. Named, not inlined, so the
+# guard in test_grip_is_visible.py asserts on the value the renderer
+# actually uses rather than on a copy of it that can silently drift.
+GRIP_RIM = (255, 190, 60)
+
+# How much of a corpse's identifying hue is drained away. 1.0 would be
+# pure grey (you could no longer tell what died); 0.0 is the old
+# brightness-only tell that three readers of a real session could not
+# distinguish from a live enemy standing still.
+CORPSE_DRAIN = 0.75
+
+
+def _luma_of(c) -> float:
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
 ENEMY_RIM_W = {"brute": 2}
 
 BLOOD_BLOB = _regular_lumpy(6, [1.0, 0.7, 0.9, 0.6, 0.85, 0.75])
@@ -2825,8 +2839,23 @@ class Renderer:
                         ekind, self._DECAL_CIRCLE)
                     base = ENEMY_COLOR.get(ekind, (90, 90, 90))
                     mul = 0.45
-                cr, cg, cb = (int(base[0] * mul), int(base[1] * mul),
-                              int(base[2] * mul))
+                # THE DEAD LOSE THEIR COLOUR, not just their brightness.
+                # A corpse used to be the live silhouette at 45% — one
+                # channel of difference, and brightness is the channel a
+                # dark game has least of. Three independent readers of a
+                # real session counted corpses as live idle enemies and
+                # only caught it against the log; one wrote "I misread it
+                # myself, and a viewer has no way to resolve it at all".
+                # Draining the hue leaves the kind's shape (you can still
+                # tell WHAT died) while removing the thing that says it
+                # is still a threat.
+                g = _luma_of(base)
+                cr, cg, cb = (int((base[0] * (1.0 - CORPSE_DRAIN)
+                                   + g * CORPSE_DRAIN) * mul),
+                              int((base[1] * (1.0 - CORPSE_DRAIN)
+                                   + g * CORPSE_DRAIN) * mul),
+                              int((base[2] * (1.0 - CORPSE_DRAIN)
+                                   + g * CORPSE_DRAIN) * mul))
                 add((0.0, x, y, size, angle, 0.55, 0.9,
                      cr, cg, cb, shape, 1.0))
                 for sh in (self._DECAL_LINE_A, self._DECAL_LINE_B):
@@ -3717,7 +3746,21 @@ class Renderer:
             if flashed:
                 rim = (255, 255, 255)
             elif af > 0 and (af // 2) % 2 == 0:
-                rim = (255, 70, 50)
+                # THE SIGNAL MAY NOT SHARE THE NOISE'S COLOUR. This blink
+                # was (255,70,50) — red — and a grip is the one situation
+                # that floods the whole screen red with the hurt vignette
+                # it is itself causing. Against a 38-luma body (the
+                # darkest in the palette, deliberately, so overlays can't
+                # dissolve it) on a 0-luma floor, the only legible thing
+                # about a warden was its 236-luma rim, and the grip threw
+                # that away exactly when it mattered. Run 37 removed the
+                # whiten from the BODY and left the signal in the red
+                # channel, so its own "HP drains in red haze" failure came
+                # back wearing different clothes: a human reviewer watched
+                # this kill the director and called the death arbitrary.
+                # Amber holds the alarm reading, keeps ~200 luma, and is
+                # nothing else in the vocabulary.
+                rim = GRIP_RIM
             flashed = False
         if kind == "mite":
             if clip_screen is not None and not fully_inside \
