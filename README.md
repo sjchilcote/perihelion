@@ -21,12 +21,15 @@ A showcase run: [media/showcase_2026-07-09.mp4](media/showcase_2026-07-09.mp4)
 
 ## Running
 
-Requires Python 3.11+, [uv](https://docs.astral.sh/uv/), and a Rust toolchain
-(for the engine, built once).
+Requires Python 3.11+, [uv](https://docs.astral.sh/uv/), a Rust toolchain,
+and a checkout of the engine's home repo,
+[noneuclideantopdownshooter](../noneuclideantopdownshooter), as a sibling
+directory — `necore` lives there (PERIHELION is built on top of it) and is
+built once from here:
 
 ```bash
 uv sync
-uv run maturin develop --release -m engine/necore-py/Cargo.toml
+uv run maturin develop --release -m ../noneuclideantopdownshooter/engine/necore-py/Cargo.toml
 uv run python -m perihelion            # campaign (The Vigil is on the title menu)
 uv run python -m perihelion --level levels/l06.json   # single level
 ```
@@ -40,7 +43,7 @@ no music. Rebuild them:
 
 ```bash
 uv run python tools/soundgen/bank.py       # the SFX bank (pure synthesis)
-uv run python tools/musicgen/generate_bank.py   # the music banks
+uv run python ../noneuclideantopdownshooter/tools/musicgen/generate_bank.py   # the music banks (musicgen lives with the engine repo)
 uv run python tools/artgen/full_run.py     # polygon textures (needs an API key)
 ```
 
@@ -65,13 +68,15 @@ Full keybinding reference in [EDITOR.md](EDITOR.md).
 
 ## Architecture
 
-- `engine/necore` — Rust core: polygon-graph geometry, analytic portal
-  visibility, deterministic physics with an event stream, portal raycasts,
-  routing. Property-tested, including an oracle test that checks the
-  non-Euclidean machinery against flat Euclidean geometry on levels where
-  the two must agree. No world space exists anywhere: every coordinate is
-  polygon-local; only portal transforms relate polygons.
-- `engine/necore-py` — PyO3 bindings (module `necore`).
+- `../noneuclideantopdownshooter/engine/necore` — Rust core, in the engine's
+  home repo: polygon-graph geometry, analytic portal visibility,
+  deterministic physics with an event stream, portal raycasts, routing.
+  Property-tested, including an oracle test that checks the non-Euclidean
+  machinery against flat Euclidean geometry on levels where the two must
+  agree. No world space exists anywhere: every coordinate is polygon-local;
+  only portal transforms relate polygons.
+- `../noneuclideantopdownshooter/engine/necore-py` — PyO3 bindings
+  (module `necore`).
 - `game/perihelion` — the game: deterministic `GameSession` (same level +
   seed + inputs ⇒ bit-identical run), immediate-mode lo-fi renderer at
   480×270, data-driven weapons/enemies, procedural audio, campaign.

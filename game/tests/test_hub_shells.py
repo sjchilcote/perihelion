@@ -14,6 +14,7 @@ generic rooms in the first place.
 from __future__ import annotations
 
 import math
+from pathlib import Path
 
 from perihelion import hub
 from perihelion.levels import load_level
@@ -22,7 +23,8 @@ from perihelion.testkit.loadouts import FULL_LOADOUT
 
 
 def _session():
-    level = load_level("../levels/gauntlet4.json")
+    level_path = Path(__file__).resolve().parents[2] / "levels" / "gauntlet4.json"
+    level = load_level(level_path)
     return GameSession(level, seed=2, player_state=dict(FULL_LOADOUT),
                        screen=(640, 360), zoom=0.45)
 

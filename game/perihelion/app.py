@@ -169,6 +169,21 @@ def _build_id() -> str:
         return "nogit"
 
 
+def shutter_blend(acc: np.ndarray, n: int) -> bytes:
+    """Mean of `n` integrated framebuffers, as raw bytes.
+
+    The recorder's shutter. Decimation keeps one picture in n and
+    discards the rest, so anything that existed only in the discarded
+    ones — a tracer crossing a corridor, a sub-second tell — is absent
+    from the record and gets read as absent from the game. Integrating
+    the window keeps every position a moving thing occupied, which is
+    what a camera does and what makes a fast thing legible in a still.
+    """
+    if n <= 0:
+        raise ValueError(f"cannot blend {n} frames")
+    return (acc // n).astype(np.uint8).tobytes()
+
+
 def save_dir() -> Path:
     base = os.environ.get("XDG_DATA_HOME")
     root = Path(base) if base else Path.home() / ".local" / "share"
@@ -487,7 +502,13 @@ class App:
             # 2026-07-28: "the sim rate is just turned way down") — so
             # frames count on the SIM clock and encoding happens on a
             # writer thread.
-            self._rec = dict(dir=rec_dir, every=max(1, int(args.record_every)),
+            _every = max(1, int(args.record_every))
+            self._rec = dict(dir=rec_dir, every=_every,
+                             # the open shutter: uint16 holds 255*every
+                             # without overflow for any sane cadence
+                             acc=np.zeros((INTERNAL_H, INTERNAL_W, 4),
+                                          dtype=np.uint16),
+                             n_acc=0,
                              frames=0, saved=0,
                              lockstep=not getattr(args, "play", False),
                              max_frames=int(args.record_seconds * 60),
@@ -587,8 +608,24 @@ class App:
 
     def _record_one_tick(self) -> None:
         rec = self._rec
-        if rec["frames"] % rec["every"] == 0:
-            rec["q"].put((bytes(self._fb_raw),
+        # A LOWER FRAME RATE IS A LONGER SHUTTER, NOT A SMALLER SAMPLE.
+        # Decimating by keeping every Nth picture throws away N-1 of
+        # them, and everything that lived only in those — a tracer
+        # crossing a corridor, a 0.8s tell, a muzzle flare — vanishes
+        # from the record entirely. Its absence then reads as absence
+        # from the GAME: a round the player fired, returning through a
+        # portal loop to hit him in the back, was written up as "damage
+        # with no visible threat" and nearly got a working mechanic
+        # "fixed". Integrating the window instead is what a real camera
+        # does, and fast things leave a streak you can actually see.
+        np.add(rec["acc"], self._fb_np, out=rec["acc"])
+        rec["n_acc"] += 1
+        if rec["n_acc"] >= rec["every"]:
+            blended = (shutter_blend(rec["acc"], rec["n_acc"])
+                       if rec["every"] > 1 else bytes(self._fb_raw))
+            rec["acc"][:] = 0
+            rec["n_acc"] = 0
+            rec["q"].put((blended,
                           str(rec["dir"] / f"frame_{rec['saved']:06d}.png")))
             # WHICH TICK IS THIS PICTURE? Recording starts when the APP
             # does, so the film runs through menus and loads before a

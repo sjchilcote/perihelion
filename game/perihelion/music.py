@@ -74,7 +74,8 @@ TICKS_PER_S = 60.0
 # LESS damage (it is running away); being hurt predicts LESS future
 # damage (hurt players play safe), so the old x1.2 hurt amplifier is
 # gone. Held-out Spearman vs old battery: danger .256/.206,
-# mowing .220/.001, calm .254/.178. See tools/musiccal/tune_battery2.py.
+# mowing .220/.001, calm .254/.178. See tune_battery2.py in the engine
+# repo's tools/musiccal (musiccal moved there in the 2026-08-22 split).
 # warden weights are DESIGN weights now (director 2026-07-16: wardens
 # live only in boss polygons; STALWART is boss music and must clear 0.9
 # ONLY there) -- raised from the corpus-fitted 12/8.5 so boss fights

@@ -1,7 +1,7 @@
-"""Sanity checks for tools/musiccal/factor_model.json (director's brief,
+"""Sanity checks for the pinned factor_model.json fixture (director's brief,
 step 5: "Sanity checks, fail-first"). These pin the COMMITTED fitted
-output, not live sim state — regenerating it is tools/musiccal/fit_factors.py's
-job (`uv run python tools/musiccal/fit_factors.py`), not a test's. All the
+output, not live sim state — regenerating it is fit_factors.py's job
+(musiccal lives in the engine repo since the 2026-08-22 split), not a test's. All the
 actual statistics (including the shuffled-label permutation control) are
 computed once, on the full calibration corpus, inside fit_factors.py;
 this file only asserts the committed numbers have the shape and direction
@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-MODEL_PATH = ROOT / "tools" / "musiccal" / "factor_model.json"
+MODEL_PATH = ROOT / "game" / "tests" / "fixtures" / "musiccal" / "factor_model.json"
 
 
 @pytest.fixture(scope="module")

@@ -34,6 +34,7 @@ def main() -> int:
 
     import necore
 
+    from perihelion.app import shutter_blend
     from perihelion.audio import Audio
     from perihelion.hud import HUD
     from perihelion.levels import load_level
@@ -86,6 +87,12 @@ def main() -> int:
     saved = 0
     lifecycle = []
     linger = 0
+    # The integrating shutter, same law as the app recorder: a lower
+    # frame rate is a longer shutter, not a smaller sample. This film
+    # is what the gate's judge reads — decimation here is what produced
+    # the "damage with no visible threat" misread.
+    acc = np.zeros((360, 640, 3), dtype=np.uint16)
+    n_acc = 0
     for t in range(a.ticks):
         if session.complete:
             break
@@ -108,12 +115,16 @@ def main() -> int:
                             visible_instances=session.visible(3, 24))
         music.update(session)
         trace.drain_from(session.trace)
-        if t % a.every == 0:
-            frame = renderer.draw(surf)
-            hud.draw(frame, session)
+        frame = renderer.draw(surf)
+        hud.draw(frame, session)
+        np.add(acc, np.ascontiguousarray(frame.transpose(1, 0, 2)),
+               out=acc)
+        n_acc += 1
+        if n_acc >= a.every:
             necore.write_png(str(out / f"frame_{saved:06d}.png"), 640, 360,
-                             np.ascontiguousarray(
-                                 frame.transpose(1, 0, 2)).tobytes())
+                             shutter_blend(acc, n_acc))
+            acc[:] = 0
+            n_acc = 0
             saved += 1
         frames += 1
     trace.close()

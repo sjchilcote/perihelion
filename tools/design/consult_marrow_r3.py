@@ -25,7 +25,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(REPO / "tools" / "musicgen"))
+sys.path.insert(0, str(REPO.parent / "noneuclideantopdownshooter" / "tools" / "musicgen"))
 sys.path.insert(0, str(REPO / "tools" / "design"))
 import consult_machinery as cm  # noqa: E402
 from consult_marrow import PRODUCT_CONTEXT, load_api_key  # noqa: E402

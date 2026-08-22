@@ -10,6 +10,7 @@ cycle contains no Adversary kind, so the census only ever shrinks.
 from __future__ import annotations
 
 from collections import Counter
+from pathlib import Path
 
 from perihelion.levels import LevelBuilder, load_level
 from perihelion.marrow import STRIKE_CYCLE, GUARDIAN_SHELF
@@ -18,8 +19,11 @@ from perihelion.signals import SignalKind
 from perihelion.sim import GameSession, InputFrame
 
 
+GAUNTLET4 = Path(__file__).resolve().parents[2] / "levels" / "gauntlet4.json"
+
+
 def test_gauntlet4_authors_the_scout_census():
-    level = load_level("../levels/gauntlet4.json")
+    level = load_level(GAUNTLET4)
     s = GameSession(level, seed=5)
     c = Counter(e["kind"] for e in s.enemies.values()
                 if e["kind"] in ADVERSARY)
@@ -36,7 +40,7 @@ def test_every_scout_home_can_hold_a_breach():
     Chambers 8, 9, 20 and the 14/16 connectors were authored with walls
     consumed by doors — a 96u seam had nowhere to go and the farm read
     it as dry_no_site."""
-    level = load_level("../levels/gauntlet4.json")
+    level = load_level(GAUNTLET4)
     s = GameSession(level, seed=5)
     homes = {s.sim.get_polygon(eid) for eid, e in s.enemies.items()
              if e["kind"] in ADVERSARY}

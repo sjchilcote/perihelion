@@ -1,5 +1,5 @@
 """Structural gates for levels/gauntlet_cal.json (tools/musiccal's
-calibration gauntlet — see tools/musiccal/build_gauntlet.py). Mirrors
+calibration gauntlet — see build_gauntlet.py in the engine repo's tools/musiccal). Mirrors
 test_levels.py's campaign gates: loads, traversable, exit reachable.
 Deeper playability (bot completion, clear rate) is measured at scale by
 tools/musiccal/run_farm.py + tune_density.py, not here — this file is the
@@ -14,25 +14,25 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "tools" / "musiccal"))
+sys.path.insert(0, str(ROOT.parent / "noneuclideantopdownshooter" / "tools" / "musiccal"))
 
 from perihelion.levels import load_level  # noqa: E402
 from perihelion.sim import GameSession, InputFrame  # noqa: E402
 
 LEVEL_PATH = ROOT / "levels" / "gauntlet_cal.json"
-META_PATH = ROOT / "tools" / "musiccal" / "gauntlet_meta.json"
+META_PATH = ROOT / "game" / "tests" / "fixtures" / "musiccal" / "gauntlet_meta.json"
 
 
 @pytest.fixture(scope="module")
 def level():
     assert LEVEL_PATH.exists(), \
-        "run: uv run python tools/musiccal/build_gauntlet.py --density <tuned>"
+        "run build_gauntlet.py --density <tuned> in the engine repo (musiccal moved there)"
     return load_level(LEVEL_PATH)
 
 
 @pytest.fixture(scope="module")
 def meta():
-    assert META_PATH.exists(), "run tools/musiccal/build_gauntlet.py to (re)generate it"
+    assert META_PATH.exists(), "run build_gauntlet.py in the engine repo to (re)generate it"
     return json.loads(META_PATH.read_text())
 
 

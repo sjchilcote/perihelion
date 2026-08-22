@@ -13,6 +13,8 @@ still permanent, which is the whole point.
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 from perihelion.callmedium import CallImprint
 from perihelion.levels import LevelBuilder, load_level
 from perihelion.sim import (ADVERSARY_ARRIVAL_GRACE,
@@ -35,7 +37,8 @@ def _breached(seed=4):
     the honest way to ask for it: this is the same entry point a scout's
     call uses, so the breach is a real breach and not a fixture double.
     """
-    s = GameSession(load_level("../levels/gauntlet4.json"), seed=seed,
+    level_path = Path(__file__).resolve().parents[2] / "levels" / "gauntlet4.json"
+    s = GameSession(load_level(level_path), seed=seed,
                     screen=(640, 360), zoom=0.45)
     s.tick(InputFrame())
     imp = CallImprint(chamber=s.player_polygon(), position=(0.0, 0.0),

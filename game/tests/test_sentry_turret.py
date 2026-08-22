@@ -26,7 +26,7 @@ from perihelion.testkit.bots import nav_to_point
 
 ROOT = Path(__file__).resolve().parents[2]
 LEVEL_PATH = ROOT / "levels" / "gauntlet_cal.json"
-META_PATH = ROOT / "tools" / "musiccal" / "gauntlet_meta.json"
+META_PATH = ROOT / "game" / "tests" / "fixtures" / "musiccal" / "gauntlet_meta.json"
 
 SENTRY_RANGE = SENTRIES["sentry"]["range"]
 

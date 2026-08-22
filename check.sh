@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
-# CI-style check: Rust engine core tests, then Python (pytest) against the
-# built necore extension. Run from the repo root.
+# CI-style check: rebuild the necore extension from its home repo (the
+# NETDS/engine repository, a sibling checkout), then run pytest against
+# it. The Rust engine's own tests run in that repo's check, not here.
+# Run from the repo root.
 set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
-echo "== cargo test -p necore =="
-(cd engine && cargo test -p necore)
+ENGINE=../noneuclideantopdownshooter/engine
+[ -d "$ENGINE" ] || { echo "check.sh: engine repo not found at $ENGINE" >&2; exit 1; }
 
 echo "== maturin develop --release (rebuild necore extension) =="
-uv run maturin develop --release -m engine/necore-py/Cargo.toml -q
+uv run maturin develop --release -m "$ENGINE/necore-py/Cargo.toml" -q
 
 echo "== uv run pytest -q =="
 uv run pytest -q

@@ -675,11 +675,15 @@ ENEMY_RIM = {"warden": (235, 235, 245)}
 # actually uses rather than on a copy of it that can silently drift.
 GRIP_RIM = (255, 190, 60)
 
-# How much of a corpse's identifying hue is drained away. 1.0 would be
-# pure grey (you could no longer tell what died); 0.0 is the old
-# brightness-only tell that three readers of a real session could not
-# distinguish from a live enemy standing still.
-CORPSE_DRAIN = 0.75
+# How much of a corpse's identifying hue is drained away. This was 0.75,
+# hedged to keep some kind-identity — and gate 78 duly logged "corpse
+# kind illegible at zoom" as a cost. It is not a cost. `corpse_<kind>`
+# is a DECAL and nothing else: no loot varies by it, no AI reads it, no
+# pickup comes off it (the only mechanical corpse is `corpse_frame`,
+# the player's own wreck). Nobody needs to know what a dead thing used
+# to be; they need to know it is dead. So the hue goes entirely, and
+# the shape still carries whatever silhouette variety is worth having.
+CORPSE_DRAIN = 1.00
 
 
 def _luma_of(c) -> float:

@@ -32,7 +32,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(REPO / "tools" / "musicgen"))
+sys.path.insert(0, str(REPO.parent / "noneuclideantopdownshooter" / "tools" / "musicgen"))
 import consult_machinery as cm  # noqa: E402
 
 KEY_PATHS = [
