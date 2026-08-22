@@ -13,7 +13,9 @@ ENGINE=../noneuclideantopdownshooter/engine
 echo "== maturin develop --release (rebuild necore extension) =="
 uv run maturin develop --release -m "$ENGINE/necore-py/Cargo.toml" -q
 
-echo "== uv run pytest -q =="
-uv run pytest -q
+echo "== uv run python -m pytest -q =="
+# python -m, not the pytest script: the venv script's shebang predates
+# the repo rename and resolves outside this venv
+uv run python -m pytest -q
 
 echo "== check.sh: all green =="
