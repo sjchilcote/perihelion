@@ -141,6 +141,24 @@ version. Rendered finals are on disk in
 | `vermeer.lua` | Docent Reading a Tablet at an Open Window | after Vermeer |
 | `monet.lua` | Impression, Perihelion | study after Monet |
 | `vangogh.lua` | The Starry Corona | study after van Gogh |
+| `hull_walk_storm.lua` | The Particle Storm | exterior set piece |
+| `docent_sleep.lua` | The Last Docent Rests | ending beat |
+| `ambassadors.lua` | The Ambassadors | after Holbein |
+| `seed_exterior.lua` | The Seed, Burrowed | cutaway |
+| `well.lua` | The Well | place concept |
+| `magritte.lua` | The Empire of Light | study after Magritte |
+| `crossing.lua` | The Crossing | ending beat |
+| `icon.lua` | Saint Palmer | icon |
+| `cartographer.lua` | The Cartographer | character scene |
+| `mappa.lua` | Mappa Testamenti | illuminated map |
+| `aftermath.lua` | After Perihelion | set piece |
+| `reliquary_vault.lua` | The Vault Bays | place concept |
+| `rousseau.lua` | The Sleeping Pilgrim | study after Rousseau |
+| `icon_ratio.lua` | Holy Ratio | icon |
+| `window_seat.lua` | The Crew's Window Seat | place, before the fall |
+| `gauntlet_hall.lua` | The Gauntlet | level concept |
+| `vigil_end.lua` | The Long Watch Ends | ending beat |
+| `babel.lua` | The Tower of Babel | study after Bruegel |
 | `ratio2.lua` | Ratio, Trusted | ten-minute sketch, pair to ratio.lua |
 
 ## Floor materials (painted textures)
