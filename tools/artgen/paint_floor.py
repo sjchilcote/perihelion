@@ -35,11 +35,12 @@ from perihelion.levels import load_level  # noqa: E402
 TEXTURE_DIR = ROOT / "game" / "perihelion" / "assets" / "textures"
 TILE_UNITS = 500.0  # world units one material canvas covers
 # polygon kind -> material name; kinds absent here keep the flat fill
-# (otherworld polygons deform their verts at runtime: no texture, per render.py)
+# (otherworld polygons deform their verts at runtime; their texture ripples with them)
 KIND_MATERIAL = {
     "corridor": "deck", "storage": "grate", "quarters": "deck", "medbay": "deck",
     "transit": "deck", "pump": "deck", "dock": "deck", "lab": "deck",
     "hall": "bronze", "chapel": "bronze", "core": "bronze",
+    "otherworld": "other",
 }
 # a material name with no painting given falls back along this chain
 FALLBACK = {"grate": "deck"}
