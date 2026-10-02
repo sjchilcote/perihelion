@@ -54,6 +54,7 @@ byte-identical; the rest were not checked. Rendered finals are on disk in
 | `core_ratio.lua` | Days Alone | Ratio's hardened core |
 | `docent.lua` | The Docent Who Keeps the Lamp | docent character concept |
 | `relics.lua` | Relics | the first revival |
+| `flight.lua` | Months in Flight | ten-minute sketch |
 
 ## Floor materials (painted textures)
 
