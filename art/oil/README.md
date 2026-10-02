@@ -203,6 +203,14 @@ version. Rendered finals are on disk in
 | `dock_years.lua` | Dock 4, Years Later | the third of the Dock set |
 | `sail_under.lua` | Under the Sail | set piece |
 | `chief.lua` | The Chief of Miriad-7 | portrait |
+| `endpapers.lua` | Ratio and the Big Knight — endpapers | picture book |
+| `cellarius.lua` | Harmonia Testamenti | celestial plate |
+| `hicks.lua` | The Peaceable Station | study after Hicks |
+| `eclipse.lua` | The Sail Eclipses the Sun | set piece |
+| `hangar_years.lua` | The Docking Hall, Years Later | pair |
+| `storyteller.lua` | The Long Arcade | place concept |
+| `seam_hub.lua` | The Junction | level concept |
+| `last_testator.lua` | The Last Testator | portrait |
 | `ratio2.lua` | Ratio, Trusted | ten-minute sketch, pair to ratio.lua |
 
 ## Floor materials (painted textures)
