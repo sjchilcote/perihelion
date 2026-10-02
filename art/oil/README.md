@@ -159,6 +159,23 @@ version. Rendered finals are on disk in
 | `gauntlet_hall.lua` | The Gauntlet | level concept |
 | `vigil_end.lua` | The Long Watch Ends | ending beat |
 | `babel.lua` | The Tower of Babel | study after Bruegel |
+| `ratio_last.lua` | Ratio's Archive | concept |
+| `triptych.lua` | The Testament Altarpiece | icon |
+| `mirror_hall.lua` | The Room That Is Its Own Neighbour | level concept |
+| `approach_reverse.lua` | Someone Is Coming | story beat |
+| `book_hours.lua` | A Book of Hours: Perihelion | calendar page |
+| `sail_mirror.lua` | In the Mirror of the Sail | set piece |
+| `bestiary.lua` | Bestiarium Adversarii | bestiary page |
+| `tapestry.lua` | The Perihelion Tapestry | after the Bayeux Tapestry |
+| `hammershoi2.lua` | The Pews, Empty | ending beat |
+| `anatomy.lua` | The Anatomy Lesson | after Rembrandt |
+| `bosch.lua` | The Garden of Folding Delights | study after Bosch |
+| `rose_window.lua` | The Rose Window | stained glass |
+| `picturebook.lua` | Ratio and the Big Knight | picture-book spread |
+| `window_seat_after.lua` | The Window Seat, After | pair |
+| `letter_after.lua` | The Letter, Before | pair |
+| `dormant_empty.lua` | The Dormitory, Empty | story beat |
+| `penrose.lua` | The Endless Stair | level concept |
 | `ratio2.lua` | Ratio, Trusted | ten-minute sketch, pair to ratio.lua |
 
 ## Floor materials (painted textures)
