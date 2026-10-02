@@ -176,6 +176,17 @@ version. Rendered finals are on disk in
 | `letter_after.lua` | The Letter, Before | pair |
 | `dormant_empty.lua` | The Dormitory, Empty | story beat |
 | `penrose.lua` | The Endless Stair | level concept |
+| `seurat.lua` | A Sunday on the Ring | study after Seurat |
+| `matisse.lua` | Icarus | cut-out after Matisse |
+| `tarot.lua` | Four Trumps | tarot spread |
+| `mess_after.lua` | Nighthawks, After | pair |
+| `picturebook2.lua` | Ratio and the Big Knight, page 2 | picture book |
+| `picturebook3.lua` | Ratio and the Big Knight, page 3 | picture book |
+| `tailor.lua` | The Tailor | character scene |
+| `hangar.lua` | The Docking Hall | place concept |
+| `terminal_years.lua` | Terminal 0, Years Later | ending beat |
+| `late_selfportrait.lua` | The Commando, Late | portrait |
+| `ark_open.lua` | The Ark Opened | story beat |
 | `ratio2.lua` | Ratio, Trusted | ten-minute sketch, pair to ratio.lua |
 
 ## Floor materials (painted textures)
