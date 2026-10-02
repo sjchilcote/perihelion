@@ -55,6 +55,7 @@ byte-identical; the rest were not checked. Rendered finals are on disk in
 | `docent.lua` | The Docent Who Keeps the Lamp | docent character concept |
 | `relics.lua` | Relics | the first revival |
 | `flight.lua` | Months in Flight | ten-minute sketch |
+| `ratio2.lua` | Ratio, Trusted | ten-minute sketch, pair to ratio.lua |
 
 ## Floor materials (painted textures)
 
