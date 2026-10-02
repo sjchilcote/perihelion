@@ -1,0 +1,13 @@
+# The Gardener
+
+A low garden room in the TESTAMENT, warm-dark bronze. One skylight in the low ceiling drops a column of pale corona light straight down onto the last gardener. It is a docent in a bronze bell of a robe, lit on its crown and shoulders and dark on its far side, its bone face bowed. It holds out a bronze watering can over a long raised bed and tips it carefully, its bone fingers on the handle. The rose points down at the bed and nothing comes out. The bed is full of the bone garden's forms: sunflower-head discs on tall stalks with spirals of seeds, spiral shells at their feet, and fan corals splaying between. They are pale ivory where the light falls and dim and violet-gray to either side. The light spills past the bed into a pool on the floor. In the dark at the left a shelf holds three more pale flowers in pots. On the right, in a cold dark doorway, half the Commando stands hidden behind the jamb, watching, with a faint warm edge on his helmet.
+
+**How I painted it.** I built the light structure first: the skylight, then the column of light as three opaque steps only a little lighter than the wall with blended seams, then the floor pool. A glaze would have gone opaque here, as it did on earlier paintings. The docent went in as a bell. Its first robe zones were hard boxes, so I repainted them as slices that widen with the bell, plus a curved shoulder band of light and folds. The can and its spout came next, then the flowers. The first flowers were thin and few, and the seed spirals laid into wet heads vanished. Bigger opaque heads, with seed spirals laid after they had set, read. The Commando laid into the dark doorway first came out faint and needed restating. Still short: the floor pool is an oval with a speckled rim, the potted flowers on the left shelf float because their pots disappear into the dark wall, and the Commando is quite faint.
+
+## Pass at 03:48 CDT, Oct 2 (chunks 10–12)
+
+- **Floor.** The speckled oval is painted back to dark floor. The column of light now carries on past the bed's front as a straight-sided wedge on the floor below it, in three bands that darken downward, with blended seams and sides. A first try with two smoothed shapes came out as a mottled round blob and was painted out.
+- **Commando.** A cool rim on the room-facing edge of his helm, pauldron and arm, and warm garden spill down the door jamb beside him.
+- **Pots.** The shelf pots have a warm side and a lit rim, and the shelf has a lit edge, so the flowers stand in something.
+
+**Still falls short:** the wedge's bands still show as faint horizontal steps, and the Commando is still quiet.

@@ -125,6 +125,22 @@ version. Rendered finals are on disk in
 | `mucha.lua` | RATIO | poster after Mucha |
 | `ratio_room.lua` | Where Ratio Lives | concept |
 | `hopper.lua` | Nighthawks at Miriad-7 | study after Hopper |
+| `perihelion_pass.lua` | Perihelion | set piece |
+| `sail_unfurl.lua` | The Sail Unfurls | set piece |
+| `spine_hall.lua` | The Long Hall of the Spine | place concept |
+| `wake.lua` | One Wakes | story beat |
+| `crew_rite.lua` | Requiem for Miriad-7 | story beat |
+| `seed_birth.lua` | Inside the Egg | story beat |
+| `cockpit.lua` | Final Approach, from the Cockpit | POV concept |
+| `ratio_window.lua` | Ratio Looks Out | concept |
+| `ratio_gift.lua` | The Gift | story beat |
+| `ratio_steps.lua` | First Steps | story beat |
+| `docent_garden.lua` | The Gardener | character scene |
+| `lantern.lua` | The Lamplighter | character scene |
+| `logbook.lua` | Vanitas: the Logbook | still life |
+| `vermeer.lua` | Docent Reading a Tablet at an Open Window | after Vermeer |
+| `monet.lua` | Impression, Perihelion | study after Monet |
+| `vangogh.lua` | The Starry Corona | study after van Gogh |
 | `ratio2.lua` | Ratio, Trusted | ten-minute sketch, pair to ratio.lua |
 
 ## Floor materials (painted textures)
