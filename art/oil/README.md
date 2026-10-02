@@ -68,8 +68,21 @@ version. Rendered finals are on disk in
 | `monks.lua` | Two Monks of Rival Orders | trust-path scene |
 | `fold.lua` | The Fold: the Warden's First Stand | the Fold |
 | `mindmap.lua` | The Rose of the Mind | mind map concept (canonical v1, 9 chunks) |
-| `shrieker.lua` | The Shrieker | enemy concept |
 | `seed_cell.lua` | Compline in the Seed | the seed's interior |
+| `pumps.lua` | Coolant Row, the Pump-Room Flip | level concept |
+| `ark_dawn.lua` | What It Says (from above) | oil sketch variant |
+| `stylite_dawn.lua` | The Stylite: the First Night of the Watch | pair to The Stylite |
+| `sail_far.lua` | The Sail, from a Mile Off | set piece |
+| `nightside.lua` | The Night Side | exterior |
+| `dock4.lua` | Dock 4 — Sweep | the first level |
+| `gallery_far.lua` | Two Wings, One Volume | level concept |
+| `shrieker.lua` | The Shrieker | enemy concept |
+| `sunrise.lua` | Perihelion | study after late Turner |
+| `sunset_turner.lua` | The Fall of the Testament | Turner study, companion |
+| `title_alt.lua` | Beneath the Wheel | title-screen alternative |
+| `ratio_portrait.lua` | Ratio, Sitting | character portrait |
+| `hydro_green.lua` | Hydroponics, Before the Fall | pair to Hydroponics Torus |
+| `breach.lua` | Through the Breach | Stratum Three concept |
 | `ratio2.lua` | Ratio, Trusted | ten-minute sketch, pair to ratio.lua |
 
 ## Floor materials (painted textures)
