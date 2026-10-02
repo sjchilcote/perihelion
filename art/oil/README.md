@@ -111,6 +111,20 @@ version. Rendered finals are on disk in
 | `tabard.lua` | Taking Up the Tabard | story beat |
 | `letter.lua` | The Letter Home | story beat |
 | `crew.lua` | The Crew of Outpost Miriad-7 | found object |
+| `museum_hall.lua` | The Hall of Civilizations | place concept |
+| `hull_garden.lua` | The Bone Garden | place concept |
+| `maw2.lua` | The Ingestion Maw | place concept |
+| `dormant.lua` | The Dormitory | place concept |
+| `bridge.lua` | The Outpost's Bridge | place concept |
+| `outpost_fall.lua` | The Night It Fell | story beat |
+| `terminal1.lua` | Terminal 0 | story beat |
+| `ratio_speaks.lua` | Ratio Speaks | story beat |
+| `cuculus_dock.lua` | The Cuckoo's Egg | story beat (canonical v1, 7 chunks) |
+| `arrival.lua` | The Last Morning | ending concept |
+| `arnolfini.lua` | The Testator Couple | after van Eyck |
+| `mucha.lua` | RATIO | poster after Mucha |
+| `ratio_room.lua` | Where Ratio Lives | concept |
+| `hopper.lua` | Nighthawks at Miriad-7 | study after Hopper |
 | `ratio2.lua` | Ratio, Trusted | ten-minute sketch, pair to ratio.lua |
 
 ## Floor materials (painted textures)
