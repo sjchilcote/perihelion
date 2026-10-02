@@ -2302,3 +2302,257 @@ c:stroke(arcpts(516, 276, 120, math.rad(-40), math.rad(20), 12), {pressure={0.0,
 
 --@ chunk 152
 print(wait(14*24*60))
+
+--@ chunk 153
+-- the robe repainted as eleven distinct bronze lames: opaque, lit from the upper left, darker toward the hem and the right
+SK_N = 11
+SK_LENS = {1148, 1160, 1152, 1166, 1158, 1170, 1162, 1166, 1150, 1160, 1146}
+function sk_lame(i) local s = (i - 1) / (SK_N - 1); return {lerp(450, 560, s), 762}, {lerp(360, 652, s) + 6 * math.sin(i * 2.1), SK_LENS[i]} end
+local Plit = {low=R3, base=Q4, dark=NDW, lit=Q5, hi=HL}
+local Pmid = {low=R2, base=Q3, dark=NDW, lit=Q4, hi=Q5}
+local Psh  = {low=R2, base=R3, dark=ND, lit=Q3, hi=Q4, refl=Q3}
+for i = 1, SK_N do
+  local T, B = sk_lame(i)
+  local P = i <= 4 and Plit or (i <= 7 and Pmid or Psh)
+  lame3(T, B, 4.9, 13.6, P, i <= 4 and 0.62 or 0.5)
+end
+
+--@ chunk 154
+-- the ghost arm: knocked down to a matte cold gray, cut into flat planes, no glossy tube
+GH_F = {{{782,470},{790,428},4.2,3.2},{{792,472},{806,432},4.4,3.2},{{800,478},{822,446},4.2,3.0},{{806,488},{834,468},4.0,3.0},{{807,498},{838,492},3.8,2.8},{{768,494},{748,468},4.6,3.6}}
+GH_PALM = {{764,512},{790,520},{808,500},{804,474},{780,466},{762,486}}
+function ghostmask(dx, dy)
+  local function sh(p) return {p[1] + dx, p[2] + dy} end
+  local m = ribbon({sh({700,600}), sh({776,506})}, {26, 22})
+  local palm = {}
+  for i, p in ipairs(GH_PALM) do palm[i] = sh(p) end
+  m = m + poly(palm, true)
+  for _, f in ipairs(GH_F) do m = m + ribbon({sh(f[1]), sh(f[2])}, {f[3] * 2, f[4] * 2}) end
+  return m
+end
+GHM = pile{{"zinc white",1.2},{"ultramarine ash",1},{"bone black",0.35},{"raw sienna",0.25}}
+GHD = pile{{"ultramarine ash",1},{"bone black",0.6},{"zinc white",0.4},{"bone brown",0.3}}
+local g = ghostmask(0, 0) - ellipse(702, 598, 12, 12)   -- leave the real elbow
+work(g, {hand="detail", pile=GHM, coverage=3, fill=true, clip=g, angle=math.atan(-94, 76)})
+-- a shadow plane on the forearm's upper-left side, flat and hard-edged
+local nx, ny = -0.777, -0.628
+local sp = ribbon({{700 + nx * 7, 600 + ny * 7}, {776 + nx * 6, 506 + ny * 6}}, {10, 8}) * g
+work(sp, {hand="detail", pile=GHD, coverage=3, fill=true, clip=sp, angle=math.atan(-94, 76)})
+-- the shadow side of each finger
+for _, f in ipairs(GH_F) do
+  local dx, dy = f[2][1] - f[1][1], f[2][2] - f[1][2]
+  local l = math.sqrt(dx * dx + dy * dy); local ux, uy = dx / l, dy / l
+  local px, py = uy, -ux; if px > 0 then px, py = -px, -py end
+  local s = ribbon({{f[1][1] + px * f[3] * 0.5, f[1][2] + py * f[3] * 0.5}, {f[2][1] + px * f[4] * 0.5, f[2][2] + py * f[4] * 0.5}}, {f[3], f[4]}) * g
+  work(s, {hand="detail", pile=GHD, coverage=2.5, fill=true, clip=s, angle=math.atan(dy, dx)})
+end
+
+--@ chunk 155
+wait(4 * 24 * 60)
+print(drying(400, 1100), drying(560, 1000))
+-- the lames again over the dry lay-in, warm earths only (the first lay-in's lower piles carried viridian and went olive)
+local Plit = {low=Q3, base=Q4, dark=NDW, lit=Q5, hi=HL}
+local Pmid = {low=Q2, base=Q3, dark=NDW, lit=Q4, hi=Q5}
+local Psh  = {low=Q2, base=Q3, dark=NDW, lit=Q4, hi=Q5, refl=Q4}
+for i = 1, SK_N do
+  local T, B = sk_lame(i)
+  local P = i <= 4 and Plit or (i <= 7 and Pmid or Psh)
+  lame3(T, B, 4.9, 13.6, P, i <= 4 and 0.6 or 0.5)
+end
+
+--@ chunk 156
+wait(4 * 24 * 60)
+-- dark joints between the lames, crisp; lit hairline on each lame's left edge
+local function edge(i, off, s0, s1)
+  local T, B = sk_lame(i)
+  local t = {}
+  for k = 0, 10 do
+    local s = lerp(s0, s1, k / 10)
+    local w = lerp(4.9, 13.6, s)
+    t[#t+1] = {lerp(T[1], B[1], s) - w * off * 0.97, lerp(T[2], B[2], s)}
+  end
+  return t
+end
+local j = brush{kind="round", width=3.0, point=0.4}
+for i = 1, SK_N - 1 do
+  local T1, B1 = sk_lame(i); local T2, B2 = sk_lame(i + 1)
+  local pts = {}
+  for k = 0, 10 do local s = k / 10; pts[#pts+1] = {lerp((T1[1] + T2[1]) / 2, (B1[1] + B2[1]) / 2, s), lerp(764, math.min(B1[2], B2[2]) - 4, s)} end
+  j:reload(i >= 7 and ND or NDW, 0.9)
+  j:stroke(pts, {pressure={0.75, 0.9}, ramps={0.05, 0.1}})
+end
+-- the lit left edge of every lame, strongest on the lit side and near the top
+local h = brush{kind="round", width=1.4, point=0.6}
+for i = 1, SK_N do
+  local P = i <= 4 and HL or (i <= 7 and Q5 or Q4)
+  local reach = i <= 4 and 0.8 or (i <= 7 and 0.6 or 0.45)
+  h:reload(P, 0.7)
+  h:stroke(edge(i, 1, 0.01, reach), {pressure={0.7, 0.45, 0.0}, ramps={0.05, 0.6}})
+end
+-- a dark shadow tucked under the belt, over the tops of the lames
+local u = brush{kind="filbert", width=4}
+u:reload(NDW, 0.8); u:stroke({{448, 764}, {480, 767}, {520, 767}, {562, 764}}, {pressure={0.6, 0.6}})
+-- crisp cold double outline: the true contour, and a second one out of register
+local g = ghostmask(0, 0)
+local line1 = g:rim(1.3) - ellipse(702, 598, 13, 13)
+work(line1, {hand="detail", pile=CZ, coverage=2.5, fill=true, clip=line1})
+local g2 = ghostmask(6, -5)
+local line2 = (g2:rim(1.0) - g:grow(1.5)) - ellipse(702, 598, 16, 16)
+work(line2, {hand="detail", pile=CC, coverage=2, fill=true, clip=line2})
+
+--@ chunk 157
+-- the lit back wall of the niche: repainted opaque and graded, then laid with smaller, quieter scale-plate lips
+local function sh(t, dx, dy) local u = {} for i, p in ipairs(t) do u[i] = {p[1] + dx, p[2] + dy} end return u end
+local slope = (470 - 560) / (860 - 700)
+local keep
+for _, off in ipairs{-36, -6, 26} do
+  local b = ribbon({{700, 560 + off}, {920, 560 + off + slope * 220}}, 10)
+  keep = keep and (keep + b) or b
+end
+local niche = poly(NICHE)
+local lit = poly(sh(NICHE, 150, 120)) * niche
+local zone = (lit * rect(600, 0, 400, 1150)) - FIG2:grow(1.5) - keep - ghostmask(6, -5):grow(2)
+local dx, dy = 62, 44
+local shadow = figmask2(dx, dy, true) + poly(sh(FIG.mantle, dx, dy), true) + poly(sh({{450,756},{560,756},{660,1150},{652,1172},{600,1172},{360,1150}}, dx, dy), true)
+  + poly(sh(FIG.helm, dx, dy), true) + (ellipse(505 + dx, 285 + dy, 150, 150) - ellipse(505 + dx, 285 + dy, 118, 118))
+LWALL = zone - shadow
+WL1 = pile{{"raw sienna",2},{"yellow ochre",1},{"bone brown",0.6},{"lead white",0.4}}
+WL2 = pile{{"raw sienna",2},{"bone brown",1.2},{"burnt sienna",0.4},{"lead white",0.2}}
+local up = LWALL * rect(600, 0, 400, 640)
+local dn = LWALL * rect(600, 600, 400, 600)
+work(dn, {hand="body", pile=WL2, coverage=3, fill=true, clip=LWALL, angle=math.pi/2 + 0.15})
+work(up, {hand="body", pile=WL1, coverage=3, fill=true, clip=LWALL, angle=math.pi/2 + 0.15})
+blend(LWALL * rect(600, 590, 400, 60), {angle=math.pi/2})
+
+--@ chunk 158
+-- the arch moulding resolved: an outer fillet, a rounded torus and an inner fillet, each with its light and shadow
+local cx, cy = NICHE_CX, NICHE_SPRING
+local spare = FIG2:grow(3) + rect(812, 430, 90, 120)       -- spear and halo; the cuts across the moulding
+local band = (poly(ARCH_OUT) - poly(NICHE)) - spare
+-- body: the torus mid-band, laid along the curve
+local torus = band * (ellipse(cx, cy, 358, 358) - ellipse(cx, cy, 334, 334)) * rect(0, 0, 1000, cy)
+  + band * (rect(142, cy, 24, 1140 - cy) + rect(834, cy, 24, 1140 - cy))
+work(torus, {hand="body", pile=Q3, coverage=3, fill=true, clip=torus, length={15, 35},
+  angle=function(x, y) if y > cy then return math.pi / 2 end return math.atan(y - cy, x - cx) + math.pi / 2 end})
+-- lines run as polylines along the arch and down both jambs
+local function course(r, a0, a1)
+  local t = {}
+  if a0 <= math.pi then t[#t+1] = {cx + r * math.cos(math.pi), SILL - 4} end
+  for i = 0, 40 do local a = lerp(a0, a1, i / 40); t[#t+1] = {cx + r * math.cos(a), cy + r * math.sin(a)} end
+  if a1 >= 2 * math.pi then t[#t+1] = {cx + r, SILL - 4} end
+  return t
+end
+local function lit(r, outward)
+  -- the part of the course that faces the light, as runs of points
+  local runs, cur = {}, nil
+  local pts = course(r, math.pi, 2 * math.pi)
+  for i, p in ipairs(pts) do
+    local a = math.atan(p[2] - cy, p[1] - cx)
+    if p[2] > cy then a = (p[1] < cx) and math.pi or 0 end
+    local nrm = outward and a or a + math.pi
+    if math.cos(nrm - LIGHT_ANG) > 0.1 then cur = cur or {}; cur[#cur+1] = p
+    else if cur and #cur > 2 then runs[#runs+1] = cur end; cur = nil end
+  end
+  if cur and #cur > 2 then runs[#runs+1] = cur end
+  return runs
+end
+local function strokeall(b, p, pts, pr, seg)
+  seg = seg or 8
+  local i = 1
+  while i < #pts do
+    local s = {}
+    for k = i, math.min(#pts, i + seg) do s[#s+1] = pts[k] end
+    if #s >= 2 then b:reload(p, 0.8); b:stroke(s, {pressure=pr, ramps={0.15, 0.15}, clip=band}) end
+    i = i + seg
+  end
+end
+wait(2 * 24 * 60)
+local g = brush{kind="round", width=2.6, point=0.5}
+strokeall(g, NDW, course(361, math.pi, 2 * math.pi), {0.6, 0.6})
+strokeall(g, NDW, course(331, math.pi, 2 * math.pi), {0.6, 0.6})
+local h = brush{kind="round", width=1.8, point=0.6}
+for _, run in ipairs(lit(352, true)) do strokeall(h, Q5, run, {0.5, 0.5}, 6) end
+for _, run in ipairs(lit(366, true)) do strokeall(h, Q4, run, {0.4, 0.4}, 6) end
+for _, run in ipairs(lit(338, false)) do strokeall(h, Q5, run, {0.45, 0.45}, 6) end
+local hh = brush{kind="round", width=1.2, point=0.8}
+for _, run in ipairs(lit(350, true)) do
+  local s = {}
+  for k = 1, math.min(#run, 14) do s[#s+1] = run[k] end
+  if #s > 2 then hh:reload(HL, 0.7); hh:stroke(s, {pressure={0.1, 0.6, 0.0}, ramps={0.3, 0.4}, clip=band}) end
+end
+
+--@ chunk 159
+wait(3 * 24 * 60)
+-- scale-plate lips on the lit back wall, a finer continuation of the outer wall's spiral; clipped to the light
+local m = LWALL:shrink(3)
+local bd = brush{kind="round", width=2.4, point=0.6}
+local bl = brush{kind="round", width=1.5, point=0.8}
+local c, n = 15, 0
+for k = 60, 2600 do
+  local r = c * math.sqrt(k)
+  local a = k * GA
+  local x, y = 500 + r * math.cos(a), 440 + r * math.sin(a)
+  if x > 600 and x < 820 and y > 160 and y < 1150 and m:at(x, y) > 0.9 then
+    if n % 6 == 0 then bd:reload(WL2, 0.7); bl:reload(Q5, 0.6) end
+    n = n + 1
+    local rad = c * 1.05
+    local pts, lip = {}, {}
+    for i = 0, 10 do
+      local t = a - 0.9 + 1.8 * i / 10
+      pts[#pts+1] = {x + 1.8 * math.cos(a) + rad * math.cos(t), y + 1.8 * math.sin(a) + rad * math.sin(t)}
+      lip[#lip+1] = {x + (rad - 1) * math.cos(t), y + (rad - 1) * math.sin(t)}
+    end
+    local fade = clamp((1150 - y) / 700, 0.35, 1)
+    bd:stroke(pts, {pressure={0.1, 0.45, 0.05}, ramps={0.3, 0.4}, clip=m})
+    bl:stroke(lip, {pressure={0.05, 0.5 * fade, 0.0}, ramps={0.3, 0.4}, clip=m})
+  end
+end
+print(n)
+
+--@ chunk 160
+wait(2 * 24 * 60)
+-- the light on the figure, stronger where it first strikes: broad warm planes, then hard glints, all on dry paint
+local b = brush{kind="filbert", width=8}
+local m = brush{kind="filbert", width=5}
+local h = brush{kind="round", width=2.0, point=0.6}
+local function ell(cx, cy, rx, ry, a0, a1, n) local t = {} for i = 0, n do local a = lerp(a0, a1, i / n); t[#t+1] = {cx + rx * math.cos(a), cy + ry * math.sin(a)} end return t end
+local function L(br, p, pts, pr) br:reload(p, 0.85); br:stroke(pts, {pressure=pr, ramps={0.3, 0.4}}) end
+-- halo: the upper-left quarter of the ring takes the light full on
+L(b, R6, arcpts(505, 285, 136, math.rad(160), math.rad(245), 12), {0.2, 0.9, 0.2})
+L(m, HL, arcpts(505, 285, 140, math.rad(175), math.rad(232), 10), {0.1, 0.8, 0.0})
+L(h, R7, arcpts(505, 285, 147, math.rad(190), math.rad(228), 8), {0.0, 0.7, 0.0})
+-- helm: the left cheek of the petals
+L(m, R6, {{466, 268}, {462, 296}, {466, 326}, {474, 346}}, {0.2, 0.8, 0.0})
+L(h, HL, {{472, 256}, {480, 244}, {492, 237}}, {0.0, 0.8, 0.0})
+-- left pauldron: the top lame's crown, a hard sheen and a glint
+L(b, R6, ell(402, 428, 40, 22, math.rad(190), math.rad(265), 8), {0.2, 0.9, 0.1})
+L(m, HL, ell(402, 428, 38, 20, math.rad(205), math.rad(250), 6), {0.1, 0.9, 0.0})
+L(h, R7, ell(402, 428, 44, 24, math.rad(212), math.rad(240), 5), {0.0, 0.8, 0.0})
+-- chest plate: the left plane catches the light down its length
+L(m, HL, {{454, 470}, {456, 520}, {462, 575}, {472, 625}}, {0.3, 0.8, 0.0})
+L(h, R7, {{451, 475}, {452, 505}}, {0.0, 0.8, 0.0})
+-- gorget left edge
+L(h, HL, {{438, 470}, {452, 466}, {470, 466}}, {0.1, 0.7, 0.0})
+-- spear arm: upper arm and forearm, a stronger lit line
+L(m, HL, {{384, 500}, {376, 535}, {368, 572}}, {0.3, 0.8, 0.0})
+L(m, HL, {{348, 620}, {344, 650}, {341, 676}}, {0.6, 0.0})
+
+--@ chunk 161
+wait(2 * 24 * 60)
+-- the ghost's body down a step, cooler and quieter, inside its outlines
+GHM2 = pile{{"ultramarine ash",1},{"cobalt violet",0.4},{"zinc white",0.7},{"bone black",0.25}}
+local g = ghostmask(0, 0):shrink(1.8) - ellipse(702, 598, 14, 14)
+work(g, {hand="detail", pile=GHM2, coverage=3, fill=true, clip=g, angle=math.atan(-94, 76)})
+local nx, ny = -0.777, -0.628
+local sp = ribbon({{700 + nx * 6, 600 + ny * 6}, {776 + nx * 5, 506 + ny * 5}}, {8, 6}) * g
+work(sp, {hand="detail", pile=GHD, coverage=3, fill=true, clip=sp, angle=math.atan(-94, 76)})
+
+--@ chunk 162
+wait(2 * 24 * 60)
+-- the ghost's body down a step, cooler and quieter, inside its outlines
+GHM3 = pile{{"ultramarine ash",1},{"bone black",0.5},{"cobalt violet",0.3},{"zinc white",0.3},{"bone brown",0.2}}
+local g = ghostmask(0, 0):shrink(1.8) - ellipse(702, 598, 14, 14)
+work(g, {hand="detail", pile=GHM3, coverage=3, fill=true, clip=g, angle=math.atan(-94, 76)})
+local nx, ny = -0.777, -0.628
+local sp = ribbon({{700 + nx * 6, 600 + ny * 6}, {776 + nx * 5, 506 + ny * 5}}, {8, 6}) * g
+work(sp, {hand="detail", pile=GHD, coverage=3, fill=true, clip=sp, angle=math.atan(-94, 76)})

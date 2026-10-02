@@ -36,3 +36,39 @@ or specks. Clean blender passes on wet paint saved most of these mistakes.
 Next time I would plan the sail as torn film from the start, not as a curtain,
 and I would build the lamp's halo before the hull's last layer went down, so
 that it could be fused in wet.
+
+## Pass at 23:45 CDT, 1 Oct 2026
+
+What changed (chunks 150–157):
+- **Sun disc.** I repainted the whole visible disc in the same nine-band
+  ramp, with the strokes laid along the circles instead of across them,
+  and a zinc-white core so the horizon glow reads white-hot rather than
+  ivory. I fused only the band seams, with a small badger. The flame
+  streaks are gone. The disc is now a calm limb-darkened radiance, from
+  white-gold at the horizon through cadmium and vermilion to a crisp red
+  limb, which is clipped hard at R. I masked everything in front of the
+  Sun (figure, sail, mast, cables) from a measurement of the saved canvas,
+  so the new paint cut in cleanly around them.
+- **Sail.** Inside the disc, each torn tongue is filled with the Sun's own
+  band colour pushed two steps redder and darkened with burnt sienna and
+  Mars red. Over that goes a broken deeper red, and the folded edges stay
+  dark. The limb now shows faintly through the film.
+- **Ratio.** It now casts a small graded pool of warm light around the
+  lamp, in three piles from cadmium-orange at the foot down to sienna. Its
+  rim is lost into the plates and scale lips are redrawn through it with
+  lamp-lit crests. Lamp light also falls on the frame's hand and the
+  underside of its forearm. The pool still reads when squinting.
+- **Frame.** Hot rim light on the dome, shoulders and upper arms, broken in
+  places. The antenna is lit on one side. The upward planes take cool
+  sky-light and the lower body stays dark, with a thin warm bounce edge.
+  The repair plate is larger, set askew, a cooler outpost grey with a lit
+  top edge, a shadowed lower edge and rivets.
+
+What still falls short: the tangential disc strokes leave a faint
+wood-grain scratchiness at full size. The sail panels above the limb are
+still opaque brown, so the switch to translucent film happens on a hard
+line at the limb. My first try at modelling the frame put an ochre
+"blanket" on the knee, and I had to paint it back into the dark, so the
+lower body is close to flat silhouette again. The plate reads as a pale
+tag more than a riveted piece of metal at full view. The pool's outer edge
+is still a fairly regular ellipse.

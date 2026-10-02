@@ -1410,3 +1410,234 @@ blend(ul:grow(20) * keep, {angle=vortex, tool={kind="badger", width=30}, seed=91
 
 --@ chunk 92
 local function hw(y) return 17 + (y - 815) * 0.018 end; local r = brush{kind="rigger", width=1.8, point=0.85}; for i=1,7 do local d=DRUMS[i].pts; local y0,y1=d[1][2]+1.5,d[3][2]-1.5; r:reload(PCY,0.6); r:stroke({{PX-hw(y0)+1.3,y0},{PX-hw(y1)+1.3,y1}},{pressure={0.4,0.3},ramps={0.1,0.3}}); local warm = y0 < 880; r:reload(warm and GLOW3 or PMAG,0.55); r:stroke({{PX+hw(y0)-1.2,y0},{PX+hw(y1)-1.2,y1}},{pressure={warm and 0.4 or 0.25, warm and 0.35 or 0.2},ramps={0.1,0.3}}) end
+
+--@ chunk 93
+-- the drifting plates get their thickness: each slab shows the side faces its tumble turns toward us.
+-- sides facing the gate catch warm light; sides facing away go dark; sides facing the pink glow go plum.
+SIDE_LIT = pile{{"yellow ochre",2},{"raw sienna",0.6},{"lead white",1.3},{"Mars orange",0.25}}
+SIDE_MID = pile{{"raw sienna",2},{"burnt sienna",1},{"bone black",0.5},{"yellow ochre",0.6}}
+SIDE_DK  = pile{{"bone black",1.6},{"burnt sienna",0.7},{"ultramarine blue",0.5}}
+SIDE_PK  = pile{{"magenta",0.8},{"bone black",1},{"burnt sienna",0.5},{"cobalt violet",0.6}}
+local keepout = FRAG + RING + ORING + FIGALL:grow(2)
+local function area(pts) local a = 0; for i = 1, #pts do local p, q = pts[i], pts[i % #pts + 1]; a = a + p[1] * q[2] - q[1] * p[2] end; return math.abs(a) / 2 end
+SLABS = {}
+local all = {}
+for _, b in ipairs(IBROKEN) do all[#all + 1] = b end
+for _, b in ipairs(OBROKEN) do all[#all + 1] = b end
+for i, b in ipairs(all) do
+  local pts, n = frag_corners(table.unpack(b))
+  local m = #pts
+  local cx, cy = 0, 0
+  for _, p in ipairs(pts) do cx = cx + p[1]; cy = cy + p[2] end
+  cx, cy = cx / m, cy / m
+  local th = clamp(0.11 * math.sqrt(area(pts)), 3.5, 10)
+  -- toward the gate, from this slab
+  local gx, gy = RC[1] - cx, RC[2] - cy
+  local gl = math.sqrt(gx * gx + gy * gy); gx, gy = gx / gl, gy / gl
+  -- tumble: the hidden back face sits off in a direction of its own
+  local ang = rand(0, 2 * math.pi)
+  local dx, dy = th * math.cos(ang), th * math.sin(ang)
+  SLABS[i] = {pts = pts, n = n, d = {dx, dy}, c = {cx, cy}}
+  local runs = {{1, n + 1}, {n + 1, n + 2}, {n + 2, m}, {m, 1}}
+  for k, r in ipairs(runs) do
+    local path = {}
+    if r[1] < r[2] then for j = r[1], r[2] do path[#path + 1] = pts[j] end else path = {pts[r[1]], pts[r[2]]} end
+    local a, z = path[1], path[#path]
+    local mx, my = (a[1] + z[1]) / 2, (a[2] + z[2]) / 2
+    local ex, ey = z[1] - a[1], z[2] - a[2]
+    local l = math.sqrt(ex * ex + ey * ey) + 1e-6
+    local nx, ny = ey / l, -ex / l
+    if nx * (mx - cx) + ny * (my - cy) < 0 then nx, ny = -nx, -ny end
+    if nx * dx + ny * dy > 0.15 * th then
+      local face = {}
+      for j = 1, #path do face[#face + 1] = path[j] end
+      for j = #path, 1, -1 do face[#face + 1] = {path[j][1] + dx, path[j][2] + dy} end
+      local fm = poly(face):grow(0.6) * -keepout
+      local lit = nx * gx + ny * gy
+      local pink = nx * 0.75 + ny * 0.66
+      local p = (lit > 0.55) and SIDE_LIT or ((lit > 0.15) and SIDE_MID or ((pink > 0.4) and SIDE_PK or SIDE_DK))
+      work(fm, {hand="detail", pile=p, coverage=3.5, fill=true, angle=math.atan(ey, ex), clip=fm, seed=9300 + i * 7 + k})
+    end
+  end
+end
+print(#SLABS)
+
+--@ chunk 94
+-- radiance: light in air around the figure. low-load whites, the hottest close round him, a warm veil wider out.
+local cx, cy = 516, 748
+local ex = AP:shrink(3) * -FIGALL:grow(2.5)
+local HOT  = pile{{"zinc white",4},{"lemon chrome",0.35}}
+local WARM = pile{{"lead white",2},{"Mars orange",0.35},{"cadmium yellow",0.4},medium=0.3}
+local function rad(x, y) return math.atan(y - cy, x - cx) end
+local function d(x, y, rx, ry) return math.sqrt(((x - cx) / rx)^2 + ((y - cy) / ry)^2) end
+local outer = ellipse(cx, cy, 175, 190):soften(50) * ex
+work(outer, {hand="glaze", tool="filbert 12", pile=WARM, coverage=1.0, load=0.25, pressure={0.1, 0.22},
+  angle=function(x, y) return rad(x, y) + math.pi / 2 end, clip=ex, length={40, 100}, seed=9601})
+local inner = ellipse(cx, cy, 80, 90):soften(25) * ex
+stipple(inner, {pile=HOT, width=6, coverage=function(x, y) return clamp(2.0 * (1 - d(x, y, 80, 90)), 0, 2.0) end,
+  feather=0.9, cluster=0.25, pressure={0.15, 0.35}, clip=ex, seed=9602})
+local bl = ellipse(cx, cy, 190, 205):soften(40) * ex
+blend(bl, {angle=rad, tool={kind="badger", width=18}, seed=9603})
+blend(bl, {angle=function(x, y) return rad(x, y) + math.pi / 2 end, tool={kind="badger", width=18}, seed=9604})
+
+--@ chunk 95
+-- the lower drums turn as cylinders: cold bounce on the left, a mid, a dark core right of centre,
+-- a dim plum reflected light on the right edge; tapered strokes down each drum, wet into wet.
+local DR_COLD = pile{{"viridian",1},{"cerulean blue",1},{"bone black",0.9},{"lead white",0.35}}
+local DR_MID  = pile{{"bone black",1.2},{"ultramarine blue",1},{"viridian",0.4},{"lead white",0.2}}
+local DR_CORE = pile{{"bone black",1.8},{"ultramarine blue",0.8},{"burnt sienna",0.3}}
+local DR_PLUM = pile{{"magenta",0.7},{"ultramarine blue",1},{"bone black",0.9},{"cobalt violet",0.5}}
+local function sub(d, u0, u1, v0, v1)
+  local A, B, C, D = d[1], d[2], d[3], d[4]   -- TL, TR, BR, BL
+  local function at(u, v)
+    local tx, ty = lerp(A[1], B[1], u), lerp(A[2], B[2], u)
+    local bx, by = lerp(D[1], C[1], u), lerp(D[2], C[2], u)
+    return {lerp(tx, bx, v), lerp(ty, by, v)}
+  end
+  return poly({at(u0, v0), at(u1, v0), at(u1, v1), at(u0, v1)}), at
+end
+local bands = {{0, 0.2, DR_COLD}, {0.17, 0.48, DR_MID}, {0.45, 0.82, DR_CORE}, {0.8, 1, DR_PLUM}}
+for i, dr in ipairs(DRUMS) do
+  local d = dr.pts
+  if d[1][2] > 905 then
+    local whole = poly(d):shrink(0.8)
+    local v0 = (dr.k > 0) and 0.16 or 0.03     -- leave the lit top of a sliding drum alone
+    local hgt = math.abs(d[4][2] - d[1][2])
+    local axis = math.atan(d[4][2] - d[1][2], d[4][1] - d[1][1])
+    for k, b in ipairs(bands) do
+      local m = sub(d, b[1], b[2], v0, 0.97)
+      work(m * whole, {hand="body", tool={kind="filbert", width=3}, pile=b[3], coverage=3, fill=true,
+        angle=axis, length={hgt * 0.4, hgt * 0.9}, clip=whole, seed=9400 + i * 10 + k})
+    end
+  end
+end
+
+--@ chunk 96
+-- the peeling skin: each hinged strip folds, so one end of each panel falls into the valley of the fold;
+-- the strip has a thickness along its lower edge, and its upper edge catches the gate's light.
+local VAL = pile{{"bone black",1.4},{"ultramarine blue",1},{"magenta",0.2},medium=0.55}
+local THK = pile{{"bone black",1.6},{"ultramarine blue",0.8},{"viridian",0.3}}
+local clip = -(SHAFT:grow(1))
+local function quad(p, s0, s1)
+  -- the part of panel p between fractions s0..s1 from its first hinge (a-b) to its second (a2-b2)
+  local a, b, b2, a2 = p.pts[1], p.pts[2], p.pts[3], p.pts[4]
+  local function L(P, Q, s) return {lerp(P[1], Q[1], s), lerp(P[2], Q[2], s)} end
+  return poly({L(a, a2, s0), L(b, b2, s0), L(b, b2, s1), L(a, a2, s1)})
+end
+local function strip(panels, seed)
+  local nP = #panels
+  for _, p in ipairs(panels) do
+    local t = (p.i - 1) / math.max(1, nP - 1)
+    local whole = poly(p.pts) * clip
+    -- fold valley: odd panels darken toward their far hinge, even toward their near one
+    local v = (p.i % 2 == 1) and quad(p, 0.45, 1.0) or quad(p, 0.0, 0.55)
+    work(v * whole, {hand="glaze", tool="filbert 6", pile=VAL, coverage=1.2 - 0.5 * t, fill=true,
+      angle=math.atan(p.pts[2][2] - p.pts[1][2], p.pts[2][1] - p.pts[1][1]), clip=whole, length={15, 40}, seed=seed + p.i})
+    -- thickness under the lower edge b -> b2
+    local b, b2 = p.pts[2], p.pts[3]
+    local th = lerp(3.2, 1.5, t)
+    local tm = poly({b, b2, {b2[1], b2[2] + th}, {b[1], b[2] + th}}) * clip * -poly(p.pts)
+    work(tm, {hand="detail", pile=THK, coverage=3, fill=true, angle=math.atan(b2[2] - b[2], b2[1] - b[1]), clip=tm, seed=seed + 50 + p.i})
+  end
+end
+strip(LEFTP, 9500)
+strip(RIGHTP, 9600)
+
+--@ chunk 97
+-- unify the swirl where it reads as patchwork: the crackled blue cloud upper left, the blotched violets lower left.
+-- long strokes in the vortex's own direction, lightly loaded, then one blending pass along the same flow.
+local keep = -(rellipse(366, 401) + FRAG:grow(3) + SHAFT:grow(3) + CAP:grow(3))
+local UBL = pile{{"ultramarine blue",2},{"lead white",0.6},{"bone black",0.4},{"magenta",0.15},medium=0.35}
+local LVI = pile{{"ultramarine blue",2},{"magenta",0.6},{"bone black",0.9},{"lead white",0.35},medium=0.35}
+local ul = ellipse(170, 330, 230, 320):roughen(20, 120, 9701):soften(70) * keep
+work(ul, {hand="broad", tool="filbert 14", pile=UBL, coverage=1.1, load=0.45, pressure={0.25, 0.55}, angle=vortex, clip=keep, seed=9702})
+blend(ul:grow(15) * keep, {angle=vortex, tool={kind="badger", width=26}, seed=9703})
+local ll = ellipse(170, 980, 260, 170):roughen(20, 120, 9704):soften(70) * keep
+work(ll, {hand="broad", tool="filbert 14", pile=LVI, coverage=1.0, load=0.45, pressure={0.25, 0.55}, angle=vortex, clip=keep, seed=9705})
+blend(ll:grow(15) * keep, {angle=vortex, tool={kind="badger", width=26}, seed=9706})
+
+--@ chunk 98
+print(wait(4*24*60)); print(drying(820,800), drying(516,1100), drying(300,1050))
+
+--@ chunk 99
+-- accents, on dry paint: the slabs' sunward arrises, the drums' rims, the skin strips' lit upper edges
+local rig = brush{kind="rigger", width=1.6, point=0.9}
+local keepout = -(FRAG + RING + ORING + FIGALL:grow(2))
+-- 1. slabs: the far arris of each lit side face catches a hard warm glint
+for i, s in ipairs(SLABS) do
+  local pts, n, dx, dy = s.pts, s.n, s.d[1], s.d[2]
+  local cx, cy = s.c[1], s.c[2]
+  local gx, gy = RC[1] - cx, RC[2] - cy
+  local gl = math.sqrt(gx * gx + gy * gy); gx, gy = gx / gl, gy / gl
+  local m = #pts
+  local th = math.sqrt(dx * dx + dy * dy)
+  local runs = {{1, n + 1}, {n + 1, n + 2}, {n + 2, m}, {m, 1}}
+  for k, r in ipairs(runs) do
+    local path = {}
+    if r[1] < r[2] then for j = r[1], r[2] do path[#path + 1] = pts[j] end else path = {pts[r[1]], pts[r[2]]} end
+    local a, z = path[1], path[#path]
+    local mx, my = (a[1] + z[1]) / 2, (a[2] + z[2]) / 2
+    local ex, ey = z[1] - a[1], z[2] - a[2]
+    local l = math.sqrt(ex * ex + ey * ey) + 1e-6
+    local nx, ny = ey / l, -ex / l
+    if nx * (mx - cx) + ny * (my - cy) < 0 then nx, ny = -nx, -ny end
+    local lit = nx * gx + ny * gy
+    if nx * dx + ny * dy > 0.15 * th and lit > 0.55 then
+      local far = {}
+      for j = 1, #path do far[#far + 1] = {path[j][1] + dx * 0.92, path[j][2] + dy * 0.92} end
+      rig:reload(lit > 0.8 and SPECW or SPEC, 0.7)
+      rig:stroke(far, {pressure={0.25, 0.45}, ramps={0.3, 0.3}, swell={0.6, 1.2, 0.5}, clip=keepout})
+    end
+  end
+end
+-- 2. drums below the ring: a cold rim down the left, a faint plum one down the right, a glint on the top lip
+local function hwL(d, v) return {lerp(d[1][1], d[4][1], v), lerp(d[1][2], d[4][2], v)} end
+local function hwR(d, v) return {lerp(d[2][1], d[3][1], v), lerp(d[2][2], d[3][2], v)} end
+for i, dr in ipairs(DRUMS) do
+  local d = dr.pts
+  if d[1][2] > 905 then
+    local v0 = (dr.k > 0) and 0.18 or 0.06
+    local A, B = hwL(d, v0), hwL(d, 0.94)
+    rig:reload(PCY, 0.55)
+    rig:stroke({{A[1] + 1.4, A[2]}, {B[1] + 1.4, B[2]}}, {pressure={0.35, 0.2}, ramps={0.15, 0.4}})
+    local C, D = hwR(d, v0), hwR(d, 0.94)
+    rig:reload(PMAG, 0.4)
+    rig:stroke({{C[1] - 1.3, C[2]}, {D[1] - 1.3, D[2]}}, {pressure={0.18, 0.25}, ramps={0.4, 0.2}})
+    if dr.k > 0 then
+      rig:reload(GLOW3, 0.6)
+      local p, q = d[1], d[2]
+      rig:stroke({{lerp(p[1], q[1], 0.15), lerp(p[2], q[2], 0.15) + 0.8}, {lerp(p[1], q[1], 0.55), lerp(p[2], q[2], 0.55) + 0.8}},
+        {pressure={0.2, 0.35}, ramps={0.4, 0.4}})
+    end
+  end
+end
+-- 3. skin strips: the upper edge (a -> a2) of each panel takes the gate's light, fading as the strip dissolves
+local EDGE = pile{{"lead white",2},{"yellow ochre",0.6},{"cobalt violet",0.3}}
+local clip = -(SHAFT:grow(1))
+for _, set in ipairs({LEFTP, RIGHTP}) do
+  for _, p in ipairs(set) do
+    local t = (p.i - 1) / math.max(1, #set - 1)
+    if t < 0.8 then
+      local a, a2 = p.pts[1], p.pts[4]
+      rig:reload(EDGE, lerp(0.6, 0.3, t))
+      rig:stroke({{a[1], a[2] + 0.8}, {lerp(a[1], a2[1], 0.5), lerp(a[2], a2[2], 0.5) + 0.8}, {a2[1], a2[2] + 0.8}},
+        {pressure={lerp(0.35, 0.15, t), lerp(0.3, 0.1, t)}, ramps={0.2, 0.3}, clip=clip})
+    end
+  end
+end
+
+--@ chunk 100
+-- the new upper-left blue came up too loud: a cool violet-teal veil over it, blended along the flow
+local keep = -(rellipse(366, 401) + FRAG:grow(3) + SHAFT:grow(3) + CAP:grow(3))
+local GTE2 = pile{{"ultramarine blue",1},{"viridian",0.4},{"magenta",0.3},{"bone black",0.35},medium=0.7}
+local ul = ellipse(170, 330, 240, 330):soften(90) * keep
+work(ul, {hand="glaze", pile=GTE2, coverage=1.1, fill=true, angle=vortex, clip=keep, seed=10001})
+blend(ul:grow(20) * keep, {angle=vortex, tool={kind="badger", width=26}, seed=10002})
+
+--@ chunk 101
+-- knit the teal cloud at the left edge into the violets round it: strokes of an in-between colour across its seams
+local keep = -(rellipse(366, 401) + FRAG:grow(3) + SHAFT:grow(3) + CAP:grow(3))
+local TV = pile{{"ultramarine blue",1.5},{"viridian",0.7},{"magenta",0.3},{"bone black",0.5},{"lead white",0.45},medium=0.35}
+local m = ellipse(110, 720, 170, 140):roughen(15, 90, 10101):soften(60) * keep
+work(m, {hand="broad", tool="filbert 14", pile=TV, coverage=1.0, load=0.4, pressure={0.25, 0.5}, angle=vortex, clip=keep, seed=10102})
+blend(m:grow(15) * keep, {angle=vortex, tool={kind="badger", width=26}, seed=10103})

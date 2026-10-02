@@ -1870,3 +1870,603 @@ for _, s in ipairs({seams[1], seams[3]}) do
     end
   end
 end
+
+--@ chunk 120
+-- PASS 2, chunk A: dark lay-in. Wall repainted darker (no white), frame gets armour masses.
+FX = {
+ pauldL = {{509,301},{525,291},{543,295},{548,311},{541,327},{524,332},{509,322}},
+ pauldR = {{582,297},{600,291},{616,298},{619,315},{610,330},{591,328},{582,312}},
+ gorget = {{549,298},{581,298},{587,309},{544,309}},
+ tasL = {{536,399},{555,404},{553,425},{535,421}},
+ tasR = {{569,404},{586,396},{593,415},{577,424}},
+ kneeL = {{529,446},{549,444},{554,459},{546,468},{530,465}},
+ kneeR = {{582,445},{601,441},{608,457},{600,466},{585,462}},
+ greaveL = {{528,478},{552,476},{554,501},{527,503}},
+ greaveR = {{586,477},{605,475},{610,500},{589,502}},
+ cuffR = {{633,371},{650,361},{659,375},{644,387}},
+ cuffL = {{504,375},{530,376},{529,393},{503,392}},
+}
+FXM = nil
+for k, pts in pairs(FX) do local m = poly(pts); FXM = FXM and (FXM + m) or m end
+frameM = frameM + FXM
+-- the wall: near-black, a touch warmer where it faces the seed
+local lampE = ellipse(441, 65, 20, 14)
+local placR = rect(314, 147, 70, 50)
+wallVis = wallM - petals - holeM - seedM - cratesM - armsM - frameM - breachM - rect(0, 366, 1000, 34) - lampE - placR
+local wallD = pile{{"bone black",2},{"ultramarine ash",0.4},{"bone brown",0.6}}
+local wallW = pile{{"bone black",1.6},{"bone brown",1},{"burnt sienna",0.35}}
+local nearE = ellipse(CX, CY + 20, 300, 260):roughen(18, 70, 7):soften(6)
+local nearM = wallVis * nearE
+local farM = wallVis - nearM
+local rad = function(x, y) return math.atan(y - CY, x - CX) end
+work(farM, {hand="body", pile=wallD, angle=rad, coverage=3.5, fill=true, clip=true, load=0.9})
+work(nearM, {hand="body", pile=wallW, angle=rad, coverage=3.5, fill=true, clip=true, load=0.9})
+work(FXM, {hand="detail", pile=frameP, coverage=3.5, fill=true})
+print(wait(8*1440))
+
+--@ chunk 121
+-- PASS 2, chunk B: frame plate faces (machined, two lights: warm floor bounce below, cold breach above)
+local plateTop = pile{{"bone black",2},{"ultramarine ash",1.2},{"lead white",0.14}}
+local plateMid = pile{{"bone black",2},{"ultramarine ash",0.7},{"bone brown",0.6}}
+local plateLow = pile{{"bone black",1.5},{"burnt sienna",1},{"cadmium red",0.2}}
+local plateHot = pile{{"bone black",1},{"burnt sienna",1},{"cadmium red",0.4},{"Mars orange",0.3}}
+local nz = noise{seed=41, period=9, octaves=2}
+local fb = brush{kind="filbert", width=2.6}
+local all = {}
+for k, pts in pairs(framePartsDef()) do all[#all+1] = {k, pts} end
+for k, pts in pairs(FX) do all[#all+1] = {k, pts} end
+local nst = 0
+for _, e in ipairs(all) do
+  local k, pts = e[1], e[2]
+  local x0, y0, x1, y1 = 1e9, 1e9, -1e9, -1e9
+  for _, p in ipairs(pts) do x0 = math.min(x0, p[1]); x1 = math.max(x1, p[1]); y0 = math.min(y0, p[2]); y1 = math.max(y1, p[2]) end
+  local face = poly(pts):shrink(2.2)
+  -- plates covered by overlapping armour keep only what shows
+  if not FX[k] then face = face - FXM:grow(1.2) end
+  local ang = ((x1 - x0) > (y1 - y0)) and 0 or math.pi/2
+  if k == "uaR" or k == "faR" then ang = math.atan(30, 23) end
+  if k == "thR" then ang = math.atan(46, 19) end
+  local legs = (y0 > 395) and 0.08 or 0
+  for y = y0, y1, 2.2 do for x = x0, x1, 2.2 do
+    local px, py = x + rand(-1.1, 1.1), y + rand(-1.1, 1.1)
+    if face:at(px, py) > 0.5 then
+      local r = (py - y0) / math.max(y1 - y0, 1) + 0.22 * nz(px, py) + legs
+      local pl = (r < 0.28) and plateTop or (r < 0.72 and plateMid or (r < 1.08 and plateLow or plateHot))
+      fb:reload(pl, 0.6)
+      local a = ang + rand(-0.12, 0.12)
+      local L = rand(4, 7)
+      fb:stroke({{px - math.cos(a)*L/2, py - math.sin(a)*L/2}, {px + math.cos(a)*L/2, py + math.sin(a)*L/2}}, {pressure={0.5, 0.4}, clip=face})
+      nst = nst + 1
+    end
+  end end
+end
+print(nst)
+
+--@ chunk 122
+-- PASS 2, chunk C: the husk's cut wall. A thick band round the womb opening:
+-- dark armour skin outside, a dull red-hot section, and a torn incandescent inner lip.
+local od = openM:distance()
+local sg = (od:at(CX, CY) > 0) and 1 or -1
+local jag = noise{seed=77, period=22, octaves=3, kind="ridged"}
+local jag2 = noise{seed=78, period=60, octaves=2}
+local function wid(x, y)
+  local t, s = ST(x, y)
+  local k = math.sin(math.pi * clamp((t - 190) / 340, 0, 1))
+  local base = (s > 0) and 15 or 9
+  return base * (0.35 + 0.65 * k) + 7 * jag(x, y) + 4 * jag2(x, y)
+end
+local F = mask(function(x, y)
+  local d = sg * od:at(x, y)
+  if d <= 0 or d > 30 then return 0 end
+  local f = d / math.max(wid(x, y), 1)
+  if f >= 1 then return 0 end
+  return 0.05 + 0.95 * f
+end)
+local keep = frameM:grow(1.5) + armsM
+local skin = F:band(0.04, 0.26, 0) - keep
+local sectO = F:band(0.26, 0.55, 0) - keep
+local sect = F:band(0.55, 0.867, 0) - keep
+local lip  = F:band(0.867, 1.01, 0) - keep
+HUSKBAND = F:band(0.04, 1.01, 0) - keep
+local skinP = pile{{"bone black",2},{"ultramarine ash",0.6},{"bone brown",0.5}}
+local sectP = pile{{"bone black",1},{"burnt sienna",1},{"cadmium red",0.45},{"Mars orange",0.3}}
+local lipP  = pile{{"cadmium yellow",2},{"lead white",1},{"Mars orange",0.3}}
+local sectOP = pile{{"bone black",1.5},{"burnt sienna",1},{"cadmium red",0.3}}
+local along = math.atan(UY, UX)
+work(skin, {hand="detail", tool="round 2.4", pile=skinP, angle=along, coverage=4, fill=true, load=1})
+work(sectO, {hand="detail", tool="round 2.4", pile=sectOP, angle=along, coverage=4, fill=true, load=1})
+work(sect, {hand="detail", tool="round 2.4", pile=sectP, angle=along, coverage=4, fill=true, load=1})
+work(lip,  {hand="detail", tool="round 2", pile=lipP, angle=along, coverage=3.5, fill=true, load=1})
+print(skin:area(), sect:area(), lip:area())
+
+--@ chunk 123
+-- PASS 2, chunk G: crates into the room's light: dark fronts warming toward the seed, lit right-hand sides, contact shadows.
+local crD = pile{{"bone black",2},{"bone brown",1},{"ultramarine ash",0.4},{"lead white",0.08}}
+local crM = pile{{"bone black",1.5},{"burnt sienna",1},{"cadmium red",0.2}}
+local crL = DK[4]
+local nz = noise{seed=93, period=14, octaves=2}
+local fb = brush{kind="filbert", width=3.5}
+local tri = nil
+for _, c in ipairs({crA, crB, crC}) do
+  local x1, y1 = c[1] + c[3], c[2] + c[4]
+  local t = poly({{x1 - 25, y1}, {x1, y1}, {x1, y1 - 25}})
+  tri = tri and (tri + t) or t
+end
+for _, c in ipairs({crA, crB, crC}) do
+  local x0, y0, w, h = c[1], c[2], c[3], c[4]
+  local face = rect(x0 + 1, y0 + 1, w - 2, h - 2) - tri
+  for y = y0, y0 + h, 3 do for x = x0, x0 + w, 3 do
+    local px, py = x + rand(-1.5, 1.5), y + rand(-1.5, 1.5)
+    if face:at(px, py) > 0.5 then
+      local u = (px - x0) / w + 0.15 * nz(px, py)
+      local p = (u < 0.6) and crD or ((u < 0.9) and crM or crL)
+      fb:reload(p, 0.6)
+      fb:stroke({{px, py - 3}, {px + rand(-0.3, 0.3), py + 3}}, {pressure={0.55, 0.45}, clip=face})
+    end
+  end end
+end
+work(crSide, {hand="detail", tool="round 3", pile=crL, angle=math.pi/2, coverage=3.5, fill=true, load=1})
+print(wait(3*1440))
+-- rails: a groove inset from each edge, its right-hand lip catching the light
+local groove = pile{{"bone black",2},{"bone brown",1}}
+local g = brush{kind="round", width=2, point=0.4}
+local l = brush{kind="round", width=1.4, point=0.6}
+for _, c in ipairs({crA, crB, crC}) do
+  local x0, y0, w, h = c[1], c[2], c[3], c[4]
+  local ins = 6
+  local L, R, T, B = x0 + ins, x0 + w - ins, y0 + ins, y0 + h - ins
+  for _, s in ipairs({{{L,T},{R,T}}, {{L,B},{R - 20,B}}, {{L,T},{L,B}}, {{R,T},{R,B - 20}}}) do
+    g:reload(groove, 0.6); g:stroke(s, {pressure={0.5, 0.5}})
+  end
+  l:reload(crM, 0.5); l:stroke({{L + 1.8, T + 2}, {L + 1.8, B - 2}}, {pressure={0.35, 0.3}})
+  l:reload(crL, 0.5); l:stroke({{x0 + w - 1.6, y0 + 2}, {x0 + w - 1.6, y0 + h - 4}}, {pressure={0.45, 0.35}})
+  -- stencilled codes, dull
+  local st3 = pile{{"yellow ochre",1},{"bone brown",0.6},{"bone black",0.5}}
+  local sx, sy = x0 + 16, y0 + 20
+  for r = 0, 1 do
+    local xx = sx
+    for i = 1, 5 do
+      local ww = rand(3, 8)
+      l:reload(st3, 0.5); l:stroke({{xx, sy + r*7}, {xx + ww, sy + r*7}}, {pressure={0.55, 0.5}})
+      xx = xx + ww + 3
+    end
+  end
+end
+-- contact shadow where they stand on the deck
+local sh = pile{{"bone black",2},{"bone brown",1}}
+work(rect(26, 459, 238, 7):roughen(2, 20, 3), {hand="detail", tool="round 2.4", pile=sh, coverage=3, fill=true})
+
+--@ chunk 124
+print(wait(6*1440))
+
+--@ chunk 125
+-- PASS 2, chunk D: the frame's machining: plate grooves, two-light bevels, backlit rims.
+local groove = pile{{"bone black",2},{"bone brown",1}}
+local coolH = pile{{"bone black",1},{"ultramarine ash",1},{"lead white",0.7},{"cerulean blue",0.2}}
+local bevW = pile{{"burnt sienna",1},{"cadmium red",0.5},{"Mars orange",0.5},{"bone black",0.3}}
+local hot = pile{{"lead white",2},{"cadmium yellow",1},{"Mars orange",0.3}}
+local warm = pile{{"Mars orange",1},{"cadmium yellow",1},{"lead white",0.3}}
+local dim = pile{{"cadmium red",1},{"Mars orange",1},{"burnt sienna",0.5}}
+local gb = brush{kind="round", width=1.8, point=0.5}
+local lb = brush{kind="round", width=1.4, point=0.7}
+local rb = brush{kind="round", width=1.9, point=0.5}
+local brightBG = BRIGHTBG or (openM:grow(6))
+local function orient(pts)
+  local a = 0
+  for i = 1, #pts do local p, q = pts[i], pts[i % #pts + 1]; a = a + (p[1]*q[2] - q[1]*p[2]) end
+  return (a > 0) and 1 or -1   -- screen coords: >0 means clockwise on screen
+end
+local function edges(pts, fn)
+  local o = orient(pts)
+  for i = 1, #pts do
+    local a, b = pts[i], pts[i % #pts + 1]
+    local dx, dy = b[1]-a[1], b[2]-a[2]
+    local L = math.sqrt(dx*dx + dy*dy)
+    if L > 4 then
+      local nx, ny = o*dy/L, -o*dx/L
+      fn(a, b, nx, ny, L)
+    end
+  end
+end
+local function seg(a, b, nx, ny, inset, f0, f1)
+  return {{lerp(a[1], b[1], f0) - nx*inset, lerp(a[2], b[2], f0) - ny*inset},
+          {lerp(a[1], b[1], f1) - nx*inset, lerp(a[2], b[2], f1) - ny*inset}}
+end
+-- 1. armour plates cast a dark groove onto the limb beneath them
+for k, pts in pairs(FX) do
+  edges(pts, function(a, b, nx, ny, L)
+    local mx, my = (a[1]+b[1])/2 + nx*3, (a[2]+b[2])/2 + ny*3
+    if frameM:at(mx, my) > 0.5 then
+      gb:reload(groove, 0.7); gb:stroke(seg(a, b, nx, ny, -0.6, 0.0, 1.0), {pressure={0.55, 0.55}, clip=frameM})
+    end
+  end)
+end
+-- 2. bevels: edges facing down take the warm floor, edges facing up the cold breach; silhouette edges against the womb take the rim
+local all = {}
+for k, pts in pairs(framePartsDef()) do all[#all+1] = {k, pts} end
+for k, pts in pairs(FX) do all[#all+1] = {k, pts} end
+local nr = 0
+for _, e in ipairs(all) do
+  local k, pts = e[1], e[2]
+  edges(pts, function(a, b, nx, ny, L)
+    local mx, my = (a[1]+b[1])/2, (a[2]+b[2])/2
+    local outside = frameM:at(mx + nx*3, my + ny*3) < 0.5
+    local covered = (not FX[k]) and FXM:at(mx - nx*2, my - ny*2) > 0.5
+    if covered then return end
+    if outside and brightBG:at(mx + nx*4, my + ny*4) > 0.5 then
+      local d = math.sqrt((mx - CX)^2 + (my - CY)^2)
+      if math.random() < 0.35 then return end
+      local p = (d < 55) and warm or dim
+      local f0, f1 = rand(0.05, 0.3), rand(0.6, 0.95)
+      rb:reload(p, 0.6); rb:stroke(seg(a, b, nx, ny, 1.5, f0, f1), {pressure={rand(0.3,0.5), rand(0.15,0.35)}, ramps={0.1,0.4}, clip=frameM})
+      nr = nr + 1
+    elseif ny > 0.55 then
+      lb:reload(bevW, 0.6); lb:stroke(seg(a, b, nx, ny, 1.3, 0.12, 0.88), {pressure={0.4, 0.35}, clip=frameM})
+    elseif ny < -0.55 then
+      lb:reload(coolH, 0.5); lb:stroke(seg(a, b, nx, ny, 1.3, 0.15, 0.85), {pressure={0.3, 0.25}, clip=frameM})
+    end
+  end)
+end
+-- 3. panel seams inside the big plates: a dark groove with a lit lip on its lower side
+local seams = {
+  {{565,309},{564,338},{561,368}},          -- chest keel
+  {{539,326},{552,331},{564,334}}, {{564,334},{577,330},{589,325}},   -- pectoral plates
+  {{555,377},{567,377}}, {{555,383},{567,383}},   -- abdominal segments
+  {{538,430},{554,431}}, {{569,428},{591,424}},   -- thigh plates
+  {{531,486},{551,485}}, {{589,486},{606,484}},   -- greave bands
+  {{512,312},{544,306}}, {{585,306},{616,312}},   -- pauldron ridges
+}
+for _, s in ipairs(seams) do
+  gb:reload(groove, 0.7); gb:stroke(s, {pressure={0.5, 0.5}, clip=frameM})
+  local q = {} for i, p in ipairs(s) do q[i] = {p[1], p[2] + 1.6} end
+  lb:reload(bevW, 0.5); lb:stroke(q, {pressure={0.3, 0.25}, clip=frameM})
+end
+print("rims", nr)
+
+--@ chunk 126
+print(wait(2*1440))
+
+--@ chunk 127
+-- PASS 2, chunk E: the joints still glow from the printer: slits between plates, a visor, one chest vent.
+local ember = pile{{"cadmium red",1},{"Mars orange",1.2},{"cadmium yellow",0.3}}
+local hotW = pile{{"lead white",3},{"lemon chrome",1}}
+local f = brush{kind="flat", width=2.8}
+local fs = brush{kind="flat", width=2.0}
+local r = brush{kind="round", width=1.5, point=0.8}
+local slits = {
+  {{548,309.5},{582,309.5}, 0},               -- gorget/chest ring
+  {{513,331},{529,335}, 1}, {{597,331},{612,329}, 1},   -- shoulders under the pauldrons
+  {{616.5,359},{629,350}, 1}, {{514,357},{530,357.5}, 1}, -- elbows
+  {{635,368},{648,361}, 1}, {{506,374.5},{528,375.5}, 1}, -- wrists
+  {{555,371.5},{568,371.5}, 1}, {{554,389.5},{568,389.5}, 1}, -- waist
+  {{539,402},{553,406}, 1}, {{572,405},{585,399}, 1},     -- hips
+  {{533,467.5},{548,469}, 1}, {{587,464.5},{602,465.5}, 1}, -- knees, under the caps
+}
+for _, s in ipairs(slits) do
+  local br = (s[3] == 0) and fs or f
+  br:reload(ember, 0.7); br:stroke({s[1], s[2]}, {pressure={0.7, 0.6}, orient="along"})
+  local mx, my = (s[1][1]+s[2][1])/2, (s[1][2]+s[2][2])/2
+  r:reload(hotW, 0.6)
+  r:stroke({{lerp(s[1][1], mx, 0.35), lerp(s[1][2], my, 0.35)}, {lerp(s[2][1], mx, 0.35), lerp(s[2][2], my, 0.35)}}, {pressure={0.45, 0.35}})
+end
+-- visor slit
+fs:reload(ember, 0.7); fs:stroke({{559,281},{575,279.5}}, {pressure={0.6, 0.5}, orient="along"})
+r:reload(hotW, 0.6); r:stroke({{562,280.7},{572,279.8}}, {pressure={0.4, 0.3}})
+-- one chest vent
+fs:reload(ember, 0.6); fs:stroke({{559,345},{569,345}}, {pressure={0.55, 0.5}, orient="along"})
+r:reload(hotW, 0.5); r:touch(564, 345, {pressure=0.35})
+
+--@ chunk 128
+-- PASS 2, chunk G: crates into the room's light: dark fronts warming toward the seed, lit right-hand sides, contact shadows.
+local crD = pile{{"bone black",2},{"bone brown",1},{"ultramarine ash",0.4},{"lead white",0.08}}
+local crM = pile{{"bone black",1.5},{"burnt sienna",1},{"cadmium red",0.2}}
+local crL = DK[4]
+local nz = noise{seed=93, period=14, octaves=2}
+local fb = brush{kind="filbert", width=3.5}
+local tri = nil
+for _, c in ipairs({crA, crB, crC}) do
+  local x1, y1 = c[1] + c[3], c[2] + c[4]
+  local t = poly({{x1 - 25, y1}, {x1, y1}, {x1, y1 - 25}})
+  tri = tri and (tri + t) or t
+end
+for _, c in ipairs({crA, crB, crC}) do
+  local x0, y0, w, h = c[1], c[2], c[3], c[4]
+  local face = rect(x0 + 1, y0 + 1, w - 2, h - 2) - tri
+  for y = y0, y0 + h, 3 do for x = x0, x0 + w, 3 do
+    local px, py = x + rand(-1.5, 1.5), y + rand(-1.5, 1.5)
+    if face:at(px, py) > 0.5 then
+      local u = (px - x0) / w + 0.15 * nz(px, py)
+      local p = (u < 0.8) and crD or ((u < 0.97) and crM or crL)
+      fb:reload(p, 0.6)
+      fb:stroke({{px, py - 3}, {px + rand(-0.3, 0.3), py + 3}}, {pressure={0.55, 0.45}, clip=face})
+    end
+  end end
+end
+work(crSide, {hand="detail", tool="round 3", pile=crM, angle=math.pi/2, coverage=3.5, fill=true, load=1})
+print(wait(3*1440))
+-- rails: a groove inset from each edge, its right-hand lip catching the light
+local groove = pile{{"bone black",2},{"bone brown",1}}
+local g = brush{kind="round", width=2, point=0.4}
+local l = brush{kind="round", width=1.4, point=0.6}
+for _, c in ipairs({crA, crB, crC}) do
+  local x0, y0, w, h = c[1], c[2], c[3], c[4]
+  local ins = 6
+  local L, R, T, B = x0 + ins, x0 + w - ins, y0 + ins, y0 + h - ins
+  for _, s in ipairs({{{L,T},{R,T}}, {{L,B},{R - 20,B}}, {{L,T},{L,B}}, {{R,T},{R,B - 20}}}) do
+    g:reload(groove, 0.6); g:stroke(s, {pressure={0.5, 0.5}})
+  end
+  l:reload(crM, 0.5); l:stroke({{L + 1.8, T + 2}, {L + 1.8, B - 2}}, {pressure={0.35, 0.3}})
+  l:reload(crL, 0.5); l:stroke({{x0 + w - 1.6, y0 + 2}, {x0 + w - 1.6, y0 + h - 4}}, {pressure={0.45, 0.35}})
+  -- stencilled codes, dull
+  local st3 = pile{{"yellow ochre",1},{"bone brown",0.6},{"bone black",0.5}}
+  local sx, sy = x0 + 16, y0 + 20
+  for r = 0, 1 do
+    local xx = sx
+    for i = 1, 5 do
+      local ww = rand(3, 8)
+      l:reload(st3, 0.5); l:stroke({{xx, sy + r*7}, {xx + ww, sy + r*7}}, {pressure={0.55, 0.5}})
+      xx = xx + ww + 3
+    end
+  end
+end
+-- contact shadow where they stand on the deck
+local sh = pile{{"bone black",2},{"bone brown",1}}
+work(rect(26, 459, 238, 7):roughen(2, 20, 3), {hand="detail", tool="round 2.4", pile=sh, coverage=3, fill=true})
+
+--@ chunk 129
+-- PASS 2, chunk F: wall panel seams re-cut; the seed's light rakes across them, catching the lips that face it
+-- and the tooth of the plating; a faded stencil 07.
+local grooveW = pile{{"bone black",2},{"ultramarine ash",0.3},{"bone brown",0.4}}
+local xs = {52, 120, 203, 300, 378, 470, 543, 640, 720, 800, 880, 960}
+local ys = {95, 200, 290, 368}
+local vis = wallVis
+local g = brush{kind="round", width=2.2, point=0.4}
+for _, x in ipairs(xs) do
+  local y0 = nil
+  for y = 0, 366, 6 do
+    local inn = vis:at(x, y + 3) > 0.5
+    if inn then g:reload(grooveW, 0.6); g:stroke({{x, y}, {x + rand(-0.3,0.3), y + 6.2}}, {pressure={0.5,0.5}, clip=vis}) end
+  end
+end
+for _, y in ipairs(ys) do
+  for x = 0, 1000, 6 do
+    if vis:at(x + 3, y) > 0.5 then g:reload(grooveW, 0.6); g:stroke({{x, y}, {x + 6.2, y + rand(-0.3,0.3)}}, {pressure={0.5,0.5}, clip=vis}) end
+  end
+end
+-- lips facing the glow
+local piles = {DK[3], DK[4], DK[5], DK[6]}
+local b = brush{kind="round", width=1.6, point=0.6}
+local function lvl(x, y) local d = math.sqrt((x-CX)^2 + ((y-CY)*1.25)^2); return 1 - d / 430 end
+local n = 0
+for _, x in ipairs(xs) do
+  local side = (x < CX) and 1.9 or -1.9
+  for y = 0, 366, 10 do
+    local k = lvl(x, y + 5) + rand(-0.06, 0.06)
+    if k > 0.08 and vis:at(x + side, y + 5) > 0.5 then
+      local p = piles[clamp(math.floor(k * 4.2) + 1, 1, 4)]
+      b:reload(p, 0.5)
+      b:stroke({{x + side, y + 0.5}, {x + side, y + 9.5}}, {pressure={0.2 + 0.45*k, 0.2 + 0.45*k}, clip=vis})
+      n = n + 1
+    end
+  end
+end
+for _, y in ipairs(ys) do
+  local side = (y < CY) and 1.9 or -1.9
+  for x = 0, 1000, 10 do
+    local k = lvl(x + 5, y) + rand(-0.06, 0.06)
+    if k > 0.08 and vis:at(x + 5, y + side) > 0.5 then
+      local p = piles[clamp(math.floor(k * 4.2) + 1, 1, 4)]
+      b:reload(p, 0.5)
+      b:stroke({{x + 0.5, y + side}, {x + 9.5, y + side}}, {pressure={0.2 + 0.45*k, 0.2 + 0.45*k}, clip=vis})
+      n = n + 1
+    end
+  end
+end
+-- raking light on the plating's tooth: a dry, broken scumble fanning out from the opening
+local rk = pile{{"bone black",1.5},{"burnt sienna",1},{"cadmium red",0.2}}
+local function cov(x, y) local d = math.sqrt((x-CX)^2 + ((y-CY)*1.3)^2); return 0.75 * clamp(1 - d/340, 0, 1) end
+work(vis * ellipse(CX, CY, 340, 262), {hand="scumble", pile=rk, load_at=function(x, y) return 0.04 + 0.12 * cov(x, y) end, pressure={0.05, 0.15}, coverage=0.7, clip=true,
+  angle=function(x, y) return math.atan(y - CY, x - CX) end})
+-- stencil 07: sprayed through a stencil long ago, worn
+local zeroO = rect(183, 57, 32, 32) + ellipse(199, 57, 16, 9) + ellipse(199, 89, 16, 9)
+local zeroI = rect(190, 59, 18, 28) + ellipse(199, 59, 9, 5) + ellipse(199, 87, 9, 5)
+local zero = zeroO - zeroI - rect(197, 45, 4, 13) - rect(197, 88, 4, 12)
+local seven = rect(222, 49, 34, 8) + ribbon({{251, 57}, {233, 97}}, 8)
+seven = seven - rect(238, 57, 22, 2.5)
+local dashes = nil
+local dx = 183
+for i, w in ipairs({7, 4, 9, 3, 6, 8, 4}) do local r = rect(dx, 104, w, 3); dashes = dashes and (dashes + r) or r; dx = dx + w + 4 end
+local stM = (zero + seven + dashes) * vis
+local st3 = pile{{"yellow ochre",1},{"bone brown",0.6},{"bone black",0.5}}
+work(stM, {hand="detail", tool="round 2.4", pile=st3, coverage=3, fill=true, load=1})
+STENCIL = stM
+print(n)
+-- wear: the dark of the wall scuffed back over the stencil
+work(stM:grow(1.5), {hand="scumble", pile=pile{{"bone black",2},{"ultramarine ash",0.4},{"bone brown",0.6}}, load=0.25, pressure={0.1, 0.3}, coverage=0.6, clip=true})
+
+--@ chunk 130
+-- PASS 2, chunk H: the lower flaps' inner faces glow from the womb; their torn free edges show the shell's thickness.
+local od = openM:distance()
+local sg = (od:at(CX, CY) > 0) and 1 or -1
+local lowF = (Q3 + Q4) - openM - frameM:grow(1) - armsM - poly({{520,470},{612,466},{640,510},{606,522},{520,524},{500,505}}, true)
+local nz = noise{seed=55, period=16, octaves=2}
+local fb = brush{kind="filbert", width=3.2}
+local piles = {DK[6], DK[5], DK[4], DK[3], DK[2]}
+local n = 0
+for y = 285, 520, 3.4 do for x = 430, 820, 3.4 do
+  local px, py = x + rand(-1.7, 1.7), y + rand(-1.7, 1.7)
+  if lowF:at(px, py) > 0.5 then
+    local d = -sg * od:at(px, py) + 9 * nz(px, py)
+    local i = (d < 12) and 1 or ((d < 30) and 2 or ((d < 55) and 3 or ((d < 80) and 4 or 5)))
+    fb:reload(piles[i], 0.6)
+    local a = math.atan(py - CY, px - CX) + rand(-0.2, 0.2)
+    local L = rand(4, 8)
+    fb:stroke({{px - math.cos(a)*L/2, py - math.sin(a)*L/2}, {px + math.cos(a)*L/2, py + math.sin(a)*L/2}}, {pressure={0.55, 0.4}, clip=lowF})
+    n = n + 1
+  end
+end end
+print(n)
+print(wait(3*1440))
+-- free edge: dark armour skin with a thin hot cut line just inside it
+local freeEdge = ((Q3 + Q4) - (Q3 + Q4):shrink(3.5)) - openM:grow(4) - frameM:grow(1) - armsM
+work(freeEdge, {hand="detail", tool="round 2", pile=pile{{"bone black",2},{"ultramarine ash",0.6},{"bone brown",0.5}}, coverage=3.5, fill=true, load=1})
+local cutLine = (((Q3 + Q4):shrink(3.5)) - ((Q3 + Q4):shrink(5.5))) - openM:grow(4) - frameM:grow(1) - armsM
+work(cutLine, {hand="detail", tool="round 1.6", pile=DK[5], coverage=2.5, fill=true, load=0.8})
+
+--@ chunk 131
+-- PASS 2, chunk I: the flaps' inner faces were too bright and the free edge read as a cog. Darken outward, lose the edge.
+print(wait(5*1440))
+local od = openM:distance()
+local sg = (od:at(CX, CY) > 0) and 1 or -1
+local all = (Q3 + Q4) - openM:grow(4) - frameM:grow(1) - armsM - poly({{520,470},{612,466},{640,510},{606,522},{520,524},{500,505}}, true)
+local nz = noise{seed=56, period=18, octaves=2}
+local fb = brush{kind="filbert", width=3.2}
+local piles = {DK[5], DK[4], DK[3], DK[2], DK[1]}
+local n = 0
+for y = 285, 525, 3.4 do for x = 430, 825, 3.4 do
+  local px, py = x + rand(-1.7, 1.7), y + rand(-1.7, 1.7)
+  if all:at(px, py) > 0.5 then
+    local d = -sg * od:at(px, py) + 7 * nz(px, py)
+    local i = (d < 10) and 1 or ((d < 22) and 2 or ((d < 40) and 3 or ((d < 62) and 4 or 5)))
+    if i >= 2 then
+      fb:reload(piles[i], 0.6)
+      local a = math.atan(py - CY, px - CX) + rand(-0.2, 0.2)
+      local L = rand(4, 8)
+      fb:stroke({{px - math.cos(a)*L/2, py - math.sin(a)*L/2}, {px + math.cos(a)*L/2, py + math.sin(a)*L/2}}, {pressure={0.55, 0.4}, clip=all})
+      n = n + 1
+    end
+  end
+end end
+print(n)
+
+--@ chunk 132
+-- PASS 2, chunk J: knock the 07 and the placard back into the dark; torn, still-hot edges on the upper flaps.
+print(wait(4*1440))
+local wallD = pile{{"bone black",2},{"ultramarine ash",0.4},{"bone brown",0.6}}
+work(STENCIL:grow(1.5), {hand="scumble", pile=wallD, load=0.35, pressure={0.15, 0.35}, coverage=1.3, clip=true})
+work(rect(316, 149, 66, 46), {hand="scumble", pile=wallD, load=0.3, pressure={0.12, 0.3}, coverage=1.1, clip=true})
+-- the upper flaps' free edges: a thin cold skin, then the cut face of the shell, dull red where it tore
+local up = foldOut - armsM - frameM
+local edgeB = (up - up:shrink(5)) - openM:grow(26) - HUSKBAND:grow(4)
+local skinB = edgeB - (up:shrink(1.6))
+local cutB = edgeB * up:shrink(1.6)
+work(cutB, {hand="detail", tool="round 1.8", pile=DK[4], coverage=3, fill=true, load=0.9})
+work(skinB, {hand="detail", tool="round 1.6", pile=pile{{"bone black",1},{"ultramarine ash",1},{"lead white",0.5},{"cerulean blue",0.15}}, coverage=2.5, fill=true, load=0.8})
+print(edgeB:area())
+
+--@ chunk 133
+-- PASS 2, chunk K: the flap-edge band read as trim. Break it: armour skin closes over it in long runs,
+-- leaving the cut face showing only in torn stretches.
+print(wait(4*1440))
+local up = foldOut - armsM - frameM
+local edgeB = (up - up:shrink(5)) - openM:grow(26) - HUSKBAND:grow(4)
+local nz = noise{seed=313, period=45, octaves=2}
+local runs = mask(function(x, y) return (nz(x, y) > -0.05) and 1 or 0 end)
+local upP = pile{{"bone black",2},{"ultramarine ash",1},{"lead white",0.15}}
+work(edgeB:grow(1.2) * runs, {hand="detail", tool="round 2", pile=upP, coverage=3.5, fill=true, load=1})
+
+--@ chunk 134
+-- PASS 2, chunk L: the flap-edge skin also ran round the lower flaps and outlined them like a cog. Close it with dark.
+print(wait(4*1440))
+local L = Q3 + Q4
+local below = mask(function(x, y) local t, s = ST(x, y); return (s > 25) and 1 or 0 end)
+local G = (L:grow(1.5) - L:shrink(7)) * below - openM:grow(6) - frameM:grow(0.5) - armsM
+work(G, {hand="detail", tool="round 2.2", pile=DK[1], coverage=3.5, fill=true, load=1})
+-- the upper flaps' outer sides, away from the torn top edge: the same skin, toned down to the flap's dark
+print(G:area())
+
+--@ chunk 135
+-- PASS 2, chunk M: fewer, larger tears on the lower flaps: fill the small saw-teeth, keep one big rip; no outline.
+print(wait(3*1440))
+local L = Q3 + Q4
+local hull4 = poly({{632,460},{650,488},{680,472},{710,481},{742,467},{770,451},{794,418},{812,385},{803,345},{800,325},{770,300}})
+local hull3 = poly({{622,450},{604,488},{605,500},{622,470}})
+local fillR = (hull4 + hull3) - L - frameM:grow(0.5) - armsM
+local below = mask(function(x, y) local t, s = ST(x, y); return (s > 25) and 1 or 0 end)
+local G = ((L:grow(2) - L:shrink(8)) * below - openM:grow(6) - frameM:grow(0.5) - armsM) + fillR
+local fb = brush{kind="filbert", width=3}
+local n = 0
+for y = 380, 525, 3 do for x = 430, 820, 3 do
+  local px, py = x + rand(-1.5, 1.5), y + rand(-1.5, 1.5)
+  if G:at(px, py) > 0.5 then
+    fb:reload((math.random() < 0.55) and DK[2] or DK[1], 0.6)
+    local a = math.atan(py - CY, px - CX) + rand(-0.2, 0.2)
+    fb:stroke({{px - math.cos(a)*3, py - math.sin(a)*3}, {px + math.cos(a)*3, py + math.sin(a)*3}}, {pressure={0.55, 0.45}, clip=G})
+    n = n + 1
+  end
+end end
+print(n)
+
+--@ chunk 136
+-- PASS 2, chunk N: grey flecks of the edge skin left between the legs: back into shadow.
+local Z = ((foldOut:grow(1.5) - foldOut:shrink(7)) * rect(500, 425, 135, 100)) - frameM:grow(0.4) - armsM
+local fb = brush{kind="filbert", width=2.4}
+local n = 0
+for y = 425, 525, 2.4 do for x = 500, 635, 2.4 do
+  local px, py = x + rand(-1.2, 1.2), y + rand(-1.2, 1.2)
+  if Z:at(px, py) > 0.5 then
+    fb:reload((math.random() < 0.5) and DK[2] or DK[1], 0.6)
+    fb:stroke({{px, py - 2.5}, {px + rand(-0.5,0.5), py + 2.5}}, {pressure={0.55, 0.45}, clip=Z})
+    n = n + 1
+  end
+end end
+print(n)
+
+--@ chunk 137
+local Z = (rect(515, 438, 18, 46) + rect(546, 455, 14, 32) + rect(574, 438, 14, 48)) - frameM:grow(0.3)
+work(Z, {hand="detail", tool="round 2", pile=DK[1], coverage=3.5, fill=true, load=1})
+
+--@ chunk 138
+print(wait(2*1440))
+local Z = (rect(513, 436, 22, 50) + rect(545, 453, 16, 36) + rect(572, 436, 18, 52)) - frameM:grow(0.3)
+local fb = brush{kind="filbert", width=2.6}
+for y = 436, 490, 2.4 do for x = 513, 592, 2.4 do
+  local px, py = x + rand(-1.2, 1.2), y + rand(-1.2, 1.2)
+  if Z:at(px, py) > 0.5 then
+    local r = math.random()
+    fb:reload((r < 0.4) and DK[2] or ((r < 0.8) and DK[3] or DK[4]), 0.6)
+    fb:stroke({{px - 2, py - 2}, {px + 2, py + 2}}, {pressure={0.55, 0.45}, clip=Z})
+  end
+end end
+
+--@ chunk 139
+-- PASS 2, chunk O: the 07 and the placard back, as old worn paint on the wall rather than labels laid on top.
+local st3 = pile{{"yellow ochre",1},{"bone brown",0.6},{"bone black",0.5}}
+work(STENCIL, {hand="scumble", pile=st3, load=0.45, pressure={0.2, 0.45}, coverage=1.6, clip=true})
+local plc = pile{{"bone black",1},{"lead white",0.25},{"yellow ochre",0.2}}
+local plate = rect(320, 152, 58, 40)
+work(plate, {hand="detail", tool="round 2.6", pile=plc, coverage=3, fill=true, load=0.9})
+local hz = pile{{"chrome yellow",2},{"yellow ochre",1},{"bone black",0.8}}
+work(rect(320, 152, 58, 6), {hand="detail", tool="round 2", pile=hz, coverage=3, fill=true, load=0.9})
+print(wait(1440))
+local ink = pile{{"bone black",2},{"bone brown",1}}
+local r = brush{kind="round", width=1.3, point=0.6}
+for i, y in ipairs({164, 169, 174, 179, 184}) do
+  local x = 325
+  while x < 370 do
+    local w = rand(3, 9)
+    r:reload(ink, 0.5); r:stroke({{x, y}, {math.min(x + w, 372), y}}, {pressure={0.4, 0.4}, clip=plate})
+    x = x + w + rand(1.5, 3)
+  end
+end
+local red = pile{{"cadmium red",1},{"burnt sienna",0.6},{"bone black",0.15}}
+local rb = brush{kind="round", width=3.2, point=0.3}
+rb:reload(red, 0.8); rb:stroke({{324, 190}, {350, 172}, {376, 156}}, {pressure={0.75, 0.5}, ramps={0.05, 0.3}, shake=1})
+print(wait(2*1440))
+local wallD = pile{{"bone black",2},{"ultramarine ash",0.4},{"bone brown",0.6}}
+work(plate:grow(1), {hand="scumble", pile=wallD, load=0.15, pressure={0.08, 0.2}, coverage=0.5, clip=true})
+
+--@ chunk 140
+print(wait(3*1440))
+local wallD = pile{{"bone black",2},{"ultramarine ash",0.4},{"bone brown",0.6}}
+stipple(STENCIL:grow(0.5), {pile=wallD, width=2.2, coverage=0.35, cluster={0.7, 6}, pressure={0.3, 0.6}})
+local red = pile{{"cadmium red",1},{"burnt sienna",0.4}}
+local rb = brush{kind="round", width=3.6, point=0.3}
+rb:reload(red, 0.9); rb:stroke({{326, 189}, {350, 173}, {374, 158}}, {pressure={0.8, 0.55}, ramps={0.05, 0.3}, shake=1})
+
+--@ chunk 141
+-- PASS 2, chunk P: the left flap's outer side faces away from the breach; its grey skin line down to the flap's dark.
+local Z = (foldOut:grow(1.8) - foldOut:shrink(6)) * rect(380, 130, 75, 200) - openM:grow(10) - HUSKBAND:grow(3) - armsM
+local sk = pile{{"bone black",2},{"ultramarine ash",0.6},{"bone brown",0.5}}
+work(Z, {hand="detail", tool="round 2.2", pile=sk, coverage=3.5, fill=true, load=1})
+print(Z:area())

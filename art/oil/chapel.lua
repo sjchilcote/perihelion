@@ -580,3 +580,474 @@ cb:load(rim, 0.8); cb:stroke({{550,369.2},{566,369.2}}, {pressure={0.5,0.4}, ram
 local ob = brush{kind="filbert", width=9, stiffness=0.7}
 ob:load(pile{{"lead white",4},{"lemon chrome",0.3}}, 1)
 for i=1,3 do ob:touch(704 + (i-2)*5, 78 + (i%2)*2, {pressure=0.8, drag={4,0.2}}) end
+
+--@ chunk 49
+-- PASS 2, chunk A: the dome repainted dark, darkness gathering upward, warmed only near the shaft and oculus;
+-- then the bronze ribs modelled with lit edges toward the light.
+ocM = npoly(oc.cx, oc.cy, 56, 7, 0.2, 0.62):grow(1)
+lampZ = rect(210, 306, 58, 106)
+function shaftX(y) return 704 + (466 - 704) * (y - 95) / 339 end
+function lightK(x, y)
+  -- distance to the shaft's centre line
+  local ax, ay, bx, by = 704, 95, 466, 434
+  local vx, vy = bx - ax, by - ay
+  local t = clamp(((x - ax) * vx + (y - ay) * vy) / (vx * vx + vy * vy), 0, 1.15)
+  local px, py = ax + vx * t, ay + vy * t
+  local d1 = math.sqrt((x - px)^2 + (y - py)^2)
+  local a = clamp(1 - d1 / 260, 0, 1)^1.5
+  local v = clamp((y - 40) / 320, 0, 1)
+  local d2 = math.sqrt((x - oc.cx)^2 + ((y - oc.cy) * 1.3)^2)
+  local b = clamp(1 - d2 / 170, 0, 1)^2
+  return math.max(a * (0.3 + 0.7 * v), b * 0.75) + 0.12 * v
+end
+local region = wallm - ocM - lampZ - pewmask
+local nzK = noise{seed=71, period=40, octaves=3}
+local K = mask(function(x, y) return 0.02 + 0.97 * clamp(lightK(x, y) + 0.07 * nzK(x, y), 0, 0.999) end) * region
+local W1 = pile{{"bone black",2},{"burnt sienna",1},{"ultramarine blue",0.5}}
+local W2 = pile{{"bone black",2},{"burnt sienna",1.5},{"ultramarine blue",0.6},{"yellow ochre",0.3}}
+local W3 = pile{{"bone black",2},{"burnt sienna",1.5},{"yellow ochre",0.8}}
+local W4 = pile{{"burnt sienna",3},{"ultramarine blue",1.2},{"raw sienna",1.5},{"yellow ochre",0.6}}
+local bands = {{0.01, 0.17, W1}, {0.17, 0.33, W2}, {0.33, 0.5, W3}, {0.5, 1.01, W4}}
+for _, bd in ipairs(bands) do
+  local m = K:band(bd[1], bd[2], 0)
+  work(m, {hand="body", pile=bd[3], coverage=3.5, fill=true, angle=ribang, clip=true, length={20,60}, load=1})
+end
+print(wait(5*24*60))
+-- ribs
+local bsh = pile{{"bone black",2},{"burnt sienna",1.5},{"yellow ochre",0.8}}
+local bmid = pile{{"raw sienna",2},{"bone black",1},{"burnt sienna",1}}
+local blit = pile{{"yellow ochre",2},{"burnt sienna",1},{"lead white",1}}
+local bhot = pile{{"lead white",2},{"yellow ochre",1},{"Mars orange",0.3}}
+local bdim = pile{{"yellow ochre",1},{"burnt sienna",1},{"bone black",0.4}}
+RIBPTS = {}
+for i, x in ipairs(rib_x) do
+  local pts = ribpath2(x)
+  RIBPTS[i] = pts
+  work(ribms[i] - ocM - lampZ, {hand="body", tool="filbert 6", pile=bsh, coverage=3.5, fill=true, angle=ribang, clip=true, length={15,40}, load=1})
+end
+print(wait(3*24*60))
+local eb = brush{kind="round", width=2.4, point=0.5}
+local mb = brush{kind="filbert", width=4}
+for i, x in ipairs(rib_x) do
+  local pts = RIBPTS[i]
+  local clipR = ribms[i] - ocM - lampZ
+  for j = 1, #pts - 1 do
+    local p, q = pts[j], pts[j + 1]
+    local w = rib_w[i] * (1 - 0.6 * (j - 1) / (#pts - 1))
+    local dx, dy = q[1] - p[1], q[2] - p[2]
+    local L = math.sqrt(dx * dx + dy * dy)
+    local nx, ny = -dy / L, dx / L
+    local mx, my = (p[1] + q[1]) / 2, (p[2] + q[2]) / 2
+    local side = (mx < shaftX(my)) and 1 or -1
+    if nx * side < 0 then nx, ny = -nx, -ny end
+    local k = lightK(mx, my)
+    -- the half of the rib turned to the light
+    if k > 0.18 then
+      for f = 0, 0.8, 0.2 do
+        local ax, ay = lerp(p[1], q[1], f), lerp(p[2], q[2], f)
+        local bx2, by2 = lerp(p[1], q[1], f + 0.25), lerp(p[2], q[2], f + 0.25)
+        mb:reload(bmid, 0.7)
+        mb:stroke({{ax + nx * w * 0.22, ay + ny * w * 0.22}, {bx2 + nx * w * 0.22, by2 + ny * w * 0.22}}, {pressure={0.6, 0.6}, clip=clipR})
+      end
+    end
+    -- the lit edge
+    local pl = (k > 0.6) and bhot or ((k > 0.38) and blit or ((k > 0.2) and bdim or nil))
+    if pl then
+      local o = w / 2 - 1.8
+      eb:reload(pl, 0.7)
+      eb:stroke({{p[1] + nx * o, p[2] + ny * o}, {q[1] + nx * o, q[2] + ny * o}}, {pressure={0.3 + 0.4 * k, 0.3 + 0.4 * k}, clip=clipR})
+    end
+  end
+end
+
+--@ chunk 50
+-- PASS 2, chunk A2: the pale wall blotches round the shaft read as cloud. Keep the warm wall only in a band hugging the shaft.
+local allRibs = ribms[1]
+for i = 2, #ribms do allRibs = allRibs + ribms[i] end
+local zone = (wallm - ocM - lampZ - pewmask - allRibs - shaft:grow(32)) * mask(function(x, y) return (lightK(x, y) > 0.36) and 1 or 0 end):grow(10)
+local W3 = pile{{"bone black",2},{"burnt sienna",1.5},{"yellow ochre",0.8}}
+work(zone, {hand="body", pile=W3, coverage=3.5, fill=true, angle=ribang, clip=true, length={20,60}, load=1})
+local near = (shaft:grow(32) - shaft:grow(2)) * wallm - ocM - allRibs
+local W4 = pile{{"burnt sienna",3},{"ultramarine blue",1.2},{"raw sienna",1.5},{"yellow ochre",0.6}}
+work(near, {hand="body", pile=W4, coverage=3, fill=true, angle=ribang, clip=true, length={15,40}, load=1})
+blend(((shaft:grow(40) - shaft:grow(24)) * wallm) - ocM - allRibs, {angle=math.atan(435-95, 466-704), tool={kind="badger", width=14}})
+
+--@ chunk 51
+-- PASS 2, chunk B: the floor relit from the pool outward; a clean pool; the inlay rings restated as grooves with bone inlay.
+print(wait(2*24*60))
+crossZ = rect(543, 356, 30, 40)
+local region = floorm - pewmask - frame_m:grow(2) - lampZ - crossZ
+local nz = noise{seed=72, period=30, octaves=3}
+function floorK(x, y) local dx, dy = (x - 468) / 300, (y - 432) / 85; return clamp(1 - math.sqrt(dx*dx + dy*dy), 0, 1) end
+local K = mask(function(x, y) return 0.02 + 0.97 * clamp(floorK(x, y) + 0.06 * nz(x, y), 0, 0.999) end) * region
+local F1 = pile{{"bone black",2},{"burnt sienna",1.5},{"ultramarine blue",0.4}}
+local F2 = pile{{"bone black",1.5},{"burnt sienna",1.5},{"raw sienna",0.8}}
+local F3 = pile{{"burnt sienna",2},{"raw sienna",1},{"yellow ochre",1},{"bone black",0.4}}
+local F4 = pile{{"yellow ochre",2},{"burnt sienna",1},{"lead white",0.8},{"raw sienna",0.5}}
+for _, bd in ipairs({{0.01, 0.14, F1}, {0.14, 0.36, F2}, {0.36, 0.62, F3}, {0.62, 1.01, F4}}) do
+  work(K:band(bd[1], bd[2], 0), {hand="body", pile=bd[3], coverage=3.5, fill=true, angle=0.03, clip=true, length={20,60}, load=1})
+end
+-- the pool
+local pl = ellipse(466, 433, 92, 18):roughen(3, 30, 4) * region
+local pc = ellipse(468, 432, 52, 9):roughen(2, 20, 5) * region
+work(pl, {hand="body", tool="filbert 6", pile=floor_lit, coverage=3.5, fill=true, angle=0.02, clip=true, length={10,30}, load=1})
+work(pc, {hand="body", tool="filbert 5", pile=floor_hot, coverage=3.5, fill=true, angle=0.02, clip=true, length={8,25}, load=1})
+blend((pl:grow(6) - pc:shrink(3)) * region, {angle=0.02, tool={kind="badger", width=14}})
+print(wait(4*24*60))
+-- inlay rings
+local groove = pile{{"bone black",2},{"burnt sienna",1}}
+local boneL = pile{{"lead white",2.5},{"yellow ochre",1},{"raw sienna",0.4}}
+local boneM = pile{{"lead white",1.5},{"yellow ochre",1},{"raw sienna",0.6},{"bone black",0.3}}
+local boneD = pile{{"lead white",0.8},{"yellow ochre",1},{"raw sienna",0.6},{"bone black",0.6}}
+local g = brush{kind="round", width=2.2, point=0.5}
+local bl = brush{kind="round", width=1.5, point=0.7}
+local rclip = floorm - pewmask - frame_m:grow(1.5) - crossZ - lampZ
+local radii = {46, 74, 120, 194, 314, 508}
+for i, r in ipairs(radii) do
+  local pts = ring(560 + i*7 - 20, 398 + i*9, r, r*0.17 + i*1.5, 0.015*i - 0.03)
+  local n = #pts
+  for s = 1, n - 1, 6 do
+    local part = {}
+    for k = s, math.min(s + 7, n) do part[#part + 1] = pts[k] end
+    local mx, my = part[1][1], part[1][2]
+    if rclip:at(mx, my) > 0.3 or rclip:at(part[#part][1], part[#part][2]) > 0.3 then
+      local k = floorK(mx, my)
+      local inPool = ellipse(466, 433, 92, 18):at(mx, my) > 0.5
+      g:reload(groove, 0.6); g:stroke(part, {pressure={0.5, 0.5}, clip=rclip})
+      if not inPool then
+        local up = {} for q, p in ipairs(part) do up[q] = {p[1], p[2] - 1.3} end
+        local p = (k > 0.45) and boneL or ((k > 0.15) and boneM or boneD)
+        bl:reload(p, 0.6); bl:stroke(up, {pressure={0.45, 0.45}, clip=rclip})
+      end
+    end
+  end
+end
+
+--@ chunk 52
+-- PASS 2, chunk C: MIRIAD benches as modular furniture: lit top rail, dark backs with panel seams on the module,
+print(wait(2*24*60))
+-- lit aisle ends, and shadows they throw away from the pool across the aisle.
+local backP = pile{{"bone black",2},{"zinc white",0.35},{"ultramarine ash",0.5},{"burnt sienna",0.2}}
+local backHi = pile{{"bone black",1.6},{"zinc white",0.6},{"ultramarine ash",0.6},{"burnt sienna",0.2}}
+local topLit = pile{{"zinc white",1},{"bone black",0.7},{"ultramarine ash",0.4},{"yellow ochre",0.25}}
+local topWarm = pile{{"zinc white",1.2},{"yellow ochre",0.6},{"bone black",0.4},{"burnt sienna",0.15}}
+local topDim = pile{{"zinc white",0.6},{"bone black",1},{"ultramarine ash",0.5}}
+local shP = pile{{"bone black",2},{"burnt sienna",1},{"ultramarine blue",0.4}}
+local aisleL = pile{{"burnt sienna",2},{"raw sienna",1},{"yellow ochre",1},{"bone black",0.4}}
+local Lx, Ly = 468, 432
+-- 1. the aisle floor carries the pool's light toward us; the benches' shadows cut across it
+local aisle = poly({{486, 440}, {512, 440}, {540, 667}, {455, 667}}) * floorm - pewmask
+work(aisle * mask(function(x, y) return (y < 560) and 1 or 0 end), {hand="body", tool="filbert 5", pile=aisleL, coverage=3, fill=true, angle=math.pi/2, clip=true, length={10,30}, load=1})
+local shadows = nil
+for i, pw in ipairs(pews) do
+  local aisleEnd = (pw.xb < 500) and pw.xb or pw.xa
+  local bx, by = aisleEnd, pw.y
+  local dx, dy = bx - Lx, by - Ly
+  local L = math.sqrt(dx*dx + dy*dy)
+  local f = 0.9 * pw.h / L
+  local outer = (pw.xb < 500) and pw.xa or pw.xb
+  local q = poly({{outer, by}, {bx, by}, {bx + dx*f, by + dy*f}, {outer + (outer - Lx)*f*0.4, by + dy*f}})
+  shadows = shadows and (shadows + q) or q
+end
+work((shadows * floorm) - pewmask, {hand="detail", tool="round 3", pile=shP, coverage=3.5, fill=true, load=1})
+-- 2. each bench
+local eb = brush{kind="round", width=1.6, point=0.5}
+local sb = brush{kind="round", width=1.3, point=0.6}
+for i, pw in ipairs(pews) do
+  local s = (pw.y - 300) / 370
+  local cut = pw.y - pw.h * 0.42
+  local back = pw.mask * above(function(x) return cut end)
+  work(back, {hand="body", tool="filbert 5", pile=backP, coverage=3.5, fill=true, angle=0, clip=true, length={15,50}, load=1})
+  -- top rail: a thin lit plane above the back
+  local a, b = pw.top[1], pw.top[2]
+  local th = math.max(2.2, pw.h * 0.13)
+  local rail = poly({{a[1] + 2*s, a[2] - th}, {b[1] - 2*s, b[2] - th}, {b[1], b[2]}, {a[1], a[2]}})
+  local aisleRight = (pw.xb < 500)
+  local near = clamp(1 - (pw.y - 452) / 240, 0.15, 1)
+  local rb = brush{kind="filbert", width=math.max(2, th * 0.8)}
+  for xx = a[1], b[1], 3 do
+    local t = (xx - a[1]) / (b[1] - a[1])
+    local toAisle = aisleRight and t or (1 - t)
+    local k = near * (0.35 + 0.65 * toAisle^1.5)
+    local p = (k > 0.6) and topWarm or ((k > 0.3) and topLit or topDim)
+    local yy = lerp(a[2], b[2], t) - th / 2
+    rb:reload(p, 0.6); rb:stroke({{xx, yy}, {xx + 3.4, yy + (b[2] - a[2]) * 3.4 / (b[1] - a[1])}}, {pressure={0.6, 0.6}, clip=rail})
+  end
+  -- the back's upper bevel, a hair lighter
+  eb:reload(backHi, 0.6); eb:stroke({{a[1] + 2, a[2] + 1.5}, {b[1] - 2, b[2] + 1.5}}, {pressure={0.4, 0.4}, clip=pw.mask})
+  -- module seams in line with the legs
+  local n = math.floor((pw.xb - pw.xa) / (90 * s)) + 1
+  for k = 1, n - 1 do
+    local x = pw.xa + 6*s + k * ((pw.xb - pw.xa - 12*s) / math.max(n, 1))
+    local t = (x - a[1]) / (b[1] - a[1])
+    local ytop = lerp(a[2], b[2], t)
+    sb:reload(shP, 0.6); sb:stroke({{x, ytop + 1}, {x, cut - 0.5}}, {pressure={0.5, 0.5}, clip=pw.mask})
+    local side = aisleRight and 1.1 or -1.1
+    sb:reload(backHi, 0.4); sb:stroke({{x + side, ytop + 1.5}, {x + side, cut - 1}}, {pressure={0.3, 0.3}, clip=pw.mask})
+  end
+  -- the aisle end of the bench catches the pool's light
+  local ex = aisleRight and pw.xb or pw.xa
+  local ew = math.max(2, 4 * s)
+  local endM = rect(aisleRight and (ex - ew) or ex, pw.y - pw.h - 3, ew, pw.h + 3) * (pw.mask + rail)
+  work(endM, {hand="detail", tool="round 1.6", pile=(near > 0.6) and topWarm or topLit, coverage=3, fill=true, load=0.8})
+end
+
+--@ chunk 53
+-- PASS 2, chunk C2: bench backs turned from the light go darker, a little lighter toward the aisle; seams restated;
+-- the aisle's light narrowed and faded; fill the boxes left round the cross and lamp.
+print(wait(3*24*60))
+local backD = pile{{"bone black",2},{"zinc white",0.12},{"ultramarine ash",0.4},{"burnt sienna",0.2}}
+local backM = pile{{"bone black",2},{"zinc white",0.28},{"ultramarine ash",0.5},{"burnt sienna",0.2}}
+local backHi = pile{{"bone black",1.6},{"zinc white",0.5},{"ultramarine ash",0.6},{"burnt sienna",0.2}}
+local shP = pile{{"bone black",2},{"burnt sienna",1},{"ultramarine blue",0.4}}
+local fb = brush{kind="filbert", width=4}
+local sb = brush{kind="round", width=1.3, point=0.6}
+for i, pw in ipairs(pews) do
+  local s = (pw.y - 300) / 370
+  local cut = pw.y - pw.h * 0.42
+  local a, b = pw.top[1], pw.top[2]
+  local back = pw.mask * above(function(x) return cut end)
+  local aisleRight = (pw.xb < 500)
+  for yy = math.min(a[2], b[2]) - 1, cut + 1, 3 do
+    for xx = pw.xa, pw.xb, 6 do
+      local t = (xx - pw.xa) / (pw.xb - pw.xa)
+      local toAisle = aisleRight and t or (1 - t)
+      local p = (toAisle + rand(-0.05, 0.05) > 0.78) and backM or backD
+      if back:at(xx + 3, yy) > 0.3 then
+        fb:reload(p, 0.6); fb:stroke({{xx, yy}, {xx + 7, yy}}, {pressure={0.6, 0.6}, clip=back})
+      end
+    end
+  end
+  sb:reload(backHi, 0.6); sb:stroke({{a[1] + 2, a[2] + 1.5}, {b[1] - 2, b[2] + 1.5}}, {pressure={0.4, 0.4}, clip=pw.mask})
+  local n = math.floor((pw.xb - pw.xa) / (90 * s)) + 1
+  for k = 1, n - 1 do
+    local x = pw.xa + 6*s + k * ((pw.xb - pw.xa - 12*s) / math.max(n, 1))
+    local ytop = lerp(a[2], b[2], (x - a[1]) / (b[1] - a[1]))
+    sb:reload(shP, 0.6); sb:stroke({{x, ytop + 1}, {x, cut - 0.5}}, {pressure={0.5, 0.5}, clip=pw.mask})
+    local side = aisleRight and 1.1 or -1.1
+    sb:reload(backHi, 0.4); sb:stroke({{x + side, ytop + 1.5}, {x + side, cut - 1}}, {pressure={0.3, 0.3}, clip=pw.mask})
+  end
+end
+-- aisle: dark at its edges (the bench ends' shadows), a narrow warm path down the middle that fades toward us
+local aisle = poly({{484, 438}, {514, 438}, {542, 667}, {453, 667}}) * floorm - pewmask
+local F2 = pile{{"bone black",1.5},{"burnt sienna",1.5},{"raw sienna",0.8}}
+local F3 = pile{{"burnt sienna",2},{"raw sienna",1},{"yellow ochre",1},{"bone black",0.4}}
+work(aisle, {hand="body", tool="filbert 5", pile=F2, coverage=3.5, fill=true, angle=math.pi/2, clip=true, length={10,30}, load=1})
+local path = poly({{493, 440}, {505, 440}, {502, 540}, {497, 540}}) * floorm - pewmask
+work(path, {hand="detail", tool="round 2.5", pile=F3, coverage=3, fill=true, load=0.8})
+-- boxes round the cross and the lamp
+local F4 = pile{{"yellow ochre",2},{"burnt sienna",1},{"lead white",0.8},{"raw sienna",0.5}}
+work(crossZ * floorm, {hand="detail", tool="round 3", pile=F3, coverage=3.5, fill=true, load=1})
+work(crossZ - floorm, {hand="detail", tool="round 3", pile=pile{{"burnt sienna",3},{"ultramarine blue",1.2},{"raw sienna",1.5},{"yellow ochre",0.6}}, coverage=3.5, fill=true, load=1})
+work(lampZ * wallm, {hand="body", tool="filbert 5", pile=pile{{"bone black",2},{"burnt sienna",1.5},{"ultramarine blue",0.6},{"yellow ochre",0.3}}, coverage=3.5, fill=true, angle=ribang, clip=true, load=1})
+work(lampZ * floorm, {hand="body", tool="filbert 5", pile=pile{{"bone black",2},{"burnt sienna",1.5},{"ultramarine blue",0.4}}, coverage=3.5, fill=true, angle=0.03, clip=true, load=1})
+
+--@ chunk 54
+-- PASS 2, chunk D: the shaft as light in air: lean warm-white veils, blended along the fall, edges softened;
+-- a bronze frame round the oculus.
+print(wait(4*24*60))
+local bang = math.atan(435-95, 466-704)
+local s = shaft - frame_m:grow(1) - pewmask - crossZ - ocM
+local veilW = pile{{"lead white",3},{"Mars orange",0.3},{"cadmium yellow",0.15}, medium=0.88}
+work(s, {hand="glaze", pile=veilW, coverage=1.2, fill=true, clip=true, angle=bang, load=0.25, pressure={0.1,0.25}})
+work(s:shrink(12), {hand="glaze", pile=veilW, coverage=0.8, fill=true, clip=true, angle=bang, load=0.25, pressure={0.1,0.25}})
+work(s * above(function(x) return 260 end), {hand="glaze", pile=veilW, coverage=0.6, fill=true, clip=true, angle=bang, load=0.25, pressure={0.1,0.25}})
+blend(s, {angle=bang})
+blend((shaft:grow(5) - shaft:shrink(5)) - frame_m:grow(2) - pewmask - crossZ - ocM, {angle=bang, tool={kind="badger", width=12}})
+-- oculus frame
+local ring7 = npoly(oc.cx, oc.cy, 60, 7, 0.2, 0.62) - npoly(oc.cx, oc.cy, 54, 7, 0.2, 0.62)
+work(ring7, {hand="detail", tool="round 2", pile=pile{{"bone black",2},{"burnt sienna",1.5},{"yellow ochre",0.8}}, coverage=4, fill=true, load=1})
+
+--@ chunk 55
+-- PASS 2, chunk E: the kneeling frame as armour (helm, pauldrons, back plate, folded legs) and a cross of two scraps.
+FIG = {
+  helm = {{464,388},{466,383},{470,381.5},{474.5,383},{476.5,388},{476,394},{470,396.5},{464.5,394}},
+  pauldL = {{450,400},{455,394.5},{463,393.5},{465,399},{462,406},{453,407}},
+  pauldR = {{475,399},{477,393.5},{485,394.5},{490,400},{487,407},{478,406}},
+  back = {{458,398},{482,398},{485,407},{482,419},{479,427},{461,427},{458,419},{455,407}},
+  footL = {{452,427},{466,427},{467,433},{449,435}},
+  footR = {{474,427},{487,427},{492,435},{474,433}},
+}
+local figAll = nil
+for k, pts in pairs(FIG) do local m = poly(pts); figAll = figAll and (figAll + m) or m end
+FIGM = figAll
+local dk = pile{{"bone black",2},{"ultramarine blue",0.4},{"zinc white",0.3},{"burnt sienna",0.2}}
+work(FIGM, {hand="detail", tool="round 1.6", pile=dk, coverage=5, fill=true, load=1})
+-- cross: two scraps lashed
+CROSS = poly({{555,359},{559.5,357.5},{561.5,360},{561,394.5},{554.5,395}}) + poly({{545.5,369.5},{568.5,367},{569,372},{546,374.5}})
+work(CROSS, {hand="detail", tool="round 1.4", pile=dk, coverage=5, fill=true, load=1})
+print(wait(5*24*60))
+local rimH = pile{{"lead white",3},{"cadmium yellow",0.8},{"Mars orange",0.1}}
+local rimW = pile{{"yellow ochre",1},{"lead white",1},{"Mars orange",0.3}}
+local seam = pile{{"bone black",2},{"burnt sienna",0.6}}
+local mid = pile{{"bone black",1.4},{"zinc white",0.5},{"ultramarine ash",0.5},{"burnt sienna",0.3}}
+local r1 = brush{kind="round", width=1.3, point=0.8}
+local r2 = brush{kind="round", width=1.0, point=0.8}
+local function st(b, p, pts, pr, clipM) b:reload(p, 0.7); b:stroke(pts, {pressure=pr, ramps={0.15,0.3}, clip=clipM}) end
+-- plate faces: a mid gray on the planes turned up and right
+st(r1, mid, {{466,386},{470,384},{474,386}}, {0.5,0.4}, FIGM)
+st(r1, mid, {{478,397},{484,397.5},{487,401}}, {0.5,0.4}, FIGM)
+st(r1, mid, {{453,401},{457,397},{462,396.5}}, {0.45,0.35}, FIGM)
+st(r1, mid, {{474,402},{480,405},{482,412}}, {0.45,0.3}, FIGM)
+-- seams: spine, waist, shoulder-blade plates, helm visor ridge
+st(r2, seam, {{470,399},{470,425}}, {0.5,0.5}, FIGM)
+st(r2, seam, {{460,417},{480,417}}, {0.5,0.5}, FIGM)
+st(r2, seam, {{460,401},{464,410},{469,411}}, {0.4,0.4}, FIGM)
+st(r2, seam, {{480,401},{476,410},{471,411}}, {0.4,0.4}, FIGM)
+st(r2, seam, {{465,392},{470,393.5},{475.5,392}}, {0.4,0.4}, FIGM)
+-- rim light from the shaft above and to the right
+st(r1, rimH, {{465,386.5},{467,383.2},{470.5,382.2},{474.5,383.8},{476.2,387.5}}, {0.7,0.45}, FIGM)
+st(r1, rimH, {{476.5,395.5},{481,394.6},{485,395.4},{489,399.5}}, {0.7,0.4}, FIGM)
+st(r1, rimW, {{489,400.5},{487.5,406}}, {0.5,0.3}, FIGM)
+st(r1, rimW, {{484.5,408},{482,418},{479.5,425.5}}, {0.45,0.25}, FIGM)
+st(r1, rimW, {{451,399.5},{455.5,395.2},{462.5,394.2}}, {0.45,0.3}, FIGM)
+-- the pool's light on the soles
+st(r1, rimW, {{450,434},{466,432.6}}, {0.5,0.4}, FIGM)
+st(r1, rimW, {{475,432.6},{491,434}}, {0.5,0.4}, FIGM)
+-- cross: sunward edges, lashing, shadow thrown down-left
+st(r1, rimH, {{560.8,360},{560.6,393}}, {0.55,0.35}, CROSS)
+st(r1, rimH, {{546,369.8},{568,367.4}}, {0.5,0.4}, CROSS)
+for _, w in ipairs({{{554.5,368},{561.5,374}}, {{554.5,370.5},{561.5,376}}, {{561.5,368},{554.5,374}}}) do
+  st(r2, pile{{"burnt sienna",1},{"yellow ochre",1},{"bone black",0.6}}, w, {0.45,0.45}, nil)
+end
+local shd = poly({{554,394},{561,394},{544,401},{532,403}})
+work(shd * floorm - frame_m, {hand="detail", tool="round 1.6", pile=pile{{"bone black",2},{"burnt sienna",1.2}}, coverage=3, fill=true, load=0.8})
+
+--@ chunk 56
+-- PASS 2, chunk F: the frieze as a real band: a dark bronze course between two mouldings, and the fold-notation
+-- glyphs restated cleanly in bone (each polygon holding a smaller copy turned by the golden angle).
+local band = wallm * mask(function(x, y) local f = foot(x); return (y > f - 46 and y < f - 7) and 1 or 0 end) - shaft:grow(3) - lampZ - pewmask
+local fr = pile{{"bone black",2},{"burnt sienna",1.5},{"yellow ochre",0.5}}
+work(band, {hand="body", tool="filbert 5", pile=fr, coverage=3.5, fill=true, angle=0, clip=true, length={15,40}, load=1})
+print(wait(3*24*60))
+local boneL = pile{{"lead white",2.5},{"yellow ochre",1},{"raw sienna",0.4}}
+local boneM = pile{{"lead white",1.5},{"yellow ochre",1},{"raw sienna",0.6},{"bone black",0.3}}
+local boneD = pile{{"lead white",0.8},{"yellow ochre",1},{"raw sienna",0.6},{"bone black",0.6}}
+local mb = brush{kind="round", width=1.8, point=0.5}
+local clipW = wallm - shaft:grow(3) - lampZ - pewmask - pewmask
+local function pk(k) return (k > 0.45) and boneL or ((k > 0.22) and boneM or boneD) end
+-- mouldings
+for _, off in ipairs({-47.5, -6.5}) do
+  for x = 0, 996, 6 do
+    local y1, y2 = foot(x) + off, foot(x + 6) + off
+    if clipW:at(x + 3, (y1 + y2) / 2) > 0.5 then
+      mb:reload(pk(lightK(x, y1)), 0.55); mb:stroke({{x, y1}, {x + 6.3, y2}}, {pressure={0.45, 0.45}, clip=clipW})
+    end
+  end
+end
+-- glyphs
+local gb = brush{kind="round", width=1.3, point=0.8}
+local x, k = 20, 0
+while x < 985 do
+  k = k + 1
+  local y = foot(x) - 27
+  if clipW:at(x, y) > 0.5 and shaft:grow(14):at(x, y) < 0.2 then
+    local r = 9 + (k * 7) % 4
+    local n = 3 + (k * 5) % 6
+    local rot = k * 0.9
+    local p = pk(lightK(x, y))
+    for d = 0, 2 do
+      local rr = r * (0.618^d)
+      local a0 = rot + d * 2.399
+      local pts = {}
+      for i = 0, n do local a = a0 + i * 2 * math.pi / n; pts[#pts + 1] = {x + rr * math.cos(a), y + rr * math.sin(a) * 0.9} end
+      gb:reload(p, 0.6); gb:stroke(pts, {pressure={0.5, 0.45}, ramps={0.05, 0.05}, clip=clipW})
+    end
+  end
+  x = x + 30 + ((k * 0.618) % 1) * 14
+end
+
+--@ chunk 57
+-- PASS 2, chunk G: close the box round the cross into the shaft's haze; the frame's rims stated firmly.
+print(wait(2*24*60))
+local zone = crossZ - CROSS:grow(0.6)
+local G1 = pile{{"bone black",1},{"lead white",1},{"yellow ochre",0.3},{"burnt sienna",0.2}}
+local G2 = pile{{"lead white",1.5},{"bone black",0.8},{"yellow ochre",0.5},{"burnt sienna",0.3}}
+work(zone * above(function(x) return 382 end), {hand="detail", tool="round 2.5", pile=G1, coverage=3.5, fill=true, load=1})
+work(zone * below(function(x) return 382 end), {hand="detail", tool="round 2.5", pile=G2, coverage=3.5, fill=true, load=1})
+local shd = poly({{554,394},{561,394},{544,401},{532,403}})
+work(shd * floorm, {hand="detail", tool="round 1.6", pile=pile{{"bone black",2},{"burnt sienna",1.2}}, coverage=3, fill=true, load=0.8})
+print(wait(3*24*60))
+local bang = math.atan(435-95, 466-704)
+local veilW = pile{{"lead white",3},{"Mars orange",0.3},{"cadmium yellow",0.15}, medium=0.88}
+work(zone:grow(3) * shaft - CROSS:grow(0.5), {hand="glaze", pile=veilW, coverage=1.0, fill=true, clip=true, angle=bang, load=0.2, pressure={0.08,0.2}})
+-- frame rims
+local rimH = pile{{"lead white",3},{"cadmium yellow",0.8},{"Mars orange",0.1}}
+local r = brush{kind="round", width=1.8, point=0.7}
+local function st(pts, pr) r:reload(rimH, 0.8); r:stroke(pts, {pressure=pr, ramps={0.12,0.3}, clip=FIGM}) end
+st({{465,387},{467,383.4},{470.5,382.4},{474.5,384},{476.2,388}}, {0.75,0.5})
+st({{476.8,395.2},{481,394.4},{485.5,395.2},{489.2,399.5}}, {0.75,0.45})
+st({{451.2,399.6},{455.5,395},{462,394}}, {0.55,0.3})
+st({{488.8,401},{487.4,406.5}}, {0.5,0.3})
+
+--@ chunk 58
+print(wait(3*24*60))
+local zone = crossZ - CROSS:grow(0.6)
+local G0 = pile{{"bone black",1.3},{"lead white",0.8},{"burnt sienna",0.35},{"yellow ochre",0.2}}
+work(zone * above(function(x) return 384 end), {hand="detail", tool="round 2.5", pile=G0, coverage=3.5, fill=true, load=1})
+stipple((zone:grow(4) - zone:shrink(3)) - CROSS:grow(0.6), {pile=G0, width=2.5, coverage=0.8, feather=0.6, pressure={0.3,0.6}})
+local bang = math.atan(435-95, 466-704)
+local veilW = pile{{"lead white",3},{"Mars orange",0.3},{"cadmium yellow",0.15}, medium=0.88}
+local z2 = zone:grow(7) * shaft - CROSS:grow(0.8)
+work(z2, {hand="glaze", pile=veilW, coverage=0.8, fill=true, clip=true, angle=bang, load=0.2, pressure={0.08,0.2}})
+blend(z2, {angle=bang, tool={kind="badger", width=12}})
+
+--@ chunk 59
+-- PASS 2, chunk H: warm the shaft, a hot pool at its foot, and the dead work lamp back in its corner.
+print(wait(3*24*60))
+local bang = math.atan(435-95, 466-704)
+local s = shaft - frame_m:grow(1) - FIGM:grow(1) - pewmask - CROSS:grow(1) - ocM
+local warmV = pile{{"Mars orange",1},{"lead white",0.6},{"cadmium yellow",0.2}, medium=0.9}
+work(s, {hand="glaze", pile=warmV, coverage=0.8, fill=true, clip=true, angle=bang, load=0.22, pressure={0.08,0.22}})
+blend(s, {angle=bang})
+local hot = ellipse(470, 424, 72, 8):soften(3) * floorm - pewmask - FIGM:grow(1)
+work(hot, {hand="detail", tool="round 2.5", pile=floor_hot, coverage=3.5, fill=true, load=1})
+local core = ellipse(472, 423, 36, 4.5) * floorm - pewmask - FIGM:grow(1)
+work(core, {hand="detail", tool="round 2", pile=pile{{"lead white",3},{"cadmium yellow",0.6}}, coverage=3.5, fill=true, load=1})
+-- the lamp
+local lg2 = pile{{"bone black",2},{"zinc white",0.5},{"ultramarine ash",0.5}}
+for _, leg in ipairs({{{238,338},{222,402}}, {{240,338},{246,404}}, {{239,338},{258,398}}}) do
+  lampb:reload(lg2, 0.8); lampb:stroke(leg, {pressure={0.6,0.5}, ramps={0.05,0.1}})
+end
+work(poly({{224,318},{254,316},{256,340},{226,342}}), {hand="detail", pile=lg2, coverage=6, fill=true, clip=true})
+work(poly({{224,336},{256,334},{256,340},{226,342}}), {hand="detail", pile=pile{{"Mars orange",1},{"yellow ochre",0.5},{"bone black",0.6}}, coverage=6, fill=true, clip=true})
+local eb = brush{kind="round", width=1.2, point=0.7}
+eb:reload(pile{{"yellow ochre",1},{"burnt sienna",1},{"lead white",0.4}}, 0.6); eb:stroke({{226,318.5},{253.5,316.5}}, {pressure={0.4,0.3}})
+
+--@ chunk 60
+-- PASS 2, chunk I: the orange blotches round the pool's outer floor go down to a quiet dark; the light stays near the pool; rings restated there.
+print(wait(3*24*60))
+local Z = (floorm - pewmask - FIGM:grow(1) - CROSS:grow(1) - crossZ - lampZ) * (ellipse(468, 432, 330, 95) - ellipse(468, 430, 165, 34):roughen(6, 40, 3))
+local F2 = pile{{"bone black",1.5},{"burnt sienna",1.5},{"raw sienna",0.8}}
+work(Z, {hand="body", pile=F2, coverage=3.5, fill=true, angle=0.03, clip=true, length={20,60}, load=1})
+print(wait(3*24*60))
+local groove = pile{{"bone black",2},{"burnt sienna",1}}
+local boneM = pile{{"lead white",1.5},{"yellow ochre",1},{"raw sienna",0.6},{"bone black",0.3}}
+local boneD = pile{{"lead white",0.8},{"yellow ochre",1},{"raw sienna",0.6},{"bone black",0.6}}
+local g = brush{kind="round", width=2.2, point=0.5}
+local bl = brush{kind="round", width=1.5, point=0.7}
+local radii = {46, 74, 120, 194, 314, 508}
+for i, r in ipairs(radii) do
+  local pts = ring(560 + i*7 - 20, 398 + i*9, r, r*0.17 + i*1.5, 0.015*i - 0.03)
+  for s = 1, #pts - 1, 6 do
+    local part = {}
+    for k = s, math.min(s + 7, #pts) do part[#part + 1] = pts[k] end
+    if Z:at(part[1][1], part[1][2]) > 0.3 or Z:at(part[#part][1], part[#part][2]) > 0.3 then
+      g:reload(groove, 0.6); g:stroke(part, {pressure={0.5, 0.5}, clip=Z})
+      local up = {} for q, p in ipairs(part) do up[q] = {p[1], p[2] - 1.3} end
+      bl:reload((floorK(part[1][1], part[1][2]) > 0.2) and boneM or boneD, 0.6); bl:stroke(up, {pressure={0.45, 0.45}, clip=Z})
+    end
+  end
+end
+
+--@ chunk 61
+-- PASS 2, chunk J: the floor repaint ran under the shaft's foot; veil it again so the light reaches the pool.
+print(wait(4*24*60))
+local bang = math.atan(435-95, 466-704)
+local s = (shaft * floorm) - FIGM:grow(1) - pewmask - CROSS:grow(1)
+local s2 = (shaft:grow(4) * floorm * below(function(x) return 330 end)) - FIGM:grow(1) - pewmask - CROSS:grow(1)
+local veilW = pile{{"lead white",3},{"Mars orange",0.3},{"cadmium yellow",0.15}, medium=0.88}
+local warmV = pile{{"Mars orange",1},{"lead white",0.6},{"cadmium yellow",0.2}, medium=0.9}
+work(s, {hand="glaze", pile=veilW, coverage=1.6, fill=true, clip=true, angle=bang, load=0.25, pressure={0.1,0.25}})
+work(s, {hand="glaze", pile=warmV, coverage=0.8, fill=true, clip=true, angle=bang, load=0.22, pressure={0.08,0.22}})
+blend(s2 + (shaft * mask(function(x, y) return (y > 300 and y < 360) and 1 or 0 end) - CROSS:grow(1)), {angle=bang})

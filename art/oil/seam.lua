@@ -3004,3 +3004,477 @@ work(F, {hand="detail", pile=fr, coverage=4, fill=true, clip=F})
 local strip = rect(204, 188, 22, 130) * CORR
 local sp = pile{{"bone black",2},{"burnt sienna",0.5},{"ultramarine ash",0.6},{"lead white",0.08}, medium=0.08}
 work(strip, {hand="detail", pile=sp, coverage=4, fill=true, clip=strip})
+
+--@ chunk 169
+-- pass 3, 1: the corridor repainted darker and leaner, bay by bay (no white near us)
+local PIPEM = PIPES[1].m + PIPES[2].m + PIPES[3].m + PIPES[4].m
+local function cq(s1, s2, x1, x2) return poly({CLP(s1, x1), CLP(s1, x2), CLP(s2, x2), CLP(s2, x1)}) end
+local CAB = ribbon({{372,528},{360,550},{352,580},{330,615},{300,645},{270,667}}, 10)
+  + ribbon({{430,532},{420,560},{424,595},{410,630},{380,667}}, 10)
+  + ribbon({{628,516},{640,540},{672,575},{700,615},{720,667}}, 10)
+  + ribbon({{690,488},{676,500},{650,508},{628,516}}, 6)
+local keep = PIPEM + PLQ:grow(1.5) + PATCHW:grow(1.5) + COLLAR + COLSOFF + ENDW + CAB
+  + cq(1.05, 1.22, -0.45, 0.45) + cq(1.35, 1.59, -0.45, 0.45) + cq(1.31, 1.43, -1.03, -0.32) + cq(1.29, 1.45, 0.03, 0.82)
+  + rect(355, 340, 85, 200) + BAND:grow(1)
+KEEP3 = keep
+local fan = poly({{417,519},{671,519},{760,600},{800,667},{290,667},{335,600}})
+local bay = {
+  pile{{"bone black",2},{"burnt sienna",1},{"raw sienna",0.5},{"yellow ochre",0.3}, medium=0.08},
+  pile{{"bone black",2},{"burnt sienna",0.7},{"ultramarine blue",0.3}, medium=0.08},
+  pile{{"bone black",2},{"burnt sienna",0.5},{"ultramarine blue",0.45}, medium=0.08},
+  pile{{"bone black",2},{"ultramarine blue",0.6},{"burnt sienna",0.35}, medium=0.08},
+}
+local edges = {1.0, 1.27, 1.66, 2.25, 4}
+local surf = LWALL + RWALL + CEIL + FLOOR * -(fan)
+for i = 1, 4 do
+  local m = (RECTS(edges[i+1]) - RECTS(edges[i])) * surf - RIBALL - keep
+  work(m, {hand="body", tool="filbert 7", pile=bay[i], angle=TOVP, coverage=4, fill=true, clip=m, load=1})
+end
+-- rib fronts: backlit, the darkest things in the corridor
+local ribK = pile{{"bone black",2},{"ultramarine blue",0.5},{"burnt sienna",0.5}, medium=0.08}
+local RF = (RIBFRONT(1.27) + RIBFRONT(1.66) + RIBFRONT(2.25)) - keep
+work(RF, {hand="body", tool="filbert 6", pile=ribK, angle=TOVP, coverage=4, fill=true, clip=RF, load=1})
+-- rib inner faces (toward the cut) stay a little warmer
+local ribS = pile{{"bone black",2},{"burnt sienna",1},{"raw sienna",0.6},{"yellow ochre",0.2}, medium=0.08}
+local RS = (RIBSOFF(1.27) + RIBSOFF(1.66) + RIBSOFF(2.25)) - keep
+work(RS, {hand="body", tool="filbert 5", pile=ribS, angle=TOVP, coverage=4, fill=true, clip=RS, load=1})
+-- the collar's return face: a dim warm dark instead of cool gray
+local csD = pile{{"bone black",2},{"burnt sienna",0.8},{"yellow ochre",0.3},{"lead white",0.12}, medium=0.08}
+
+work(COLSOFF - (PIPEM + PLQ + PATCHW + rect(355, 340, 85, 200)), {hand="body", tool="filbert 3", pile=csD, angle=TOVP, coverage=4, fill=true, clip=COLSOFF, load=1})
+
+--@ chunk 170
+-- pass 3, 4: the scale-plate wall made richer: about half the plates repainted in varied bronzes
+local rods = ribbon({{398,352},{372,512}}, 6) + ribbon({{402,354},{430,524}}, 6) + ribbon({{400,354},{404,505}}, 5)
+  + ribbon({{386,428},{418,436}}, 4) + ribbon({{677,316},{664,322},{655,331},{650,341}}, 6)
+  + ribbon({{376,166},{372,240},{366,320},{360,330}}, 4) + ribbon({{721,190},{724,300},{716,420},{714,436}}, 4)
+  + ribbon({{690,488},{676,500},{650,508},{628,516}}, 9)
+local pods = rect(363,148,26,20) + rect(710,174,22,18) + rect(703,434,24,20) + rect(358,468,22,18)
+INSTR = TRI:grow(2) + PLAC:grow(4) + SIGN:grow(2) + RAIL2:grow(2) + CAR2:grow(2) + PODS:grow(2) + pods + rods + COLLAR:grow(1.5) + CUT:grow(2.5)
+local W = BRONZE - INSTR
+local P = {
+  hot  = pile{{"Mars orange",1},{"chrome yellow",0.8},{"burnt sienna",0.6},{"lead white",0.4}, medium=0.08},
+  mid  = pile{{"raw sienna",2},{"burnt sienna",1},{"bone black",0.5},{"yellow ochre",0.5}, medium=0.08},
+  cop  = pile{{"red earth",1},{"burnt sienna",1},{"yellow ochre",0.4},{"bone black",0.3}, medium=0.08},
+  verd = pile{{"viridian",0.5},{"raw sienna",1.2},{"bone black",0.7},{"lead white",0.45}, medium=0.08},
+  dark = pile{{"Mars brown",1},{"bone black",1},{"burnt sienna",0.6}, medium=0.08},
+  gold = pile{{"yellow ochre",2},{"raw sienna",0.6},{"lead white",0.5},{"burnt sienna",0.3}, medium=0.08},
+}
+PL3 = {}
+local cnt = {}
+for i, p in ipairs(PLATES) do
+  local h = (p.n * 0.381966 + 0.13) % 1
+  if h < 0.55 and W:at(p.x, p.y) > 0.5 then
+    local near = clamp(1 - CUTDIST(p.x, p.y) / 90, 0, 1)
+    local r = (p.n * 0.7548777) % 1
+    local k
+    if r < 0.08 + 0.3 * near then k = "hot"
+    elseif r < 0.22 + 0.2 * near then k = "gold"
+    elseif r < 0.45 then k = "mid"
+    elseif r < 0.58 then k = "cop"
+    elseif r < 0.68 then k = "verd"
+    else k = "dark" end
+    local sz = 17 + 7 * ((p.n * 0.5698403) % 1)
+    PLATE_BODY(p.x, p.y, p.a, sz, P[k], W)
+    PL3[#PL3+1] = {x=p.x, y=p.y, a=p.a, n=p.n, sz=sz, k=k, near=near}
+    cnt[k] = (cnt[k] or 0) + 1
+  end
+end
+for k, v in pairs(cnt) do print(k, v) end
+print(#PL3)
+
+--@ chunk 171
+-- pass 3, 2: the thin narrow passes went ochre; let them set, then repaint without yellow earths.
+-- plates far from the cut knocked down from gold/hot to darker bronzes
+print(wait(3*24*60))
+local keep = KEEP3
+local dk = pile{{"bone black",2},{"Mars brown",0.8},{"ultramarine blue",0.3}, medium=0.08}
+local wm = pile{{"bone black",2},{"Mars brown",1},{"burnt sienna",0.6}, medium=0.08}
+local R2 = (RIBSOFF(1.66) + RIBSOFF(2.25)) - keep
+work(R2, {hand="body", tool="filbert 7", pile=dk, angle=TOVP, coverage=5, fill=true, clip=R2, load=1})
+local R1 = RIBSOFF(1.27) - keep
+work(R1, {hand="body", tool="filbert 7", pile=wm, angle=TOVP, coverage=5, fill=true, clip=R1, load=1})
+local PIPEM = PIPES[1].m + PIPES[2].m + PIPES[3].m + PIPES[4].m
+local C = COLSOFF - (PIPEM + PLQ + PATCHW + rect(355, 340, 85, 200))
+work(C, {hand="body", tool="filbert 7", pile=wm, angle=TOVP, coverage=5, fill=true, clip=C, load=1})
+local W = BRONZE - INSTR
+local P = {
+  mid  = pile{{"raw sienna",1.5},{"burnt sienna",1},{"bone black",0.9},{"yellow ochre",0.3}, medium=0.08},
+  dark = pile{{"Mars brown",1},{"bone black",1},{"burnt sienna",0.6}, medium=0.08},
+  cop  = pile{{"red earth",1},{"burnt sienna",1},{"bone black",0.7}, medium=0.08},
+}
+local n = 0
+for _, p in ipairs(PL3) do
+  local h = (p.n * 0.2763932) % 1
+  local k = nil
+  if p.near < 0.45 and (p.k == "hot" or p.k == "gold") then k = (h < 0.5) and "mid" or "cop"
+  elseif p.k == "verd" and p.near < 0.3 then k = "dark"
+  elseif p.k == "mid" and h < 0.4 then k = "dark" end
+  if k then PLATE_BODY(p.x, p.y, p.a, p.sz * 0.85, P[k], W); p.k = (k == "dark") and "dark" or "mid"; n = n + 1 end
+end
+print("knocked", n)
+
+--@ chunk 172
+print(drying(285,300), drying(110,300), drying(120,300), RIBFRONT(1.27):at(285,300), RIBALL:at(285,300), KEEP3:at(285,300), LWALL:at(285,300))
+
+--@ chunk 173
+-- pass 3, 2b: bay nearest the wall read as an olive frame; repaint it a warm near-black (no yellow earths)
+print(wait(2*24*60))
+local fan = poly({{417,519},{671,519},{760,600},{800,667},{290,667},{335,600}})
+local surf = LWALL + RWALL + CEIL + FLOOR * -(fan)
+local m = (RECTS(1.27) - RECTS(1.0)) * surf - RIBALL - KEEP3
+local p = pile{{"bone black",2},{"burnt sienna",0.9},{"Mars brown",0.4}, medium=0.08}
+work(m, {hand="body", tool="filbert 7", pile=p, angle=TOVP, coverage=5, fill=true, clip=m, load=1})
+
+--@ chunk 174
+print(wait(4*24*60))
+-- pass 3, 5: shadows under the repainted plates' lips, then glints: hot near the cut, a few cool far ones
+local W = BRONZE - INSTR
+pshad = pile{{"bone black",2},{"ultramarine blue",0.5},{"burnt sienna",1}, medium=0.12}
+for _, p in ipairs(PL3) do PLATE_SHADOW(p.x, p.y, p.a, p.sz, W, 4.5) end
+local gH = pile{{"lead white",2},{"yellow ochre",1},{"cadmium yellow",0.25}, medium=0.08}
+local gM = pile{{"yellow ochre",2},{"Mars orange",0.4},{"lead white",0.7}, medium=0.08}
+local gC = pile{{"lead white",1},{"viridian",0.3},{"yellow ochre",0.4},{"bone black",0.2}, medium=0.08}
+local n = 0
+for _, p in ipairs(PL3) do
+  local h = (p.n * 0.618034 + 0.3) % 1
+  local pl, amt = nil, 0
+  if p.near > 0.15 and (p.k == "hot" or p.k == "gold" or h < 0.6) then pl, amt = (p.near > 0.55) and gH or gM, p.near
+  elseif p.k == "verd" and h < 0.5 then pl, amt = gC, 0.35
+  elseif (p.k == "gold" or p.k == "hot") then pl, amt = gM, 0.35 end
+  if pl then PLATE_GLINT(p.x, p.y, p.a, p.sz, 543, 330, pl, amt, W); n = n + 1 end
+end
+print("glints", n)
+
+--@ chunk 175
+-- pass 3, 3: warm spill from the cut on the dry dark corridor: rib inner edges, collar bounce, instruments
+local rimA = pile{{"Mars orange",1},{"yellow ochre",1},{"lead white",0.6},{"burnt sienna",0.3}, medium=0.08}
+local rimB = pile{{"burnt sienna",1.5},{"Mars orange",0.6},{"bone black",0.8},{"yellow ochre",0.3}, medium=0.08}
+local rimH = pile{{"lead white",2},{"yellow ochre",1},{"cadmium yellow",0.2}, medium=0.08}
+local function line(pts, pl, w, pr, clipm)
+  local b = brush{kind="round", width=w, point=0.5}
+  b:load(pl, 0.8)
+  b:stroke(pts, {pressure=pr or {0.5, 0.6}, shake=0.3, clip=clipm})
+end
+-- rib inner edges, each a little dimmer toward us
+for i, s in ipairs{1.27, 1.66, 2.25} do
+  local a = SP(EX0 + RIBP, EY0 + RIBP, s); local b = SP(EX1 - RIBP, EY1 + 40, s)
+  local yf = VY + (EY1 - VY) * s
+  local pl = (i == 1) and rimA or rimB
+  local w = 1.1 * s
+  local d = 0.8 * s
+  local clipm = RIBFRONT(s):grow(0.6) - KEEP3
+  line({{a[1] - d, yf - 2}, {a[1] - d, lerp(yf, a[2], 0.5)}, {a[1] - d, a[2] + 4}}, pl, w, {0.75, 0.25}, clipm)
+  line({{b[1] + d, yf - 2}, {b[1] + d, lerp(yf, a[2], 0.5)}, {b[1] + d, a[2] + 4}}, pl, w, {0.75, 0.25}, clipm)
+  line({{a[1] + 4, a[2] - d}, {VX, a[2] - d}, {b[1] - 4, a[2] - d}}, pl, w * 0.8, {0.25, 0.3}, clipm)
+end
+-- the collar's lower posts catch the bounce off the lit floor: amber restated brighter
+local amL1 = pile{{"chrome yellow",1},{"Mars orange",1},{"lead white",0.25},{"burnt sienna",0.2}, medium=0.08}
+local amL2 = pile{{"chrome yellow",1},{"Mars orange",1},{"lead white",0.5}, medium=0.08}
+local bf = brush{kind="flat", width=5.5, stiffness=0.6}
+for _, z in ipairs{{380, 455, amL1}, {455, 560, amL2}} do
+  local cm = COLLAR * rect(250, z[1], 600, z[2] - z[1])
+  for y = 50, 560, 20 do
+    bf:load(z[3], 0.85); bf:stroke({{312, y + 10}, {354, y + 52}}, {pressure={0.7, 0.65}, orient="across", clip=cm, shake=0.6})
+    bf:load(z[3], 0.85); bf:stroke({{778, y + 10}, {736, y + 52}}, {pressure={0.7, 0.65}, orient="across", clip=cm, shake=0.6})
+  end
+end
+-- the collar's inner lip, against the bronze, lit lowest
+line({{345.6, 330}, {345.6, 420}, {345.6, 515}}, rimA, 1.4, {0.2, 0.7})
+line({{744.4, 330}, {744.4, 420}, {744.4, 515}}, rimA, 1.4, {0.2, 0.7})
+-- instruments: the faces toward the opening
+line({{399.5, 356}, {405.5, 505}}, rimA, 1.0, {0.35, 0.7})
+line({{404, 356}, {432, 524}}, rimH, 1.1, {0.3, 0.8})
+line({{399, 354}, {373.5, 512}}, rimB, 0.9, {0.25, 0.5})
+line({{414.5, 328}, {418.5, 357}}, rimH, 1.3, {0.6, 0.6})
+line({{379, 329}, {414, 326.5}}, rimA, 0.9, {0.5, 0.3})
+line({{684.2, 152}, {685, 300}, {686.2, 488}}, rimH, 1.1, {0.7, 0.5})
+line({{676.5, 300.5}, {677.3, 332}}, rimH, 1.2, {0.7, 0.7})
+line({{676, 316}, {664, 322}, {655, 331}}, rimA, 0.9, {0.5, 0.5})
+line({{705.3, 437}, {705.6, 451}}, rimA, 1.0, {0.6, 0.6})
+line({{712.3, 177}, {712.5, 189}}, rimA, 1.0, {0.6, 0.6})
+line({{386.8, 151}, {387.2, 165}}, rimA, 1.0, {0.6, 0.6})
+line({{377.7, 471}, {378, 483}}, rimA, 1.0, {0.6, 0.6})
+line({{685, 207}, {685.5, 252}}, rimA, 1.0, {0.5, 0.5})
+line({{411.5, 233}, {413, 299}}, rimB, 1.0, {0.4, 0.5})
+
+--@ chunk 176
+-- pass 3, 6: the nave deeper and more luminous: near ribs against the light, far bands paler, a white core
+local V = (VIEW - FIGM2:grow(1.5)) * above(function(x) return 297 end)
+-- near ribs as warm darks seen against the glow, lightening with distance
+local function NRPILE(t)
+  return pile{{"burnt sienna", lerp(1.0, 0.6, t)}, {"raw sienna", 0.8}, {"yellow ochre", lerp(0.5, 1.4, t)},
+              {"bone black", lerp(0.35, 0.02, t)}, {"lead white", lerp(0.1, 1.0, t)}, medium=0.08}
+end
+for i = 1, 8 do
+  local a = ARCHES2[i]
+  local t = (i - 1) / 7
+  local pts = ARCHPTS(a.s, 9, 14, a.rot, a.dx, a.dy)
+  local w = math.max(0.9, 105 * a.s)
+  local b = brush{kind="round", width=w, stiffness=0.5}
+  local L, R = {}, {}
+  for j = 1, 19 do L[#L+1] = pts[j] end
+  for j = 19, #pts do R[#R+1] = pts[j] end
+  local rp = NRPILE(t)
+  b:load(rp, 0.95); b:stroke(L, {pressure={0.85, 0.8}, clip=V, shake=0.3})
+  b:load(rp, 0.95); b:stroke(R, {pressure={0.8, 0.85}, clip=V, shake=0.3})
+end
+-- far bands repainted paler, toward a cool white
+local function FARPILE(t)
+  return pile{{"lead white", lerp(3, 1.5, t)}, {"zinc white", lerp(0.6, 2.5, t)}, {"yellow ochre", lerp(0.5, 0.05, t)},
+              {"cadmium yellow", lerp(0.15, 0.05, t)}, {"lemon chrome", 0.1}, medium=0.08}
+end
+local V2 = VIEW - FIGM2:grow(1.5)
+for i = 12, NA do
+  local inner = (i < NA) and ARCHIN(i + 1) or nil
+  local band = inner and (ARCHIN(i) - inner) or ARCHIN(i)
+  band = band * V2 * above(function(x) return 297 end)
+  local t = (i - 12) / (NA - 12)
+  local w = math.max(1.2, math.min(4, 120 * ARCHES2[i].s))
+  work(band, {hand="body", tool={kind="filbert", width=w}, pile=FARPILE(t), angle=TOVP, coverage=3.5, fill=true, clip=band})
+end
+local cx, cy = 0, 0
+local pts = ARCHPTS(ARCHES2[NA].s, 9, 14, ARCHES2[NA].rot, ARCHES2[NA].dx, ARCHES2[NA].dy)
+for _, p in ipairs(pts) do cx = cx + p[1]; cy = cy + p[2] end
+cx, cy = cx / #pts, cy / #pts
+GLOWC = {cx, cy}
+print("far centre", cx, cy, ARCHES2[12].s, ARCHES2[NA].s)
+local core = ellipse(cx, cy, 6, 7.5) * V2
+work(core, {hand="detail", pile=pile{{"zinc white",3},{"lemon chrome",0.12}, medium=0.05}, coverage=4, fill=true, clip=core})
+
+--@ chunk 177
+-- pass 3, 6b: the far glow as rings of light round the white core, strokes running round it
+local cx, cy = GLOWC[1], GLOWC[2]
+local V = (VIEW - FIGM2:grow(1.5)) * above(function(x) return 299 end)
+local tang = function(x, y) return math.atan(y - cy, x - cx) + math.pi/2 end
+local function ring(r0, r1) return (ellipse(cx, cy, r1, r1 * 1.1) - ellipse(cx, cy, r0, r0 * 1.1)) * V end
+local rings = {
+  {6, 13, pile{{"zinc white",2},{"lead white",1},{"lemon chrome",0.12}, medium=0.05}},
+  {13, 22, pile{{"lead white",3},{"zinc white",1},{"cadmium yellow",0.2}, medium=0.05}},
+  {22, 34, pile{{"lead white",3},{"yellow ochre",0.35},{"cadmium yellow",0.15}, medium=0.06}},
+  {34, 50, pile{{"lead white",3},{"yellow ochre",0.7},{"raw sienna",0.08}, medium=0.06}},
+}
+for _, r in ipairs(rings) do
+  local m = ring(r[1], r[2])
+  work(m, {hand="body", tool="filbert 3", pile=r[3], angle=tang, coverage=3, fill=true, clip=m, load=0.9})
+end
+for _, r in ipairs{13, 22, 34} do
+  blend(ring(r - 3, r + 3), {angle=tang})
+end
+
+--@ chunk 178
+-- pass 3, 6c: lose the glow's outer edge, and carry the twisting ribs on into the light, faint
+local cx, cy = GLOWC[1], GLOWC[2]
+local V = (VIEW - FIGM2:grow(1.5)) * above(function(x) return 299 end)
+local tang = function(x, y) return math.atan(y - cy, x - cx) + math.pi/2 end
+local function ring(r0, r1) return (ellipse(cx, cy, r1, r1 * 1.1) - ellipse(cx, cy, r0, r0 * 1.1)) * V end
+blend(ring(43, 58), {angle=tang})
+blend(ring(43, 58), {angle=function(x, y) return math.atan(y - cy, x - cx) end})
+for i = 8, 18 do
+  local a = ARCHES2[i]
+  local t = (i - 8) / 10
+  local pts = ARCHPTS(a.s, 9, 14, a.rot, a.dx, a.dy)
+  local w = math.max(0.7, 70 * a.s)
+  local pl = pile{{"lead white", 3}, {"yellow ochre", lerp(1.1, 0.3, t)}, {"raw sienna", lerp(0.35, 0.05, t)}, medium=0.08}
+  local b = brush{kind="round", width=w, stiffness=0.5}
+  local L, R = {}, {}
+  for j = 1, 19 do L[#L+1] = pts[j] end
+  for j = 19, #pts do R[#R+1] = pts[j] end
+  b:load(pl, 0.6); b:stroke(L, {pressure={0.5, 0.45}, clip=V, shake=0.2})
+  b:load(pl, 0.6); b:stroke(R, {pressure={0.45, 0.5}, clip=V, shake=0.2})
+end
+
+--@ chunk 179
+-- pass 3, 7: the figure modelled by the nave's light: hot rim on the glow side, thinner on the other, a few reflected planes
+local fx, fy, k = FIGFX, FIGFY, FIGK
+local function P(x, y) return {fx + x*k, fy - y*k} end
+local hot  = pile{{"zinc white",2},{"lead white",1},{"lemon chrome",0.2}, medium=0.05}
+local warm = pile{{"lead white",2},{"yellow ochre",0.8},{"cadmium yellow",0.2}, medium=0.08}
+local dim  = pile{{"yellow ochre",1},{"burnt sienna",0.5},{"lead white",0.5},{"bone black",0.3}, medium=0.08}
+local refl = pile{{"bone black",1},{"burnt sienna",0.8},{"yellow ochre",0.5},{"lead white",0.25}, medium=0.08}
+local function line(pts, pl, w, pr, sw)
+  local b = brush{kind="round", width=w, point=0.7}
+  b:load(pl, 0.8)
+  b:stroke(pts, {pressure=pr, swell=sw or {0.7, 1, 0.8}, shake=0.15})
+end
+-- glow side (right): helmet, pauldron, arm, flank, leg, rifle
+line({P(0.0,1.905), P(0.07,1.86), P(0.105,1.77), P(0.095,1.68)}, hot, 1.5, {0.8, 0.5})
+line({P(0.2,1.615), P(0.3,1.625), P(0.385,1.585), P(0.405,1.53)}, hot, 1.6, {0.85, 0.6})
+line({P(0.355,1.48), P(0.398,1.3), P(0.39,1.18), P(0.34,1.02)}, warm, 1.3, {0.8, 0.3})
+line({P(0.205,0.95), P(0.19,0.7), P(0.185,0.45), P(0.185,0.16)}, warm, 1.1, {0.7, 0.2})
+line({P(0.36,0.9), P(0.42,0.75), P(0.48,0.57)}, warm, 0.9, {0.6, 0.3})
+line({P(0.22,0.13), P(0.225,0.02)}, dim, 0.9, {0.5, 0.5})
+-- far side (left): thinner, dimmer
+line({P(-0.02,1.905), P(-0.075,1.86), P(-0.1,1.78)}, warm, 1.1, {0.7, 0.3})
+line({P(-0.2,1.615), P(-0.3,1.625), P(-0.385,1.585)}, warm, 1.2, {0.75, 0.4})
+line({P(-0.36,1.48), P(-0.4,1.25), P(-0.37,1.0)}, dim, 0.9, {0.6, 0.15})
+line({P(-0.195,0.93), P(-0.215,0.6), P(-0.225,0.2)}, dim, 0.8, {0.5, 0.1})
+-- reflected warmth on the back planes: pack edge and top, belt, the backs of the knees
+line({P(0.17,1.14), P(0.18,1.5)}, refl, 1.0, {0.5, 0.5})
+line({P(-0.16,1.53), P(0.16,1.525)}, refl, 0.9, {0.45, 0.45})
+line({P(-0.19,1.035), P(0.19,1.035)}, refl, 0.9, {0.4, 0.4})
+line({P(0.06,0.56), P(0.17,0.56)}, refl, 0.8, {0.35, 0.35})
+line({P(-0.21,0.56), P(-0.1,0.56)}, refl, 0.8, {0.3, 0.3})
+line({P(0.0,1.74), P(0.0,1.6)}, refl, 0.8, {0.3, 0.3})
+
+--@ chunk 180
+-- pass 3, 7b: rims laid just inside the silhouette, wider, so they read against the bright nave
+local fx, fy, k = FIGFX, FIGFY, FIGK
+local function P(x, y) return {fx + x*k, fy - y*k} end
+local hot  = pile{{"zinc white",2},{"lead white",1},{"lemon chrome",0.25}, medium=0.05}
+local warm = pile{{"lead white",2},{"yellow ochre",0.8},{"cadmium yellow",0.25}, medium=0.06}
+local dim  = pile{{"yellow ochre",1},{"burnt sienna",0.4},{"lead white",0.7},{"bone black",0.15}, medium=0.08}
+local FM = FIGM2
+local function line(pts, pl, w, pr)
+  local b = brush{kind="round", width=w, point=0.6}
+  b:load(pl, 0.85)
+  b:stroke(pts, {pressure=pr, swell={0.7, 1, 0.8}, shake=0.1, clip=FM})
+end
+line({P(-0.01,1.885), P(0.055,1.85), P(0.085,1.77), P(0.08,1.69)}, hot, 2.0, {0.85, 0.5})
+line({P(0.2,1.6), P(0.3,1.605), P(0.375,1.57), P(0.39,1.52)}, hot, 2.2, {0.9, 0.6})
+line({P(0.34,1.47), P(0.38,1.3), P(0.375,1.18), P(0.33,1.02)}, warm, 1.8, {0.85, 0.35})
+line({P(0.185,0.93), P(0.17,0.7), P(0.165,0.45), P(0.165,0.16)}, warm, 1.5, {0.75, 0.25})
+line({P(0.355,0.9), P(0.405,0.76), P(0.46,0.58)}, warm, 1.2, {0.7, 0.35})
+line({P(-0.015,1.885), P(-0.06,1.85), P(-0.085,1.77)}, warm, 1.5, {0.7, 0.3})
+line({P(-0.2,1.6), P(-0.3,1.605), P(-0.37,1.57)}, warm, 1.6, {0.75, 0.4})
+line({P(-0.345,1.47), P(-0.38,1.25), P(-0.355,1.0)}, dim, 1.3, {0.65, 0.15})
+line({P(-0.175,0.93), P(-0.195,0.6), P(-0.205,0.2)}, dim, 1.2, {0.55, 0.12})
+
+--@ chunk 181
+-- pass 3, 8: the plaque, the wall patch and the dead ceiling panels brought down into the dark corridor
+local function cq(s1, s2, x1, x2) return poly({CLP(s1, x1), CLP(s1, x2), CLP(s2, x2), CLP(s2, x1)}) end
+local g1 = pile{{"bone black",2},{"ultramarine ash",0.5},{"burnt sienna",0.35},{"lead white",0.18}, medium=0.08}
+local g2 = pile{{"bone black",2},{"ultramarine ash",0.4},{"burnt sienna",0.4},{"lead white",0.08}, medium=0.08}
+local am = pile{{"Mars orange",0.6},{"burnt sienna",1},{"bone black",0.9},{"chrome yellow",0.3}, medium=0.08}
+local A = PLQ - PLQA
+work(A, {hand="detail", pile=g1, coverage=4, fill=true, clip=A, load=1})
+work(PLQA, {hand="detail", pile=am, coverage=4, fill=true, clip=PLQA, load=1})
+work(PATCHW, {hand="detail", pile=g1, coverage=4, fill=true, clip=PATCHW, load=1})
+for _, pz in ipairs{{1.06, 1.21}, {1.36, 1.58}} do
+  local a, b = pz[1], pz[2]
+  local fr = (poly({CLP(a, -0.42), CLP(a, 0.42), CLP(b, 0.42), CLP(b, -0.42)}) * CEIL) - RIBALL
+  work(fr, {hand="detail", pile=g2, coverage=4, fill=true, clip=fr, load=1})
+end
+local P1 = cq(1.32, 1.42, -1.0, -0.35) + cq(1.3, 1.44, 0.05, 0.8)
+work(P1 * CEIL, {hand="detail", pile=g2, coverage=4, fill=true, clip=P1 * CEIL, load=1})
+
+--@ chunk 182
+-- pass 3, 9: accents on dry paint: panel glass catching the cut, plaque edges, bounce glints on the low plates,
+-- stronger rib edges near the floor, counter-lit ribs inside the glow
+print(wait(4*24*60))
+local refl = pile{{"yellow ochre",1},{"burnt sienna",0.6},{"bone black",0.9},{"lead white",0.25}, medium=0.08}
+local edge = pile{{"bone black",1},{"burnt sienna",0.5},{"yellow ochre",0.4},{"lead white",0.35}, medium=0.08}
+local function ln(pts, pl, w, pr, clipm)
+  local b = brush{kind="round", width=w, point=0.5}
+  b:load(pl, 0.8)
+  b:stroke(pts, {pressure=pr, shake=0.2, clip=clipm})
+end
+for _, pz in ipairs{{1.06, 1.21}, {1.36, 1.58}} do
+  local a, b = pz[1], pz[2]
+  ln({CLP(a + 0.015, -0.33), CLP(a + 0.015, 0.33)}, refl, 1.6 * a, {0.5, 0.5})
+  ln({CLP(a + 0.035, -0.25), CLP(a + 0.035, 0.2)}, refl, 1.0 * a, {0.3, 0.2})
+end
+-- plaque and patch: the edge nearest the cut
+local function wp(side, s, h) if side < 0 then return LWP(s, h) else return RWP(s, h) end end
+ln({wp(-1, 1.33, 1.2), wp(-1, 1.33, 1.62)}, edge, 1.3, {0.5, 0.5})
+ln({wp(1, 1.05, 0.47), wp(1, 1.05, 1.02)}, edge, 1.2, {0.5, 0.5})
+-- low plates catch the bounce from the lit sill: glints on their lower rims
+local W = BRONZE - INSTR
+local gB = pile{{"yellow ochre",2},{"Mars orange",0.5},{"lead white",0.8}, medium=0.08}
+local n = 0
+for _, p in ipairs(PLATES) do
+  if p.y > 400 and W:at(p.x, p.y) > 0.5 then
+    local amt = clamp((p.y - 400) / 110, 0, 1) * 0.8
+    if ((p.n * 0.618034) % 1) < 0.7 then
+      PLATE_GLINT(p.x, p.y, p.a, 20, 545, 600, gB, amt, W); n = n + 1
+    end
+  end
+end
+print("bounce", n)
+-- counter-lit ribs inside the glow, thin and warm-mid
+local cx, cy = GLOWC[1], GLOWC[2]
+local V = (VIEW - FIGM2:grow(1.5)) * above(function(x) return 299 end)
+for i = 9, 15 do
+  local a = ARCHES2[i]
+  local t = (i - 9) / 6
+  local pts = ARCHPTS(a.s, 9, 14, a.rot, a.dx, a.dy)
+  local w = math.max(0.6, 45 * a.s)
+  local pl = pile{{"lead white", lerp(1.6, 2.6, t)}, {"yellow ochre", 1}, {"raw sienna", lerp(0.5, 0.2, t)}, {"burnt sienna", lerp(0.2, 0.05, t)}, medium=0.08}
+  local b = brush{kind="round", width=w, stiffness=0.5}
+  local L, R = {}, {}
+  for j = 1, 19 do L[#L+1] = pts[j] end
+  for j = 19, #pts do R[#R+1] = pts[j] end
+  b:load(pl, 0.7); b:stroke(L, {pressure={0.5, 0.4}, clip=V, shake=0.2})
+  b:load(pl, 0.7); b:stroke(R, {pressure={0.4, 0.5}, clip=V, shake=0.2})
+end
+
+--@ chunk 183
+-- pass 3, 10: plaque and patch still read too pale: a second opaque coat, leaner
+print(wait(2*24*60))
+local g = pile{{"bone black",2},{"ultramarine ash",0.3},{"burnt sienna",0.5},{"Mars brown",0.3}, medium=0.08}
+local am = pile{{"burnt sienna",1},{"bone black",1.2},{"Mars orange",0.4}, medium=0.08}
+local A = PLQ - PLQA
+work(A, {hand="body", tool="filbert 4", pile=g, coverage=5, fill=true, clip=A, load=1})
+work(PLQA, {hand="body", tool="filbert 3", pile=am, coverage=5, fill=true, clip=PLQA, load=1})
+work(PATCHW, {hand="body", tool="filbert 4", pile=g, coverage=5, fill=true, clip=PATCHW, load=1})
+
+--@ chunk 184
+-- pass 3, 11: wall panel seams restated, their lips catching a little warmth only near the cut
+local WV = WALLV - KEEP3
+local sk = pile{{"bone black",2},{"ultramarine blue",0.4},{"burnt sienna",0.3}, medium=0.08}
+local lip = pile{{"burnt sienna",1},{"bone black",0.8},{"yellow ochre",0.5},{"lead white",0.2}, medium=0.08}
+local function WP2(side, s, h) if side < 0 then return LWP(s, h) else return RWP(s, h) end end
+local function wline(side, s1, s2, h, pl, w, pr)
+  local b = brush{kind="round", width=w, point=0.2}
+  local pts = {}
+  for i = 0, 8 do pts[#pts+1] = WP2(side, lerp(s1, s2, i/8), h) end
+  b:load(pl, 0.8)
+  b:stroke(pts, {pressure=pr, clip=WV, shake=0.3})
+end
+for _, side in ipairs{-1, 1} do
+  for _, h in ipairs{0.36, 1.08, 1.8} do
+    wline(side, 1.0, 2.7, h, sk, 2.2, {0.6, 0.7})
+    wline(side, 1.0, 1.9, h - 0.025, lip, 1.0, {0.45, 0.0})
+  end
+  for _, s in ipairs{1.14, 1.47, 1.95} do
+    local b = brush{kind="round", width=2.0, point=0.2}
+    b:load(sk, 0.8); b:stroke({WP2(side, s, 0.0), WP2(side, s, 2.4)}, {pressure={0.6, 0.6}, clip=WV, shake=0.3})
+  end
+end
+
+--@ chunk 185
+-- pass 3, 12: the strip of rib return face the panel exclusion left pale
+local function cq(s1, s2, x1, x2) return poly({CLP(s1, x1), CLP(s1, x2), CLP(s2, x2), CLP(s2, x1)}) end
+local m = (RIBSOFF(1.27) + RIBFRONT(1.27)) * cq(1.0, 1.3, -0.5, 0.5)
+local wm = pile{{"bone black",2},{"Mars brown",1},{"burnt sienna",0.6}, medium=0.08}
+work(m, {hand="body", tool="filbert 4", pile=wm, angle=0, coverage=5, fill=true, clip=m, load=1})
+
+--@ chunk 186
+-- pass 3, 13: the rib front over the panel back to the rib's own near-black
+print(wait(2*24*60))
+local function cq(s1, s2, x1, x2) return poly({CLP(s1, x1), CLP(s1, x2), CLP(s2, x2), CLP(s2, x1)}) end
+local m = RIBFRONT(1.27) * cq(1.0, 1.3, -0.52, 0.52)
+local ribK = pile{{"bone black",2},{"ultramarine blue",0.5},{"burnt sienna",0.5}, medium=0.08}
+work(m, {hand="body", tool="filbert 4", pile=ribK, angle=0, coverage=5, fill=true, clip=m, load=1})
+local a = SP(EX0 + RIBP, EY0 + RIBP, 1.27); local b = SP(EX1 - RIBP, EY1 + 40, 1.27)
+local rimB = pile{{"burnt sienna",1.5},{"Mars orange",0.6},{"bone black",0.8},{"yellow ochre",0.3}, medium=0.08}
+local br = brush{kind="round", width=1.1, point=0.5}
+br:load(rimB, 0.8)
+br:stroke({{a[1] + 4, a[2] - 1}, {VX, a[2] - 1}, {b[1] - 4, a[2] - 1}}, {pressure={0.4, 0.4}, shake=0.3, clip=RIBFRONT(1.27):grow(0.6)})
+
+--@ chunk 187
+-- pass 3, 14: rib inner edges lit more strongly low down, where the floor pool throws its light up
+local rimA = pile{{"Mars orange",1},{"yellow ochre",1},{"lead white",0.7},{"burnt sienna",0.2}, medium=0.08}
+local rimB = pile{{"burnt sienna",1.2},{"Mars orange",0.8},{"yellow ochre",0.4},{"bone black",0.4}, medium=0.08}
+for i, s in ipairs{1.27, 1.66, 2.25} do
+  local a = SP(EX0 + RIBP, EY0 + RIBP, s); local b = SP(EX1 - RIBP, EY1 + 40, s)
+  local yf = VY + (EY1 - VY) * s
+  local d = 0.9 * s
+  local clipm = RIBFRONT(s):grow(0.8) - KEEP3
+  local pl = (i == 1) and rimA or rimB
+  for _, x in ipairs{a[1] - d, b[1] + d} do
+    local br = brush{kind="round", width=1.5 * s, point=0.5}
+    br:load(pl, 0.85)
+    br:stroke({{x, yf - 1}, {x, lerp(yf, a[2], 0.2)}, {x, lerp(yf, a[2], 0.45)}}, {pressure={0.85, 0.05}, shake=0.3, clip=clipm})
+  end
+end

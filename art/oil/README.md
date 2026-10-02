@@ -55,6 +55,9 @@ byte-identical; the rest were not checked. Rendered finals are on disk in
 | `docent.lua` | The Docent Who Keeps the Lamp | docent character concept |
 | `relics.lua` | Relics | the first revival |
 | `flight.lua` | Months in Flight | ten-minute sketch |
+| `combat3.lua` | The Cable Bursts | combat shot, third attempt (the keeper) |
+| `wanderer3.lua` | The Wanderer above the Sun, Unfolded | restart of the variant (canonical v1, 32 chunks) |
+| `school_night.lua` | The Long Gallery at Night | night variant of the School |
 | `ratio2.lua` | Ratio, Trusted | ten-minute sketch, pair to ratio.lua |
 
 ## Floor materials (painted textures)
