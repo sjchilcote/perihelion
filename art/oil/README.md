@@ -51,6 +51,9 @@ byte-identical; the rest were not checked. Rendered finals are on disk in
 | `witnesses.lua` | The Two Lampstands | ending: The Two Witnesses |
 | `unfolded.lua` | The Empty Vault | ending: The Unfolded, final shot |
 | `holdout.lua` | The Vigil | THE VIGIL mode key art |
+| `core_ratio.lua` | Days Alone | Ratio's hardened core |
+| `docent.lua` | The Docent Who Keeps the Lamp | docent character concept |
+| `relics.lua` | Relics | the first revival |
 
 ## Floor materials (painted textures)
 
