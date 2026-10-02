@@ -96,6 +96,21 @@ version. Rendered finals are on disk in
 | `palmer_void.lua` | PALMER, Late | character reference, pair |
 | `first_death.lua` | The First Death | story beat |
 | `breach_far.lua` | The Far Side | Stratum Three concept |
+| `rothko.lua` | Three Paths | study after Rothko |
+| `piranesi.lua` | Carceri: the Gauntlet | study after Piranesi |
+| `hokusai.lua` | The Great Wave off the Corona | study after Hokusai |
+| `klimt.lua` | The Handshake | study after Klimt |
+| `testator_portrait.lua` | A Testator, Living | character portrait |
+| `helm.lua` | The Man with the Golden Helmet | character portrait |
+| `choir.lua` | The Choir of Docents | place concept |
+| `reliquary_hall.lua` | The Reliquary Hall | place concept |
+| `kiln.lua` | The Fabricator | place concept |
+| `spine_walk.lua` | On the Spine | exterior set piece |
+| `combat_wide.lua` | Holding the Stair | combat |
+| `revival.lua` | The Second Frame | story beat |
+| `tabard.lua` | Taking Up the Tabard | story beat |
+| `letter.lua` | The Letter Home | story beat |
+| `crew.lua` | The Crew of Outpost Miriad-7 | found object |
 | `ratio2.lua` | Ratio, Trusted | ten-minute sketch, pair to ratio.lua |
 
 ## Floor materials (painted textures)

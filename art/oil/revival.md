@@ -1,0 +1,16 @@
+# The Second Frame
+
+This is the payoff to The First Death. It shows the same MIRIAD corridor running to the same far doorway, where the seed's warm glow sits low on the floor. The same amber hazard lamp washes the right wall and pools at its foot, and the first frame lies where it fell. The tabard is crumpled over its hip, it has scorched plate and a broken knee, and its near arm is flung out to the open gauntlet. The killer's shadow is gone and the wall is empty. Kneeling over the wreck is the new frame. It is freshly printed and has no tabard yet, and its plate is a clean cool gray, with seams still faintly warm from the fabricator. Its head is bowed and its optic is alive, a small warm-white point looking down. With one hand it lifts the rosary out of the dead gauntlet, and the crucifix swings below its fingers. Warm air rises in a few wisps off its shoulders. The only lights are the lamp, the seed and that optic.
+
+I rebuilt the corridor and the fallen frame by re-running my own chunks from The First Death. The coordinates are the same, the killer's shadow is left out, and the grating and pools were laid fresh. That gave the same geometry exactly. I made the new frame with the same limb and plate approach as the first, kneeling at the right with its reaching hand placed over the open gauntlet, then laid its planes and lights on dry paint. Its first lit planes came out near white, a glowing outline. I knocked them down to a warm mid-gray and kept only thin amber rims on the edges facing the lamp. The steam I first painted was a set of hard pale curls, so I painted it out. Painting it out with wall colour left a few warm wisps above the shoulders, partly against the dark deck, and I kept them as the frame's heat. Still short: the new frame reads as stylized, close to a mannequin, with lit bands of even width along every edge. The wisps are clumsy, and the rosary is tiny at full view. Next time I would draw the new frame larger and closer, with fewer, heavier plates, and I would use the frame's own warmth as the light on the old one.
+
+## Pass at 02:28 CDT, 2 October
+
+Chunks 23–29, all on dry paint.
+- **Wisps.** I painted out the three wavy wisps completely. I re-laid the wall there with its own falloff piles, chosen by distance from the lamp, and restated the ribs. The only heat left is a faint warm glow along a few seams.
+- **New frame.** I recored the new frame in a lean dark grey with no outline. A narrower mid plane now sits only on the side of each plate that is turned up toward the lamp. On top of that I added the armour of the fallen frame: a helm with a dark brow and visor slit, the warm optic set in the slit, gorget rings, three pauldron lames, a breastplate with a central ridge, overlapping faulds, plated thighs, knee cops, greaves and a gauntlet with finger lames. Amber now runs only along the edges facing the lamp.
+- **Rosary.** It is larger: a loop of beads through the fingers and a hanging drop, with a bone crucifix swinging clearly below. I painted the old small crucifix out.
+
+Still short:
+- The frame's limbs keep the rounded tube shapes of the first version under the new plate lines, so it is cleaner but still somewhat mannequin-like.
+- The plate lines are thin and the armour reads only up close.
