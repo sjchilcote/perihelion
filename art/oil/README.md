@@ -22,6 +22,8 @@ are byte-identical. Rendered finals and time-lapses are on disk in
 | `ark.lua` | What It Says | container beat concept |
 | `chapel.lua` | The Hours, Kept in a Borrowed Chapel | interior concept (painted by the director) |
 | `stylite.lua` | The Stylite | ending concept |
+| `vigil.lua` | The Long Vigil | ending concept |
+| `warden.lua` | The Warden of the Ninth Niche | Testator defender (enemy) concept |
 
 `<name>.md` is each painter's note on the picture and how it was painted.
 `_painter_brief.md`, `_canon_digest.md` and `_commission_*.md` are what the
