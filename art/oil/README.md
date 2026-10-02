@@ -187,6 +187,14 @@ version. Rendered finals are on disk in
 | `terminal_years.lua` | Terminal 0, Years Later | ending beat |
 | `late_selfportrait.lua` | The Commando, Late | portrait |
 | `ark_open.lua` | The Ark Opened | story beat |
+| `death_shrine.lua` | Where He Fell, Years Later | ending beat |
+| `core_hall.lua` | Perihelion Core | place concept |
+| `farewell.lua` | Farewell to the Sun | ending |
+| `kells.lua` | The Fold Carpet Page | carpet page |
+| `book_cover.lua` | Ratio and the Big Knight — cover | picture book |
+| `hydro_years.lua` | Hydroponics, Years Later | the fourth of the set |
+| `clockmaker.lua` | The Clockmaker | character scene |
+| `ratio_late.lua` | Ratio, Years Later | portrait, pair |
 | `ratio2.lua` | Ratio, Trusted | ten-minute sketch, pair to ratio.lua |
 
 ## Floor materials (painted textures)
