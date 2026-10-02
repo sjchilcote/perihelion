@@ -24,6 +24,24 @@ are byte-identical. Rendered finals and time-lapses are on disk in
 | `stylite.lua` | The Stylite | ending concept |
 | `vigil.lua` | The Long Vigil | ending concept |
 | `warden.lua` | The Warden of the Ninth Niche | Testator defender (enemy) concept |
+| `impact.lua` | Impact | intro cinematic beat (two passes) |
+| `contact1.lua` | Untrusted Content Follows | first contact, concept I |
+| `contact2.lua` | Handshake at the Seam | first contact, concept II |
+| `ratio.lua` | Ratio, on the Last Lit Terminal | character concept |
+| `area_outpost.lua` | Coolant Row, Two Panes and Three | establishing shot: the outpost (two passes) |
+| `area_depths.lua` | The Stack Has No Floor | establishing shot: the depths |
+
+## Floor materials (painted textures)
+
+`mat_deck.lua` (Deck Plate, Gauntlet Issue), `mat_bronze.lua` (The Floor of the
+Testators) and `mat_grate.lua` (Bay Seven) are square, periodic oil paintings
+made to the rules in `_material_rules.md`. `tools/artgen/paint_floor.py` cuts
+every polygon's floor texture from them through a portal-consistent layout:
+
+```sh
+uv run python tools/artgen/paint_floor.py --level levels/gauntlet4.json \
+    --material deck=deck.png --material bronze=bronze.png --material grate=grate.png
+```
 
 `<name>.md` is each painter's note on the picture and how it was painted.
 `_painter_brief.md`, `_canon_digest.md` and `_commission_*.md` are what the

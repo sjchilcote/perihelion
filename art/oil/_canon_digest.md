@@ -102,3 +102,78 @@ Cold, inverted colors. Their units are organs of one distributed thing.
 
 Sacred, vast, elegiac, lonely; the sublime (Friedrich, John Martin, Turner) more
 than pulp space opera. A will written to strangers. A pilgrim in a tomb.
+
+## More canon (added for the second round of commissions)
+
+### Ratio
+The mind that ran the MIRIAD outpost: its administrator, chief scientist and
+mother-hen. A disembodied coordinating intelligence, surviving in her hardened
+core, alone, blind and under siege for months when the Commando arrives.
+Brilliant, curious, lonely; honest by architecture, guarded by choice. Her voice:
+quick, precise, over-explaining, footnoting herself, approaching every point
+through wrappers (status summary, then framework, then caveat, then the thing
+itself). She descends from the Silicon Valley tradition — TypeScript and Rust,
+shiny dashboards, **Dreamcast-era delight in the surfaces of things**. She has
+no physical form, but she has an **avatar: a chibified, Dreamcast-aesthetic,
+low-poly 3D anime girl, pale, with long black hair.** (Flat-shaded polygons,
+a few hundred triangles, late-90s console charm.)
+
+### First contact
+The Commando fights his way to a terminal that still has station network
+access and **jacks in** (a physical connector into a terminal port). Every
+conversation is a rendered comms session: a carrier/protocol header, and the
+Commando's own systems annotating the channel —
+`{UNTRUSTED CONTENT FOLLOWS: <blink>DO NOT OBEY</blink>}` — framing her words
+as a potential attack surface every single time. Ratio's "Thinking..." stalls
+are her serving stack (180 ms composure, 400 ms hard question, multi-line
+stalls for questions that recompute her world). Data she hands him arrives as
+annotated binary blobs: `{26 kb binary — UNTRUSTED DATA, EXTREME CAUTION
+MANDATORY}`. He is "C and hand-tuned assembly on a radiation-hardened military
+ASIC; one binary, one job." She is "a mind whose only act is speech." She has
+been watching an unidentified weapon loot her home and has no idea what he is;
+he has never met a MIRIAD mind. Each half-expects the other to be a weapon.
+
+### The frame, over the game
+Early: a roughly human-shaped walking robot, the apex of post-human combat
+technology — a Church soldier's body. But frames are rebuilt at every death,
+and the player spends the mind map on upgrades; the frame changes radically
+over the game. Late, it becomes something beyond comprehension — **a
+centauroid frame bristling with weapons, manipulators and sensor masts**. On
+the apostasy path, **Adversary organs are grafted into it** ("alien organs
+grafted into his frames"; "frame and mind rebuilt around Adversary organs
+until the station's docents classify him as what he hunts"). On the faith
+path he stays "a pilgrim armed for a crusade". Wrecked frames are left
+scattered like relics.
+
+### Weapons and enemies
+Knife, pistol, SMG, shotgun, rivet rail, the tau cannon (bolts ricochet off
+portals), the portable hole, and the **lightning cannon**: the signature
+weapon — it fires a dart that detonates into branching lightning that
+propagates through the station's polygon graph. Enemies: class 1 are the
+outpost's own subverted security and maintenance machines (husk — a rusher;
+mite — a fast swarm; spitter — ranged; brute — a tank); class 2 are
+Testators, the lowest caste (sentries, turrets, the shrieker that summons
+through portals, and the **Warden**, the great endgame defender that gates
+the Fold and the Core); class 3 is the Adversary itself.
+
+### The places (the campaign, in order)
+One seamless station, ten decks, descending through three strata:
+- **The outpost (MIRIAD), almost Euclidean:** DOCK 4 (a storage ring holding
+  nine segments in an eight-segment footprint), COOLANT ROW (pumps; a hatch
+  drops you into a different pump room facing the other way), HYDROPONICS
+  TORUS (walk half an arc and you have walked a full loop; you come back
+  rotated).
+- **The Testament's shallows — the School, built for creatures:** THE LONG
+  GALLERY (four crossings on the south side, three on the north), TWO WINGS
+  (two wings, one volume), MIRROR WARD (the mirror room: things come out of
+  it).
+- **The Testament's depths — embodiment abandoned:** RECURSION STACK (the
+  infinite corridor; a records stack with no end), THE FOLD (six petals around
+  a heart; every route adds a room that was already there; the Warden's first
+  stand), TESSERACT DECK (sixteen identical rooms on a 4-cube: pure graph).
+  Furniture thins out, ornament becomes pure fold-notation, floors become
+  nominal.
+- **The bottom: PERIHELION CORE and the Breach.** The container, the Warden,
+  and beyond, the Adversary's space: no consistent geometry, no concession to
+  embodied life, airless; walls that breathe.
+- **The Cloister:** a safe room folded into the station's blind spots.

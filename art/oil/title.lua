@@ -1100,3 +1100,606 @@ for _,t in ipairs({118,131,152,171,189,201,214,229}) do
   sb:reload(pl_m,0.5)
   sb:stroke({{c[1]-nx*15,c[2]-ny*15},{c[1]+nx*15,c[2]+ny*15}},{pressure={0.45,0.4},clip=F:shrink(1)})
 end
+
+--@ chunk 75
+-- [second pass] the corona repainted opaque, as radial streamer strokes, in graded bands, then drawn together along the radius
+local disc=ellipse(cx,cy,R,R)
+local avoid=SP.all:grow(1.5)
+local function dband(a,b,s) return mask(function(x,y) local d=math.sqrt((x-cx)^2+(y-cy)^2)-R; return smoothstep(a-s,a+s,d)*(1-smoothstep(b-s,b+s,d)) end) end
+local rad=function(x,y) return math.atan(y-cy,x-cx) end
+CO={
+ pile{{"lead white",3},{"lemon chrome",1},{"cadmium yellow",1}},
+ pile{{"cadmium yellow",2},{"Indian yellow",1},{"lead white",1}},
+ pile{{"cadmium yellow",1},{"Mars orange",1},{"Indian yellow",0.5}},
+ pile{{"Mars orange",1},{"vermilion",1},{"cadmium red",0.3}},
+ pile{{"vermilion",1},{"Mars red",1},{"rose madder",0.5}},
+ pile{{"Mars red",1},{"rose madder",1},{"bone brown",0.8}},
+ pile{{"bone brown",1.5},{"rose madder",1},{"Mars red",0.5},{"ultramarine blue",0.3}},
+}
+local E={0,40,95,170,250,330,400,450}
+local keep=-(avoid+disc)*dband(-50,470,30)
+for i=1,7 do
+  local m=dband(E[i]-12,E[i+1]+12,8)*keep
+  work(m,{hand="body",tool={kind="filbert",width=7,stiffness=0.4},pile=CO[i],length={25,70},coverage=2.6,fill=true,angle=rad,angle_jitter=0.08,clip=keep})
+end
+blend(dband(0,470,10)-avoid-disc,{angle=rad,tool={kind="badger",width=24}})
+
+--@ chunk 76
+-- [second pass] the corona's outer fall into dark: graded opaque darks, radial, wet into the corona's edge
+local disc=ellipse(cx,cy,R,R)
+local avoid=SP.all:grow(1.5)
+local function dband(a,b,s) return mask(function(x,y) local d=math.sqrt((x-cx)^2+(y-cy)^2)-R; return smoothstep(a-s,a+s,d)*(1-smoothstep(b-s,b+s,d)) end) end
+local rad=function(x,y) return math.atan(y-cy,x-cx) end
+local OD={
+ {290,370,pile{{"Mars red",1.2},{"rose madder",1},{"bone brown",1}}},
+ {360,440,pile{{"bone brown",1.5},{"rose madder",1},{"Mars red",0.4},{"ultramarine blue",0.4}}},
+ {430,520,pile{{"bone black",1.2},{"bone brown",1},{"rose madder",0.6},{"ultramarine blue",0.6}}},
+ {505,600,pile{{"bone black",2},{"ultramarine blue",1},{"burnt sienna",1},{"rose madder",0.3}}},
+}
+local keep=-(avoid+disc)
+for i,b in ipairs(OD) do
+  local m=dband(b[1]-12,b[2]+12,10)*keep
+  work(m,{hand="body",tool={kind="filbert",width=8,stiffness=0.4},pile=b[3],length={30,80},coverage=3.4,fill=true,angle=rad,angle_jitter=0.1,clip=keep})
+end
+blend(dband(270,610,15)-avoid,{angle=rad,tool={kind="badger",width=24}})
+
+--@ chunk 77
+print(wait(5*24*60))
+print(drying(700,200),drying(300,300),drying(900,120))
+-- cover the dotted row of sunspots with the disc's white
+local spots={{935,395,6.5},{949,404,3.6},{923,386,2.8},{962,413,2.2},{913,379,1.6},{878,508,4.2},{886,503,1.8}}
+local cover
+for _,s in ipairs(spots) do local e=ellipse(s[1],s[2],s[3]*1.6+3,s[3]*1.7+3); cover = cover and (cover+e) or e end
+cover=cover-SP.all:grow(2)
+work(cover,{hand="detail",pile=zinc_core,coverage=5,fill=true,clip=cover:grow(1),tool={kind="round",width=2.4}})
+
+--@ chunk 78
+-- [second pass] scale-plates modelled: each plate gets a crescent of light on its sun-facing lip
+function scale_crescents(t,len,wid,s,n,size,seed,clipm)
+  local nx,ny=-SV[2],SV[1]
+  local c=spt(s or 0,t)
+  local hi=pile{{"yellow ochre",1},{"cadmium yellow",0.6},{"lead white",0.8},{"burnt sienna",0.3}}
+  local md=pile{{"burnt sienna",1.5},{"yellow ochre",1},{"Mars orange",0.3}}
+  local lo=pile{{"burnt sienna",1},{"bone brown",1}}
+  local b=brush{kind="round",width=size*0.32,point=0.6,stiffness=0.4}
+  for i=1,n do
+    local r=math.sqrt((i-0.5)/n)*0.9
+    local a=i*2.399963+(seed or 0)
+    local lx,ly=len/2*r*math.cos(a), wid/2*r*math.sin(a)
+    local ox,oy=lx*SV[1]+ly*nx, lx*SV[2]+ly*ny
+    local x,y=c[1]+ox,c[2]+oy
+    local sx,sy=sundir(x,y)
+    local face=(ox*sx+oy*sy)/(math.max(len,wid)/2)
+    local k=1-0.45*r^2
+    local rp=size*0.5*k
+    local th0=math.atan(sy,sx)
+    local pts={}
+    for j=0,6 do local th=th0-0.95+1.9*j/6; pts[#pts+1]={x+rp*math.cos(th),y+rp*math.sin(th)} end
+    local p=face>0.35 and hi or (face>-0.1 and md or lo)
+    b:reload(p,0.55)
+    b:stroke(pts,{pressure={0.25,0.25},swell={0.4,1,1.2,1,0.4},clip=clipm})
+  end
+end
+scale_crescents(-166,50,52,3,40,6,0,SP.t1)
+scale_crescents(-158,30,30,-24,14,5,11,SP.t1b)
+scale_crescents(-120,34,42,-4,24,5,21,SP.t2)
+scale_crescents(-116,26,26,20,12,4.5,23,SP.t2b)
+scale_crescents(-84,22,34,0,12,4.5,4,SP.t3)
+scale_crescents(0,38,84,0,34,5.5,5,SP.hub)
+scale_crescents(72,62,36,0,26,5,6,SP.m1)
+
+--@ chunk 79
+print(wait(4*24*60)); print(drying(900,120), drying(930,330))
+
+--@ chunk 80
+-- [second pass] prominence restated over the new corona; one real sunspot group
+local disc=ellipse(cx,cy,R,R)
+local pr_deep=pile{{"cadmium red",1.2},{"rose madder",0.8},{"vermilion",0.5}}
+local pr_body=pile{{"rose madder",1},{"cadmium red",1},{"vermilion",0.5},medium=0.45}
+local fb=brush{kind="filbert",width=6,stiffness=0.3}
+for s=1,6 do
+  local ap=arch_pts(-1.93+rand(-0.008,0.008),-1.765+rand(-0.008,0.008),78*rand(0.8,1.05),30)
+  fb:reload(pr_body,rand(0.45,0.65))
+  fb:stroke(ap,{pressure={0.5,0.35},swell={0.5,1,1.1,0.9,0.5},ramps={0.1,0.2},clip=-disc:shrink(-1)})
+end
+prominence(-1.93,-1.765,80,10,{pr_deep,pr_red,pr_or},61,2.4)
+prominence(-1.915,-1.78,66,5,{pr_or,pr_hot},62,1.4)
+-- a smaller torn loop low on the limb, left of the ring
+prominence(-2.93,-2.86,38,7,{pr_deep,pr_red},63,2.2)
+prominence(-2.92,-2.87,30,3,{pr_or,pr_hot},64,1.3)
+-- sunspot group: one large spot with radial penumbral filaments, followers trailing behind it
+local function spot(x,y,s,seed)
+  local dx,dy=x-cx,y-cy; local ang=math.atan(dy,dx)
+  local fs=math.sqrt(math.max(0.05,1-((dx*dx+dy*dy)/(R*R))))
+  local penum=pile{{"burnt sienna",1},{"yellow ochre",1.2},{"lead white",1},{"Mars orange",0.4}}
+  local umbra=pile{{"bone brown",2},{"burnt sienna",1},{"Mars red",0.4}}
+  local pb=brush{kind="round",width=math.max(0.8,s*0.18),point=0.6,stiffness=0.4}
+  local n=math.floor(10+s*3)
+  for i=1,n do local a=2*math.pi*i/n+rand(-0.15,0.15)
+    local r0,r1=s*0.35,s*rand(0.85,1.15)
+    local function P(r) local u,v=r*math.cos(a)*fs, r*math.sin(a); return {x+u*math.cos(ang)-v*math.sin(ang), y+u*math.sin(ang)+v*math.cos(ang)} end
+    pb:reload(penum,0.6); pb:stroke({P(r0),P((r0+r1)/2),P(r1)},{pressure={0.6,0.15},ramps={0.1,0.6}})
+  end
+  local U=rell(x,y,s*0.42*fs,s*0.45,ang+rand(-0.3,0.3),s*0.1,seed)
+  work(U,{hand="detail",pile=umbra,coverage=4,fill=true,clip=U,tool={kind="round",width=0.9}})
+end
+spot(936,338,8,1); spot(951,352,3.2,2); spot(957,347,2.0,3); spot(925,330,2.4,4); spot(966,360,1.6,5)
+
+--@ chunk 81
+-- [second pass] the limb as one continuous darkening toward the edge, laid along the tangent
+local disc=ellipse(cx,cy,R,R)
+local avoid=SP.all:grow(2.5)
+local function dband(a,b,s) return mask(function(x,y) local d=math.sqrt((x-cx)^2+(y-cy)^2)-R; return smoothstep(a-s,a+s,d)*(1-smoothstep(b-s,b+s,d)) end) end
+local keep=disc-avoid
+local L={
+ {-60,-34,pile{{"zinc white",5},{"lead white",1},{"lemon chrome",0.3}}},
+ {-38,-17,pile{{"lead white",4},{"zinc white",2},{"lemon chrome",0.6}}},
+ {-20,-7,pile{{"lead white",4},{"lemon chrome",1},{"cadmium yellow",0.5}}},
+ {-9,1,pile{{"lead white",2},{"cadmium yellow",1.5},{"lemon chrome",0.5}}},
+}
+for _,b in ipairs(L) do
+  local m=dband(b[1],b[2],3)*keep
+  work(m,{hand="body",tool={kind="filbert",width=5,stiffness=0.4},pile=b[3],length={40,100},coverage=3.2,fill=true,angle=tang,clip=keep})
+end
+blend(dband(-62,2,2)*keep,{angle=tang,tool={kind="badger",width=10}})
+
+--@ chunk 82
+print(wait(5*24*60)); print(drying(297,440), drying(150,300))
+-- the Cuculus seed again: a cold spark with a short fading wake, inbound
+local wake=pile{{"lead white",2},{"cerulean blue",0.5}}
+local rb=brush{kind="round",width=1.6,point=0.9,stiffness=0.4}
+for i=1,3 do
+  rb:reload(wake,0.25+0.1*i)
+  local o=(i-2)*0.6
+  rb:stroke({{246+o,465},{272,451+o*0.3},{295,441}},{pressure={0.0,0.3},ramps={0.85,0.05}})
+end
+rb:reload(pile{{"zinc white",4},{"cerulean blue",0.15}},0.9)
+rb:touch(297,440,{pressure=0.85})
+local hb=brush{kind="round",width=5,stiffness=0.3}
+hb:reload(pile{{"lead white",1},{"cerulean blue",0.4},medium=0.75},0.25)
+hb:touch(297,440,{pressure=0.3})
+-- a scatter of faint stars back in the darkest corner, few, clumped
+local tb=brush{kind="round",width=1.4,point=0.3,stiffness=0.5}
+local sf=pile{{"lead white",2},{"ultramarine ash",1}}
+for _,p in ipairs({{38,62},{71,118},{22,190},{130,28},{96,240},{18,330},{55,402},{140,150},{205,40},{12,470},{80,505},{170,92}}) do
+  tb:reload(sf,0.5); tb:touch(p[1],p[2],{pressure=rand(0.3,0.5)}) end
+
+--@ chunk 83
+-- [second pass] dim warm bounce from the corona on the station's shadow edges (the sides turned away from the Sun)
+local bb={480,190,960,560}
+local disc=ellipse(cx,cy,R,R)
+local OUT=mask(function(x,y)
+  if x<bb[1] or x>bb[3] or y<bb[2] or y>bb[4] then return 0 end
+  if SP.all:at(x,y)<0.5 then return 0 end
+  local dx,dy=sundir(x,y)
+  for k=1,6 do local d=k*1.0
+    if SP.all:at(x-d*dx,y-d*dy)<0.5 then return 1-(k-1)/6 end
+  end
+  return 0
+end)*(-disc)
+local bounce=pile{{"burnt sienna",1.5},{"cadmium red",0.4},{"bone brown",1},{"Mars orange",0.3}}
+local ang=function(x,y) local sx,sy=sundir(x,y); return math.atan(sy,sx)+math.pi/2 end
+work(OUT:band(0.3,1.01,0.1),{hand="detail",pile=bounce,coverage=2.2,fill=true,load=0.5,tool={kind="round",width=1.6,point=0.4},angle=ang,clip=SP.all})
+
+--@ chunk 84
+print(wait(3*24*60))
+
+--@ chunk 85
+-- [third pass] the ring's inner face on the far arc, facing the Sun: a broad band of lit bronze
+local inner=ellpoly(1-RT,-RW/2)+ellpoly(1-RT,-RW/4)+ellpoly(1-RT,0)+ellpoly(1-RT,RW/4)+ellpoly(1-RT,RW/2)
+local sdx,sdy=sundir(SC[1],SC[2])
+local far=mask(function(x,y) return ((x-SC[1])*sdx+(y-SC[2])*sdy)<-8 and 1 or 0 end):soften(10)
+IF=SP.ring*inner*far-(SP.all-SP.ring):grow(1)
+print(IF:area())
+-- how squarely each point faces the Sun across the hole: strongest opposite the Sun
+local facing=function(x,y) local vx,vy=x-SC[1],y-SC[2]; local l=math.sqrt(vx*vx+vy*vy)+1e-6; return clamp(-(vx*sdx+vy*sdy)/l,0,1) end
+local brz_dark=pile{{"burnt sienna",2},{"bone brown",1},{"Mars orange",0.4}}
+local brz_mid=pile{{"yellow ochre",1},{"burnt sienna",1},{"Mars orange",0.5},{"lead white",0.3}}
+local brz_hot=pile{{"lead white",2},{"yellow ochre",1},{"cadmium yellow",1.2},{"Mars orange",0.2}}
+local tangr=function(x,y) local vx,vy=x-SC[1],y-SC[2]; return math.atan(vy,vx)+math.pi/2 end
+local o={hand="detail",coverage=4,fill=true,tool={kind="round",width=2.2,point=0.3},angle=tangr,clip=IF}
+local function go(m,p) local q={} for k,v in pairs(o) do q[k]=v end q.pile=p; work(m,q) end
+local F=IF:times(facing)
+go(IF*F:map(function(v) return v<0.55 and 1 or 0 end),brz_dark)
+go(IF*F:map(function(v) return (v>=0.5 and v<0.85) and 1 or 0 end),brz_mid)
+go(IF*F:map(function(v) return v>=0.8 and 1 or 0 end),brz_hot)
+blend(IF,{tool={kind="badger",width=5},angle=tangr})
+
+--@ chunk 86
+-- [third pass] the inner face worked up: plate rows, windows, a hot lip at the hole, a dark seam at the outer edge
+local tangr=function(x,y) local vx,vy=x-SC[1],y-SC[2]; return math.atan(vy,vx)+math.pi/2 end
+local phi=0.6180339887
+local seamp=pile{{"burnt sienna",2},{"bone brown",1.2}}
+local glint=pile{{"lead white",3},{"cadmium yellow",1},{"lemon chrome",0.4}}
+local glass=pile{{"bone brown",2},{"ultramarine blue",0.6},{"burnt sienna",0.4}}
+local sb=brush{kind="round",width=0.9,point=0.5,stiffness=0.5}
+local wb=brush{kind="round",width=1.4,stiffness=0.5}
+-- plate courses: thin dark seams crossing the face, uneven golden steps; window rows between
+local a=0.0; local k=0
+local inside=IF:shrink(0.8)
+while a<2*math.pi do
+  k=k+1
+  local p1=ringpt(a,1-RT,-RW/2); local p2=ringpt(a,1-RT,RW/2)
+  local pm={(p1[1]+p2[1])/2,(p1[2]+p2[2])/2}
+  if inside:at(pm[1],pm[2])>0.5 then
+    sb:reload(seamp,0.5); sb:stroke({p1,pm,p2},{pressure={0.45,0.4},clip=inside})
+    -- windows in this course
+    for _,off in ipairs({-RW/2+4,-RW/2+8.5,-RW/2+13,-RW/2+17.5}) do
+      local q=ringpt(a+0.012,1-RT-0.004,off)
+      if inside:at(q[1],q[2])>0.5 and rand()<0.75 then
+        local lit=rand()<0.22
+        wb:reload(lit and win_lit or glass,0.6); wb:touch(q[1],q[2],{pressure=rand(0.45,0.6)})
+      end
+    end
+  end
+  a=a+0.032*(0.7+0.6*((k*phi)%1))
+end
+-- hot lip where the face turns into the hole: broken, varying width
+local hole=ellpoly(1-RT,-RW/2)*ellpoly(1-RT,RW/2)
+local brk=noise{seed=33,period=26,octaves=3}
+local wv=noise{seed=34,period=40,octaves=2}
+local lipw=IF*mask(function(x,y) return 1 end)
+local lip=IF*hole:grow(3.2)*mask(function(x,y) return smoothstep(-0.55,-0.05,brk(x,y)) end)
+work(lip,{hand="detail",pile=glint,coverage=3.5,fill=true,tool={kind="round",width=1.3,point=0.6},angle=tangr,clip=IF})
+-- dark seam (core shadow) where the inner face turns onto the outer face
+local seam=(IF-IF:shrink(1.6))-hole:grow(4)
+work(seam,{hand="detail",pile=pl_dk,coverage=3.5,fill=true,tool={kind="round",width=1.2,point=0.5},angle=tangr,clip=SP.ring})
+
+--@ chunk 87
+-- [third pass] tanks modelled as backlit solids: a sun-side crescent of light (wide at its middle, tapering),
+-- a core shadow inside it, a warm bounce on the far flank, one cool dark facing the void
+function blobat(c,len,wid)
+  local nx,ny=-SV[2],SV[1]; local pts={}
+  for i=0,47 do local a=2*math.pi*i/48; local x,y=len/2*math.cos(a), wid/2*math.sin(a)
+    pts[#pts+1]={c[1]+x*SV[1]+y*nx, c[2]+x*SV[2]+y*ny} end
+  return poly(pts,true)
+end
+local hot=pile{{"lead white",2},{"cadmium yellow",1},{"yellow ochre",0.6},{"lemon chrome",0.3}}
+local mid=pile{{"yellow ochre",1},{"burnt sienna",1},{"Mars orange",0.5},{"lead white",0.2}}
+local core=pile{{"bone black",2},{"burnt sienna",1},{"ultramarine blue",0.4}}
+local bounce=pile{{"burnt sienna",1.5},{"Mars orange",0.4},{"bone brown",1}}
+local cool=pile{{"ultramarine blue",1},{"bone black",1},{"viridian",0.3},{"lead white",0.25}}
+function model_tank(t,len,wid,s,clipm)
+  local c=spt(s or 0,t)
+  local sx,sy=sundir(c[1],c[2])
+  local B=clipm
+  local sh=math.min(len,wid)
+  local function off(k) return blobat({c[1]-sx*sh*k,c[2]-sy*sh*k},len,wid) end
+  local reach=sh*0.34
+  local open=mask(function(x,y)      -- 1 where a short march toward the Sun leaves the station: this point sees the light
+    if B:at(x,y)<0.5 then return 0 end
+    for k=1,8 do local d=reach*k/8; if SP.all:at(x+d*sx,y+d*sy)<0.5 then return 1 end end
+    return 0 end)
+  local half=mask(function(x,y) return ((x-c[1])*sx+(y-c[2])*sy)>0 and 1 or 0 end)
+  local lit=(B-off(0.27))*open*half       -- crescent, widest where the outline faces the Sun
+  local hotm=(B-off(0.10))*open*half
+  local corem=((B-off(0.40))-(B-off(0.27)))*half
+  local farside=(B-blobat({c[1]+sx*sh*0.05,c[2]+sy*sh*0.05},len,wid))*(-half)
+  local ang=function(x,y) local vx,vy=x-c[1],y-c[2]; return math.atan(vy,vx)+math.pi/2 end
+  local o={hand="detail",fill=true,tool={kind="round",width=1.5,point=0.4},angle=ang,clip=B}
+  local function go(m,p,cv) local q={} for k,v in pairs(o) do q[k]=v end q.pile=p; q.coverage=cv; work(m,q) end
+  go(farside,bounce,0.7)
+  go(corem,core,3)
+  go(lit,mid,3.2)
+  go(hotm,hot,3.5)
+end
+model_tank(-166,50,52,3,SP.t1)
+model_tank(-158,30,30,-24,SP.t1b)
+model_tank(-120,34,42,-4,SP.t2)
+model_tank(-116,26,26,20,SP.t2b)
+model_tank(-84,22,34,0,SP.t3)
+model_tank(0,38,84,0,SP.hub)
+model_tank(72,62,36,0,SP.m1)
+
+--@ chunk 88
+-- [third pass] spine machinery: collars and segment joints catch light on their sun-side ends; a few hard glints;
+-- warm bounce on the ring band beside the hole; cool dark along the far arc's outer edge facing the void
+local nx,ny=-SV[2],SV[1]
+local glint=pile{{"lead white",3},{"cadmium yellow",1},{"lemon chrome",0.4}}
+local brass=pile{{"yellow ochre",1},{"cadmium yellow",0.6},{"lead white",0.6},{"burnt sienna",0.3}}
+local gb=brush{kind="round",width=1.3,point=0.6,stiffness=0.5}
+local trunk=(SP.trunk1+SP.trunk2+SP.collar1+SP.collar2+SP.lip):grow(0.5)
+-- joint rings: short arcs across the trunk, lit on the sun-side half only, width tapering off
+for _,j in ipairs({{-232,32},{-206,42},{-197,42},{-145,28},{-102,26},{-52,36},{-44,36},{-30,24},{28,22},{44,22},{110,22},{134,30},{190,26}}) do
+  local t,w=j[1],j[2]
+  local c=spt(0,t); local sx,sy=sundir(c[1],c[2])
+  local sgn=(nx*sx+ny*sy)>0 and 1 or -1
+  local pts={}
+  for i=0,6 do local u=sgn*(i/6)*w*0.5; pts[#pts+1]={c[1]+nx*u-SV[1]*0.6*(i/6)^2, c[2]+ny*u-SV[2]*0.6*(i/6)^2} end
+  gb:reload(brass,0.55); gb:stroke(pts,{pressure={0.15,0.6},ramps={0.6,0.1},clip=SP.all})
+  local tip=pts[#pts]
+  gb:reload(glint,0.7); gb:touch(tip[1]-nx*sgn*1.0,tip[2]-ny*sgn*1.0,{pressure=0.55,clip=SP.all})
+end
+-- warm bounce on the ring band just beside the hole (lit by the corona through it); patina darker toward the outer edge
+local hole=ellpoly(1-RT,-RW/2)*ellpoly(1-RT,RW/2)
+local band=(SP.ring*hole:grow(5)-hole)-IF:grow(1)-(SP.all-SP.ring):grow(1)
+local bounce=pile{{"burnt sienna",1.5},{"Mars orange",0.5},{"bone brown",0.8}}
+work(band,{hand="detail",pile=bounce,coverage=1.6,load=0.5,fill=true,tool={kind="round",width=1.6,point=0.3},clip=band})
+local sdx,sdy=sundir(SC[1],SC[2])
+local voidside=mask(function(x,y)
+  if SP.ring:at(x,y)<0.5 then return 0 end
+  if ((x-SC[1])*sdx+(y-SC[2])*sdy)>-20 then return 0 end
+  local vx,vy=x-SC[1],y-SC[2]; local l=math.sqrt(vx*vx+vy*vy)+1e-6
+  for k=1,4 do local d=0.7*k; if SP.all:at(x+vx/l*d,y+vy/l*d)<0.5 then return 1 end end
+  return 0 end)-IF:grow(1.5)-(SP.all-SP.ring):grow(1)
+local cool=pile{{"ultramarine blue",1},{"bone black",1},{"viridian",0.3},{"lead white",0.15}}
+work(voidside,{hand="detail",pile=cool,coverage=1.4,load=0.5,fill=true,tool={kind="round",width=1.4,point=0.3},clip=voidside})
+
+--@ chunk 89
+-- [third pass] the limb band relaid in long tangential strokes, wet, then drawn together; sunspot penumbra made soft
+local disc=ellipse(cx,cy,R,R)
+local avoid=SP.all:grow(2.5)
+local function dband(a,b,s) return mask(function(x,y) local d=math.sqrt((x-cx)^2+(y-cy)^2)-R; return smoothstep(a-s,a+s,d)*(1-smoothstep(b-s,b+s,d)) end) end
+local keep=disc-avoid-PROM
+local L={
+ {-46,-22,pile{{"lead white",3},{"zinc white",3},{"lemon chrome",0.5}}},
+ {-26,-9,pile{{"lead white",4},{"lemon chrome",1},{"cadmium yellow",0.4}}},
+ {-11,1,pile{{"lead white",2},{"cadmium yellow",1.4},{"lemon chrome",0.6}}},
+}
+for _,b in ipairs(L) do
+  local m=dband(b[1],b[2],2)*keep
+  work(m,{hand="body",tool={kind="filbert",width=6,stiffness=0.35},pile=b[3],length={90,200},coverage=3.5,fill=true,angle=tang,angle_jitter=0.01,clip=keep,load=0.9})
+end
+blend(dband(-50,2,2)*keep,{angle=tang,tool={kind="badger",width=12}})
+blend(dband(-50,2,2)*keep,{angle=function(x,y) return tang(x,y)+0.25 end,tool={kind="badger",width=12}})
+
+--@ chunk 90
+local function softspot(x,y,s,seed)
+  local dx,dy=x-cx,y-cy; local ang=math.atan(dy,dx)
+  local fs=math.sqrt(math.max(0.05,1-((dx*dx+dy*dy)/(R*R))))
+  local penum=pile{{"lead white",1.2},{"yellow ochre",1},{"burnt sienna",0.6},{"Mars orange",0.3}}
+  local umbra=pile{{"bone brown",2},{"burnt sienna",1},{"Mars red",0.4}}
+  local halo=rell(x,y,s*1.35*fs+1,s*1.35+1,ang,s*0.12,seed+50)
+  work(halo,{hand="detail",pile=zinc_core,coverage=4,fill=true,clip=halo,tool={kind="round",width=1.4}})
+  local P=rell(x,y,s*0.95*fs,s*0.95,ang,s*0.18,seed)
+  work(P,{hand="detail",pile=penum,coverage=3.5,fill=true,clip=P,tool={kind="round",width=1.0},angle=ang})
+  blend(halo,{tool={kind="badger",width=4}})
+  local U=rell(x+0.3,y-0.2,s*0.42*fs,s*0.46,ang+0.2,s*0.08,seed+9)
+  work(U,{hand="detail",pile=umbra,coverage=4,fill=true,clip=U,tool={kind="round",width=0.8}})
+end
+softspot(936,338,8,1)
+
+--@ chunk 91
+-- [third pass] fade the seed's wake: paint the corona's own maroon back over its tail, heavy at the far end, lifting toward the spark
+local bgp=pile{{"Mars red",1.2},{"rose madder",1},{"bone brown",1}}
+local b=brush{kind="filbert",width=4,stiffness=0.35}
+for i=0,9 do
+  local f=i/9
+  local x0=lerp(205,262,f); local y0=lerp(492,458,f)
+  b:reload(bgp,0.75*(1-f)^1.3+0.04)
+  b:stroke({{x0-6,y0+3.2},{x0,y0},{x0+6,y0-3.4}},{pressure={0.55*(1-f)+0.1,0.5*(1-f)+0.08}})
+end
+
+--@ chunk 92
+local bgp=pile{{"Mars red",1.2},{"rose madder",1},{"bone brown",1}}
+local b=brush{kind="filbert",width=3,stiffness=0.35}
+for i=0,9 do
+  local f=i/9
+  local x0=lerp(242,284,f); local y0=lerp(467,446,f)
+  b:reload(bgp,0.7*(1-f)^1.5+0.03)
+  b:stroke({{x0-5,y0+2.5},{x0,y0},{x0+5,y0-2.5}},{pressure={0.5*(1-f)+0.05,0.45*(1-f)+0.05}})
+end
+local z=ribbon({{200,495},{245,466},{288,444}},{10,9,6})
+blend(z,{tool={kind="badger",width=10},angle=-0.48})
+
+--@ chunk 93
+print(wait(6*24*60))
+local c=ringpt(2.6,1-RT,0); print(drying(c[1],c[2]))
+-- warm the inner face: bronze-gold glaze, heavier where it turns away from the light
+local sdx,sdy=sundir(SC[1],SC[2])
+local facing=function(x,y) local vx,vy=x-SC[1],y-SC[2]; local l=math.sqrt(vx*vx+vy*vy)+1e-6; return clamp(-(vx*sdx+vy*sdy)/l,0,1) end
+local tangr=function(x,y) local vx,vy=x-SC[1],y-SC[2]; return math.atan(vy,vx)+math.pi/2 end
+local gold=pile{{"Indian yellow",2},{"Mars orange",0.6},{"burnt sienna",0.5},medium=0.7}
+work(IF,{hand="glaze",tool={kind="filbert",width=5,stiffness=0.25},length={20,50},pile=gold,coverage=2,angle=tangr,clip=IF,load_at=function(x,y) return 0.35+0.35*(1-facing(x,y)) end})
+
+--@ chunk 94
+print(wait(8*24*60))
+local c=ringpt(2.6,1-RT,0); print(drying(c[1],c[2]))
+local sdx,sdy=sundir(SC[1],SC[2])
+local facing=function(x,y) local vx,vy=x-SC[1],y-SC[2]; local l=math.sqrt(vx*vx+vy*vy)+1e-6; return clamp(-(vx*sdx+vy*sdy)/l,0,1) end
+local tangr=function(x,y) local vx,vy=x-SC[1],y-SC[2]; return math.atan(vy,vx)+math.pi/2 end
+local d=pile{{"burnt sienna",2},{"Mars red",0.3},{"bone brown",0.6}}
+local m=pile{{"Mars orange",1},{"yellow ochre",1},{"burnt sienna",0.6}}
+local h=pile{{"cadmium yellow",1},{"yellow ochre",0.6},{"lead white",1},{"Mars orange",0.3}}
+local F=IF:times(facing)
+local o={hand="detail",coverage=4,fill=true,tool={kind="round",width=2.0,point=0.3},angle=tangr,clip=IF,length={6,18}}
+local function go(mm,p) local q={} for k,v in pairs(o) do q[k]=v end q.pile=p; work(mm,q) end
+go(IF*F:map(function(v) return v<0.5 and 1 or 0 end),d)
+go(IF*F:map(function(v) return (v>=0.5 and v<0.82) and 1 or 0 end),m)
+go(IF*F:map(function(v) return v>=0.82 and 1 or 0 end),h)
+
+--@ chunk 95
+print(wait(6*24*60)); local c=ringpt(2.6,1-RT,0); print(drying(c[1],c[2]))
+
+--@ chunk 96
+-- [third pass] the inner face worked up: plate rows, windows, a hot lip at the hole, a dark seam at the outer edge
+local tangr=function(x,y) local vx,vy=x-SC[1],y-SC[2]; return math.atan(vy,vx)+math.pi/2 end
+local phi=0.6180339887
+local seamp=pile{{"burnt sienna",2},{"bone brown",1.2}}
+local glint=pile{{"lead white",3},{"cadmium yellow",1},{"lemon chrome",0.4}}
+local glass=pile{{"bone brown",2},{"ultramarine blue",0.6},{"burnt sienna",0.4}}
+local sb=brush{kind="round",width=0.9,point=0.5,stiffness=0.5}
+local wb=brush{kind="round",width=1.4,stiffness=0.5}
+-- plate courses: thin dark seams crossing the face, uneven golden steps; window rows between
+local a=0.0; local k=0
+local inside=IF:shrink(0.8)
+while a<2*math.pi do
+  k=k+1
+  local p1=ringpt(a,1-RT,-RW/2); local p2=ringpt(a,1-RT,RW/2)
+  local pm={(p1[1]+p2[1])/2,(p1[2]+p2[2])/2}
+  if inside:at(pm[1],pm[2])>0.5 then
+    sb:reload(seamp,0.5); sb:stroke({p1,pm,p2},{pressure={0.45,0.4},clip=inside})
+    -- windows in this course
+    for _,off in ipairs({-RW/2+4,-RW/2+8.5,-RW/2+13,-RW/2+17.5}) do
+      local q=ringpt(a+0.012,1-RT-0.004,off)
+      if inside:at(q[1],q[2])>0.5 and rand()<0.75 then
+        local lit=rand()<0.22
+        wb:reload(lit and win_lit or glass,0.6); wb:touch(q[1],q[2],{pressure=rand(0.45,0.6)})
+      end
+    end
+  end
+  a=a+0.032*(0.7+0.6*((k*phi)%1))
+end
+-- hot lip where the face turns into the hole: broken, varying width
+local hole=ellpoly(1-RT,-RW/2)*ellpoly(1-RT,RW/2)
+local brk=noise{seed=33,period=26,octaves=3}
+local wv=noise{seed=34,period=40,octaves=2}
+local lipw=IF*mask(function(x,y) return 1 end)
+local lip=IF*hole:grow(3.2)*mask(function(x,y) return smoothstep(-0.55,-0.05,brk(x,y)) end)
+work(lip,{hand="detail",pile=glint,coverage=3.5,fill=true,tool={kind="round",width=1.3,point=0.6},angle=tangr,clip=IF})
+-- dark seam (core shadow) where the inner face turns onto the outer face
+local seam=(IF-IF:shrink(1.6))-hole:grow(4)
+work(seam,{hand="detail",pile=pl_dk,coverage=3.5,fill=true,tool={kind="round",width=1.2,point=0.5},angle=tangr,clip=SP.ring})
+
+--@ chunk 97
+local sdx,sdy=sundir(SC[1],SC[2])
+local facing=function(x,y) local vx,vy=x-SC[1],y-SC[2]; local l=math.sqrt(vx*vx+vy*vy)+1e-6; return clamp(-(vx*sdx+vy*sdy)/l,0,1) end
+local tangr=function(x,y) local vx,vy=x-SC[1],y-SC[2]; return math.atan(vy,vx)+math.pi/2 end
+local hole=ellpoly(1-RT,-RW/2)*ellpoly(1-RT,RW/2)
+local Z=IF:shrink(1.4)-hole:grow(3.0)
+local d=pile{{"burnt sienna",2},{"Mars red",0.3},{"bone brown",0.6}}
+local m=pile{{"Mars orange",1},{"yellow ochre",1},{"burnt sienna",0.6}}
+local h=pile{{"cadmium yellow",1},{"yellow ochre",0.6},{"lead white",1},{"Mars orange",0.3}}
+local F=IF:times(facing)
+local o={hand="detail",coverage=4.5,fill=true,tool={kind="round",width=1.8,point=0.2},angle=tangr,clip=Z,length={5,12}}
+local function go(mm,p) local q={} for k,v in pairs(o) do q[k]=v end q.pile=p; work(mm,q) end
+go(Z*F:map(function(v) return v<0.5 and 1 or 0 end),d)
+go(Z*F:map(function(v) return (v>=0.5 and v<0.82) and 1 or 0 end),m)
+go(Z*F:map(function(v) return v>=0.82 and 1 or 0 end),h)
+
+--@ chunk 98
+print(wait(5*24*60))
+-- [third pass] the inner face worked up: plate rows, windows, a hot lip at the hole, a dark seam at the outer edge
+local tangr=function(x,y) local vx,vy=x-SC[1],y-SC[2]; return math.atan(vy,vx)+math.pi/2 end
+local phi=0.6180339887
+local seamp=pile{{"burnt sienna",2},{"bone brown",0.8}}
+local glint=pile{{"lead white",3},{"cadmium yellow",1},{"lemon chrome",0.4}}
+local glass=pile{{"bone brown",2},{"ultramarine blue",0.6},{"burnt sienna",0.4}}
+local sb=brush{kind="round",width=0.9,point=0.5,stiffness=0.5}
+local wb=brush{kind="round",width=1.4,stiffness=0.5}
+-- plate courses: thin dark seams crossing the face, uneven golden steps; window rows between
+local a=0.0; local k=0
+local inside=IF:shrink(1.6)
+while a<2*math.pi do
+  k=k+1
+  local p1=ringpt(a,1-RT,-RW/2); local p2=ringpt(a,1-RT,RW/2)
+  local pm={(p1[1]+p2[1])/2,(p1[2]+p2[2])/2}
+  if inside:at(pm[1],pm[2])>0.5 then
+    sb:reload(seamp,0.5); sb:stroke({p1,pm,p2},{pressure={0.45,0.4},clip=inside})
+    -- windows in this course
+    for _,off in ipairs({-RW/2+4,-RW/2+8.5,-RW/2+13,-RW/2+17.5}) do
+      local q=ringpt(a+0.012,1-RT-0.004,off)
+      if inside:at(q[1],q[2])>0.5 and rand()<0.75 then
+        local lit=rand()<0.22
+        wb:reload(lit and win_lit or glass,0.6); wb:touch(q[1],q[2],{pressure=rand(0.45,0.6)})
+      end
+    end
+  end
+  a=a+0.032*(0.7+0.6*((k*phi)%1))
+end
+-- hot lip where the face turns into the hole: broken, varying width
+local hole=ellpoly(1-RT,-RW/2)*ellpoly(1-RT,RW/2)
+local brk=noise{seed=33,period=26,octaves=3}
+local wv=noise{seed=34,period=40,octaves=2}
+local lipw=IF*mask(function(x,y) return 1 end)
+local lip=IF*hole:grow(3.2)*mask(function(x,y) return smoothstep(-0.55,-0.05,brk(x,y)) end)
+work(lip,{hand="detail",pile=glint,coverage=3.5,fill=true,tool={kind="round",width=1.3,point=0.6},angle=tangr,clip=IF})
+
+--@ chunk 99
+local c=ringpt(2.6,1-RT,0); print(drying(c[1],c[2]))
+
+--@ chunk 100
+-- [third pass] near arc and spokes: warm dim bronze bounce in the band's middle (edges stay dark), spokes lit along one side
+local sdx,sdy=sundir(SC[1],SC[2])
+local near=SP.ring*mask(function(x,y) return ((x-SC[1])*sdx+(y-SC[2])*sdy)>10 and 1 or 0 end)-(SP.all-SP.ring):grow(1)-IF:grow(1)
+local core=near:shrink(3)
+local tangr=function(x,y) local vx,vy=x-SC[1],y-SC[2]; return math.atan(vy,vx)+math.pi/2 end
+local bz=pile{{"burnt sienna",1.6},{"Mars orange",0.5},{"bone brown",0.7},medium=0.45}
+work(core,{hand="detail",pile=bz,coverage=1.8,load=0.55,fill=true,tool={kind="round",width=2.2,point=0.2},angle=tangr,clip=core,length={6,16}})
+-- spokes
+local sb=brush{kind="round",width=1.0,point=0.5,stiffness=0.5}
+local lit=pile{{"yellow ochre",1},{"cadmium yellow",0.8},{"lead white",0.8},{"Mars orange",0.3}}
+for _,a in ipairs({0.5,1.75,3.0,4.25,5.4}) do
+  local p=ringpt(a,1-RT,0)
+  local vx,vy=p[1]-SC[1],p[2]-SC[2]; local l=math.sqrt(vx*vx+vy*vy)
+  local nx,ny=-vy/l,vx/l
+  local m={(SC[1]+p[1])/2,(SC[2]+p[2])/2}; local sx,sy=sundir(m[1],m[2])
+  if nx*sx+ny*sy<0 then nx,ny=-nx,-ny end
+  local o=1.6
+  local a0={SC[1]+vx*0.22+nx*o,SC[2]+vy*0.22+ny*o}
+  local a1={SC[1]+vx*0.95+nx*o,SC[2]+vy*0.95+ny*o}
+  sb:reload(lit,0.6)
+  sb:stroke({a0,a1},{pressure={0.35,0.45},clip=SP.spokes:grow(0.6)-(SP.all-SP.spokes)})
+end
+
+--@ chunk 101
+local sdx,sdy=sundir(SC[1],SC[2])
+local near=SP.ring*mask(function(x,y) return ((x-SC[1])*sdx+(y-SC[2])*sdy)>10 and 1 or 0 end)-(SP.all-SP.ring):grow(1)-IF:grow(1)
+local tangr=function(x,y) local vx,vy=x-SC[1],y-SC[2]; return math.atan(vy,vx)+math.pi/2 end
+local dk=pile{{"bone brown",2},{"burnt sienna",0.8},{"bone black",0.8},{"ultramarine blue",0.4}}
+local edges=near-near:shrink(3.5)
+work(edges,{hand="detail",pile=dk,coverage=4,fill=true,tool={kind="round",width=2.0,point=0.2},angle=tangr,clip=near,length={6,16}})
+work(near:shrink(3),{hand="detail",pile=dk,coverage=2.2,load=0.7,fill=true,tool={kind="round",width=2.2,point=0.2},angle=tangr,clip=near,length={6,16}})
+
+--@ chunk 102
+print(wait(7*24*60))
+local sdx,sdy=sundir(SC[1],SC[2])
+local near=SP.ring*mask(function(x,y) return ((x-SC[1])*sdx+(y-SC[2])*sdy)>10 and 1 or 0 end)-(SP.all-SP.ring):grow(1)-IF:grow(1)
+local okm=near:shrink(1.8)
+local c=ringpt(0.3,1,0); print(drying(c[1],c[2]))
+local glass=pile{{"bone black",1},{"bone brown",1},{"ultramarine blue",0.4}}
+local wb=brush{kind="round",width=1.3,stiffness=0.5}
+local litn=noise{seed=78,period=60,octaves=2}
+local phi=0.6180339887
+local nl,na=0,0
+for _,sc in ipairs({0.995,1-RT+0.008}) do
+ for off=-RW/2+2.5,RW/2-2.5,3.8 do
+  local a=rand(0,0.03); local i=0
+  while a<2*math.pi do
+    i=i+1
+    local p=ringpt(a,sc,off)
+    if okm:at(p[1],p[2])>0.5 and rand()<0.7 then
+      local lit=litn(p[1],p[2])>0.35 or rand()<0.03
+      wb:reload(lit and win_lit or glass,0.6); wb:touch(p[1],p[2],{pressure=rand(0.45,0.65)})
+      na=na+1; if lit then nl=nl+1 end
+    end
+    a=a+0.024*(0.75+0.5*((i*phi)%1))
+  end
+ end
+end
+print(nl,na)
+
+--@ chunk 103
+-- [third pass] the spine as a cylinder: a dim warm bounce running down its middle, edges left dark
+local nx,ny=-SV[2],SV[1]
+local tanks=(SP.t1+SP.t1b+SP.t2+SP.t2b+SP.t3+SP.hub+SP.m1):grow(1)
+local bz=pile{{"burnt sienna",1.6},{"Mars orange",0.4},{"bone brown",1}}
+local function strip(t0,t1,w,s) return ribbon({spt(s or 0,t0),spt(s or 0,t1)},w) end
+local Z=(strip(-210,-20,7,1.5)+strip(18,98,6,1.2))*SP.all-tanks
+work(Z,{hand="detail",pile=bz,coverage=2.2,load=0.55,fill=true,tool={kind="round",width=1.8,point=0.2},angle=0.6,clip=Z,length={8,20}})
+-- a sharper highlight line, broken, along the sun-side of the strip
+local hi=pile{{"yellow ochre",1},{"Mars orange",0.6},{"burnt sienna",0.6},{"lead white",0.3}}
+local Z2=(strip(-205,-25,1.6,3.2)+strip(20,95,1.5,2.6))*SP.all-tanks
+local brk=noise{seed=91,period=14,octaves=2}
+Z2=Z2*mask(function(x,y) return brk(x,y)>-0.2 and 1 or 0 end)
+work(Z2,{hand="detail",pile=hi,coverage=2.5,fill=true,tool={kind="round",width=1.1,point=0.4},angle=0.6,clip=Z2})
+
+--@ chunk 104
+print(wait(4*24*60))
+-- a handful of hard glints on sunward edges near the focal ring
+local bb={540,200,860,540}
+local G=rimgrad(SP.all,4,bb,6):band(0.9,1.01,0.02)
+local gl=pile{{"zinc white",3},{"lemon chrome",0.4},{"lead white",1}}
+local b=brush{kind="round",width=1.6,point=0.7,stiffness=0.5}
+local n=0
+for i=1,4000 do
+  if n>=16 then break end
+  local x,y=rand(bb[1],bb[3]),rand(bb[2],bb[4])
+  if G:at(x,y)>0.5 then
+    local sx,sy=sundir(x,y)
+    b:reload(gl,0.7)
+    b:stroke({{x-sy*2.2,y+sx*2.2},{x,y},{x+sy*2.2,y-sx*2.2}},{pressure={0.05,0.05},swell={0.3,1.4,0.3},clip=SP.all:grow(0.8)})
+    n=n+1
+  end
+end
+print(n)

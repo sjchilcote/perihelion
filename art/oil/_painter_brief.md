@@ -37,6 +37,20 @@ rose madder, magenta, burnt sienna, Mars brown, bone brown, bone black, cerulean
 blue, cobalt blue, ultramarine blue, ultramarine ash, viridian, emerald green,
 cobalt violet). `/tmp/cp/easel tubes` lists them.
 
+## Studio rules for this round (shared machine)
+
+- **Deadline: your painting must be saved and ABOUT.md written by 22:45 CDT**
+  (check with `date`). Plan the work to fit; a finished painting beats an
+  ambitious unfinished one. Around 22:15, start bringing it to completion.
+- **Memory is tight** (several painters share 30 GB). You may keep at most ONE
+  scrap easel, `<SESSION>-scrap`, and you must `close` it whenever you are not
+  actively testing on it. Close it for good before you finish. Close your main
+  session too when done (`/tmp/cp/easel -s <SESSION> close`, after `save`).
+- The journal /tmp/cp/notes/journal.md is shared: prefix your entries with
+  `[<SESSION>]` and ignore other painters' entries.
+- Studio notes 53–65 (end of studio_notes.md) are hard-won lessons from the ten
+  painters of the first round. Read them.
+
 ## What to read first (with the Read tool)
 
 1. /tmp/cp/notes/easel_guide.md — the easel, its whole API. Read all of it.
@@ -45,7 +59,10 @@ cobalt violet). `/tmp/cp/easel tubes` lists them.
 3. /tmp/cp/notes/perihelion_canon.md — the world you are painting.
 4. /tmp/cp/notes/space_painting_notes.md — how painters have painted space,
    glare and metal in oil (if it is there yet; read it when it appears).
-5. Optional: /tmp/cp/notes/oil_paint_physics.md, sargent_materials.md.
+5. /tmp/cp/notes/composition_and_finish.md — composition, finish, backlit hard
+   surfaces, hand-painted game textures. And /tmp/cp/refs/INDEX.md: 15
+   reference images (Friedrich, Turner, Martin, Piranesi, mosaics) you may look at.
+6. Optional: /tmp/cp/notes/oil_paint_physics.md, sargent_materials.md.
 
 A warning from the first minutes at this easel: one `work` pass with
 `hand="broad"` at coverage 1.6 over a pale ground left the ground showing
