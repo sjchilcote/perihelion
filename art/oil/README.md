@@ -195,6 +195,14 @@ version. Rendered finals are on disk in
 | `hydro_years.lua` | Hydroponics, Years Later | the fourth of the set |
 | `clockmaker.lua` | The Clockmaker | character scene |
 | `ratio_late.lua` | Ratio, Years Later | portrait, pair |
+| `labyrinth.lua` | The Gauntlet as a Labyrinth | floor labyrinth |
+| `teacher.lua` | The Teacher | character scene |
+| `bridge_years.lua` | The Outpost's Bridge, Years Later | pair |
+| `caravaggio.lua` | The Calling | study after Caravaggio |
+| `travel_poster.lua` | Visit the TESTAMENT | travel poster |
+| `dock_years.lua` | Dock 4, Years Later | the third of the Dock set |
+| `sail_under.lua` | Under the Sail | set piece |
+| `chief.lua` | The Chief of Miriad-7 | portrait |
 | `ratio2.lua` | Ratio, Trusted | ten-minute sketch, pair to ratio.lua |
 
 ## Floor materials (painted textures)
