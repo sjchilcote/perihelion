@@ -1,0 +1,20 @@
+# The Rose of the Mind
+
+The Commando's mind map, painted the way a Church war-machine would see its own mind: as a rose window in an illuminated manuscript. A vellum disc sits in a lapis field, bound by a crimson ring set with gilt pearls. A gilt cross divides it into four regions. At the hub, the seed's encyclopedia is the root: a crimson-bound book with tooled gilt borders, corner bosses, a clasp and a gilt cross on its cover. Edges branch from it to the rim like veins. **Vocation** (upper left) is drawn in gilt lines and crimson roundels, each with a cross. **Comprehension** (upper right) is cold blue hexagons on straight blue lines, each holding a white triangle. **History** (lower left) is sober sepia lozenges in brown-black ink. Lit nodes are illuminated, with a few lines of script beside them. The outer, unlearned reaches lie under a fog of war, where unlit nodes are only ghost outlines. In the lower right, **The Void** unfolds as a violet-black mass that has already swallowed its quadrant's gilt cross arms. Its nodes are pale violet rings, folds keep opening out of its depth, and its stippled frontier creeps past the cross toward Comprehension and History. Each corner carries a region's emblem: a cross with crimson bosses, nested hexagons, a ruled scroll, and a violet eye of folds.
+
+How it was painted: 9 chunks on a square canvas with a vellum ground. The spandrels went in as a lapis field around a crimson ring, then the Void's mass and the gilt cross and hub ring. The tree is 112 nodes laid out per region (3 primaries, 2 children each, then grandchildren and a few outer nodes), with lit or fogged status cascading from parent to child. Each node got its own shape, rim and emblem, and that chunk took over four minutes, because I built masks per node. The book's first cover went on over wet lapis and came out split and marbled; I repainted it after a long wait and laid the gilt only once it had set. The Void's first edge was a clean lavender band that read like a sticker, and a stipple of dark violet along its frontier made it creep. The fog is a lean scumble of pale gray over the outer annulus, with holes left around lit nodes. With more time I would make the edges heavier and more calligraphic, give the fog a softer, more even veil, and carry the Void's folds further so the dark visibly unfolds rather than sitting as a mass.
+
+## Pass at 00:56 CDT, 2 Oct 2026 (chunks 10–15)
+
+What changed:
+- **Edges.** Every lit edge is restroked as a pen-and-ink line that swells and tapers, stopping at the node rims. They are heaviest at the hub (4.6 units down to 1.8 at the rim) and in darker inks: deep gilt, dense blue, sepia-black, and pale violet in the Void.
+- **Fog of war.** The blotchy scumble is now an even pale lead-white veil (two lean glazes, blended along the circle), thicker in the outermost band toward the rim. Its inner edge is softened with a third, leaner glaze and a blend. Holes are left round the lit nodes.
+- **The Void.** Its lace-like stippled frontier is consolidated into a solid dark band with a smoky violet scumble beyond it. Folds now open into smaller copies of themselves: recursive arcs, each spawning two smaller arcs turned by the golden angle, with crease and lit edge, about 30 in all. One edge of the Void now runs straight across the right-hand gold arm, with a pale violet line along the cut. Five border nodes of Comprehension and History are half-swallowed.
+
+What still falls short: Joining the straight cut to the Void's body left a dark block with straight lower and left edges. It is visible where it cuts the Void's lavender inner band. The nodes it buried were restated only faintly. The veil's inner boundary still reads as a ring. The old thin hairline edges sit beside the new ink strokes in places.
+
+**Director's decision (01:00):** the 00:56 pass was rejected. The bolder pen
+edges were good, but the fog became a flat white ring that buries the outer
+nodes, and the straight cut left a hard dark block with a corner sticking out
+of the Void. v1 (9 chunks) stays canonical; the pass is kept as
+`pass_0056_rejected.png`.

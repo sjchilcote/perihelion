@@ -1,0 +1,22 @@
+# Two Monks of Rival Orders
+
+An evening in the Cloister, seen from inside the walk. Three arches open on the garth, and the little sun that isn't the Sun hangs on its cord in the middle bay, over the far arcade's slots and a lawn of plantings set on a spiral. The Commando's frame sits on the walk's step with his back to us. His crimson capelet with its rubbed bone cross catches the garth light on its shoulders, and his rosary hangs from his left hand and trails onto the step. His right forearm is jacked into a battered MIRIAD terminal propped against the pillar beside him. On its screen, under a blue session header and his own red warning tag, Ratio's low-poly avatar (pale, long black hair, one flat facet on her face) has a hand in the air mid-point, with an asterisk floating beside it: she is footnoting herself again. Neither of them is looking at the other. They are both facing the garth. The warm light through the arch lays a pool across the floor plates, and their two shadows fall toward us side by side. Between them, a tongue of the screen's cold blue spills along the step into the warm. In his niche in the left pillar the scrap-metal cross stands over its small flame, and a frieze of fold-notation runs above the arches.
+
+How it was painted: on a warm toned ground. The dark bronze wall went down first with broad strokes, then the openings, the far arcade and the lawn as flat light shapes. The figure and terminal were laid in as opaque darks, dried, and repainted to cover. The capelet, screen and avatar were painted after days of drying so their colours stayed clean. The floor fought me. A first scumble of light came out patchy, and a blend smeared it into a rectangle. My first cold pool dried as a flat, opaque pale-blue puddle that read as water and buried the jack cable. In the end I repainted the whole lit floor in one wet session in three value steps, with the cast shadows laid into it wet. The screen's light only read as light when I laid it as short strokes fanning out from the terminal's base onto dry paint, and after that I restated the cable and plate seams over the top. The hanging sun needed a second, hotter core and a stippled glow, and its rim still reads a little as a ring. With more time I would model the wall's vertical streaks into vault ribs, give the side bays less weight than the middle one, and make the plantings large enough to read.
+
+## Pass at 00:36 CDT (2 Oct)
+
+What changed:
+- **Frieze.** I recut it as fold-notation proper. There are seven straight-edged room-glyphs (triangle, square, pentagon, hexagon, pentagon, rhombus, triangle). Each holds two nested insets at 0.618 scale, each one turned by that room's own twist. The rhombus inset is upright: a quiet loop. Arched bridges with counted notches join the glyphs, and a self-gluing arc rises over the central hexagon. All of it is bone on bronze, stroked edge by edge so the corners stay sharp.
+- **Wall.** I repainted it as bronze in three steps: a near-black vault at the top, a mid band, and warmer burnt sienna on the pillars. The seams are blended narrowly. Each pillar has a lit reveal on the side toward the garth light, and the arch reveals were restated along their curves.
+- **The Commando.** He now has stacked pauldron plates on both shoulders and overlapping plates across the lower back, with a spine seam. The rims are warm from the garth along the top of the silhouette and the shoulder plates, and cold from the screen down his right side and the plate ends nearest her.
+- **Hanging sun.** The ring is gone. It is now a small white core inside stippled light that thins outward.
+- **Garth plantings.** Larger, laid in golden-angle clumps (dark base, mid leaf, a lit top), bigger toward us.
+
+What the paint did: my first attempt at the sun's glow dried as a hard yellow disc, and the blender made it a bigger disc. I had to paint it out with the vault colour, let that dry, and lay the glow as touches that thin outward. The paint-out left a faintly flatter patch on the far frieze band below the sun. The first back plates came out a chalky grey-mauve because a little lead white lifted them, and they had to be repainted lean and dark before their lips would hold.
+
+What still falls short:
+- The lit pillar reveals are straight-edged bars rather than modelled curved forms.
+- The pauldrons read as stacked discs.
+- Faint ghosts of the old round frieze still show between some of the glyphs.
+- The floor's cast shadows are still uniform blocks.

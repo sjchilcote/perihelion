@@ -8,9 +8,11 @@ clock, and Kubelka–Munk layer optics. There is no undo.
 
 Images are not tracked, per the repo's no-binaries rule. Each `<name>.lua` is the
 complete stroke log, and replaying it repaints the picture pixel for pixel.
-Seven logs were replayed and compared with their saved finals: chapel,
-title (v1), seam, stylite, approach, firstframe and primer. All were
-byte-identical; the rest were not checked. Rendered finals are on disk in
+Logs replayed and compared with their saved finals, all byte-identical: chapel,
+title (v1), seam, stylite, approach, firstframe, primer, and the truncated
+canonical logs of wanderer3, seam_reverse and epilogue. The rest were not checked.
+Where a later pass was rejected, the committed log is truncated to the accepted
+version. Rendered finals are on disk in
 `media/concepts/oil/`.
 
 | log | title | use |
@@ -58,6 +60,16 @@ byte-identical; the rest were not checked. Rendered finals are on disk in
 | `combat3.lua` | The Cable Bursts | combat shot, third attempt (the keeper) |
 | `wanderer3.lua` | The Wanderer above the Sun, Unfolded | restart of the variant (canonical v1, 32 chunks) |
 | `school_night.lua` | The Long Gallery at Night | night variant of the School |
+| `vigil_morning.lua` | The Long Vigil: The First Night | pair to The Long Vigil |
+| `seam_reverse.lua` | The Seam, from the Other Side | reverse shot (canonical v1, 14 chunks) |
+| `outpost_ext.lua` | Bolted On | outpost exterior |
+| `ratio_stack.lua` | Straight Through | abstract portrait of Ratio's mind |
+| `epilogue.lua` | Both Factions Look Up | ending epilogue (canonical v1, 11 chunks) |
+| `monks.lua` | Two Monks of Rival Orders | trust-path scene |
+| `fold.lua` | The Fold: the Warden's First Stand | the Fold |
+| `mindmap.lua` | The Rose of the Mind | mind map concept (canonical v1, 9 chunks) |
+| `shrieker.lua` | The Shrieker | enemy concept |
+| `seed_cell.lua` | Compline in the Seed | the seed's interior |
 | `ratio2.lua` | Ratio, Trusted | ten-minute sketch, pair to ratio.lua |
 
 ## Floor materials (painted textures)

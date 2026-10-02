@@ -1,0 +1,21 @@
+# The Seam, from the Other Side
+
+This is the reverse shot of The Seam. We stand inside the Testator nave and look back at the wall the researchers cut through. The light comes from behind us, from the nave's far glow, and everything Testator is warm. Pointed bronze ribs come toward us overhead, bay after bay, with porthole niches in the walls and a few small bone lamps lit. Rows of good pedestal chairs face us down a bone runner. Each back is fluted and has a bone spine, and each chair throws its shadow away from us toward the wall. The inner face of the end wall is laid in golden-spiral scale plates: lit bronze, sienna, copper and a little verdigris, each plate with its shadowed lip. The cut in it is a ragged rounded rectangle. Its torn edge is raw bright bronze, pocked with the hull's chambers. Through it is the outpost corridor, cold, gray, small and straight, its rib frames nesting down into black. On the far side stand the human instruments, seen from the nave: a tripod with its sensor aimed in at us and a red pilot light, and the plain gray back of the taped warning board. Two black cables come over the sill and snake down the nave floor among the chairs. The Commando stands in the cut, stepping in toward us. He is dark against the gray, and the nave's light picks out his helmet, pauldrons, chest plates, knees and rifle. His shadow falls back into the corridor he came from.
+
+**How I painted it.** I built a fresh one-point perspective in metres: pointed-arch sections for the nave ribs, an end wall at 9 m, and the cut with a 0.55 m reveal. I laid it in warm and kept the hole cold. Several things went wrong. The first ribs ran out of paint along a single long stroke, so I had to stroke each one in short reloaded pieces. A second pass of ribs laid into wet paint melted away. A wall pass with a soft-edged mask left a fuzzy lighter box on the vault, which I repainted bay by bay between the ribs. The scale plates first came out as rows of beans. Bigger plates laid wet over them turned to camouflage. Once dry, a dark crescent and a lit lip on each plate gave them back their scale structure. The figure was nearly lost against the dark core of the corridor until I painted the nave's light on his front plates. If I painted it again, I would draw the cables as smooth curves rather than polylines and give the chair backs real turned forms instead of the fluted stripes and lids they came out with. I would also darken the near vault and foreground more, so the cut carries more of the picture.
+
+## Pass at 00:32 CDT, Oct 2 (chunks 15–26)
+
+- **Chairs.** The striped bucket backs are now smooth bronze shells. Each one is a superellipse with its own width, height, squareness and lean, graded from a lit left edge through a mid tone to a shadow side, with narrow clipped blends at the seams and one specular. Each sits on a slender stem with a foot and a lens seat in front. I repainted them row by row, far to near, so nearer chairs overlap farther ones.
+- **Cables.** I painted the zigzags out and laid two heavy, smoothly curving cables from the corridor over the sill and down the floor among the chairs.
+- **Darker near the viewer.** The nearer vault bays and ribs are now near black, and the foreground floor is darker, with a warm dim foot to the runner. The cut and the plate wall carry the picture. I restated the porthole niches and lamps in the darkened bays.
+- **Plate wall.** The outer plates are relaid in warm bronzes only, with no verdigris, then given their crescents and lips again.
+
+**Mistake:** a sienna glaze meant to quiet the green came out as opaque orange bands. It also ran over the chairs standing against the wall, because the end-wall mask includes them. I let it set, then relaid the outer plates and repainted those chairs. The hanging cable I added was lost in that repaint.
+
+**Still short:** a faint trace of an old cable remains on the floor left of the runner, the chairs' speculars are faint, and the chair shapes are smooth but rather similar in their lighting.
+
+**Director's decision (00:35):** the 00:30 pass was rejected. The cables and
+darker vault improved, but the new tall chair backs crowd the view of the cut
+and the floor's cast shadows were lost. v1 (14 chunks) stays canonical; the
+pass is kept as `pass_0030_rejected.png`.
