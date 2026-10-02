@@ -211,6 +211,11 @@ version. Rendered finals are on disk in
 | `storyteller.lua` | The Long Arcade | place concept |
 | `seam_hub.lua` | The Junction | level concept |
 | `last_testator.lua` | The Last Testator | portrait |
+| `observatory_years.lua` | The Observatory, Years Later | pair |
+| `testator_child.lua` | A Testator Child | portrait |
+| `seed_years.lua` | Compline, Years Later | ending beat |
+| `ratio_window_years.lua` | The Window Seat, Years Later | the third of the set |
+| `noli.lua` | The Wanderer above the Sea of Corona | study after Friedrich |
 | `ratio2.lua` | Ratio, Trusted | ten-minute sketch, pair to ratio.lua |
 
 ## Floor materials (painted textures)
