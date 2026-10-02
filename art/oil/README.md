@@ -83,6 +83,19 @@ version. Rendered finals are on disk in
 | `ratio_portrait.lua` | Ratio, Sitting | character portrait |
 | `hydro_green.lua` | Hydroponics, Before the Fall | pair to Hydroponics Torus |
 | `breach.lua` | Through the Breach | Stratum Three concept |
+| `lattice.lua` | The Lattice, from the Other Side | concept, the Adversary's view |
+| `whistler.lua` | Nocturne: the Seed in the Dark | study after Whistler |
+| `hammershoi.lua` | Interior with an Open Door | study after Hammershøi |
+| `friedrich.lua` | Monk by the Sea | study after Friedrich |
+| `coolant_alive.lua` | Coolant Row, Before the Fall | pair to Coolant Row |
+| `dock_alive.lua` | Dock 4, Before the Fall | pair to Dock 4 |
+| `library.lua` | The Records Stack | place concept |
+| `observatory.lua` | The Observatory | place concept |
+| `docent_portrait.lua` | The Docent of the Ninth Gallery | character portrait |
+| `palmer.lua` | PALMER | character reference |
+| `palmer_void.lua` | PALMER, Late | character reference, pair |
+| `first_death.lua` | The First Death | story beat |
+| `breach_far.lua` | The Far Side | Stratum Three concept |
 | `ratio2.lua` | Ratio, Trusted | ten-minute sketch, pair to ratio.lua |
 
 ## Floor materials (painted textures)

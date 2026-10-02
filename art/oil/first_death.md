@@ -1,0 +1,19 @@
+# The First Death
+
+A MIRIAD corridor in the dead outpost, seen down its length. Dark ribbed walls and a grated deck run in perspective to a far doorway. Deep beyond that doorway is a very faint warm glow on the floor: the seed's fabricator, already printing the next frame. A hazard lamp on the right wall is the only real light. It washes that wall a dull amber and pools at the foot of the wall. On the lit wall lies the only trace of the thing that did this: the shadow of a subverted security machine, long and spindly, with too many jointed legs, already moving off toward the far end. In the foreground the first frame lies on the grating. Its gunmetal limbs are rimmed faintly in amber, its crimson tabard with a bone cross and hem is spread over it, and one gauntlet is still closed on a rosary whose beads run out across the deck. A scatter of spent brass casings lies around it, and on its helmet the optic is one last small cold point. Almost everything is dark.
+
+I set the values first. The toned blue-black ground serves as the walls. The deck is one lean dark pass and the ceiling a darker one. The lamp's wash is a dithered graded pass of five piles. Everything bright went on last, on dry paint: rims, cross, rosary, casings, optic, lamp lens and far glow. The paint surprised me twice. The crimson tabard laid into a wet dark underlayer came up orange and speckled. A darker repaint on paint that was still tacky came up lighter again, so the tabard is a warmer red than I wanted, and repainting it into a cloth shape left it reading somewhat as a blanket. Second, my first attempts at a halo around the lamp came out as a cartoon sunburst and then as a hard disc. I painted them back into the wall. What still falls short: the frame is small and stylized and reads more as a figure under a cloth than as a fallen machine. The shadow is a little graphic. Next time I would draw the frame larger and build it from its armour plates, and I would let the tabard dry fully before every repaint.
+
+## Pass at 02:07 CDT, 2 October
+
+Chunks 19–34. I cleared the old frame back to deck and restated the grating, then painted a new frame about twice the size.
+- **Frame.** It is a war-body fallen on its side and built from plates: helm, chest and pelvis blocks, a pauldron knocked askew, segmented limbs with seams, and scorched plate with burnt edges. One leg is broken backwards at the knee, with a dark socket, pistons and a pin showing. The near arm is flung out to an open gauntlet on the grating, and the rosary spills from it toward the corner with its crucifix. The upper planes are warmer, the undersides are dark, and amber rims run along the upper edges from the lamp. The helm is turned toward us with a stronger last cold optic point. The tabard is half pulled off and crumpled over the hip and onto the deck. It was laid on dry paint and then repainted deeper in rose madder, Mars red and bone black, with a ragged torn edge, dark creases, a few lit ridges, a torn bone hem and a broken bone cross. Fresh casings lie around it.
+- **Killer's shadow.** I repainted the wall and drew a new shadow: a turret head with a barrel on a long two-jointed armature, seven legs of unequal length with too many joints, and a sagging cable. Each line steps slightly at every wall rib. My first attempt at the new shadow had its head off the wall and onto the ceiling, and my second was laid into wet paint and smeared. I repainted the wall a second time and restated the shadow crisply on dry paint.
+- **Lamp glow.** A ring of short radial strokes, blended along the radius, just lighter than the wall.
+- **Seed glow.** It is a touch warmer.
+
+Still short:
+- The frame's lit bands are a uniform width, so it reads a little like a toy outline rather than heavy armour.
+- The scorch marks are flat brown patches.
+- The lamp glow is barely visible.
+- The rosary beads are very small at full view.

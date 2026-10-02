@@ -1,0 +1,17 @@
+# The Records Stack
+
+A portrait-format view down the Testators' records stack. It is a single narrow walkway of bronze grating between two walls of shelves that run up out of sight and down past the walkway's edges into the dark below. The shelves hold bone tablets inscribed in fold notation, standing in rows, with an occasional bronze case among them. Every so often along the aisle there is a reading station: a tall bone-shaded lamp, a pedestal reading chair, and a bronze docent bowed at its desk over a tablet. Each station is twice as far as the last, so they shrink toward the vanishing point and never stop. Each lamp warms a pool of shelves on both walls and a patch of walkway, and everything between the lamps falls back into cool dark. In the nearest pool the Commando stands with his back to us, holding a tablet up to his reading lamp. Its nested pentagons catch the light, and the lamp warms his helmet, shoulder, arm and leg.
+
+**How I painted it.** I set up a one-point perspective whose walls at X = ±1 m fill the whole tall canvas, leaving only a slot of shaft between them. Painting went dark first, then the lamp pools on the walls, then the shelves. Each tablet is a single flat stroke standing on its shelf, about 6 px apart on screen. It is bone if the tablet stands in a lamp pool, dim gray-bone if not, and occasionally a wider bronze case. The stations were painted by one helper, repeated at doubling depths. Things that went wrong: the pools are hard-edged ellipses, which the tablets break up only partly. The station furniture painted with wide filberts turned into soft blobs at the near station. The Commando, painted with the detail hand over a still-wet lamp-spill, came out as a translucent ghost, and I had to let it set and repaint him opaquely. The glow around his lamp went opaque and reads as a lit globe. The cool-dark shelves outside the pools are also lighter and grayer than I wanted. With more time I would grade the pools' edges in steps, darken the outer shelves with lean opaque darks, and draw the station furniture with thin round strokes.
+
+## Pass at 01:57 CDT, Oct 2 (chunks 9–13)
+
+- **Ovals gone.** I repainted both shelf walls and the shaft in lean darks with no white (bone black, ultramarine, a little burnt sienna). That painted out the oval pools, the old tablets and the lamp globe.
+- **Light as falloff.** I restated the tablets one by one. Each one's light falls off smoothly with its distance from the nearest lamp, along the shelf, up and down, and across the aisle. The tablet body steps from cool dark through warm earths. Near a lamp each tablet gets its own lit top end, and the nearest also get a thin lit edge on the side toward the lamp. Shelf lips are warm only close to a lamp.
+- **Lamps.** Each is now a thin stem, a small bone shade and a white bulb, with a soft stippled glow that thins out.
+- **Walkway pools.** They are long and soft along the walk, graded in two steps with blended edges.
+- **Stations.** I restated them with thin strokes: lamp, chair, and a docent bowed at its desk.
+
+The station pass painted over the Commando because I forgot to subtract his mask, so I repainted him opaque and put back his tablet and warm edges.
+
+**Still falls short:** every station beyond the first sits on the aisle's axis, right behind the Commando, so the repeating chair, lamp and docent are hidden by his body. Making them legible would mean moving him off the axis, and this pass was to keep the composition and figure. The ink on his tablet smeared into the wet bone.
