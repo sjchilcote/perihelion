@@ -21,11 +21,12 @@ Every shot counts.
 
 Requires Python 3.11+, [uv](https://docs.astral.sh/uv/), a Rust toolchain,
 and a checkout of the engine's home repo,
-[noneuclideantopdownshooter](../noneuclideantopdownshooter), as a sibling
+[noneuclideantopdownshooter](https://github.com/sjchilcote/noneuclideantopdownshooter), as a sibling
 directory — `necore` lives there (PERIHELION is built on top of it) and is
 built once from here:
 
 ```bash
+git clone https://github.com/sjchilcote/noneuclideantopdownshooter ../noneuclideantopdownshooter
 uv sync
 uv run maturin develop --release -m ../noneuclideantopdownshooter/engine/necore-py/Cargo.toml
 uv run python -m perihelion            # campaign (The Vigil is on the title menu)
