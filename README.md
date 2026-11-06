@@ -1,5 +1,7 @@
 # PERIHELION
 
+![Perihelion station falling into the sun](docs/img/title.jpg)
+
 A Teleglitch-style top-down survival shooter set aboard a station falling into
 the sun — built on a non-Euclidean engine. The world is a graph of convex
 polygons connected by portals that don't have to make sense: corridors loop onto
@@ -13,11 +15,7 @@ Ratio, the station's surviving mind — with choices, and a memory. Terminals
 hold the crew's paper trail; some of what they logged was never explained.
 Every shot counts.
 
-A showcase run: [media/showcase_2026-07-09.mp4](media/showcase_2026-07-09.mp4)
-
-![the records stack has no end](media/infinite_aisle.gif)
-
-![never shoot a mirror head-on](media/the_mirror_lesson.gif)
+![gameplay: a firefight in the dock, then the corridors loop back on themselves](docs/img/gameplay.gif)
 
 ## Running
 

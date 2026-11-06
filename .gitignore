@@ -26,3 +26,8 @@ media/
 # musiccal moved to the engine repo (2026-08-22); anything left here is
 # local calibration-run exhaust, never committed
 tools/musiccal/
+
+# README assets (small, deliberate exception to the no-binaries rule)
+!docs/img/
+!docs/img/*.jpg
+!docs/img/*.gif
